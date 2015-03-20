@@ -134,7 +134,8 @@ Target "EmacsTest" (fun _ ->
   let loadFiles = Emacs.makeLoad Emacs.utils
 
   let tests =
-    [ yield Emacs.exe, loadFiles + " --batch -f run-fsharp-unit-tests"
+    [ yield Emacs.exe, loadFiles + " --batch --eval \"(progn (set-default-coding-systems 'utf-8) (load-packages))\""
+      yield Emacs.exe, loadFiles + " --batch -f run-fsharp-unit-tests"
       // AppVeyor doesn't currently run the integration tests
       if buildServer <> AppVeyor then
         yield Emacs.exe, loadFiles + " --batch -f run-fsharp-integration-tests"
