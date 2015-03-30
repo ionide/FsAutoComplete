@@ -7,7 +7,7 @@ This project contains advanced editing support for F# for a number of open edito
 * [F# mode for Vim](vim/README.mkd)
 * [F# mode for Sublime Text](sublimetext/README.md)
 * [FSharp.AutoComplete](FSharp.AutoComplete/README.md)
-* An old copy of the [F# addin for MonoDevelop and Xamarin Studio](monodevelop/README.md).  This code is now hosted at [FSharpMDXS](https://github.com/fsharp/FSharpMDXS)
+* An old copy of the [F# addin for MonoDevelop and Xamarin Studio 5.0](monodevelop/README.md).  The latest development branch of this code is now hosted at [FSharpMDXS](https://github.com/fsharp/FSharpMDXS)
 
 
 If you are interested in adding rich editor support for another editor, please open an [issue](https://github.com/fsharp/fsharpbinding/issues) to kick-start the discussion.
