@@ -18,12 +18,12 @@ let integrationTestDir = "./test/integration/"
 let emacsBinDir = "../emacs/bin/"
 
 Target "BuildDebug" (fun _ ->
-  MSBuildDebug buildDir "Build" ["./FSharp.AutoComplete.fsproj"]
+  MSBuildDebug buildDir "Build" ["./FSharp.AutoComplete.sln"]
   |> Log "Build-Output: "
 )
 
 Target "BuildRelease" (fun _ ->
-  MSBuildRelease buildReleaseDir "Build" ["./FSharp.AutoComplete.fsproj"]
+  MSBuildRelease buildReleaseDir "Build" ["./FSharp.AutoComplete.sln"]
   |> Log "Build-Output: "
 )
 
@@ -92,7 +92,7 @@ Target "IntegrationTest" (fun _ ->
 
 
 Target "BuildEmacs" (fun _ ->
-  MSBuildDebug emacsBinDir "Build" ["./FSharp.AutoComplete.fsproj"]
+  MSBuildDebug emacsBinDir "Build" ["./FSharp.AutoComplete.sln"]
   |> Log "Build-Output: "
 )
 
