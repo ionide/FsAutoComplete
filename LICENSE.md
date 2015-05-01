@@ -1,9 +1,10 @@
-Copyright 2011-2012
+Copyright 2011-2015
 
     Tomas Petricek
 	Ben Winkel
     Igor Siguta 
 	Robin Neatherway
+    Dave Thomas
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
