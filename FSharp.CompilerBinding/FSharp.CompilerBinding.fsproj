@@ -11,7 +11,7 @@
     <UsePartialTypes>False</UsePartialTypes>
     <AssemblyName>FSharp.CompilerBinding</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\monodevelop\MonoDevelop.FSharpBinding\</SolutionDir>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\FSharp.AutoComplete\</SolutionDir>
     <RestorePackages>true</RestorePackages>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
