@@ -1,9 +1,6 @@
 # F#
 [Bb]in/
 [Oo]bj/
-monodevelop/pack/*
-monodevelop/packages/*
-monodevelop/build-and*
 repository/*
 *.suo
 *.pidb
@@ -43,12 +40,3 @@ sublimetext/FSharp/fsac/fsac/*.*
 sublimetext/plugin_dev.json
 
 .DS_Store
-
-monodevelop/Makefile
-
-/monodevelop/MonoDevelop.FSharpBinding/FSharpBinding.addin.xml
-/monodevelop/MonoDevelop.FSharpBinding/MonoDevelop.FSharp.*.fsproj
-/monodevelop/MonoDevelop.FSharpBinding/packages
-
-monodevelop/MonoDevelop.FSharpBinding/MonoDevelop.FSharp.Tests/MonoDevelop.FSharp.Tests.fsproj
-monodevelop/MonoDevelop.FSharpBinding/MonoDevelop.FSharp.Tests/tests
