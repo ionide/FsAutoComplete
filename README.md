@@ -1,53 +1,60 @@
-# F# Language Support for Open Editors
+# FSharp.AutoComplete
 
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/fsharp/fsharpbinding?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by the [emacs](../emacs) support.
 
-This project contains advanced editing support for F# for a number of open editors. It is made up of the following projects:
-* [F# mode for Emacs](emacs/README.md)
-* [F# mode for Vim](vim/README.mkd)
-* [F# mode for Sublime Text](sublimetext/README.md)
-* [F# mode for Atom](https://github.com/fsprojects/FSharp.Atom)
-* [FSharp.AutoComplete](FSharp.AutoComplete/README.md)
-* An old copy of the F# addin for MonoDevelop and Xamarin Studio 5.9.  The latest development branch of this code is now hosted at [FSharpMDXS](https://github.com/fsharp/FSharpMDXS)
+This README is targeted at developers.
 
+## Building and testing
 
-If you are interested in adding rich editor support for another editor, please open an [issue](https://github.com/fsharp/fsharpbinding/issues) to kick-start the discussion.
+There is a [FAKE script](build.fsx) with chain-loaders for [*nix](fake) and [Windows](fake.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
 
-See the [F# Cross-Platform Development Guide](http://fsharp.org/guides/mac-linux-cross-platform/index.html#editing) for F# with Sublime Text 2, Vim and other editors not covered here.
+On Linux and OSX, there is a legacy [Makefile](Makefile), which is a bit quicker to run (the overhead of running launching FSI for Fake is a few seconds). For the moment this supports all the same functionality that the FAKE script does, but this will not likely continue to be the case.
 
-## Build Status
+The [integration tests](integration) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
 
-The CI builds are handled by a [FAKE script](FSharp.AutoComplete/build.fsx), which:
+There are not currently any unit tests, the previously tested functionality of project parsing has been moved upstream to [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests were simply constructed using NUnit and FSUnit. If a new test is required, you can look back through the history for the `unit` directory and use that structure.
 
-* Builds FSharp.AutoComplete
-* Runs FSharp.AutoComplete unit tests
-* Runs FSharp.AutoComplete integration tests
-* Runs Emacs unit tests
-* Runs Emacs integration tests
-* Runs Emacs byte compilation
+## Communication protocol
 
-### Travis [![Travis build status](https://travis-ci.org/fsharp/fsharpbinding.png)](https://travis-ci.org/fsharp/fsharpbinding)
+It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](test/integration/Test1).
 
-See [.travis.yml](.travis.yml) for details.
+The available commands can be listed by running `fsautocomplete.exe` and entering `help`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
 
-### AppVeyor [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/y1s7nje31qi1j8ed)](https://ci.appveyor.com/project/fsgit/fsharpbinding)
+There are two formats for data to be returned in: text and JSON. The text support is the default, and provided for backwards compatibility and testing. An example of a session in 'text' mode is:
 
-The configuration is contained in [appveyor.yml](appveyor.yml). Currently the emacs integration tests do not run successfully on AppVeyor and are excluded by the FAKE script.
+    project "Test1.fsproj"
+    <absolute path removed>/Program.fs
+    <<EOF>>
+    parse "Program.fs"
+    module X =
+      let func x = x + 1
 
-## Building, using and contributing
+    let val2 = X.func 2
+    <<EOF>>
+    INFO: Background parsing started
+    completion "Program.fs" 4 13
+    DATA: completion
+    func
+    <<EOF>>
 
-See the README for each individual component:
+Notice that the program locations are 1-indexed for both lines and columns (here 4 and 13 to select the point just after `X.`). In this text mode, multiline responses are terminated with `<<EOF>>`. This clumsiness was the reason for moving to JSON.
 
-* [fsautocomplete](FSharp.AutoComplete/README.md)
-* [emacs](emacs/README.md)
-* [vim](vim/README.mkd)
-* [Sublime Text](sublimetext/README.md)
+Editors will want to use the JSON mode for preference, selected by sending the command `outputmode json`. The same simple session using JSON would look like:
 
-## Shared Components
+    outputmode json
+    project "Test1.fsproj"
+    {"Kind":"project","Data":{"Files":["<absolute path removed>/Program.fs"],"Output":"<absolute path removed>/bin/Debug/Test1.exe"}}
+    parse "Program.fs"
+    module X =
+      let func x = x + 1
 
-The core shared component is FSharp.Compiler.Service.dll from the 
-community [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service) project.
-This is used by both [fsautocomplete.exe](https://github.com/fsharp/fsharpbinding/tree/master/FSharp.AutoComplete), 
-a command-line utility to sit behind Emacs, Vim and other editing environments components. 
+    let val2 = X.func 2
+    <<EOF>>
+    {"Kind":"INFO","Data":"Background parsing started"}
+    completion "Program.fs" 4 13
+    {"Kind":"completion","Data":["func"]}
 
-For more information about F# see [The F# Software Foundation](http://fsharp.org). Join [The F# Open Source Group](http://fsharp.github.io). We use [github](https://github.com/fsharp/fsharpbinding) for tracking work items and suggestions.
+The structured data returned is able to be richer. Note for example that the output of the project is also returned. Parsing is also simplified (given a JSON parser!) because each response is exactly one line. However, it is less human-readable, which is why it is not currently used for most of the integration tests.
+
+For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.txt` or `*.json` files, which contain the output.
+
