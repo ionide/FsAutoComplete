@@ -48,6 +48,12 @@ type Location =
     Column: int
   }
 
+type CompletionResponse = 
+  {
+    Name: string
+    Glyph: int
+  }
+
 type ProjectResponse =
   {
     Project: string
@@ -474,7 +480,7 @@ module internal Main =
                   match state.OutputMode with
                   | Text ->
                       printAgent.WriteLine "DATA: completion"
-                      for d in decls.Items do printAgent.WriteLine(d.Name)
+                      for d in decls.Items do printAgent.WriteLine(sprintf "%s:%d" d.Name d.Glyph)
                       printAgent.WriteLine "<<EOF>>"
                       main state
                   | Json ->
@@ -488,7 +494,7 @@ module internal Main =
                                   prAsJson { Kind = "helptext"; Data = helptext }
 
                       prAsJson { Kind = "completion"
-                                 Data = [ for d in decls.Items do yield d.Name ] }
+                                 Data = [ for d in decls.Items do yield { Name = d.Name; Glyph = d.Glyph } ] }
 
                       let helptext =
                         Seq.fold (fun m (d: FSharpDeclarationListItem) -> Map.add d.Name d.DescriptionText m) Map.empty decls.Items
