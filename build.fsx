@@ -5,17 +5,9 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 
-Target "RestorePackages" (fun _ -> 
-     "packages.config"
-     |> RestorePackage (fun p ->
-         { p with
-             ToolPath = "../lib/nuget/NuGet.exe" })
- )
-
-let buildDir = "./bin/Debug/"
-let buildReleaseDir = "./bin/Release/"
-let integrationTestDir = "./test/integration/"
-let emacsBinDir = "../emacs/bin/"
+let buildDir = "./FSharp.AutoComplete/bin/Debug/"
+let buildReleaseDir = "./FSharp.AutoComplete/bin/Release/"
+let integrationTestDir = "./FSharp.AutoComplete/test/integration/"
 
 Target "BuildDebug" (fun _ ->
   MSBuildDebug buildDir "Build" ["./FSharp.AutoComplete.sln"]
@@ -90,85 +82,18 @@ Target "IntegrationTest" (fun _ ->
       failwithf "Integration tests failed:\n%s" err
 )
 
-
-Target "BuildEmacs" (fun _ ->
-  MSBuildDebug emacsBinDir "Build" ["./FSharp.AutoComplete.sln"]
-  |> Log "Build-Output: "
-)
-
-module Emacs =
-  let emacsd = "../emacs/"
-  let srcFiles = !! (emacsd + "*.el")
-
-  let testd = emacsd + "test/"
-  let utils = !! (testd + "/test-common.el")
-
-  let tmpd = emacsd + "tmp/"
-  let bind = emacsd + "bin/"
-
-  let exe =
-    match buildServer with
-    | AppVeyor -> Path.GetFullPath "../emacs-local/bin/emacs.exe"
-    | _ -> @"emacs"
-
-  let compileOpts =
-    [ for f in srcFiles do
-        yield sprintf """--batch --eval "(package-initialize)" --eval "(add-to-list 'load-path \"%s\")" --eval "(setq byte-compile-error-on-warn t)" -f batch-byte-compile %s"""
-                ((Path.GetFullPath emacsd).Replace(@"\", @"\\").TrimEnd('\\'))
-                f ]
-
-  let checkDeclareOpts =
-    sprintf """--batch --eval "(package-initialize)" --eval "(when (check-declare-directory \"%s\") (kill-emacs 1)))" """
-      ((Path.GetFullPath emacsd).Replace(@"\", @"\\").TrimEnd('\\'))
-
-  let makeLoad glob =
-    [ for f in glob do yield "-l " + f ]
-    |> String.concat " "
-
-Target "EmacsTest" (fun _ ->
-  if not (Directory.Exists (Path.GetFullPath Emacs.tmpd)) then
-    Directory.CreateDirectory Emacs.tmpd |> ignore
-  let home = Environment.GetEnvironmentVariable("HOME")
-  Environment.SetEnvironmentVariable("HOME", Path.GetFullPath Emacs.tmpd)
-
-  let loadFiles = Emacs.makeLoad Emacs.utils
-
-  let tests =
-    [ yield Emacs.exe, loadFiles + " --batch --eval \"(progn (set-default-coding-systems 'utf-8) (load-packages))\""
-      yield Emacs.exe, loadFiles + " --batch -f run-fsharp-unit-tests"
-      // AppVeyor doesn't currently run the integration tests
-      if buildServer <> AppVeyor then
-        yield Emacs.exe, loadFiles + " --batch -f run-fsharp-integration-tests"
-      yield! [ for opts in Emacs.compileOpts do yield Emacs.exe, opts ]
-      // AppVeyor also fails to run check-declare-directory
-      if buildServer <> AppVeyor then
-        yield Emacs.exe, Emacs.checkDeclareOpts ]
-
-  ProcessTestRunner.RunConsoleTests
-    (fun p -> { p with WorkingDir = Emacs.emacsd })
-    tests
-
-  Environment.SetEnvironmentVariable("HOME", home)
-)
-
 Target "Clean" (fun _ ->
-  CleanDirs [ buildDir; buildReleaseDir; emacsBinDir ]
+  CleanDirs [ buildDir; buildReleaseDir ]
 )
 
 Target "Build" id
 Target "Test" id
 Target "All" id
 
-"RestorePackages"
-  ==> "BuildDebug"
+"BuildDebug"
   ==> "Build"
   ==> "IntegrationTest"
 
-"RestorePackages"
-  ==> "BuildEmacs"
-  ==> "EmacsTest"
-
-"EmacsTest" ==> "Test"
 "IntegrationTest" ==> "Test"
 
 "BuildDebug" ==> "All"

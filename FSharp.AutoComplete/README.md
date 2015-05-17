@@ -58,7 +58,3 @@ The structured data returned is able to be richer. Note for example that the out
 
 For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.txt` or `*.json` files, which contain the output.
 
-### Scripts and projects
-
-Currently, intellisense can be offered for any number of scripts and one project at any one time. Intellisense requests are honoured for any script (`.fsx`) file and any `.fs` file for which a project containing it has most recently been loaded using the `project` command. It is an aim to lift this limitation.
-

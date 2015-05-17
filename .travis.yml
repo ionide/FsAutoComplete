@@ -11,10 +11,9 @@ before_install:
   - sudo apt-get update -qq
 
 install:
-  - sudo apt-get install -yq emacs24 emacs24-el emacs24-common-non-dfsg
   - sudo apt-get install -yq mono-complete nuget
   - sudo apt-get install -yq fsharp
 
 script:
-  - FSharp.AutoComplete/fake Test
+  - ./build.sh Test
 

@@ -22,21 +22,8 @@ lib/NUnit*
 lib/FsUnit
 
 FSharp.AutoComplete/test/unit/build
-FSharp.AutoComplete/packages
+packages
+.paket/paket.exe
 
-# Vim
-
-vim/packages
-
-# Emacs
-*.elc
-emacs/deps
-emacs/tmp
-
-# Sublime Text
-*.sublime-workspace
-
-sublimetext/FSharp/fsac/fsac/*.*
-sublimetext/plugin_dev.json
 
 .DS_Store

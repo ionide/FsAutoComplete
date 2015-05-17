@@ -1,0 +1,6 @@
+FSharp.Compiler.Service
+FSUnit
+NUnit
+NUnit.Runners
+NDesk.Options
+Newtonsoft.Json
