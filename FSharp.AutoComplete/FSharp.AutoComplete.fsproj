@@ -61,7 +61,7 @@
     <Compile Include="Options.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="Program.fs" />
-    <None Include="paket.references" />
+    <None Include="FSharp.AutoComplete.fsproj.paket.references" />
     <None Include="build.fsx" />
   </ItemGroup>
   <ItemGroup>
@@ -81,16 +81,8 @@
       <HintPath>..\packages\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="FsUnit.NUnit">
-      <HintPath>..\packages\FsUnit\Lib\Net40\FsUnit.NUnit.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="FSharp.Compiler.Service">
       <HintPath>..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="nunit.framework">
-      <HintPath>..\packages\NUnit\lib\nunit.framework.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <ProjectReference Include="..\FSharp.CompilerBinding\FSharp.CompilerBinding.fsproj">
