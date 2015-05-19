@@ -51,7 +51,8 @@ type Location =
 type CompletionResponse = 
   {
     Name: string
-    Glyph: int
+    Glyph: string
+    GlyphChar: string
   }
 
 type ProjectResponse =
@@ -273,6 +274,48 @@ module internal CommandInput =
       let cmds = compilerlocation <|> outputmode <|> helptext <|> help <|> declarations <|> parse <|> project <|> completionTipOrDecl <|> quit <|> error
       reader |> Parsing.getFirst cmds
 
+module internal CompletionUtils =
+  let map =
+    [ 0x0000,  ("Class", "C")
+      0x0003,  ("Enum", "E")
+      0x00012, ("Struct", "S")
+      0x00018, ("Struct", "S") (* value type *)
+      0x0002,  ("Delegate", "D")
+      0x0008,  ("Interface", "I")
+      0x000e,  ("Module", "N") (* module *)
+      0x000f,  ("Namespace", "N")
+      0x000c,  ("Method", "m")
+      0x000d,  ("Extension Method", "m") (* method2 ? *)
+      0x00011, ("Property", "P")
+      0x0005,  ("Event", "e")
+      0x0007,  ("Field", "F") (* fieldblue ? *)
+      0x0020,  ("Field", "F") (* fieldyellow ? *)
+      0x0001,  ("Field", "F") (* const *)
+      0x0004,  ("Property", "P") (* enummember *)
+      0x0006,  ("Exception", "X") (* exception *)
+      0x0009,  ("Text File Icon", "t") (* TextLine *)
+      0x000a,  ("Regular File", "R") (* Script *)
+      0x000b,  ("Script", "s") (* Script2 *)
+      0x0010,  ("Tip of the day", "t") (* Formula *);
+      0x00013, ("Class", "C") (* Template *)
+      0x00014, ("Class", "C") (* Typedef *)
+      0x00015, ("Type", "T") (* Type *)
+      0x00016, ("Type", "T") (* Union *)
+      0x00017, ("Field", "F") (* Variable *)
+      0x00019, ("Class", "C") (* Intrinsic *)
+      0x0001f, ("Other", "o") (* error *)
+      0x00021, ("Other", "o") (* Misc1 *)
+      0x0022,  ("Other", "o") (* Misc2 *)
+      0x00023, ("Other", "o") (* Misc3 *) ] |> Map.ofSeq
+
+  /// Translates icon code that we get from F# language service into a MonoDevelop icon
+  let getIcon glyph =
+    match map.TryFind (glyph / 6), map.TryFind (glyph % 6) with
+    | Some(s), _ -> s // Is the second number good for anything?
+    | _, _ -> ("", "")
+
+
+
 // --------------------------------------------------------------------------------------
 // Main application command-line loop
 // --------------------------------------------------------------------------------------
@@ -480,7 +523,7 @@ module internal Main =
                   match state.OutputMode with
                   | Text ->
                       printAgent.WriteLine "DATA: completion"
-                      for d in decls.Items do printAgent.WriteLine(sprintf "%s:%d" d.Name d.Glyph)
+                      for d in decls.Items do printAgent.WriteLine(sprintf "%s" d.Name)
                       printAgent.WriteLine "<<EOF>>"
                       main state
                   | Json ->
@@ -494,7 +537,9 @@ module internal Main =
                                   prAsJson { Kind = "helptext"; Data = helptext }
 
                       prAsJson { Kind = "completion"
-                                 Data = [ for d in decls.Items do yield { Name = d.Name; Glyph = d.Glyph } ] }
+                                 Data = [ for d in decls.Items do 
+                                            let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
+                                            yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
                       let helptext =
                         Seq.fold (fun m (d: FSharpDeclarationListItem) -> Map.add d.Name d.DescriptionText m) Map.empty decls.Items
