@@ -4,5 +4,5 @@ environment:
 matrix:
   fast_finish: true
 build_script:
-  - cmd: fake.cmd Test
+  - cmd: build.cmd Test
 test: off
