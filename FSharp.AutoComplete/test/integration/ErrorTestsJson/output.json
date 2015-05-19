@@ -4,6 +4,6 @@
 {"Kind":"INFO","Data":"Synchronous parsing started"}
 {"Kind":"errors","Data":[{"StartLine":7,"StartLineAlternate":8,"EndLine":7,"EndLineAlternate":8,"StartColumn":12,"EndColumn":19,"Severity":"Error","Message":"The value or constructor 'unnamed' is not defined","Subcategory":"typecheck","FileName":"<absolute path removed>/test/integration/ErrorTestsJson/Script.fsx"}]}
 {"Kind":"helptext","Data":{"func":"val func : x:int -> int"}}
-{"Kind":"completion","Data":["func"]}
+{"Kind":"completion","Data":[{"Name":"func","Glyph":"Method","GlyphChar":"m"}]}
 {"Kind":"helptext","Data":{"func":"val func : x:int -> int"}}
-{"Kind":"completion","Data":["func"]}
+{"Kind":"completion","Data":[{"Name":"func","Glyph":"Method","GlyphChar":"m"}]}
