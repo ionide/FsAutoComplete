@@ -6,15 +6,15 @@
 {"Kind":"INFO","Data":"Synchronous parsing started"}
 {"Kind":"errors","Data":[]}
 {"Kind":"helptext","Data":{"funky":"val funky : x:int -> int"}}
-{"Kind":"completion","Data":[{"Name":"funky","Glyph":"Method","GlyphChar":"m"}]}
+{"Kind":"completion","Data":[{"Name":"funky","Glyph":"Method","GlyphChar":"M"}]}
 {"Kind":"helptext","Data":{"Equals":"System.Object.Equals(obj: obj) : bool"}}
-{"Kind":"completion","Data":[{"Name":"Equals","Glyph":"Method","GlyphChar":"m"},{"Name":"GetHashCode","Glyph":"Method","GlyphChar":"m"},{"Name":"GetType","Glyph":"Method","GlyphChar":"m"},{"Name":"Terrific","Glyph":"Method","GlyphChar":"m"},{"Name":"ToString","Glyph":"Method","GlyphChar":"m"}]}
+{"Kind":"completion","Data":[{"Name":"Equals","Glyph":"Method","GlyphChar":"M"},{"Name":"GetHashCode","Glyph":"Method","GlyphChar":"M"},{"Name":"GetType","Glyph":"Method","GlyphChar":"M"},{"Name":"Terrific","Glyph":"Method","GlyphChar":"M"},{"Name":"ToString","Glyph":"Method","GlyphChar":"M"}]}
 {"Kind":"helptext","Data":{"Bar":"union case FileTwo.Foo.Bar: FileTwo.Foo"}}
-{"Kind":"completion","Data":[{"Name":"Bar","Glyph":"Property","GlyphChar":"P"},{"Name":"Foo","Glyph":"Type","GlyphChar":"T"},{"Name":"NewObjectType","Glyph":"Class","GlyphChar":"C"},{"Name":"Qux","Glyph":"Property","GlyphChar":"P"},{"Name":"add","Glyph":"Method","GlyphChar":"m"},{"Name":"addition","Glyph":"Method","GlyphChar":"m"}]}
+{"Kind":"completion","Data":[{"Name":"Bar","Glyph":"Property","GlyphChar":"P"},{"Name":"Foo","Glyph":"Type","GlyphChar":"T"},{"Name":"NewObjectType","Glyph":"Class","GlyphChar":"C"},{"Name":"Qux","Glyph":"Property","GlyphChar":"P"},{"Name":"add","Glyph":"Method","GlyphChar":"M"},{"Name":"addition","Glyph":"Method","GlyphChar":"M"}]}
 {"Kind":"helptext","Data":{"func":"val func : x:int -> int"}}
-{"Kind":"completion","Data":[{"Name":"func","Glyph":"Method","GlyphChar":"m"}]}
+{"Kind":"completion","Data":[{"Name":"func","Glyph":"Method","GlyphChar":"M"}]}
 {"Kind":"helptext","Data":{"Bar":"union case FileTwo.Foo.Bar: FileTwo.Foo"}}
-{"Kind":"completion","Data":[{"Name":"Bar","Glyph":"Property","GlyphChar":"P"},{"Name":"Foo","Glyph":"Type","GlyphChar":"T"},{"Name":"NewObjectType","Glyph":"Class","GlyphChar":"C"},{"Name":"Qux","Glyph":"Property","GlyphChar":"P"},{"Name":"add","Glyph":"Method","GlyphChar":"m"},{"Name":"addition","Glyph":"Method","GlyphChar":"m"}]}
+{"Kind":"completion","Data":[{"Name":"Bar","Glyph":"Property","GlyphChar":"P"},{"Name":"Foo","Glyph":"Type","GlyphChar":"T"},{"Name":"NewObjectType","Glyph":"Class","GlyphChar":"C"},{"Name":"Qux","Glyph":"Property","GlyphChar":"P"},{"Name":"add","Glyph":"Method","GlyphChar":"M"},{"Name":"addition","Glyph":"Method","GlyphChar":"M"}]}
 {"Kind":"tooltip","Data":"val add : x:int -> y:int -> int\n\nFull name: FileTwo.add"}
 {"Kind":"tooltip","Data":"val func : x:int -> int\n\nFull name: Program.X.func"}
 {"Kind":"tooltip","Data":"val testval : FileTwo.NewObjectType\n\nFull name: Program.testval"}
