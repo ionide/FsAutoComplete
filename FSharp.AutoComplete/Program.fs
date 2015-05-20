@@ -284,8 +284,8 @@ module internal CompletionUtils =
       0x0008,  ("Interface", "I")
       0x000e,  ("Module", "N") (* module *)
       0x000f,  ("Namespace", "N")
-      0x000c,  ("Method", "m")
-      0x000d,  ("Extension Method", "m") (* method2 ? *)
+      0x000c,  ("Method", "M")
+      0x000d,  ("Extension Method", "M") (* method2 ? *)
       0x00011, ("Property", "P")
       0x0005,  ("Event", "e")
       0x0007,  ("Field", "F") (* fieldblue ? *)
@@ -523,7 +523,7 @@ module internal Main =
                   match state.OutputMode with
                   | Text ->
                       printAgent.WriteLine "DATA: completion"
-                      for d in decls.Items do printAgent.WriteLine(sprintf "%s" d.Name)
+                      for d in decls.Items do printAgent.WriteLine(d.Name)
                       printAgent.WriteLine "<<EOF>>"
                       main state
                   | Json ->
