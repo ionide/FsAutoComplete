@@ -4,9 +4,11 @@
 namespace FSharp.InteractiveAutocomplete
 
 open System
+open System.Diagnostics
+open System.Reflection
 
 module Version =
-  let string = "FSharp.AutoComplete 0.14.0"
+  let string = "FSharp.AutoComplete " + AssemblyVersionInformation.Version
 
 module Options =
 

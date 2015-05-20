@@ -1,13 +1,31 @@
 // include Fake lib
 #r @"packages/FAKE/tools/FakeLib.dll"
 open Fake
+open Fake.Git
+open Fake.ReleaseNotesHelper
+open Fake.ZipHelper
+open Fake.AssemblyInfoFile
 open System
 open System.IO
 open System.Text.RegularExpressions
 
-let buildDir = "./FSharp.AutoComplete/bin/Debug/"
-let buildReleaseDir = "./FSharp.AutoComplete/bin/Release/"
-let integrationTestDir = "./FSharp.AutoComplete/test/integration/"
+let project = "FSharp.AutoComplete"
+let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
+
+// Read additional information from the release notes document
+let releaseNotesData = 
+    File.ReadAllLines "RELEASE_NOTES.md"
+    |> parseAllReleaseNotes
+
+let release = List.head releaseNotesData
+    
+
+let buildDir = project + "/bin/Debug/"
+let buildReleaseDir = project + "/bin/Release/"
+let integrationTestDir = project + "/test/integration/"
+let releaseArchive = "fsautocomplete.zip"
+
+
 
 Target "BuildDebug" (fun _ ->
   MSBuildDebug buildDir "Build" ["./FSharp.AutoComplete.sln"]
@@ -82,13 +100,44 @@ Target "IntegrationTest" (fun _ ->
       failwithf "Integration tests failed:\n%s" err
 )
 
+Target "AssemblyInfo" (fun _ ->
+  let fileName = project + "/AssemblyInfo.fs"
+  CreateFSharpAssemblyInfo fileName
+    [ Attribute.Title project
+      Attribute.Product project
+      Attribute.Description summary
+      Attribute.Version release.AssemblyVersion
+      Attribute.FileVersion release.AssemblyVersion ]
+)
+
+Target "ReleaseArchive" (fun _ ->
+  Zip buildReleaseDir
+      releaseArchive
+      ( !! (buildReleaseDir + "/*.dll")
+        ++ (buildReleaseDir + "/*.exe"))
+)
+
+Target "ReleaseInstructions"
+  (fun _ ->
+   printfn "Go to https://github.com/fsharp/FSharp.AutoComplete/releases/new"
+   printfn "Enter the following information:\n"
+   printfn "\tTag version: %s" release.AssemblyVersion
+   printfn "\tRelease title: %s" release.AssemblyVersion
+   printfn "\tNotes:\n"
+   for note in release.Notes do
+     printfn "%s" note
+   printfn "\n\nAttach the archive '%s'" releaseArchive
+)
+
 Target "Clean" (fun _ ->
   CleanDirs [ buildDir; buildReleaseDir ]
+  DeleteFile releaseArchive
 )
 
 Target "Build" id
 Target "Test" id
 Target "All" id
+Target "Release" id
 
 "BuildDebug"
   ==> "Build"
@@ -98,6 +147,12 @@ Target "All" id
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"
+
+"AssemblyInfo"
+  ==> "BuildRelease"
+  ==> "ReleaseArchive"
+  ==> "ReleaseInstructions"
+  ==> "Release"
 
 RunTargetOrDefault "BuildDebug"
 
