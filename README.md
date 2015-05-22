@@ -1,6 +1,11 @@
 # FSharp.AutoComplete
 
-This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by the [emacs](../emacs) support.
+This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by:
+
+* [Emacs](https://github.com/fsharp/emacs-fsharp-mode)
+* [Vim](https://github.com/fsharp/vim-fsharp)
+* [Sublime Text](https://github.com/fsharp/sublime-fsharp-package)
+* [Atom](https://github.com/fsprojects/FSharp.Atom)
 
 This README is targeted at developers.
 
