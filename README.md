@@ -9,6 +9,16 @@ This project provides a command-line interface to the [FSharp.Compiler.Service](
 
 This README is targeted at developers.
 
+## Build Status
+
+### Travis [![Travis build status](https://travis-ci.org/fsharp/FSharp.AutoComplete.png)](https://travis-ci.org/fsharp/FSharp.AutoComplete)
+
+The configuration is contained in [.travis.yml](.travis.yml).
+
+### AppVeyor [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/y1s7nje31qi1j8ed)](https://ci.appveyor.com/project/fsgit/fsharpbinding)
+
+The configuration is contained in [appveyor.yml](appveyor.yml).
+
 ## Building and testing
 
 There is a [FAKE script](build.fsx) with chain-loaders for [*nix](fake) and [Windows](fake.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
