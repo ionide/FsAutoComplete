@@ -59,6 +59,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Debug.fs" />
+    <Compile Include="FileSystem.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="Program.fs" />
