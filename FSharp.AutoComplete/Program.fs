@@ -117,8 +117,9 @@ module internal CommandInput =
         Optional 'sync' is used to force the parse to occur
         synchronously for testing purposes. Not intended for
         use in production.
-    completion ""<filename>"" <line> <col> [timeout]
+    completion ""<filename>"" <line> <col> [timeout] [filter=(StartsWith|Contains)]
       - trigger completion request for the specified location
+        optionally filter in the specified manner
     helptext <candidate>
       - fetch type signature for specified completion candidate
         (from last completion request). Only use in JSON mode.
@@ -172,7 +173,7 @@ module internal CommandInput =
 
   // Command that can be entered on the command-line
   type Command =
-    | PosCommand of PosCommand * string * int * int * int option
+    | PosCommand of PosCommand * string * int * int * int option * string option
     | HelpText of string
     | Declarations of string
     | Parse of string * ParseKind
@@ -248,7 +249,14 @@ module internal CommandInput =
       (parser { let! _ = some (string " ")
                 return! some digit |> Parser.map (String.ofSeq >> int >> Some) }) <|>
       (parser { return None })
-    return PosCommand(f, filename, line, col, timeout) }
+    let! filter =
+      (parser { let! _ = many (string " ")
+                let! _ = string "filter="
+                let! b = (string "StartsWith" <|> string "Contains")
+                         |> Parser.map String.ofSeq
+                return Some b }) <|>
+      (parser { return None })
+    return PosCommand(f, filename, line, col, timeout, filter) }
 
   let helptext = parser {
       let! _ = string "helptext"
@@ -509,7 +517,7 @@ module internal Main =
 
         main state
 
-    | PosCommand(cmd, file, line, col, timeout) ->
+    | PosCommand(cmd, file, line, col, timeout, filter) ->
         let file = Path.GetFullPath file
         if parsed file && posok file line col then
           let text, projFile, args = getoptions file state
@@ -527,29 +535,34 @@ module internal Main =
 
               match tyRes.GetDeclarations(line, col, lineStr) with
               | Some (decls, residue) ->
+                  let decls =
+                    match filter with
+                    | Some "StartsWith" ->  [| for d in decls.Items do if d.Name.StartsWith residue then yield d |]
+                    | Some "Contains" -> [| for d in decls.Items do if d.Name.Contains residue then yield d |]
+                    | _ -> decls.Items
+
                   match state.OutputMode with
                   | Text ->
                       printAgent.WriteLine "DATA: completion"
-                      for d in decls.Items do printAgent.WriteLine(d.Name)
+                      for d in decls do printAgent.WriteLine(d.Name)
                       printAgent.WriteLine "<<EOF>>"
                       main state
                   | Json ->
 
-                      let ds = List.sortBy (fun (d: FSharpDeclarationListItem) -> d.Name)
-                                 [ for d in decls.Items do yield d ]
-                      match List.tryFind (fun (d: FSharpDeclarationListItem) -> d.Name.StartsWith residue) ds with
+                      let ds = Array.sortBy (fun (d: FSharpDeclarationListItem) -> d.Name) decls
+                      match Array.tryFind (fun (d: FSharpDeclarationListItem) -> d.Name.StartsWith residue) ds with
                       | None -> ()
                       | Some d -> let tip = TipFormatter.formatTip d.DescriptionText
                                   let helptext = Map.add d.Name tip Map.empty
                                   prAsJson { Kind = "helptext"; Data = helptext }
 
                       prAsJson { Kind = "completion"
-                                 Data = [ for d in decls.Items do
+                                 Data = [ for d in decls do
                                             let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                                             yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
                       let helptext =
-                        Seq.fold (fun m (d: FSharpDeclarationListItem) -> Map.add d.Name d.DescriptionText m) Map.empty decls.Items
+                        Seq.fold (fun m (d: FSharpDeclarationListItem) -> Map.add d.Name d.DescriptionText m) Map.empty decls
 
                       main { state with HelpText = helptext }
               | None ->
