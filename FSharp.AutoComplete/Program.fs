@@ -48,7 +48,7 @@ type Location =
     Column: int
   }
 
-type CompletionResponse = 
+type CompletionResponse =
   {
     Name: string
     Glyph: string
@@ -68,12 +68,12 @@ type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
 
   override x.CanConvert(t:System.Type) = t = typeof<FSharpErrorSeverity>
- 
+
   override x.WriteJson(writer, value, serializer) =
     match value :?> FSharpErrorSeverity with
     | FSharpErrorSeverity.Error -> serializer.Serialize(writer, "Error")
     | FSharpErrorSeverity.Warning -> serializer.Serialize(writer, "Warning")
- 
+
   override x.ReadJson(_reader, _t, _, _serializer) =
     raise (System.NotSupportedException())
 
@@ -135,7 +135,7 @@ module internal CommandInput =
       - prints the best guess for the location of fsc and fsi
         (or fsharpc and fsharpi on unix)
     "
-    
+
   let outputText = @"
     Output format
     =============
@@ -323,7 +323,7 @@ module internal CompletionUtils =
 /// Represents current state
 type internal State =
   {
-    Files : Map<string,string[]> //filename -> lines
+    Files : Map<string,VolatileFile> //filename -> lines * touch date
     Projects : Map<string, FSharpProjectFileInfo>
     OutputMode : OutputMode
     HelpText : Map<String, FSharpToolTipText>
@@ -343,7 +343,7 @@ module internal Main =
        }
      loop ()
      )
- 
+
    member x.WriteLine(s) = agent.Post (Choice1Of2 s)
 
    member x.Quit() = agent.PostAndReply(fun ch -> Choice2Of2 ch)
@@ -367,8 +367,13 @@ module internal Main =
   // Main agent that handles IntelliSense requests
   let agent = new FSharp.CompilerBinding.LanguageService(fun _ -> ())
 
-  let rec main (state:State) : int =
+  let mutable currentFiles = Map.empty
+  let originalFs = Microsoft.FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem
+  let fs = new FileSystem(originalFs, fun () -> currentFiles)
+  Microsoft.FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
+  let rec main (state:State) : int =
+    currentFiles <- state.Files
     let printMsg = printMsg state
 
     let parsed file =
@@ -379,14 +384,14 @@ module internal Main =
     /// Is the specified position consistent with internal state of file?
     //  Note that both emacs and FSC use 1-based line indexing
     let posok file line col =
-      let lines = state.Files.[file]
+      let lines = state.Files.[file].Lines
       let ok = line <= lines.Length && line >= 1 &&
                col <= lines.[line - 1].Length && col >= 0
       if not ok then printMsg "ERROR" "Position is out of range"
       ok
 
     let getoptions file state =
-      let text = String.concat "\n" state.Files.[file]
+      let text = String.concat "\n" state.Files.[file].Lines
       let project = Map.tryFind file state.Projects
       let projFile, args =
           match project with
@@ -399,14 +404,16 @@ module internal Main =
     //             (Map.fold (fun ks k _ -> k::ks) [] state.Files)
     //             state.OutputMode
     match parseCommand(Console.ReadLine()) with
-    
+
     | OutputMode m -> main { state with OutputMode = m }
 
     | Parse(file,kind) ->
         // Trigger parse request for a particular file
         let lines = readInput [] |> Array.ofList
         let file = Path.GetFullPath file
-        let state' =  { state with Files = Map.add file lines state.Files }
+        let state' =  { state with Files = state.Files |> Map.add file
+                                                        { Lines = lines
+                                                          Touched = DateTime.Now } }
         let text, projFile, args = getoptions file state'
 
         let task =
@@ -474,7 +481,7 @@ module internal Main =
         if parsed file then
           let text, projFile, args = getoptions file state
           let parseResult = agent.ParseFileInProject(projFile, file, text, args) |> Async.RunSynchronously
-          let decls = parseResult.GetNavigationItems().Declarations 
+          let decls = parseResult.GetNavigationItems().Declarations
           match state.OutputMode with
           | Text ->
               let declstrings =
@@ -495,7 +502,7 @@ module internal Main =
         match Map.tryFind sym state.HelpText with
         | None -> ()
         | Some d ->
-         
+
           let tip = TipFormatter.formatTip d
           let helptext = Map.add sym tip Map.empty
           prAsJson { Kind = "helptext"; Data = helptext }
@@ -506,7 +513,7 @@ module internal Main =
         let file = Path.GetFullPath file
         if parsed file && posok file line col then
           let text, projFile, args = getoptions file state
-          let lineStr = state.Files.[file].[line - 1]
+          let lineStr = state.Files.[file].Lines.[line - 1]
           // TODO: Deny recent typecheck results under some circumstances (after bracketed expr..)
           let timeout = match timeout with Some x -> x | _ -> 20000
           let tyResOpt = agent.GetTypedParseResultWithTimeout(projFile, file, text, [||], args, AllowStaleResults.MatchingFileName, timeout)
@@ -537,7 +544,7 @@ module internal Main =
                                   prAsJson { Kind = "helptext"; Data = helptext }
 
                       prAsJson { Kind = "completion"
-                                 Data = [ for d in decls.Items do 
+                                 Data = [ for d in decls.Items do
                                             let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                                             yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
@@ -545,7 +552,7 @@ module internal Main =
                         Seq.fold (fun m (d: FSharpDeclarationListItem) -> Map.add d.Name d.DescriptionText m) Map.empty decls.Items
 
                       main { state with HelpText = helptext }
-              | None -> 
+              | None ->
                   printMsg "ERROR" "Could not get type information"
                   main state
 
@@ -570,20 +577,20 @@ module internal Main =
                     | Json -> prAsJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
 
               main state
-          
+
           | FindDeclaration ->
             let declarations = tyRes.GetDeclarationLocation(line,col,lineStr)
                                |> Async.RunSynchronously
             match declarations with
             | FSharpFindDeclResult.DeclNotFound _ -> printMsg "ERROR" "Could not find declaration"
             | FSharpFindDeclResult.DeclFound range ->
-              
+
               match state.OutputMode with
               | Text -> printAgent.WriteLine(sprintf "DATA: finddecl\n%s:%d:%d\n<<EOF>>" range.FileName range.StartLine range.StartColumn)
               | Json ->
                   let data = { Line = range.StartLine; Column = range.StartColumn; File = range.FileName }
                   prAsJson { Kind = "finddecl"; Data = data }
-            
+
             main state
 
         else
