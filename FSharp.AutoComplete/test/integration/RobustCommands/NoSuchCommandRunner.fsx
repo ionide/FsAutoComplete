@@ -10,6 +10,6 @@ let p = new FSharpAutoCompleteWrapper()
 
 p.send "BadCommand\n"
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("nosuchcommand.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "nosuchcommand.txt"
 

@@ -22,6 +22,6 @@ p.completion "Test-Class.fsx" 9 2
 p.completion "Test-Class.fsx" 11 12
 p.completion "Test-Class.fsx" 13 13
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"
 

@@ -32,6 +32,6 @@ p.tooltip "Script.fsx" 8 6
 p.tooltip "Script.fsx" 8 10
 p.tooltip "Script.fsx" 8 15
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"
 

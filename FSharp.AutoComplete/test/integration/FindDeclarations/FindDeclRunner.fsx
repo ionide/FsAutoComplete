@@ -23,5 +23,5 @@ p.finddeclaration "Program.fs" 14 25
 p.finddeclaration "Program.fs" 10 19
 p.finddeclaration "Script.fsx" 6 16
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"

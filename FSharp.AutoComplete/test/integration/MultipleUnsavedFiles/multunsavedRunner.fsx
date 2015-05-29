@@ -23,5 +23,5 @@ let addTwo2 x y = x + y
 """
 p.parse "Program.fs"
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"

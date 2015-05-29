@@ -11,6 +11,6 @@ let p = new FSharpAutoCompleteWrapper()
 p.project "Project/Test1.fsproj"
 p.completion "NoSuchFile.fs" 0 0
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("completenosuchfile.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "completenosuchfile.txt"
 

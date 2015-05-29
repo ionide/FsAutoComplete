@@ -30,6 +30,6 @@ p.declarations "Program.fs"
 p.declarations "FileTwo.fs"
 p.declarations "Script.fsx"
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"
 

@@ -39,6 +39,6 @@ p.completion "Proj2/Program.fs" 6 13
 p.completion "Proj2/Program.fs" 10 19
 
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"
 

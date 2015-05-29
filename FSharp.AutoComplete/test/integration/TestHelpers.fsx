@@ -1,5 +1,11 @@
 open System
+open System.IO
 open System.Diagnostics
+open System.Text.RegularExpressions
+
+#I "../../../packages/Newtonsoft.Json/lib/net45/"
+#r "../../../packages/Newtonsoft.Json/lib/net45/Newtonsoft.Json.dll"
+open Newtonsoft.Json
 
 type FSharpAutoCompleteWrapper() =
 
@@ -28,6 +34,9 @@ type FSharpAutoCompleteWrapper() =
   member x.completion (fn: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "completion \"%s\" %d %d\n" fn line col
 
+  member x.completionFilter (fn: string) (line: int) (col: int) (filter: string) : unit =
+    fprintf p.StandardInput "completion \"%s\" %d %d filter=%s\n" fn line col filter
+
   member x.tooltip (fn: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "tooltip \"%s\" %d %d\n" fn line col
 
@@ -46,18 +55,39 @@ type FSharpAutoCompleteWrapper() =
     p.WaitForExit()
     s + t
 
-let installNuGetPkg s v =
-  let p = new System.Diagnostics.Process()
+let formatJson json =
+    let parsedJson = JsonConvert.DeserializeObject(json)
+    JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
 
-  p.StartInfo.FileName <- IO.Path.Combine(__SOURCE_DIRECTORY__,
-                                          "../../../lib/nuget/NuGet.exe")
-  p.StartInfo.Arguments <- " install -ExcludeVersion -Version " + v + " " + s
-  p.StartInfo.UseShellExecute <- false
-  p.Start () |> ignore
-  if not (p.WaitForExit(5 * 60 * 1000)) then
-    try
-      p.Kill()
-    with
-      | :? System.SystemException as e ->
-            printfn "Warning: NuGet installation threw an exception: %A" e
-  
+let writeNormalizedOutput (fn: string) (s: string) =
+  let lines = s.TrimEnd().Split('\n')
+  for i in [ 0 .. lines.Length - 1 ] do
+    if Path.DirectorySeparatorChar = '/' then
+      lines.[i] <- Regex.Replace(lines.[i],
+                                 "/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
+                                 "<absolute path removed>/test/$1")
+      lines.[i] <- Regex.Replace(lines.[i],
+                                 "\"/[^\"]*?/([^\"/]*?\.dll\")",
+                                  "\"<absolute path removed>/$1")
+    else
+      if Path.GetExtension fn = ".json" then
+        lines.[i] <- Regex.Replace(lines.[i].Replace(@"\\", "/"),
+                                   "[a-zA-Z]:/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
+                                   "<absolute path removed>/test/$1")
+        lines.[i] <- Regex.Replace(lines.[i],
+                                   "\"[a-zA-Z]:/[^\"]*?/([^\"/]*?\.dll\")",
+                                   "\"<absolute path removed>/$1")
+      else
+        lines.[i] <- Regex.Replace(lines.[i].Replace('\\','/'),
+                                   "[a-zA-Z]:/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
+                                   "<absolute path removed>/test/$1")
+
+    if Path.GetExtension fn = ".json" then
+      lines.[i] <- formatJson lines.[i]
+
+  // Write manually to ensure \n line endings on all platforms
+  using (new StreamWriter(fn))
+  <| fun f ->
+      for line in lines do
+        f.Write(line)
+        f.Write('\n')
