@@ -60,7 +60,7 @@ let formatJson json =
     JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
 
 let writeNormalizedOutput (fn: string) (s: string) =
-  let lines = s.TrimEnd().Split([|Environment.NewLine|], StringSplitOptions.None)
+  let lines = s.TrimEnd().Split('\n')
   for i in [ 0 .. lines.Length - 1 ] do
     if Path.DirectorySeparatorChar = '/' then
       lines.[i] <- Regex.Replace(lines.[i],
@@ -84,7 +84,8 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     if Path.GetExtension fn = ".json" then
       lines.[i] <- formatJson lines.[i]
-      lines.[i] <- lines.[i].Replace(Environment.NewLine, "\n")
+
+    lines.[i] <- lines.[i].Replace("\r", "")
 
   // Write manually to ensure \n line endings on all platforms
   using (new StreamWriter(fn))
