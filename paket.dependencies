@@ -6,3 +6,5 @@ nuget NDesk.Options
 nuget Newtonsoft.Json
 nuget FAKE
 nuget FSharp.Core 3.0.2
+nuget NUnit
+nuget NUnit.Runners

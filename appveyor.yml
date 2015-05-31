@@ -1,5 +1,5 @@
 environment:
-  FSharpBinding_BlockingTimeout: 1000
+  FSharpBinding_BlockingTimeout: 5000
   FSharpBinding_MaxTimeout: 10000
 matrix:
   fast_finish: true

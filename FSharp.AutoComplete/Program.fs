@@ -273,7 +273,7 @@ module internal CommandInput =
   // Parses always and returns default error message
   let error = parser { return Error("Unknown command or wrong arguments") }
 
-  // Parase any of the supported commands
+  // Parse any of the supported commands
   let parseCommand =
     function
     | null -> Quit
@@ -390,11 +390,12 @@ module internal Main =
       ok
 
     /// Is the specified position consistent with internal state of file?
-    //  Note that both emacs and FSC use 1-based line indexing
+    //  Note that both emacs and FCS use 1-based line indexing
+    //  while emacs uses 0-based column indexing and FCS is 1-based
     let posok file line col =
       let lines = state.Files.[file].Lines
       let ok = line <= lines.Length && line >= 1 &&
-               col <= lines.[line - 1].Length && col >= 0
+               col <= lines.[line - 1].Length + 1 && col >= 1
       if not ok then printMsg "ERROR" "Position is out of range"
       ok
 

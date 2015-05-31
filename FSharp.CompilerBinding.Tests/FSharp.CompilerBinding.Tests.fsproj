@@ -5,15 +5,15 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}</ProjectGuid>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>FSharp.AutoComplete</RootNamespace>
-    <AssemblyName>fsautocomplete</AssemblyName>
+    <ProjectGuid>f5ebdd99-5ed7-4311-a5cb-7cfce696ff88</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>FSharp.CompilerBinding.Tests</RootNamespace>
+    <AssemblyName>FSharp.CompilerBinding.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
-    <Name>FSharp.InteractiveAutocomplete</Name>
     <UsePartialTypes>False</UsePartialTypes>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
+    <Name>FSharp.CompilerBinding.Tests</Name>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -25,7 +25,7 @@
     <OutputPath>bin\Debug</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSharp.InteractiveAutocomplete.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSharp.CompilerBinding.Tests.XML</DocumentationFile>
     <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -35,7 +35,7 @@
     <OutputPath>bin\Release</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSharp.InteractiveAutocomplete.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSharp.CompilerBinding.Tests.xml</DocumentationFile>
     <DebugSymbols>False</DebugSymbols>
   </PropertyGroup>
   <PropertyGroup>
@@ -55,36 +55,21 @@
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
   -->
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Debug.fs" />
-    <Compile Include="FileSystem.fs" />
-    <Compile Include="Options.fs" />
-    <Compile Include="TipFormatter.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="FSharp.AutoComplete.fsproj.paket.references" />
-    <None Include="build.fsx" />
+    <Compile Include="Tests.fs" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="NDesk.Options">
-      <HintPath>..\packages\NDesk.Options\lib\NDesk.Options.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <HintPath>..\packages\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
     <Reference Include="FSharp.Compiler.Service">
       <HintPath>..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\FSharp.CompilerBinding\FSharp.CompilerBinding.fsproj">
       <Project>{88F6940F-D300-474C-B2A7-E2ECD5B04B57}</Project>
       <Name>FSharp.CompilerBinding</Name>
@@ -97,4 +82,11 @@
        </Target>
 	-->
   <Import Project="..\.paket\paket.targets" />
+  <ItemGroup>
+    <Reference Include="nunit.framework">
+      <HintPath>..\packages\NUnit\lib\nunit.framework.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+  </ItemGroup>
 </Project>

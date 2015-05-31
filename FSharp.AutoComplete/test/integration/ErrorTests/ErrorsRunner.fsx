@@ -10,9 +10,9 @@ let p = new FSharpAutoCompleteWrapper()
 
 p.project "Test1.fsproj"
 p.parse "Program.fs"
-p.completion "Program.fs" 6 13
+p.completion "Program.fs" 6 14
 p.parse "Script.fsx"
-p.completion "Script.fsx" 6 13
+p.completion "Script.fsx" 6 14
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.txt"

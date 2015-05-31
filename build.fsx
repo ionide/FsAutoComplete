@@ -25,7 +25,8 @@ let buildReleaseDir = project + "/bin/Release/"
 let integrationTestDir = project + "/test/integration/"
 let releaseArchive = "fsautocomplete.zip"
 
-
+// Pattern specifying assemblies to be tested using NUnit
+let testAssemblies = "**/bin/*/*Tests*.dll"
 
 Target "BuildDebug" (fun _ ->
   MSBuildDebug buildDir "Build" ["./FSharp.AutoComplete.sln"]
@@ -66,6 +67,15 @@ Target "IntegrationTest" (fun _ ->
     if not ok then
       trace (toLines out)
       failwithf "Integration tests failed:\n%s" err
+)
+
+Target "UnitTest" (fun _ ->
+    !! testAssemblies
+    |> NUnit (fun p ->
+        { p with
+            DisableShadowCopy = true
+            TimeOut = TimeSpan.FromMinutes 20.
+            OutputFile = "TestResults.xml" })
 )
 
 Target "AssemblyInfo" (fun _ ->
@@ -111,7 +121,12 @@ Target "Release" id
   ==> "Build"
   ==> "IntegrationTest"
 
+"BuildDebug"
+  ==> "Build"
+  ==> "UnitTest"
+
 "IntegrationTest" ==> "Test"
+"UnitTest" ==> "Test"
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"

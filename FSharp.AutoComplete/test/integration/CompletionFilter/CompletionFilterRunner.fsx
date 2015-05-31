@@ -14,9 +14,9 @@ File.Delete "output.txt"
 let p = new FSharpAutoCompleteWrapper()
 
 p.parse "Script.fsx"
-p.completion "Script.fsx" 2 6
-p.completionFilter "Script.fsx" 2 6 "StartsWith"
-p.completionFilter "Script.fsx" 2 6 "Contains"
+p.completion "Script.fsx" 2 7
+p.completionFilter "Script.fsx" 2 7 "StartsWith"
+p.completionFilter "Script.fsx" 2 7 "Contains"
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.txt"

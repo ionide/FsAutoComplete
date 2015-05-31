@@ -14,16 +14,16 @@ File.Delete "output.txt"
 let p = new FSharpAutoCompleteWrapper()
 
 p.parse "Script.fsx"
+p.completion "Script.fsx" 6 17
 p.completion "Script.fsx" 6 16
-p.completion "Script.fsx" 6 15
-p.tooltip "Script.fsx" 6 13
 p.tooltip "Script.fsx" 6 14
 p.tooltip "Script.fsx" 6 15
 p.tooltip "Script.fsx" 6 16
-p.finddeclaration "Script.fsx" 6 13
+p.tooltip "Script.fsx" 6 17
 p.finddeclaration "Script.fsx" 6 14
 p.finddeclaration "Script.fsx" 6 15
 p.finddeclaration "Script.fsx" 6 16
+p.finddeclaration "Script.fsx" 6 17
 
 p.send "quit\n"
 p.finalOutput ()

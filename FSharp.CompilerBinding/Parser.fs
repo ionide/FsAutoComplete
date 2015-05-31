@@ -296,7 +296,7 @@ module Parsing =
     
     match identIsland with
     | [] | [ "" ] -> None
-    | _ -> Some (col + nextIdent.Length,identIsland)
+    | _ -> Some (col + nextIdent.Length - 1,identIsland)
     
   /// find the identifier prior to a '(' or ',' once the method tip trigger '(' shows
   let findLongIdentsAtGetMethodsTrigger (col, lineStr) = 
@@ -313,7 +313,7 @@ module Parsing =
 
     match identIsland with
     | [] | [ "" ] -> None
-    | _ -> Some (col,identIsland)
+    | _ -> Some identIsland
     
   /// Returns the previous long idents and the current 'residue'
   let findLongIdentsAndResidue (col, lineStr) =

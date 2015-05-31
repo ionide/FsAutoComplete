@@ -15,12 +15,12 @@ let p = new FSharpAutoCompleteWrapper()
 
 p.parse "Test-Module.fsx"
 p.parse "Test-Class.fsx"
-p.completion "Test-Module.fsx" 9 2
-p.completion "Test-Module.fsx" 11 12
-p.completion "Test-Module.fsx" 13 13
-p.completion "Test-Class.fsx" 9 2
-p.completion "Test-Class.fsx" 11 12
-p.completion "Test-Class.fsx" 13 13
+p.completion "Test-Module.fsx" 9 3
+p.completion "Test-Module.fsx" 11 13
+p.completion "Test-Module.fsx" 13 14
+p.completion "Test-Class.fsx" 9 3
+p.completion "Test-Class.fsx" 11 13
+p.completion "Test-Class.fsx" 13 14
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.txt"

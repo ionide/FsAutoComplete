@@ -25,5 +25,6 @@ FSharp.AutoComplete/test/unit/build
 packages
 .paket/paket.exe
 
+TestResults.xml
 
 .DS_Store
