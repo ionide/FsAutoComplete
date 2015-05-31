@@ -13,15 +13,10 @@ File.Delete "output.txt"
 
 let p = new FSharpAutoCompleteWrapper()
 
-p.parse "Test-Module.fsx"
-p.parse "Test-Class.fsx"
-p.completion "Test-Module.fsx" 9 2
-p.completion "Test-Module.fsx" 11 12
-p.completion "Test-Module.fsx" 13 13
-p.completion "Test-Class.fsx" 9 2
-p.completion "Test-Class.fsx" 11 12
-p.completion "Test-Class.fsx" 13 13
+p.parse "Script.fsx"
+p.completion "Script.fsx" 2 6
+p.completionFilter "Script.fsx" 2 6 "StartsWith"
+p.completionFilter "Script.fsx" 2 6 "Contains"
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.txt"
-

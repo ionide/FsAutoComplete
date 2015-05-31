@@ -35,6 +35,6 @@ p.declarations "FileTwo.fs"
 p.declarations "Script.fsx"
 Threading.Thread.Sleep(1000)
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.json", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.json"
 

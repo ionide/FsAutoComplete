@@ -13,6 +13,6 @@ p.parse "Project/Program.fs"
 p.completion "Project/Program.fs" 50 0
 p.completion "Project/Program.fs" 1 100
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("completebadposition.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "completebadposition.txt"
 

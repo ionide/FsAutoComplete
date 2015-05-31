@@ -13,6 +13,6 @@ p.completion "Project/Script.fsx" 6 13
 p.parse "Project/Program.fs"
 p.completion "Project/Program.fs" 4 22
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("completewithoutproject.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "completewithoutproject.txt"
 

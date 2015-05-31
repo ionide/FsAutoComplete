@@ -16,6 +16,6 @@ Threading.Thread.Sleep(8000)
 p.completion "Program.fs" 6 13
 p.completion "Script.fsx" 6 13
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.json", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.json"
 

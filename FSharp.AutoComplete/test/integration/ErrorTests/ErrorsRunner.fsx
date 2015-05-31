@@ -14,6 +14,6 @@ p.completion "Program.fs" 6 13
 p.parse "Script.fsx"
 p.completion "Script.fsx" 6 13
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("output.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "output.txt"
 

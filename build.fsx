@@ -48,38 +48,6 @@ let runIntegrationTest (fn: string) : bool =
   if not b then
     for msg in msgs do
       traceError msg.Message
-
-  // Normalize output files so that a simple
-  // `git diff` will be clean if the tests passed.
-  for fn in !! (dir + "/*.txt") ++ (dir + "/*.json") do
-    let lines = File.ReadAllLines fn
-    for i in [ 0 .. lines.Length - 1 ] do
-      if Path.DirectorySeparatorChar = '/' then
-        lines.[i] <- Regex.Replace(lines.[i],
-                                   "/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
-                                   "<absolute path removed>/test/$1")
-        lines.[i] <- Regex.Replace(lines.[i],
-                                   "\"/[^\"]*?/([^\"/]*?\.dll\")",
-                                    "\"<absolute path removed>/$1")
-      else
-        if Path.GetExtension fn = ".json" then
-          lines.[i] <- Regex.Replace(lines.[i].Replace(@"\\", "/"),
-                                     "[a-zA-Z]:/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
-                                     "<absolute path removed>/test/$1")
-          lines.[i] <- Regex.Replace(lines.[i],
-                                     "\"[a-zA-Z]:/[^\"]*?/([^\"/]*?\.dll\")",
-                                     "\"<absolute path removed>/$1")
-        else
-          lines.[i] <- Regex.Replace(lines.[i].Replace('\\','/'),
-                                     "[a-zA-Z]:/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
-                                     "<absolute path removed>/test/$1")
-
-    // Write manually to ensure \n line endings on all platforms
-    using (new StreamWriter(fn))
-    <| fun f ->
-        for line in lines do
-          f.Write(line)
-          f.Write('\n')
   b
 
 Target "IntegrationTest" (fun _ ->

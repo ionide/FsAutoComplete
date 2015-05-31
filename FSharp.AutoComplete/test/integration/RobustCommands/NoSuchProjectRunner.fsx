@@ -10,6 +10,6 @@ let p = new FSharpAutoCompleteWrapper()
 
 p.project "NoSuchProject.fsproj"
 p.send "quit\n"
-let output = p.finalOutput ()
-File.WriteAllText("nosuchproject.txt", output)
+p.finalOutput ()
+|> writeNormalizedOutput "nosuchproject.txt"
 
