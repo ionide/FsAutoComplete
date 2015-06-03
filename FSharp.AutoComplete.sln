@@ -12,43 +12,31 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.CompilerBinding", "F
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.AutoComplete", "FSharp.AutoComplete\FSharp.AutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.CompilerBinding.Tests", "FSharp.CompilerBinding.Tests\FSharp.CompilerBinding.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
-		Debug|Mixed Platforms = Debug|Mixed Platforms
-		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
-		Release|Mixed Platforms = Release|Mixed Platforms
-		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Release|Any CPU.Build.0 = Release|Any CPU
-		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{88F6940F-D300-474C-B2A7-E2ECD5B04B57}.Release|x86.ActiveCfg = Release|Any CPU
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Any CPU.ActiveCfg = Debug|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Any CPU.Build.0 = Debug|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Mixed Platforms.Build.0 = Debug|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|x86.ActiveCfg = Debug|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|x86.Build.0 = Debug|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Any CPU.ActiveCfg = Release|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Any CPU.Build.0 = Release|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Mixed Platforms.ActiveCfg = Release|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Mixed Platforms.Build.0 = Release|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|x86.ActiveCfg = Release|x86
-		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|x86.Build.0 = Release|x86
+		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = FSharp.AutoComplete.fsproj
+		StartupItem = FSharp.AutoComplete\FSharp.AutoComplete.fsproj
 	EndGlobalSection
 EndGlobal

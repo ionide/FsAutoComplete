@@ -44,7 +44,7 @@ type ParseAndCheckResults private (infoOpt: (FSharpCheckFileResults * FSharpPars
         match infoOpt with 
         | None -> None
         | Some (checkResults, parseResults) -> 
-            let longName,residue = Parsing.findLongIdentsAndResidue(col, lineStr)
+            let longName,residue = Parsing.findLongIdentsAndResidue(col - 1, lineStr)
             Debug.WriteLine (sprintf "GetDeclarations: '%A', '%s'" longName residue)
             // Get items & generate output
             try
@@ -60,7 +60,7 @@ type ParseAndCheckResults private (infoOpt: (FSharpCheckFileResults * FSharpPars
         match infoOpt with 
         | None -> None
         | Some (checkResults, parseResults) -> 
-            let longName,residue = Parsing.findLongIdentsAndResidue(col, lineStr)
+            let longName,residue = Parsing.findLongIdentsAndResidue(col - 1, lineStr)
             Debug.WriteLine (sprintf "GetDeclarationSymbols: '%A', '%s'" longName residue)
             // Get items & generate output
             try
@@ -77,11 +77,11 @@ type ParseAndCheckResults private (infoOpt: (FSharpCheckFileResults * FSharpPars
         match infoOpt with 
         | None -> return None
         | Some (checkResults, _parseResults) -> 
-        match Parsing.findLongIdents(col, lineStr) with 
+        match Parsing.findLongIdents(col - 1, lineStr) with 
         | None -> return None
         | Some(col,identIsland) ->
-          let! res = checkResults.GetToolTipTextAlternate(line, col, lineStr, identIsland, token)
-          let! sym = checkResults.GetSymbolUseAtLocation(line, col, lineStr, identIsland)
+          let! res = checkResults.GetToolTipTextAlternate(line, col + 1, lineStr, identIsland, token)
+          let! sym = checkResults.GetSymbolUseAtLocation(line, col + 1, lineStr, identIsland)
           Debug.WriteLine("Result: Got something, returning")
           return sym |> Option.bind (fun sym -> let (_, startCol), (_, endCol) = Symbols.trimSymbolRegion sym (Seq.last identIsland)
                                                 Some (res, (startCol, endCol)))
@@ -91,18 +91,18 @@ type ParseAndCheckResults private (infoOpt: (FSharpCheckFileResults * FSharpPars
         match infoOpt with 
         | None -> return FSharpFindDeclResult.DeclNotFound FSharpFindDeclFailureReason.Unknown
         | Some (checkResults, _parseResults) -> 
-        match Parsing.findLongIdents(col, lineStr) with 
+        match Parsing.findLongIdents(col - 1, lineStr) with 
         | None -> return FSharpFindDeclResult.DeclNotFound FSharpFindDeclFailureReason.Unknown
-        | Some(col,identIsland) -> return! checkResults.GetDeclarationLocationAlternate(line, col, lineStr, identIsland, false)
+        | Some(col,identIsland) -> return! checkResults.GetDeclarationLocationAlternate(line, col + 1, lineStr, identIsland, false)
       }
     member x.GetMethods(line, col, lineStr) =
       async { 
         match infoOpt with 
         | None -> return None
         | Some (checkResults, _parseResults) -> 
-        match Parsing.findLongIdentsAtGetMethodsTrigger(col, lineStr) with 
+        match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with 
         | None -> return None
-        | Some(col,identIsland) ->
+        | Some identIsland ->
             let! res = checkResults.GetMethodsAlternate(line, col, lineStr, Some identIsland)
             Debug.WriteLine("Result: Got something, returning")
             return Some (res.MethodName, res.Methods) 
@@ -113,10 +113,10 @@ type ParseAndCheckResults private (infoOpt: (FSharpCheckFileResults * FSharpPars
         match infoOpt with 
         | None -> return None
         | Some (checkResults, _parseResults) -> 
-        match Parsing.findLongIdents(col, lineStr) with 
+        match Parsing.findLongIdents(col - 1, lineStr) with 
         | None -> return None
         | Some(colu, identIsland) ->
-            return! checkResults.GetSymbolUseAtLocation(line, colu, lineStr, identIsland)
+            return! checkResults.GetSymbolUseAtLocation(line, colu + 1, lineStr, identIsland)
       }
 
     member x.GetSymbolAtLocation(line, col, lineStr, identIsland) =
