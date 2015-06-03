@@ -21,17 +21,15 @@ The configuration is contained in [appveyor.yml](appveyor.yml).
 
 ## Building and testing
 
-There is a [FAKE script](build.fsx) with chain-loaders for [*nix](fake) and [Windows](fake.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
+There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
 
-On Linux and OSX, there is a legacy [Makefile](Makefile), which is a bit quicker to run (the overhead of running launching FSI for Fake is a few seconds). For the moment this supports all the same functionality that the FAKE script does, but this will not likely continue to be the case.
+The [integration tests](FSharp.AutoComplete/test/integration) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
 
-The [integration tests](integration) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
-
-There are not currently any unit tests, the previously tested functionality of project parsing has been moved upstream to [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests were simply constructed using NUnit and FSUnit. If a new test is required, you can look back through the history for the `unit` directory and use that structure.
+There are [unit tests](FSharp.CompilerBinding.Tests) for FSharp.CompilerBinding, which smoothes the integration with [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests are simply constructed using NUnit.
 
 ## Communication protocol
 
-It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](test/integration/Test1).
+It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](FSharp.AutoComplete/test/integration/Test1).
 
 The available commands can be listed by running `fsautocomplete.exe` and entering `help`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
 
