@@ -29,12 +29,12 @@ let releaseArchive = "fsautocomplete.zip"
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
 Target "BuildDebug" (fun _ ->
-  MSBuildDebug buildDir "Build" ["./FSharp.AutoComplete.sln"]
+  MSBuildDebug "" "Build" ["./FSharp.AutoComplete.sln"]
   |> Log "Build-Output: "
 )
 
 Target "BuildRelease" (fun _ ->
-  MSBuildRelease buildReleaseDir "Build" ["./FSharp.AutoComplete.sln"]
+  MSBuildRelease "" "Build" ["./FSharp.AutoComplete.sln"]
   |> Log "Build-Output: "
 )
 

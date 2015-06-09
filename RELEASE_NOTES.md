@@ -1,3 +1,8 @@
+#### 0.18.1 - 03.09.2015
+
+* Prevent test assemblies from being included in release archives by
+  avoiding forcing the output directory.
+
 #### 0.18.0 - 03.06.2015
 
 * Adjust for 1-based column indexing - https://github.com/fsharp/FSharp.AutoComplete/pull/13
