@@ -1,4 +1,4 @@
-#### 0.18.1 - 03.09.2015
+#### 0.18.1 - 09.06.2015
 
 * Prevent test assemblies from being included in release archives by
   avoiding forcing the output directory.
