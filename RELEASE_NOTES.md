@@ -1,3 +1,7 @@
+#### 0.18.2 - 13.06.2015
+
+* Update to FCS 0.0.90 (fix referencing PCL projects) - https://github.com/fsharp/FsAutoComplete/pull/26
+
 #### 0.18.1 - 09.06.2015
 
 * Prevent test assemblies from being included in release archives by
