@@ -614,7 +614,7 @@ module internal Main =
 
           | Methods ->
             let meth = tyRes.GetMethods(line, col, lineStr)
-                          |> Async.RunSynchronously
+                       |> Async.RunSynchronously
             match meth with
             | Some (name,info) ->
               match state.OutputMode with

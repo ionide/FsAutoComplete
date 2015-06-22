@@ -3,7 +3,7 @@ module X =
 
 let testval = FileTwo.NewObjectType()
 
-let val2 = X.func 2
+let val2 = X.func(2)
 
 let val3 = testval.Terrific(val2)
 

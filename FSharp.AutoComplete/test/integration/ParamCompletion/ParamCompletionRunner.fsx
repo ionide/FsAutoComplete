@@ -18,10 +18,10 @@ p.project "Test1.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Program.fs"
 Threading.Thread.Sleep(8000)
-p.methods "Program.fs" 8 18
-p.methods "Program.fs" 6 20
+p.methods "Program.fs" 8 28
+p.methods "Program.fs" 6 18
+p.methods "Program.fs" 4 36
 Threading.Thread.Sleep(1000)
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
-
