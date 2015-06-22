@@ -127,6 +127,8 @@ module internal CommandInput =
       - get tool tip for the specified location
     finddecl ""<filename>"" <line> <col> [timeout]
       - find the point of declaration of the symbol at specified location
+    methods ""<filename>"" <line> <col> [timeout]
+      - find the method signatures at specified location
     project ""<filename>""
       - associates the current session with the specified project
     outputmode {json,text}
@@ -164,6 +166,7 @@ module internal CommandInput =
   // The types of commands that need position information
   type PosCommand =
     | Completion
+    | Methods
     | ToolTip
     | FindDeclaration
 
@@ -237,6 +240,7 @@ module internal CommandInput =
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
+             (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
@@ -366,7 +370,7 @@ module internal Main =
      new RangeConverter() :> JsonConverter
     |]
 
-  let prAsJson o = printAgent.WriteLine (JsonConvert.SerializeObject(o, jsonConverters))
+  let prAsJson o = printAgent.WriteLine (JsonConvert.SerializeObject(o, Formatting.Indented,  jsonConverters))
   let printMsg state ty s =
       match state.OutputMode with
       | Text -> printAgent.WriteLine (sprintf "%s: %s\n<<EOF>>" ty s)
@@ -604,6 +608,21 @@ module internal Main =
               | Json ->
                   let data = { Line = range.StartLine; Column = range.StartColumn; File = range.FileName }
                   prAsJson { Kind = "finddecl"; Data = data }
+
+            main state
+
+
+          | Methods ->
+            let meth = tyRes.GetMethods(line, col, lineStr)
+                          |> Async.RunSynchronously
+            match meth with
+            | Some (name,info) ->
+              match state.OutputMode with
+              | Text ->
+                  printMsg "ERROR" "methods not supported in text mode"
+              | Json ->
+                  prAsJson { Kind = "method"; Data = name,info }
+            | None   -> printMsg "ERROR" "Could not find method"
 
             main state
 

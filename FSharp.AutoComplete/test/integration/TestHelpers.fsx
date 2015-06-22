@@ -34,6 +34,9 @@ type FSharpAutoCompleteWrapper() =
   member x.completion (fn: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "completion \"%s\" %d %d\n" fn line col
 
+  member x.methods (fn: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "methods \"%s\" %d %d\n" fn line col
+
   member x.completionFilter (fn: string) (line: int) (col: int) (filter: string) : unit =
     fprintf p.StandardInput "completion \"%s\" %d %d filter=%s\n" fn line col filter
 
