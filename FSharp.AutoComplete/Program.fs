@@ -476,7 +476,7 @@ module internal Main =
                                  Data = { Project = file
                                           Files = files
                                           Output = targetFilename
-                                          References = List.sort p.References
+                                          References = List.sortBy Path.GetFileName p.References
                                           Framework = framework } }
             let projects =
               files
