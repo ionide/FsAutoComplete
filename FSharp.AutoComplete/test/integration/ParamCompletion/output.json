@@ -1,0 +1,148 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/ParamCompletion/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/ParamCompletion/FileTwo.fs",
+      "<absolute path removed>/test/integration/ParamCompletion/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/ParamCompletion/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Framework": "v4.0"
+  }
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Item1": "Terrific",
+    "Item2": [
+      {
+        "Description": {
+          "Case": "FSharpToolTipText",
+          "Fields": [
+            [
+              {
+                "Case": "Group",
+                "Fields": [
+                  [
+                    {
+                      "Item1": "member FileTwo.NewObjectType.Terrific : y:int -> int",
+                      "Item2": {
+                        "Case": "None"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          ]
+        },
+        "TypeText": ": int",
+        "Type": ": int",
+        "Parameters": [
+          {
+            "ParameterName": "y",
+            "Name": "y",
+            "CanonicalTypeTextForSorting": "System.Int32",
+            "Display": "y: int",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Item1": "func",
+    "Item2": [
+      {
+        "Description": {
+          "Case": "FSharpToolTipText",
+          "Fields": [
+            [
+              {
+                "Case": "Single",
+                "Fields": [
+                  "val func : x:int -> int",
+                  {
+                    "Case": "None"
+                  }
+                ]
+              }
+            ]
+          ]
+        },
+        "TypeText": ": int ",
+        "Type": ": int ",
+        "Parameters": [
+          {
+            "ParameterName": "x",
+            "Name": "x",
+            "CanonicalTypeTextForSorting": "System.Int32",
+            "Display": "x: int",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Item1": "NewObjectType",
+    "Item2": [
+      {
+        "Description": {
+          "Case": "FSharpToolTipText",
+          "Fields": [
+            [
+              {
+                "Case": "Group",
+                "Fields": [
+                  [
+                    {
+                      "Item1": "new : unit -> FileTwo.NewObjectType",
+                      "Item2": {
+                        "Case": "None"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          ]
+        },
+        "TypeText": ": FileTwo.NewObjectType",
+        "Type": ": FileTwo.NewObjectType",
+        "Parameters": [],
+        "IsStaticArguments": false
+      }
+    ]
+  }
+}
