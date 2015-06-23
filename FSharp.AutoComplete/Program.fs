@@ -370,7 +370,7 @@ module internal Main =
      new RangeConverter() :> JsonConverter
     |]
 
-  let prAsJson o = printAgent.WriteLine (JsonConvert.SerializeObject(o, Formatting.Indented,  jsonConverters))
+  let prAsJson o = printAgent.WriteLine (JsonConvert.SerializeObject(o, jsonConverters))
   let printMsg state ty s =
       match state.OutputMode with
       | Text -> printAgent.WriteLine (sprintf "%s: %s\n<<EOF>>" ty s)

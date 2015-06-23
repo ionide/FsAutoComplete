@@ -84,10 +84,9 @@ let writeNormalizedOutput (fn: string) (s: string) =
         lines.[i] <- Regex.Replace(lines.[i].Replace('\\','/'),
                                    "[a-zA-Z]:/.*?FSharp.AutoComplete/test/(.*?(\"|$))",
                                    "<absolute path removed>/test/$1")
-    
-    // This throws because each line is not valid json by itself
-    //if Path.GetExtension fn = ".json" then
-    //  lines.[i] <- formatJson lines.[i]
+
+    if Path.GetExtension fn = ".json" then
+      lines.[i] <- formatJson lines.[i]
 
     lines.[i] <- lines.[i].Replace("\r", "")
 
