@@ -616,13 +616,13 @@ module internal Main =
             let meth = tyRes.GetMethods(line, col, lineStr)
                        |> Async.RunSynchronously
             match meth with
-            | Some (name,info) ->
+            | Some (name,info) when info.Length > 0 ->
               match state.OutputMode with
               | Text ->
                   printMsg "ERROR" "methods not supported in text mode"
               | Json ->
                   prAsJson { Kind = "method"; Data = name,info }
-            | None   -> printMsg "ERROR" "Could not find method"
+            | _   -> printMsg "ERROR" "Could not find method"
 
             main state
 
