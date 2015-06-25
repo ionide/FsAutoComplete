@@ -613,7 +613,29 @@ module internal Main =
 
 
           | Methods ->
-            let meth = tyRes.GetMethods(line, col, lineStr)
+            // Find the starting point, ideally right after the first '('
+            let line, col =
+              let rec prevPos (line,col) =
+                match line, col with
+                | 1, 1 -> 1, 1
+                | _, 1 ->
+                   let prevLine = state.Files.[file].Lines.[line - 2]
+                   if prevLine.Length = 0 then prevPos(line-1, 1)
+                   else line - 1, prevLine.Length
+                | _    -> line, col - 1
+
+              let rec loop depth (line, col) =
+                if (line,col) <= (1,1) then (line, col) else
+                let ch = state.Files.[file].Lines.[line - 1].[col - 1]
+                if (ch = '(' || ch = '{' || ch = '[') && depth > 0 then loop (depth - 1) (prevPos (line,col))
+                elif ch = ')' || ch = '}' || ch = ']' then loop (depth + 1) (prevPos (line,col))
+                elif ch = '(' || ch = '<' then line,col
+                else loop depth (prevPos (line,col))
+              match loop 0 (line,col) with
+              | 1, 1 -> line,col
+              | newPos -> newPos
+
+            let meth = tyRes.GetMethods(line, col, state.Files.[file].Lines.[line - 1])
                        |> Async.RunSynchronously
             match meth with
             | Some (name,info) when info.Length > 0 ->
