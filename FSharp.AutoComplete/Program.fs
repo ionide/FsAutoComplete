@@ -64,6 +64,26 @@ type ProjectResponse =
     Framework: string
   }
 
+type OverloadParameter =
+  {
+    Name : string
+    CanonicalTypeTextForSorting : string
+    Display : string
+    Description : string
+  }
+type Overload =
+  {
+    Tip : string
+    TypeText : string
+    Parameters : OverloadParameter list
+    IsStaticArguments : bool
+  }
+type MethodResponse =
+  {
+    Name : string
+    Overloads : Overload list
+  }
+
 type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
 
@@ -638,13 +658,34 @@ module internal Main =
             let meth = tyRes.GetMethods(line, col, state.Files.[file].Lines.[line - 1])
                        |> Async.RunSynchronously
             match meth with
-            | Some (name,info) when info.Length > 0 ->
+            | Some (name,overloads) when overloads.Length > 0 ->
               match state.OutputMode with
               | Text ->
                   printMsg "ERROR" "methods not supported in text mode"
               | Json ->
-                  prAsJson { Kind = "method"; Data = name,info }
-            | _   -> printMsg "ERROR" "Could not find method"
+                  prAsJson
+                   { Kind = "method"
+                     Data = { Name = name
+                              Overloads =
+                               [ for o in overloads do
+                                  let tip = TipFormatter.formatTip o.Description
+                                  yield {
+                                    Tip = tip
+                                    TypeText = o.TypeText
+                                    Parameters = 
+                                      [ for p in o.Parameters do
+                                         yield {
+                                           Name = p.ParameterName
+                                           CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
+                                           Display = p.Display
+                                           Description = p.Description                                           
+                                         }
+                                    ]
+                                    IsStaticArguments = o.IsStaticArguments
+                                  }
+
+                               ] } }
+            | _ -> printMsg "ERROR" "Could not find method"
 
             main state
 

@@ -35,31 +35,11 @@
 {
   "Kind": "method",
   "Data": {
-    "Item1": "NewObjectType",
-    "Item2": [
+    "Name": "NewObjectType",
+    "Overloads": [
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "new : unit -> FileTwo.NewObjectType",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "new : unit -> FileTwo.NewObjectType",
         "TypeText": ": FileTwo.NewObjectType",
-        "Type": ": FileTwo.NewObjectType",
         "Parameters": [],
         "IsStaticArguments": false
       }
@@ -73,41 +53,19 @@
 {
   "Kind": "method",
   "Data": {
-    "Item1": "Terrific",
-    "Item2": [
+    "Name": "Terrific",
+    "Overloads": [
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
         "TypeText": ": Set<'a> (requires comparison)",
-        "Type": ": Set<'a> (requires comparison)",
         "Parameters": [
           {
-            "ParameterName": "y",
             "Name": "y",
             "CanonicalTypeTextForSorting": "Microsoft.FSharp.Collections.Set<'a>",
             "Display": "y: Set<'a>",
             "Description": ""
           },
           {
-            "ParameterName": "z",
             "Name": "z",
             "CanonicalTypeTextForSorting": "System.Int32",
             "Display": "z: int",
@@ -117,38 +75,16 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
         "TypeText": ": int",
-        "Type": ": int",
         "Parameters": [
           {
-            "ParameterName": "y",
             "Name": "y",
             "CanonicalTypeTextForSorting": "System.Int32",
             "Display": "y: int",
             "Description": ""
           },
           {
-            "ParameterName": "z",
             "Name": "z",
             "CanonicalTypeTextForSorting": "System.Char",
             "Display": "z: char",
@@ -158,38 +94,16 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
         "TypeText": ": int",
-        "Type": ": int",
         "Parameters": [
           {
-            "ParameterName": "y",
             "Name": "y",
             "CanonicalTypeTextForSorting": "System.Int32",
             "Display": "y: int",
             "Description": ""
           },
           {
-            "ParameterName": "z",
             "Name": "z",
             "CanonicalTypeTextForSorting": "System.DateTime",
             "Display": "z: System.DateTime",
@@ -204,41 +118,19 @@
 {
   "Kind": "method",
   "Data": {
-    "Item1": "Terrific",
-    "Item2": [
+    "Name": "Terrific",
+    "Overloads": [
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
         "TypeText": ": Set<'a> (requires comparison)",
-        "Type": ": Set<'a> (requires comparison)",
         "Parameters": [
           {
-            "ParameterName": "y",
             "Name": "y",
             "CanonicalTypeTextForSorting": "Microsoft.FSharp.Collections.Set<'a>",
             "Display": "y: Set<'a>",
             "Description": ""
           },
           {
-            "ParameterName": "z",
             "Name": "z",
             "CanonicalTypeTextForSorting": "System.Int32",
             "Display": "z: int",
@@ -248,38 +140,16 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
         "TypeText": ": int",
-        "Type": ": int",
         "Parameters": [
           {
-            "ParameterName": "y",
             "Name": "y",
             "CanonicalTypeTextForSorting": "System.Int32",
             "Display": "y: int",
             "Description": ""
           },
           {
-            "ParameterName": "z",
             "Name": "z",
             "CanonicalTypeTextForSorting": "System.Char",
             "Display": "z: char",
@@ -289,38 +159,16 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
-                      "Item2": {
-                        "Case": "None"
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
         "TypeText": ": int",
-        "Type": ": int",
         "Parameters": [
           {
-            "ParameterName": "y",
             "Name": "y",
             "CanonicalTypeTextForSorting": "System.Int32",
             "Display": "y: int",
             "Description": ""
           },
           {
-            "ParameterName": "z",
             "Name": "z",
             "CanonicalTypeTextForSorting": "System.DateTime",
             "Display": "z: System.DateTime",
@@ -335,38 +183,13 @@
 {
   "Kind": "method",
   "Data": {
-    "Item1": "Parse",
-    "Item2": [
+    "Name": "Parse",
+    "Overloads": [
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "System.DateTime.Parse(s: string) : System.DateTime",
-                      "Item2": {
-                        "Case": "XmlDocFileSignature",
-                        "Fields": [
-                          "<absolute path removed>/mscorlib.dll",
-                          "M:System.DateTime.Parse(System.String)"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "System.DateTime.Parse(s: string) : System.DateTime",
         "TypeText": ": System.DateTime",
-        "Type": ": System.DateTime",
         "Parameters": [
           {
-            "ParameterName": "s",
             "Name": "s",
             "CanonicalTypeTextForSorting": "System.String",
             "Display": "s: string",
@@ -376,42 +199,16 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
-                      "Item2": {
-                        "Case": "XmlDocFileSignature",
-                        "Fields": [
-                          "<absolute path removed>/mscorlib.dll",
-                          "M:System.DateTime.Parse(System.String,System.IFormatProvider)"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
         "TypeText": ": System.DateTime",
-        "Type": ": System.DateTime",
         "Parameters": [
           {
-            "ParameterName": "s",
             "Name": "s",
             "CanonicalTypeTextForSorting": "System.String",
             "Display": "s: string",
             "Description": ""
           },
           {
-            "ParameterName": "provider",
             "Name": "provider",
             "CanonicalTypeTextForSorting": "System.IFormatProvider",
             "Display": "provider: System.IFormatProvider",
@@ -421,49 +218,22 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
-                      "Item2": {
-                        "Case": "XmlDocFileSignature",
-                        "Fields": [
-                          "<absolute path removed>/mscorlib.dll",
-                          "M:System.DateTime.Parse(System.String,System.IFormatProvider,System.Globalization.DateTimeStyles)"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
         "TypeText": ": System.DateTime",
-        "Type": ": System.DateTime",
         "Parameters": [
           {
-            "ParameterName": "s",
             "Name": "s",
             "CanonicalTypeTextForSorting": "System.String",
             "Display": "s: string",
             "Description": ""
           },
           {
-            "ParameterName": "provider",
             "Name": "provider",
             "CanonicalTypeTextForSorting": "System.IFormatProvider",
             "Display": "provider: System.IFormatProvider",
             "Description": ""
           },
           {
-            "ParameterName": "styles",
             "Name": "styles",
             "CanonicalTypeTextForSorting": "System.Globalization.DateTimeStyles",
             "Display": "styles: System.Globalization.DateTimeStyles",
@@ -478,38 +248,13 @@
 {
   "Kind": "method",
   "Data": {
-    "Item1": "Parse",
-    "Item2": [
+    "Name": "Parse",
+    "Overloads": [
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "System.DateTime.Parse(s: string) : System.DateTime",
-                      "Item2": {
-                        "Case": "XmlDocFileSignature",
-                        "Fields": [
-                          "<absolute path removed>/mscorlib.dll",
-                          "M:System.DateTime.Parse(System.String)"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "System.DateTime.Parse(s: string) : System.DateTime",
         "TypeText": ": System.DateTime",
-        "Type": ": System.DateTime",
         "Parameters": [
           {
-            "ParameterName": "s",
             "Name": "s",
             "CanonicalTypeTextForSorting": "System.String",
             "Display": "s: string",
@@ -519,42 +264,16 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
-                      "Item2": {
-                        "Case": "XmlDocFileSignature",
-                        "Fields": [
-                          "<absolute path removed>/mscorlib.dll",
-                          "M:System.DateTime.Parse(System.String,System.IFormatProvider)"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
         "TypeText": ": System.DateTime",
-        "Type": ": System.DateTime",
         "Parameters": [
           {
-            "ParameterName": "s",
             "Name": "s",
             "CanonicalTypeTextForSorting": "System.String",
             "Display": "s: string",
             "Description": ""
           },
           {
-            "ParameterName": "provider",
             "Name": "provider",
             "CanonicalTypeTextForSorting": "System.IFormatProvider",
             "Display": "provider: System.IFormatProvider",
@@ -564,49 +283,22 @@
         "IsStaticArguments": false
       },
       {
-        "Description": {
-          "Case": "FSharpToolTipText",
-          "Fields": [
-            [
-              {
-                "Case": "Group",
-                "Fields": [
-                  [
-                    {
-                      "Item1": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
-                      "Item2": {
-                        "Case": "XmlDocFileSignature",
-                        "Fields": [
-                          "<absolute path removed>/mscorlib.dll",
-                          "M:System.DateTime.Parse(System.String,System.IFormatProvider,System.Globalization.DateTimeStyles)"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          ]
-        },
+        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
         "TypeText": ": System.DateTime",
-        "Type": ": System.DateTime",
         "Parameters": [
           {
-            "ParameterName": "s",
             "Name": "s",
             "CanonicalTypeTextForSorting": "System.String",
             "Display": "s: string",
             "Description": ""
           },
           {
-            "ParameterName": "provider",
             "Name": "provider",
             "CanonicalTypeTextForSorting": "System.IFormatProvider",
             "Display": "provider: System.IFormatProvider",
             "Description": ""
           },
           {
-            "ParameterName": "styles",
             "Name": "styles",
             "CanonicalTypeTextForSorting": "System.Globalization.DateTimeStyles",
             "Display": "styles: System.Globalization.DateTimeStyles",
