@@ -81,6 +81,7 @@ type Overload =
 type MethodResponse =
   {
     Name : string
+    CurrentParameter : int
     Overloads : Overload list
   }
 
@@ -635,7 +636,7 @@ module internal Main =
           | Methods ->
             // Find the starting point, ideally right after the first '('
             let lineCutoff = line - 3
-            let line, col =
+            let commas, line, col =
               let rec prevPos (line,col) =
                 match line, col with
                 | 1, 1
@@ -646,15 +647,16 @@ module internal Main =
                    else line - 1, prevLine.Length
                 | _    -> line, col - 1
 
-              let rec loop depth (line, col) =
-                if (line,col) <= (1,1) then (line, col) else
+              let rec loop commas depth (line, col) =
+                if (line,col) <= (1,1) then (0, line, col) else
                 let ch = state.Files.[file].Lines.[line - 1].[col - 1]
-                if (ch = '(' || ch = '{' || ch = '[') && depth > 0 then loop (depth - 1) (prevPos (line,col))
-                elif ch = ')' || ch = '}' || ch = ']' then loop (depth + 1) (prevPos (line,col))
-                elif ch = '(' || ch = '<' then line,col
-                else loop depth (prevPos (line,col))
-              match loop 0 (prevPos(line,col)) with
-              | 1, 1 -> line,col
+                let commas = if depth = 0 && ch = ',' then commas + 1 else commas
+                if (ch = '(' || ch = '{' || ch = '[') && depth > 0 then loop commas (depth - 1) (prevPos (line,col))
+                elif ch = ')' || ch = '}' || ch = ']' then loop commas (depth + 1) (prevPos (line,col))
+                elif ch = '(' || ch = '<' then commas, line, col
+                else loop commas depth (prevPos (line,col))
+              match loop 0 0 (prevPos(line,col)) with
+              | _, 1, 1 -> 0, line, col
               | newPos -> newPos
 
             let meth = tyRes.GetMethods(line, col, state.Files.[file].Lines.[line - 1])
@@ -668,6 +670,7 @@ module internal Main =
                   prAsJson
                    { Kind = "method"
                      Data = { Name = name
+                              CurrentParameter = commas
                               Overloads =
                                [ for o in overloads do
                                   let tip = TipFormatter.formatTip o.Description

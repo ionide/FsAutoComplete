@@ -36,6 +36,7 @@
   "Kind": "method",
   "Data": {
     "Name": "NewObjectType",
+    "CurrentParameter": 0,
     "Overloads": [
       {
         "Tip": "new : unit -> FileTwo.NewObjectType",
@@ -50,6 +51,7 @@
   "Kind": "method",
   "Data": {
     "Name": "NewObjectType",
+    "CurrentParameter": 0,
     "Overloads": [
       {
         "Tip": "new : unit -> FileTwo.NewObjectType",
@@ -64,6 +66,7 @@
   "Kind": "method",
   "Data": {
     "Name": "Terrific",
+    "CurrentParameter": 0,
     "Overloads": [
       {
         "Tip": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
@@ -129,6 +132,7 @@
   "Kind": "method",
   "Data": {
     "Name": "Terrific",
+    "CurrentParameter": 1,
     "Overloads": [
       {
         "Tip": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
@@ -194,6 +198,7 @@
   "Kind": "method",
   "Data": {
     "Name": "Parse",
+    "CurrentParameter": 0,
     "Overloads": [
       {
         "Tip": "System.DateTime.Parse(s: string) : System.DateTime",
@@ -259,6 +264,7 @@
   "Kind": "method",
   "Data": {
     "Name": "Parse",
+    "CurrentParameter": 0,
     "Overloads": [
       {
         "Tip": "System.DateTime.Parse(s: string) : System.DateTime",
