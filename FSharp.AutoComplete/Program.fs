@@ -634,10 +634,12 @@ module internal Main =
 
           | Methods ->
             // Find the starting point, ideally right after the first '('
+            let lineCutoff = line - 3
             let line, col =
               let rec prevPos (line,col) =
                 match line, col with
-                | 1, 1 -> 1, 1
+                | 1, 1
+                | _ when line < lineCutoff -> 1, 1
                 | _, 1 ->
                    let prevLine = state.Files.[file].Lines.[line - 2]
                    if prevLine.Length = 0 then prevPos(line-1, 1)
@@ -651,7 +653,7 @@ module internal Main =
                 elif ch = ')' || ch = '}' || ch = ']' then loop (depth + 1) (prevPos (line,col))
                 elif ch = '(' || ch = '<' then line,col
                 else loop depth (prevPos (line,col))
-              match loop 0 (line,col) with
+              match loop 0 (prevPos(line,col)) with
               | 1, 1 -> line,col
               | newPos -> newPos
 
@@ -672,13 +674,13 @@ module internal Main =
                                   yield {
                                     Tip = tip
                                     TypeText = o.TypeText
-                                    Parameters = 
+                                    Parameters =
                                       [ for p in o.Parameters do
                                          yield {
                                            Name = p.ParameterName
                                            CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
                                            Display = p.Display
-                                           Description = p.Description                                           
+                                           Description = p.Description
                                          }
                                     ]
                                     IsStaticArguments = o.IsStaticArguments

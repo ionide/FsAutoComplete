@@ -47,8 +47,18 @@
   }
 }
 {
-  "Kind": "ERROR",
-  "Data": "Could not find method"
+  "Kind": "method",
+  "Data": {
+    "Name": "NewObjectType",
+    "Overloads": [
+      {
+        "Tip": "new : unit -> FileTwo.NewObjectType",
+        "TypeText": ": FileTwo.NewObjectType",
+        "Parameters": [],
+        "IsStaticArguments": false
+      }
+    ]
+  }
 }
 {
   "Kind": "method",
