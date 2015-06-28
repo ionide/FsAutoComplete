@@ -615,24 +615,23 @@ module internal Main =
               let symboluses =
                   async {
                       let! symboluse = tyRes.GetSymbol(line, col, lineStr)
-                      match symboluse with
-                      | None -> return []
-                      | Some su -> let! symboluses =  tyRes.GetUsesOfSymbolInFile su.Symbol
-                                   return [
-                                     for su in symboluses do
-                                       yield { StartLine = su.RangeAlternate.StartLine
-                                               StartColumn = su.RangeAlternate.StartColumn + 1
-                                               EndLine = su.RangeAlternate.EndLine
-                                               EndColumn = su.RangeAlternate.EndColumn + 1
-                                               Filename = su.FileName
-                                             }
-                                   ]
-                      }
+                      if symboluse.IsNone then return None else
+                      let! symboluses = tyRes.GetUsesOfSymbolInFile symboluse.Value.Symbol
+                      return Some {
+                        Name = symboluse.Value.Symbol.DisplayName
+                        Uses =
+                          [ for su in symboluses do
+                              yield { StartLine = su.RangeAlternate.StartLine
+                                      StartColumn = su.RangeAlternate.StartColumn + 1
+                                      EndLine = su.RangeAlternate.EndLine
+                                      EndColumn = su.RangeAlternate.EndColumn + 1
+                                      Filename = su.FileName } ] } }
                   |> Async.RunSynchronously
 
-              match state.OutputMode with
-              | Text -> printMsg "ERROR" "symboluse not supported in text mode"
-              | Json -> prAsJson { Kind = "symboluse"; Data = symboluses }
+              match state.OutputMode, symboluses with
+              | Text, _ -> printMsg "ERROR" "symboluse not supported in text mode"
+              | Json, Some su -> prAsJson { Kind = "symboluse"; Data = su }
+              | _ -> printMsg "ERROR" "No symbols found"
 
               main state
 
