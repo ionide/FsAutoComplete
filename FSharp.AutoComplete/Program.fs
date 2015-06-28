@@ -64,6 +64,21 @@ type ProjectResponse =
     Framework: string
   }
 
+type Range =
+  {
+    Filename: string
+    StartLine: int
+    StartColumn: int
+    EndLine: int
+    EndColumn: int
+  }
+
+type SymbolUseResponse =
+  {
+    Name: string
+    Uses: Range list
+  }
+
 type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
 
@@ -123,6 +138,8 @@ module internal CommandInput =
     helptext <candidate>
       - fetch type signature for specified completion candidate
         (from last completion request). Only use in JSON mode.
+    symboluse ""<filename>"" <line> <col> [timeout]
+      - find all uses of the symbol for the specified location
     tooltip ""<filename>"" <line> <col> [timeout]
       - get tool tip for the specified location
     finddecl ""<filename>"" <line> <col> [timeout]
@@ -164,6 +181,7 @@ module internal CommandInput =
   // The types of commands that need position information
   type PosCommand =
     | Completion
+    | SymbolUse
     | ToolTip
     | FindDeclaration
 
@@ -236,6 +254,7 @@ module internal CommandInput =
   // Parse 'completion "<filename>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
+             (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
     let! _ = char '"'
@@ -589,6 +608,31 @@ module internal Main =
                       printAgent.WriteLine(TipFormatter.formatTip tip)
                       printAgent.WriteLine("<<EOF>>")
                     | Json -> prAsJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
+
+              main state
+
+          | SymbolUse ->
+              let symboluses =
+                  async {
+                      let! symboluse = tyRes.GetSymbol(line, col, lineStr)
+                      match symboluse with
+                      | None -> return []
+                      | Some su -> let! symboluses =  tyRes.GetUsesOfSymbolInFile su.Symbol
+                                   return [
+                                     for su in symboluses do
+                                       yield { StartLine = su.RangeAlternate.StartLine
+                                               StartColumn = su.RangeAlternate.StartColumn + 1
+                                               EndLine = su.RangeAlternate.EndLine
+                                               EndColumn = su.RangeAlternate.EndColumn + 1
+                                               Filename = su.FileName
+                                             }
+                                   ]
+                      }
+                  |> Async.RunSynchronously
+
+              match state.OutputMode with
+              | Text -> printMsg "ERROR" "symboluse not supported in text mode"
+              | Json -> prAsJson { Kind = "symboluse"; Data = symboluses }
 
               main state
 

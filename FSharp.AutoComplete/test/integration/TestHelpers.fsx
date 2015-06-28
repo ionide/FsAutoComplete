@@ -43,6 +43,9 @@ type FSharpAutoCompleteWrapper() =
   member x.finddeclaration (fn: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "finddecl \"%s\" %d %d\n" fn line col
 
+  member x.symboluse (fn: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "symboluse \"%s\" %d %d\n" fn line col
+
   member x.declarations (fn: string) : unit =
     fprintf p.StandardInput "declarations \"%s\"\n" fn
 
