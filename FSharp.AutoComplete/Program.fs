@@ -64,6 +64,27 @@ type ProjectResponse =
     Framework: string
   }
 
+type OverloadParameter =
+  {
+    Name : string
+    CanonicalTypeTextForSorting : string
+    Display : string
+    Description : string
+  }
+type Overload =
+  {
+    Tip : string
+    TypeText : string
+    Parameters : OverloadParameter list
+    IsStaticArguments : bool
+  }
+type MethodResponse =
+  {
+    Name : string
+    CurrentParameter : int
+    Overloads : Overload list
+  }
+
 type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
 
@@ -127,6 +148,8 @@ module internal CommandInput =
       - get tool tip for the specified location
     finddecl ""<filename>"" <line> <col> [timeout]
       - find the point of declaration of the symbol at specified location
+    methods ""<filename>"" <line> <col> [timeout]
+      - find the method signatures at specified location
     project ""<filename>""
       - associates the current session with the specified project
     outputmode {json,text}
@@ -164,6 +187,7 @@ module internal CommandInput =
   // The types of commands that need position information
   type PosCommand =
     | Completion
+    | Methods
     | ToolTip
     | FindDeclaration
 
@@ -237,6 +261,7 @@ module internal CommandInput =
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
+             (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
@@ -472,7 +497,7 @@ module internal Main =
                                  Data = { Project = file
                                           Files = files
                                           Output = targetFilename
-                                          References = List.sort p.References
+                                          References = List.sortBy Path.GetFileName p.References
                                           Framework = framework } }
             let projects =
               files
@@ -604,6 +629,68 @@ module internal Main =
               | Json ->
                   let data = { Line = range.StartLine; Column = range.StartColumn; File = range.FileName }
                   prAsJson { Kind = "finddecl"; Data = data }
+
+            main state
+
+
+          | Methods ->
+            // Find the starting point, ideally right after the first '('
+            let lineCutoff = line - 3
+            let commas, line, col =
+              let rec prevPos (line,col) =
+                match line, col with
+                | 1, 1
+                | _ when line < lineCutoff -> 1, 1
+                | _, 1 ->
+                   let prevLine = state.Files.[file].Lines.[line - 2]
+                   if prevLine.Length = 0 then prevPos(line-1, 1)
+                   else line - 1, prevLine.Length
+                | _    -> line, col - 1
+
+              let rec loop commas depth (line, col) =
+                if (line,col) <= (1,1) then (0, line, col) else
+                let ch = state.Files.[file].Lines.[line - 1].[col - 1]
+                let commas = if depth = 0 && ch = ',' then commas + 1 else commas
+                if (ch = '(' || ch = '{' || ch = '[') && depth > 0 then loop commas (depth - 1) (prevPos (line,col))
+                elif ch = ')' || ch = '}' || ch = ']' then loop commas (depth + 1) (prevPos (line,col))
+                elif ch = '(' || ch = '<' then commas, line, col
+                else loop commas depth (prevPos (line,col))
+              match loop 0 0 (prevPos(line,col)) with
+              | _, 1, 1 -> 0, line, col
+              | newPos -> newPos
+
+            let meth = tyRes.GetMethods(line, col, state.Files.[file].Lines.[line - 1])
+                       |> Async.RunSynchronously
+            match meth with
+            | Some (name,overloads) when overloads.Length > 0 ->
+              match state.OutputMode with
+              | Text ->
+                  printMsg "ERROR" "methods not supported in text mode"
+              | Json ->
+                  prAsJson
+                   { Kind = "method"
+                     Data = { Name = name
+                              CurrentParameter = commas
+                              Overloads =
+                               [ for o in overloads do
+                                  let tip = TipFormatter.formatTip o.Description
+                                  yield {
+                                    Tip = tip
+                                    TypeText = o.TypeText
+                                    Parameters =
+                                      [ for p in o.Parameters do
+                                         yield {
+                                           Name = p.ParameterName
+                                           CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
+                                           Display = p.Display
+                                           Description = p.Description
+                                         }
+                                    ]
+                                    IsStaticArguments = o.IsStaticArguments
+                                  }
+
+                               ] } }
+            | _ -> printMsg "ERROR" "Could not find method"
 
             main state
 
