@@ -50,21 +50,39 @@
         "StartLine": 4,
         "StartColumn": 5,
         "EndLine": 4,
-        "EndColumn": 12
+        "EndColumn": 12,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       },
       {
         "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 8,
         "StartColumn": 12,
         "EndLine": 8,
-        "EndColumn": 19
+        "EndColumn": 19,
+        "IsFromDefinition": false,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       },
       {
         "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 10,
         "StartColumn": 36,
         "EndLine": 10,
-        "EndColumn": 43
+        "EndColumn": 43,
+        "IsFromDefinition": false,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       }
     ]
   }
@@ -79,14 +97,26 @@
         "StartLine": 14,
         "StartColumn": 9,
         "EndLine": 14,
-        "EndColumn": 16
+        "EndColumn": 16,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       },
       {
         "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 15,
         "StartColumn": 5,
         "EndLine": 15,
-        "EndColumn": 12
+        "EndColumn": 12,
+        "IsFromDefinition": false,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       }
     ]
   }
@@ -105,7 +135,13 @@
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,
-        "EndColumn": 13
+        "EndColumn": 13,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       }
     ]
   }
@@ -120,7 +156,13 @@
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,
-        "EndColumn": 13
+        "EndColumn": 13,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
       }
     ]
   }

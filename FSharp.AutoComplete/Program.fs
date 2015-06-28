@@ -84,20 +84,26 @@ type MethodResponse =
     CurrentParameter : int
     Overloads : Overload list
   }
-  
-type Range =
+
+type SymbolUseRange =
   {
     Filename: string
     StartLine: int
     StartColumn: int
     EndLine: int
     EndColumn: int
+    IsFromDefinition: bool
+    IsFromAttribute : bool
+    IsFromComputationExpression : bool
+    IsFromDispatchSlotImplementation : bool
+    IsFromPattern : bool
+    IsFromType : bool
   }
 
 type SymbolUseResponse =
   {
     Name: string
-    Uses: Range list
+    Uses: SymbolUseRange list
   }
 type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
@@ -649,7 +655,13 @@ module internal Main =
                                       StartColumn = su.RangeAlternate.StartColumn + 1
                                       EndLine = su.RangeAlternate.EndLine
                                       EndColumn = su.RangeAlternate.EndColumn + 1
-                                      Filename = su.FileName } ] } }
+                                      Filename = su.FileName
+                                      IsFromDefinition = su.IsFromDefinition
+                                      IsFromAttribute = su.IsFromAttribute
+                                      IsFromComputationExpression = su.IsFromComputationExpression
+                                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
+                                      IsFromPattern = su.IsFromPattern
+                                      IsFromType = su.IsFromType } ] } }
                   |> Async.RunSynchronously
 
               match state.OutputMode, symboluses with
