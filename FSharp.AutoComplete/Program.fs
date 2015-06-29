@@ -105,6 +105,30 @@ type SymbolUseResponse =
     Name: string
     Uses: SymbolUseRange list
   }
+
+type FSharpErrorInfo =
+  {
+    FileName: string
+    StartLine:int
+    EndLine:int
+    StartColumn:int
+    EndColumn:int
+    Severity:FSharpErrorSeverity
+    Message:string
+    Subcategory:string
+  }
+  static member OfFSharpError(e:Microsoft.FSharp.Compiler.FSharpErrorInfo) =
+    {
+      FileName = e.FileName
+      StartLine = e.StartLineAlternate
+      EndLine = e.EndLineAlternate
+      StartColumn = e.StartColumn + 1
+      EndColumn = e.EndColumn + 1
+      Severity = e.Severity
+      Message = e.Message
+      Subcategory = e.Subcategory
+    }
+
 type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
 
@@ -480,12 +504,13 @@ module internal Main =
             match results.GetErrors() with
             | None -> ()
             | Some errs ->
+              let errs = errs |> Seq.map FSharpErrorInfo.OfFSharpError
               match state.OutputMode with
               | Text ->
                 let sb = new System.Text.StringBuilder()
                 sb.AppendLine("DATA: errors") |> ignore
                 for e in errs do
-                  sb.AppendLine(sprintf "[%d:%d-%d:%d] %s %s" e.StartLineAlternate (e.StartColumn + 1) e.EndLineAlternate (e.EndColumn + 1)
+                  sb.AppendLine(sprintf "[%d:%d-%d:%d] %s %s" e.StartLine e.StartColumn e.EndLine e.EndColumn
                                   (if e.Severity = FSharpErrorSeverity.Error then "ERROR" else "WARNING") e.Message)
                   |> ignore
                 sb.Append("<<EOF>>") |> ignore
