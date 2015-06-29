@@ -211,7 +211,7 @@
   "Data": {
     "File": "<absolute path removed>/test/integration/Test1Json/FileTwo.fs",
     "Line": 13,
-    "Column": 11
+    "Column": 12
   }
 }
 {
@@ -219,7 +219,7 @@
   "Data": {
     "File": "<absolute path removed>/test/integration/Test1Json/Script.fsx",
     "Line": 4,
-    "Column": 6
+    "Column": 7
   }
 }
 {

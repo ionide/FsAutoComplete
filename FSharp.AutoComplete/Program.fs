@@ -485,7 +485,7 @@ module internal Main =
                 let sb = new System.Text.StringBuilder()
                 sb.AppendLine("DATA: errors") |> ignore
                 for e in errs do
-                  sb.AppendLine(sprintf "[%d:%d-%d:%d] %s %s" e.StartLineAlternate e.StartColumn e.EndLineAlternate e.EndColumn
+                  sb.AppendLine(sprintf "[%d:%d-%d:%d] %s %s" e.StartLineAlternate (e.StartColumn + 1) e.EndLineAlternate (e.EndColumn + 1)
                                   (if e.Severity = FSharpErrorSeverity.Error then "ERROR" else "WARNING") e.Message)
                   |> ignore
                 sb.Append("<<EOF>>") |> ignore
@@ -545,11 +545,11 @@ module internal Main =
               let declstrings =
                 [ for tld in decls do
                     let m = tld.Declaration.Range
-                    let (s1, e1), (s2, e2) =  ((m.StartColumn, m.StartLine), (m.EndColumn, m.EndLine))
+                    let (s1, e1), (s2, e2) =  ((m.StartColumn + 1, m.StartLine), (m.EndColumn + 1, m.EndLine))
                     yield sprintf "[%d:%d-%d:%d] %s" e1 s1 e2 s2 tld.Declaration.Name
                     for d in tld.Nested do
                       let m = d.Range
-                      let (s1, e1), (s2, e2) = ((m.StartColumn, m.StartLine), (m.EndColumn, m.EndLine))
+                      let (s1, e1), (s2, e2) = ((m.StartColumn + 1, m.StartLine), (m.EndColumn + 1, m.EndLine))
                       yield sprintf "  - [%d:%d-%d:%d] %s" e1 s1 e2 s2 d.Name ]
               printAgent.WriteLine(sprintf "DATA: declarations\n%s\n<<EOF>>" (String.concat "\n" declstrings))
           | Json -> prAsJson { Kind = "declarations"; Data = decls }
@@ -679,9 +679,9 @@ module internal Main =
             | FSharpFindDeclResult.DeclFound range ->
 
               match state.OutputMode with
-              | Text -> printAgent.WriteLine(sprintf "DATA: finddecl\n%s:%d:%d\n<<EOF>>" range.FileName range.StartLine range.StartColumn)
+              | Text -> printAgent.WriteLine(sprintf "DATA: finddecl\n%s:%d:%d\n<<EOF>>" range.FileName range.StartLine (range.StartColumn + 1))
               | Json ->
-                  let data = { Line = range.StartLine; Column = range.StartColumn; File = range.FileName }
+                  let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
                   prAsJson { Kind = "finddecl"; Data = data }
 
             main state

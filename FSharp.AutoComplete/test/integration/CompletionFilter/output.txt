@@ -1,7 +1,7 @@
 INFO: Synchronous parsing started
 <<EOF>>
 DATA: errors
-[2:5-2:6] ERROR The value, constructor, namespace or type 'c' is not defined
+[2:6-2:7] ERROR The value, constructor, namespace or type 'c' is not defined
 <<EOF>>
 DATA: completion
 Cons
