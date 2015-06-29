@@ -234,28 +234,16 @@
           "Case": "ModuleFileDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 1,
-            "Column": 0,
-            "Encoding": 512
-          },
-          "Item2": {
-            "Line": 16,
-            "Column": 0,
-            "Encoding": 8192
-          }
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 1,
+          "EndLine": 16
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 1,
-            "Column": 0,
-            "Encoding": 512
-          },
-          "Item2": {
-            "Line": 15,
-            "Column": 5,
-            "Encoding": 7685
-          }
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 15
         },
         "IsSingleTopLevel": true
       },
@@ -268,28 +256,16 @@
             "Case": "FieldDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 13,
-              "Column": 4,
-              "Encoding": 6660
-            },
-            "Item2": {
-              "Line": 15,
-              "Column": 5,
-              "Encoding": 7685
-            }
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 13,
-              "Column": 4,
-              "Encoding": 6660
-            },
-            "Item2": {
-              "Line": 15,
-              "Column": 5,
-              "Encoding": 7685
-            }
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
           },
           "IsSingleTopLevel": false
         }
@@ -304,28 +280,16 @@
           "Case": "ModuleDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 1,
-            "Column": 0,
-            "Encoding": 512
-          },
-          "Item2": {
-            "Line": 2,
-            "Column": 20,
-            "Encoding": 1044
-          }
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 1,
-            "Column": 8,
-            "Encoding": 520
-          },
-          "Item2": {
-            "Line": 2,
-            "Column": 20,
-            "Encoding": 1044
-          }
+          "StartColumn": 9,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
         },
         "IsSingleTopLevel": false
       },
@@ -338,28 +302,16 @@
             "Case": "FieldDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 2,
-              "Column": 6,
-              "Encoding": 1030
-            },
-            "Item2": {
-              "Line": 2,
-              "Column": 20,
-              "Encoding": 1044
-            }
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 2,
-              "Column": 6,
-              "Encoding": 1030
-            },
-            "Item2": {
-              "Line": 2,
-              "Column": 20,
-              "Encoding": 1044
-            }
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
           },
           "IsSingleTopLevel": false
         }
@@ -379,28 +331,16 @@
           "Case": "ModuleFileDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 1,
-            "Column": 0,
-            "Encoding": 512
-          },
-          "Item2": {
-            "Line": 14,
-            "Column": 5,
-            "Encoding": 7173
-          }
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 1,
-            "Column": 14,
-            "Encoding": 526
-          },
-          "Item2": {
-            "Line": 14,
-            "Column": 5,
-            "Encoding": 7173
-          }
+          "StartColumn": 15,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
         },
         "IsSingleTopLevel": true
       },
@@ -413,28 +353,16 @@
             "Case": "FieldDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 9,
-              "Column": 4,
-              "Encoding": 4612
-            },
-            "Item2": {
-              "Line": 9,
-              "Column": 19,
-              "Encoding": 4627
-            }
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 9,
-              "Column": 4,
-              "Encoding": 4612
-            },
-            "Item2": {
-              "Line": 9,
-              "Column": 19,
-              "Encoding": 4627
-            }
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
           },
           "IsSingleTopLevel": false
         },
@@ -446,28 +374,16 @@
             "Case": "FieldDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 7,
-              "Column": 4,
-              "Encoding": 3588
-            },
-            "Item2": {
-              "Line": 7,
-              "Column": 24,
-              "Encoding": 3608
-            }
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 7,
-              "Column": 4,
-              "Encoding": 3588
-            },
-            "Item2": {
-              "Line": 7,
-              "Column": 24,
-              "Encoding": 3608
-            }
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
           },
           "IsSingleTopLevel": false
         }
@@ -482,28 +398,16 @@
           "Case": "TypeDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 3,
-            "Column": 5,
-            "Encoding": 1541
-          },
-          "Item2": {
-            "Line": 5,
-            "Column": 7,
-            "Encoding": 2567
-          }
+          "StartColumn": 6,
+          "StartLine": 3,
+          "EndColumn": 8,
+          "EndLine": 5
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 4,
-            "Column": 2,
-            "Encoding": 2050
-          },
-          "Item2": {
-            "Line": 5,
-            "Column": 7,
-            "Encoding": 2567
-          }
+          "StartColumn": 3,
+          "StartLine": 4,
+          "EndColumn": 8,
+          "EndLine": 5
         },
         "IsSingleTopLevel": false
       },
@@ -516,28 +420,16 @@
             "Case": "OtherDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 4,
-              "Column": 4,
-              "Encoding": 2052
-            },
-            "Item2": {
-              "Line": 4,
-              "Column": 7,
-              "Encoding": 2055
-            }
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 4,
-              "Column": 4,
-              "Encoding": 2052
-            },
-            "Item2": {
-              "Line": 4,
-              "Column": 7,
-              "Encoding": 2055
-            }
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
           },
           "IsSingleTopLevel": false
         },
@@ -549,28 +441,16 @@
             "Case": "OtherDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 5,
-              "Column": 4,
-              "Encoding": 2564
-            },
-            "Item2": {
-              "Line": 5,
-              "Column": 7,
-              "Encoding": 2567
-            }
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 5,
-              "Column": 4,
-              "Encoding": 2564
-            },
-            "Item2": {
-              "Line": 5,
-              "Column": 7,
-              "Encoding": 2567
-            }
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
           },
           "IsSingleTopLevel": false
         }
@@ -585,28 +465,16 @@
           "Case": "TypeDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 11,
-            "Column": 5,
-            "Encoding": 5637
-          },
-          "Item2": {
-            "Line": 14,
-            "Column": 5,
-            "Encoding": 7173
-          }
+          "StartColumn": 6,
+          "StartLine": 11,
+          "EndColumn": 6,
+          "EndLine": 14
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 13,
-            "Column": 2,
-            "Encoding": 6658
-          },
-          "Item2": {
-            "Line": 14,
-            "Column": 5,
-            "Encoding": 7173
-          }
+          "StartColumn": 3,
+          "StartLine": 13,
+          "EndColumn": 6,
+          "EndLine": 14
         },
         "IsSingleTopLevel": false
       },
@@ -619,28 +487,16 @@
             "Case": "MethodDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 13,
-              "Column": 11,
-              "Encoding": 6667
-            },
-            "Item2": {
-              "Line": 14,
-              "Column": 5,
-              "Encoding": 7173
-            }
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 13,
-              "Column": 11,
-              "Encoding": 6667
-            },
-            "Item2": {
-              "Line": 14,
-              "Column": 5,
-              "Encoding": 7173
-            }
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
           },
           "IsSingleTopLevel": false
         }
@@ -660,28 +516,16 @@
           "Case": "ModuleFileDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 3,
-            "Column": 0,
-            "Encoding": 1536
-          },
-          "Item2": {
-            "Line": 7,
-            "Column": 0,
-            "Encoding": 3584
-          }
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 1,
+          "EndLine": 7
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 1,
-            "Column": 0,
-            "Encoding": 512
-          },
-          "Item2": {
-            "Line": 4,
-            "Column": 21,
-            "Encoding": 2069
-          }
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 22,
+          "EndLine": 4
         },
         "IsSingleTopLevel": true
       },
@@ -696,28 +540,16 @@
           "Case": "ModuleDecl"
         },
         "Range": {
-          "Item1": {
-            "Line": 3,
-            "Column": 0,
-            "Encoding": 1536
-          },
-          "Item2": {
-            "Line": 4,
-            "Column": 21,
-            "Encoding": 2069
-          }
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
         },
         "BodyRange": {
-          "Item1": {
-            "Line": 3,
-            "Column": 9,
-            "Encoding": 1545
-          },
-          "Item2": {
-            "Line": 4,
-            "Column": 21,
-            "Encoding": 2069
-          }
+          "StartColumn": 10,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
         },
         "IsSingleTopLevel": false
       },
@@ -730,28 +562,16 @@
             "Case": "FieldDecl"
           },
           "Range": {
-            "Item1": {
-              "Line": 4,
-              "Column": 6,
-              "Encoding": 2054
-            },
-            "Item2": {
-              "Line": 4,
-              "Column": 21,
-              "Encoding": 2069
-            }
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
           },
           "BodyRange": {
-            "Item1": {
-              "Line": 4,
-              "Column": 6,
-              "Encoding": 2054
-            },
-            "Item2": {
-              "Line": 4,
-              "Column": 21,
-              "Encoding": 2069
-            }
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
           },
           "IsSingleTopLevel": false
         }

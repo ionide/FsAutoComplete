@@ -152,7 +152,16 @@ type RangeConverter() =
 
   override x.WriteJson(writer, value, serializer) =
     let range = value :?> Range.range
-    serializer.Serialize(writer, (range.Start, range.End))
+    writer.WriteStartObject()
+    writer.WritePropertyName("StartColumn")
+    writer.WriteValue(range.StartColumn + 1)
+    writer.WritePropertyName("StartLine")
+    writer.WriteValue(range.StartLine)
+    writer.WritePropertyName("EndColumn")
+    writer.WriteValue(range.EndColumn + 1)
+    writer.WritePropertyName("EndLine")
+    writer.WriteValue(range.EndLine)
+    writer.WriteEndObject()
 
   override x.ReadJson(_reader, _t, _, _serializer) =
     raise (System.NotSupportedException())
