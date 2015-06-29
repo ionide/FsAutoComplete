@@ -150,7 +150,7 @@ type RangeConverter() =
 
   override x.CanConvert(t:System.Type) = t = typeof<Range.range>
 
-  override x.WriteJson(writer, value, serializer) =
+  override x.WriteJson(writer, value, _serializer) =
     let range = value :?> Range.range
     writer.WriteStartObject()
     writer.WritePropertyName("StartColumn")
