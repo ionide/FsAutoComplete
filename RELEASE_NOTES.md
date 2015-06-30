@@ -1,3 +1,10 @@
+#### 0.19.0 - 30.06.2015
+
+* Add symboluse command - https://github.com/fsharp/FsAutoComplete/pull/34
+  Breaking change: all columns returned are now 1-based. Format of error
+  locations has also changed to be more consistent with other formats.
+* Add param completion command - https://github.com/fsharp/FsAutoComplete/pull/30
+
 #### 0.18.2 - 13.06.2015
 
 * Update to FCS 0.0.90 (fix referencing PCL projects) - https://github.com/fsharp/FsAutoComplete/pull/26
