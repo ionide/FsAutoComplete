@@ -8,8 +8,8 @@ func
 INFO: Synchronous parsing started
 <<EOF>>
 DATA: errors
-[4:14-4:21] ERROR The namespace or module 'FileTwo' is not defined
-[8:11-8:27] ERROR Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.
+[4:15-4:22] ERROR The namespace or module 'FileTwo' is not defined
+[8:12-8:28] ERROR Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.
 <<EOF>>
 DATA: completion
 <<EOF>>

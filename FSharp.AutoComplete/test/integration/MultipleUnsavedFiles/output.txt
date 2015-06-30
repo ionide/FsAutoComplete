@@ -17,5 +17,5 @@ DATA: errors
 INFO: Synchronous parsing started
 <<EOF>>
 DATA: errors
-[1:22-1:28] ERROR The value, constructor, namespace or type 'addTwo' is not defined
+[1:23-1:29] ERROR The value, constructor, namespace or type 'addTwo' is not defined
 <<EOF>>

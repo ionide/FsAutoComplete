@@ -85,6 +85,50 @@ type MethodResponse =
     Overloads : Overload list
   }
 
+type SymbolUseRange =
+  {
+    Filename: string
+    StartLine: int
+    StartColumn: int
+    EndLine: int
+    EndColumn: int
+    IsFromDefinition: bool
+    IsFromAttribute : bool
+    IsFromComputationExpression : bool
+    IsFromDispatchSlotImplementation : bool
+    IsFromPattern : bool
+    IsFromType : bool
+  }
+
+type SymbolUseResponse =
+  {
+    Name: string
+    Uses: SymbolUseRange list
+  }
+
+type FSharpErrorInfo =
+  {
+    FileName: string
+    StartLine:int
+    EndLine:int
+    StartColumn:int
+    EndColumn:int
+    Severity:FSharpErrorSeverity
+    Message:string
+    Subcategory:string
+  }
+  static member OfFSharpError(e:Microsoft.FSharp.Compiler.FSharpErrorInfo) =
+    {
+      FileName = e.FileName
+      StartLine = e.StartLineAlternate
+      EndLine = e.EndLineAlternate
+      StartColumn = e.StartColumn + 1
+      EndColumn = e.EndColumn + 1
+      Severity = e.Severity
+      Message = e.Message
+      Subcategory = e.Subcategory
+    }
+
 type FSharpErrorSeverityConverter() =
   inherit JsonConverter()
 
@@ -106,9 +150,18 @@ type RangeConverter() =
 
   override x.CanConvert(t:System.Type) = t = typeof<Range.range>
 
-  override x.WriteJson(writer, value, serializer) =
+  override x.WriteJson(writer, value, _serializer) =
     let range = value :?> Range.range
-    serializer.Serialize(writer, (range.Start, range.End))
+    writer.WriteStartObject()
+    writer.WritePropertyName("StartColumn")
+    writer.WriteValue(range.StartColumn + 1)
+    writer.WritePropertyName("StartLine")
+    writer.WriteValue(range.StartLine)
+    writer.WritePropertyName("EndColumn")
+    writer.WriteValue(range.EndColumn + 1)
+    writer.WritePropertyName("EndLine")
+    writer.WriteValue(range.EndLine)
+    writer.WriteEndObject()
 
   override x.ReadJson(_reader, _t, _, _serializer) =
     raise (System.NotSupportedException())
@@ -144,6 +197,8 @@ module internal CommandInput =
     helptext <candidate>
       - fetch type signature for specified completion candidate
         (from last completion request). Only use in JSON mode.
+    symboluse ""<filename>"" <line> <col> [timeout]
+      - find all uses of the symbol for the specified location
     tooltip ""<filename>"" <line> <col> [timeout]
       - get tool tip for the specified location
     finddecl ""<filename>"" <line> <col> [timeout]
@@ -188,6 +243,7 @@ module internal CommandInput =
   type PosCommand =
     | Completion
     | Methods
+    | SymbolUse
     | ToolTip
     | FindDeclaration
 
@@ -260,6 +316,7 @@ module internal CommandInput =
   // Parse 'completion "<filename>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
+             (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
@@ -456,12 +513,13 @@ module internal Main =
             match results.GetErrors() with
             | None -> ()
             | Some errs ->
+              let errs = errs |> Seq.map FSharpErrorInfo.OfFSharpError
               match state.OutputMode with
               | Text ->
                 let sb = new System.Text.StringBuilder()
                 sb.AppendLine("DATA: errors") |> ignore
                 for e in errs do
-                  sb.AppendLine(sprintf "[%d:%d-%d:%d] %s %s" e.StartLineAlternate e.StartColumn e.EndLineAlternate e.EndColumn
+                  sb.AppendLine(sprintf "[%d:%d-%d:%d] %s %s" e.StartLine e.StartColumn e.EndLine e.EndColumn
                                   (if e.Severity = FSharpErrorSeverity.Error then "ERROR" else "WARNING") e.Message)
                   |> ignore
                 sb.Append("<<EOF>>") |> ignore
@@ -521,11 +579,11 @@ module internal Main =
               let declstrings =
                 [ for tld in decls do
                     let m = tld.Declaration.Range
-                    let (s1, e1), (s2, e2) =  ((m.StartColumn, m.StartLine), (m.EndColumn, m.EndLine))
+                    let (s1, e1), (s2, e2) =  ((m.StartColumn + 1, m.StartLine), (m.EndColumn + 1, m.EndLine))
                     yield sprintf "[%d:%d-%d:%d] %s" e1 s1 e2 s2 tld.Declaration.Name
                     for d in tld.Nested do
                       let m = d.Range
-                      let (s1, e1), (s2, e2) = ((m.StartColumn, m.StartLine), (m.EndColumn, m.EndLine))
+                      let (s1, e1), (s2, e2) = ((m.StartColumn + 1, m.StartLine), (m.EndColumn + 1, m.EndLine))
                       yield sprintf "  - [%d:%d-%d:%d] %s" e1 s1 e2 s2 d.Name ]
               printAgent.WriteLine(sprintf "DATA: declarations\n%s\n<<EOF>>" (String.concat "\n" declstrings))
           | Json -> prAsJson { Kind = "declarations"; Data = decls }
@@ -617,6 +675,36 @@ module internal Main =
 
               main state
 
+          | SymbolUse ->
+              let symboluses =
+                  async {
+                      let! symboluse = tyRes.GetSymbol(line, col, lineStr)
+                      if symboluse.IsNone then return None else
+                      let! symboluses = tyRes.GetUsesOfSymbolInFile symboluse.Value.Symbol
+                      return Some {
+                        Name = symboluse.Value.Symbol.DisplayName
+                        Uses =
+                          [ for su in symboluses do
+                              yield { StartLine = su.RangeAlternate.StartLine
+                                      StartColumn = su.RangeAlternate.StartColumn + 1
+                                      EndLine = su.RangeAlternate.EndLine
+                                      EndColumn = su.RangeAlternate.EndColumn + 1
+                                      Filename = su.FileName
+                                      IsFromDefinition = su.IsFromDefinition
+                                      IsFromAttribute = su.IsFromAttribute
+                                      IsFromComputationExpression = su.IsFromComputationExpression
+                                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
+                                      IsFromPattern = su.IsFromPattern
+                                      IsFromType = su.IsFromType } ] } }
+                  |> Async.RunSynchronously
+
+              match state.OutputMode, symboluses with
+              | Text, _ -> printMsg "ERROR" "symboluse not supported in text mode"
+              | Json, Some su -> prAsJson { Kind = "symboluse"; Data = su }
+              | _ -> printMsg "ERROR" "No symbols found"
+
+              main state
+
           | FindDeclaration ->
             let declarations = tyRes.GetDeclarationLocation(line,col,lineStr)
                                |> Async.RunSynchronously
@@ -625,9 +713,9 @@ module internal Main =
             | FSharpFindDeclResult.DeclFound range ->
 
               match state.OutputMode with
-              | Text -> printAgent.WriteLine(sprintf "DATA: finddecl\n%s:%d:%d\n<<EOF>>" range.FileName range.StartLine range.StartColumn)
+              | Text -> printAgent.WriteLine(sprintf "DATA: finddecl\n%s:%d:%d\n<<EOF>>" range.FileName range.StartLine (range.StartColumn + 1))
               | Json ->
-                  let data = { Line = range.StartLine; Column = range.StartColumn; File = range.FileName }
+                  let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
                   prAsJson { Kind = "finddecl"; Data = data }
 
             main state
