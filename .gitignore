@@ -21,7 +21,6 @@ pack/*
 lib/NUnit*
 lib/FsUnit
 
-FSharp.AutoComplete/test/unit/build
 packages
 .paket/paket.exe
 

@@ -9,7 +9,7 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 
-let project = "FSharp.AutoComplete"
+let project = "FsAutoComplete"
 let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
 
 // Read additional information from the release notes document
@@ -29,12 +29,12 @@ let releaseArchive = "fsautocomplete.zip"
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
 Target "BuildDebug" (fun _ ->
-  MSBuildDebug "" "Build" ["./FSharp.AutoComplete.sln"]
+  MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 )
 
 Target "BuildRelease" (fun _ ->
-  MSBuildRelease "" "Build" ["./FSharp.AutoComplete.sln"]
+  MSBuildRelease "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 )
 
@@ -97,7 +97,7 @@ Target "ReleaseArchive" (fun _ ->
 
 Target "ReleaseInstructions"
   (fun _ ->
-   printfn "Go to https://github.com/fsharp/FSharp.AutoComplete/releases/new"
+   printfn "Go to https://github.com/fsharp/FsAutoComplete/releases/new"
    printfn "Enter the following information:\n"
    printfn "\tTag version: %s" release.AssemblyVersion
    printfn "\tRelease title: %s" release.AssemblyVersion

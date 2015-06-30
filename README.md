@@ -1,4 +1,4 @@
-# FSharp.AutoComplete
+# FsAutoComplete
 
 This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by:
 
@@ -11,11 +11,11 @@ This README is targeted at developers.
 
 ## Build Status
 
-### Travis [![Travis build status](https://travis-ci.org/fsharp/FSharp.AutoComplete.png)](https://travis-ci.org/fsharp/FSharp.AutoComplete)
+### Travis [![Travis build status](https://travis-ci.org/fsharp/FsAutoComplete.png)](https://travis-ci.org/fsharp/FsAutoComplete)
 
 The configuration is contained in [.travis.yml](.travis.yml).
 
-### AppVeyor [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/y1s7nje31qi1j8ed)](https://ci.appveyor.com/project/fsgit/fsharpbinding)
+### AppVeyor [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/0ld2sp0cl25ktiuq?svg=true)](https://ci.appveyor.com/project/rneatherway/fsautocomplete)
 
 The configuration is contained in [appveyor.yml](appveyor.yml).
 
@@ -23,13 +23,13 @@ The configuration is contained in [appveyor.yml](appveyor.yml).
 
 There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
 
-The [integration tests](FSharp.AutoComplete/test/integration) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
+The [integration tests](FsAutoComplete/test/integration) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
 
 There are [unit tests](FSharp.CompilerBinding.Tests) for FSharp.CompilerBinding, which smoothes the integration with [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests are simply constructed using NUnit.
 
 ## Communication protocol
 
-It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](FSharp.AutoComplete/test/integration/Test1).
+It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](FsAutoComplete/test/integration/Test1).
 
 The available commands can be listed by running `fsautocomplete.exe` and entering `help`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
 
