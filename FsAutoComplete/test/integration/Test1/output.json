@@ -1,86 +1,565 @@
-DATA: project
-<absolute path removed>/test/integration/Test1/FileTwo.fs
-<absolute path removed>/test/integration/Test1/Program.fs
-<<EOF>>
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-<<EOF>>
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-<<EOF>>
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-<<EOF>>
-DATA: completion
-funky
-<<EOF>>
-DATA: completion
-Equals
-GetHashCode
-GetType
-Terrific
-ToString
-<<EOF>>
-DATA: completion
-Bar
-Foo
-NewObjectType
-Qux
-add
-addition
-<<EOF>>
-DATA: completion
-func
-<<EOF>>
-DATA: completion
-Bar
-Foo
-NewObjectType
-Qux
-add
-addition
-<<EOF>>
-DATA: tooltip
-val add : x:int -> y:int -> int
-
-Full name: FileTwo.add
-<<EOF>>
-DATA: tooltip
-val func : x:int -> int
-
-Full name: Program.X.func
-<<EOF>>
-DATA: tooltip
-val testval : FileTwo.NewObjectType
-
-Full name: Program.testval
-<<EOF>>
-DATA: tooltip
-val funky : x:int -> int
-
-Full name: Script.XA.funky
-<<EOF>>
-DATA: declarations
-[1:1-16:1] Program
-  - [13:5-15:6] main
-[1:1-2:21] X
-  - [2:7-2:21] func
-<<EOF>>
-DATA: declarations
-[1:1-14:6] FileTwo
-  - [9:5-9:20] add
-  - [7:5-7:25] addition
-[3:6-5:8] Foo
-  - [4:5-4:8] Bar
-  - [5:5-5:8] Qux
-[11:6-14:6] NewObjectType
-  - [13:12-14:6] Terrific
-<<EOF>>
-DATA: declarations
-[3:1-7:1] Script
-[3:1-4:22] XA
-  - [4:7-4:22] funky
-<<EOF>>
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/Test1/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/Test1/FileTwo.fs",
+      "<absolute path removed>/test/integration/Test1/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/Test1/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Framework": "v4.0"
+  }
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "funky": "val funky : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "funky",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Equals": "System.Object.Equals(obj: obj) : bool"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Equals",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetHashCode",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetType",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "func": "val func : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val func : x:int -> int\n\nFull name: Program.X.func"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val funky : x:int -> int\n\nFull name: Script.XA.funky"
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "Program_1_of_1",
+        "Name": "Program",
+        "Glyph": 84,
+        "Kind": {
+          "Case": "ModuleFileDecl"
+        },
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 1,
+          "EndLine": 16
+        },
+        "BodyRange": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 15
+        },
+        "IsSingleTopLevel": true
+      },
+      "Nested": [
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "main",
+          "Glyph": 6,
+          "Kind": {
+            "Case": "FieldDecl"
+          },
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
+          },
+          "IsSingleTopLevel": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "X_1_of_1",
+        "Name": "X",
+        "Glyph": 84,
+        "Kind": {
+          "Case": "ModuleDecl"
+        },
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
+        },
+        "BodyRange": {
+          "StartColumn": 9,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
+        },
+        "IsSingleTopLevel": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "X_1_of_1",
+          "Name": "func",
+          "Glyph": 6,
+          "Kind": {
+            "Case": "FieldDecl"
+          },
+          "Range": {
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
+          },
+          "BodyRange": {
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
+          },
+          "IsSingleTopLevel": false
+        }
+      ]
+    }
+  ]
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "FileTwo_1_of_1",
+        "Name": "FileTwo",
+        "Glyph": 84,
+        "Kind": {
+          "Case": "ModuleFileDecl"
+        },
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "BodyRange": {
+          "StartColumn": 15,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "IsSingleTopLevel": true
+      },
+      "Nested": [
+        {
+          "UniqueName": "FileTwo_1_of_1",
+          "Name": "add",
+          "Glyph": 6,
+          "Kind": {
+            "Case": "FieldDecl"
+          },
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
+          },
+          "IsSingleTopLevel": false
+        },
+        {
+          "UniqueName": "FileTwo_1_of_1",
+          "Name": "addition",
+          "Glyph": 6,
+          "Kind": {
+            "Case": "FieldDecl"
+          },
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
+          },
+          "IsSingleTopLevel": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "Foo_1_of_1",
+        "Name": "Foo",
+        "Glyph": 132,
+        "Kind": {
+          "Case": "TypeDecl"
+        },
+        "Range": {
+          "StartColumn": 6,
+          "StartLine": 3,
+          "EndColumn": 8,
+          "EndLine": 5
+        },
+        "BodyRange": {
+          "StartColumn": 3,
+          "StartLine": 4,
+          "EndColumn": 8,
+          "EndLine": 5
+        },
+        "IsSingleTopLevel": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "Foo_1_of_1",
+          "Name": "Bar",
+          "Glyph": 144,
+          "Kind": {
+            "Case": "OtherDecl"
+          },
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
+          },
+          "IsSingleTopLevel": false
+        },
+        {
+          "UniqueName": "Foo_1_of_1",
+          "Name": "Qux",
+          "Glyph": 144,
+          "Kind": {
+            "Case": "OtherDecl"
+          },
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
+          },
+          "IsSingleTopLevel": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "NewObjectType_1_of_1",
+        "Name": "NewObjectType",
+        "Glyph": 0,
+        "Kind": {
+          "Case": "TypeDecl"
+        },
+        "Range": {
+          "StartColumn": 6,
+          "StartLine": 11,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "BodyRange": {
+          "StartColumn": 3,
+          "StartLine": 13,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "IsSingleTopLevel": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "NewObjectType_1_of_1",
+          "Name": "Terrific",
+          "Glyph": 72,
+          "Kind": {
+            "Case": "MethodDecl"
+          },
+          "Range": {
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
+          },
+          "BodyRange": {
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
+          },
+          "IsSingleTopLevel": false
+        }
+      ]
+    }
+  ]
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "Script_1_of_1",
+        "Name": "Script",
+        "Glyph": 84,
+        "Kind": {
+          "Case": "ModuleFileDecl"
+        },
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 1,
+          "EndLine": 7
+        },
+        "BodyRange": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 22,
+          "EndLine": 4
+        },
+        "IsSingleTopLevel": true
+      },
+      "Nested": []
+    },
+    {
+      "Declaration": {
+        "UniqueName": "XA_1_of_1",
+        "Name": "XA",
+        "Glyph": 84,
+        "Kind": {
+          "Case": "ModuleDecl"
+        },
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
+        },
+        "BodyRange": {
+          "StartColumn": 10,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
+        },
+        "IsSingleTopLevel": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "XA_1_of_1",
+          "Name": "funky",
+          "Glyph": 6,
+          "Kind": {
+            "Case": "FieldDecl"
+          },
+          "Range": {
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
+          },
+          "IsSingleTopLevel": false
+        }
+      ]
+    }
+  ]
+}

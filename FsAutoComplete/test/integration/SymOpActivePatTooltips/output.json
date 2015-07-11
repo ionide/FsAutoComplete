@@ -1,77 +1,76 @@
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-<<EOF>>
-INFO: No tooltip information
-<<EOF>>
-DATA: tooltip
-val ( |<>| ) : x:int -> y:int -> int
-
-Full name: Script.( |<>| )
-<<EOF>>
-DATA: tooltip
-val ( |<>| ) : x:int -> y:int -> int
-
-Full name: Script.( |<>| )
-<<EOF>>
-DATA: tooltip
-val ( |<>| ) : x:int -> y:int -> int
-
-Full name: Script.( |<>| )
-<<EOF>>
-DATA: tooltip
-val ( |<>| ) : x:int -> y:int -> int
-
-Full name: Script.( |<>| )
-<<EOF>>
-DATA: tooltip
-val ( |<>| ) : x:int -> y:int -> int
-
-Full name: Script.( |<>| )
-<<EOF>>
-INFO: No tooltip information
-<<EOF>>
-INFO: No tooltip information
-<<EOF>>
-DATA: tooltip
-val ( |..| ) : x:int -> y:int -> int
-
-Full name: Script.( |..| )
-<<EOF>>
-DATA: tooltip
-val ( |..| ) : x:int -> y:int -> int
-
-Full name: Script.( |..| )
-<<EOF>>
-DATA: tooltip
-val ( |..| ) : x:int -> y:int -> int
-
-Full name: Script.( |..| )
-<<EOF>>
-DATA: tooltip
-val ( |..| ) : x:int -> y:int -> int
-
-Full name: Script.( |..| )
-<<EOF>>
-DATA: tooltip
-val ( |..| ) : x:int -> y:int -> int
-
-Full name: Script.( |..| )
-<<EOF>>
-INFO: No tooltip information
-<<EOF>>
-DATA: tooltip
-val ( |Zero|Succ| ) : n:int -> Choice<unit,int>
-
-Full name: Script.( |Zero|Succ| )
-<<EOF>>
-DATA: tooltip
-val ( |Zero|Succ| ) : n:int -> Choice<unit,int>
-
-Full name: Script.( |Zero|Succ| )
-<<EOF>>
-DATA: tooltip
-val ( |Zero|Succ| ) : n:int -> Choice<unit,int>
-
-Full name: Script.( |Zero|Succ| )
-<<EOF>>
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "INFO",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "INFO",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "INFO",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "INFO",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+}

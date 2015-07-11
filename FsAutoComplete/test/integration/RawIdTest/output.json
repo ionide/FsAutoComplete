@@ -1,51 +1,313 @@
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-[9:2-9:3] ERROR Missing qualification after '.'
-[11:2-11:3] ERROR Missing qualification after '.'
-[11:3-11:4] ERROR Unexpected reserved keyword in implementation file
-[11:3-11:4] ERROR Unexpected reserved keyword in implementation file
-[11:2-11:3] ERROR Missing qualification after '.'
-[9:2-9:3] ERROR Missing qualification after '.'
-[9:1-9:2] ERROR The value or constructor 'X' is not defined
-[11:1-11:2] ERROR The value or constructor 'X' is not defined
-<<EOF>>
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-[9:2-9:3] ERROR Missing qualification after '.'
-[11:2-11:3] ERROR Missing qualification after '.'
-[11:3-11:4] ERROR Unexpected reserved keyword in implementation file
-[11:3-11:4] ERROR Unexpected reserved keyword in implementation file
-[11:2-11:3] ERROR Missing qualification after '.'
-[9:2-9:3] ERROR Missing qualification after '.'
-[9:1-9:2] ERROR The value or constructor 'Y' is not defined
-[11:1-11:2] ERROR The value or constructor 'Y' is not defined
-<<EOF>>
-DATA: completion
-Another`Column
-Column1
-<<EOF>>
-DATA: completion
-Another`Column
-Column1
-<<EOF>>
-DATA: completion
-Another`Column
-Column1
-<<EOF>>
-DATA: completion
-Another`Column
-Column Two
-Column1
-<<EOF>>
-DATA: completion
-Another`Column
-Column Two
-Column1
-<<EOF>>
-DATA: completion
-Another`Column
-Column Two
-Column1
-<<EOF>>
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'X' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'X' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'Y' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'Y' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Another`Column": "val Another`Column : int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    }
+  ]
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Another`Column": "val Another`Column : int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Another`Column": "property Y.Another`Column: int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Column Two": "property Y.Column Two: int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Another`Column": "property Y.Another`Column: int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}

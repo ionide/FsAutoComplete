@@ -1,2 +1,4 @@
-ERROR: File '<absolute path removed>/test/integration/RobustCommands/NoSuchProject.fsproj' does not exist
-<<EOF>>
+{
+  "Kind": "ERROR",
+  "Data": "File '<absolute path removed>/test/integration/RobustCommands/NoSuchProject.fsproj' does not exist"
+}

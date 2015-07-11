@@ -1,12 +1,34 @@
-DATA: project
-<absolute path removed>/test/integration/RobustCommands/Project/FileTwo.fs
-<absolute path removed>/test/integration/RobustCommands/Project/Program.fs
-<<EOF>>
-INFO: Synchronous parsing started
-<<EOF>>
-DATA: errors
-<<EOF>>
-ERROR: Position is out of range
-<<EOF>>
-ERROR: Position is out of range
-<<EOF>>
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/RobustCommands/Project/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/RobustCommands/Project/FileTwo.fs",
+      "<absolute path removed>/test/integration/RobustCommands/Project/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/RobustCommands/Project/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Framework": "v4.0"
+  }
+}
+{
+  "Kind": "INFO",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "ERROR",
+  "Data": "Position is out of range"
+}
+{
+  "Kind": "ERROR",
+  "Data": "Position is out of range"
+}
