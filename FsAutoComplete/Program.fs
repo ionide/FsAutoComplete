@@ -386,7 +386,7 @@ module internal Main =
 
     let parsed file =
       let ok = Map.containsKey file state.Files
-      if not ok then printMsg "ERROR" (sprintf "File '%s' not parsed" file)
+      if not ok then printMsg "error" (sprintf "File '%s' not parsed" file)
       ok
 
     /// Is the specified position consistent with internal state of file?
@@ -396,7 +396,7 @@ module internal Main =
       let lines = state.Files.[file].Lines
       let ok = line <= lines.Length && line >= 1 &&
                col <= lines.[line - 1].Length + 1 && col >= 1
-      if not ok then printMsg "ERROR" "Position is out of range"
+      if not ok then printMsg "error" "Position is out of range"
       ok
 
     let getoptions file state =
@@ -433,9 +433,9 @@ module internal Main =
           }
 
         match kind with
-        | Synchronous -> printMsg "INFO" "Synchronous parsing started"
+        | Synchronous -> printMsg "info" "Synchronous parsing started"
                          Async.RunSynchronously task
-        | Normal -> printMsg "INFO" "Background parsing started"
+        | Normal -> printMsg "info" "Background parsing started"
                     Async.StartImmediate task
 
 
@@ -464,10 +464,10 @@ module internal Main =
               |> List.fold (fun s f -> Map.add f p s) state.Projects
             main { state with Projects = projects }
           with e ->
-            printMsg "ERROR" (sprintf "Project file '%s' is invalid: '%s'" file e.Message)
+            printMsg "error" (sprintf "Project file '%s' is invalid: '%s'" file e.Message)
             main state
         else
-          printMsg "ERROR" (sprintf "File '%s' does not exist" file)
+          printMsg "error" (sprintf "File '%s' does not exist" file)
           main state
 
     | Declarations file ->
@@ -501,7 +501,7 @@ module internal Main =
           let tyResOpt = agent.GetTypedParseResultWithTimeout(projFile, file, text, [||], args, AllowStaleResults.MatchingFileName, timeout)
                          |> Async.RunSynchronously
           match tyResOpt with
-          | None -> printMsg "ERROR" "Timeout when fetching typed parse result"; main state
+          | None -> printMsg "error" "Timeout when fetching typed parse result"; main state
           | Some tyRes ->
 
           match cmd with
@@ -532,7 +532,7 @@ module internal Main =
 
                   main { state with HelpText = helptext }
               | None ->
-                  printMsg "ERROR" "Could not get type information"
+                  printMsg "error" "Could not get type information"
                   main state
 
           | ToolTip ->
@@ -541,12 +541,12 @@ module internal Main =
                            |> Async.RunSynchronously
 
               match tipopt with
-              | None -> printMsg "INFO" "No tooltip information"
+              | None -> printMsg "info" "No tooltip information"
               | Some (tip,_) ->
                 match tip with
                 | FSharpToolTipText(elems) when elems |> List.forall (function
                   FSharpToolTipElement.None -> true | _ -> false) ->
-                  printMsg "INFO" "No tooltip information"
+                  printMsg "info" "No tooltip information"
                 | _ -> prAsJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
 
               main state
@@ -576,7 +576,7 @@ module internal Main =
 
               match symboluses with
               | Some su -> prAsJson { Kind = "symboluse"; Data = su }
-              | _ -> printMsg "ERROR" "No symbols found"
+              | _ -> printMsg "error" "No symbols found"
 
               main state
 
@@ -584,7 +584,7 @@ module internal Main =
             let declarations = tyRes.GetDeclarationLocation(line,col,lineStr)
                                |> Async.RunSynchronously
             match declarations with
-            | FSharpFindDeclResult.DeclNotFound _ -> printMsg "ERROR" "Could not find declaration"
+            | FSharpFindDeclResult.DeclNotFound _ -> printMsg "error" "Could not find declaration"
             | FSharpFindDeclResult.DeclFound range ->
 
                   let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
@@ -646,7 +646,7 @@ module internal Main =
                                   }
 
                                ] } }
-            | _ -> printMsg "ERROR" "Could not find method"
+            | _ -> printMsg "error" "Could not find method"
 
             main state
 
@@ -656,13 +656,13 @@ module internal Main =
     | CompilerLocation ->
         let locopt = FSharpEnvironment.BinFolderOfDefaultFSharpCompiler None
         match locopt with
-        | None -> printMsg "ERROR" "Could not find compiler"
+        | None -> printMsg "error" "Could not find compiler"
         | Some loc -> prAsJson { Kind = "compilerlocation"; Data = loc }
 
         main state
 
     | Error(msg) ->
-        printMsg "ERROR" msg
+        printMsg "error" msg
         main state
 
     | Quit ->
