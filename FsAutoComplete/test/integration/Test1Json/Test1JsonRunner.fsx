@@ -9,11 +9,11 @@ open System
  *)
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.txt"
+File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
-p.send "outputmode json\n"
+
 p.project "Test1.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Script.fsx"

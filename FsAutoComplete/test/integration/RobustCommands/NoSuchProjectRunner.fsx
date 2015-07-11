@@ -4,12 +4,12 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "nosuchproject.txt"
+File.Delete "nosuchproject.json"
 
 let p = new FsAutoCompleteWrapper()
 
 p.project "NoSuchProject.fsproj"
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "nosuchproject.txt"
+|> writeNormalizedOutput "nosuchproject.json"
 

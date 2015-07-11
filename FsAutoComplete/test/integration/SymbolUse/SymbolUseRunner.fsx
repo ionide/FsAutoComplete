@@ -13,7 +13,7 @@ File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
-p.send "outputmode json\n"
+
 p.project "SymbolUse.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Script.fsx"
