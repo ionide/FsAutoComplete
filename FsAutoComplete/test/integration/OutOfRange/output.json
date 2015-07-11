@@ -1,5 +1,5 @@
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
@@ -38,7 +38,7 @@
   ]
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Position is out of range"
 }
 {
@@ -62,15 +62,15 @@
   "Data": "module XA\n\nfrom Script"
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "No tooltip information"
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "No tooltip information"
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Position is out of range"
 }
 {
@@ -82,14 +82,14 @@
   }
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Could not find declaration"
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Could not find declaration"
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Position is out of range"
 }

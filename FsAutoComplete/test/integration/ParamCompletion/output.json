@@ -17,7 +17,7 @@
   }
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
@@ -25,7 +25,7 @@
   "Data": []
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {

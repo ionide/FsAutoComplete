@@ -17,7 +17,7 @@
   }
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
@@ -25,10 +25,10 @@
   "Data": []
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Position is out of range"
 }
 {
-  "Kind": "ERROR",
+  "Kind": "error",
   "Data": "Position is out of range"
 }

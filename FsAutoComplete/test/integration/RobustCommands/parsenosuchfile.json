@@ -17,6 +17,6 @@
   }
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Background parsing started"
 }

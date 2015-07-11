@@ -1,5 +1,5 @@
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
@@ -88,7 +88,7 @@
   ]
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {

@@ -1,5 +1,5 @@
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
@@ -7,7 +7,7 @@
   "Data": []
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "No tooltip information"
 }
 {
@@ -31,11 +31,11 @@
   "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "No tooltip information"
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "No tooltip information"
 }
 {
@@ -59,7 +59,7 @@
   "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
 }
 {
-  "Kind": "INFO",
+  "Kind": "info",
   "Data": "No tooltip information"
 }
 {
