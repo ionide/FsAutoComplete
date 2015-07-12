@@ -9,7 +9,7 @@ open System
  *)
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.txt"
+File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -23,5 +23,5 @@ p.completion "Test-Class.fsx" 11 13
 p.completion "Test-Class.fsx" 13 14
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "output.txt"
+|> writeNormalizedOutput "output.json"
 

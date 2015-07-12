@@ -4,7 +4,7 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "completebadposition.txt"
+File.Delete "completebadposition.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -14,5 +14,5 @@ p.completion "Project/Program.fs" 50 0
 p.completion "Project/Program.fs" 1 100
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "completebadposition.txt"
+|> writeNormalizedOutput "completebadposition.json"
 

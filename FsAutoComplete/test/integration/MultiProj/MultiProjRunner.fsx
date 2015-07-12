@@ -4,7 +4,7 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.txt"
+File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -40,5 +40,5 @@ p.completion "Proj2/Program.fs" 10 20
 
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "output.txt"
+|> writeNormalizedOutput "output.json"
 

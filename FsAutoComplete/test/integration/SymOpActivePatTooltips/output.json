@@ -1,0 +1,76 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+}
+{
+  "Kind": "tooltip",
+  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+}

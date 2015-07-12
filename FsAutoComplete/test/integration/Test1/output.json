@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/integration/Test1Json/Test1.fsproj",
+    "Project": "<absolute path removed>/test/integration/Test1/Test1.fsproj",
     "Files": [
-      "<absolute path removed>/test/integration/Test1Json/FileTwo.fs",
-      "<absolute path removed>/test/integration/Test1Json/Program.fs"
+      "<absolute path removed>/test/integration/Test1/FileTwo.fs",
+      "<absolute path removed>/test/integration/Test1/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/integration/Test1Json/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/test/integration/Test1/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -205,22 +205,6 @@
 {
   "Kind": "tooltip",
   "Data": "val funky : x:int -> int\n\nFull name: Script.XA.funky"
-}
-{
-  "Kind": "finddecl",
-  "Data": {
-    "File": "<absolute path removed>/test/integration/Test1Json/FileTwo.fs",
-    "Line": 13,
-    "Column": 12
-  }
-}
-{
-  "Kind": "finddecl",
-  "Data": {
-    "File": "<absolute path removed>/test/integration/Test1Json/Script.fsx",
-    "Line": 4,
-    "Column": 7
-  }
 }
 {
   "Kind": "declarations",

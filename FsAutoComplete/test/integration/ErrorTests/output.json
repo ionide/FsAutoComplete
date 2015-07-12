@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/integration/ErrorTestsJson/Test1.fsproj",
+    "Project": "<absolute path removed>/test/integration/ErrorTests/Test1.fsproj",
     "Files": [
-      "<absolute path removed>/test/integration/ErrorTestsJson/FileTwo.fs",
-      "<absolute path removed>/test/integration/ErrorTestsJson/Program.fs"
+      "<absolute path removed>/test/integration/ErrorTests/FileTwo.fs",
+      "<absolute path removed>/test/integration/ErrorTests/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/integration/ErrorTestsJson/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/test/integration/ErrorTests/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -24,7 +24,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/integration/ErrorTestsJson/Program.fs",
+      "FileName": "<absolute path removed>/test/integration/ErrorTests/Program.fs",
       "StartLine": 4,
       "EndLine": 4,
       "StartColumn": 15,
@@ -34,7 +34,7 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/integration/ErrorTestsJson/Program.fs",
+      "FileName": "<absolute path removed>/test/integration/ErrorTests/Program.fs",
       "StartLine": 8,
       "EndLine": 8,
       "StartColumn": 12,
@@ -44,32 +44,13 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/integration/ErrorTestsJson/Program.fs",
+      "FileName": "<absolute path removed>/test/integration/ErrorTests/Program.fs",
       "StartLine": 10,
       "EndLine": 10,
       "StartColumn": 19,
       "EndColumn": 23,
       "Severity": "Error",
       "Message": "This expression was expected to have type\n    int    \nbut here has type\n    string    ",
-      "Subcategory": "typecheck"
-    }
-  ]
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/test/integration/ErrorTestsJson/Script.fsx",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 13,
-      "EndColumn": 20,
-      "Severity": "Error",
-      "Message": "The value or constructor 'unnamed' is not defined",
       "Subcategory": "typecheck"
     }
   ]
@@ -87,6 +68,25 @@
       "Name": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/ErrorTests/Script.fsx",
+      "StartLine": 8,
+      "EndLine": 8,
+      "StartColumn": 13,
+      "EndColumn": 20,
+      "Severity": "Error",
+      "Message": "The value or constructor 'unnamed' is not defined",
+      "Subcategory": "typecheck"
     }
   ]
 }

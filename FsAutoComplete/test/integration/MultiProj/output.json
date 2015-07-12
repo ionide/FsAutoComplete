@@ -1,0 +1,636 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/MultiProj/Proj1/Proj1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/MultiProj/Proj1/Ops.fs",
+      "<absolute path removed>/test/integration/MultiProj/Proj1/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/MultiProj/Proj1/bin/Debug/Proj1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Framework": "v4.0"
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Equals": "System.Object.Equals(obj: obj) : bool"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Equals",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetHashCode",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetType",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "func": "val func : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/MultiProj/Proj2/Proj2.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/MultiProj/Proj2/Core.fs",
+      "<absolute path removed>/test/integration/MultiProj/Proj2/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/MultiProj/Proj2/bin/Debug/Proj2.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Framework": "v4.0"
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Equals": "System.Object.Equals(obj: obj) : bool"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Equals",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetHashCode",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetType",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Terrifying",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "func": "val func : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Equals": "System.Object.Equals(obj: obj) : bool"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Equals",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetHashCode",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetType",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "func": "val func : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Equals": "System.Object.Equals(obj: obj) : bool"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Equals",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetHashCode",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetType",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Terrifying",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "func": "val func : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}

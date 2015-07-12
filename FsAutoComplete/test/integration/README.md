@@ -3,7 +3,7 @@ This directory contains mainly integration tests for the project.
 To run the tests use `make integration-test` or `./fake
 IntegrationTest` from the `FsAutoComplete` directory. This will run
 `git status` as its last action. The tests are considered to have
-passed if there are no changes to the various `*.{txt,json}` files. If a
+passed if there are no changes to the various `*.json` files. If a
 feature has been changed, then there may be acceptable changes --
 think carefully and then commit them.
 

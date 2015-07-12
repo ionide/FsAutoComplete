@@ -1,0 +1,447 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/CompletionFilter/Script.fsx",
+      "StartLine": 2,
+      "EndLine": 2,
+      "StartColumn": 6,
+      "EndColumn": 7,
+      "Severity": "Error",
+      "Message": "The value, constructor, namespace or type 'c' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "choose": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Cons",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Empty",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "append",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "average",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "averageBy",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "choose",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "collect",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "concat",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "empty",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "exists",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "exists2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "filter",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "find",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "findIndex",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "fold",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "fold2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "foldBack",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "foldBack2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "forall",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "forall2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "head",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "init",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "isEmpty",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "iter",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "iter2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "iteri",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "iteri2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "length",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "map",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "map2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "map3",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "mapi",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "mapi2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "max",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "maxBy",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "min",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "minBy",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "nth",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ofArray",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ofSeq",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "partition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "permute",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "pick",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "reduce",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "reduceBack",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "replicate",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "rev",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "scan",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "scanBack",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "sort",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "sortBy",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "sortWith",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "sum",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "sumBy",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "tail",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "toArray",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "toSeq",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "tryFind",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "tryFindIndex",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "tryPick",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "unzip",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "unzip3",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "zip",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "zip3",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "choose": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "choose",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "collect",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "concat",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "choose": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "choose",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "collect",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "concat",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "foldBack",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "foldBack2",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "pick",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "reduce",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "reduceBack",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "replicate",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "scan",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "scanBack",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "tryPick",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}

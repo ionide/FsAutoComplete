@@ -4,7 +4,7 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "completewithoutproject.txt"
+File.Delete "completewithoutproject.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -14,5 +14,5 @@ p.parse "Project/Program.fs"
 p.completion "Project/Program.fs" 4 23
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "completewithoutproject.txt"
+|> writeNormalizedOutput "completewithoutproject.json"
 

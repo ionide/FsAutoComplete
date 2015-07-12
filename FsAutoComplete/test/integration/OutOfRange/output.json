@@ -1,0 +1,95 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/OutOfRange/Script.fsx",
+      "StartLine": 6,
+      "EndLine": 6,
+      "StartColumn": 15,
+      "EndColumn": 16,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/OutOfRange/Script.fsx",
+      "StartLine": 6,
+      "EndLine": 6,
+      "StartColumn": 15,
+      "EndColumn": 16,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/OutOfRange/Script.fsx",
+      "StartLine": 6,
+      "EndLine": 6,
+      "StartColumn": 13,
+      "EndColumn": 15,
+      "Severity": "Error",
+      "Message": "The value or constructor 'XA' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "funky": "val funky : x:int -> int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "funky",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": "module XA\n\nfrom Script"
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/integration/OutOfRange/Script.fsx",
+    "Line": 3,
+    "Column": 8
+  }
+}
+{
+  "Kind": "error",
+  "Data": "Could not find declaration"
+}
+{
+  "Kind": "error",
+  "Data": "Could not find declaration"
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}
