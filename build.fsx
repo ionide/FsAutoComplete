@@ -63,7 +63,7 @@ Target "IntegrationTest" (fun _ ->
     let ok, out, err =
       Git.CommandHelper.runGitCommand
                         "."
-                        ("diff --exit-code " + integrationTestDir)
+                        ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
     if not ok then
       trace (toLines out)
       failwithf "Integration tests failed:\n%s" err

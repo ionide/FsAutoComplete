@@ -19,6 +19,8 @@ type FsAutoCompleteWrapper() =
     p.StartInfo.RedirectStandardError  <- true
     p.StartInfo.RedirectStandardInput  <- true
     p.StartInfo.UseShellExecute <- false
+    p.StartInfo.EnvironmentVariables.Add("FSharpBinding_BlockingTimeout", "5000")
+    p.StartInfo.EnvironmentVariables.Add("FSharpBinding_MaxTimeout", "10000")
     p.Start () |> ignore
 
   member x.project (s: string) : unit =
