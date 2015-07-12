@@ -31,30 +31,10 @@ There are [unit tests](FSharp.CompilerBinding.Tests) for FSharp.CompilerBinding,
 
 It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](FsAutoComplete/test/integration/Test1).
 
-The available commands can be listed by running `fsautocomplete.exe` and entering `help`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
+The available commands can be listed by running `fsautocomplete.exe --commands`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
 
-There are two formats for data to be returned in: text and JSON. The text support is the default, and provided for backwards compatibility and testing. An example of a session in 'text' mode is:
+Data is returned as JSON. An example of a simple session is:
 
-    project "Test1.fsproj"
-    <absolute path removed>/Program.fs
-    <<EOF>>
-    parse "Program.fs"
-    module X =
-      let func x = x + 1
-
-    let val2 = X.func 2
-    <<EOF>>
-    INFO: Background parsing started
-    completion "Program.fs" 4 13
-    DATA: completion
-    func
-    <<EOF>>
-
-Notice that the program locations are 1-indexed for both lines and columns (here 4 and 13 to select the point just after `X.`). In this text mode, multiline responses are terminated with `<<EOF>>`. This clumsiness was the reason for moving to JSON.
-
-Editors will want to use the JSON mode for preference, selected by sending the command `outputmode json`. The same simple session using JSON would look like:
-
-    outputmode json
     project "Test1.fsproj"
     {"Kind":"project","Data":{"Files":["<absolute path removed>/Program.fs"],"Output":"<absolute path removed>/bin/Debug/Test1.exe"}}
     parse "Program.fs"
@@ -67,7 +47,5 @@ Editors will want to use the JSON mode for preference, selected by sending the c
     completion "Program.fs" 4 13
     {"Kind":"completion","Data":["func"]}
 
-The structured data returned is able to be richer. Note for example that the output of the project is also returned. Parsing is also simplified (given a JSON parser!) because each response is exactly one line. However, it is less human-readable, which is why it is not currently used for most of the integration tests.
-
-For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.txt` or `*.json` files, which contain the output.
+Each response is exactly one line, which simplifies the application of a JSON parser. For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.json` files, which contain the output.
 
