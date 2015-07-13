@@ -56,10 +56,17 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Types.fs" />
     <Compile Include="Debug.fs" />
-    <Compile Include="FileSystem.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="Options.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="TipFormatter.fs" />
+    <Compile Include="FileSystem.fs" />
+    <Compile Include="CompilerLocationUtils.fs" />
+    <Compile Include="CompilerServiceInterface.fs" />
+    <Compile Include="CommandResponse.fs" />
+    <Compile Include="CommandInput.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
     <None Include="build.fsx" />
@@ -85,10 +92,6 @@
       <HintPath>..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <ProjectReference Include="..\FSharp.CompilerBinding\FSharp.CompilerBinding.fsproj">
-      <Project>{88F6940F-D300-474C-B2A7-E2ECD5B04B57}</Project>
-      <Name>FSharp.CompilerBinding</Name>
-    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the
        targets below and uncomment it.  Other similar extension points

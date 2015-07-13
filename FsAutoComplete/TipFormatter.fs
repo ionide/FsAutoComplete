@@ -1,7 +1,7 @@
 ﻿// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
-module internal FSharp.InteractiveAutocomplete.TipFormatter
+module internal FsAutoComplete.TipFormatter
 
 open System.Text
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -29,7 +29,7 @@ let private buildFormatElement isSingle el (sb:StringBuilder) =
       let items, msg =
         if items.Length > 10 then
           (items |> Seq.take 10 |> List.ofSeq),
-            sprintf "   (+%d other overloads)</i>" (items.Length - 10)
+            sprintf "   (+%d other overloads)" (items.Length - 10)
         else items, null
       if (isSingle && items.Length > 1) then
         sb.AppendLine("Multiple overloads") |> ignore

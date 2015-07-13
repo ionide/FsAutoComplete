@@ -64,8 +64,10 @@ type FsAutoCompleteWrapper() =
     s + t
 
 let formatJson json =
-    let parsedJson = JsonConvert.DeserializeObject(json)
-    JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
+    try
+      let parsedJson = JsonConvert.DeserializeObject(json)
+      JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
+    with _ -> json
 
 let writeNormalizedOutput (fn: string) (s: string) =
   let lines = s.TrimEnd().Split('\n')

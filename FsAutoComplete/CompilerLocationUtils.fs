@@ -1,4 +1,4 @@
-namespace FSharp.CompilerBinding
+namespace FsAutoComplete
 
 open System
 open System.Diagnostics

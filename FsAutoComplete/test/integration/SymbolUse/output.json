@@ -122,8 +122,8 @@
   }
 }
 {
-  "Kind": "error",
-  "Data": "No symbols found"
+  "Kind": "info",
+  "Data": "No symbol information found"
 }
 {
   "Kind": "symboluse",

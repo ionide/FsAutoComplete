@@ -179,7 +179,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Another`Column": "val Another`Column : int"
+    "Name": "Another`Column",
+    "Text": "val Another`Column : int"
   }
 }
 {
@@ -215,7 +216,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Another`Column": "val Another`Column : int"
+    "Name": "Another`Column",
+    "Text": "val Another`Column : int"
   }
 }
 {
@@ -236,33 +238,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Another`Column": "property Y.Another`Column: int"
-  }
-}
-{
-  "Kind": "completion",
-  "Data": [
-    {
-      "Name": "Another`Column",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Column Two",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Column1",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    }
-  ]
-}
-{
-  "Kind": "helptext",
-  "Data": {
-    "Column Two": "property Y.Column Two: int"
+    "Name": "Another`Column",
+    "Text": "property Y.Another`Column: int"
   }
 }
 {
@@ -288,7 +265,35 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Another`Column": "property Y.Another`Column: int"
+    "Name": "Column Two",
+    "Text": "property Y.Column Two: int"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Another`Column",
+    "Text": "property Y.Another`Column: int"
   }
 }
 {

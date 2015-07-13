@@ -1,4 +1,4 @@
-namespace FSharp.InteractiveAutocomplete
+namespace FsAutoComplete
 
 open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
 open Microsoft.FSharp.Compiler

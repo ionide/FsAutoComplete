@@ -1,3 +1,4 @@
+#I ".."
 #load "../TestHelpers.fsx"
 open TestHelpers
 open System.IO

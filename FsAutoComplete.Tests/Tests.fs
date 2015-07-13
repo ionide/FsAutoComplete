@@ -1,6 +1,5 @@
-module FSharp.CompilerBinding.Tests
+module FsAutoComplete.Tests
 
-open FSharp.CompilerBinding
 open NUnit.Framework
 
 [<Test>]
