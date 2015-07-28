@@ -147,7 +147,7 @@ module CommandResponse =
         Subcategory = e.Subcategory
       }
 
-  type FSharpErrorSeverityConverter() =
+  type private FSharpErrorSeverityConverter() =
     inherit JsonConverter()
 
     override x.CanConvert(t:System.Type) = t = typeof<FSharpErrorSeverity>
@@ -163,7 +163,7 @@ module CommandResponse =
     override x.CanRead = false
     override x.CanWrite = true
 
-  type RangeConverter() =
+  type private RangeConverter() =
     inherit JsonConverter()
 
     override x.CanConvert(t:System.Type) = t = typeof<Range.range>
@@ -187,109 +187,94 @@ module CommandResponse =
     override x.CanRead = false
     override x.CanWrite = true
 
-  type internal ResponseAgent() =
-    let agent = MailboxProcessor.Start(fun agent ->
-      let rec loop () = async {
-          let! (msg: Choice<string,AsyncReplyChannel<unit>>) = agent.Receive()
-          match msg with
-          | Choice1Of2 (s: string) -> Console.WriteLine s; return! loop ()
-          | Choice2Of2 ch -> ch.Reply ()
+  let private jsonConverters =
+    [|
+     new FSharpErrorSeverityConverter() :> JsonConverter;
+     new RangeConverter() :> JsonConverter
+    |]
+
+  let private writeJson(o: obj) = Console.WriteLine (JsonConvert.SerializeObject(o, jsonConverters))
+
+  let info(s) = writeJson { Kind = "info"; Data = s }
+  let error(s) = writeJson { Kind = "error"; Data = s }
+
+  let helpText(name: string, tip: FSharpToolTipText) =
+    let text = TipFormatter.formatTip tip
+    writeJson { Kind = "helptext"; Data = { Name = name; Text = text } }
+
+  let project(projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
+    let projectData =
+      { Project = projectFileName
+        Files = projectFiles
+        Output = match outFileOpt with Some x -> x | None -> "null"
+        References = List.sortBy IO.Path.GetFileName references
+        Framework = match frameworkOpt with Some x -> x | None -> "null" }
+    writeJson { Kind = "project"; Data = projectData }
+
+  let completion(decls: FSharpDeclarationListItem[]) =
+    writeJson
+      { Kind = "completion"
+        Data = [ for d in decls do
+                   let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
+                   yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
+
+  let symbolUse(symboluses: FSharpSymbolUse[]) =
+    let su =
+      { Name = symboluses.[0].Symbol.DisplayName
+        Uses =
+          [ for su in symboluses do
+              yield { StartLine = su.RangeAlternate.StartLine
+                      StartColumn = su.RangeAlternate.StartColumn + 1
+                      EndLine = su.RangeAlternate.EndLine
+                      EndColumn = su.RangeAlternate.EndColumn + 1
+                      Filename = su.FileName
+                      IsFromDefinition = su.IsFromDefinition
+                      IsFromAttribute = su.IsFromAttribute
+                      IsFromComputationExpression = su.IsFromComputationExpression
+                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
+                      IsFromPattern = su.IsFromPattern
+                      IsFromType = su.IsFromType } ] }
+    writeJson { Kind = "symboluse"; Data = su }
+
+  let methods(meth: FSharpMethodGroup, commas: int) =
+    writeJson
+      { Kind = "method"
+        Data = { Name = meth.MethodName
+                 CurrentParameter = commas
+                 Overloads =
+                  [ for o in meth.Methods do
+                     let tip = TipFormatter.formatTip o.Description
+                     yield {
+                       Tip = tip
+                       TypeText = o.TypeText
+                       Parameters =
+                         [ for p in o.Parameters do
+                            yield {
+                              Name = p.ParameterName
+                              CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
+                              Display = p.Display
+                              Description = p.Description
+                            }
+                       ]
+                       IsStaticArguments = o.IsStaticArguments
+                     }
+                  ] }
         }
-      loop ()
-      )
 
-    let jsonConverters =
-      [|
-       new FSharpErrorSeverityConverter() :> JsonConverter;
-       new RangeConverter() :> JsonConverter
-      |]
+  let errors(errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
+    writeJson { Kind = "errors"
+                Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
 
-    member private x.Write(s) = agent.Post (Choice1Of2 s)
+  let findDeclaration(range: Range.range) =
+    let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
+    writeJson { Kind = "finddecl"; Data = data }
 
-    member x.WriteJson(o: obj) = x.Write (JsonConvert.SerializeObject(o, jsonConverters))
+  let declarations(decls) =
+    writeJson { Kind = "declarations"; Data = decls }
 
-    member x.Info(s) = x.WriteJson { Kind = "info"; Data = s }
-    member x.Error(s) = x.WriteJson { Kind = "error"; Data = s }
+  let toolTip(tip) =
+    writeJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
 
-    member x.Quit() = agent.PostAndReply(fun ch -> Choice2Of2 ch)
-
-    member x.HelpText(name: string, tip: FSharpToolTipText) =
-      let text = TipFormatter.formatTip tip
-      x.WriteJson { Kind = "helptext"; Data = { Name = name; Text = text } }
-
-    member x.Project(projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
-      let projectData =
-        { Project = projectFileName
-          Files = projectFiles
-          Output = match outFileOpt with Some x -> x | None -> "null"
-          References = List.sortBy IO.Path.GetFileName references
-          Framework = match frameworkOpt with Some x -> x | None -> "null" }
-      x.WriteJson { Kind = "project"; Data = projectData }
-
-    member x.Completion(decls: FSharpDeclarationListItem[]) =
-      x.WriteJson
-        { Kind = "completion"
-          Data = [ for d in decls do
-                     let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                     yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
-
-    member x.SymbolUse(symboluses: FSharpSymbolUse[]) =
-      let su =
-        { Name = symboluses.[0].Symbol.DisplayName
-          Uses =
-            [ for su in symboluses do
-                yield { StartLine = su.RangeAlternate.StartLine
-                        StartColumn = su.RangeAlternate.StartColumn + 1
-                        EndLine = su.RangeAlternate.EndLine
-                        EndColumn = su.RangeAlternate.EndColumn + 1
-                        Filename = su.FileName
-                        IsFromDefinition = su.IsFromDefinition
-                        IsFromAttribute = su.IsFromAttribute
-                        IsFromComputationExpression = su.IsFromComputationExpression
-                        IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
-                        IsFromPattern = su.IsFromPattern
-                        IsFromType = su.IsFromType } ] }
-      x.WriteJson { Kind = "symboluse"; Data = su }
-
-    member x.Method(meth: FSharpMethodGroup, commas: int) =
-      x.WriteJson
-        { Kind = "method"
-          Data = { Name = meth.MethodName
-                   CurrentParameter = commas
-                   Overloads =
-                    [ for o in meth.Methods do
-                       let tip = TipFormatter.formatTip o.Description
-                       yield {
-                         Tip = tip
-                         TypeText = o.TypeText
-                         Parameters =
-                           [ for p in o.Parameters do
-                              yield {
-                                Name = p.ParameterName
-                                CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
-                                Display = p.Display
-                                Description = p.Description
-                              }
-                         ]
-                         IsStaticArguments = o.IsStaticArguments
-                       }
-                    ] }
-          }
-
-    member x.Errors(errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
-      x.WriteJson { Kind = "errors"
-                    Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
-
-    member x.FindDeclaration(range: Range.range) =
-      let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
-      x.WriteJson { Kind = "finddecl"; Data = data }
-
-    member x.Declarations(decls) =
-      x.WriteJson { Kind = "declarations"; Data = decls }
-
-    member x.ToolTip(tip) =
-      x.WriteJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
-
-    member x.Message(kind: string, data: 'a) =
-      x.WriteJson { Kind = kind; Data = data }
+  let message(kind: string, data: 'a) =
+    writeJson { Kind = kind; Data = data }
 

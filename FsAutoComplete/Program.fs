@@ -69,7 +69,7 @@ type internal State =
       else Success (opts, lines, lines.[line - 1])
 
 module internal Main =
-  let respond = new CommandResponse.ResponseAgent()
+  module Response = CommandResponse
   let checker = new FSharpCompilerServiceChecker()
 
   let mutable currentFiles = Map.empty
@@ -88,12 +88,12 @@ module internal Main =
               let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
               match checkResults with
               | FSharpCheckFileAnswer.Aborted -> ()
-              | FSharpCheckFileAnswer.Succeeded results -> respond.Errors(results.Errors)
+              | FSharpCheckFileAnswer.Succeeded results -> Response.errors(results.Errors)
             }
           match kind with
-          | Synchronous -> respond.Info "Synchronous parsing started"
+          | Synchronous -> Response.info "Synchronous parsing started"
                            Async.RunSynchronously task
-          | Normal -> respond.Info "Background parsing started"
+          | Normal -> Response.info "Background parsing started"
                       Async.StartImmediate task
 
         let file = Path.GetFullPath file
@@ -115,11 +115,11 @@ module internal Main =
         let file = Path.GetFullPath file
         match checker.TryGetProjectOptions(file) with
         | Result.Failure s ->
-            respond.Error(s)
+            Response.error(s)
             main state
 
         | Result.Success(po, projectFiles, outFileOpt, references, frameworkOpt) ->
-            respond.Project(file, projectFiles, outFileOpt, references, frameworkOpt)
+            Response.project(file, projectFiles, outFileOpt, references, frameworkOpt)
 
             let projects =
               projectFiles
@@ -129,31 +129,31 @@ module internal Main =
     | Declarations file ->
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithSource(file) with
-        | Failure s -> respond.Error(s)
+        | Failure s -> Response.error(s)
         | Success (checkOptions, source) ->
             let decls = checker.GetDeclarations(file, source, checkOptions)
-            respond.Declarations(decls)
+            Response.declarations(decls)
 
         main state
 
     | HelpText sym ->
         match Map.tryFind sym state.HelpText with
-        | None -> respond.Error (sprintf "No help text available for symbol '%s'" sym) 
-        | Some tip -> respond.HelpText(sym, tip)
+        | None -> Response.error (sprintf "No help text available for symbol '%s'" sym) 
+        | Some tip -> Response.helpText(sym, tip)
 
         main state
 
     | PosCommand(cmd, file, line, col, timeout, filter) ->
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
-        | Failure s -> respond.Error(s)
+        | Failure s -> Response.error(s)
                        main state
         | Success (options, lines, lineStr) ->
           // TODO: Should sometimes pass options.Source in here to force a reparse
           //       for completions e.g. `(some typed expr).$`
           let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
           match tyResOpt with
-          | None -> respond.Error "Cached typecheck results not yet available"; main state
+          | None -> Response.error "Cached typecheck results not yet available"; main state
           | Some tyRes ->
 
           match cmd with
@@ -169,24 +169,24 @@ module internal Main =
                     |> Array.tryFind (fun d -> (declName d).StartsWith residue)
                   match firstMatchOpt with
                   | None -> ()
-                  | Some d -> respond.HelpText(d.Name, d.DescriptionText)
+                  | Some d -> Response.helpText(d.Name, d.DescriptionText)
 
-                  respond.Completion(decls)
+                  Response.completion(decls)
                   
                   let helptext =
                     Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
                   main { state with HelpText = helptext }
 
               | None ->
-                  respond.Error "Timed out while fetching completions"
+                  Response.error "Timed out while fetching completions"
                   main state
 
           | ToolTip ->
               // A failure is only info here, as this command is expected to be
               // used 'on idle', and frequent errors are expected.
               match tyRes.TryGetToolTip line col lineStr with
-              | Result.Failure s -> respond.Info(s)
-              | Result.Success tip -> respond.ToolTip(tip)
+              | Result.Failure s -> Response.info(s)
+              | Result.Success tip -> Response.toolTip(tip)
   
               main state
 
@@ -194,39 +194,38 @@ module internal Main =
               // A failure is only info here, as this command is expected to be
               // used 'on idle', and frequent errors are expected.
               match tyRes.TryGetSymbolUse line col lineStr with
-              | Result.Failure s -> respond.Info(s)
-              | Result.Success su -> respond.SymbolUse(su)
+              | Result.Failure s -> Response.info(s)
+              | Result.Success su -> Response.symbolUse(su)
 
               main state
 
           | FindDeclaration ->
               match tyRes.TryFindDeclaration line col lineStr with
-              | Result.Failure s -> respond.Error s
-              | Result.Success range -> respond.FindDeclaration(range)
+              | Result.Failure s -> Response.error s
+              | Result.Success range -> Response.findDeclaration(range)
 
               main state
 
           | Methods ->
               match tyRes.TryGetMethodOverrides lines line col with
-              | Result.Failure s -> respond.Error s
-              | Result.Success (meth, commas) -> respond.Method(meth, commas)
+              | Result.Failure s -> Response.error s
+              | Result.Success (meth, commas) -> Response.methods(meth, commas)
 
               main state
 
     | CompilerLocation ->
         let locopt = FSharpEnvironment.BinFolderOfDefaultFSharpCompiler None
         match locopt with
-        | None -> respond.Error "Could not find compiler"
-        | Some loc -> respond.Message("compilerlocation", loc)
+        | None -> Response.error "Could not find compiler"
+        | Some loc -> Response.message("compilerlocation", loc)
 
         main state
 
     | Error(msg) ->
-        respond.Error msg
+        Response.error msg
         main state
 
     | Quit ->
-        respond.Quit()
         (!Debug.output).Close ()
         0
 
