@@ -20,7 +20,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "choose": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+    "Name": "choose",
+    "Text": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
   }
 }
 {
@@ -351,7 +352,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "choose": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+    "Name": "choose",
+    "Text": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
   }
 }
 {
@@ -377,7 +379,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "choose": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+    "Name": "choose",
+    "Text": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
   }
 }
 {

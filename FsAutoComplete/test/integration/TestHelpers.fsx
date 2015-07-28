@@ -19,8 +19,7 @@ type FsAutoCompleteWrapper() =
     p.StartInfo.RedirectStandardError  <- true
     p.StartInfo.RedirectStandardInput  <- true
     p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FSharpBinding_BlockingTimeout", "5000")
-    p.StartInfo.EnvironmentVariables.Add("FSharpBinding_MaxTimeout", "10000")
+    p.StartInfo.EnvironmentVariables.Add("mFSharp_ToolTipSpinWaitTime", "10000")
     p.Start () |> ignore
 
   member x.project (s: string) : unit =
@@ -64,8 +63,10 @@ type FsAutoCompleteWrapper() =
     s + t
 
 let formatJson json =
-    let parsedJson = JsonConvert.DeserializeObject(json)
-    JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
+    try
+      let parsedJson = JsonConvert.DeserializeObject(json)
+      JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
+    with _ -> json
 
 let writeNormalizedOutput (fn: string) (s: string) =
   let lines = s.TrimEnd().Split('\n')

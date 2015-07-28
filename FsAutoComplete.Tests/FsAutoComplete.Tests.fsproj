@@ -7,13 +7,13 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>f5ebdd99-5ed7-4311-a5cb-7cfce696ff88</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>FSharp.CompilerBinding.Tests</RootNamespace>
-    <AssemblyName>FSharp.CompilerBinding.Tests</AssemblyName>
+    <RootNamespace>FsAutoComplete.Tests</RootNamespace>
+    <AssemblyName>FsAutoComplete.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <UsePartialTypes>False</UsePartialTypes>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
-    <Name>FSharp.CompilerBinding.Tests</Name>
+    <Name>FsAutoComplete.Tests</Name>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -25,7 +25,7 @@
     <OutputPath>bin\Debug</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSharp.CompilerBinding.Tests.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FsAutoComplete.Tests.XML</DocumentationFile>
     <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -35,7 +35,7 @@
     <OutputPath>bin\Release</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSharp.CompilerBinding.Tests.xml</DocumentationFile>
+    <DocumentationFile>bin\Release\FsAutoComplete.Tests.xml</DocumentationFile>
     <DebugSymbols>False</DebugSymbols>
   </PropertyGroup>
   <PropertyGroup>
@@ -70,9 +70,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FSharp.CompilerBinding\FSharp.CompilerBinding.fsproj">
-      <Project>{88F6940F-D300-474C-B2A7-E2ECD5B04B57}</Project>
-      <Name>FSharp.CompilerBinding</Name>
+    <ProjectReference Include="..\FsAutoComplete\FsAutoComplete.fsproj">
+      <Project>{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}</Project>
+      <Name>FsAutoComplete</Name>
     </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the

@@ -1,7 +1,7 @@
 // --------------------------------------------------------------------------------------
 // (c) Robin Neatherway
 // --------------------------------------------------------------------------------------
-namespace FSharp.InteractiveAutocomplete
+namespace FsAutoComplete
 
 open System
 open System.Diagnostics

@@ -9,7 +9,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "func": "val func : x:int -> int"
+    "Name": "func",
+    "Text": "val func : x:int -> int"
   }
 }
 {

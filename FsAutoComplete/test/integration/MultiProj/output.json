@@ -35,7 +35,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Equals": "System.Object.Equals(obj: obj) : bool"
+    "Name": "Equals",
+    "Text": "System.Object.Equals(obj: obj) : bool"
   }
 }
 {
@@ -71,7 +72,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -112,7 +114,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "func": "val func : x:int -> int"
+    "Name": "func",
+    "Text": "val func : x:int -> int"
   }
 }
 {
@@ -128,7 +131,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -203,7 +207,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Equals": "System.Object.Equals(obj: obj) : bool"
+    "Name": "Equals",
+    "Text": "System.Object.Equals(obj: obj) : bool"
   }
 }
 {
@@ -239,7 +244,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -280,7 +286,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "func": "val func : x:int -> int"
+    "Name": "func",
+    "Text": "val func : x:int -> int"
   }
 }
 {
@@ -296,7 +303,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -353,7 +361,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Equals": "System.Object.Equals(obj: obj) : bool"
+    "Name": "Equals",
+    "Text": "System.Object.Equals(obj: obj) : bool"
   }
 }
 {
@@ -389,7 +398,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -430,7 +440,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "func": "val func : x:int -> int"
+    "Name": "func",
+    "Text": "val func : x:int -> int"
   }
 }
 {
@@ -446,7 +457,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -503,7 +515,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Equals": "System.Object.Equals(obj: obj) : bool"
+    "Name": "Equals",
+    "Text": "System.Object.Equals(obj: obj) : bool"
   }
 }
 {
@@ -539,7 +552,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {
@@ -580,7 +594,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "func": "val func : x:int -> int"
+    "Name": "func",
+    "Text": "val func : x:int -> int"
   }
 }
 {
@@ -596,7 +611,8 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Bar": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Name": "Bar",
+    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
   }
 }
 {

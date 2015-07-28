@@ -18,7 +18,6 @@ p.project "Test1.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Script.fsx"
 p.parse "Program.fs"
-Threading.Thread.Sleep(8000)
 p.completion "Script.fsx" 6 16
 p.completion "Program.fs" 8 20
 p.completion "Program.fs" 4 23
@@ -33,7 +32,6 @@ p.finddeclaration "Script.fsx" 6 16
 p.declarations "Program.fs"
 p.declarations "FileTwo.fs"
 p.declarations "Script.fsx"
-Threading.Thread.Sleep(1000)
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

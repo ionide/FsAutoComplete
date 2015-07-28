@@ -1,3 +1,4 @@
+#I ".."
 #load "../TestHelpers.fsx"
 open TestHelpers
 open System.IO
@@ -17,14 +18,12 @@ let p = new FsAutoCompleteWrapper()
 p.project "Test1.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Program.fs"
-Threading.Thread.Sleep(6000)
 p.methods "Program.fs" 4 36
 p.methods "Program.fs" 4 37
 p.methods "Program.fs" 8 30
 p.methods "Program.fs" 8 35
 p.methods "Program.fs" 10 39
 p.methods "Program.fs" 14 3
-Threading.Thread.Sleep(1000)
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

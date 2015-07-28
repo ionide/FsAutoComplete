@@ -3,12 +3,10 @@
 // --------------------------------------------------------------------------------------
 
 #nowarn "40" // recursive references checked at runtime
-namespace FSharp.CompilerBinding
+namespace FsAutoComplete
 
 open System
-open Microsoft.FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Compiler
-open System.Globalization
 
 // --------------------------------------------------------------------------------------
 // Simple implementation of LazyList
