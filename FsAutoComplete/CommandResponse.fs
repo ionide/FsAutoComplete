@@ -219,22 +219,25 @@ module CommandResponse =
                    yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
   let symbolUse(symboluses: FSharpSymbolUse[]) =
-    let su =
-      { Name = symboluses.[0].Symbol.DisplayName
-        Uses =
-          [ for su in symboluses do
-              yield { StartLine = su.RangeAlternate.StartLine
-                      StartColumn = su.RangeAlternate.StartColumn + 1
-                      EndLine = su.RangeAlternate.EndLine
-                      EndColumn = su.RangeAlternate.EndColumn + 1
-                      Filename = su.FileName
-                      IsFromDefinition = su.IsFromDefinition
-                      IsFromAttribute = su.IsFromAttribute
-                      IsFromComputationExpression = su.IsFromComputationExpression
-                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
-                      IsFromPattern = su.IsFromPattern
-                      IsFromType = su.IsFromType } ] }
-    writeJson { Kind = "symboluse"; Data = su }
+    if symboluses.Length = 0 then
+      info "No symbol uses found"
+    else
+      let su =
+        { Name = symboluses.[0].Symbol.DisplayName
+          Uses =
+            [ for su in symboluses do
+                yield { StartLine = su.RangeAlternate.StartLine
+                        StartColumn = su.RangeAlternate.StartColumn + 1
+                        EndLine = su.RangeAlternate.EndLine
+                        EndColumn = su.RangeAlternate.EndColumn + 1
+                        Filename = su.FileName
+                        IsFromDefinition = su.IsFromDefinition
+                        IsFromAttribute = su.IsFromAttribute
+                        IsFromComputationExpression = su.IsFromComputationExpression
+                        IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
+                        IsFromPattern = su.IsFromPattern
+                        IsFromType = su.IsFromType } ] }
+      writeJson { Kind = "symboluse"; Data = su }
 
   let methods(meth: FSharpMethodGroup, commas: int) =
     writeJson
@@ -277,4 +280,3 @@ module CommandResponse =
 
   let message(kind: string, data: 'a) =
     writeJson { Kind = kind; Data = data }
-
