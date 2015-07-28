@@ -18,7 +18,6 @@ p.project "SymbolUse.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Script.fsx"
 p.parse "Program.fs"
-Threading.Thread.Sleep(3000)
 p.symboluse "Program.fs" 4 5 //testval
 p.symboluse "Program.fs" 14 12 //testval shadowed
 p.symboluse "Program.fs" 12 4 //miss

@@ -52,7 +52,7 @@ module CommandInput =
     if str = "<<EOF>>" then List.rev input
     else readInput (str::input)
 
-  // Parse 'parse "<filename>" [full]' command
+  // Parse 'parse "<filename>" [sync]' command
   let parse = parser {
     let! _ = string "parse "
     let! _ = char '"'
