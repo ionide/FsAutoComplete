@@ -5,12 +5,9 @@ open System.IO
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-type ParseAndCheckResults(parse: FSharpParseFileResults,
-                          check: FSharpCheckFileResults,
-                          version: int) =
-  let parseResults = parse
-  let checkResults = check
-  let _version = version
+type ParseAndCheckResults(parseResults: FSharpParseFileResults,
+                          checkResults: FSharpCheckFileResults,
+                          _version: int) =
 
   member x.TryGetMethodOverrides (lines: string[]) (line: int) (col: int) =
     // Find the starting point, ideally right after the first '('
