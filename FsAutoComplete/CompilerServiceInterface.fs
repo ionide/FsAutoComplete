@@ -14,7 +14,7 @@ type ParseAndCheckResults(parse: FSharpParseFileResults,
 
   member x.TryGetMethodOverrides (lines: string[]) (line: int) (col: int) =
     // Find the starting point, ideally right after the first '('
-    let lineCutoff = line - 3
+    let lineCutoff = line - 6
     let commas, line, col =
       let rec prevPos (line,col) =
         match line, col with
