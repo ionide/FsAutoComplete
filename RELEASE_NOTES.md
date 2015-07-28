@@ -1,3 +1,23 @@
+#### 0.20.0 - 28.07.2015
+
+Backwards-incompatible changes:
+
+* Update helptext command to return { Name = ""; Text = "" }. Fixes #35.
+* `project` command response now has 'null' for OutputFile and
+  TargetFramework if a value cannot be determined.
+
+Other changes:
+
+* FSharp.CompilerBinding removed, and used parts absorbed. Fixes #17.
+* ScriptCheckerOptions fetched with no timeout, and also stores them.
+  Fixes #18, #28.
+* If a .fs file is not in a loaded project, produce an incomplete
+  typecheck environment for it to give basic results.
+* Update parsing of project options to include ProjectReferences. Fixes #39.
+* Separate parsing of commands, main command loop, and formatting of
+  response message into separate modules.
+
+
 #### 0.19.0 - 30.06.2015
 
 * Add symboluse command - https://github.com/fsharp/FsAutoComplete/pull/34
