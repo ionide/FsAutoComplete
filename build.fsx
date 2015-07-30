@@ -3,12 +3,14 @@
 open Fake
 open Fake.Git
 open Fake.ReleaseNotesHelper
+open Fake.UserInputHelper
 open Fake.ZipHelper
 open Fake.AssemblyInfoFile
 open System
 open System.IO
 open System.Text.RegularExpressions
 
+let githubOrg = "fsharp"
 let project = "FsAutoComplete"
 let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
 
@@ -95,16 +97,26 @@ Target "ReleaseArchive" (fun _ ->
         ++ (buildReleaseDir + "/*.exe"))
 )
 
-Target "ReleaseInstructions"
-  (fun _ ->
-   printfn "Go to https://github.com/fsharp/FsAutoComplete/releases/new"
-   printfn "Enter the following information:\n"
-   printfn "\tTag version: %s" release.AssemblyVersion
-   printfn "\tRelease title: %s" release.AssemblyVersion
-   printfn "\tNotes:\n"
-   for note in release.Notes do
-     printfn "%s" note
-   printfn "\n\nAttach the archive '%s'" releaseArchive
+#load "lib/Octokit.fsx"
+open Octokit
+
+Target "Release" (fun _ ->
+    let user = getUserInput "Username: "
+    let pw = getUserPassword "Password: "
+
+    StageAll ""
+    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
+    Branches.push ""
+
+    Branches.tag "" release.NugetVersion
+    Branches.pushTag "" "origin" release.NugetVersion
+    
+    // release on github
+    createClient user pw
+    |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
+    |> uploadFile releaseArchive
+    |> releaseDraft
+    |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
@@ -115,7 +127,6 @@ Target "Clean" (fun _ ->
 Target "Build" id
 Target "Test" id
 Target "All" id
-Target "Release" id
 
 "BuildDebug"
   ==> "Build"
@@ -134,7 +145,6 @@ Target "Release" id
 "AssemblyInfo"
   ==> "BuildRelease"
   ==> "ReleaseArchive"
-  ==> "ReleaseInstructions"
   ==> "Release"
 
 RunTargetOrDefault "BuildDebug"
