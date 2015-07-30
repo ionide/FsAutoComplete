@@ -23,6 +23,7 @@ p.symboluse "Program.fs" 14 12 //testval shadowed
 p.symboluse "Program.fs" 12 4 //miss
 p.symboluse "Program.fs" 12 5 //shadowed start
 p.symboluse "Program.fs" 12 13 //shadowed end
+p.symboluse "Script.fsx" 6 18 // no uses due to compile error
 
 Threading.Thread.Sleep(1000)
 p.send "quit\n"

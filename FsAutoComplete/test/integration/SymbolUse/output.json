@@ -30,7 +30,18 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/SymbolUse/Script.fsx",
+      "StartLine": 6,
+      "EndLine": 6,
+      "StartColumn": 15,
+      "EndColumn": 24,
+      "Severity": "Error",
+      "Message": "The value, constructor, namespace or type 'Directory' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
 }
 {
   "Kind": "info",
@@ -165,5 +176,12 @@
         "IsFromType": false
       }
     ]
+  }
+}
+{
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "Directory",
+    "Uses": []
   }
 }
