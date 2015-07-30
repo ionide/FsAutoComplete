@@ -1,7 +1,6 @@
 # F#
 [Bb]in/
 [Oo]bj/
-repository/*
 *.suo
 *.pidb
 *.userprefs
@@ -15,11 +14,9 @@ repository/*
 *.swn
 *.pyc
 *.orig
-=======
+
 *~
 pack/*
-lib/NUnit*
-lib/FsUnit
 
 packages
 .paket/paket.exe
@@ -27,3 +24,5 @@ packages
 TestResults.xml
 
 .DS_Store
+/FSI-ASSEMBLY.dll.mdb
+.fake/
