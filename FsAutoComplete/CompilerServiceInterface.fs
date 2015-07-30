@@ -82,7 +82,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
         | Some symboluse ->
 
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
-        return Success symboluses }
+        return Success (symboluse, symboluses) }
     |> Async.RunSynchronously
 
   member x.TryGetCompletions line col lineStr timeout filter =

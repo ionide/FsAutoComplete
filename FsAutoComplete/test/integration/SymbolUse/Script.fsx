@@ -1,6 +1,8 @@
 
+module console
 
-module XA =
-  let funky x = x + 1
+[<EntryPoint>]
+let main argv =
+    System.IO.Directory
 
-let val99 = XA.funky 21
+    0 // return an integer exit code

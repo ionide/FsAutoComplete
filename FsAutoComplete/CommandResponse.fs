@@ -218,11 +218,11 @@ module CommandResponse =
                    let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                    yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
-  let symbolUse(symboluses: FSharpSymbolUse[]) =
+  let symbolUse(symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
     let su =
-      { Name = symboluses.[0].Symbol.DisplayName
+      { Name = symbol.Symbol.DisplayName
         Uses =
-          [ for su in symboluses do
+          [ for su in uses do
               yield { StartLine = su.RangeAlternate.StartLine
                       StartColumn = su.RangeAlternate.StartColumn + 1
                       EndLine = su.RangeAlternate.EndLine
