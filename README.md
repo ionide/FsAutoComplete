@@ -19,6 +19,23 @@ The configuration is contained in [.travis.yml](.travis.yml).
 
 The configuration is contained in [appveyor.yml](appveyor.yml).
 
+## Required software
+
+* F# 3.1
+* MSBuild 12
+
+### Windows
+
+This can be obtained by installing Visual Studio 2013 or downloading:
+
+* [Visual F# Tools 3.1.2](http://www.microsoft.com/en-us/download/details.aspx?id=44011)
+* [Microsoft Built Tools 2013](https://www.microsoft.com/en-us/download/details.aspx?id=40760)
+
+### Mono
+
+* Required: Mono >= 3.10
+* Recommended: Mono >= 4.0.2
+
 ## Building and testing
 
 There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
