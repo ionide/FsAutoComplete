@@ -1,3 +1,7 @@
+#### 0.20.1 - 30.07.2015
+
+* Fix exception in `symboluse` command: #46. 
+
 #### 0.20.0 - 28.07.2015
 
 Backwards-incompatible changes:
