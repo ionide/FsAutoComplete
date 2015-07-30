@@ -20,9 +20,9 @@ type Command =
   | PosCommand of PosCommand * string * int * int * int option * string option
   | HelpText of string
   | Declarations of string
-  | Parse of string * ParseKind
+  | Parse of string * ParseKind * string[]
   | Error of string
-  | Project of string
+  | Project of string * DateTime
   | CompilerLocation
   | Quit
 
@@ -44,7 +44,7 @@ module CommandInput =
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
     let! _ = char '"'
-    return Project(filename) }
+    return Project(filename,DateTime.Now) }
 
   /// Read multi-line input as a list of strings
   let rec readInput input =
@@ -53,16 +53,18 @@ module CommandInput =
     else readInput (str::input)
 
   // Parse 'parse "<filename>" [sync]' command
-  let parse = parser {
-    let! _ = string "parse "
-    let! _ = char '"'
-    let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
-    let! _ = char '"'
-    let! _ = many (string " ")
-    let! full = (parser { let! _ = string "sync"
-                          return Synchronous }) <|>
-                (parser { return Normal })
-    return Parse (filename, full) }
+  let parse =
+    parser {
+      let! _ = string "parse "
+      let! _ = char '"'
+      let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+      let! _ = char '"'
+      let! _ = many (string " ")
+      let! full = (parser { let! _ = string "sync"
+                            return Synchronous }) <|>
+                  (parser { return Normal })
+      let lines = [||]
+      return Parse (filename, full, lines) }
 
   // Parse 'completion "<filename>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
@@ -113,4 +115,10 @@ module CommandInput =
     | input ->
       let reader = Parsing.createForwardStringReader input 0
       let cmds = compilerlocation <|> helptext <|> declarations <|> parse <|> project <|> completionTipOrDecl <|> quit <|> error
-      reader |> Parsing.getFirst cmds
+      let cmd = reader |> Parsing.getFirst cmds
+      match cmd with
+      | Parse (filename,kind,_) ->
+          let lines = readInput [] |> Array.ofList
+          Parse (filename, kind, lines)
+      | _ -> cmd
+

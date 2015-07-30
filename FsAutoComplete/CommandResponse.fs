@@ -195,8 +195,8 @@ module CommandResponse =
 
   let private writeJson(o: obj) = Console.WriteLine (JsonConvert.SerializeObject(o, jsonConverters))
 
-  let info(s) = writeJson { Kind = "info"; Data = s }
-  let error(s) = writeJson { Kind = "error"; Data = s }
+  let info(s: string) = writeJson { Kind = "info"; Data = s }
+  let error(s: string) = writeJson { Kind = "error"; Data = s }
 
   let helpText(name: string, tip: FSharpToolTipText) =
     let text = TipFormatter.formatTip tip

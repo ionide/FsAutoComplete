@@ -59,6 +59,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
+    <Compile Include="BlockingQueueAgent.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="TipFormatter.fs" />
