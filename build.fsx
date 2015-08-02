@@ -103,13 +103,18 @@ open Octokit
 Target "Release" (fun _ ->
     let user = getUserInput "Username: "
     let pw = getUserPassword "Password: "
+    let remote =
+      Git.CommandHelper.getGitResult "" "remote -v"
+      |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
+      |> Seq.tryFind (fun (s: string) -> s.Contains(githubOrg + "/" + project))
+      |> function None -> "origin" | Some (s: string) -> s.Split().[0]
 
     StageAll ""
     Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
     Branches.push ""
 
     Branches.tag "" release.NugetVersion
-    Branches.pushTag "" "origin" release.NugetVersion
+    Branches.pushTag "" remote release.NugetVersion
     
     // release on github
     createClient user pw
