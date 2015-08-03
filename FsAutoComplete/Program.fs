@@ -13,12 +13,14 @@ type internal State =
   {
     Files : Map<string,VolatileFile>
     FileCheckOptions : Map<string,FSharpProjectOptions>
+    ProjectLoadTimes : Map<string,DateTime>
     HelpText : Map<String, FSharpToolTipText>
   }
 
   static member Initial =
     { Files = Map.empty
       FileCheckOptions = Map.empty
+      ProjectLoadTimes = Map.empty
       HelpText = Map.empty }
 
   member x.WithFileTextGetCheckerOptions(file, lines) : State * FSharpProjectOptions =
@@ -77,12 +79,14 @@ module internal Main =
   let fs = new FileSystem(originalFs, fun () -> currentFiles)
   AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
+  let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
+
   let rec main (state:State) : int =
     currentFiles <- state.Files
 
     try
-      match CommandInput.parseCommand(Console.ReadLine()) with
-      | Parse(file,kind) ->
+      match commandQueue.Get() with
+      | Parse(file,kind,lines) ->
           let parse fileName text options =
             let task =
               async {
@@ -98,8 +102,6 @@ module internal Main =
                         Async.StartImmediate task
 
           let file = Path.GetFullPath file
-          let lines = CommandInput.readInput [] |> Array.ofList
-
           let text = String.concat "\n" lines
 
           if Utils.isAScript file then
@@ -112,8 +114,17 @@ module internal Main =
             parse file text checkOptions
             main state
 
-      | Project file ->
+      | Project (file,time) ->
           let file = Path.GetFullPath file
+
+          // The FileSystemWatcher often triggers multiple times for
+          // each event, as editors often modify files in several steps.
+          // This 'debounces' the events, by only reloading a max of once
+          // per second.
+          match state.ProjectLoadTimes.TryFind file with
+          | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> main state
+          | _ ->
+
           match checker.TryGetProjectOptions(file) with
           | Result.Failure s ->
               Response.error(s)
@@ -122,10 +133,18 @@ module internal Main =
           | Result.Success(po, projectFiles, outFileOpt, references, frameworkOpt) ->
               Response.project(file, projectFiles, outFileOpt, references, frameworkOpt)
 
-              let projects =
+              let fsw = new FileSystemWatcher()
+              fsw.Path <- Path.GetDirectoryName file
+              fsw.Filter <- Path.GetFileName file
+              fsw.Changed.Add(fun _ -> commandQueue.Add(Project (file, DateTime.Now)))
+              fsw.EnableRaisingEvents <- true
+              
+              let checkOptions =
                 projectFiles
                 |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
-              main { state with FileCheckOptions = projects }
+              let loadTimes = Map.add file time state.ProjectLoadTimes
+              main { state with FileCheckOptions = checkOptions
+                                ProjectLoadTimes = loadTimes }
 
       | Declarations file ->
           let file = Path.GetFullPath file
@@ -227,7 +246,6 @@ module internal Main =
           main state
 
       | Quit ->
-          (!Debug.output).Close ()
           0
           
     with e ->
@@ -246,6 +264,13 @@ module internal Main =
       1
     else
       try
+        async {
+          while true do
+            let cmd = CommandInput.parseCommand(Console.ReadLine())
+            commandQueue.Add(cmd)
+        }
+        |> Async.Start
+
         main State.Initial
       finally
         (!Debug.output).Close ()
