@@ -14,6 +14,7 @@ File.Delete "output.json"
 let p = new FsAutoCompleteWrapper()
 
 p.project "Test1.fsproj"
+p.waitForLine()
 Threading.Thread.Sleep 2000
 File.WriteAllBytes("Test1.fsproj", File.ReadAllBytes "Test1.fsproj")
 Threading.Thread.Sleep 2000

@@ -10,6 +10,7 @@ open Newtonsoft.Json
 type FsAutoCompleteWrapper() =
 
   let p = new System.Diagnostics.Process()
+  let cachedOutput = new Text.StringBuilder()
 
   do
     p.StartInfo.FileName <-
@@ -56,11 +57,17 @@ type FsAutoCompleteWrapper() =
   member x.send (s: string) : unit =
     fprintf p.StandardInput "%s" s
 
+  /// Wait for a single line to be output (one JSON message)
+  /// Note that this line will appear at the *start* of output.json,
+  /// so use carefully, and preferably only at the beginning.
+  member x.waitForLine () : unit =
+    cachedOutput.AppendLine(p.StandardOutput.ReadLine()) |> ignore
+
   member x.finalOutput () : string =
     let s = p.StandardOutput.ReadToEnd()
     let t = p.StandardError.ReadToEnd()
     p.WaitForExit()
-    s + t
+    cachedOutput.ToString() + s + t
 
 let formatJson json =
     try
