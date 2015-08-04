@@ -1,3 +1,8 @@
+#### 0.21.0 - 04.08.2015
+
+* Update to FCS 1.4.X (support for F# 4.0): #52
+* Automatically reparse F# project files if they are changed on disk: #47
+
 #### 0.20.1 - 30.07.2015
 
 * Fix exception in `symboluse` command: #46. 
@@ -20,7 +25,6 @@ Other changes:
 * Update parsing of project options to include ProjectReferences. Fixes #39.
 * Separate parsing of commands, main command loop, and formatting of
   response message into separate modules.
-
 
 #### 0.19.0 - 30.06.2015
 
