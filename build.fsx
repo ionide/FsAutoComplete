@@ -150,7 +150,6 @@ Target "All" id
 
 "AssemblyInfo"
   ==> "BuildRelease"
-  ==> "Test"
   ==> "ReleaseArchive"
   ==> "Release"
 
