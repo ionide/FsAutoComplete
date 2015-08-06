@@ -1,3 +1,7 @@
+#### 0.21.1 - 06.08.2015
+
+* Reduce timeout message from 'error' to 'info'
+
 #### 0.21.0 - 04.08.2015
 
 * Update to FCS 1.4.X (support for F# 4.0): #52
