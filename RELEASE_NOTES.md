@@ -1,3 +1,7 @@
+#### 0.22.0 - 06.08.2015
+
+* Backwards-incompatible: Symbol use command now includes FileName rather than Filename
+
 #### 0.21.1 - 06.08.2015
 
 * Reduce timeout message from 'error' to 'info'
