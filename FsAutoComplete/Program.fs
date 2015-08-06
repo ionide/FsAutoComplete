@@ -173,7 +173,7 @@ module internal Main =
             //       for completions e.g. `(some typed expr).$`
             let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
             match tyResOpt with
-            | None -> Response.error "Cached typecheck results not yet available"; main state
+            | None -> Response.info "Cached typecheck results not yet available"; main state
             | Some tyRes ->
 
             match cmd with
