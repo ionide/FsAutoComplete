@@ -99,7 +99,7 @@ module CommandResponse =
 
   type SymbolUseRange =
     {
-      Filename: string
+      FileName: string
       StartLine: int
       StartColumn: int
       EndLine: int
@@ -227,7 +227,7 @@ module CommandResponse =
                       StartColumn = su.RangeAlternate.StartColumn + 1
                       EndLine = su.RangeAlternate.EndLine
                       EndColumn = su.RangeAlternate.EndColumn + 1
-                      Filename = su.FileName
+                      FileName = su.FileName
                       IsFromDefinition = su.IsFromDefinition
                       IsFromAttribute = su.IsFromAttribute
                       IsFromComputationExpression = su.IsFromComputationExpression

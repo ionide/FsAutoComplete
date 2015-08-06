@@ -57,7 +57,7 @@
     "Name": "testval",
     "Uses": [
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 4,
         "StartColumn": 5,
         "EndLine": 4,
@@ -70,7 +70,7 @@
         "IsFromType": false
       },
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 8,
         "StartColumn": 12,
         "EndLine": 8,
@@ -83,7 +83,7 @@
         "IsFromType": false
       },
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 10,
         "StartColumn": 36,
         "EndLine": 10,
@@ -104,7 +104,7 @@
     "Name": "testval",
     "Uses": [
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 14,
         "StartColumn": 9,
         "EndLine": 14,
@@ -117,7 +117,7 @@
         "IsFromType": false
       },
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 15,
         "StartColumn": 5,
         "EndLine": 15,
@@ -142,7 +142,7 @@
     "Name": "shadowed",
     "Uses": [
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,
@@ -163,7 +163,7 @@
     "Name": "shadowed",
     "Uses": [
       {
-        "Filename": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/integration/SymbolUse/Program.fs",
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,
