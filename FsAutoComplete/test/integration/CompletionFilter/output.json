@@ -9,10 +9,10 @@
       "FileName": "<absolute path removed>/test/integration/CompletionFilter/Script.fsx",
       "StartLine": 2,
       "EndLine": 2,
-      "StartColumn": 6,
-      "EndColumn": 7,
+      "StartColumn": 21,
+      "EndColumn": 22,
       "Severity": "Error",
-      "Message": "The value, constructor, namespace or type 'c' is not defined",
+      "Message": "The field, constructor or member 'T' is not defined",
       "Subcategory": "typecheck"
     }
   ]
@@ -20,330 +20,292 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "choose",
-    "Text": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+    "Name": "Ticks",
+    "Text": "property System.DateTime.Ticks: int64"
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Cons",
+      "Name": "Add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "Empty",
+      "Name": "AddDays",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddHours",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddMilliseconds",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddMinutes",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddMonths",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddSeconds",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddTicks",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "AddYears",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "CompareTo",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Date",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
-      "Name": "append",
+      "Name": "Day",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "DayOfWeek",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "DayOfYear",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Equals",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "average",
+      "Name": "GetDateTimeFormats",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "averageBy",
+      "Name": "GetHashCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "choose",
+      "Name": "GetType",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "collect",
+      "Name": "GetTypeCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "concat",
+      "Name": "Hour",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "IsDaylightSavingTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "empty",
-      "Glyph": "Field",
-      "GlyphChar": "F"
+      "Name": "Kind",
+      "Glyph": "Property",
+      "GlyphChar": "P"
     },
     {
-      "Name": "exists",
+      "Name": "Millisecond",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Minute",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Month",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Second",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Subtract",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "exists2",
+      "Name": "Ticks",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "TimeOfDay",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "ToBinary",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "filter",
+      "Name": "ToFileTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "find",
+      "Name": "ToFileTimeUtc",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "findIndex",
+      "Name": "ToLocalTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "fold",
+      "Name": "ToLongDateString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "fold2",
+      "Name": "ToLongTimeString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "foldBack",
+      "Name": "ToOADate",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "foldBack2",
+      "Name": "ToShortDateString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "forall",
+      "Name": "ToShortTimeString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "forall2",
+      "Name": "ToString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "head",
+      "Name": "ToUniversalTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "init",
+      "Name": "Year",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Ticks",
+    "Text": "property System.DateTime.Ticks: int64"
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Ticks",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "TimeOfDay",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "ToBinary",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "isEmpty",
+      "Name": "ToFileTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "iter",
+      "Name": "ToFileTimeUtc",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "iter2",
+      "Name": "ToLocalTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "iteri",
+      "Name": "ToLongDateString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "iteri2",
+      "Name": "ToLongTimeString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "length",
+      "Name": "ToOADate",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "map",
+      "Name": "ToShortDateString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "map2",
+      "Name": "ToShortTimeString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "map3",
+      "Name": "ToString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "mapi",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "mapi2",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "max",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "maxBy",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "min",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "minBy",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "nth",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "ofArray",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "ofSeq",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "partition",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "permute",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "pick",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "reduce",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "reduceBack",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "replicate",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "rev",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "scan",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "scanBack",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "sort",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "sortBy",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "sortWith",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "sum",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "sumBy",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "tail",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "toArray",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "toSeq",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "tryFind",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "tryFindIndex",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "tryPick",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "unzip",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "unzip3",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "zip",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "zip3",
+      "Name": "ToUniversalTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -352,97 +314,105 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "choose",
-    "Text": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
+    "Name": "Ticks",
+    "Text": "property System.DateTime.Ticks: int64"
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "choose",
+      "Name": "AddTicks",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "collect",
+      "Name": "CompareTo",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "concat",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    }
-  ]
-}
-{
-  "Kind": "helptext",
-  "Data": {
-    "Name": "choose",
-    "Text": "val choose : chooser:('T -> 'U option) -> list:'T list -> 'U list"
-  }
-}
-{
-  "Kind": "completion",
-  "Data": [
-    {
-      "Name": "choose",
+      "Name": "GetDateTimeFormats",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "collect",
+      "Name": "GetType",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "concat",
+      "Name": "GetTypeCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "foldBack",
+      "Name": "IsDaylightSavingTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "foldBack2",
+      "Name": "Ticks",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "TimeOfDay",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "ToBinary",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "pick",
+      "Name": "ToFileTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "reduce",
+      "Name": "ToFileTimeUtc",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "reduceBack",
+      "Name": "ToLocalTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "replicate",
+      "Name": "ToLongDateString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "scan",
+      "Name": "ToLongTimeString",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "scanBack",
+      "Name": "ToOADate",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
-      "Name": "tryPick",
+      "Name": "ToShortDateString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToShortTimeString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToUniversalTime",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
