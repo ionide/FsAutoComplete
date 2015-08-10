@@ -249,8 +249,8 @@ module internal Main =
           0
           
     with e ->
-      let msg = "Unexpected internal error. Please report at\
-                 https://github.com/fsharp/FsAutoComplete/issues,\
+      let msg = "Unexpected internal error. Please report at \
+                 https://github.com/fsharp/FsAutoComplete/issues, \
                  attaching the following stack trace:\n"
                  + e.Message + e.StackTrace
       Response.error msg
@@ -264,6 +264,7 @@ module internal Main =
       1
     else
       try
+        CompilerServiceInterface.addMSBuildv14BackupResolution()
         async {
           while true do
             let cmd = CommandInput.parseCommand(Console.ReadLine())
