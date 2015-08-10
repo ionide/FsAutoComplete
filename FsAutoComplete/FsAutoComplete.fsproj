@@ -70,7 +70,7 @@
     <Compile Include="CommandInput.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
-    <None Include="build.fsx" />
+    <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

@@ -154,3 +154,15 @@ type FSharpCompilerServiceChecker() =
       with e ->
         Failure e.Message
   
+open System.Reflection
+module CompilerServiceInterface =
+  let addMSBuildv14BackupResolution () =
+    let onResolveEvent = new ResolveEventHandler( fun sender evArgs ->
+      let requestedAssembly = AssemblyName(evArgs.Name)
+      if requestedAssembly.Name.StartsWith("Microsoft.Build") then
+        requestedAssembly.Version <- Version("14.0.0.0")
+        Assembly.Load (requestedAssembly)
+      else
+        null
+          )
+    AppDomain.CurrentDomain.add_AssemblyResolve(onResolveEvent)
