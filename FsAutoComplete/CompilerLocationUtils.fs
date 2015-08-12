@@ -11,12 +11,6 @@ open System.Text.RegularExpressions
 
 #nowarn "44" // ConfigurationSettings is obsolete but the new stuff is horribly complicated. 
 
-module Environment = 
-  /// Are we running on the Mono platform?
-  let runningOnMono = 
-    try System.Type.GetType("Mono.Runtime") <> null
-    with _ -> false  
-
 /// Target framework (used to find the right version of F# binaries)
 type FSharpTargetFramework = 
     | NET_2_0
@@ -206,7 +200,7 @@ module FSharpEnvironment =
 
   let tryWindowsConfig (reqLangVersion: FSharpCompilerVersion) =
     //early termination on Mono, continuing here results in failed pinvokes and reg key failures ~18-35ms
-    if Environment.runningOnMono then None else
+    if Utils.runningOnMono then None else
     // On windows the location of the compiler is via a registry key
     let key20 = @"Software\Microsoft\.NETFramework\AssemblyFolders\Microsoft.FSharp-" + FSharpTeamVersionNumber 
     let key40 = match reqLangVersion with 
@@ -302,7 +296,7 @@ module FSharpEnvironment =
           // the right FSharp.Core.dll.
           let result =
               //early termination on Mono, continuing here results in failed pinvokes and reg key failures ~18-35ms
-              if Environment.runningOnMono then None else
+              if Utils.runningOnMono then None else
               match reqLangVersion, targetFramework with
               | FSharp_2_0, x when (x = NET_2_0 || x = NET_3_0 || x = NET_3_5) ->
                   tryRegKey @"Software\Microsoft\.NETFramework\v2.0.50727\AssemblyFoldersEx\Microsoft Visual F# 4.0"
@@ -406,3 +400,74 @@ module FSharpEnvironment =
         | _ -> resolveAssembly dirs asm
     | [] -> None
 
+module DotNetEnvironment =
+  let environVar v = Environment.GetEnvironmentVariable v
+
+  let programFilesX86 = 
+      let wow64 = environVar "PROCESSOR_ARCHITEW6432"
+      let globalArch = environVar "PROCESSOR_ARCHITECTURE"
+      match wow64, globalArch with
+      | "AMD64", "AMD64" 
+      | null, "AMD64" 
+      | "x86", "AMD64" -> environVar "ProgramFiles(x86)"
+      | _ -> environVar "ProgramFiles"
+      |> fun detected -> if detected = null then @"C:\Program Files (x86)\" else detected
+
+  // Below code slightly modified from FAKE MSBuildHelper.fs
+
+  let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
+
+  let inline (@@) path1 path2 = combinePaths path1 path2
+
+  let tryFindFile dirs file =
+      let files =
+          dirs
+          |> Seq.map (fun (path : string) ->
+                 let dir = new DirectoryInfo(path)
+                 if not dir.Exists then ""
+                 else
+                     let fi = new FileInfo(dir.FullName @@ file)
+                     if fi.Exists then fi.FullName
+                     else "")
+          |> Seq.filter ((<>) "")
+          |> Seq.cache
+      if not (Seq.isEmpty files) then Some(Seq.head files)
+      else None
+
+  let tryFindPath backupPaths tool =
+      let paths = Environment.GetEnvironmentVariable "PATH" + string Path.PathSeparator + backupPaths
+      let paths = paths.Split(Path.PathSeparator)
+      tryFindFile paths tool
+
+  let findPath backupPaths tool =
+      match tryFindPath backupPaths tool with
+      | Some file -> file
+      | None -> tool
+
+  let msBuildExe =
+      if Utils.runningOnMono then "xbuild"
+      else
+        let MSBuildPath =
+            (programFilesX86 @@ @"\MSBuild\14.0\Bin") + ";" +
+            (programFilesX86 @@ @"\MSBuild\12.0\Bin") + ";" +
+            (programFilesX86 @@ @"\MSBuild\12.0\Bin\amd64") + ";" +
+            @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\;" +
+            @"c:\Windows\Microsoft.NET\Framework\v4.0.30128\;" +
+            @"c:\Windows\Microsoft.NET\Framework\v3.5\"
+        let ev = Environment.GetEnvironmentVariable "MSBuild"
+        if not (String.IsNullOrEmpty ev) then ev
+        else findPath MSBuildPath "MSBuild.exe"
+
+  let fsharpCoreOpt =
+    if Utils.runningOnMono then
+      let mscorlibDir = Path.GetDirectoryName typeof<obj>.Assembly.Location
+      if List.forall File.Exists (List.map (combinePaths mscorlibDir) ["FSharp.Core.dll"; "FSharp.Core.optdata"; "FSharp.Core.sigdata"]) then
+        Some (mscorlibDir @@ "FSharp.Core.dll")
+      else
+        None
+    else
+      let referenceAssembliesPath =
+        programFilesX86 @@ @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\"
+      let fsharpCoreVersions = ["4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
+      tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
+      

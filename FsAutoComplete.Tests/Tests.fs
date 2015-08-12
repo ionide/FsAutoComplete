@@ -33,3 +33,9 @@ let ``normalCracking`` () =
   Assert.AreEqual(11,col)
   Assert.AreEqual(["First";"Second"],idents)
   Assert.AreEqual("First.Second.Third".[col], 'd')
+
+[<Test>]
+let ``should find FSharp.Core`` () =
+  match DotNetEnvironment.fsharpCoreOpt with
+  | None -> Assert.Fail()
+  | Some fileName -> printfn "FSharp.Core found at '%s'" fileName; Assert.Pass()
