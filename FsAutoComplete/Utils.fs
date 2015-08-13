@@ -10,5 +10,10 @@ module Utils =
 
   let runningOnMono = 
     try System.Type.GetType("Mono.Runtime") <> null
-    with _ -> false  
+    with _ -> false
 
+module Option =
+  let getOrElse defaultValue option =
+    match option with
+    | None -> defaultValue
+    | Some x -> x

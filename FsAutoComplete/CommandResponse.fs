@@ -124,6 +124,13 @@ module CommandResponse =
       Text: string
     }
 
+  type CompilerLocationResponse =
+    {
+      Fsc: string
+      Fsi: string
+      MSBuild: string
+    }
+
   type FSharpErrorInfo =
     {
       FileName: string
@@ -274,6 +281,10 @@ module CommandResponse =
 
   let toolTip(tip) =
     writeJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
+
+  let compilerLocation fsc fsi msbuild =
+    let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }
+    writeJson { Kind = "compilerlocation"; Data = data }
 
   let message(kind: string, data: 'a) =
     writeJson { Kind = kind; Data = data }

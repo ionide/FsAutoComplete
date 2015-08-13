@@ -39,3 +39,15 @@ let ``should find FSharp.Core`` () =
   match DotNetEnvironment.fsharpCoreOpt with
   | None -> Assert.Fail()
   | Some fileName -> printfn "FSharp.Core found at '%s'" fileName; Assert.Pass()
+
+[<Test>]
+let ``should find fsc on Windows`` () =
+  if not Utils.runningOnMono then
+    printfn "fsc.exe found at '%s'" DotNetEnvironment.fsc
+    Assert.That(DotNetEnvironment.fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
+
+[<Test>]
+let ``should find msbuild on Windows`` () =
+  if not Utils.runningOnMono then
+    printfn "msbuild.exe found at '%s'" DotNetEnvironment.msBuildExe
+    Assert.That(DotNetEnvironment.msBuildExe.Length > "MSBuild.exe".Length, "MSBuild.exe resolution failed")

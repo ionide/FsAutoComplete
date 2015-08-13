@@ -234,11 +234,7 @@ module internal Main =
                 main state
 
       | CompilerLocation ->
-          let locopt = FSharpEnvironment.BinFolderOfDefaultFSharpCompiler None
-          match locopt with
-          | None -> Response.error "Could not find compiler"
-          | Some loc -> Response.message("compilerlocation", loc)
-
+          Response.compilerLocation DotNetEnvironment.fsc DotNetEnvironment.fsi DotNetEnvironment.msBuildExe
           main state
 
       | Error(msg) ->
