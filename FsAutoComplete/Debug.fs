@@ -1,7 +1,9 @@
 ﻿// --------------------------------------------------------------------------------------
 // (c) Robin Neatherway
 // --------------------------------------------------------------------------------------
-module Debug
+namespace FsAutoComplete
+
+module Debug =
 
   let verbose = ref false
   let categories : Ref<Option<Set<string>>> =

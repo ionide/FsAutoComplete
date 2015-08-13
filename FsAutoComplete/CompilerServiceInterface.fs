@@ -104,7 +104,7 @@ type FSharpCompilerServiceChecker() =
   do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
 
   let ensureCorrectFSharpCore (options: string[]) =
-    DotNetEnvironment.fsharpCoreOpt
+    Environment.fsharpCoreOpt
     |> Option.map (fun path ->
                    let fsharpCoreRef = sprintf "-r:%s" path
                    [| yield fsharpCoreRef
@@ -138,7 +138,7 @@ type FSharpCompilerServiceChecker() =
         let p = FSharpProjectFileInfo.Parse(file)
         let args, references =
           if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.Options) then
-            ensureCorrectFSharpCore (Array.ofList p.Options), Option.toList DotNetEnvironment.fsharpCoreOpt @ p.References
+            ensureCorrectFSharpCore (Array.ofList p.Options), Option.toList Environment.fsharpCoreOpt @ p.References
           else
              Array.ofList p.Options, p.References
 

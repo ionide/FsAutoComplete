@@ -3,10 +3,10 @@ namespace FsAutoComplete
 open System
 open System.IO
 
-module DotNetEnvironment =
-  let environVar v = Environment.GetEnvironmentVariable v
+module Environment =
+  let private environVar v = Environment.GetEnvironmentVariable v
 
-  let programFilesX86 =
+  let private programFilesX86 =
       let wow64 = environVar "PROCESSOR_ARCHITEW6432"
       let globalArch = environVar "PROCESSOR_ARCHITECTURE"
       match wow64, globalArch with
@@ -18,11 +18,11 @@ module DotNetEnvironment =
 
   // Below code slightly modified from FAKE MSBuildHelper.fs
 
-  let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
+  let inline private combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
-  let inline (@@) path1 path2 = combinePaths path1 path2
+  let inline private (@@) path1 path2 = combinePaths path1 path2
 
-  let tryFindFile dirs file =
+  let private tryFindFile dirs file =
       let files =
           dirs
           |> Seq.map (fun (path : string) ->
@@ -37,17 +37,17 @@ module DotNetEnvironment =
       if not (Seq.isEmpty files) then Some(Seq.head files)
       else None
 
-  let tryFindPath backupPaths tool =
+  let private tryFindPath backupPaths tool =
       let paths = Environment.GetEnvironmentVariable "PATH" + string Path.PathSeparator + backupPaths
       let paths = paths.Split(Path.PathSeparator)
       tryFindFile paths tool
 
-  let findPath backupPaths tool =
+  let private findPath backupPaths tool =
       match tryFindPath backupPaths tool with
       | Some file -> file
       | None -> tool
 
-  let msBuildExe =
+  let msbuild =
       if Utils.runningOnMono then "xbuild"
       else
         let MSBuildPath =
@@ -61,7 +61,7 @@ module DotNetEnvironment =
         if not (String.IsNullOrEmpty ev) then ev
         else findPath MSBuildPath "MSBuild.exe"
 
-  let fsharpInstallationPath =
+  let private fsharpInstallationPath =
     ["4.0"; "3.1"; "3.0"]
     |> List.map (fun v -> programFilesX86 @@ @"\Microsoft SDKs\F#\" @@ v @@ @"\Framework\v4.0")
     |> List.tryFind Directory.Exists

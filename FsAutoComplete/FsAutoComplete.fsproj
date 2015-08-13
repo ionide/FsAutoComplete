@@ -56,15 +56,14 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Types.fs" />
-    <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
+    <Compile Include="Debug.fs" />
+    <Compile Include="Environment.fs" />
     <Compile Include="BlockingQueueAgent.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />
-    <Compile Include="CompilerLocationUtils.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="CommandInput.fs" />

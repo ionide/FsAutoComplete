@@ -234,7 +234,7 @@ module internal Main =
                 main state
 
       | CompilerLocation ->
-          Response.compilerLocation DotNetEnvironment.fsc DotNetEnvironment.fsi DotNetEnvironment.msBuildExe
+          Response.compilerLocation Environment.fsc Environment.fsi Environment.msbuild
           main state
 
       | Error(msg) ->

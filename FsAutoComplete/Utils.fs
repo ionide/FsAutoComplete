@@ -2,6 +2,10 @@ namespace FsAutoComplete
 
 open System.IO
 
+type Result<'a> =
+  | Success of 'a
+  | Failure of string
+
 module Utils =
   
   let isAScript fileName =
