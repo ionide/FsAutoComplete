@@ -136,7 +136,11 @@ type FSharpCompilerServiceChecker() =
     else
       try
         let p = FSharpProjectFileInfo.Parse(file)
-        let args = p.Options |> Array.ofList
+        let args, references =
+          if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.Options) then
+            ensureCorrectFSharpCore (Array.ofList p.Options), Option.toList DotNetEnvironment.fsharpCoreOpt @ p.References
+          else
+             Array.ofList p.Options, p.References
 
         let projectOptions = checker.GetProjectOptionsFromCommandLineArgs(file, args)
         let referencedProjectOptions =
@@ -146,7 +150,7 @@ type FSharpCompilerServiceChecker() =
         let po =
           { projectOptions
             with ReferencedProjects = referencedProjectOptions }
-        Success (po, p.CompileFiles, p.OutputFile, p.References, p.FrameworkVersion)
+        Success (po, p.CompileFiles, p.OutputFile, references, p.FrameworkVersion)
       with e ->
         Failure e.Message
   
