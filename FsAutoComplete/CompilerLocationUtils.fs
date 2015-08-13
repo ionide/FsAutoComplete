@@ -62,8 +62,8 @@ module DotNetEnvironment =
         else findPath MSBuildPath "MSBuild.exe"
 
   let fsharpInstallationPath =
-    List.tryFind (fun v -> Directory.Exists (programFilesX86 @@ @"\Microsoft SDKs\F#\" @@ v @@ "\Framework\v4.0"))
-                 ["4.0"; "3.1"; "3.0"]
+    ["4.0"; "3.1"; "3.0"]
+    |> List.tryFind (fun v -> Directory.Exists (programFilesX86 @@ @"\Microsoft SDKs\F#\" @@ v @@ @"\Framework\v4.0"))
 
   let fsi =
     if Utils.runningOnMono then "fsharpi"
