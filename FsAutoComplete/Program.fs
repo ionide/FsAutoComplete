@@ -247,12 +247,8 @@ module internal Main =
     with e ->
       let msg = "Unexpected internal error. Please report at \
                  https://github.com/fsharp/FsAutoComplete/issues, \
-                 attaching the following stack trace:\n"
-                 + e.Message + "\n" + e.StackTrace
-      let msg =
-        if e.InnerException = null then msg
-        else msg + "\nCaused by:\n" + e.InnerException.Message
-                 + "\n" + e.InnerException.StackTrace
+                 attaching the exception information:\n"
+                 + e.ToString()
       Response.error msg
       main state
 
