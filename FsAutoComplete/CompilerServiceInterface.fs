@@ -103,23 +103,19 @@ type FSharpCompilerServiceChecker() =
   let checker = FSharpChecker.Instance
   do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
 
-  let ensureFSharpCore (options: string[]) =
-    if options |> Seq.exists (fun s -> s.Contains("FSharp.Core.dll")) then options
-    else
-      let dirs = FSharpEnvironment.getDefaultDirectories (None, FSharpTargetFramework.NET_4_5 )
-      [| yield! options
-         match FSharpEnvironment.resolveAssembly dirs "FSharp.Core" with
-         | Some fn -> yield sprintf "-r:%s" fn
-         | None ->
-         match FSharpEnvironment.resolveAssembly dirs "FSharp.Compiler.Interactive.Settings" with
-         | Some fn -> yield sprintf "-r:%s" fn
-         | None -> () |]
+  let ensureCorrectFSharpCore (options: string[]) =
+    Environment.fsharpCoreOpt
+    |> Option.map (fun path ->
+                   let fsharpCoreRef = sprintf "-r:%s" path
+                   [| yield fsharpCoreRef
+                      yield! Seq.filter (fun (s: string) -> not (s.EndsWith("FSharp.Core.dll"))) options |])
+    |> Option.getOrElse options
 
   member x.GetProjectOptionsFromScript(file, source) =
     let rawOptions = checker.GetProjectOptionsFromScript(file, source)
                      |> Async.RunSynchronously
     { rawOptions
-      with OtherOptions = ensureFSharpCore rawOptions.OtherOptions }
+      with OtherOptions = ensureCorrectFSharpCore rawOptions.OtherOptions }
 
   member x.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
@@ -140,7 +136,11 @@ type FSharpCompilerServiceChecker() =
     else
       try
         let p = FSharpProjectFileInfo.Parse(file)
-        let args = p.Options |> Array.ofList
+        let args, references =
+          if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.Options) then
+            ensureCorrectFSharpCore (Array.ofList p.Options), Option.toList Environment.fsharpCoreOpt @ p.References
+          else
+             Array.ofList p.Options, p.References
 
         let projectOptions = checker.GetProjectOptionsFromCommandLineArgs(file, args)
         let referencedProjectOptions =
@@ -150,7 +150,7 @@ type FSharpCompilerServiceChecker() =
         let po =
           { projectOptions
             with ReferencedProjects = referencedProjectOptions }
-        Success (po, p.CompileFiles, p.OutputFile, p.References, p.FrameworkVersion)
+        Success (po, p.CompileFiles, p.OutputFile, references, p.FrameworkVersion)
       with e ->
         Failure e.Message
   

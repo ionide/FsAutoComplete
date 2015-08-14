@@ -1,5 +1,6 @@
-matrix:
-  fast_finish: true
+os:
+  - Windows Server 2012
+  - Visual Studio 2015
 build_script:
   - cmd: build.cmd Test
 test: off

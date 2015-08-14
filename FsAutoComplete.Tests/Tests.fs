@@ -33,3 +33,17 @@ let ``normalCracking`` () =
   Assert.AreEqual(11,col)
   Assert.AreEqual(["First";"Second"],idents)
   Assert.AreEqual("First.Second.Third".[col], 'd')
+
+[<Test>]
+let ``should find FSharp.Core`` () =
+  Assert.That(Option.isSome Environment.fsharpCoreOpt, "FSharp.Core.dll resolution failed")
+
+[<Test>]
+let ``should find fsc on Windows`` () =
+  if not Utils.runningOnMono then
+    Assert.That(Environment.fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
+
+[<Test>]
+let ``should find msbuild on Windows`` () =
+  if not Utils.runningOnMono then
+    Assert.That(Environment.msbuild.Length > "MSBuild.exe".Length, "MSBuild.exe resolution failed")

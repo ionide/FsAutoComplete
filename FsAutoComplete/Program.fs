@@ -234,11 +234,7 @@ module internal Main =
                 main state
 
       | CompilerLocation ->
-          let locopt = FSharpEnvironment.BinFolderOfDefaultFSharpCompiler None
-          match locopt with
-          | None -> Response.error "Could not find compiler"
-          | Some loc -> Response.message("compilerlocation", loc)
-
+          Response.compilerLocation Environment.fsc Environment.fsi Environment.msbuild
           main state
 
       | Error(msg) ->
@@ -251,8 +247,8 @@ module internal Main =
     with e ->
       let msg = "Unexpected internal error. Please report at \
                  https://github.com/fsharp/FsAutoComplete/issues, \
-                 attaching the following stack trace:\n"
-                 + e.Message + e.StackTrace
+                 attaching the exception information:\n"
+                 + e.ToString()
       Response.error msg
       main state
 
