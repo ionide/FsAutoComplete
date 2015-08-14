@@ -49,5 +49,5 @@ let ``should find fsc on Windows`` () =
 [<Test>]
 let ``should find msbuild on Windows`` () =
   if not Utils.runningOnMono then
-    printfn "msbuild.exe found at '%s'" Environment.msbuild
+    printfn "msbuild.exe found at '%s'"  Environment.msbuild
     Assert.That(Environment.msbuild.Length > "MSBuild.exe".Length, "MSBuild.exe resolution failed")
