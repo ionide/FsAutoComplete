@@ -15,13 +15,15 @@ type internal State =
     FileCheckOptions : Map<string,FSharpProjectOptions>
     ProjectLoadTimes : Map<string,DateTime>
     HelpText : Map<String, FSharpToolTipText>
+    ColorizationOutput: bool
   }
 
   static member Initial =
     { Files = Map.empty
       FileCheckOptions = Map.empty
       ProjectLoadTimes = Map.empty
-      HelpText = Map.empty }
+      HelpText = Map.empty
+      ColorizationOutput = false }
 
   member x.WithFileTextGetCheckerOptions(file, lines) : State * FSharpProjectOptions =
     let opts =
@@ -93,7 +95,10 @@ module internal Main =
                 let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
                 match checkResults with
                 | FSharpCheckFileAnswer.Aborted -> ()
-                | FSharpCheckFileAnswer.Succeeded results -> Response.errors(results.Errors)
+                | FSharpCheckFileAnswer.Succeeded results ->
+                     Response.errors(results.Errors)
+                     if state.ColorizationOutput then
+                       Response.colorizations(results.GetExtraColorizationsAlternate())
               }
             match kind with
             | Synchronous -> Response.info "Synchronous parsing started"
@@ -236,6 +241,9 @@ module internal Main =
       | CompilerLocation ->
           Response.compilerLocation Environment.fsc Environment.fsi Environment.msbuild
           main state
+
+      | Colorization enabled ->
+          main { state with ColorizationOutput = enabled }
 
       | Error(msg) ->
           Response.error msg

@@ -1,0 +1,65 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "colorizations",
+  "Data": [
+    {
+      "Range": {
+        "StartColumn": 11,
+        "StartLine": 5,
+        "EndColumn": 16,
+        "EndLine": 5
+      },
+      "Kind": "Keyword"
+    },
+    {
+      "Range": {
+        "StartColumn": 13,
+        "StartLine": 50,
+        "EndColumn": 19,
+        "EndLine": 50
+      },
+      "Kind": "Keyword"
+    },
+    {
+      "Range": {
+        "StartColumn": 16,
+        "StartLine": 60,
+        "EndColumn": 22,
+        "EndLine": 60
+      },
+      "Kind": "Keyword"
+    },
+    {
+      "Range": {
+        "StartColumn": 16,
+        "StartLine": 68,
+        "EndColumn": 22,
+        "EndLine": 68
+      },
+      "Kind": "Keyword"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}

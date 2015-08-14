@@ -23,12 +23,23 @@ type Command =
   | Parse of string * ParseKind * string[]
   | Error of string
   | Project of string * DateTime
+  | Colorization of bool
   | CompilerLocation
   | Quit
 
 module CommandInput =
   /// Parse 'quit' command
   let quit = string "quit" |> Parser.map (fun _ -> Quit)
+
+  /// Parse 'colorizations' command
+  let colorizations = parser {
+      let! _ = string "colorizations "
+      let! b = parser { let! _ = string "true"
+                        return true } <|>
+               parser { let! _ = string "false"
+                        return false }
+      return Colorization b
+    }
 
   /// Parse 'declarations' command
   let declarations = parser {
@@ -114,7 +125,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> parse <|> project <|> completionTipOrDecl <|> quit <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

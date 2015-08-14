@@ -154,6 +154,12 @@ module CommandResponse =
         Subcategory = e.Subcategory
       }
 
+  type Colorization =
+    {
+      Range: Range.range
+      Kind: string
+    }
+
   type private FSharpErrorSeverityConverter() =
     inherit JsonConverter()
 
@@ -271,6 +277,11 @@ module CommandResponse =
   let errors(errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
     writeJson { Kind = "errors"
                 Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
+
+  let colorizations(colorizations: (Range.range * FSharpTokenColorKind)[]) =
+    let data = [ for r, k in colorizations do
+                   yield { Range = r; Kind = Enum.GetName(typeof<FSharpTokenColorKind>, k) } ]
+    writeJson { Kind = "colorizations"; Data = data }
 
   let findDeclaration(range: Range.range) =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
