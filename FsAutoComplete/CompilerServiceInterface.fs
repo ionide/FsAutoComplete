@@ -99,6 +99,9 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
       Some (decls, residue)
     with :? TimeoutException -> None
 
+  member x.GetExtraColorizations =
+    checkResults.GetExtraColorizationsAlternate()
+
 type FSharpCompilerServiceChecker() =
   let checker = FSharpChecker.Instance
   do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
