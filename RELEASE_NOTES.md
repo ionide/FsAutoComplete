@@ -1,3 +1,15 @@
+#### 0.23.0 - 14.08.2015
+
+* Add a new `colorizations <true|false>` command to enable/disable asynchronous
+  provision of colorization information following a parse: #60 (Fixes #44).
+* Newest FSharp.Core is used for type-checking scripts and for projects that
+  do not reference FSharp.Core. Supports F# 3.0, 3.1 and 4.0: #59.
+* If MSBuild v12 is not available, instead try load MSBuild v14. This, together
+  with the previous point, adds support for VS2015-only Windows installs: #57.
+  Fixes: #12 #21 #23 #25 #54.
+* Backwards-incompatible: `compilerlocation` command has changed. Now provides
+  path to best version of msbuild, fsc and fsi on Windows: #23.
+
 #### 0.22.0 - 06.08.2015
 
 * Backwards-incompatible: Symbol use command now includes FileName rather than Filename
