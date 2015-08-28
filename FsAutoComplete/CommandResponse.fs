@@ -118,10 +118,16 @@ module CommandResponse =
       Uses: SymbolUseRange list
     }
 
+  type OverloadSignature = 
+    {
+      Signature: string
+      Comment: string
+    }
+
   type HelpTextResponse =
     {
       Name: string
-      Text: string
+      Overloads: OverloadSignature list
     }
 
   type CompilerLocationResponse =
@@ -212,8 +218,8 @@ module CommandResponse =
   let error(s: string) = writeJson { Kind = "error"; Data = s }
 
   let helpText(name: string, tip: FSharpToolTipText) =
-    let text = TipFormatter.formatTip tip
-    writeJson { Kind = "helptext"; Data = { Name = name; Text = text } }
+    let text = TipFormatter.formatTipAlternative tip |> List.map(fun (n,m) -> {Signature = n; Comment = m} )
+    writeJson { Kind = "helptext"; Data = { Name = name; Overloads = text } }
 
   let project(projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
     let projectData =

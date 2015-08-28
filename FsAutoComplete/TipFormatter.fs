@@ -17,6 +17,13 @@ let private buildFormatComment cmt (sb:StringBuilder) =
   // files, but I'm not sure whether these are available on Mono
   | _ -> sb
 
+let private buildFormatCommentAlternative cmt  =
+  match cmt with
+  | FSharpXmlDoc.Text s -> s
+  // For 'XmlCommentSignature' we could get documentation from 'xml'
+  // files, but I'm not sure whether these are available on Mono
+  | _ -> ""
+
 // If 'isSingle' is true (meaning that this is the only tip displayed)
 // then we add first line "Multiple overloads" because MD prints first
 // int in bold (so that no overload is highlighted)
@@ -51,3 +58,16 @@ let private buildFormatTip tip (sb:StringBuilder) =
 /// Format tool-tip that we get from the language service as string
 let formatTip tip =
   (buildFormatTip tip (new StringBuilder())).ToString().Trim('\n', '\r').Replace("\r","")
+
+let formatTipAlternative tip = 
+  match tip with
+  | FSharpToolTipText tips -> tips |> Seq.where (function
+                                                 | FSharpToolTipElement.Single _ | FSharpToolTipElement.Group _ -> true
+                                                 | _ -> false)
+                                   |>  Seq.fold (fun acc t -> match t with
+                                                              | FSharpToolTipElement.Single (it, comment) -> (it, comment |> buildFormatCommentAlternative)::acc
+                                                              | FSharpToolTipElement.Group (items) -> (items |> List.map (fun (it, comment) ->  (it, comment |> buildFormatCommentAlternative) )) @ acc
+                                                              | _ -> acc) []
+
+  
+  
