@@ -76,6 +76,12 @@ module CommandResponse =
       Framework: string
     }
 
+  type OverloadSignature = 
+    {
+      Signature: string
+      Comment: string
+    }
+
   type OverloadParameter =
     {
       Name : string
@@ -85,7 +91,7 @@ module CommandResponse =
     }
   type Overload =
     {
-      Tip : string
+      Tip : OverloadSignature 
       TypeText : string
       Parameters : OverloadParameter list
       IsStaticArguments : bool
@@ -118,11 +124,7 @@ module CommandResponse =
       Uses: SymbolUseRange list
     }
 
-  type OverloadSignature = 
-    {
-      Signature: string
-      Comment: string
-    }
+
 
   type HelpTextResponse =
     {
@@ -218,7 +220,7 @@ module CommandResponse =
   let error(s: string) = writeJson { Kind = "error"; Data = s }
 
   let helpText(name: string, tip: FSharpToolTipText) =
-    let text = TipFormatter.formatTipAlternative tip |> List.map(fun (n,m) -> {Signature = n; Comment = m} )
+    let text = TipFormatter.formatTip tip |> List.map(fun (n,m) -> {Signature = n; Comment = m} )
     writeJson { Kind = "helptext"; Data = { Name = name; Overloads = text } }
 
   let project(projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
@@ -264,7 +266,7 @@ module CommandResponse =
                   [ for o in meth.Methods do
                      let tip = TipFormatter.formatTip o.Description
                      yield {
-                       Tip = tip
+                       Tip = {Signature = fst tip.Head; Comment = snd tip.Head } 
                        TypeText = o.TypeText
                        Parameters =
                          [ for p in o.Parameters do
@@ -297,7 +299,7 @@ module CommandResponse =
     writeJson { Kind = "declarations"; Data = decls }
 
   let toolTip(tip) =
-    let text = TipFormatter.formatTipAlternative tip |> List.map(fun (n,m) -> {Signature = n; Comment = m} )
+    let text = TipFormatter.formatTip tip |> List.map(fun (n,m) -> {Signature = n; Comment = m} )
     writeJson { Kind = "tooltip"; Data = text }
 
   let compilerLocation fsc fsi msbuild =
