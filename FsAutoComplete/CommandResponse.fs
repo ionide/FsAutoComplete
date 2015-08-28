@@ -297,7 +297,8 @@ module CommandResponse =
     writeJson { Kind = "declarations"; Data = decls }
 
   let toolTip(tip) =
-    writeJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
+    let text = TipFormatter.formatTipAlternative tip |> List.map(fun (n,m) -> {Signature = n; Comment = m} )
+    writeJson { Kind = "tooltip"; Data = text }
 
   let compilerLocation fsc fsi msbuild =
     let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }
