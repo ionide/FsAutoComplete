@@ -1,3 +1,8 @@
+#### 0.23.1 - 02.09.2015
+
+* Fix MSBuild v14 support on non-English systems by avoiding
+  attempting to load *.resources.dll (patch from @ryun).
+
 #### 0.23.0 - 14.08.2015
 
 * Add a new `colorizations <true|false>` command to enable/disable asynchronous
