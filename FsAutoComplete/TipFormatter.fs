@@ -22,9 +22,6 @@ let formatTip tip =
                                                  | FSharpToolTipElement.Single _ | FSharpToolTipElement.Group _ -> true
                                                  | _ -> false)
                                    |>  Seq.fold (fun acc t -> match t with
-                                                              | FSharpToolTipElement.Single (it, comment) -> (it, comment |> buildFormatComment)::acc
-                                                              | FSharpToolTipElement.Group (items) -> (items |> List.map (fun (it, comment) ->  (it, comment |> buildFormatComment) )) @ acc
+                                                              | FSharpToolTipElement.Single (it, comment) -> [(it, comment |> buildFormatComment)]::acc
+                                                              | FSharpToolTipElement.Group (items) -> (items |> List.map (fun (it, comment) ->  (it, comment |> buildFormatComment) )) :: acc
                                                               | _ -> acc) []
-
-  
-  
