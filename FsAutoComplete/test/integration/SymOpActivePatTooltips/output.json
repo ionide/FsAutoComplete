@@ -12,23 +12,58 @@
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "info",
@@ -40,23 +75,58 @@
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "info",
@@ -64,13 +134,34 @@
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )"
+  "Data": [
+    [
+      {
+        "Signature": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )",
+        "Comment": ""
+      }
+    ]
+  ]
 }

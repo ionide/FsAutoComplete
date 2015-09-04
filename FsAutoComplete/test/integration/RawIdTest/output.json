@@ -180,7 +180,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Another`Column",
-    "Text": "val Another`Column : int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val Another`Column : int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -217,7 +224,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Another`Column",
-    "Text": "val Another`Column : int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val Another`Column : int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -239,7 +253,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Another`Column",
-    "Text": "property Y.Another`Column: int"
+    "Overloads": [
+      [
+        {
+          "Signature": "property Y.Another`Column: int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -266,7 +287,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Column Two",
-    "Text": "property Y.Column Two: int"
+    "Overloads": [
+      [
+        {
+          "Signature": "property Y.Column Two: int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -293,7 +321,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Another`Column",
-    "Text": "property Y.Another`Column: int"
+    "Overloads": [
+      [
+        {
+          "Signature": "property Y.Another`Column: int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {

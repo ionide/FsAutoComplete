@@ -36,7 +36,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Equals",
-    "Text": "System.Object.Equals(obj: obj) : bool"
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -73,7 +80,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -115,7 +129,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -132,7 +153,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -208,7 +236,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Equals",
-    "Text": "System.Object.Equals(obj: obj) : bool"
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -245,7 +280,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -287,7 +329,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -304,7 +353,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -362,7 +418,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Equals",
-    "Text": "System.Object.Equals(obj: obj) : bool"
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -399,7 +462,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -441,7 +511,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -458,7 +535,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -516,7 +600,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Equals",
-    "Text": "System.Object.Equals(obj: obj) : bool"
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -553,7 +644,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -595,7 +693,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -612,7 +717,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {

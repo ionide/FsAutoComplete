@@ -78,7 +78,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -95,7 +102,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {

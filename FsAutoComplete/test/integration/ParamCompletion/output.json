@@ -39,7 +39,14 @@
     "CurrentParameter": 0,
     "Overloads": [
       {
-        "Tip": "new : unit -> FileTwo.NewObjectType",
+        "Tip": [
+          [
+            {
+              "Signature": "new : unit -> FileTwo.NewObjectType",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": FileTwo.NewObjectType",
         "Parameters": [],
         "IsStaticArguments": false
@@ -54,7 +61,14 @@
     "CurrentParameter": 0,
     "Overloads": [
       {
-        "Tip": "new : unit -> FileTwo.NewObjectType",
+        "Tip": [
+          [
+            {
+              "Signature": "new : unit -> FileTwo.NewObjectType",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": FileTwo.NewObjectType",
         "Parameters": [],
         "IsStaticArguments": false
@@ -69,7 +83,14 @@
     "CurrentParameter": 0,
     "Overloads": [
       {
-        "Tip": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
+        "Tip": [
+          [
+            {
+              "Signature": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": Set<'a> (requires comparison)",
         "Parameters": [
           {
@@ -88,7 +109,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
+        "Tip": [
+          [
+            {
+              "Signature": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": int",
         "Parameters": [
           {
@@ -107,7 +135,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
+        "Tip": [
+          [
+            {
+              "Signature": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": int",
         "Parameters": [
           {
@@ -135,7 +170,14 @@
     "CurrentParameter": 1,
     "Overloads": [
       {
-        "Tip": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
+        "Tip": [
+          [
+            {
+              "Signature": "member FileTwo.NewObjectType.Terrific : y:Set<'a> * z:int -> Set<'a> (requires comparison)",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": Set<'a> (requires comparison)",
         "Parameters": [
           {
@@ -154,7 +196,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
+        "Tip": [
+          [
+            {
+              "Signature": "member FileTwo.NewObjectType.Terrific : y:int * z:char -> int",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": int",
         "Parameters": [
           {
@@ -173,7 +222,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
+        "Tip": [
+          [
+            {
+              "Signature": "member FileTwo.NewObjectType.Terrific : y:int * z:System.DateTime -> int",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": int",
         "Parameters": [
           {
@@ -201,7 +257,14 @@
     "CurrentParameter": 0,
     "Overloads": [
       {
-        "Tip": "System.DateTime.Parse(s: string) : System.DateTime",
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": System.DateTime",
         "Parameters": [
           {
@@ -214,7 +277,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": System.DateTime",
         "Parameters": [
           {
@@ -233,7 +303,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": System.DateTime",
         "Parameters": [
           {
@@ -267,7 +344,14 @@
     "CurrentParameter": 0,
     "Overloads": [
       {
-        "Tip": "System.DateTime.Parse(s: string) : System.DateTime",
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": System.DateTime",
         "Parameters": [
           {
@@ -280,7 +364,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": System.DateTime",
         "Parameters": [
           {
@@ -299,7 +390,14 @@
         "IsStaticArguments": false
       },
       {
-        "Tip": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
         "TypeText": ": System.DateTime",
         "Parameters": [
           {

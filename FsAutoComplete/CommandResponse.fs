@@ -76,6 +76,12 @@ module CommandResponse =
       Framework: string
     }
 
+  type OverloadSignature =
+    {
+      Signature: string
+      Comment: string
+    }
+
   type OverloadParameter =
     {
       Name : string
@@ -85,7 +91,7 @@ module CommandResponse =
     }
   type Overload =
     {
-      Tip : string
+      Tip : OverloadSignature list list
       TypeText : string
       Parameters : OverloadParameter list
       IsStaticArguments : bool
@@ -118,10 +124,12 @@ module CommandResponse =
       Uses: SymbolUseRange list
     }
 
+
+
   type HelpTextResponse =
     {
       Name: string
-      Text: string
+      Overloads: OverloadSignature list list
     }
 
   type CompilerLocationResponse =
@@ -212,8 +220,8 @@ module CommandResponse =
   let error(s: string) = writeJson { Kind = "error"; Data = s }
 
   let helpText(name: string, tip: FSharpToolTipText) =
-    let text = TipFormatter.formatTip tip
-    writeJson { Kind = "helptext"; Data = { Name = name; Text = text } }
+    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+    writeJson { Kind = "helptext"; Data = { Name = name; Overloads = data } }
 
   let project(projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
     let projectData =
@@ -256,7 +264,7 @@ module CommandResponse =
                  CurrentParameter = commas
                  Overloads =
                   [ for o in meth.Methods do
-                     let tip = TipFormatter.formatTip o.Description
+                     let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
                      yield {
                        Tip = tip
                        TypeText = o.TypeText
@@ -291,7 +299,8 @@ module CommandResponse =
     writeJson { Kind = "declarations"; Data = decls }
 
   let toolTip(tip) =
-    writeJson { Kind = "tooltip"; Data = TipFormatter.formatTip tip }
+    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+    writeJson { Kind = "tooltip"; Data = data }
 
   let compilerLocation fsc fsi msbuild =
     let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }
@@ -299,4 +308,3 @@ module CommandResponse =
 
   let message(kind: string, data: 'a) =
     writeJson { Kind = kind; Data = data }
-
