@@ -45,7 +45,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "funky",
-    "Text": "val funky : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val funky : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -60,7 +67,14 @@
 }
 {
   "Kind": "tooltip",
-  "Data": "module XA\n\nfrom Script"
+  "Data": [
+    [
+      {
+        "Signature": "module XA\n\nfrom Script",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "info",

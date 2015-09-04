@@ -44,7 +44,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "funky",
-    "Text": "val funky : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val funky : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -61,7 +68,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Equals",
-    "Text": "System.Object.Equals(obj: obj) : bool"
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -98,7 +112,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -140,7 +161,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "func",
-    "Text": "val func : x:int -> int"
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -157,7 +185,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Bar",
-    "Text": "union case FileTwo.Foo.Bar: FileTwo.Foo"
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -197,19 +232,47 @@
 }
 {
   "Kind": "tooltip",
-  "Data": "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add"
+  "Data": [
+    [
+      {
+        "Signature": "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val func : x:int -> int\n\nFull name: Program.X.func"
+  "Data": [
+    [
+      {
+        "Signature": "val func : x:int -> int\n\nFull name: Program.X.func",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval"
+  "Data": [
+    [
+      {
+        "Signature": "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "tooltip",
-  "Data": "val funky : x:int -> int\n\nFull name: Script.XA.funky"
+  "Data": [
+    [
+      {
+        "Signature": "val funky : x:int -> int\n\nFull name: Script.XA.funky",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "finddecl",

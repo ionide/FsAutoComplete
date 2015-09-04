@@ -21,7 +21,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Ticks",
-    "Text": "property System.DateTime.Ticks: int64"
+    "Overloads": [
+      [
+        {
+          "Signature": "property System.DateTime.Ticks: int64",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -238,7 +245,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Ticks",
-    "Text": "property System.DateTime.Ticks: int64"
+    "Overloads": [
+      [
+        {
+          "Signature": "property System.DateTime.Ticks: int64",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
@@ -315,7 +329,14 @@
   "Kind": "helptext",
   "Data": {
     "Name": "Ticks",
-    "Text": "property System.DateTime.Ticks: int64"
+    "Overloads": [
+      [
+        {
+          "Signature": "property System.DateTime.Ticks: int64",
+          "Comment": ""
+        }
+      ]
+    ]
   }
 }
 {
