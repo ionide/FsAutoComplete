@@ -1,3 +1,9 @@
+#### 0.24.0 - 04.09.2015
+
+* Backwards-incompatible: do not format help text, leave that to the
+  client, which allows the display to be more semantic. #63 (due to
+  @Krzysztof-Cieslak)
+
 #### 0.23.1 - 02.09.2015
 
 * Fix MSBuild v14 support on non-English systems by avoiding
