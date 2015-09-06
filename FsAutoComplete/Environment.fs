@@ -26,12 +26,19 @@ module Environment =
       let files =
           dirs
           |> Seq.map (fun (path : string) ->
+              try
+                 let path =
+                    if path.StartsWith("\"") && path.EndsWith("\"")
+                    then path.Substring(1, path.Length - 2)
+                    else path
                  let dir = new DirectoryInfo(path)
                  if not dir.Exists then ""
                  else
                      let fi = new FileInfo(dir.FullName @@ file)
                      if fi.Exists then fi.FullName
-                     else "")
+                     else ""
+              with
+              | _ -> "")
           |> Seq.filter ((<>) "")
           |> Seq.cache
       if not (Seq.isEmpty files) then Some(Seq.head files)
