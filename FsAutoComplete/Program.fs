@@ -243,7 +243,6 @@ module internal Main =
                    attaching the exception information:\n"
                    + e.ToString()
         Response.error msg
-        state <- state
 
     0
 
