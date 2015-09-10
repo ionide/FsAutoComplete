@@ -249,6 +249,8 @@ module internal Main =
 
   [<EntryPoint>]
   let entry args =
+    Console.InputEncoding <- Text.Encoding.UTF8
+    Console.OutputEncoding <- Text.Encoding.UTF8
     let extra = Options.p.Parse args
     if extra.Count <> 0 then
       printfn "Unrecognised arguments: %s" (String.concat "," extra)
