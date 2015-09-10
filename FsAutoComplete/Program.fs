@@ -83,182 +83,169 @@ module internal Main =
 
   let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
 
-  let rec main (state:State) : int =
-    currentFiles <- state.Files
+  let main (state:State) : int =
+    let mutable state = state
+    let mutable quit = false
 
-    try
-      match commandQueue.Get() with
-      | Parse(file,kind,lines) ->
-          let parse fileName text options =
-            let task =
-              async {
-                let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
-                match checkResults with
-                | FSharpCheckFileAnswer.Aborted -> ()
-                | FSharpCheckFileAnswer.Succeeded results ->
-                     Response.errors(results.Errors)
-                     if state.ColorizationOutput then
-                       Response.colorizations(results.GetExtraColorizationsAlternate())
-              }
-            match kind with
-            | Synchronous -> Response.info "Synchronous parsing started"
-                             Async.RunSynchronously task
-            | Normal -> Response.info "Background parsing started"
-                        Async.StartImmediate task
+    while not quit do
+      currentFiles <- state.Files
+      try
+        match commandQueue.Get() with
+        | Parse(file,kind,lines) ->
+            let parse fileName text options =
+              let task =
+                async {
+                  let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
+                  match checkResults with
+                  | FSharpCheckFileAnswer.Aborted -> ()
+                  | FSharpCheckFileAnswer.Succeeded results ->
+                       Response.errors(results.Errors)
+                       if state.ColorizationOutput then
+                         Response.colorizations(results.GetExtraColorizationsAlternate())
+                }
+              match kind with
+              | Synchronous -> Response.info "Synchronous parsing started"
+                               Async.RunSynchronously task
+              | Normal -> Response.info "Background parsing started"
+                          Async.StartImmediate task
 
-          let file = Path.GetFullPath file
-          let text = String.concat "\n" lines
+            let file = Path.GetFullPath file
+            let text = String.concat "\n" lines
 
-          if Utils.isAScript file then
-            let checkOptions = checker.GetProjectOptionsFromScript(file, text)
-            let state = state.WithFileTextAndCheckerOptions(file, lines, checkOptions)
-            parse file text checkOptions
-            main state
-          else
-            let state, checkOptions = state.WithFileTextGetCheckerOptions(file, lines)
-            parse file text checkOptions
-            main state
+            if Utils.isAScript file then
+              let checkOptions = checker.GetProjectOptionsFromScript(file, text)
+              parse file text checkOptions
+              state <- state.WithFileTextAndCheckerOptions(file, lines, checkOptions)
+            else
+              let state', checkOptions = state.WithFileTextGetCheckerOptions(file, lines)
+              parse file text checkOptions
+              state <- state'
 
-      | Project (file,time) ->
-          let file = Path.GetFullPath file
+        | Project (file,time) ->
+            let file = Path.GetFullPath file
 
-          // The FileSystemWatcher often triggers multiple times for
-          // each event, as editors often modify files in several steps.
-          // This 'debounces' the events, by only reloading a max of once
-          // per second.
-          match state.ProjectLoadTimes.TryFind file with
-          | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> main state
-          | _ ->
+            // The FileSystemWatcher often triggers multiple times for
+            // each event, as editors often modify files in several steps.
+            // This 'debounces' the events, by only reloading a max of once
+            // per second.
+            match state.ProjectLoadTimes.TryFind file with
+            | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> ()
+            | _ ->
 
-          match checker.TryGetProjectOptions(file) with
-          | Result.Failure s ->
-              Response.error(s)
-              main state
+            match checker.TryGetProjectOptions(file) with
+            | Result.Failure s ->
+                Response.error(s)
 
-          | Result.Success(po, projectFiles, outFileOpt, references, frameworkOpt) ->
-              Response.project(file, projectFiles, outFileOpt, references, frameworkOpt)
+            | Result.Success(po, projectFiles, outFileOpt, references, frameworkOpt) ->
+                Response.project(file, projectFiles, outFileOpt, references, frameworkOpt)
 
-              let fsw = new FileSystemWatcher()
-              fsw.Path <- Path.GetDirectoryName file
-              fsw.Filter <- Path.GetFileName file
-              fsw.Changed.Add(fun _ -> commandQueue.Add(Project (file, DateTime.Now)))
-              fsw.EnableRaisingEvents <- true
-              
-              let checkOptions =
-                projectFiles
-                |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
-              let loadTimes = Map.add file time state.ProjectLoadTimes
-              main { state with FileCheckOptions = checkOptions
-                                ProjectLoadTimes = loadTimes }
+                let fsw = new FileSystemWatcher()
+                fsw.Path <- Path.GetDirectoryName file
+                fsw.Filter <- Path.GetFileName file
+                fsw.Changed.Add(fun _ -> commandQueue.Add(Project (file, DateTime.Now)))
+                fsw.EnableRaisingEvents <- true
 
-      | Declarations file ->
-          let file = Path.GetFullPath file
-          match state.TryGetFileCheckerOptionsWithSource(file) with
-          | Failure s -> Response.error(s)
-          | Success (checkOptions, source) ->
-              let decls = checker.GetDeclarations(file, source, checkOptions)
-              Response.declarations(decls)
+                let checkOptions =
+                  projectFiles
+                  |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
+                let loadTimes = Map.add file time state.ProjectLoadTimes
+                state <- { state with FileCheckOptions = checkOptions
+                                      ProjectLoadTimes = loadTimes }
 
-          main state
+        | Declarations file ->
+            let file = Path.GetFullPath file
+            match state.TryGetFileCheckerOptionsWithSource(file) with
+            | Failure s -> Response.error(s)
+            | Success (checkOptions, source) ->
+                let decls = checker.GetDeclarations(file, source, checkOptions)
+                Response.declarations(decls)
 
-      | HelpText sym ->
-          match Map.tryFind sym state.HelpText with
-          | None -> Response.error (sprintf "No help text available for symbol '%s'" sym) 
-          | Some tip -> Response.helpText(sym, tip)
+        | HelpText sym ->
+            match Map.tryFind sym state.HelpText with
+            | None -> Response.error (sprintf "No help text available for symbol '%s'" sym) 
+            | Some tip -> Response.helpText(sym, tip)
 
-          main state
+        | PosCommand(cmd, file, line, col, timeout, filter) ->
+            let file = Path.GetFullPath file
+            match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
+            | Failure s -> Response.error(s)
+            | Success (options, lines, lineStr) ->
+              // TODO: Should sometimes pass options.Source in here to force a reparse
+              //       for completions e.g. `(some typed expr).$`
+              let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+              match tyResOpt with
+              | None -> Response.info "Cached typecheck results not yet available"
+              | Some tyRes ->
 
-      | PosCommand(cmd, file, line, col, timeout, filter) ->
-          let file = Path.GetFullPath file
-          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
-          | Failure s -> Response.error(s)
-                         main state
-          | Success (options, lines, lineStr) ->
-            // TODO: Should sometimes pass options.Source in here to force a reparse
-            //       for completions e.g. `(some typed expr).$`
-            let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-            match tyResOpt with
-            | None -> Response.info "Cached typecheck results not yet available"; main state
-            | Some tyRes ->
+              match cmd with
+              | Completion ->
+                  match tyRes.TryGetCompletions line col lineStr timeout filter with
+                  | Some (decls, residue) ->
+                      let declName (d: FSharpDeclarationListItem) = d.Name
 
-            match cmd with
-            | Completion ->
-                match tyRes.TryGetCompletions line col lineStr timeout filter with
-                | Some (decls, residue) ->
-                    let declName (d: FSharpDeclarationListItem) = d.Name
+                      // Send the first helptext without being requested.
+                      // This allows it to be displayed immediately in the editor.
+                      let firstMatchOpt =
+                        Array.sortBy declName decls
+                        |> Array.tryFind (fun d -> (declName d).StartsWith residue)
+                      match firstMatchOpt with
+                      | None -> ()
+                      | Some d -> Response.helpText(d.Name, d.DescriptionText)
 
-                    // Send the first helptext without being requested.
-                    // This allows it to be displayed immediately in the editor.
-                    let firstMatchOpt =
-                      Array.sortBy declName decls
-                      |> Array.tryFind (fun d -> (declName d).StartsWith residue)
-                    match firstMatchOpt with
-                    | None -> ()
-                    | Some d -> Response.helpText(d.Name, d.DescriptionText)
+                      Response.completion(decls)
 
-                    Response.completion(decls)
+                      let helptext =
+                        Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
+                      state <- { state with HelpText = helptext }
 
-                    let helptext =
-                      Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
-                    main { state with HelpText = helptext }
+                  | None ->
+                      Response.error "Timed out while fetching completions"
 
-                | None ->
-                    Response.error "Timed out while fetching completions"
-                    main state
+              | ToolTip ->
+                  // A failure is only info here, as this command is expected to be
+                  // used 'on idle', and frequent errors are expected.
+                  match tyRes.TryGetToolTip line col lineStr with
+                  | Result.Failure s -> Response.info(s)
+                  | Result.Success tip -> Response.toolTip(tip)
 
-            | ToolTip ->
-                // A failure is only info here, as this command is expected to be
-                // used 'on idle', and frequent errors are expected.
-                match tyRes.TryGetToolTip line col lineStr with
-                | Result.Failure s -> Response.info(s)
-                | Result.Success tip -> Response.toolTip(tip)
+              | SymbolUse ->
+                  // A failure is only info here, as this command is expected to be
+                  // used 'on idle', and frequent errors are expected.
+                  match tyRes.TryGetSymbolUse line col lineStr with
+                  | Result.Failure s -> Response.info(s)
+                  | Result.Success (sym,usages) -> Response.symbolUse(sym,usages)
 
-                main state
+              | FindDeclaration ->
+                  match tyRes.TryFindDeclaration line col lineStr with
+                  | Result.Failure s -> Response.error s
+                  | Result.Success range -> Response.findDeclaration(range)
 
-            | SymbolUse ->
-                // A failure is only info here, as this command is expected to be
-                // used 'on idle', and frequent errors are expected.
-                match tyRes.TryGetSymbolUse line col lineStr with
-                | Result.Failure s -> Response.info(s)
-                | Result.Success (sym,usages) -> Response.symbolUse(sym,usages)
+              | Methods ->
+                  match tyRes.TryGetMethodOverrides lines line col with
+                  | Result.Failure s -> Response.error s
+                  | Result.Success (meth, commas) -> Response.methods(meth, commas)
 
-                main state
+        | CompilerLocation ->
+            Response.compilerLocation Environment.fsc Environment.fsi Environment.msbuild
 
-            | FindDeclaration ->
-                match tyRes.TryFindDeclaration line col lineStr with
-                | Result.Failure s -> Response.error s
-                | Result.Success range -> Response.findDeclaration(range)
+        | Colorization enabled ->
+            state <- { state with ColorizationOutput = enabled }
 
-                main state
+        | Error(msg) ->
+            Response.error msg
 
-            | Methods ->
-                match tyRes.TryGetMethodOverrides lines line col with
-                | Result.Failure s -> Response.error s
-                | Result.Success (meth, commas) -> Response.methods(meth, commas)
+        | Quit ->
+            quit <- true
 
-                main state
+      with e ->
+        let msg = "Unexpected internal error. Please report at \
+                   https://github.com/fsharp/FsAutoComplete/issues, \
+                   attaching the exception information:\n"
+                   + e.ToString()
+        Response.error msg
+        state <- state
 
-      | CompilerLocation ->
-          Response.compilerLocation Environment.fsc Environment.fsi Environment.msbuild
-          main state
-
-      | Colorization enabled ->
-          main { state with ColorizationOutput = enabled }
-
-      | Error(msg) ->
-          Response.error msg
-          main state
-
-      | Quit ->
-          0
-          
-    with e ->
-      let msg = "Unexpected internal error. Please report at \
-                 https://github.com/fsharp/FsAutoComplete/issues, \
-                 attaching the exception information:\n"
-                 + e.ToString()
-      Response.error msg
-      main state
+    0
 
   [<EntryPoint>]
   let entry args =
