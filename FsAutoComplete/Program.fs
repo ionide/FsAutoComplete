@@ -92,6 +92,7 @@ module internal Main =
       try
         match commandQueue.Get() with
         | Parse(file,kind,lines) ->
+            let colorizations = state.ColorizationOutput
             let parse fileName text options =
               let task =
                 async {
@@ -100,7 +101,7 @@ module internal Main =
                   | FSharpCheckFileAnswer.Aborted -> ()
                   | FSharpCheckFileAnswer.Succeeded results ->
                        Response.errors(results.Errors)
-                       if state.ColorizationOutput then
+                       if colorizations then
                          Response.colorizations(results.GetExtraColorizationsAlternate())
                 }
               match kind with
