@@ -1,3 +1,7 @@
+#### 0.24.1 - 11.09.2015
+
+* Fix StackOverflowException and encoding issue: #70.
+
 #### 0.24.0 - 04.09.2015
 
 * Backwards-incompatible: do not format help text, leave that to the
