@@ -13,6 +13,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 type private XmlDoc(doc: XmlDocument) =
   let nl = System.Environment.NewLine
   let readContent (node: XmlNode) =
+    // Many definitions contains references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
+    // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
     Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "$1")
   let readChildren name (doc: XmlDocument) =
     doc.DocumentElement.GetElementsByTagName name
@@ -24,9 +26,29 @@ type private XmlDoc(doc: XmlDocument) =
   member val Exceptions = readChildren "exception" doc
   override x.ToString() =
     x.Summary + nl + nl +
-    (x.Params |> Seq.map (fun kv -> kv.Key + ": " + kv.Value) |> String.concat nl) + nl + nl +
-    "Exceptions:" + nl +
-    (x.Exceptions |> Seq.map (fun kv -> "\t" + kv.Key + ": " + kv.Value) |> String.concat nl)
+    (x.Params |> Seq.map (fun kv -> kv.Key + ": " + kv.Value) |> String.concat nl) +
+    (if x.Exceptions.Count = 0 then ""
+     else nl + nl + "Exceptions:" + nl +
+          (x.Exceptions |> Seq.map (fun kv -> "\t" + kv.Key + ": " + kv.Value) |> String.concat nl))
+
+let private getXmlDoc dllFile =
+  let exists extension =
+    let path = Path.ChangeExtension(dllFile, extension)
+    if File.Exists(path) then Some path else None
+  match exists ".xml", exists ".XML" with
+  | Some path, _
+  | _, Some path -> Some path
+  | None, None -> None
+
+let rec private findXmlInfo name (reader: XmlReader) =
+  match reader.Read() with
+  | false -> ""
+  | true when reader.GetAttribute("name") = name ->
+    use subReader = reader.ReadSubtree()
+    let doc = XmlDocument()
+    doc.Load(subReader)
+    XmlDoc doc |> string
+  | _ -> findXmlInfo name reader
     
 
 // --------------------------------------------------------------------------------------
@@ -35,21 +57,14 @@ type private XmlDoc(doc: XmlDocument) =
 let private buildFormatComment cmt =
   match cmt with
   | FSharpXmlDoc.Text s -> s
-  | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) when
-    File.Exists(Path.ChangeExtension(dllFile, ".xml")) ->
-    let rec findComment name (reader: XmlReader) =
-      match reader.Read() with
-      | false -> ""
-      | true when reader.GetAttribute("name") = name ->
-        use subReader = reader.ReadSubtree()
-        let doc = XmlDocument()
-        doc.Load(subReader)
-        XmlDoc doc |> string
-      | _ -> findComment name reader
-    try
-      use reader = Path.ChangeExtension(dllFile, ".xml") |> XmlReader.Create
-      findComment memberName reader
-    with _ -> ""
+  | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
+    match getXmlDoc dllFile with
+    | Some xmlFile ->
+      try
+        use reader = XmlReader.Create xmlFile
+        findXmlInfo memberName reader
+      with _ -> ""
+    | None -> ""
   | _ -> ""
 
 let formatTip tip = 
