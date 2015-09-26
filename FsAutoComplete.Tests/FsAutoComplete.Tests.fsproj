@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -70,6 +70,11 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj">
+      <Name>FsAutoComplete.Core</Name>
+      <Project>{4e4786f3-4566-44e1-8787-91790007f0f6}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FsAutoComplete\FsAutoComplete.fsproj">
       <Project>{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}</Project>
       <Name>FsAutoComplete</Name>

@@ -1,7 +1,7 @@
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    FAKE (4.0.2)
+    FAKE (4.4.4)
     FSharp.Compiler.Service (1.4.0.1) - framework: >= net45
     FSharp.Core (3.0.2)
     Microsoft.Bcl (1.1.10)
@@ -15,5 +15,5 @@ NUGET
     Newtonsoft.Json (7.0.1)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
-    Octokit (0.14.0)
+    Octokit (0.16.0)
       Microsoft.Net.Http

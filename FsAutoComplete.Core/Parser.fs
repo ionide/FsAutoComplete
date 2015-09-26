@@ -69,26 +69,26 @@ module Parser =
 
   let item = P(function | LazyList.Nil -> [] | LazyList.Cons(c, r) -> [c,r.Value])
 
-  let sequence (P p) (P q) = P (fun inp ->
+  let sequence (P p) (P q) = P (fun inp -> 
     [ for (pr, inp') in p inp do
-        for (qr, inp'') in q inp' do
+        for (qr, inp'') in q inp' do 
           yield (pr, qr), inp''])
 
-  let sat p = parser {
-    let! v = item
+  let sat p = parser { 
+    let! v = item 
     if (p v) then return v }
 
   let char x = sat ((=) x)
-  let digit = sat Char.IsDigit
+  let digit = sat Char.IsDigit    
   let lower = sat Char.IsLower
   let upper = sat Char.IsUpper
   let letter = sat Char.IsLetter
   let nondigit = sat (Char.IsDigit >> not)
   let whitespace = sat (Char.IsWhiteSpace)
 
-  let alphanum = parser {
+  let alphanum = parser { 
     return! letter
-    return! digit }
+    return! digit }  
 
   let rec word = parser {
     return []
@@ -97,21 +97,21 @@ module Parser =
       let! xs = word
       return x::xs } }
 
-  let string (str:string) =
+  let string (str:string) = 
     let chars = str.ToCharArray() |> List.ofSeq
     let rec string' = function
       | [] -> result []
-      | x::xs -> parser {
+      | x::xs -> parser { 
           let! y = char x
-          let! ys = string' xs
+          let! ys = string' xs 
           return y::ys }
     string' chars
 
   let rec many p = parser {
-    return! parser {
+    return! parser { 
       let! it = p
       let! res = many p
-      return it::res }
+      return it::res } 
     return [] }
 
   let rec some p = parser {
@@ -119,15 +119,15 @@ module Parser =
     let! rest = many p
     return first::rest }
 
-  let rec map f p = parser {
-    let! v = p
+  let rec map f p = parser { 
+    let! v = p 
     return f v }
 
   let optional p = parser {
     return! parser { let! v = p in return Some v }
-    return None }
+    return None }             
 
-  let apply (P p) (str:seq<char>) =
+  let apply (P p) (str:seq<char>) = 
     let res = str |> LazyList.ofSeq |> p
     res |> List.map fst
 
@@ -141,7 +141,7 @@ module Parsing =
   let inline isFirstOpChar ch =
       ch = '!' || ch = '%'|| ch = '&' || ch = '*'|| ch = '+'|| ch = '-'|| ch = '.'|| ch = '/'|| ch = '<'|| ch = '='|| ch = '>'|| ch = '@'|| ch = '^'|| ch = '|'|| ch = '~'
   let isOpChar ch = ch = '?' || isFirstOpChar ch
-
+      
   let private symOpLits = [ "?"; "?<-"; "<@"; "<@@"; "@>"; "@@>" ]
 
   let isSymbolicOp (str:string) =
@@ -198,10 +198,10 @@ module Parsing =
   }
 
   /// Parse F# short-identifier and reverse the resulting string
-  let parseBackIdent =
+  let parseBackIdent =  
     parser {
         let! x = optional (string "``")
-        let! res = many (if x.IsSome then rawIdChar else fsharpIdentCharacter) |> map String.ofReversedSeq
+        let! res = many (if x.IsSome then rawIdChar else fsharpIdentCharacter) |> map String.ofReversedSeq 
         let! _ = optional (string "``")
         return res }
 
@@ -213,7 +213,7 @@ module Parsing =
       let! ident = parseBackIdent
       let! rest = parseBackLongIdentRest
       return ident::rest }
-    return [] }
+    return [] } 
 
   /// Parse long identifier with raw residue (backwards) (e.g. "Debug.``A.B Hel")
   /// and returns it as a tuple (reverses the results after parsing)
@@ -228,12 +228,12 @@ module Parsing =
   /// Parse long identifier with residue (backwards) (e.g. "Debug.Wri")
   /// and returns it as a tuple (reverses the results after parsing)
   let parseBackIdentWithResidue = parser {
-    let! residue = many fsharpIdentCharacter
+    let! residue = many fsharpIdentCharacter 
     let residue = String.ofReversedSeq residue
     return! parser {
       let! long = parseBackLongIdentRest
       return residue, long |> List.rev }
-    return residue, [] }
+    return residue, [] }   
 
   let parseBackIdentWithEitherResidue =
     parseBackIdentWithResidue <|> parseBackIdentWithRawResidue
@@ -253,56 +253,56 @@ module Parsing =
     }
 
   /// Create sequence that reads the string backwards
-  let createBackStringReader (str:string) from = seq {
+  let createBackStringReader (str:string) from = seq { 
     for i in (min from (str.Length - 1)) .. -1 .. 0 do yield str.[i] }
 
   /// Create sequence that reads the string forwards
-  let createForwardStringReader (str:string) from = seq {
+  let createForwardStringReader (str:string) from = seq { 
     for i in (max 0 from) .. (str.Length - 1) do yield str.[i] }
 
   /// Returns first result returned by the parser
   let getFirst p s = apply p s |> List.head
   let tryGetFirst p s = match apply p s with h::_ -> Some h | [] -> None
-
+   
 
   // Parsing - find the identifier around the current location
   // (we look for full identifier in the backward direction, but only
   // for a short identifier forward - this means that when you hover
   // 'B' in 'A.B.C', you will get intellisense for 'A.B' module)
-  let findLongIdents (col, lineStr) =
+  let findLongIdents (col, lineStr) = 
     let lookBack = createBackStringReader lineStr (col-1)
     let lookForw = createForwardStringReader lineStr col
 
     let backIdentOpt = tryGetFirst parseBackLongIdent lookBack
-    match backIdentOpt with
-    | None -> None
-    | Some backIdent ->
+    match backIdentOpt with 
+    | None -> None 
+    | Some backIdent -> 
     let nextIdentOpt = tryGetFirst parseIdent lookForw
-    match nextIdentOpt with
-    | None -> None
-    | Some nextIdent ->
+    match nextIdentOpt with 
+    | None -> None 
+    | Some nextIdent -> 
 
     let identIsland =
       match List.rev backIdent with
-      | last::prev ->
+      | last::prev -> 
          let current = last + nextIdent
          current::prev |> List.rev
       | [] -> []
 
     Debug.WriteLine(sprintf "Result: Crack symbol text at column %d\nIdentifier: %A\nLine string: %s"
                           col identIsland lineStr)
-
+    
     match identIsland with
     | [] | [ "" ] -> None
     | _ -> Some (col + nextIdent.Length - 1,identIsland)
-
+    
   /// find the identifier prior to a '(' or ',' once the method tip trigger '(' shows
-  let findLongIdentsAtGetMethodsTrigger (col, lineStr) =
+  let findLongIdentsAtGetMethodsTrigger (col, lineStr) = 
     let lookBack = createBackStringReader lineStr col
     let backIdentOpt = tryGetFirst parseBackTriggerThenLongIdent lookBack
-    match backIdentOpt with
-    | None -> None
-    | Some backIdent ->
+    match backIdentOpt with 
+    | None -> None 
+    | Some backIdent -> 
 
     let identIsland =
       match List.rev backIdent with
@@ -312,7 +312,7 @@ module Parsing =
     match identIsland with
     | [] | [ "" ] -> None
     | _ -> Some identIsland
-
+    
   /// Returns the previous long idents and the current 'residue'
   let findLongIdentsAndResidue (col, lineStr) =
     let lookBack = createBackStringReader lineStr (col - 1)
@@ -323,3 +323,4 @@ module Parsing =
         |> List.head
 
     longName, residue
+
