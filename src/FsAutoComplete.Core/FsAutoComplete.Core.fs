@@ -123,6 +123,15 @@ module Commands =
                 | Result.Success tip -> [Response.toolTip serialize tip], state
     }
 
+    let typesig  (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr = async {
+        // A failure is only info here, as this command is expected to be
+        // used 'on idle', and frequent errors are expected.
+        let! res = tyRes.TryGetToolTip line col lineStr
+        return match res with
+                | Result.Failure s -> [Response.info serialize (s)], state
+                | Result.Success tip -> [Response.typeSig serialize tip], state
+    }
+
     let symbolUse  (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr = async {
         // A failure is only info here, as this command is expected to be
         // used 'on idle', and frequent errors are expected.

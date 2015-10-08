@@ -77,7 +77,7 @@ module CommandResponse =
       Logs: Map<string, string>
     }
 
-  type OverloadSignature =
+  type OverloadDescription =
     {
       Signature: string
       Comment: string
@@ -92,7 +92,7 @@ module CommandResponse =
     }
   type Overload =
     {
-      Tip : OverloadSignature list list
+      Tip : OverloadDescription list list
       TypeText : string
       Parameters : OverloadParameter list
       IsStaticArguments : bool
@@ -130,7 +130,7 @@ module CommandResponse =
   type HelpTextResponse =
     {
       Name: string
-      Overloads: OverloadSignature list list
+      Overloads: OverloadDescription list list
     }
 
   type CompilerLocationResponse =
@@ -284,6 +284,10 @@ module CommandResponse =
   let toolTip (serialize : obj -> string) (tip) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
+
+  let typeSig (serialize : obj -> string) (tip) =
+    let data = TipFormatter.extractSignature tip
+    serialize { Kind = "typesig"; Data = data }
 
   let compilerLocation (serialize : obj -> string) fsc fsi msbuild =
     let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }

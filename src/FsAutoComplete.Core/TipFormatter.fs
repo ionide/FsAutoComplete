@@ -25,3 +25,13 @@ let formatTip tip =
                                                               | FSharpToolTipElement.Single (it, comment) -> [(it, comment |> buildFormatComment)]::acc
                                                               | FSharpToolTipElement.Group (items) -> (items |> List.map (fun (it, comment) ->  (it, comment |> buildFormatComment) )) :: acc
                                                               | _ -> acc) []
+
+let extractSignature tip =
+  match tip with
+  | FSharpToolTipText tips -> tips |> Seq.where (function
+                                                 | FSharpToolTipElement.Single _ | FSharpToolTipElement.Group _ -> true
+                                                 | _ -> false)
+                                   |>  Seq.fold (fun acc t -> match t with
+                                                              | FSharpToolTipElement.Single (it, _) -> [ it ]::acc
+                                                              | FSharpToolTipElement.Group (items) -> (items |> List.map (fun (it, _) ->  it )) :: acc
+                                                              | _ -> acc) []

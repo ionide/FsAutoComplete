@@ -72,9 +72,10 @@ module internal Main =
                       Commands.completion writeJson !state checker tyRes line col lineStr filter
                   | ToolTip ->
                       Commands.toolTip writeJson !state checker tyRes line col lineStr
+                  | TypeSig ->
+                      Commands.typesig writeJson !state checker tyRes line col lineStr
                   | SymbolUse ->
                       Commands.symbolUse writeJson !state checker tyRes line col lineStr
-
                   | FindDeclaration ->
                       Commands.findDeclarations writeJson !state checker tyRes line col lineStr
                   | Methods ->
