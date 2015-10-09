@@ -9,7 +9,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
 open JsonSerializer
-open FsAutoComplete
+open FsAutoComplete 
 
 module internal Main =
   module Response = CommandResponse

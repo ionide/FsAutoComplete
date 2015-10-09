@@ -35,7 +35,7 @@ module Commands =
           return res, state'
     }
 
-    
+
 
     let project (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file time = async {
         let file = Path.GetFullPath file
