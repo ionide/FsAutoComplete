@@ -1,38 +1,4 @@
 {
-  "Kind": "project",
-  "Data": {
-    "Project": "<absolute path removed>/test/integration/TypeSig/Test1.fsproj",
-    "Files": [
-      "<absolute path removed>/test/integration/TypeSig/FileTwo.fs",
-      "<absolute path removed>/test/integration/TypeSig/Program.fs"
-    ],
-    "Output": "<absolute path removed>/test/integration/TypeSig/bin/Debug/Test1.exe",
-    "References": [
-      "<absolute path removed>/FSharp.Core.dll",
-      "<absolute path removed>/System.Core.dll",
-      "<absolute path removed>/System.dll",
-      "<absolute path removed>/mscorlib.dll"
-    ],
-    "Framework": "v4.0"
-  }
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
@@ -44,7 +10,7 @@
   "Kind": "typesig",
   "Data": [
     [
-      "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add"
+      "val funky : x:int -> int\n\nFull name: Script.XA.funky"
     ]
   ]
 }
@@ -52,7 +18,7 @@
   "Kind": "typesig",
   "Data": [
     [
-      "val func : x:int -> int\n\nFull name: Program.X.func"
+      "module CommandResponse\n\nfrom Script"
     ]
   ]
 }
@@ -60,7 +26,7 @@
   "Kind": "typesig",
   "Data": [
     [
-      "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval"
+      "type ResponseMsg<'T> =\n  {Kind: string;\n   Data: 'T;}\n  member f : y:'a -> int\n\nFull name: Script.CommandResponse.ResponseMsg<_>"
     ]
   ]
 }
