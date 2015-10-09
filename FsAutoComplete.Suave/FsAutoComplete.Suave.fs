@@ -18,7 +18,7 @@ open FsAutoComplete.JsonSerializer
 [<AutoOpen>]
 module Contract =
     type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]}
-    type ProjectRequest = { FileName : string; Time : DateTime}
+    type ProjectRequest = { FileName : string;}
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
@@ -76,8 +76,9 @@ let main argv =
         choose [
             path "/parse" >>= handler (fun (data : ParseRequest) -> Commands.parse writeJson state checker data.FileName data.Lines)
             //TODO: Add filewatcher
-            path "/project" >>= handler (fun (data : ProjectRequest) -> Commands.project writeJson state checker data.FileName data.Time)
+            path "/project" >>= handler (fun (data : ProjectRequest) -> Commands.project writeJson state checker data.FileName DateTime.Now)
             path "/declarations" >>= handler (fun (data : DeclarationsRequest) -> Commands.declarations writeJson state checker data.FileName)
+            path "/helptext" >>= handler (fun (data : HelptextRequest) -> Commands.helptext writeJson state checker data.Symbol)
             path "/completion" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.completion writeJson state checker tyRes data.Line data.Column lineStr None (Some data.Filter) )
             path "/tooltip" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.toolTip writeJson state checker tyRes data.Line data.Column lineStr )
             path "/symboluse" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUse writeJson state checker tyRes data.Line data.Column lineStr )
