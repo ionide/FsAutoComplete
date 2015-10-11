@@ -1,11 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{006506DF-0F50-4265-B5DB-A4570FD17EAB}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\..\paket.dependencies = ..\..\..\..\paket.dependencies
-	EndProjectSection
-EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "SymbolUse", "SymbolUse.fsproj", "{116CC2F9-F987-4B3D-915A-34CAC04A73DA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{09CDC542-2E93-4B17-B1C9-467CFDC42933}"
