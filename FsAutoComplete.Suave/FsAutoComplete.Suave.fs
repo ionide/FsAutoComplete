@@ -94,6 +94,15 @@ let main argv =
         ]
 
 
+    let port =
+        try
+            int argv.[0]
+        with
+        _ -> 8088
 
-    startWebServer defaultConfig app
+    let defaultBinding = defaultConfig.bindings.[0]
+    let withPort = { defaultBinding.socketBinding with port = uint16 port }
+    let serverConfig =
+        { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
+    startWebServer serverConfig app
     0 // return an integer exit code
