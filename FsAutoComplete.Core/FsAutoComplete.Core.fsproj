@@ -77,7 +77,6 @@
     <Compile Include="State.fs" />
     <Compile Include="FsAutoComplete.Core.fs" />
     <None Include="paket.references" />
-    <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
