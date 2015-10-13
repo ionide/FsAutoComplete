@@ -9,7 +9,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
 open JsonSerializer
-open FsAutoComplete 
+open FsAutoComplete
 
 module internal Main =
   module Response = CommandResponse
@@ -23,16 +23,16 @@ module internal Main =
   let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
 
   let main (state:State) : int =
-    let mutable state = state
+    let state = ref state
     let mutable quit = false
 
     while not quit do
-      currentFiles <- state.Files
+      currentFiles <- (!state).Files
       try
         let res =
             match commandQueue.Get() with
             | Parse(file,kind,lines) -> async {
-                let! (res,state) = Commands.parse writeJson state checker file lines
+                let! (res,state) = Commands.parse writeJson !state checker file lines
                 //Hack for tests
                 let r = match kind with
                         | Synchronous -> Response.info writeJson "Synchronous parsing started"
@@ -48,51 +48,51 @@ module internal Main =
                 fsw.Filter <- Path.GetFileName fp
                 fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fp, DateTime.Now)))
                 fsw.EnableRaisingEvents <- true
-                Commands.project writeJson state checker file time
+                Commands.project writeJson !state checker file time
 
             | Declarations file ->
-                Commands.declarations writeJson state checker file
+                Commands.declarations writeJson !state checker file
 
             | HelpText sym ->
-                Commands.helptext writeJson state checker sym
+                Commands.helptext writeJson !state checker sym
             | PosCommand(cmd, file, line, col, timeout, filter) ->
                 let file = Path.GetFullPath file
-                match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
-                | Failure s -> async { return [Response.error writeJson (s)], state }
+                match (!state).TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
+                | Failure s -> async { return [Response.error writeJson (s)], !state }
                 | Success (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
                   //       for completions e.g. `(some typed expr).$`
                   let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
                   match tyResOpt with
-                  | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], state }
+                  | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
                   | Some tyRes ->
 
                   match cmd with
                   | Completion ->
-                      Commands.completion writeJson state checker tyRes line col lineStr timeout filter
+                      Commands.completion writeJson !state checker tyRes line col lineStr timeout filter
                   | ToolTip ->
-                      Commands.toolTip writeJson state checker tyRes line col lineStr
+                      Commands.toolTip writeJson !state checker tyRes line col lineStr
                   | SymbolUse ->
-                      Commands.symbolUse writeJson state checker tyRes line col lineStr
+                      Commands.symbolUse writeJson !state checker tyRes line col lineStr
 
                   | FindDeclaration ->
-                      Commands.findDeclarations writeJson state checker tyRes line col lineStr
+                      Commands.findDeclarations writeJson !state checker tyRes line col lineStr
                   | Methods ->
-                      Commands.methods writeJson state checker tyRes line col lines
+                      Commands.methods writeJson !state checker tyRes line col lines
             | CompilerLocation ->
-                Commands.compilerLocation writeJson state checker
+                Commands.compilerLocation writeJson !state checker
 
             | Colorization enabled ->
-                Commands.colorization writeJson state checker enabled
+                Commands.colorization writeJson !state checker enabled
 
             | Error(msg) ->
-                Commands.error writeJson state checker msg
+                Commands.error writeJson !state checker msg
 
             | Quit ->
                 quit <- true
-                async {return [], state}
+                async {return [], !state}
         let res', state' = res |> Async.RunSynchronously
-        state <- state'
+        state := state'
         res' |> List.iter Console.WriteLine
         ()
 
