@@ -168,12 +168,41 @@ module CommandResponse =
     }
 
 
+
+  type Declaration =
+    {
+      UniqueName: string
+      Name: string
+      Glyph: string
+      GlyphChar: string
+      IsTopLevel: bool
+      Range: Range.range
+      BodyRange : Range.range
+    }
+    static member OfDeclarationItem(e:FSharpNavigationDeclarationItem) =
+      let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
+      {
+        UniqueName = e.UniqueName
+        Name = e.Name
+        Glyph = glyph
+        GlyphChar = glyphChar
+        IsTopLevel = e.IsSingleTopLevel
+        Range = e.Range
+        BodyRange = e.BodyRange
+      }
+  type DeclarationResponse = {
+      Declaration : Declaration;
+      Nested : Declaration []
+  }
+
+
+
   let info (serialize : obj -> string) (s: string) = serialize { Kind = "info"; Data = s }
   let error (serialize : obj -> string) (s: string) = serialize { Kind = "error"; Data = s }
 
   let helpText (serialize : obj -> string) (name: string, tip: FSharpToolTipText) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
-    serialize { Kind = "helptext"; Data = { Name = name; Overloads = data } }
+    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
   let project (serialize : obj -> string) (projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
     let projectData =
@@ -188,7 +217,7 @@ module CommandResponse =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
+                               yield { CompletionResponse.Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
   let symbolUse (serialize : obj -> string) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
     let su =
@@ -244,8 +273,13 @@ module CommandResponse =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
     serialize { Kind = "finddecl"; Data = data }
 
-  let declarations (serialize : obj -> string) (decls) =
-    serialize { Kind = "declarations"; Data = decls }
+  let declarations (serialize : obj -> string) (decls : FSharpNavigationTopLevelDeclaration[]) =
+     let decls' =
+      decls |> Array.map (fun d ->
+        { Declaration = Declaration.OfDeclarationItem d.Declaration;
+          Nested = d.Nested |> Array.map Declaration.OfDeclarationItem
+        })
+     serialize { Kind = "declarations"; Data = decls' }
 
   let toolTip (serialize : obj -> string) (tip) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
