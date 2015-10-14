@@ -1,11 +1,12 @@
 source https://www.nuget.org/api/v2/
 
-nuget FSharp.Compiler.Service framework: >= net45
+nuget FSharp.Compiler.Service 1.4.0.1 framework: >= net45
 nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json
 nuget FAKE
-nuget FSharp.Core 3.0.2
+nuget FSharp.Core
 nuget NUnit
 nuget NUnit.Runners
 nuget Octokit
+nuget Suave

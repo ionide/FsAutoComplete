@@ -20,3 +20,18 @@
   "Kind": "info",
   "Data": "Background parsing started"
 }
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/integration/RobustCommands/NoSuchFile.fs",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 1,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "The value or constructor 'Bla' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}

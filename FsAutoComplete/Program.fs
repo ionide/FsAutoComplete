@@ -8,69 +8,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
-
-type internal State =
-  {
-    Files : Map<string,VolatileFile>
-    FileCheckOptions : Map<string,FSharpProjectOptions>
-    ProjectLoadTimes : Map<string,DateTime>
-    HelpText : Map<String, FSharpToolTipText>
-    ColorizationOutput: bool
-  }
-
-  static member Initial =
-    { Files = Map.empty
-      FileCheckOptions = Map.empty
-      ProjectLoadTimes = Map.empty
-      HelpText = Map.empty
-      ColorizationOutput = false }
-
-  member x.WithFileTextGetCheckerOptions(file, lines) : State * FSharpProjectOptions =
-    let opts =
-      match x.FileCheckOptions.TryFind file with
-      | None -> State.FileWithoutProjectOptions(file)
-      | Some opts -> opts
-    let fileState = { Lines = lines; Touched = DateTime.Now }
-    { x with Files = Map.add file fileState x.Files
-             FileCheckOptions = Map.add file opts x.FileCheckOptions }, opts
-
-  member x.WithFileTextAndCheckerOptions(file, lines, opts) =
-    let fileState = { Lines = lines; Touched = DateTime.Now }
-    { x with Files = Map.add file fileState x.Files
-             FileCheckOptions = Map.add file opts x.FileCheckOptions }
-
-  static member private FileWithoutProjectOptions(file) =
-    { ProjectFileName = file + ".fsproj"
-      ProjectFileNames = [|file|]
-      OtherOptions = [|"--noframework"|]
-      ReferencedProjects = [| |]
-      IsIncompleteTypeCheckEnvironment = true
-      UseScriptResolutionRules = false
-      LoadTime = DateTime.Now
-      UnresolvedReferences = None }
-
-  member private x.TryGetFileCheckerOptionsWithLines(file) : Result<FSharpProjectOptions * string[]> =
-    match x.Files.TryFind(file) with
-    | None -> Failure (sprintf "File '%s' not parsed" file)
-    | Some (volFile) ->
-
-      match x.FileCheckOptions.TryFind(file) with
-      | None -> Success (State.FileWithoutProjectOptions(file), volFile.Lines)
-      | Some opts -> Success (opts, volFile.Lines)
-
-  member x.TryGetFileCheckerOptionsWithSource(file) : Result<FSharpProjectOptions * string> =
-    match x.TryGetFileCheckerOptionsWithLines(file) with
-    | Failure x -> Failure x
-    | Success (opts, lines) -> Success (opts, String.concat "\n" lines)
-
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) : Result<FSharpProjectOptions * string[] * string> =
-    match x.TryGetFileCheckerOptionsWithLines(file) with
-    | Failure x -> Failure x
-    | Success (opts, lines) ->
-      let ok = line <= lines.Length && line >= 1 &&
-               col <= lines.[line - 1].Length + 1 && col >= 1
-      if not ok then Failure "Position is out of range"
-      else Success (opts, lines, lines.[line - 1])
+open JsonSerializer
+open FsAutoComplete
 
 module internal Main =
   module Response = CommandResponse
@@ -84,166 +23,85 @@ module internal Main =
   let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
 
   let main (state:State) : int =
-    let mutable state = state
+    let state = ref state
     let mutable quit = false
 
     while not quit do
-      currentFiles <- state.Files
+      currentFiles <- (!state).Files
       try
-        match commandQueue.Get() with
-        | Parse(file,kind,lines) ->
-            let colorizations = state.ColorizationOutput
-            let parse fileName text options =
-              let task =
-                async {
-                  let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
-                  match checkResults with
-                  | FSharpCheckFileAnswer.Aborted -> ()
-                  | FSharpCheckFileAnswer.Succeeded results ->
-                       Response.errors(results.Errors)
-                       if colorizations then
-                         Response.colorizations(results.GetExtraColorizationsAlternate())
+        let res =
+            match commandQueue.Get() with
+            | Parse(file,kind,lines) -> async {
+                let! (res,state) = Commands.parse writeJson !state checker file lines
+                //Hack for tests
+                let r = match kind with
+                        | Synchronous -> Response.info writeJson "Synchronous parsing started"
+                        | Normal -> Response.info writeJson "Background parsing started"
+                return [r] @res,state
                 }
-              match kind with
-              | Synchronous -> Response.info "Synchronous parsing started"
-                               Async.RunSynchronously task
-              | Normal -> Response.info "Background parsing started"
-                          Async.StartImmediate task
 
-            let file = Path.GetFullPath file
-            let text = String.concat "\n" lines
-
-            if Utils.isAScript file then
-              let checkOptions = checker.GetProjectOptionsFromScript(file, text)
-              parse file text checkOptions
-              state <- state.WithFileTextAndCheckerOptions(file, lines, checkOptions)
-            else
-              let state', checkOptions = state.WithFileTextGetCheckerOptions(file, lines)
-              parse file text checkOptions
-              state <- state'
-
-        | Project (file,time) ->
-            let file = Path.GetFullPath file
-
-            // The FileSystemWatcher often triggers multiple times for
-            // each event, as editors often modify files in several steps.
-            // This 'debounces' the events, by only reloading a max of once
-            // per second.
-            match state.ProjectLoadTimes.TryFind file with
-            | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> ()
-            | _ ->
-
-            match checker.TryGetProjectOptions(file) with
-            | Result.Failure s ->
-                Response.error(s)
-
-            | Result.Success(po, projectFiles, outFileOpt, references, frameworkOpt) ->
-                Response.project(file, projectFiles, outFileOpt, references, frameworkOpt)
-
+            | Project (file,time) ->
+                //THIS SHOULD BE INITIALIZED SOMEWHERE ELSE ?
+                let fp = Path.GetFullPath file
                 let fsw = new FileSystemWatcher()
-                fsw.Path <- Path.GetDirectoryName file
-                fsw.Filter <- Path.GetFileName file
-                fsw.Changed.Add(fun _ -> commandQueue.Add(Project (file, DateTime.Now)))
+                fsw.Path <- Path.GetDirectoryName fp
+                fsw.Filter <- Path.GetFileName fp
+                fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fp, DateTime.Now)))
                 fsw.EnableRaisingEvents <- true
+                Commands.project writeJson !state checker file time
 
-                let checkOptions =
-                  projectFiles
-                  |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
-                let loadTimes = Map.add file time state.ProjectLoadTimes
-                state <- { state with FileCheckOptions = checkOptions
-                                      ProjectLoadTimes = loadTimes }
+            | Declarations file ->
+                Commands.declarations writeJson !state checker file
 
-        | Declarations file ->
-            let file = Path.GetFullPath file
-            match state.TryGetFileCheckerOptionsWithSource(file) with
-            | Failure s -> Response.error(s)
-            | Success (checkOptions, source) ->
-                let decls = checker.GetDeclarations(file, source, checkOptions)
-                Response.declarations(decls)
+            | HelpText sym ->
+                Commands.helptext writeJson !state checker sym
+            | PosCommand(cmd, file, line, col, timeout, filter) ->
+                let file = Path.GetFullPath file
+                match (!state).TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
+                | Failure s -> async { return [Response.error writeJson (s)], !state }
+                | Success (options, lines, lineStr) ->
+                  // TODO: Should sometimes pass options.Source in here to force a reparse
+                  //       for completions e.g. `(some typed expr).$`
+                  let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+                  match tyResOpt with
+                  | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
+                  | Some tyRes ->
 
-        | HelpText sym ->
-            match Map.tryFind sym state.HelpText with
-            | None -> Response.error (sprintf "No help text available for symbol '%s'" sym) 
-            | Some tip -> Response.helpText(sym, tip)
+                  match cmd with
+                  | Completion ->
+                      Commands.completion writeJson !state checker tyRes line col lineStr timeout filter
+                  | ToolTip ->
+                      Commands.toolTip writeJson !state checker tyRes line col lineStr
+                  | SymbolUse ->
+                      Commands.symbolUse writeJson !state checker tyRes line col lineStr
 
-        | PosCommand(cmd, file, line, col, timeout, filter) ->
-            let file = Path.GetFullPath file
-            match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
-            | Failure s -> Response.error(s)
-            | Success (options, lines, lineStr) ->
-              // TODO: Should sometimes pass options.Source in here to force a reparse
-              //       for completions e.g. `(some typed expr).$`
-              let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-              match tyResOpt with
-              | None -> Response.info "Cached typecheck results not yet available"
-              | Some tyRes ->
+                  | FindDeclaration ->
+                      Commands.findDeclarations writeJson !state checker tyRes line col lineStr
+                  | Methods ->
+                      Commands.methods writeJson !state checker tyRes line col lines
+            | CompilerLocation ->
+                Commands.compilerLocation writeJson !state checker
 
-              match cmd with
-              | Completion ->
-                  match tyRes.TryGetCompletions line col lineStr timeout filter with
-                  | Some (decls, residue) ->
-                      let declName (d: FSharpDeclarationListItem) = d.Name
+            | Colorization enabled ->
+                Commands.colorization writeJson !state checker enabled
 
-                      // Send the first helptext without being requested.
-                      // This allows it to be displayed immediately in the editor.
-                      let firstMatchOpt =
-                        Array.sortBy declName decls
-                        |> Array.tryFind (fun d -> (declName d).StartsWith residue)
-                      match firstMatchOpt with
-                      | None -> ()
-                      | Some d -> Response.helpText(d.Name, d.DescriptionText)
+            | Error(msg) ->
+                Commands.error writeJson !state checker msg
 
-                      Response.completion(decls)
-
-                      let helptext =
-                        Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
-                      state <- { state with HelpText = helptext }
-
-                  | None ->
-                      Response.error "Timed out while fetching completions"
-
-              | ToolTip ->
-                  // A failure is only info here, as this command is expected to be
-                  // used 'on idle', and frequent errors are expected.
-                  match tyRes.TryGetToolTip line col lineStr with
-                  | Result.Failure s -> Response.info(s)
-                  | Result.Success tip -> Response.toolTip(tip)
-
-              | SymbolUse ->
-                  // A failure is only info here, as this command is expected to be
-                  // used 'on idle', and frequent errors are expected.
-                  match tyRes.TryGetSymbolUse line col lineStr with
-                  | Result.Failure s -> Response.info(s)
-                  | Result.Success (sym,usages) -> Response.symbolUse(sym,usages)
-
-              | FindDeclaration ->
-                  match tyRes.TryFindDeclaration line col lineStr with
-                  | Result.Failure s -> Response.error s
-                  | Result.Success range -> Response.findDeclaration(range)
-
-              | Methods ->
-                  match tyRes.TryGetMethodOverrides lines line col with
-                  | Result.Failure s -> Response.error s
-                  | Result.Success (meth, commas) -> Response.methods(meth, commas)
-
-        | CompilerLocation ->
-            Response.compilerLocation Environment.fsc Environment.fsi Environment.msbuild
-
-        | Colorization enabled ->
-            state <- { state with ColorizationOutput = enabled }
-
-        | Error(msg) ->
-            Response.error msg
-
-        | Quit ->
-            quit <- true
+            | Quit ->
+                quit <- true
+                async {return [], !state}
+        let res', state' = res |> Async.RunSynchronously
+        state := state'
+        res' |> List.iter Console.WriteLine
+        ()
 
       with e ->
         let msg = "Unexpected internal error. Please report at \
                    https://github.com/fsharp/FsAutoComplete/issues, \
                    attaching the exception information:\n"
                    + e.ToString()
-        Response.error msg
+        Response.error writeJson msg |> Console.WriteLine
 
     0
 
