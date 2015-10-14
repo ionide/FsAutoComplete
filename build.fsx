@@ -119,7 +119,8 @@ Target "SuaveReleaseArchive" (fun _ ->
   Zip suaveBuildReleaseDir
       suaveReleaseArchive
       ( !! (suaveBuildReleaseDir + "/*.dll")
-        ++ (suaveBuildReleaseDir + "/*.exe"))
+        ++ (suaveBuildReleaseDir + "/*.exe")
+        ++ (suaveBuildReleaseDir + "/*.config"))
 )
 
 #load "lib/Octokit.fsx"
