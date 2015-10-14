@@ -29,7 +29,7 @@ let releaseArchive = "fsautocomplete.zip"
 
 let suaveSummary = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."
 let suaveProject = "FsAutoComplete.Suave"
-let suaveBuildDebugDir = suaveProject + "/bin/Release"
+let suaveBuildDebugDir = suaveProject + "/bin/Debug"
 let suaveBuildReleaseDir = suaveProject + "/bin/Release"
 let suaveReleaseArchive = "fsautocomplete.suave.zip"
 
