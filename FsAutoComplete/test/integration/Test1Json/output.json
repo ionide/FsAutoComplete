@@ -297,10 +297,9 @@
       "Declaration": {
         "UniqueName": "Program_1_of_1",
         "Name": "Program",
-        "Glyph": 84,
-        "Kind": {
-          "Case": "ModuleFileDecl"
-        },
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
         "Range": {
           "StartColumn": 1,
           "StartLine": 1,
@@ -312,17 +311,15 @@
           "StartLine": 1,
           "EndColumn": 6,
           "EndLine": 15
-        },
-        "IsSingleTopLevel": true
+        }
       },
       "Nested": [
         {
           "UniqueName": "Program_1_of_1",
           "Name": "main",
-          "Glyph": 6,
-          "Kind": {
-            "Case": "FieldDecl"
-          },
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 13,
@@ -334,8 +331,7 @@
             "StartLine": 13,
             "EndColumn": 6,
             "EndLine": 15
-          },
-          "IsSingleTopLevel": false
+          }
         }
       ]
     },
@@ -343,10 +339,9 @@
       "Declaration": {
         "UniqueName": "X_1_of_1",
         "Name": "X",
-        "Glyph": 84,
-        "Kind": {
-          "Case": "ModuleDecl"
-        },
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": false,
         "Range": {
           "StartColumn": 1,
           "StartLine": 1,
@@ -358,17 +353,15 @@
           "StartLine": 1,
           "EndColumn": 21,
           "EndLine": 2
-        },
-        "IsSingleTopLevel": false
+        }
       },
       "Nested": [
         {
           "UniqueName": "X_1_of_1",
           "Name": "func",
-          "Glyph": 6,
-          "Kind": {
-            "Case": "FieldDecl"
-          },
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 7,
             "StartLine": 2,
@@ -380,8 +373,7 @@
             "StartLine": 2,
             "EndColumn": 21,
             "EndLine": 2
-          },
-          "IsSingleTopLevel": false
+          }
         }
       ]
     }
@@ -394,10 +386,9 @@
       "Declaration": {
         "UniqueName": "FileTwo_1_of_1",
         "Name": "FileTwo",
-        "Glyph": 84,
-        "Kind": {
-          "Case": "ModuleFileDecl"
-        },
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
         "Range": {
           "StartColumn": 1,
           "StartLine": 1,
@@ -409,17 +400,15 @@
           "StartLine": 1,
           "EndColumn": 6,
           "EndLine": 14
-        },
-        "IsSingleTopLevel": true
+        }
       },
       "Nested": [
         {
           "UniqueName": "FileTwo_1_of_1",
           "Name": "add",
-          "Glyph": 6,
-          "Kind": {
-            "Case": "FieldDecl"
-          },
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 9,
@@ -431,16 +420,14 @@
             "StartLine": 9,
             "EndColumn": 20,
             "EndLine": 9
-          },
-          "IsSingleTopLevel": false
+          }
         },
         {
           "UniqueName": "FileTwo_1_of_1",
           "Name": "addition",
-          "Glyph": 6,
-          "Kind": {
-            "Case": "FieldDecl"
-          },
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 7,
@@ -452,8 +439,7 @@
             "StartLine": 7,
             "EndColumn": 25,
             "EndLine": 7
-          },
-          "IsSingleTopLevel": false
+          }
         }
       ]
     },
@@ -461,10 +447,9 @@
       "Declaration": {
         "UniqueName": "Foo_1_of_1",
         "Name": "Foo",
-        "Glyph": 132,
-        "Kind": {
-          "Case": "TypeDecl"
-        },
+        "Glyph": "Type",
+        "GlyphChar": "T",
+        "IsTopLevel": false,
         "Range": {
           "StartColumn": 6,
           "StartLine": 3,
@@ -476,17 +461,15 @@
           "StartLine": 4,
           "EndColumn": 8,
           "EndLine": 5
-        },
-        "IsSingleTopLevel": false
+        }
       },
       "Nested": [
         {
           "UniqueName": "Foo_1_of_1",
           "Name": "Bar",
-          "Glyph": 144,
-          "Kind": {
-            "Case": "OtherDecl"
-          },
+          "Glyph": "Struct",
+          "GlyphChar": "S",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 4,
@@ -498,16 +481,14 @@
             "StartLine": 4,
             "EndColumn": 8,
             "EndLine": 4
-          },
-          "IsSingleTopLevel": false
+          }
         },
         {
           "UniqueName": "Foo_1_of_1",
           "Name": "Qux",
-          "Glyph": 144,
-          "Kind": {
-            "Case": "OtherDecl"
-          },
+          "Glyph": "Struct",
+          "GlyphChar": "S",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 5,
@@ -519,8 +500,7 @@
             "StartLine": 5,
             "EndColumn": 8,
             "EndLine": 5
-          },
-          "IsSingleTopLevel": false
+          }
         }
       ]
     },
@@ -528,10 +508,9 @@
       "Declaration": {
         "UniqueName": "NewObjectType_1_of_1",
         "Name": "NewObjectType",
-        "Glyph": 0,
-        "Kind": {
-          "Case": "TypeDecl"
-        },
+        "Glyph": "Class",
+        "GlyphChar": "C",
+        "IsTopLevel": false,
         "Range": {
           "StartColumn": 6,
           "StartLine": 11,
@@ -543,17 +522,15 @@
           "StartLine": 13,
           "EndColumn": 6,
           "EndLine": 14
-        },
-        "IsSingleTopLevel": false
+        }
       },
       "Nested": [
         {
           "UniqueName": "NewObjectType_1_of_1",
           "Name": "Terrific",
-          "Glyph": 72,
-          "Kind": {
-            "Case": "MethodDecl"
-          },
+          "Glyph": "Method",
+          "GlyphChar": "M",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 12,
             "StartLine": 13,
@@ -565,8 +542,7 @@
             "StartLine": 13,
             "EndColumn": 6,
             "EndLine": 14
-          },
-          "IsSingleTopLevel": false
+          }
         }
       ]
     }
@@ -579,10 +555,9 @@
       "Declaration": {
         "UniqueName": "Script_1_of_1",
         "Name": "Script",
-        "Glyph": 84,
-        "Kind": {
-          "Case": "ModuleFileDecl"
-        },
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
         "Range": {
           "StartColumn": 1,
           "StartLine": 3,
@@ -594,8 +569,7 @@
           "StartLine": 1,
           "EndColumn": 22,
           "EndLine": 4
-        },
-        "IsSingleTopLevel": true
+        }
       },
       "Nested": []
     },
@@ -603,10 +577,9 @@
       "Declaration": {
         "UniqueName": "XA_1_of_1",
         "Name": "XA",
-        "Glyph": 84,
-        "Kind": {
-          "Case": "ModuleDecl"
-        },
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": false,
         "Range": {
           "StartColumn": 1,
           "StartLine": 3,
@@ -618,17 +591,15 @@
           "StartLine": 3,
           "EndColumn": 22,
           "EndLine": 4
-        },
-        "IsSingleTopLevel": false
+        }
       },
       "Nested": [
         {
           "UniqueName": "XA_1_of_1",
           "Name": "funky",
-          "Glyph": 6,
-          "Kind": {
-            "Case": "FieldDecl"
-          },
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
           "Range": {
             "StartColumn": 7,
             "StartLine": 4,
@@ -640,8 +611,7 @@
             "StartLine": 4,
             "EndColumn": 22,
             "EndLine": 4
-          },
-          "IsSingleTopLevel": false
+          }
         }
       ]
     }
