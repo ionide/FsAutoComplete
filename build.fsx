@@ -15,17 +15,23 @@ let project = "FsAutoComplete"
 let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
 
 // Read additional information from the release notes document
-let releaseNotesData = 
+let releaseNotesData =
     File.ReadAllLines "RELEASE_NOTES.md"
     |> parseAllReleaseNotes
 
 let release = List.head releaseNotesData
-    
+
 
 let buildDir = project + "/bin/Debug/"
 let buildReleaseDir = project + "/bin/Release/"
 let integrationTestDir = project + "/test/integration/"
 let releaseArchive = "fsautocomplete.zip"
+
+let suaveSummary = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."
+let suaveProject = "FsAutoComplete.Suave"
+let suaveBuildDebugDir = suaveProject + "/bin/Release"
+let suaveBuildReleaseDir = suaveProject + "/bin/Release"
+let suaveReleaseArchive = "fsautocomplete.suave.zip"
 
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
@@ -80,6 +86,8 @@ Target "UnitTest" (fun _ ->
             OutputFile = "TestResults.xml" })
 )
 
+
+
 Target "AssemblyInfo" (fun _ ->
   let fileName = project + "/AssemblyInfo.fs"
   CreateFSharpAssemblyInfo fileName
@@ -90,11 +98,28 @@ Target "AssemblyInfo" (fun _ ->
       Attribute.FileVersion release.AssemblyVersion ]
 )
 
+Target "SuaveAssemblyInfo" (fun _ ->
+  let fileName = suaveProject + "/AssemblyInfo.fs"
+  CreateFSharpAssemblyInfo fileName
+    [ Attribute.Title suaveProject
+      Attribute.Product suaveProject
+      Attribute.Description suaveSummary
+      Attribute.Version release.AssemblyVersion
+      Attribute.FileVersion release.AssemblyVersion ]
+)
+
 Target "ReleaseArchive" (fun _ ->
   Zip buildReleaseDir
       releaseArchive
       ( !! (buildReleaseDir + "/*.dll")
         ++ (buildReleaseDir + "/*.exe"))
+)
+
+Target "SuaveReleaseArchive" (fun _ ->
+  Zip suaveBuildReleaseDir
+      suaveReleaseArchive
+      ( !! (suaveBuildReleaseDir + "/*.dll")
+        ++ (suaveBuildReleaseDir + "/*.exe"))
 )
 
 #load "lib/Octokit.fsx"
@@ -116,18 +141,19 @@ Target "Release" (fun _ ->
 
     Branches.tag "" release.NugetVersion
     Branches.pushTag "" remote release.NugetVersion
-    
+
     // release on github
     createClient user pw
-    |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
+    |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
     |> uploadFile releaseArchive
+    |> uploadFile suaveReleaseArchive
     |> releaseDraft
     |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
-  CleanDirs [ buildDir; buildReleaseDir ]
-  DeleteFile releaseArchive
+  CleanDirs [ buildDir; buildReleaseDir; suaveBuildDebugDir; suaveBuildReleaseDir ]
+  DeleteFiles [releaseArchive; suaveReleaseArchive ]
 )
 
 Target "Build" id
@@ -153,5 +179,9 @@ Target "All" id
   ==> "ReleaseArchive"
   ==> "Release"
 
-RunTargetOrDefault "BuildDebug"
+"SuaveAssemblyInfo"
+  ==> "BuildRelease"
+  ==> "SuaveReleaseArchive"
+  ==> "Release"
 
+RunTargetOrDefault "BuildDebug"
