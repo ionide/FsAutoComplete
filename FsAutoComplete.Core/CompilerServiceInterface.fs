@@ -62,7 +62,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let tip = checkResults.GetToolTipTextAlternate(line, col + 1, lineStr, identIsland, Parser.tagOfToken(Parser.token.IDENT("")))
+      let tip = checkResults.GetToolTipTextAlternate(line, col + 1, lineStr, identIsland, FSharpTokenTag.Identifier)
                 |> Async.RunSynchronously
       match tip with
       | FSharpToolTipText(elems) when elems |> List.forall (function
@@ -138,22 +138,24 @@ type FSharpCompilerServiceChecker() =
       Failure (sprintf "File '%s' does not exist" file)
     else
       try
-        let p = FSharpProjectFileInfo.Parse(file)
-        let args, references =
-          if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.Options) then
-            ensureCorrectFSharpCore (Array.ofList p.Options), Option.toList Environment.fsharpCoreOpt @ p.References
-          else
-             Array.ofList p.Options, p.References
-
-        let projectOptions = checker.GetProjectOptionsFromCommandLineArgs(file, args)
-        let referencedProjectOptions =
-          [| for file in p.ProjectReferences do
-               yield file, checker.GetProjectOptionsFromProjectFile(file) |]
-
         let po =
-          { projectOptions
-            with ReferencedProjects = referencedProjectOptions }
-        Success (po, p.CompileFiles, p.OutputFile, references, p.FrameworkVersion)
+          let p = checker.GetProjectOptionsFromProjectFile(file)
+          let opts =
+            if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
+              ensureCorrectFSharpCore p.OtherOptions
+            else
+               p.OtherOptions
+          { p with OtherOptions = opts }
+
+        let chooseByPrefix prefix (s: string) =
+          if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
+          else None
+
+        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
+        let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
+
+        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references)
       with e ->
         Failure e.Message
   
