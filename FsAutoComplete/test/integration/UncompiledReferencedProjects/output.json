@@ -1,0 +1,115 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/UncompiledReferencedProjects/MultiProject1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/UncompiledReferencedProjects/MultiProject1.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug/MultiProject1.exe",
+    "References": [
+      "<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug//Project1A.dll",
+      "<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug//Project1B.exe",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Framework": "v4.0"
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "startup",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 1,
+      "EndColumn": 81,
+      "Severity": "Error",
+      "Message": "Unable to find the file '<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug//Project1B.exe' in any of\n /Library/Frameworks/Mono.framework/Versions/4.0.2/lib/mono/4.0\n /Users/robnea/dev/FsAutoComplete/FsAutoComplete/test/integration/UncompiledReferencedProjects\n /Library/Frameworks/Mono.framework/Versions/4.0.2/lib/mono/gac/FSharp.Core/4.3.0.0__b03f5f7f11d50a3a",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "startup",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 1,
+      "EndColumn": 81,
+      "Severity": "Error",
+      "Message": "Unable to find the file '<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug//Project1A.dll' in any of\n /Library/Frameworks/Mono.framework/Versions/4.0.2/lib/mono/4.0\n /Users/robnea/dev/FsAutoComplete/FsAutoComplete/test/integration/UncompiledReferencedProjects\n /Library/Frameworks/Mono.framework/Versions/4.0.2/lib/mono/gac/FSharp.Core/4.3.0.0__b03f5f7f11d50a3a",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "startup",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 1,
+      "EndColumn": 81,
+      "Severity": "Error",
+      "Message": "Assembly reference '<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug//Project1A.dll' was not found or is invalid",
+      "Subcategory": "parameter"
+    },
+    {
+      "FileName": "startup",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 1,
+      "EndColumn": 81,
+      "Severity": "Error",
+      "Message": "Assembly reference '<absolute path removed>/test/integration/UncompiledReferencedProjects/bin/Debug//Project1B.exe' was not found or is invalid",
+      "Subcategory": "parameter"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/UncompiledReferencedProjects/MultiProject1.fs",
+      "StartLine": 3,
+      "EndLine": 3,
+      "StartColumn": 6,
+      "EndColumn": 15,
+      "Severity": "Error",
+      "Message": "The namespace or module 'Project1A' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/UncompiledReferencedProjects/MultiProject1.fs",
+      "StartLine": 4,
+      "EndLine": 4,
+      "StartColumn": 6,
+      "EndColumn": 15,
+      "Severity": "Error",
+      "Message": "The namespace or module 'Project1B' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/UncompiledReferencedProjects/MultiProject1.fs",
+      "StartLine": 5,
+      "EndLine": 5,
+      "StartColumn": 10,
+      "EndColumn": 19,
+      "Severity": "Error",
+      "Message": "The namespace or module 'Project1A' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/integration/UncompiledReferencedProjects/MultiProject1.fs",
+      "StartLine": 5,
+      "EndLine": 5,
+      "StartColumn": 24,
+      "EndColumn": 33,
+      "Severity": "Error",
+      "Message": "The namespace or module 'Project1B' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
+{
+  "Kind": "info",
+  "Data": "No tooltip information"
+}
