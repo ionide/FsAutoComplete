@@ -66,3 +66,10 @@ Data is returned as JSON. An example of a simple session is:
 
 Each response is exactly one line, which simplifies the application of a JSON parser. For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.json` files, which contain the output.
 
+Maintainers
+-----------
+
+Tha maintainers of this repository appointed by the F# Core Engineering Group are:
+
+ - [Robin Neatherway](https://github.com/rneatherway), [Steffen Forkmann](http://github.com/forki), [Karl Nilsson](http://github.com/kjnilsson), [Dave Thomas](http://github.com/7sharp9) and [Guillermo López-Anglada](http://github.com/guillermooo)
+ - The primary maintainer for this repository is [Robin Neatherway](https://github.com/rneatherway)

@@ -1,8 +1,7 @@
-namespace FsAutoComplete
+﻿namespace FsAutoComplete
 
 open System
-open Newtonsoft.Json
-open Newtonsoft.Json.Converters
+
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -168,78 +167,59 @@ module CommandResponse =
       Kind: string
     }
 
-  type private FSharpErrorSeverityConverter() =
-    inherit JsonConverter()
 
-    override x.CanConvert(t:System.Type) = t = typeof<FSharpErrorSeverity>
 
-    override x.WriteJson(writer, value, serializer) =
-      match value :?> FSharpErrorSeverity with
-      | FSharpErrorSeverity.Error -> serializer.Serialize(writer, "Error")
-      | FSharpErrorSeverity.Warning -> serializer.Serialize(writer, "Warning")
+  type Declaration =
+    {
+      UniqueName: string
+      Name: string
+      Glyph: string
+      GlyphChar: string
+      IsTopLevel: bool
+      Range: Range.range
+      BodyRange : Range.range
+    }
+    static member OfDeclarationItem(e:FSharpNavigationDeclarationItem) =
+      let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
+      {
+        UniqueName = e.UniqueName
+        Name = e.Name
+        Glyph = glyph
+        GlyphChar = glyphChar
+        IsTopLevel = e.IsSingleTopLevel
+        Range = e.Range
+        BodyRange = e.BodyRange
+      }
+  type DeclarationResponse = {
+      Declaration : Declaration;
+      Nested : Declaration []
+  }
 
-    override x.ReadJson(_reader, _t, _, _serializer) =
-      raise (System.NotSupportedException())
 
-    override x.CanRead = false
-    override x.CanWrite = true
 
-  type private RangeConverter() =
-    inherit JsonConverter()
+  let info (serialize : obj -> string) (s: string) = serialize { Kind = "info"; Data = s }
+  let error (serialize : obj -> string) (s: string) = serialize { Kind = "error"; Data = s }
 
-    override x.CanConvert(t:System.Type) = t = typeof<Range.range>
-
-    override x.WriteJson(writer, value, _serializer) =
-      let range = value :?> Range.range
-      writer.WriteStartObject()
-      writer.WritePropertyName("StartColumn")
-      writer.WriteValue(range.StartColumn + 1)
-      writer.WritePropertyName("StartLine")
-      writer.WriteValue(range.StartLine)
-      writer.WritePropertyName("EndColumn")
-      writer.WriteValue(range.EndColumn + 1)
-      writer.WritePropertyName("EndLine")
-      writer.WriteValue(range.EndLine)
-      writer.WriteEndObject()
-
-    override x.ReadJson(_reader, _t, _, _serializer) =
-      raise (System.NotSupportedException())
-
-    override x.CanRead = false
-    override x.CanWrite = true
-
-  let private jsonConverters =
-    [|
-     new FSharpErrorSeverityConverter() :> JsonConverter;
-     new RangeConverter() :> JsonConverter
-    |]
-
-  let private writeJson(o: obj) = Console.WriteLine (JsonConvert.SerializeObject(o, jsonConverters))
-
-  let info(s: string) = writeJson { Kind = "info"; Data = s }
-  let error(s: string) = writeJson { Kind = "error"; Data = s }
-
-  let helpText(name: string, tip: FSharpToolTipText) =
+  let helpText (serialize : obj -> string) (name: string, tip: FSharpToolTipText) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
-    writeJson { Kind = "helptext"; Data = { Name = name; Overloads = data } }
+    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
-  let project(projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
+  let project (serialize : obj -> string) (projectFileName, projectFiles, outFileOpt, references, frameworkOpt) =
     let projectData =
       { Project = projectFileName
         Files = projectFiles
         Output = match outFileOpt with Some x -> x | None -> "null"
         References = List.sortBy IO.Path.GetFileName references
         Framework = match frameworkOpt with Some x -> x | None -> "null" }
-    writeJson { Kind = "project"; Data = projectData }
+    serialize { Kind = "project"; Data = projectData }
 
-  let completion(decls: FSharpDeclarationListItem[]) =
-    writeJson
-      { Kind = "completion"
-        Data = [ for d in decls do
-                   let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                   yield { Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
+  let completion (serialize : obj -> string) (decls: FSharpDeclarationListItem[]) =
+      serialize {  Kind = "completion"
+                   Data = [ for d in decls do
+                               let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
+                               yield { CompletionResponse.Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
 
-  let symbolUse(symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
+  let symbolUse (serialize : obj -> string) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
     let su =
       { Name = symbol.Symbol.DisplayName
         Uses =
@@ -255,56 +235,59 @@ module CommandResponse =
                       IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
                       IsFromPattern = su.IsFromPattern
                       IsFromType = su.IsFromType } ] }
-    writeJson { Kind = "symboluse"; Data = su }
+    serialize { Kind = "symboluse"; Data = su }
 
-  let methods(meth: FSharpMethodGroup, commas: int) =
-    writeJson
-      { Kind = "method"
-        Data = { Name = meth.MethodName
-                 CurrentParameter = commas
-                 Overloads =
-                  [ for o in meth.Methods do
-                     let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
-                     yield {
-                       Tip = tip
-                       TypeText = o.TypeText
-                       Parameters =
-                         [ for p in o.Parameters do
-                            yield {
-                              Name = p.ParameterName
-                              CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
-                              Display = p.Display
-                              Description = p.Description
-                            }
-                       ]
-                       IsStaticArguments = o.IsStaticArguments
-                     }
-                  ] }
-        }
+  let methods (serialize : obj -> string) (meth: FSharpMethodGroup, commas: int) =
+      serialize {  Kind = "method"
+                   Data = {  Name = meth.MethodName
+                             CurrentParameter = commas
+                             Overloads =
+                              [ for o in meth.Methods do
+                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+                                 yield {
+                                   Tip = tip
+                                   TypeText = o.TypeText
+                                   Parameters =
+                                     [ for p in o.Parameters do
+                                        yield {
+                                          Name = p.ParameterName
+                                          CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
+                                          Display = p.Display
+                                          Description = p.Description
+                                        }
+                                   ]
+                                   IsStaticArguments = o.IsStaticArguments
+                                 }
+                              ] }
+                }
 
-  let errors(errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
-    writeJson { Kind = "errors"
-                Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
+  let errors (serialize : obj -> string) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
+    serialize { Kind = "errors";  Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
 
-  let colorizations(colorizations: (Range.range * FSharpTokenColorKind)[]) =
+  let colorizations (serialize : obj -> string) (colorizations: (Range.range * FSharpTokenColorKind)[]) =
     let data = [ for r, k in colorizations do
                    yield { Range = r; Kind = Enum.GetName(typeof<FSharpTokenColorKind>, k) } ]
-    writeJson { Kind = "colorizations"; Data = data }
+    serialize { Kind = "colorizations"; Data = data }
 
-  let findDeclaration(range: Range.range) =
+  let findDeclaration (serialize : obj -> string) (range: Range.range) =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
-    writeJson { Kind = "finddecl"; Data = data }
+    serialize { Kind = "finddecl"; Data = data }
 
-  let declarations(decls) =
-    writeJson { Kind = "declarations"; Data = decls }
+  let declarations (serialize : obj -> string) (decls : FSharpNavigationTopLevelDeclaration[]) =
+     let decls' =
+      decls |> Array.map (fun d ->
+        { Declaration = Declaration.OfDeclarationItem d.Declaration;
+          Nested = d.Nested |> Array.map Declaration.OfDeclarationItem
+        })
+     serialize { Kind = "declarations"; Data = decls' }
 
-  let toolTip(tip) =
+  let toolTip (serialize : obj -> string) (tip) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
-    writeJson { Kind = "tooltip"; Data = data }
+    serialize { Kind = "tooltip"; Data = data }
 
-  let compilerLocation fsc fsi msbuild =
+  let compilerLocation (serialize : obj -> string) fsc fsi msbuild =
     let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }
-    writeJson { Kind = "compilerlocation"; Data = data }
+    serialize { Kind = "compilerlocation"; Data = data }
 
-  let message(kind: string, data: 'a) =
-    writeJson { Kind = kind; Data = data }
+  let message (serialize : obj -> string) (kind: string, data: 'a) =
+    serialize { Kind = kind; Data = data }

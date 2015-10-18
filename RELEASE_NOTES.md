@@ -1,3 +1,14 @@
+#### 0.25.1 - 16.10.2015
+
+* Add App.config to FsAutoComplete.Suave release: #76.
+* Also for fsautocomplete.exe.
+
+#### 0.25.0 - 14.10.2015
+
+* Add Suave hosting for FSAC: #74.
+* Backwards-incompatible: return GlyphName rather than code in
+  Declarations message: #75.
+
 #### 0.24.1 - 11.09.2015
 
 * Fix StackOverflowException and encoding issue: #70.
