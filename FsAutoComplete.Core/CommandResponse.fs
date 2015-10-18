@@ -4,7 +4,7 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
-
+ 
 module internal CompletionUtils =
   let map =
     [ 0x0000,  ("Class", "C")
@@ -62,6 +62,7 @@ module CommandResponse =
   type CompletionResponse =
     {
       Name: string
+      Code: string
       Glyph: string
       GlyphChar: string
     }
@@ -214,8 +215,9 @@ module CommandResponse =
   let completion (serialize : obj -> string) (decls: FSharpDeclarationListItem[]) =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
+                               let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield { CompletionResponse.Name = d.Name; Glyph = glyph; GlyphChar = glyphChar } ] }
+                               yield {CompletionResponse.Name = d.Name; Code = code; Glyph = glyph; GlyphChar = glyphChar } ] }
 
   let symbolUse (serialize : obj -> string) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
     let su =
