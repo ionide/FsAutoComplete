@@ -19,16 +19,6 @@
       "FileName": "<absolute path removed>/test/integration/OutOfRange/Script.fsx",
       "StartLine": 6,
       "EndLine": 6,
-      "StartColumn": 15,
-      "EndColumn": 16,
-      "Severity": "Error",
-      "Message": "Missing qualification after '.'",
-      "Subcategory": "parse"
-    },
-    {
-      "FileName": "<absolute path removed>/test/integration/OutOfRange/Script.fsx",
-      "StartLine": 6,
-      "EndLine": 6,
       "StartColumn": 13,
       "EndColumn": 15,
       "Severity": "Error",
