@@ -98,3 +98,31 @@
   </Choose>
 </Project>
 </Project>
+  <ItemGroup>
+    <Reference Include="FParsec">
+      <HintPath>..\packages\FSharpLint.Core\lib\FParsec.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+    <Reference Include="FParsecCS">
+      <HintPath>..\packages\FSharpLint.Core\lib\FParsecCS.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+    <Reference Include="FSharpLint.Application">
+      <HintPath>..\packages\FSharpLint.Core\lib\FSharpLint.Application.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+    <Reference Include="FSharpLint.Framework">
+      <HintPath>..\packages\FSharpLint.Core\lib\FSharpLint.Framework.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+    <Reference Include="FSharpLint.Rules">
+      <HintPath>..\packages\FSharpLint.Core\lib\FSharpLint.Rules.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
+  </ItemGroup>
+</Project>
