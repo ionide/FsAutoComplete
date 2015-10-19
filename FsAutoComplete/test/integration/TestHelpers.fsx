@@ -20,7 +20,7 @@ type FsAutoCompleteWrapper() =
     p.StartInfo.RedirectStandardError  <- true
     p.StartInfo.RedirectStandardInput  <- true
     p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("mFSharp_ToolTipSpinWaitTime", "10000")
+    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     p.Start () |> ignore
 
   member x.project (s: string) : unit =
