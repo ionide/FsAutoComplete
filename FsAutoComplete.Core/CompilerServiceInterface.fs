@@ -36,7 +36,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
       | newPos -> newPos
 
     let lineStr = lines.[line - 1]
-    match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with 
+    match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
     | None -> Failure "Could not find ident at this location"
     | Some identIsland ->
 
@@ -44,7 +44,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
                |> Async.RunSynchronously
 
     Success(meth, commas)
-  
+
   member x.TryFindDeclaration line col lineStr =
     match Parsing.findLongIdents(col - 1, lineStr) with
     | None -> Failure "Could not find ident at this location"
@@ -102,6 +102,12 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
   member x.GetExtraColorizations =
     checkResults.GetExtraColorizationsAlternate()
 
+  member x.GetAST =
+    parseResults.ParseTree
+
+  member x.GetCheckResults =
+    checkResults
+
 type FSharpCompilerServiceChecker() =
   let checker = FSharpChecker.Instance
   do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
@@ -158,7 +164,7 @@ type FSharpCompilerServiceChecker() =
         Success (po, Seq.toList compileFiles, outputFile, Seq.toList references)
       with e ->
         Failure e.Message
-  
+
 open System.Reflection
 module CompilerServiceInterface =
   let addMSBuildv14BackupResolution () =
