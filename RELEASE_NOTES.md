@@ -1,3 +1,8 @@
+#### 0.26.0 - 20.10.2015
+
+* Fix for uncompiled referenced projects: #78.
+* Backwards-incompatible: Framework no longer returned in `project` reponse.
+
 #### 0.25.1 - 16.10.2015
 
 * Add App.config to FsAutoComplete.Suave release: #76.
