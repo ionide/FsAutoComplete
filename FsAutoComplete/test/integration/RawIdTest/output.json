@@ -135,11 +135,13 @@
   "Data": [
     {
       "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Field",
       "GlyphChar": "F"
     },
     {
       "Name": "Column1",
+      "ReplacementText": "Column1",
       "Glyph": "Field",
       "GlyphChar": "F"
     }
@@ -150,11 +152,13 @@
   "Data": [
     {
       "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Field",
       "GlyphChar": "F"
     },
     {
       "Name": "Column1",
+      "ReplacementText": "Column1",
       "Glyph": "Field",
       "GlyphChar": "F"
     }
@@ -179,11 +183,13 @@
   "Data": [
     {
       "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Field",
       "GlyphChar": "F"
     },
     {
       "Name": "Column1",
+      "ReplacementText": "Column1",
       "Glyph": "Field",
       "GlyphChar": "F"
     }
@@ -208,16 +214,19 @@
   "Data": [
     {
       "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Column1",
+      "ReplacementText": "Column1",
       "Glyph": "Property",
       "GlyphChar": "P"
     }
@@ -242,16 +251,19 @@
   "Data": [
     {
       "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Column1",
+      "ReplacementText": "Column1",
       "Glyph": "Property",
       "GlyphChar": "P"
     }
@@ -276,16 +288,19 @@
   "Data": [
     {
       "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Column1",
+      "ReplacementText": "Column1",
       "Glyph": "Property",
       "GlyphChar": "P"
     }

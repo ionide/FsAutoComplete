@@ -92,6 +92,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -116,6 +117,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
