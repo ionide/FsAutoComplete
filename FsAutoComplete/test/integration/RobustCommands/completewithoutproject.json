@@ -25,6 +25,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
