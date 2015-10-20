@@ -50,6 +50,7 @@
   "Data": [
     {
       "Name": "funky",
+      "ReplacementText": "funky",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
