@@ -4,8 +4,8 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
-open FSharpLint.Application 
-
+open FSharpLint.Application
+ 
 module internal CompletionUtils =
   let map =
     [ 0x0000,  ("Class", "C")
