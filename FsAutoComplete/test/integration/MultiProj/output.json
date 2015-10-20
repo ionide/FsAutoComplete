@@ -12,8 +12,7 @@
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
-    ],
-    "Framework": "v4.0"
+    ]
   }
 }
 {
@@ -212,8 +211,7 @@
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
-    ],
-    "Framework": "v4.0"
+    ]
   }
 }
 {

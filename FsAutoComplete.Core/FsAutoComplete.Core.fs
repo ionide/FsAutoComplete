@@ -50,8 +50,8 @@ module Commands =
 
                 match checker.TryGetProjectOptions(file) with
                 | Result.Failure s -> [Response.error serialize s],state
-                | Result.Success(po, projectFiles, outFileOpt, references, frameworkOpt) ->
-                    let res = Response.project serialize (file, projectFiles, outFileOpt, references, frameworkOpt)
+                | Result.Success(po, projectFiles, outFileOpt, references) ->
+                    let res = Response.project serialize (file, projectFiles, outFileOpt, references)
                     let checkOptions =
                       projectFiles
                       |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
