@@ -96,8 +96,6 @@
       </ItemGroup>
     </When>
   </Choose>
-</Project>
-</Project>
   <ItemGroup>
     <Reference Include="FParsec">
       <HintPath>..\packages\FSharpLint.Core\lib\FParsec.dll</HintPath>
