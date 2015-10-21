@@ -167,7 +167,7 @@ module Commands =
                 let res' =
                     match res with
                     | LintResult.Failure _ -> [ Response.info serialize "Something went wrong during parsing"]
-                    | LintResult.Success warnings -> []
+                    | LintResult.Success warnings -> [ Response.lint serialize warnings ]
 
                 res',state
         return res
