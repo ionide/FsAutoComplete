@@ -5,7 +5,7 @@ open System
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
- 
+
 module internal CompletionUtils =
   let map =
     [ 0x0000,  ("Class", "C")
@@ -292,4 +292,5 @@ module CommandResponse =
 
   let lint (serialize : obj -> string) (warnings : LintWarning.Warning list) =
     let data = warnings |> List.toArray
+      
     serialize { Kind = "lint"; Data = data }
