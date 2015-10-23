@@ -5,7 +5,7 @@ nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json
 nuget FAKE
-nuget FSharp.Core
+nuget FSharp.Core 3.1.2.5
 nuget NUnit
 nuget NUnit.Runners
 nuget Octokit
