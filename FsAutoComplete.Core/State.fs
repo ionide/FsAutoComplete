@@ -10,7 +10,7 @@ type State =
     FileCheckOptions : Map<string,FSharpProjectOptions>
     ProjectLoadTimes : Map<string,DateTime>
     HelpText : Map<String, FSharpToolTipText>
-    ColorizationOutput: bool
+    ColorizationOutput: bool 
   }
 
   static member Initial =

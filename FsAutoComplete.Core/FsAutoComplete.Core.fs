@@ -4,6 +4,7 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharpLint.Application
 
 module Response = CommandResponse
 
@@ -12,14 +13,14 @@ module Commands =
         let colorizations = state.ColorizationOutput
         let parse' fileName text options =
             async {
-              let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
-              return match checkResults with
-                      | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                      | FSharpCheckFileAnswer.Succeeded results ->
-                           if colorizations then
+                let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
+                return match checkResults with
+                        | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
+                        | FSharpCheckFileAnswer.Succeeded results ->
+                            if colorizations then
                                 [ Response.errors serialize (results.Errors)
                                   Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                           else [ Response.errors serialize (results.Errors) ]
+                            else [ Response.errors serialize (results.Errors) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
@@ -136,7 +137,39 @@ module Commands =
     }
 
     let methods (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lines = async {
+
+
         return match tyRes.TryGetMethodOverrides lines line col with
                 | Result.Failure s -> [Response.error serialize (s)], state
                 | Result.Success (meth, commas) -> [Response.methods serialize (meth, commas)], state
+    }
+
+    let lint (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file = async {
+        let res =
+            match state.TryGetFileCheckerOptionsWithSource file with
+            | Failure s -> [Response.error serialize (s)], state
+            | Success (options,source) ->
+            let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+            match tyResOpt with
+            | None -> [ Response.info serialize "Cached typecheck results not yet available"], state
+            | Some tyRes ->
+
+            match tyRes.GetAST with
+            | None -> [ Response.info serialize "Something went wrong during parsing"], state
+            | Some tree ->
+                let res =
+                    Lint.lintParsedSource
+                        Lint.OptionalLintParameters.Default
+                        { Ast = tree
+                          Source = source
+                          TypeCheckResults = Some tyRes.GetCheckResults
+                          FSharpVersion = Version() }
+                let res' =
+                    match res with
+                    | LintResult.Failure _ -> [ Response.info serialize "Something went wrong during parsing"]
+                    | LintResult.Success warnings -> [ Response.lint serialize warnings ]
+
+                res',state
+        return res
+
     }

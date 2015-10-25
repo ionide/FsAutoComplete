@@ -22,6 +22,7 @@ module Contract =
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
+    type LintRequest = {FileName : string}
 
 [<AutoOpen>]
 module internal Utils =
@@ -90,7 +91,7 @@ let main argv =
                 let res' = res |> List.toArray |> Json.toJson
                 return! Response.response HttpCode.HTTP_200 res' r
                 })
-
+            path "/lint" >>= handler (fun (data: LintRequest) -> Commands.lint writeJson !state checker data.FileName)
         ]
 
 
