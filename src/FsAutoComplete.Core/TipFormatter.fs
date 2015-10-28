@@ -10,10 +10,10 @@ open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 // TODO: Improve this parser. Is there any other XmlDoc parser available?
-type private XmlDoc(doc: XmlDocument) =
+type private XmlDocMember(doc: XmlDocument) =
   let nl = System.Environment.NewLine
   let readContent (node: XmlNode) =
-    // Many definitions contains references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
+    // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
     // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
     Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "$1")
   let readChildren name (doc: XmlDocument) =
@@ -31,25 +31,48 @@ type private XmlDoc(doc: XmlDocument) =
      else nl + nl + "Exceptions:" + nl +
           (x.Exceptions |> Seq.map (fun kv -> "\t" + kv.Key + ": " + kv.Value) |> String.concat nl))
 
-let private getXmlDoc dllFile =
-  let exists extension =
-    let path = Path.ChangeExtension(dllFile, extension)
-    if File.Exists(path) then Some path else None
-  match exists ".xml", exists ".XML" with
-  | Some path, _
-  | _, Some path -> Some path
-  | None, None -> None
+let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
+  let acc' =
+    match reader.Read() with
+    | false -> None
+    | true when reader.Name = "member" ->
+      use subReader = reader.ReadSubtree()
+      let doc = XmlDocument()
+      doc.Load(subReader)
+      acc |> Map.add (reader.GetAttribute("name")) (XmlDocMember doc) |> Some
+    | _ -> Some acc
+  match acc' with
+  | None -> acc
+  | Some acc' -> readXmlDoc reader acc'
 
-let rec private findXmlInfo name (reader: XmlReader) =
-  match reader.Read() with
-  | false -> ""
-  | true when reader.GetAttribute("name") = name ->
-    use subReader = reader.ReadSubtree()
-    let doc = XmlDocument()
-    doc.Load(subReader)
-    XmlDoc doc |> string
-  | _ -> findXmlInfo name reader
-    
+let private getXmlDoc =
+  let xmlDocCache = System.Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
+  fun dllFile ->
+    let xmlFile = Path.ChangeExtension(dllFile, ".xml")
+    if xmlDocCache.ContainsKey xmlFile then
+      Some xmlDocCache.[xmlFile]
+    else
+      let rec exists filePath tryAgain =
+        match File.Exists filePath, tryAgain with
+        | true, _ -> Some filePath
+        | false, false -> None
+        | false, true ->
+          // In Linux, we need to check for upper case extension separately
+          let filePath = Path.ChangeExtension(filePath, Path.GetExtension(filePath).ToUpper())
+          exists filePath false
+
+      match exists xmlFile true with
+      | None -> None
+      | Some actualXmlFile ->
+        // Prevent racing conditions
+        xmlDocCache.AddOrUpdate(xmlFile, Map.empty, fun _ _ -> Map.empty) |> ignore
+        try
+          use reader = XmlReader.Create actualXmlFile
+          let xmlDoc = readXmlDoc reader Map.empty
+          xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, fun _ _ -> xmlDoc) |> ignore
+          Some xmlDoc
+        with _ ->
+          None  // TODO: Remove the empty map from cache to try again in the next request?
 
 // --------------------------------------------------------------------------------------
 // Formatting of tool-tip information displayed in F# IntelliSense
@@ -59,12 +82,8 @@ let private buildFormatComment cmt =
   | FSharpXmlDoc.Text s -> s
   | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
     match getXmlDoc dllFile with
-    | Some xmlFile ->
-      try
-        use reader = XmlReader.Create xmlFile
-        findXmlInfo memberName reader
-      with _ -> ""
-    | None -> ""
+    | Some doc when doc.ContainsKey memberName -> string doc.[memberName]
+    | _ -> ""
   | _ -> ""
 
 let formatTip tip = 
