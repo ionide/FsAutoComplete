@@ -35,11 +35,15 @@ let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
   let acc' =
     match reader.Read() with
     | false -> None
-    | true when reader.Name = "member" ->
-      use subReader = reader.ReadSubtree()
-      let doc = XmlDocument()
-      doc.Load(subReader)
-      acc |> Map.add (reader.GetAttribute("name")) (XmlDocMember doc) |> Some
+    | true when reader.Name = "member" && reader.NodeType = XmlNodeType.Element ->
+      try
+        let key = reader.GetAttribute("name")
+        use subReader = reader.ReadSubtree()
+        let doc = XmlDocument()
+        doc.Load(subReader)
+        acc |> Map.add key (XmlDocMember doc) |> Some
+      with
+      | _ -> Some acc
     | _ -> Some acc
   match acc' with
   | None -> acc
@@ -64,7 +68,7 @@ let private getXmlDoc =
       match exists xmlFile true with
       | None -> None
       | Some actualXmlFile ->
-        // Prevent racing conditions
+        // Prevent other threads from tying to add the same doc simultaneously
         xmlDocCache.AddOrUpdate(xmlFile, Map.empty, fun _ _ -> Map.empty) |> ignore
         try
           use reader = XmlReader.Create actualXmlFile
