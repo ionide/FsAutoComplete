@@ -1,3 +1,8 @@
+#### 0.26.1 - 23.10.2015
+
+* Switch to depend on FSharp.Core 4.3.1.0: #81.
+* Don't output a BOM to standard out: #82
+
 #### 0.26.0 - 20.10.2015
 
 * Fix for uncompiled referenced projects: #78.

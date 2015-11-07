@@ -50,26 +50,31 @@
   "Data": [
     {
       "Name": "Equals",
+      "ReplacementText": "Equals",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetHashCode",
+      "ReplacementText": "GetHashCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetType",
+      "ReplacementText": "GetType",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "Terrific",
+      "ReplacementText": "Terrific",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "ToString",
+      "ReplacementText": "ToString",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -94,31 +99,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -143,6 +154,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -167,31 +179,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -249,26 +267,31 @@
   "Data": [
     {
       "Name": "Equals",
+      "ReplacementText": "Equals",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetHashCode",
+      "ReplacementText": "GetHashCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetType",
+      "ReplacementText": "GetType",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "Terrifying",
+      "ReplacementText": "Terrifying",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "ToString",
+      "ReplacementText": "ToString",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -293,31 +316,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -342,6 +371,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -366,31 +396,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -431,26 +467,31 @@
   "Data": [
     {
       "Name": "Equals",
+      "ReplacementText": "Equals",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetHashCode",
+      "ReplacementText": "GetHashCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetType",
+      "ReplacementText": "GetType",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "Terrific",
+      "ReplacementText": "Terrific",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "ToString",
+      "ReplacementText": "ToString",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -475,31 +516,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -524,6 +571,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -548,31 +596,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -613,26 +667,31 @@
   "Data": [
     {
       "Name": "Equals",
+      "ReplacementText": "Equals",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetHashCode",
+      "ReplacementText": "GetHashCode",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "GetType",
+      "ReplacementText": "GetType",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "Terrifying",
+      "ReplacementText": "Terrifying",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "ToString",
+      "ReplacementText": "ToString",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -657,31 +716,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -706,6 +771,7 @@
   "Data": [
     {
       "Name": "func",
+      "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
@@ -730,31 +796,37 @@
   "Data": [
     {
       "Name": "Bar",
+      "ReplacementText": "Bar",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "Foo",
+      "ReplacementText": "Foo",
       "Glyph": "Type",
       "GlyphChar": "T"
     },
     {
       "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C"
     },
     {
       "Name": "Qux",
+      "ReplacementText": "Qux",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
       "Name": "add",
+      "ReplacementText": "add",
       "Glyph": "Method",
       "GlyphChar": "M"
     },
     {
       "Name": "addition",
+      "ReplacementText": "addition",
       "Glyph": "Method",
       "GlyphChar": "M"
     }
