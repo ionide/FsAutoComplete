@@ -58,7 +58,7 @@ module CommandInput =
     let! _ = char '"'
     return Project(filename,DateTime.Now) }
 
-  /// Parse 'project' command
+  /// Parse 'lint' command
   let lint = parser {
       let! _ = string "lint "
       let! _ = char '"'
@@ -134,7 +134,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error <|> lint
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error 
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

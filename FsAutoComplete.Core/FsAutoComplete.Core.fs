@@ -145,6 +145,7 @@ module Commands =
     }
 
     let lint (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file = async {
+        let file = Path.GetFullPath file
         let res =
             match state.TryGetFileCheckerOptionsWithSource file with
             | Failure s -> [Response.error serialize (s)], state
