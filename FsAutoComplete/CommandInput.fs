@@ -60,7 +60,7 @@ module CommandInput =
 
   /// Parse 'project' command
   let lint = parser {
-      let! _ = string "project "
+      let! _ = string "lint "
       let! _ = char '"'
       let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
       let! _ = char '"'
