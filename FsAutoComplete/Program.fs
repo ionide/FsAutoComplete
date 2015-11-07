@@ -85,6 +85,9 @@ module internal Main =
             | Colorization enabled ->
                 Commands.colorization writeJson !state checker enabled
 
+            | Lint filename ->
+                Commands.lint writeJson !state checker filename
+
             | Error(msg) ->
                 Commands.error writeJson !state checker msg
 

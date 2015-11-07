@@ -4,6 +4,7 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharpLint.Application
 
 module internal CompletionUtils =
   let map =
@@ -167,8 +168,6 @@ module CommandResponse =
       Kind: string
     }
 
-
-
   type Declaration =
     {
       UniqueName: string
@@ -190,12 +189,11 @@ module CommandResponse =
         Range = e.Range
         BodyRange = e.BodyRange
       }
+
   type DeclarationResponse = {
       Declaration : Declaration;
       Nested : Declaration []
   }
-
-
 
   let info (serialize : obj -> string) (s: string) = serialize { Kind = "info"; Data = s }
   let error (serialize : obj -> string) (s: string) = serialize { Kind = "error"; Data = s }
@@ -291,3 +289,8 @@ module CommandResponse =
 
   let message (serialize : obj -> string) (kind: string, data: 'a) =
     serialize { Kind = kind; Data = data }
+
+  let lint (serialize : obj -> string) (warnings : LintWarning.Warning list) =
+    let data = warnings |> List.toArray
+      
+    serialize { Kind = "lint"; Data = data }
