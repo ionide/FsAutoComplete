@@ -54,6 +54,9 @@ type FsAutoCompleteWrapper() =
   member x.declarations (fn: string) : unit =
     fprintf p.StandardInput "declarations \"%s\"\n" fn
 
+  member x.lint (fn: string) : unit =
+    fprintf p.StandardInput "lint \"%s\"\n" fn
+
   member x.send (s: string) : unit =
     fprintf p.StandardInput "%s" s
 
