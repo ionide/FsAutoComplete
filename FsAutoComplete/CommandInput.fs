@@ -25,6 +25,7 @@ type Command =
   | Lint of string
   | Project of string * DateTime * bool
   | Colorization of bool
+  | Format of string
   | CompilerLocation
   | Quit
 
@@ -69,6 +70,14 @@ module CommandInput =
       let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
       let! _ = char '"'
       return Lint(filename) }
+
+  let format = parser {
+      let! _ = string "format "
+      let! _ = char '"'
+      let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+      let! _ = char '"'
+      return Format(filename)
+  }
 
   /// Read multi-line input as a list of strings
   let rec readInput input =
@@ -138,7 +147,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error 
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> format <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

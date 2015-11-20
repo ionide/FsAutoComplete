@@ -87,7 +87,8 @@ module internal Main =
 
             | Lint filename ->
                 Commands.lint writeJson !state checker filename
-
+            | Format filename -> 
+                Commands.format writeJson !state checker filename
             | Error(msg) ->
                 Commands.error writeJson !state checker msg
 

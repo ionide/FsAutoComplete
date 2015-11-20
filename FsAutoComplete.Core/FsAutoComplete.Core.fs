@@ -5,6 +5,8 @@ open System.IO
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
+open Fantomas
+open Fantomas.FormatConfig
 
 module Response = CommandResponse
 
@@ -171,6 +173,32 @@ module Commands =
                     | LintResult.Success warnings -> [ Response.lint serialize warnings ]
 
                 res',state
+        return res
+
+    }
+
+    let format (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file = async {
+        let file = Path.GetFullPath file
+        let res =
+            match state.TryGetFileCheckerOptionsWithSource file with
+            | Failure s -> [Response.error serialize (s)], state
+            | Success (options,source) ->
+            let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+            match tyResOpt with
+            | None -> [ Response.info serialize "Cached typecheck results not yet available"], state
+            | Some tyRes ->
+
+            match tyRes.GetAST with
+            | None -> [ Response.info serialize "Something went wrong during formatting"], state
+            | Some tree ->
+                try
+                    let res =
+                        // TODO: get/create/store? formatting configs somehow
+                        Fantomas.CodeFormatter.FormatAST(tree, Some source, FormatConfig.Default)
+                        
+                    [Response.format serialize res],state
+                with 
+                | :? FormatException as ex -> [Response.error serialize ex.Message ], state
         return res
 
     }

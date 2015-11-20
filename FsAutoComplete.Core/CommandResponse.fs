@@ -296,3 +296,6 @@ module CommandResponse =
     let data = warnings |> List.toArray
       
     serialize { Kind = "lint"; Data = data }
+
+  let format (serialize : obj -> string) (formatted : string) =
+    serialize {Kind = "format"; Data = formatted }
