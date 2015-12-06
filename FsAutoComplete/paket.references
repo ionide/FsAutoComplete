@@ -1,4 +1,4 @@
-Suave
 FSharp.Compiler.Service
 Newtonsoft.Json
 Fantomas
+NDesk.Options

@@ -10,6 +10,17 @@ open Fantomas.FormatConfig
 
 module Response = CommandResponse
 
+module Types = 
+    type Range = {
+        startLine : int
+        startCol : int
+        endLine : int
+        endCol : int
+    }
+    type FormatData = 
+    | File of filename : string
+    | FileSelection of fileName : string * selection : Range
+
 module Commands =
     let parse (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file lines = async {
         let colorizations = state.ColorizationOutput
@@ -177,28 +188,29 @@ module Commands =
 
     }
 
-    let format (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file = async {
-        let file = Path.GetFullPath file
-        let res =
+    let format (serialize : obj -> string) (state  : State) (checker : FSharpChecker) config data =
+        let formatFile fileName options source = async {
+            let! formattedResult = Fantomas.CodeFormatter.FormatDocumentAsync(fileName, source, config, options, checker)
+            return Response.format serialize formattedResult, state
+        }
+
+        let formatSelection fileName (range : Types.Range) options source = async {
+            let fantomasRange = Fantomas.CodeFormatter.MakeRange(range.startLine, range.startCol, range.endLine, range.endCol)
+            let! res = Fantomas.CodeFormatter.FormatSelectionAsync(fileName, fantomasRange, source, config, options, checker)
+            return Response.format serialize res, state
+        }
+
+        let fileName = match data with | Types.FormatData.File(fileName) -> fileName | Types.FormatData.FileSelection(name, _) -> name
+        let file = Path.GetFullPath fileName 
+        async {
             match state.TryGetFileCheckerOptionsWithSource file with
-            | Failure s -> [Response.error serialize (s)], state
-            | Success (options,source) ->
-            let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-            match tyResOpt with
-            | None -> [ Response.info serialize "Cached typecheck results not yet available"], state
-            | Some tyRes ->
-
-            match tyRes.GetAST with
-            | None -> [ Response.info serialize "Something went wrong during formatting"], state
-            | Some tree ->
-                try
-                    let res =
-                        // TODO: get/create/store? formatting configs somehow
-                        Fantomas.CodeFormatter.FormatAST(tree, Some source, FormatConfig.Default)
-                        
-                    [Response.format serialize res],state
-                with 
-                | :? FormatException as ex -> [Response.error serialize ex.Message ], state
-        return res
-
-    }
+            | Failure s -> return [Response.error serialize (s)], state
+            | Success(options, source) ->     
+                match data with
+                | Types.FormatData.File(_) -> 
+                    let! (res, state') =  formatFile file options source
+                    return [res], state'
+                | Types.FormatData.FileSelection(_, range) -> 
+                    let! (res, state') = formatSelection file range options source
+                    return [res], state'
+        }
