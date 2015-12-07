@@ -118,7 +118,6 @@ module internal Main =
       1
     else
       try
-        CompilerServiceInterface.addMSBuildv14BackupResolution()
         async {
           while true do
             let cmd = CommandInput.parseCommand(Console.ReadLine())

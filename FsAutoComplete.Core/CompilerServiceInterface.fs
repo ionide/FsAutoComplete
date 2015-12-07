@@ -145,7 +145,7 @@ type FSharpCompilerServiceChecker() =
     else
       try
         let po =
-          let p = checker.GetProjectOptionsFromProjectFile(file)
+          let p = ProjectCracker.GetProjectOptionsFromProjectFile(file)
           let opts =
             if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
               ensureCorrectFSharpCore p.OtherOptions
@@ -164,17 +164,3 @@ type FSharpCompilerServiceChecker() =
         Success (po, Seq.toList compileFiles, outputFile, Seq.toList references)
       with e ->
         Failure e.Message
-
-open System.Reflection
-module CompilerServiceInterface =
-  let addMSBuildv14BackupResolution () =
-    let onResolveEvent = new ResolveEventHandler( fun sender evArgs ->
-      let requestedAssembly = AssemblyName(evArgs.Name)
-      if requestedAssembly.Name.StartsWith("Microsoft.Build") &&
-          not (requestedAssembly.Name.EndsWith(".resources")) then
-        requestedAssembly.Version <- Version("14.0.0.0")
-        Assembly.Load (requestedAssembly)
-      else
-        null
-          )
-    AppDomain.CurrentDomain.add_AssemblyResolve(onResolveEvent)
