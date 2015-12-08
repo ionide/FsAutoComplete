@@ -23,7 +23,7 @@ type Command =
   | Parse of string * ParseKind * string[]
   | Error of string
   | Lint of string
-  | Project of string * DateTime
+  | Project of string * DateTime * bool
   | Colorization of bool
   | CompilerLocation
   | Quit
@@ -56,7 +56,11 @@ module CommandInput =
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
     let! _ = char '"'
-    return Project(filename,DateTime.Now) }
+    let! verbose =
+      (parser { let! _ = some (string " verbose")
+                return true }) <|>
+      (parser { return false })
+    return Project(filename,DateTime.Now,verbose) }
 
   /// Parse 'lint' command
   let lint = parser {

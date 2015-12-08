@@ -11,7 +11,10 @@
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
-    ]
+    ],
+    "Logs": {
+      "<absolute path removed>/test/integration/ProjectReload/Test1.fsproj": ""
+    }
   }
 }
 {
@@ -27,6 +30,9 @@
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
-    ]
+    ],
+    "Logs": {
+      "<absolute path removed>/test/integration/ProjectReload/Test1.fsproj": ""
+    }
   }
 }

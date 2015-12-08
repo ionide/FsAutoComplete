@@ -38,7 +38,7 @@ module Commands =
 
 
 
-    let project (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file time = async {
+    let project (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file time verbose = async {
         let file = Path.GetFullPath file
 
         // The FileSystemWatcher often triggers multiple times for
@@ -49,10 +49,10 @@ module Commands =
                 | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> [],state
                 | _ ->
 
-                match checker.TryGetProjectOptions(file) with
+                match checker.TryGetProjectOptions(file, verbose) with
                 | Result.Failure s -> [Response.error serialize s],state
-                | Result.Success(po, projectFiles, outFileOpt, references) ->
-                    let res = Response.project serialize (file, projectFiles, outFileOpt, references)
+                | Result.Success(po, projectFiles, outFileOpt, references, logMap) ->
+                    let res = Response.project serialize (file, projectFiles, outFileOpt, references, logMap)
                     let checkOptions =
                       projectFiles
                       |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions

@@ -139,19 +139,19 @@ type FSharpCompilerServiceChecker() =
       |> Async.RunSynchronously
     parseResult.GetNavigationItems().Declarations
 
-  member x.TryGetProjectOptions (file: string) : Result<_> =
+  member x.TryGetProjectOptions (file: string, verbose: bool) : Result<_> =
     if not (File.Exists file) then
       Failure (sprintf "File '%s' does not exist" file)
     else
       try
-        let po =
-          let p = ProjectCracker.GetProjectOptionsFromProjectFile(file)
+        let po, logMap =
+          let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
           let opts =
             if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
               ensureCorrectFSharpCore p.OtherOptions
             else
                p.OtherOptions
-          { p with OtherOptions = opts }
+          { p with OtherOptions = opts }, logMap
 
         let chooseByPrefix prefix (s: string) =
           if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
@@ -161,6 +161,6 @@ type FSharpCompilerServiceChecker() =
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references)
+        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, logMap)
       with e ->
         Failure e.Message

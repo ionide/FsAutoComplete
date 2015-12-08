@@ -74,6 +74,7 @@ module CommandResponse =
       Files: List<string>
       Output: string
       References: List<string>
+      Logs: Map<string, string>
     }
 
   type OverloadSignature =
@@ -202,12 +203,13 @@ module CommandResponse =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
-  let project (serialize : obj -> string) (projectFileName, projectFiles, outFileOpt, references) =
+  let project (serialize : obj -> string) (projectFileName, projectFiles, outFileOpt, references, logMap) =
     let projectData =
       { Project = projectFileName
         Files = projectFiles
         Output = match outFileOpt with Some x -> x | None -> "null"
-        References = List.sortBy IO.Path.GetFileName references }
+        References = List.sortBy IO.Path.GetFileName references
+        Logs = logMap }
     serialize { Kind = "project"; Data = projectData }
 
   let completion (serialize : obj -> string) (decls: FSharpDeclarationListItem[]) =
