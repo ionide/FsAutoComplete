@@ -40,15 +40,15 @@ module internal Main =
                 return [r] @res,state
                 }
 
-            | Project (file,time) ->
+            | Project (file,time,verbose) ->
                 //THIS SHOULD BE INITIALIZED SOMEWHERE ELSE ?
                 let fp = Path.GetFullPath file
                 let fsw = new FileSystemWatcher()
                 fsw.Path <- Path.GetDirectoryName fp
                 fsw.Filter <- Path.GetFileName fp
-                fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fp, DateTime.Now)))
+                fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fp, DateTime.Now, verbose)))
                 fsw.EnableRaisingEvents <- true
-                Commands.project writeJson !state checker file time
+                Commands.project writeJson !state checker file time verbose
 
             | Declarations file ->
                 Commands.declarations writeJson !state checker file
@@ -118,7 +118,6 @@ module internal Main =
       1
     else
       try
-        CompilerServiceInterface.addMSBuildv14BackupResolution()
         async {
           while true do
             let cmd = CommandInput.parseCommand(Console.ReadLine())

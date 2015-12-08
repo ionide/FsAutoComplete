@@ -12,7 +12,10 @@
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
-    ]
+    ],
+    "Logs": {
+      "<absolute path removed>/test/integration/Test1Json/Test1.fsproj": ""
+    }
   }
 }
 {

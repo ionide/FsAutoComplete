@@ -81,6 +81,9 @@ let formatJson json =
 let writeNormalizedOutput (fn: string) (s: string) =
   let lines = s.TrimEnd().Split('\n')
   for i in [ 0 .. lines.Length - 1 ] do
+    if Path.GetExtension fn = ".json" then
+      lines.[i] <- formatJson lines.[i]
+
     if Path.DirectorySeparatorChar = '/' then
       lines.[i] <- Regex.Replace(lines.[i],
                                  "/.*?FsAutoComplete/test/(.*?(\"|$))",
@@ -101,8 +104,6 @@ let writeNormalizedOutput (fn: string) (s: string) =
                                    "[a-zA-Z]:/.*?FsAutoComplete/test/(.*?(\"|$))",
                                    "<absolute path removed>/test/$1")
 
-    if Path.GetExtension fn = ".json" then
-      lines.[i] <- formatJson lines.[i]
 
     lines.[i] <- lines.[i].Replace("\r", "")
 

@@ -139,19 +139,19 @@ type FSharpCompilerServiceChecker() =
       |> Async.RunSynchronously
     parseResult.GetNavigationItems().Declarations
 
-  member x.TryGetProjectOptions (file: string) : Result<_> =
+  member x.TryGetProjectOptions (file: string, verbose: bool) : Result<_> =
     if not (File.Exists file) then
       Failure (sprintf "File '%s' does not exist" file)
     else
       try
-        let po =
-          let p = checker.GetProjectOptionsFromProjectFile(file)
+        let po, logMap =
+          let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
           let opts =
             if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
               ensureCorrectFSharpCore p.OtherOptions
             else
                p.OtherOptions
-          { p with OtherOptions = opts }
+          { p with OtherOptions = opts }, logMap
 
         let chooseByPrefix prefix (s: string) =
           if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
@@ -161,20 +161,6 @@ type FSharpCompilerServiceChecker() =
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references)
+        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, logMap)
       with e ->
         Failure e.Message
-
-open System.Reflection
-module CompilerServiceInterface =
-  let addMSBuildv14BackupResolution () =
-    let onResolveEvent = new ResolveEventHandler( fun sender evArgs ->
-      let requestedAssembly = AssemblyName(evArgs.Name)
-      if requestedAssembly.Name.StartsWith("Microsoft.Build") &&
-          not (requestedAssembly.Name.EndsWith(".resources")) then
-        requestedAssembly.Version <- Version("14.0.0.0")
-        Assembly.Load (requestedAssembly)
-      else
-        null
-          )
-    AppDomain.CurrentDomain.add_AssemblyResolve(onResolveEvent)

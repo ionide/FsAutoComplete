@@ -77,7 +77,7 @@ let main argv =
         choose [
             path "/parse" >>= handler (fun (data : ParseRequest) -> Commands.parse writeJson !state checker data.FileName data.Lines)
             //TODO: Add filewatcher
-            path "/project" >>= handler (fun (data : ProjectRequest) -> Commands.project writeJson !state checker data.FileName DateTime.Now)
+            path "/project" >>= handler (fun (data : ProjectRequest) -> Commands.project writeJson !state checker data.FileName DateTime.Now false)
             path "/declarations" >>= handler (fun (data : DeclarationsRequest) -> Commands.declarations writeJson !state checker data.FileName)
             path "/helptext" >>= handler (fun (data : HelptextRequest) -> Commands.helptext writeJson !state checker data.Symbol)
             path "/completion" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.completion writeJson !state checker tyRes data.Line data.Column lineStr None (Some data.Filter) )
