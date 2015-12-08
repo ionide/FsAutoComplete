@@ -1,3 +1,8 @@
+#### 0.27.0 - 08.12.2015
+
+* Upgrade to FCS 2.0.0.0-beta and add project cracking verbosity option: #86.
+* Add FSharpLint support: #83.
+
 #### 0.26.1 - 23.10.2015
 
 * Switch to depend on FSharp.Core 4.3.1.0: #81.
