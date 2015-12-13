@@ -36,6 +36,7 @@ module internal Utils =
             System.Text.Encoding.UTF8.GetString(rawForm)
         req.rawForm |> getString |> fromJson<'a>
 
+    
     // f is a function of uriargs -> body type -> WebPart
     let pathScanWithResourceBody format deser (f  : 'a -> 'b -> WebPart)  =
         pathScan format (fun args -> (fun ctx -> 
@@ -105,8 +106,14 @@ let main argv =
             path "/methods" >>= positionHandler (fun data tyRes _ lines ->  Commands.methods writeJson !state checker tyRes data.Line data.Column lines )
             path "/compilerlocation" >>= (Commands.compilerLocation writeJson !state checker |> handle outputToJson)
             path "/lint" >>= handler (fun (data: LintRequest) -> Commands.lint writeJson !state checker data.FileName)
-            pathScanWithResourceBody "/format/%s/selection" getResourceFromReq<FormatSelectionRequest> (fun fileName selection -> Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance selection.Config (Types.FormatData.FileSelection(fileName, selection.Range)) |> handle outputToJson)
-            pathScanWithResourceBody "/format/%s" getResourceFromReq<Fantomas.FormatConfig.FormatConfig>  (fun fileName config -> Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance config (Types.FormatData.File fileName) |> handle outputToJson)
+            pathScanWithResourceBody "/format/%s/selection" getResourceFromReq<FormatSelectionRequest> (fun fileName selection ->
+                let unescapedName = System.Uri.UnescapeDataString(fileName).Replace('+', ' ')
+                Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance selection.Config (Types.FormatData.FileSelection(unescapedName, selection.Range)) |> handle outputToJson
+            )
+            pathScanWithResourceBody "/format/%s" getResourceFromReq<Fantomas.FormatConfig.FormatConfig>  (fun fileName config -> 
+                let unescapedName = System.Uri.UnescapeDataString(fileName).Replace('+', ' ')
+                Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance config (Types.FormatData.File unescapedName) |> handle outputToJson
+            )
         ]
 
 
