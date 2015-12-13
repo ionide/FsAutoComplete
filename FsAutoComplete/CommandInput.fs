@@ -27,7 +27,8 @@ type Command =
   | Lint of string
   | Project of string * DateTime * bool
   | Colorization of bool
-  | Format of Fantomas.FormatConfig.FormatConfig * FormatData
+  | Format of fileName: string * config: Fantomas.FormatConfig.FormatConfig
+  | FormatSelection of fileName : string * range : Range * config : Fantomas.FormatConfig.FormatConfig
   | CompilerLocation
   | Quit
 
@@ -41,10 +42,12 @@ module CommandInput =
     let! _ = char '"'
     return filename
   }
+
   let bool =   parser { let! _ = string "true"
                       return true } <|>
                parser { let! _ = string "false"
                         return false }
+
   /// Parse 'colorizations' command
   let colorizations = parser {
       let! _ = string "colorizations "
@@ -71,67 +74,85 @@ module CommandInput =
 
   /// Parse 'lint' command
   let lint = parser {
-      let! _ = string "lint "
-      let! filename = quotedfilename
-      return Lint(filename) }
+    let! _ = string "lint "
+    let! filename = quotedfilename
+    return Lint(filename) }
+  
+  let digits = (some (sat Char.IsDigit)) |> Parser.map String.ofSeq |> Parser.map Int32.Parse
 
-  let format = 
-      let file = parser {
-          let _ = string "file "
-          let! file = quotedfilename
-          return Types.File(file)
-      }
+  // range will look like 25:12-500:100 for line 25, col 12 through line 500 col 100
+  let range = parser {
+    let _ = string "range "
+    let! startline = digits
+    let _ = string ":"
+    let! startcol = digits
+    let _ = string "-"
+    let! endline = digits
+    let _ = string ":"
+    let! endcol = digits
+    return {
+    startLine = startline
+    startCol = startcol
+    endLine = endline
+    endCol = endcol
+    }
+  }
 
-      let digit = (some (sat Char.IsDigit)) |> Parser.map String.ofSeq |> Parser.map Int32.Parse
-      
-      // range will look like 25:12-500:100 for line 25, col 12 through line 500 col 100
-      let selection = parser {
-        let _ = string "range "
-        let! startline = digit
-        let _ = string ":"
-        let! startcol = digit
-        let _ = string "-"
-        let! endline = digit
-        let _ = string ":"
-        let! endcol = digit
-        return {
-            startLine = startline
-            startCol = startcol
-            endLine = endline
-            endCol = endcol
-        }
+  let file = parser {
+    let _ = string "file "
+    return! quotedfilename
+  }
+
+  let config = 
+    let inputConfig = 
+      let pprop name vparser func = parser {
+        let! _ = string (sprintf "%s " name)
+        let! value = vparser
+        let! _ = string " " 
+        return fun config -> func config value
       }
     
-      let selected = parser {
-        let! _ = string "file "
-        let! file = quotedfilename
-        let! _ = string " "
-        let! range = selection
-        return Types.FileSelection(file, range)
-      } 
-
-      let inputConfig = 
-        let pprop name func = parser {
-            let! _ = string name
-            let! value = bool
-            return fun config -> func config value
-        }
-        let indentTryWith = pprop "indentOnTryWith" (fun config value-> {config with IndentOnTryWith = value})
-
-        parser {
-            let! _ = string "config "
-            // need to collect the various flags and apply them to default config
-            return { FormatConfig.Default with IndentOnTryWith = true}
-        }
+      let indentSpace = pprop "spaceindent" digits (fun config value -> {config with IndentSpaceNum = value})
+      let pageWidth = pprop "pagewidth" digits (fun config value -> { config with PageWidth = value })
+      let semiAtEnd = pprop "endsemicolon" bool (fun config value -> { config with SemicolonAtEndOfLine = value })
+      let spaceBeforeArg = pprop "spacebeforearg" bool (fun config value -> { config with SpaceBeforeArgument = value })
+      let spaceBeforeColon = pprop "spacebeforecolon" bool (fun config value -> { config with SpaceBeforeColon = value })
+      let spaceAfterComma = pprop "spaceaftercomma" bool (fun config value -> {config with SpaceAfterComma = value})
+      let spaceAfterSemi = pprop "spaceaftersemi" bool (fun config value -> {config with SpaceAfterSemicolon = value})
+      let indentTryWith = pprop "indenttrywith" bool (fun config value -> { config with IndentOnTryWith = value })
+      let reorderOpens = pprop "reorderOpens" bool (fun config value -> {config with ReorderOpenDeclaration = value})
+      let spaceDelims = pprop "surrounddelims" bool (fun config value -> {config with SpaceAroundDelimiter = value})
+      let strict = pprop "strict" bool (fun config value -> { config with StrictMode = value })
       
-      let defaultConfig = parser { return FormatConfig.Default }
+      let opts = many (indentSpace <|> pageWidth <|> semiAtEnd <|> spaceBeforeArg <|> spaceBeforeColon <|> spaceAfterComma <|> spaceAfterSemi <|> indentTryWith <|> reorderOpens <|> spaceDelims <|> strict)
 
       parser {
-          let! _ = string "format "
-          let! config = inputConfig <|> defaultConfig
-          let! formatdata = selected <|> file
-          return Format(config, formatdata)
+        let! _ = string "config "
+        let! mods = opts
+        // need to collect the various flags and apply them to default config
+        return (mods |> List.fold (fun c o -> o c) FormatConfig.Default)
       }
+      
+    let defaultConfig = parser { return FormatConfig.Default }
+    inputConfig <|> defaultConfig
+
+  let format = parser {
+    let! _ = string "format "
+    let! fileName = file
+    let! _ = string " "
+    let! config = config
+    return Format(fileName, config)
+  }
+
+  let formatSelection = parser {
+    let! _ = string "format "
+    let! file = file
+    let! _ = string " "
+    let! range = range
+    let! _ = string " "
+    let! config = config
+    return FormatSelection(file, range, config)
+  } 
 
   /// Read multi-line input as a list of strings
   let rec readInput input =
@@ -199,7 +220,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> format <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> format <|> formatSelection <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

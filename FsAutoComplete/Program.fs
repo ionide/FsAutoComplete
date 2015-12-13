@@ -88,8 +88,10 @@ module internal Main =
 
             | Lint filename ->
                 Commands.lint writeJson !state checker filename
-            | Format (config, data) -> 
-                Commands.format writeJson !state FSharpChecker.Instance config data
+            | Format (fileName, config) -> 
+                Commands.format writeJson !state FSharpChecker.Instance config (Types.FormatData.File(fileName))
+            | FormatSelection(fileName, range, config) ->
+                Commands.format writeJson !state FSharpChecker.Instance config (Types.FormatData.FileSelection(fileName, range))
             | Error(msg) ->
                 Commands.error writeJson !state checker msg
 

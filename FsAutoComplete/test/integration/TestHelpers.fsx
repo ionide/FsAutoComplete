@@ -4,14 +4,31 @@ open System.Diagnostics
 open System.Text.RegularExpressions
 
 #I "../../../packages/Newtonsoft.Json/lib/net45/"
-#r "../../../packages/Newtonsoft.Json/lib/net45/Newtonsoft.Json.dll"
+#r "Newtonsoft.Json.dll"
+#I "../../../packages/Fantomas/lib/"
+#r "FantomasLib.dll"
+
 open Newtonsoft.Json
+open Fantomas.FormatConfig
 
 type FsAutoCompleteWrapper() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
-
+  let sendconfig (proc : System.Diagnostics.Process) (config : FormatConfig) = 
+    let p f = fprintf proc.StandardInput f
+    p "config "
+    p "spaceIndent %d " config.IndentSpaceNum
+    p "pagewidth %d " config.PageWidth
+    p "endsemicolon %b " config.SemicolonAtEndOfLine
+    p "spacebeforearg %b " config.SpaceBeforeArgument
+    p "spacebeforecolon %b " config.SpaceBeforeColon
+    p "spaceaftersemi %b " config.SpaceAfterSemicolon
+    p "indenttrywith %b " config.IndentOnTryWith
+    p "reorderopens %b " config.ReorderOpenDeclaration
+    p "surrounddelims %b " config.SpaceAroundDelimiter
+    p "strict %b " config.StrictMode
+    
   do
     p.StartInfo.FileName <-
       IO.Path.Combine(__SOURCE_DIRECTORY__,
@@ -57,6 +74,21 @@ type FsAutoCompleteWrapper() =
   member x.lint (fn: string) : unit =
     fprintf p.StandardInput "lint \"%s\"\n" fn
 
+  member x.format (fn : string) (config : FormatConfig option) : unit = 
+    fprintf p.StandardInput "format \"%s\"\n" fn
+    match config with 
+    | None -> ()
+    | Some c -> sendconfig p c
+
+  
+  member x.formatselection (fn : string) (selection : int*int*int*int) (config : FormatConfig option) : unit =
+    fprintf p.StandardInput "format \"%s\" " fn
+    let (sl,sc,el,ec) = selection
+    fprintf p.StandardInput "range %d:%d-%d:%d" sl sc el ec
+    match config with
+    | None -> ()
+    | Some c -> sendconfig p c 
+    
   member x.send (s: string) : unit =
     fprintf p.StandardInput "%s" s
 
