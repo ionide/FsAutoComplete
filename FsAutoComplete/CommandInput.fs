@@ -132,15 +132,16 @@ module CommandInput =
         return (mods |> List.fold (fun c o -> o c) FormatConfig.Default)
       }
       
-    let defaultConfig = parser { return FormatConfig.Default }
-    inputConfig <|> defaultConfig
+    inputConfig
 
   let format = parser {
     let! _ = string "format "
     let! fileName = file
-    let! _ = string " "
-    let! config = config
-    return Format(fileName, config)
+    let! config = optional (parser {
+        let _ = string " " 
+        return! config
+    })
+    return Format(fileName, defaultArg config FormatConfig.Default)
   }
 
   let formatSelection = parser {
@@ -148,9 +149,11 @@ module CommandInput =
     let! file = file
     let! _ = string " "
     let! range = range
-    let! _ = string " "
-    let! config = config
-    return FormatSelection(file, range, config)
+    let! config = optional (parser {
+        let _ = string " " 
+        return! config
+    })
+    return FormatSelection(file, range, defaultArg config FormatConfig.Default)
   } 
 
   /// Read multi-line input as a list of strings

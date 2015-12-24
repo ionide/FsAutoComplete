@@ -17,7 +17,7 @@ type FsAutoCompleteWrapper() =
   let cachedOutput = new Text.StringBuilder()
   let sendconfig (proc : System.Diagnostics.Process) (config : FormatConfig) = 
     let p f = fprintf proc.StandardInput f
-    p "config "
+    p " config "
     p "spaceindent %d " config.IndentSpaceNum
     p "pagewidth %d " config.PageWidth
     p "endsemicolon %b " config.SemicolonAtEndOfLine
@@ -75,14 +75,14 @@ type FsAutoCompleteWrapper() =
     fprintf p.StandardInput "lint \"%s\"\n" fn
 
   member x.format (fn : string) (config : FormatConfig option) : unit = 
-    fprintf p.StandardInput "format \"%s\" " fn
+    fprintf p.StandardInput "format \"%s\"" fn
     config |> Option.map (sendconfig p) |> ignore
     fprintf p.StandardInput "\n"
   
   member x.formatselection (fn : string) (selection : int*int*int*int) (config : FormatConfig option) : unit =
-    fprintf p.StandardInput "format \"%s\" " fn
+    fprintf p.StandardInput "format \"%s\"" fn
     let (sl,sc,el,ec) = selection
-    fprintf p.StandardInput "range %d:%d-%d:%d" sl sc el ec
+    fprintf p.StandardInput " range %d:%d-%d:%d" sl sc el ec
     config |> Option.map (sendconfig p) |> ignore
     fprintf p.StandardInput "\n"
     
