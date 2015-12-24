@@ -18,7 +18,7 @@ type FsAutoCompleteWrapper() =
   let sendconfig (proc : System.Diagnostics.Process) (config : FormatConfig) = 
     let p f = fprintf proc.StandardInput f
     p "config "
-    p "spaceIndent %d " config.IndentSpaceNum
+    p "spaceindent %d " config.IndentSpaceNum
     p "pagewidth %d " config.PageWidth
     p "endsemicolon %b " config.SemicolonAtEndOfLine
     p "spacebeforearg %b " config.SpaceBeforeArgument
@@ -27,7 +27,7 @@ type FsAutoCompleteWrapper() =
     p "indenttrywith %b " config.IndentOnTryWith
     p "reorderopens %b " config.ReorderOpenDeclaration
     p "surrounddelims %b " config.SpaceAroundDelimiter
-    p "strict %b " config.StrictMode
+    p "strict %b" config.StrictMode // NOTE we don't send spaces here after config, because that blows the parser
     
   do
     p.StartInfo.FileName <-
