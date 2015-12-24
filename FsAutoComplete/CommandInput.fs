@@ -119,7 +119,7 @@ module CommandInput =
       let spaceAfterComma = pprop "spaceaftercomma" bool (fun config value -> {config with SpaceAfterComma = value})
       let spaceAfterSemi = pprop "spaceaftersemi" bool (fun config value -> {config with SpaceAfterSemicolon = value})
       let indentTryWith = pprop "indenttrywith" bool (fun config value -> { config with IndentOnTryWith = value })
-      let reorderOpens = pprop "reorderOpens" bool (fun config value -> {config with ReorderOpenDeclaration = value})
+      let reorderOpens = pprop "reorderopens" bool (fun config value -> {config with ReorderOpenDeclaration = value})
       let spaceDelims = pprop "surrounddelims" bool (fun config value -> {config with SpaceAroundDelimiter = value})
       let strict = pprop "strict" bool (fun config value -> { config with StrictMode = value })
       
@@ -229,5 +229,5 @@ module CommandInput =
 
 module Tests =
     open CommandInput
-
+    let parseWithSpaceIndentAll = apply CommandInput.config "config spaceindent 5"
     let parseWithSome = apply config "config spaceindent 5" |> List.head |> (fun c -> c.IndentSpaceNum = 5)
