@@ -36,6 +36,7 @@ module CommandInput =
   /// Parse 'quit' command
   let quit = string "quit" |> Parser.map (fun _ -> Quit)
   
+  /// a quoted filename is the text between two " characters
   let quotedfilename = parser {
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
@@ -98,11 +99,13 @@ module CommandInput =
     }
   }
 
+  /// parses a `file "filename.fs"` clause
   let file = parser {
     let _ = string "file "
     return! quotedfilename
   }
 
+  /// parses a `config` clause with a set of subexpressions that modify the default config
   let config = 
     let inputConfig = 
       let pprop name vparser func = parser {
@@ -134,6 +137,7 @@ module CommandInput =
       
     inputConfig
 
+  /// parses a `format file <filename> [config <modifications>]` command
   let format = parser {
     let! _ = string "format "
     let! fileName = file
@@ -144,6 +148,7 @@ module CommandInput =
     return Format(fileName, defaultArg config FormatConfig.Default)
   }
 
+  /// parses a `format range <range> [config <modifications>]` command
   let formatSelection = parser {
     let! _ = string "format "
     let! file = file
@@ -231,6 +236,11 @@ module CommandInput =
       | _ -> cmd
 
 module Tests =
-    open CommandInput
-    let parseWithSpaceIndentAll = apply CommandInput.config "config spaceindent 5"
-    let parseWithSome = apply config "config spaceindent 5" |> List.head |> (fun c -> c.IndentSpaceNum = 5)
+  open Parser
+  open CommandInput
+  
+  let parseWithSpaceIndentAll = apply config "config spaceindent 5"
+  let parseWithSome = apply config "config spaceindent 5" |> List.head |> (fun c -> c.IndentSpaceNum = 5)
+  let f' = apply CommandInput.file "file" |> List.head |> ((=) "")
+  let f = apply CommandInput.file "file \"butts.fs\"" |> List.head |> ((=) "butts.fs")
+  let file' = apply (Parser.bind (string " ") (fun _ -> CommandInput.file)) " file \"butts.fs\"" |> List.head |> ((=) "butts.fs")
