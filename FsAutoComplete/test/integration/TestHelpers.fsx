@@ -75,19 +75,16 @@ type FsAutoCompleteWrapper() =
     fprintf p.StandardInput "lint \"%s\"\n" fn
 
   member x.format (fn : string) (config : FormatConfig option) : unit = 
-    fprintf p.StandardInput "format \"%s\"\n" fn
-    match config with 
-    | None -> ()
-    | Some c -> sendconfig p c
-
+    fprintf p.StandardInput "format \"%s\" " fn
+    config |> Option.map (sendconfig p) |> ignore
+    fprintf p.StandardInput "\n"
   
   member x.formatselection (fn : string) (selection : int*int*int*int) (config : FormatConfig option) : unit =
     fprintf p.StandardInput "format \"%s\" " fn
     let (sl,sc,el,ec) = selection
     fprintf p.StandardInput "range %d:%d-%d:%d" sl sc el ec
-    match config with
-    | None -> ()
-    | Some c -> sendconfig p c 
+    config |> Option.map (sendconfig p) |> ignore
+    fprintf p.StandardInput "\n"
     
   member x.send (s: string) : unit =
     fprintf p.StandardInput "%s" s

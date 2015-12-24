@@ -126,7 +126,16 @@ module Parser =
   let optional p = parser {
     return! parser { let! v = p in return Some v }
     return None }             
-
+  
+  let rec sep split p = parser {
+    let! first = p
+    let! s = optional split
+    match s with
+    | None -> return [first]
+    | Some _ -> 
+      let! rest = sep split p
+      return first::rest
+  }
   let apply (P p) (str:seq<char>) = 
     let res = str |> LazyList.ofSeq |> p
     res |> List.map fst

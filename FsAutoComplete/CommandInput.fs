@@ -108,7 +108,6 @@ module CommandInput =
       let pprop name vparser func = parser {
         let! _ = string (sprintf "%s " name)
         let! value = vparser
-        let! _ = string " " 
         return fun config -> func config value
       }
     
@@ -124,7 +123,7 @@ module CommandInput =
       let spaceDelims = pprop "surrounddelims" bool (fun config value -> {config with SpaceAroundDelimiter = value})
       let strict = pprop "strict" bool (fun config value -> { config with StrictMode = value })
       
-      let opts = many (indentSpace <|> pageWidth <|> semiAtEnd <|> spaceBeforeArg <|> spaceBeforeColon <|> spaceAfterComma <|> spaceAfterSemi <|> indentTryWith <|> reorderOpens <|> spaceDelims <|> strict)
+      let opts = (indentSpace <|> pageWidth <|> semiAtEnd <|> spaceBeforeArg <|> spaceBeforeColon <|> spaceAfterComma <|> spaceAfterSemi <|> indentTryWith <|> reorderOpens <|> spaceDelims <|> strict) |> sep (string " ")
 
       parser {
         let! _ = string "config "
@@ -227,3 +226,8 @@ module CommandInput =
           let lines = readInput [] |> Array.ofList
           Parse (filename, kind, lines)
       | _ -> cmd
+
+module Tests =
+    open CommandInput
+
+    let parseWithSome = apply config "config spaceindent 5" |> List.head |> (fun c -> c.IndentSpaceNum = 5)
