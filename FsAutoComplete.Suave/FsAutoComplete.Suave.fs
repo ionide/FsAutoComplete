@@ -14,7 +14,7 @@ open Microsoft.FSharp.Compiler
 
 open FsAutoComplete
 open FsAutoComplete.JsonSerializer
-open Fantomas
+open Types
 
 [<AutoOpen>]
 module Contract =
@@ -24,7 +24,10 @@ module Contract =
     type HelptextRequest = {Symbol : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}    
-    type FormatSelectionRequest = { Config : FormatConfig.FormatConfig; Range : FsAutoComplete.Types.Range}
+    type FormatSelectionRequest = { 
+      Config : Types.FormatConfig
+      Range : Types.Range
+    }
 
 [<AutoOpen>]
 module internal Utils =
@@ -110,7 +113,7 @@ let main argv =
                 let unescapedName = System.Uri.UnescapeDataString(fileName).Replace('+', ' ')
                 Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance selection.Config (Types.FormatData.FileSelection(unescapedName, selection.Range)) |> handle outputToJson
             )
-            pathScanWithResourceBody "/format/%s" getResourceFromReq<Fantomas.FormatConfig.FormatConfig>  (fun fileName config -> 
+            pathScanWithResourceBody "/format/%s" getResourceFromReq<Types.FormatConfig>  (fun fileName config -> 
                 let unescapedName = System.Uri.UnescapeDataString(fileName).Replace('+', ' ')
                 Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance config (Types.FormatData.File unescapedName) |> handle outputToJson
             )

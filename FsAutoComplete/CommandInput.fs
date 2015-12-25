@@ -3,7 +3,6 @@ namespace FsAutoComplete
 open Parser
 open System
 open Types
-open Fantomas.FormatConfig
 
 // The types of commands that need position information
 type PosCommand =
@@ -27,8 +26,8 @@ type Command =
   | Lint of string
   | Project of string * DateTime * bool
   | Colorization of bool
-  | Format of fileName: string * config: Fantomas.FormatConfig.FormatConfig
-  | FormatSelection of fileName : string * range : Range * config : Fantomas.FormatConfig.FormatConfig
+  | Format of fileName: string * config: Types.FormatConfig
+  | FormatSelection of fileName : string * range : Range * config : Types.FormatConfig
   | CompilerLocation
   | Quit
 
@@ -102,63 +101,71 @@ module CommandInput =
   /// parses a `file "filename.fs"` clause
   let file = parser {
     let _ = string "file "
-    return! quotedfilename
+    let! name = quotedfilename
+    return name
   }
 
   /// parses a `config` clause with a set of subexpressions that modify the default config
   let config = 
-    let inputConfig = 
-      let pprop name vparser func = parser {
-        let! _ = string (sprintf "%s " name)
-        let! value = vparser
-        return fun config -> func config value
-      }
+    let pprop name vparser func = parser {
+      let! _ = string (sprintf "%s " name)
+      let! value = vparser
+      return fun config -> func config value
+    }
     
-      let indentSpace = pprop "spaceindent" digits (fun config value -> {config with IndentSpaceNum = value})
-      let pageWidth = pprop "pagewidth" digits (fun config value -> { config with PageWidth = value })
-      let semiAtEnd = pprop "endsemicolon" bool (fun config value -> { config with SemicolonAtEndOfLine = value })
-      let spaceBeforeArg = pprop "spacebeforearg" bool (fun config value -> { config with SpaceBeforeArgument = value })
-      let spaceBeforeColon = pprop "spacebeforecolon" bool (fun config value -> { config with SpaceBeforeColon = value })
-      let spaceAfterComma = pprop "spaceaftercomma" bool (fun config value -> {config with SpaceAfterComma = value})
-      let spaceAfterSemi = pprop "spaceaftersemi" bool (fun config value -> {config with SpaceAfterSemicolon = value})
-      let indentTryWith = pprop "indenttrywith" bool (fun config value -> { config with IndentOnTryWith = value })
-      let reorderOpens = pprop "reorderopens" bool (fun config value -> {config with ReorderOpenDeclaration = value})
-      let spaceDelims = pprop "surrounddelims" bool (fun config value -> {config with SpaceAroundDelimiter = value})
-      let strict = pprop "strict" bool (fun config value -> { config with StrictMode = value })
+    let indentSpace = pprop "spaceindent" digits (fun config value -> {config with IndentSpaceNum = value})
+    let pageWidth = pprop "pagewidth" digits (fun config value -> { config with PageWidth = value })
+    let semiAtEnd = pprop "endsemicolon" bool (fun config value -> { config with SemicolonAtEndOfLine = value })
+    let spaceBeforeArg = pprop "spacebeforearg" bool (fun config value -> { config with SpaceBeforeArgument = value })
+    let spaceBeforeColon = pprop "spacebeforecolon" bool (fun config value -> { config with SpaceBeforeColon = value })
+    let spaceAfterComma = pprop "spaceaftercomma" bool (fun config value -> {config with SpaceAfterComma = value})
+    let spaceAfterSemi = pprop "spaceaftersemi" bool (fun config value -> {config with SpaceAfterSemicolon = value})
+    let indentTryWith = pprop "indenttrywith" bool (fun config value -> { config with IndentOnTryWith = value })
+    let reorderOpens = pprop "reorderopens" bool (fun config value -> {config with ReorderOpenDeclaration = value})
+    let spaceDelims = pprop "surrounddelims" bool (fun config value -> {config with SpaceAroundDelimiter = value})
+    let strict = pprop "strict" bool (fun config value -> { config with StrictMode = value })
       
-      let opts = (indentSpace <|> pageWidth <|> semiAtEnd <|> spaceBeforeArg <|> spaceBeforeColon <|> spaceAfterComma <|> spaceAfterSemi <|> indentTryWith <|> reorderOpens <|> spaceDelims <|> strict) |> sep (string " ")
+    let opts = (indentSpace <|> pageWidth <|> semiAtEnd <|> spaceBeforeArg <|> spaceBeforeColon <|> spaceAfterComma <|> spaceAfterSemi <|> indentTryWith <|> reorderOpens <|> spaceDelims <|> strict) |> sep (string " ")
 
-      parser {
-        let! _ = string "config "
-        let! mods = opts
-        // need to collect the various flags and apply them to default config
-        return (mods |> List.fold (fun c o -> o c) FormatConfig.Default)
-      }
+    parser {
+      let! _ = string "config "
+      let! mods = opts
+      // need to collect the various flags and apply them to default config
+      return (mods |> List.fold (fun c o -> o c) FormatConfig.Default)
+    }
       
-    inputConfig
 
-  /// parses a `format file <filename> [config <modifications>]` command
+  /// parses a `format <filename> [config <modifications>]` command
   let format = parser {
     let! _ = string "format "
-    let! fileName = file
+    let! fileName = quotedfilename
     let! config = optional (parser {
-        let _ = string " " 
+        let _ = char ' ' 
         return! config
     })
     return Format(fileName, defaultArg config FormatConfig.Default)
   }
 
-  /// parses a `format range <range> [config <modifications>]` command
+  /// parses a `format <filename> range <range> [config <modifications>]` command
   let formatSelection = parser {
-    let! _ = string "format "
-    let! file = file
-    let! _ = string " "
-    let! range = range
-    let! config = optional (parser {
-        let _ = string " " 
-        return! config
-    })
-    return FormatSelection(file, range, defaultArg config FormatConfig.Default)
+    let! _ = string "format \""
+    let! file = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+    let! _ = string "\" "
+    let _ = string "range "
+    let! startline = digits
+    let _ = string ":"
+    let! startcol = digits
+    let _ = string "-"
+    let! endline = digits
+    let _ = string ":"
+    let! endcol = digits
+    let range = {
+        startLine = startline
+        startCol = startcol
+        endLine = endline
+        endCol = endcol
+    }
+    return FormatSelection(file, range, FormatConfig.Default)
   } 
 
   /// Read multi-line input as a list of strings
@@ -234,13 +241,3 @@ module CommandInput =
           let lines = readInput [] |> Array.ofList
           Parse (filename, kind, lines)
       | _ -> cmd
-
-module Tests =
-  open Parser
-  open CommandInput
-  
-  let parseWithSpaceIndentAll = apply config "config spaceindent 5"
-  let parseWithSome = apply config "config spaceindent 5" |> List.head |> (fun c -> c.IndentSpaceNum = 5)
-  let f' = apply CommandInput.file "file" |> List.head |> ((=) "")
-  let f = apply CommandInput.file "file \"butts.fs\"" |> List.head |> ((=) "butts.fs")
-  let file' = apply (Parser.bind (string " ") (fun _ -> CommandInput.file)) " file \"butts.fs\"" |> List.head |> ((=) "butts.fs")

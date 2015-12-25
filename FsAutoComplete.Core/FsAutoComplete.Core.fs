@@ -2,11 +2,8 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
-open Fantomas
-open Fantomas.FormatConfig
 
 module Response = CommandResponse
 
@@ -16,10 +13,53 @@ module Types =
         startCol : int
         endLine : int
         endCol : int
-    }
+    } with static member Create(sl, sc, el, ec) = {startLine = sl; startCol = sc; endLine = el; endCol = ec}
+
     type FormatData = 
     | File of filename : string
     | FileSelection of fileName : string * selection : Range
+
+    type FormatConfig = {
+        /// Number of spaces for each indentation
+        IndentSpaceNum: int
+        /// The column where we break to new lines
+        PageWidth: int
+        SemicolonAtEndOfLine: bool
+        SpaceBeforeArgument: bool
+        SpaceBeforeColon: bool
+        SpaceAfterComma: bool
+        SpaceAfterSemicolon: bool
+        IndentOnTryWith: bool
+        /// Reordering and deduplicating open statements
+        ReorderOpenDeclaration: bool
+        SpaceAroundDelimiter: bool
+        /// Prettyprinting based on ASTs only
+        StrictMode: bool
+    } with 
+    static member Default = {
+      IndentSpaceNum = 4; PageWidth = 80;
+      SemicolonAtEndOfLine = false; SpaceBeforeArgument = true; SpaceBeforeColon = true;
+      SpaceAfterComma = true; SpaceAfterSemicolon = true; 
+      IndentOnTryWith = false; ReorderOpenDeclaration = false; 
+      SpaceAroundDelimiter = true; StrictMode = false
+    }
+
+module Convert = 
+  let toFantomasConfig (c : Types.FormatConfig) : Fantomas.FormatConfig.FormatConfig = 
+    {
+      IndentOnTryWith = c.IndentOnTryWith
+      IndentSpaceNum = c.IndentSpaceNum
+      PageWidth = c.PageWidth
+      ReorderOpenDeclaration = c.ReorderOpenDeclaration
+      SemicolonAtEndOfLine = c.SemicolonAtEndOfLine
+      SpaceAfterComma = c.SpaceAfterComma
+      SpaceAfterSemicolon = c.SpaceAfterSemicolon
+      SpaceAroundDelimiter = c.SpaceAroundDelimiter
+      SpaceBeforeArgument = c.SpaceBeforeArgument
+      SpaceBeforeColon = c.SpaceBeforeColon
+      StrictMode = c.StrictMode
+    }
+  let toFantomasRange (r : Types.Range) = Fantomas.CodeFormatter.MakeRange(r.startLine, r.startCol, r.endLine, r.endCol)
 
 module Commands =
     let parse (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file lines = async {
@@ -189,18 +229,20 @@ module Commands =
     }
 
     let format (serialize : obj -> string) (state  : State) (checker : FSharpChecker) config data =
+        let convertedConfig = Convert.toFantomasConfig config
         let formatFile fileName options source = async {
-            let! formattedResult = Fantomas.CodeFormatter.FormatDocumentAsync(fileName, source, config, options, checker)
-            return Response.format serialize formattedResult, state
+            return! Fantomas.CodeFormatter.FormatDocumentAsync(fileName, source, convertedConfig , options, checker)
         }
 
         let formatSelection fileName (range : Types.Range) options source = async {
-            let fantomasRange = Fantomas.CodeFormatter.MakeRange(range.startLine, range.startCol, range.endLine, range.endCol)
-            let! res = Fantomas.CodeFormatter.FormatSelectionAsync(fileName, fantomasRange, source, config, options, checker)
-            return Response.format serialize res, state
+            return! Fantomas.CodeFormatter.FormatSelectionAsync(fileName, Convert.toFantomasRange range, source, convertedConfig, options, checker)
         }
 
-        let fileName = match data with | Types.FormatData.File(fileName) -> fileName | Types.FormatData.FileSelection(name, _) -> name
+        let fileName = 
+            match data with 
+            | Types.FormatData.File(fileName) -> fileName 
+            | Types.FormatData.FileSelection(name, _) -> name
+
         let file = Path.GetFullPath fileName 
         async {
             match state.TryGetFileCheckerOptionsWithSource file with
@@ -208,9 +250,9 @@ module Commands =
             | Success(options, source) ->     
                 match data with
                 | Types.FormatData.File(_) -> 
-                    let! (res, state') =  formatFile file options source
-                    return [res], state'
+                    let! res =  formatFile file options source
+                    return [Response.format serialize res], state
                 | Types.FormatData.FileSelection(_, range) -> 
-                    let! (res, state') = formatSelection file range options source
-                    return [res], state'
+                    let! res = formatSelection file range options source
+                    return [Response.format serialize res], state
         }
