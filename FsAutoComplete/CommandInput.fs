@@ -82,27 +82,26 @@ module CommandInput =
 
   // range will look like 25:12-500:100 for line 25, col 12 through line 500 col 100
   let range = parser {
-    let _ = string "range "
+    let! _ = string "range "
     let! startline = digits
-    let _ = string ":"
+    let! _ = string ":"
     let! startcol = digits
-    let _ = string "-"
+    let! _ = string "-"
     let! endline = digits
-    let _ = string ":"
+    let! _ = string ":"
     let! endcol = digits
     return {
-    startLine = startline
-    startCol = startcol
-    endLine = endline
-    endCol = endcol
+      startLine = startline
+      startCol = startcol
+      endLine = endline
+      endCol = endcol
     }
   }
 
   /// parses a `file "filename.fs"` clause
   let file = parser {
-    let _ = string "file "
-    let! name = quotedfilename
-    return name
+    let! _ = string "file "
+    return! quotedfilename
   }
 
   /// parses a `config` clause with a set of subexpressions that modify the default config
@@ -138,9 +137,9 @@ module CommandInput =
   /// parses a `format <filename> [config <modifications>]` command
   let format = parser {
     let! _ = string "format "
-    let! fileName = quotedfilename
+    let! fileName = file
     let! config = optional (parser {
-        let _ = char ' ' 
+        let! _ = char ' ' 
         return! config
     })
     return Format(fileName, defaultArg config FormatConfig.Default)
@@ -148,24 +147,15 @@ module CommandInput =
 
   /// parses a `format <filename> range <range> [config <modifications>]` command
   let formatSelection = parser {
-    let! _ = string "format \""
-    let! file = some (sat ((<>) '"')) |> Parser.map String.ofSeq
-    let! _ = string "\" "
-    let _ = string "range "
-    let! startline = digits
-    let _ = string ":"
-    let! startcol = digits
-    let _ = string "-"
-    let! endline = digits
-    let _ = string ":"
-    let! endcol = digits
-    let range = {
-        startLine = startline
-        startCol = startcol
-        endLine = endline
-        endCol = endcol
-    }
-    return FormatSelection(file, range, FormatConfig.Default)
+    let! _ = string "formatselection "
+    let! file = file
+    let! _ = char ' '
+    let! range = range
+    let! config = optional (parser {
+        let! _ = char ' ' 
+        return! config
+    })
+    return FormatSelection(file, range, defaultArg config FormatConfig.Default)
   } 
 
   /// Read multi-line input as a list of strings
@@ -234,10 +224,11 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> format <|> formatSelection <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
-      let cmd = reader |> Parsing.getFirst cmds
-      match cmd with
-      | Parse (filename,kind,_) ->
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> formatSelection <|> format <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
+      let potentials = apply cmds reader
+      match potentials  with
+      | Parse (filename,kind,_) :: _ ->
           let lines = readInput [] |> Array.ofList
           Parse (filename, kind, lines)
-      | _ -> cmd
+      | h::_ -> h
+      | _ -> Error ("Unknown command or wrong arguments")

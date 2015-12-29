@@ -8,24 +8,32 @@ module CommandParsing =
 
     type ``parsing tests``() = 
         
+        let run p s = match apply p s with | h::_ -> Some h | [] -> None
+
         [<Test>]
         member x.``parse format no config``() =  
-            let (Command.Format(name, conf)) = apply format  "format \"lol.fs\"" |> List.head
-            Assert.AreEqual("lol.fs", name)
-            Assert.IsTrue(Types.FormatConfig.Default = conf)
+            match run format "format file \"lol.fs\"" with
+            | Some (Command.Format(name, conf)) -> 
+                Assert.AreEqual("lol.fs", name)
+                Assert.IsTrue(Types.FormatConfig.Default = conf)
+            | _ -> Assert.Fail("could not parse command")
 
         [<Test>]
         member x.``parse format config``() =  
-            let (Command.Format(name, conf)) = apply format  "format \"lol.fs\" config spaceindent 5" |> List.head
-            Assert.AreEqual("lol.fs", name)
-            Assert.IsTrue({ Types.FormatConfig.Default with IndentSpaceNum = 5 } = conf)
+            match run format "format file \"lol.fs\" config spaceindent 5" with
+            | Some (Command.Format(name, conf)) -> 
+                Assert.AreEqual("lol.fs", name)
+                Assert.IsTrue({Types.FormatConfig.Default with IndentSpaceNum = 5} = conf)
+            | _ -> Assert.Fail("could not parse command")
 
         [<Test>]
         member x.``parse format range``() =
-            let (Command.FormatSelection(name, range, conf)) = apply formatSelection "format \"lol.fs\" range 2:1-3:19" |> List.head
-            Assert.AreEqual("lol.fs", name)
-            Assert.IsTrue(Types.Range.Create(2,1,3,19) = range)
-            Assert.IsTrue(Types.FormatConfig.Default = conf)
+            match run formatSelection "formatselection file \"lol.fs\" range 2:1-3:19 config spaceindent 5" with
+            | Some (Command.FormatSelection(name, range, conf)) -> 
+                Assert.AreEqual("lol.fs", name)
+                Assert.IsTrue(Types.Range.Create(2,1,3,19) = range)
+                Assert.IsTrue({ Types.FormatConfig.Default with IndentSpaceNum = 5} = conf)
+            | _ -> Assert.Fail("could not parse command")
 
         
 

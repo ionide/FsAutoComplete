@@ -4,6 +4,7 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
+open Microsoft.FSharp.Compiler.Range
 
 module Response = CommandResponse
 
@@ -235,7 +236,8 @@ module Commands =
         }
 
         let formatSelection fileName (range : Types.Range) options source = async {
-            return! Fantomas.CodeFormatter.FormatSelectionAsync(fileName, Convert.toFantomasRange range, source, convertedConfig, options, checker)
+            let frange : Microsoft.FSharp.Compiler.Range.range = Convert.toFantomasRange range
+            return! Fantomas.CodeFormatter.FormatSelectionAsync(fileName, frange, source, convertedConfig, options, checker)
         }
 
         let fileName = 
@@ -248,11 +250,15 @@ module Commands =
             match state.TryGetFileCheckerOptionsWithSource file with
             | Failure s -> return [Response.error serialize (s)], state
             | Success(options, source) ->     
-                match data with
-                | Types.FormatData.File(_) -> 
-                    let! res =  formatFile file options source
-                    return [Response.format serialize res], state
-                | Types.FormatData.FileSelection(_, range) -> 
-                    let! res = formatSelection file range options source
-                    return [Response.format serialize res], state
+                try 
+                    match data with
+                    | Types.FormatData.File(_) -> 
+                        let! res =  formatFile file options source
+                        return [Response.format serialize res], state
+                    | Types.FormatData.FileSelection(_, range) -> 
+                        let! res = formatSelection file range options source
+                        return [Response.format serialize res], state
+                with 
+                | :? Fantomas.FormatConfig.FormatException as e ->
+                    return [Response.error serialize e.Message], state
         }
