@@ -5,11 +5,11 @@ open System.Text.RegularExpressions
 
 #I "../../../packages/Newtonsoft.Json/lib/net45/"
 #r "Newtonsoft.Json.dll"
-#I "../../../packages/Fantomas/lib/"
-#r "FantomasLib.dll"
+#I "../../../FSAutoComplete.Core/bin/Debug"
+#r "FsAutoComplete.Core.dll"
 
 open Newtonsoft.Json
-open Fantomas.FormatConfig
+open FsAutoComplete.Types
 
 type FsAutoCompleteWrapper() =
 

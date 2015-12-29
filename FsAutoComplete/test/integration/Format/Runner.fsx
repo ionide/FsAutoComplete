@@ -2,11 +2,7 @@
 open TestHelpers
 open System.IO
 open System
-
-#I "../../../../packages/Fantomas/lib/"
-#r "FantomasLib.dll"
-
-open Fantomas.FormatConfig
+open FsAutoComplete.Types
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
