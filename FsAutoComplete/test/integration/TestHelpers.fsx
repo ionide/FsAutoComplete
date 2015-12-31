@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 #r "Newtonsoft.Json.dll"
 #I "../../../FsAutoComplete.Core/bin/Debug"
 #r "FsAutoComplete.Core.dll"
+#I "../../../packages/FSharpLint.Core/lib"
 
 open Newtonsoft.Json
 open FsAutoComplete.Types
