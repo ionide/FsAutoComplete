@@ -60,7 +60,9 @@ module Convert =
       SpaceBeforeColon = c.SpaceBeforeColon
       StrictMode = c.StrictMode
     }
-  let toFantomasRange (r : Types.Range) = Fantomas.CodeFormatter.MakeRange(r.startLine, r.startCol, r.endLine, r.endCol)
+
+  /// converts from a 0-based range in FSAC to a 1-based range for Fantomas
+  let toFantomasRange (r : Types.Range) = Fantomas.CodeFormatter.MakeRange(r.startLine+1, r.startCol, r.endLine+1, r.endCol)
 
 module Commands =
     let parse (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file lines = async {
@@ -261,4 +263,6 @@ module Commands =
                 with 
                 | :? Fantomas.FormatConfig.FormatException as e ->
                     return [Response.error serialize e.Message], state
+                | :? System.IndexOutOfRangeException as e -> 
+                    return [Response.error serialize "There was an error with the range that your provided to Fantomas.  Did you remember to provide a valid 0-based range for the selection?"], state
         }

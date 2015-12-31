@@ -225,10 +225,9 @@ module CommandInput =
     | input ->
       let reader = Parsing.createForwardStringReader input 0
       let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> formatSelection <|> format <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
-      let potentials = apply cmds reader
-      match potentials  with
-      | Parse (filename,kind,_) :: _ ->
+      let cmd = Parsing.getFirst cmds reader
+      match cmd with
+      | Parse (filename,kind,_) ->
           let lines = readInput [] |> Array.ofList
           Parse (filename, kind, lines)
-      | h::_ -> h
-      | _ -> Error ("Unknown command or wrong arguments")
+      | _ -> cmd

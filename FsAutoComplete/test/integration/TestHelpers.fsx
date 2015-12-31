@@ -5,7 +5,7 @@ open System.Text.RegularExpressions
 
 #I "../../../packages/Newtonsoft.Json/lib/net45/"
 #r "Newtonsoft.Json.dll"
-#I "../../../FSAutoComplete.Core/bin/Debug"
+#I "../../../FsAutoComplete.Core/bin/Debug"
 #r "FsAutoComplete.Core.dll"
 
 open Newtonsoft.Json

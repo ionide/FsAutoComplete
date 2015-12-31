@@ -56,6 +56,6 @@
   "Data": "namespace Ok\r\n\r\nmodule Test2 = \r\n     let foo = \"ok\"\r\n"
 }
 {
-  "Kind": "error",
-  "Data": "Parsing failed with errors: [|<absolute path removed>/test/integration/Format/offset5.fs (2,1)-(2,7) parse error Unexpected keyword 'module' in implementation file|]\nAnd options: [|\"--simpleresolution\"; \"--noframework\";\n  \"--out:<absolute path removed>/test/integration/Format/bin/Debug/Test1.exe\";\n  \"--doc:<absolute path removed>/test/integration/Format/bin/Debug/Test1.XML\";\n  \"--fullpaths\"; \"--flaterrors\"; \"--target:exe\"; \"--define:DEBUG\";\n  \"--define:TRACE\"; \"--debug+\"; \"--optimize-\"; \"--tailcalls-\"; \"--platform:x86\";\n  \"-r:<absolute path removed>/test/integration/Format/okbydefault.fs\";\n  \"<absolute path removed>/test/integration/Format/defaultoffset.fs\";\n  \"<absolute path removed>/test/integration/Format/offset5.fs\"|]"
+  "Kind": "format",
+  "Data": "namespace Ok\r\n\r\nmodule Test2 = \r\n     let foo = \"ok\""
 }
