@@ -2,6 +2,8 @@ NUGET
   remote: https://nuget.org/api/v2
   specs:
     FAKE (4.10.3)
+    Fantomas (2.0.2)
+      FSharp.Compiler.Service (>= 1.4.0.6)
     FSharp.Compiler.Service (2.0.0-beta)
     FSharp.Compiler.Service.ProjectCracker (2.0.0-beta) - framework: >= net45
     FSharp.Core (3.1.2.5)

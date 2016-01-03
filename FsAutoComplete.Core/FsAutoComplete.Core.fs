@@ -2,11 +2,75 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
+open Microsoft.FSharp.Compiler.Range
 
 module Response = CommandResponse
+
+module Types = 
+    /// a simple record that encapsulates a range of 1-based line numbers and 0-based column positions
+    type Range = {
+        startLine : int
+        startCol : int
+        endLine : int
+        endCol : int
+    } with 
+        static member Create(sl, sc, el, ec) = 
+            match sl, el with
+            | _,_ when sl = 0 -> invalidArg "startLine" "line numbers are 1-based, not zero-based" 
+            | _,_ when el = 0 -> invalidArg "endLine" "line numbers are 1-based, not zero-based" 
+            | _,_ when sl = el && sc >= ec -> invalidArg "endCol" "range cannot go backwards"
+            | _,_ when sl > el -> invalidArg "endLine" "ending line must be greater or equal to start line"
+            | _ -> {startLine = sl; startCol = sc; endLine = el; endCol = ec}
+
+    type FormatData = 
+    | File of filename : string
+    | FileSelection of fileName : string * selection : Range
+
+    type FormatConfig = {
+        /// Number of spaces for each indentation
+        IndentSpaceNum: int
+        /// The column where we break to new lines
+        PageWidth: int
+        SemicolonAtEndOfLine: bool
+        SpaceBeforeArgument: bool
+        SpaceBeforeColon: bool
+        SpaceAfterComma: bool
+        SpaceAfterSemicolon: bool
+        IndentOnTryWith: bool
+        /// Reordering and deduplicating open statements
+        ReorderOpenDeclaration: bool
+        SpaceAroundDelimiter: bool
+        /// Prettyprinting based on ASTs only
+        StrictMode: bool
+    } with 
+    static member Default = {
+      IndentSpaceNum = 4; PageWidth = 80;
+      SemicolonAtEndOfLine = false; SpaceBeforeArgument = true; SpaceBeforeColon = true;
+      SpaceAfterComma = true; SpaceAfterSemicolon = true; 
+      IndentOnTryWith = false; ReorderOpenDeclaration = false; 
+      SpaceAroundDelimiter = true; StrictMode = false
+    }
+
+module Convert = 
+  let toFantomasConfig (c : Types.FormatConfig) : Fantomas.FormatConfig.FormatConfig = 
+    {
+      IndentOnTryWith = c.IndentOnTryWith
+      IndentSpaceNum = c.IndentSpaceNum
+      PageWidth = c.PageWidth
+      ReorderOpenDeclaration = c.ReorderOpenDeclaration
+      SemicolonAtEndOfLine = c.SemicolonAtEndOfLine
+      SpaceAfterComma = c.SpaceAfterComma
+      SpaceAfterSemicolon = c.SpaceAfterSemicolon
+      SpaceAroundDelimiter = c.SpaceAroundDelimiter
+      SpaceBeforeArgument = c.SpaceBeforeArgument
+      SpaceBeforeColon = c.SpaceBeforeColon
+      StrictMode = c.StrictMode
+    }
+
+  /// converts from a 1-based range in FSAC to a 1-based range for Fantomas
+  let toFantomasRange (r : Types.Range) = Fantomas.CodeFormatter.MakeRange(r.startLine, r.startCol, r.endLine, r.endCol)
 
 module Commands =
     let parse (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file lines = async {
@@ -174,3 +238,40 @@ module Commands =
         return res
 
     }
+
+    let format (serialize : obj -> string) (state  : State) (checker : FSharpChecker) config data =
+        let normalizeNewlines (s : string) = s.Replace("\r\n", "\n")
+        let convertedConfig = Convert.toFantomasConfig config
+        
+        let formatFile fileName options source = async {
+            return! Fantomas.CodeFormatter.FormatDocumentAsync(fileName, source, convertedConfig , options, checker)
+        }
+
+        let formatSelection fileName (range : Types.Range) options source = async {
+            let frange : Microsoft.FSharp.Compiler.Range.range = Convert.toFantomasRange range
+            return! Fantomas.CodeFormatter.FormatSelectionAsync(fileName, frange, source, convertedConfig, options, checker)
+        }
+
+        let fullPath = 
+            ( match data with 
+              | Types.FormatData.File(name) -> name 
+              | Types.FormatData.FileSelection(name, _) -> name )
+            |> Path.GetFullPath
+        
+        async {
+            match state.TryGetFileCheckerOptionsWithSource fullPath with
+            | Failure s -> return [Response.error serialize (s)], state
+            | Success(options, source) ->
+                try 
+                    let! formatted = 
+                        match data with
+                        | Types.FormatData.File(_) -> formatFile fullPath options source
+                        | Types.FormatData.FileSelection(_, range) -> formatSelection fullPath range options source
+                    let normalized = normalizeNewlines formatted // we do this because it seems that the response from Fantomas has \r\n newlines instead of \n
+                    return [Response.format serialize normalized], state
+                with 
+                | :? Fantomas.FormatConfig.FormatException as e ->
+                    return [Response.error serialize e.Message], state
+                | :? System.IndexOutOfRangeException -> 
+                    return [Response.error serialize "There was an error with the range that your provided to Fantomas.  Did you remember to provide a valid 0-based range for the selection?"], state
+        }

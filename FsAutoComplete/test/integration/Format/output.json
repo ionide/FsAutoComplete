@@ -1,0 +1,61 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/integration/Format/Format.fsproj",
+    "Files": [
+      "<absolute path removed>/test/integration/Format/okbydefault.fs",
+      "<absolute path removed>/test/integration/Format/defaultoffset.fs",
+      "<absolute path removed>/test/integration/Format/offset5.fs"
+    ],
+    "Output": "<absolute path removed>/test/integration/Format/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/integration/Format/Format.fsproj": ""
+    }
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "format",
+  "Data": "namespace Ok\n\nmodule Test1 = \n    let foo = \"ok\"\n"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "format",
+  "Data": "namespace Ok\n\nmodule Test3 = \n    let foo = \"ok\"\n"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "format",
+  "Data": "namespace Ok\n\nmodule Test2 = \n     let foo = \"ok\"\n"
+}
+{
+  "Kind": "format",
+  "Data": "namespace Ok\n\nmodule Test2 = \n     let foo = \"ok\""
+}

@@ -44,6 +44,10 @@ module Options =
     compilerlocation
       - prints the best guess for the location of fsc and fsi
         (or fsharpc and fsharpi on unix)
+    lint ""<filename>""
+      - prints a list of lint warnings for the given file
+    format ""<filename>""
+      - prints a formatted version of the text of the given file
     "
   let verbose = ref false
   let timeout = ref 10

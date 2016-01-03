@@ -14,6 +14,7 @@ open Microsoft.FSharp.Compiler
 
 open FsAutoComplete
 open FsAutoComplete.JsonSerializer
+open Types
 
 [<AutoOpen>]
 module Contract =
@@ -22,7 +23,11 @@ module Contract =
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
-    type LintRequest = {FileName : string}
+    type LintRequest = {FileName : string}    
+    type FormatSelectionRequest = { 
+      Config : Types.FormatConfig
+      Range : Types.Range
+    }
 
 [<AutoOpen>]
 module internal Utils =
@@ -34,6 +39,13 @@ module internal Utils =
             System.Text.Encoding.UTF8.GetString(rawForm)
         req.rawForm |> getString |> fromJson<'a>
 
+    
+    // f is a function of uriargs -> body type -> WebPart
+    let pathScanWithResourceBody format deser (f  : 'a -> 'b -> WebPart)  =
+        pathScan format (fun args -> (fun ctx -> 
+            let resource = ctx.request |> deser 
+            f args resource ctx
+        ))
 
 [<EntryPoint>]
 let main argv =
@@ -51,6 +63,14 @@ let main argv =
           state := state'
           let res' = res |> List.toArray |> Json.toJson
           return! Response.response HttpCode.HTTP_200 res' r
+        }
+
+    let handle responseTransformer cmdRes = 
+        fun (r : HttpContext) -> async {
+            let! (res, state') = cmdRes
+            state := state'
+            let transformed = responseTransformer res
+            return! Response.response HttpCode.HTTP_200 transformed r
         }
 
     let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list * State>) : WebPart = fun (r : HttpContext) -> async {
@@ -71,6 +91,8 @@ let main argv =
         return! Response.response HttpCode.HTTP_200 res' r
     }
 
+    let outputToJson = List.toArray >> Json.toJson
+
     let app =
         Writers.setMimeType "application/json; charset=utf-8" >>=
         POST >>=
@@ -85,13 +107,16 @@ let main argv =
             path "/symboluse" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUse writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/finddeclaration" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.findDeclarations writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/methods" >>= positionHandler (fun data tyRes _ lines ->  Commands.methods writeJson !state checker tyRes data.Line data.Column lines )
-            path "/compilerlocation" >>= (fun r -> async {
-                let! (res,state') = Commands.compilerLocation writeJson !state checker
-                state := state'
-                let res' = res |> List.toArray |> Json.toJson
-                return! Response.response HttpCode.HTTP_200 res' r
-                })
+            path "/compilerlocation" >>= (Commands.compilerLocation writeJson !state checker |> handle outputToJson)
             path "/lint" >>= handler (fun (data: LintRequest) -> Commands.lint writeJson !state checker data.FileName)
+            pathScanWithResourceBody "/format/%s/selection" getResourceFromReq<FormatSelectionRequest> (fun fileName selection ->
+                let unescapedName = System.Uri.UnescapeDataString(fileName).Replace('+', ' ')
+                Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance selection.Config (Types.FormatData.FileSelection(unescapedName, selection.Range)) |> handle outputToJson
+            )
+            pathScanWithResourceBody "/format/%s" getResourceFromReq<Types.FormatConfig>  (fun fileName config -> 
+                let unescapedName = System.Uri.UnescapeDataString(fileName).Replace('+', ' ')
+                Commands.format writeJson !state SourceCodeServices.FSharpChecker.Instance config (Types.FormatData.File unescapedName) |> handle outputToJson
+            )
         ]
 
 

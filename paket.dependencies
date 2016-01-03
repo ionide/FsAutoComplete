@@ -1,5 +1,6 @@
 source https://www.nuget.org/api/v2/
 
+nuget Fantomas
 nuget FSharp.Compiler.Service 2.0.0.0-beta framework: >= net45
 nuget FSharp.Compiler.Service.ProjectCracker 2.0.0.0-beta framework: >= net45
 nuget Mono.Cecil

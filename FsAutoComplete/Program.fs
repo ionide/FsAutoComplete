@@ -10,6 +10,7 @@ open Newtonsoft.Json
 open Newtonsoft.Json.Converters
 open JsonSerializer
 open FsAutoComplete
+open Fantomas
 
 module internal Main =
   module Response = CommandResponse
@@ -87,7 +88,10 @@ module internal Main =
 
             | Lint filename ->
                 Commands.lint writeJson !state checker filename
-
+            | Format (fileName, config) -> 
+                Commands.format writeJson !state FSharpChecker.Instance config (Types.FormatData.File(fileName))
+            | FormatSelection(fileName, range, config) ->
+                Commands.format writeJson !state FSharpChecker.Instance config (Types.FormatData.FileSelection(fileName, range))
             | Error(msg) ->
                 Commands.error writeJson !state checker msg
 

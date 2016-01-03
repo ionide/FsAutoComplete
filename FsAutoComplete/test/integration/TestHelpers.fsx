@@ -4,14 +4,32 @@ open System.Diagnostics
 open System.Text.RegularExpressions
 
 #I "../../../packages/Newtonsoft.Json/lib/net45/"
-#r "../../../packages/Newtonsoft.Json/lib/net45/Newtonsoft.Json.dll"
+#r "Newtonsoft.Json.dll"
+#I "../../../FsAutoComplete.Core/bin/Debug"
+#r "FsAutoComplete.Core.dll"
+#I "../../../packages/FSharpLint.Core/lib"
+
 open Newtonsoft.Json
+open FsAutoComplete.Types
 
 type FsAutoCompleteWrapper() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
-
+  let sendconfig (proc : System.Diagnostics.Process) (config : FormatConfig) = 
+    let p f = fprintf proc.StandardInput f
+    p " config "
+    p "spaceindent %d " config.IndentSpaceNum
+    p "pagewidth %d " config.PageWidth
+    p "endsemicolon %b " config.SemicolonAtEndOfLine
+    p "spacebeforearg %b " config.SpaceBeforeArgument
+    p "spacebeforecolon %b " config.SpaceBeforeColon
+    p "spaceaftersemi %b " config.SpaceAfterSemicolon
+    p "indenttrywith %b " config.IndentOnTryWith
+    p "reorderopens %b " config.ReorderOpenDeclaration
+    p "surrounddelims %b " config.SpaceAroundDelimiter
+    p "strict %b" config.StrictMode // NOTE we don't send spaces here after config, because that blows the parser
+    
   do
     p.StartInfo.FileName <-
       IO.Path.Combine(__SOURCE_DIRECTORY__,
@@ -57,6 +75,18 @@ type FsAutoCompleteWrapper() =
   member x.lint (fn: string) : unit =
     fprintf p.StandardInput "lint \"%s\"\n" fn
 
+  member x.format (fn : string) (config : FormatConfig option) : unit = 
+    fprintf p.StandardInput "format file \"%s\"" fn
+    config |> Option.map (sendconfig p) |> ignore
+    fprintf p.StandardInput "\n"
+  
+  member x.formatselection (fn : string) (selection : int*int*int*int) (config : FormatConfig option) : unit =
+    fprintf p.StandardInput "formatselection file \"%s\"" fn
+    let (sl,sc,el,ec) = selection
+    fprintf p.StandardInput " range %d:%d-%d:%d" sl sc el ec
+    config |> Option.map (sendconfig p) |> ignore
+    fprintf p.StandardInput "\n"
+    
   member x.send (s: string) : unit =
     fprintf p.StandardInput "%s" s
 
