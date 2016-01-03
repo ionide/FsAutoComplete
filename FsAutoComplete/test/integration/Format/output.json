@@ -29,7 +29,7 @@
 }
 {
   "Kind": "format",
-  "Data": "namespace Ok\r\n\r\nmodule Test1 = \r\n    let foo = \"ok\"\r\n"
+  "Data": "namespace Ok\n\nmodule Test1 = \n    let foo = \"ok\"\n"
 }
 {
   "Kind": "info",
@@ -41,7 +41,7 @@
 }
 {
   "Kind": "format",
-  "Data": "namespace Ok\r\n\r\nmodule Test3 = \r\n    let foo = \"ok\"\r\n"
+  "Data": "namespace Ok\n\nmodule Test3 = \n    let foo = \"ok\"\n"
 }
 {
   "Kind": "info",
@@ -53,9 +53,9 @@
 }
 {
   "Kind": "format",
-  "Data": "namespace Ok\r\n\r\nmodule Test2 = \r\n     let foo = \"ok\"\r\n"
+  "Data": "namespace Ok\n\nmodule Test2 = \n     let foo = \"ok\"\n"
 }
 {
   "Kind": "format",
-  "Data": "namespace Ok\r\n\r\nmodule Test2 = \r\n     let foo = \"ok\""
+  "Data": "namespace Ok\n\nmodule Test2 = \n     let foo = \"ok\""
 }

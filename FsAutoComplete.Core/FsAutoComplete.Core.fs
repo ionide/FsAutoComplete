@@ -9,12 +9,20 @@ open Microsoft.FSharp.Compiler.Range
 module Response = CommandResponse
 
 module Types = 
+    /// a simple record that encapsulates a range of 1-based line numbers and 0-based column positions
     type Range = {
         startLine : int
         startCol : int
         endLine : int
         endCol : int
-    } with static member Create(sl, sc, el, ec) = {startLine = sl; startCol = sc; endLine = el; endCol = ec}
+    } with 
+        static member Create(sl, sc, el, ec) = 
+            match sl, el with
+            | _,_ when sl = 0 -> invalidArg "startLine" "line numbers are 1-based, not zero-based" 
+            | _,_ when el = 0 -> invalidArg "endLine" "line numbers are 1-based, not zero-based" 
+            | _,_ when sl = el && sc >= ec -> invalidArg "endCol" "range cannot go backwards"
+            | _,_ when sl > el -> invalidArg "endLine" "ending line must be greater or equal to start line"
+            | _ -> {startLine = sl; startCol = sc; endLine = el; endCol = ec}
 
     type FormatData = 
     | File of filename : string
@@ -61,8 +69,8 @@ module Convert =
       StrictMode = c.StrictMode
     }
 
-  /// converts from a 0-based range in FSAC to a 1-based range for Fantomas
-  let toFantomasRange (r : Types.Range) = Fantomas.CodeFormatter.MakeRange(r.startLine+1, r.startCol, r.endLine+1, r.endCol)
+  /// converts from a 1-based range in FSAC to a 1-based range for Fantomas
+  let toFantomasRange (r : Types.Range) = Fantomas.CodeFormatter.MakeRange(r.startLine, r.startCol, r.endLine, r.endCol)
 
 module Commands =
     let parse (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file lines = async {
@@ -232,7 +240,9 @@ module Commands =
     }
 
     let format (serialize : obj -> string) (state  : State) (checker : FSharpChecker) config data =
+        let normalizeNewlines (s : string) = s.Replace("\r\n", "\n")
         let convertedConfig = Convert.toFantomasConfig config
+        
         let formatFile fileName options source = async {
             return! Fantomas.CodeFormatter.FormatDocumentAsync(fileName, source, convertedConfig , options, checker)
         }
@@ -242,27 +252,26 @@ module Commands =
             return! Fantomas.CodeFormatter.FormatSelectionAsync(fileName, frange, source, convertedConfig, options, checker)
         }
 
-        let fileName = 
-            match data with 
-            | Types.FormatData.File(fileName) -> fileName 
-            | Types.FormatData.FileSelection(name, _) -> name
-
-        let file = Path.GetFullPath fileName 
+        let fullPath = 
+            ( match data with 
+              | Types.FormatData.File(name) -> name 
+              | Types.FormatData.FileSelection(name, _) -> name )
+            |> Path.GetFullPath
+        
         async {
-            match state.TryGetFileCheckerOptionsWithSource file with
+            match state.TryGetFileCheckerOptionsWithSource fullPath with
             | Failure s -> return [Response.error serialize (s)], state
-            | Success(options, source) ->     
+            | Success(options, source) ->
                 try 
-                    match data with
-                    | Types.FormatData.File(_) -> 
-                        let! res =  formatFile file options source
-                        return [Response.format serialize res], state
-                    | Types.FormatData.FileSelection(_, range) -> 
-                        let! res = formatSelection file range options source
-                        return [Response.format serialize res], state
+                    let! formatted = 
+                        match data with
+                        | Types.FormatData.File(_) -> formatFile fullPath options source
+                        | Types.FormatData.FileSelection(_, range) -> formatSelection fullPath range options source
+                    let normalized = normalizeNewlines formatted // we do this because it seems that the response from Fantomas has \r\n newlines instead of \n
+                    return [Response.format serialize normalized], state
                 with 
                 | :? Fantomas.FormatConfig.FormatException as e ->
                     return [Response.error serialize e.Message], state
-                | :? System.IndexOutOfRangeException as e -> 
+                | :? System.IndexOutOfRangeException -> 
                     return [Response.error serialize "There was an error with the range that your provided to Fantomas.  Did you remember to provide a valid 0-based range for the selection?"], state
         }

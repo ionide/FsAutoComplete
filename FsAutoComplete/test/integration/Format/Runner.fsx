@@ -24,7 +24,7 @@ p.parse "offset5.fs"
 p.format "offset5.fs" (Some ({FormatConfig.Default with IndentSpaceNum = 5}))
 
 // testing selection formatting, this range should be formatted with 5 spaces
-p.formatselection "offset5.fs" (0,0,2,18) (Some ({FormatConfig.Default with IndentSpaceNum = 5}))
+p.formatselection "offset5.fs" (1,0,3,18) (Some ({FormatConfig.Default with IndentSpaceNum = 5}))
 
 p.send "quit\n"
 p.finalOutput ()
