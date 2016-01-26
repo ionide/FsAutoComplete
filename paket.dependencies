@@ -1,7 +1,7 @@
 source https://www.nuget.org/api/v2/
 
-nuget FSharp.Compiler.Service 2.0.0.0-beta framework: >= net45
-nuget FSharp.Compiler.Service.ProjectCracker 2.0.0.0-beta framework: >= net45
+nuget FSharp.Compiler.Service 2.0.0.3 framework: >= net45
+nuget FSharp.Compiler.Service.ProjectCracker 2.0.0.3 framework: >= net45
 nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json
@@ -10,5 +10,5 @@ nuget FSharp.Core 3.1.2.5
 nuget NUnit 2.6.4
 nuget NUnit.Runners 2.6.4
 nuget Octokit
-nuget Suave
+nuget Suave 0.33.0
 nuget FSharpLint.Core prerelease
