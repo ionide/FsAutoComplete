@@ -1,3 +1,7 @@
+#### 0.27.1 - 26.01.2016
+
+* Upgrade to FCS 2.0.0.3 to fix VS2015 project cracking: #89.
+
 #### 0.27.0 - 08.12.2015
 
 * Upgrade to FCS 2.0.0.0-beta and add project cracking verbosity option: #86.
