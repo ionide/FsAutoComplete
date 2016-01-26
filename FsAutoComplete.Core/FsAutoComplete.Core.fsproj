@@ -138,5 +138,10 @@
       <Private>True</Private>
       <Paket>True</Paket>
     </Reference>
+    <Reference Include="FSharpLint.Worker">
+      <HintPath>..\packages\FSharpLint.Core\lib\FSharpLint.Worker.dll</HintPath>
+      <Private>True</Private>
+      <Paket>True</Paket>
+    </Reference>
   </ItemGroup>
 </Project>
