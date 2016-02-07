@@ -37,6 +37,7 @@ module internal Utils =
 
 [<EntryPoint>]
 let main argv =
+    System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     let state = ref FsAutoComplete.State.Initial
     let checker = new FSharpCompilerServiceChecker()
 

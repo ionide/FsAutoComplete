@@ -110,6 +110,7 @@ module internal Main =
 
   [<EntryPoint>]
   let entry args =
+    System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     Console.InputEncoding <- Text.Encoding.UTF8
     Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
     let extra = Options.p.Parse args
