@@ -1,24 +1,34 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{1BE8AF57-B314-4C92-82A9-64CD9B7A4990}"
 	ProjectSection(SolutionItems) = preProject
 		paket.dependencies = paket.dependencies
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete", "FsAutoComplete\FsAutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E1A34828-1EA8-44F8-8377-10DCC312EB8B}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E1A34828-1EA8-44F8-8377-10DCC312EB8B}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		.travis.yml = .travis.yml
+		appveyor.yml = appveyor.yml
+		build.cmd = build.cmd
 		build.fsx = build.fsx
+		build.sh = build.sh
+		LICENSE.md = LICENSE.md
+		README.md = README.md
+		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{430286DC-C9C0-4EAA-AAED-E72434FD8E34}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Suave", "FsAutoComplete.Suave\FsAutoComplete.Suave.fsproj", "{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete", "src\FsAutoComplete\FsAutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Suave", "src\FsAutoComplete.Suave\FsAutoComplete.Suave.fsproj", "{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,10 +40,6 @@ Global
 		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -42,9 +48,16 @@ Global
 		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88} = {430286DC-C9C0-4EAA-AAED-E72434FD8E34}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = FsAutoComplete\FsAutoComplete.fsproj
