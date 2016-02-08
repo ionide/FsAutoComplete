@@ -1,12 +1,12 @@
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    FAKE (4.10.3)
-    FSharp.Compiler.Service (2.0.0-beta)
+    FAKE (4.20.0)
+    FSharp.Compiler.Service (2.0.0.4)
     FSharp.Compiler.Service.ProjectCracker (2.0.0-beta) - framework: >= net45
-    FSharp.Core (3.1.2.5)
-    FSharpLint.Core (0.0.13)
-      FSharp.Compiler.Service (>= 1.4.2.1)
+    FSharp.Core (4.0.0.1)
+    FSharpLint.Core (0.0.15-beta)
+      FSharp.Compiler.Service (>= 2.0.0.3)
     Microsoft.Bcl (1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.Bcl.Build (1.0.21) - import_targets: false
@@ -15,10 +15,10 @@ NUGET
       Microsoft.Bcl.Build (>= 1.0.14)
     Mono.Cecil (0.9.6.1)
     NDesk.Options (0.2.1)
-    Newtonsoft.Json (7.0.1)
+    Newtonsoft.Json (8.0.2)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
-    Octokit (0.16.0)
+    Octokit (0.18.0)
       Microsoft.Net.Http
-    Suave (0.33.0)
+    Suave (1.1.1)
       FSharp.Core (>= 3.1.2.5)
