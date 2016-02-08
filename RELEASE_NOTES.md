@@ -1,3 +1,7 @@
+#### 0.27.3 - 08.02.2016
+
+* Set MinThreads to avoid deadlocks on Mono < 4.2.2: #92.
+
 #### 0.27.2 - 05.02.2016
 
 * Upgrade to FCS 2.0.0.4 to fix project cracking with spaces in paths: #91.
