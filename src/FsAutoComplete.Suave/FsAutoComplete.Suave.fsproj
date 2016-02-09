@@ -174,3 +174,8 @@
     </When>
   </Choose>
 </Project>
+  <Target Name="AfterBuild">
+    <Copy SourceFiles="..\packages\FSharp.Compiler.Service.ProjectCracker\utilities\net45\FSharp.Compiler.Service.ProjectCrackerTool.exe" DestinationFolder="$(OutputPath)" />
+    <Copy SourceFiles="..\packages\FSharp.Compiler.Service.ProjectCracker\utilities\net45\FSharp.Compiler.Service.ProjectCrackerTool.exe.config" DestinationFolder="$(OutputPath)" />
+  </Target>
+</Project>
