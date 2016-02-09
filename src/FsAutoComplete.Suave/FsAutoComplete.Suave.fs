@@ -5,10 +5,11 @@ open System.IO
 
 open Suave
 open Suave.Http
-open Suave.Http.Applicatives
-open Suave.Http.Successful
+open Suave.Operators
+open Suave.Successful
 open Suave.Web
-open Suave.Types
+open Suave.WebPart
+open Suave.Filters
 open Newtonsoft.Json
 open Microsoft.FSharp.Compiler
 
@@ -73,26 +74,26 @@ let main argv =
     }
 
     let app =
-        Writers.setMimeType "application/json; charset=utf-8" >>=
-        POST >>=
+        Writers.setMimeType "application/json; charset=utf-8" >=>
+        POST >=>
         choose [
-            path "/parse" >>= handler (fun (data : ParseRequest) -> Commands.parse writeJson !state checker data.FileName data.Lines)
+            path "/parse" >=> handler (fun (data : ParseRequest) -> Commands.parse writeJson !state checker data.FileName data.Lines)
             //TODO: Add filewatcher
-            path "/project" >>= handler (fun (data : ProjectRequest) -> Commands.project writeJson !state checker data.FileName DateTime.Now false)
-            path "/declarations" >>= handler (fun (data : DeclarationsRequest) -> Commands.declarations writeJson !state checker data.FileName)
-            path "/helptext" >>= handler (fun (data : HelptextRequest) -> Commands.helptext writeJson !state checker data.Symbol)
-            path "/completion" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.completion writeJson !state checker tyRes data.Line data.Column lineStr None (Some data.Filter) )
-            path "/tooltip" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.toolTip writeJson !state checker tyRes data.Line data.Column lineStr )
-            path "/symboluse" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUse writeJson !state checker tyRes data.Line data.Column lineStr )
-            path "/finddeclaration" >>= positionHandler (fun data tyRes lineStr _ ->  Commands.findDeclarations writeJson !state checker tyRes data.Line data.Column lineStr )
-            path "/methods" >>= positionHandler (fun data tyRes _ lines ->  Commands.methods writeJson !state checker tyRes data.Line data.Column lines )
-            path "/compilerlocation" >>= (fun r -> async {
+            path "/project" >=> handler (fun (data : ProjectRequest) -> Commands.project writeJson !state checker data.FileName DateTime.Now false)
+            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> Commands.declarations writeJson !state checker data.FileName)
+            path "/helptext" >=> handler (fun (data : HelptextRequest) -> Commands.helptext writeJson !state checker data.Symbol)
+            path "/completion" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.completion writeJson !state checker tyRes data.Line data.Column lineStr None (Some data.Filter) )
+            path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.toolTip writeJson !state checker tyRes data.Line data.Column lineStr )
+            path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUse writeJson !state checker tyRes data.Line data.Column lineStr )
+            path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.findDeclarations writeJson !state checker tyRes data.Line data.Column lineStr )
+            path "/methods" >=> positionHandler (fun data tyRes _ lines ->  Commands.methods writeJson !state checker tyRes data.Line data.Column lines )
+            path "/compilerlocation" >=> (fun r -> async {
                 let! (res,state') = Commands.compilerLocation writeJson !state checker
                 state := state'
                 let res' = res |> List.toArray |> Json.toJson
                 return! Response.response HttpCode.HTTP_200 res' r
                 })
-            path "/lint" >>= handler (fun (data: LintRequest) -> Commands.lint writeJson !state checker data.FileName)
+            path "/lint" >=> handler (fun (data: LintRequest) -> Commands.lint writeJson !state checker data.FileName)
         ]
 
 
