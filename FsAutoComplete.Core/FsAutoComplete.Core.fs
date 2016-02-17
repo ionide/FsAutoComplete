@@ -52,10 +52,9 @@ module Commands =
                 match checker.TryGetProjectOptions(file, verbose) with
                 | Result.Failure s -> [Response.error serialize s],state
                 | Result.Success(po, projectFiles, outFileOpt, references, logMap) ->
-                    let res = Response.project serialize (file, projectFiles, outFileOpt, references, logMap)
-                    let checkOptions =
-                      projectFiles
-                      |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
+                    let pf = projectFiles |> List.map Path.GetFullPath
+                    let res = Response.project serialize (file, pf, outFileOpt, references, logMap)
+                    let checkOptions = pf |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
                     let loadTimes = Map.add file time state.ProjectLoadTimes
                     let state' =  { state with FileCheckOptions = checkOptions; ProjectLoadTimes = loadTimes }
                     [res], state'
