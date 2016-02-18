@@ -1,3 +1,7 @@
+#### 0.27.4 - 18.02.2016
+
+* Normalize paths to source files from projects: #94.
+
 #### 0.27.3 - 08.02.2016
 
 * Set MinThreads to avoid deadlocks on Mono < 4.2.2: #92.
