@@ -22,6 +22,7 @@ packages
 .paket/paket.exe
 
 TestResults.xml
+TestResult.xml
 
 .DS_Store
 /FSI-ASSEMBLY.dll.mdb

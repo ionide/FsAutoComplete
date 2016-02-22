@@ -6,6 +6,7 @@ open Fake.ReleaseNotesHelper
 open Fake.UserInputHelper
 open Fake.ZipHelper
 open Fake.AssemblyInfoFile
+open Fake.Testing
 open System
 open System.IO
 open System.Text.RegularExpressions
@@ -79,11 +80,11 @@ Target "IntegrationTest" (fun _ ->
 
 Target "UnitTest" (fun _ ->
     !! testAssemblies
-    |> NUnit (fun p ->
+    |> NUnit3 (fun p ->
         { p with
-            DisableShadowCopy = true
+            ShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 20.
-            OutputFile = "TestResults.xml" })
+            OutputDir = "TestResults.xml" })
 )
 
 
