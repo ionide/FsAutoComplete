@@ -3,8 +3,8 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#I "../../../packages/Newtonsoft.Json/lib/net45/"
-#r "../../../packages/Newtonsoft.Json/lib/net45/Newtonsoft.Json.dll"
+#I "../../../../packages/Newtonsoft.Json/lib/net45/"
+#r "Newtonsoft.Json.dll"
 open Newtonsoft.Json
 
 type FsAutoCompleteWrapper() =

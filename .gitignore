@@ -27,6 +27,7 @@ TestResult.xml
 .DS_Store
 /FSI-ASSEMBLY.dll.mdb
 .fake/
+.vscode/
 
 fsautocomplete.zip
 fsautocomplete.suave.zip

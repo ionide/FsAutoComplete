@@ -9,7 +9,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
                           checkResults: FSharpCheckFileResults,
                           _version: int) =
 
-  member x.TryGetMethodOverrides (lines: string[]) (line: int) (col: int) =
+  member x.TryGetMethodOverrides (lines: string[]) (line: int) (col: int) = async {
     // Find the starting point, ideally right after the first '('
     let lineCutoff = line - 6
     let commas, line, col =
@@ -37,38 +37,39 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
 
     let lineStr = lines.[line - 1]
     match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
-    | None -> Failure "Could not find ident at this location"
+    | None -> return Failure "Could not find ident at this location"
     | Some identIsland ->
 
-    let meth = checkResults.GetMethodsAlternate(line, col, lineStr, Some identIsland)
-               |> Async.RunSynchronously
+    let! meth = checkResults.GetMethodsAlternate(line, col, lineStr, Some identIsland) 
 
-    Success(meth, commas)
+    return Success(meth, commas) }
 
-  member x.TryFindDeclaration line col lineStr =
+  member x.TryFindDeclaration line col lineStr = async {
     match Parsing.findLongIdents(col - 1, lineStr) with
-    | None -> Failure "Could not find ident at this location"
+    | None -> return Failure "Could not find ident at this location"
     | Some(col,identIsland) ->
 
-      let declarations = checkResults.GetDeclarationLocationAlternate(line, col + 1, lineStr, identIsland, false)
-                         |> Async.RunSynchronously
+      let! declarations = checkResults.GetDeclarationLocationAlternate(line, col + 1, lineStr, identIsland, false)
+      
       match declarations with
-      | FSharpFindDeclResult.DeclNotFound _ -> Failure "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range -> Success range
+      | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range -> return Success range 
+    }
 
-  member x.TryGetToolTip line col lineStr =
+  member x.TryGetToolTip line col lineStr = async {
     match Parsing.findLongIdents(col - 1, lineStr) with
-    | None -> Failure "Cannot find ident for tooltip"
+    | None -> return Failure "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let tip = checkResults.GetToolTipTextAlternate(line, col + 1, lineStr, identIsland, FSharpTokenTag.Identifier)
-                |> Async.RunSynchronously
+      let! tip = checkResults.GetToolTipTextAlternate(line, col + 1, lineStr, identIsland, FSharpTokenTag.Identifier)
+      
       match tip with
       | FSharpToolTipText(elems) when elems |> List.forall (function
         FSharpToolTipElement.None -> true | _ -> false) ->
-          Failure "No tooltip information"
-      | _ -> Success(tip)
+         return Failure "No tooltip information"
+      | _ -> return Success(tip)
+  }
 
   member x.TryGetSymbolUse line col lineStr =
     async {
@@ -83,21 +84,20 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
 
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Success (symboluse, symboluses) }
-    |> Async.RunSynchronously
 
-  member x.TryGetCompletions line col lineStr timeout filter =
+  member x.TryGetCompletions line col lineStr filter = async {
     let longName, residue = Parsing.findLongIdentsAndResidue(col - 1, lineStr)
     try
-      let results =
-        Async.RunSynchronously (checkResults.GetDeclarationListInfo(Some parseResults, line, col, lineStr, longName, residue, fun (_,_) -> false),
-                                ?timeout = timeout)
+      let! results = checkResults.GetDeclarationListInfo(Some parseResults, line, col, lineStr, longName, residue, fun (_,_) -> false)
+      
       let decls =
         match filter with
         | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith residue then yield d |]
         | Some "Contains" -> [| for d in results.Items do if d.Name.Contains residue then yield d |]
         | _ -> results.Items
-      Some (decls, residue)
-    with :? TimeoutException -> None
+      return Some (decls, residue)
+    with :? TimeoutException -> return None
+  }
 
   member x.GetExtraColorizations =
     checkResults.GetExtraColorizationsAlternate()
@@ -120,11 +120,11 @@ type FSharpCompilerServiceChecker() =
                       yield! Seq.filter (fun (s: string) -> not (s.EndsWith("FSharp.Core.dll"))) options |])
     |> Option.getOrElse options
 
-  member x.GetProjectOptionsFromScript(file, source) =
-    let rawOptions = checker.GetProjectOptionsFromScript(file, source)
-                     |> Async.RunSynchronously
-    { rawOptions
-      with OtherOptions = ensureCorrectFSharpCore rawOptions.OtherOptions }
+  member x.GetProjectOptionsFromScript(file, source) = async {
+    let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
+                     
+    return { rawOptions with OtherOptions = ensureCorrectFSharpCore rawOptions.OtherOptions }
+  }
 
   member x.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
@@ -133,11 +133,10 @@ type FSharpCompilerServiceChecker() =
     checker.TryGetRecentTypeCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun x -> new ParseAndCheckResults(x))
 
-  member x.GetDeclarations (fileName, source, options) =
-    let parseResult =
-      checker.ParseFileInProject(fileName, source, options)
-      |> Async.RunSynchronously
-    parseResult.GetNavigationItems().Declarations
+  member x.GetDeclarations (fileName, source, options) = async {
+    let! parseResult = checker.ParseFileInProject(fileName, source, options)
+    return parseResult.GetNavigationItems().Declarations
+  }
 
   member x.TryGetProjectOptions (file: string, verbose: bool) : Result<_> =
     if not (File.Exists file) then

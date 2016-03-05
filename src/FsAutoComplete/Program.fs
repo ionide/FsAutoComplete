@@ -35,7 +35,7 @@ module internal Main =
                 let! (res,state) = Commands.parse writeJson !state checker file lines
                 //Hack for tests
                 let r = match kind with
-                        | Synchronous -> Response.info writeJson "Synchronous parsing started"
+                        | Synchronous -> Response.info writeJson "Synchronous parsing started" 
                         | Normal -> Response.info writeJson "Background parsing started"
                 return [r] @res,state
                 }
@@ -69,7 +69,7 @@ module internal Main =
 
                   match cmd with
                   | Completion ->
-                      Commands.completion writeJson !state checker tyRes line col lineStr timeout filter
+                      Commands.completion writeJson !state checker tyRes line col lineStr filter
                   | ToolTip ->
                       Commands.toolTip writeJson !state checker tyRes line col lineStr
                   | SymbolUse ->

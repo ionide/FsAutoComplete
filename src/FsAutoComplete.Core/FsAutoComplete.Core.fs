@@ -26,7 +26,7 @@ module Commands =
         let text = String.concat "\n" lines
 
         if Utils.isAScript file then
-          let checkOptions = checker.GetProjectOptionsFromScript(file, text)
+          let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
           let state' = state.WithFileTextAndCheckerOptions(file, lines, checkOptions)
           let! res = (parse' file text checkOptions)
           return res , state'
@@ -62,11 +62,11 @@ module Commands =
 
     let declarations (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) file = async {
         let file = Path.GetFullPath file
-        return match state.TryGetFileCheckerOptionsWithSource(file) with
-                | Failure s -> [Response.error serialize (s)], state
-                | Success (checkOptions, source) ->
-                    let decls = checker.GetDeclarations(file, source, checkOptions)
-                    [Response.declarations serialize (decls)], state
+        return! match state.TryGetFileCheckerOptionsWithSource(file) with
+                | Failure s -> async {return  [Response.error serialize (s)], state }
+                | Success (checkOptions, source) -> async {
+                    let! decls = checker.GetDeclarations(file, source, checkOptions)
+                    return [Response.declarations serialize (decls)], state }
     }
 
     let helptext (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) sym = async {
@@ -87,8 +87,9 @@ module Commands =
         return [Response.error serialize msg], state
     }
 
-    let completion (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr timeout filter = async {
-        return match tyRes.TryGetCompletions line col lineStr timeout filter with
+    let completion (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr filter = async {
+        let! res = tyRes.TryGetCompletions line col lineStr filter
+        return match res with
                 | Some (decls, residue) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
 
@@ -116,7 +117,8 @@ module Commands =
     let toolTip  (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr = async {
         // A failure is only info here, as this command is expected to be
         // used 'on idle', and frequent errors are expected.
-        return match tyRes.TryGetToolTip line col lineStr with
+        let! res = tyRes.TryGetToolTip line col lineStr
+        return match res with
                 | Result.Failure s -> [Response.info serialize (s)], state
                 | Result.Success tip -> [Response.toolTip serialize tip], state
     }
@@ -124,21 +126,22 @@ module Commands =
     let symbolUse  (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr = async {
         // A failure is only info here, as this command is expected to be
         // used 'on idle', and frequent errors are expected.
-        return match tyRes.TryGetSymbolUse line col lineStr with
+        let! res = tyRes.TryGetSymbolUse line col lineStr
+        return match res with
                 | Result.Failure s -> [Response.info serialize (s)], state
                 | Result.Success (sym,usages) -> [Response.symbolUse serialize (sym,usages)], state
     }
 
     let findDeclarations  (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr = async {
-        return match tyRes.TryFindDeclaration line col lineStr with
+        let! res = tyRes.TryFindDeclaration line col lineStr
+        return match res with
                 | Result.Failure s -> [Response.error serialize (s)], state
                 | Result.Success range -> [Response.findDeclaration serialize range], state
     }
 
     let methods (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lines = async {
-
-
-        return match tyRes.TryGetMethodOverrides lines line col with
+        let! res = tyRes.TryGetMethodOverrides lines line col
+        return match res with
                 | Result.Failure s -> [Response.error serialize (s)], state
                 | Result.Success (meth, commas) -> [Response.methods serialize (meth, commas)], state
     }
