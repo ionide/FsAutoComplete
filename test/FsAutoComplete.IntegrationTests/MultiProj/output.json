@@ -1,6 +1,22 @@
 {
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Proj1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Ops.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj1/bin/Debug/Proj1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Proj1.fsproj": ""
+    }
+  }
 }
 {
   "Kind": "info",
@@ -16,38 +32,7 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj1/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj1/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 28,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj1/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    }
-  ]
+  "Data": []
 }
 {
   "Kind": "helptext",
@@ -85,6 +70,12 @@
       "GlyphChar": "M"
     },
     {
+      "Name": "Terrific",
+      "ReplacementText": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
@@ -93,8 +84,59 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
   "Kind": "helptext",
@@ -122,59 +164,95 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
-}
-{
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj2/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj2/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 30,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj2/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
     }
   ]
+}
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Proj2.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Core.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj2/bin/Debug/Proj2.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Proj2.fsproj": ""
+    }
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
 }
 {
   "Kind": "helptext",
@@ -212,6 +290,12 @@
       "GlyphChar": "M"
     },
     {
+      "Name": "Terrifying",
+      "ReplacementText": "Terrifying",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
@@ -220,8 +304,59 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
   "Kind": "helptext",
@@ -249,55 +384,75 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj1/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj1/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 28,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj1/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
     }
   ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
 }
 {
   "Kind": "helptext",
@@ -335,6 +490,12 @@
       "GlyphChar": "M"
     },
     {
+      "Name": "Terrific",
+      "ReplacementText": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
@@ -343,8 +504,59 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
   "Kind": "helptext",
@@ -372,55 +584,75 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj2/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj2/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 30,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/MultiProj/Proj2/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
     }
   ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
 }
 {
   "Kind": "helptext",
@@ -458,6 +690,12 @@
       "GlyphChar": "M"
     },
     {
+      "Name": "Terrifying",
+      "ReplacementText": "Terrifying",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
@@ -466,8 +704,59 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
   "Kind": "helptext",
@@ -495,6 +784,57 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }

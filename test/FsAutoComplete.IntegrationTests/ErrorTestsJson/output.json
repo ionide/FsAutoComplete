@@ -1,6 +1,22 @@
 {
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/FileTwo.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Test1.fsproj": ""
+    }
+  }
 }
 {
   "Kind": "info",
@@ -10,7 +26,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/ErrorTestsJson/Program.fs",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Program.fs",
       "StartLine": 4,
       "EndLine": 4,
       "StartColumn": 15,
@@ -20,7 +36,7 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/ErrorTestsJson/Program.fs",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Program.fs",
       "StartLine": 8,
       "EndLine": 8,
       "StartColumn": 12,
@@ -30,7 +46,7 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/ErrorTestsJson/Program.fs",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Program.fs",
       "StartLine": 10,
       "EndLine": 10,
       "StartColumn": 19,
@@ -49,7 +65,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/ErrorTestsJson/Script.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ErrorTestsJson/Script.fsx",
       "StartLine": 8,
       "EndLine": 8,
       "StartColumn": 13,

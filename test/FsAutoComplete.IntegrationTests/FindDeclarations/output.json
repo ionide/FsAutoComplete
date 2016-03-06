@@ -1,90 +1,83 @@
 {
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 28,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj": ""
     }
-  ]
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
     "Line": 2,
     "Column": 7
   }
 }
 {
-  "Kind": "error",
-  "Data": "Could not find declaration"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+    "Line": 13,
+    "Column": 12
+  }
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
     "Line": 6,
     "Column": 5
   }
 }
 {
-  "Kind": "error",
-  "Data": "Could not find declaration"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+    "Line": 11,
+    "Column": 6
+  }
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Script.fsx",
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Script.fsx",
     "Line": 4,
     "Column": 7
   }

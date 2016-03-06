@@ -6,7 +6,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Module.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
       "StartLine": 9,
       "EndLine": 9,
       "StartColumn": 2,
@@ -16,7 +16,7 @@
       "Subcategory": "parse"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Module.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
       "StartLine": 11,
       "EndLine": 11,
       "StartColumn": 2,
@@ -26,7 +26,7 @@
       "Subcategory": "parse"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Module.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
       "StartLine": 11,
       "EndLine": 11,
       "StartColumn": 3,
@@ -36,7 +36,7 @@
       "Subcategory": "parse"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Module.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
       "StartLine": 9,
       "EndLine": 9,
       "StartColumn": 1,
@@ -46,7 +46,7 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Module.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
       "StartLine": 11,
       "EndLine": 11,
       "StartColumn": 1,
@@ -65,7 +65,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Class.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
       "StartLine": 9,
       "EndLine": 9,
       "StartColumn": 2,
@@ -75,7 +75,7 @@
       "Subcategory": "parse"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Class.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
       "StartLine": 11,
       "EndLine": 11,
       "StartColumn": 2,
@@ -85,7 +85,7 @@
       "Subcategory": "parse"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Class.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
       "StartLine": 11,
       "EndLine": 11,
       "StartColumn": 3,
@@ -95,7 +95,7 @@
       "Subcategory": "parse"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Class.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
       "StartLine": 9,
       "EndLine": 9,
       "StartColumn": 1,
@@ -105,7 +105,7 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RawIdTest/Test-Class.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
       "StartLine": 11,
       "EndLine": 11,
       "StartColumn": 1,

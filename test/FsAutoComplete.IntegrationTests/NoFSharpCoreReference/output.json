@@ -1,4 +1,20 @@
 {
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/FileTwo.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj": ""
+    }
+  }
 }

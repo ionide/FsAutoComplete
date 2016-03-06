@@ -1,6 +1,22 @@
 {
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/FileTwo.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj": ""
+    }
+  }
 }
 {
   "Kind": "info",
@@ -18,7 +34,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Script.fsx",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Script.fsx",
       "StartLine": 6,
       "EndLine": 6,
       "StartColumn": 15,
@@ -35,38 +51,7 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 28,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    }
-  ]
+  "Data": []
 }
 {
   "Kind": "symboluse",
@@ -74,7 +59,7 @@
     "Name": "testval",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 4,
         "StartColumn": 5,
         "EndLine": 4,
@@ -87,7 +72,7 @@
         "IsFromType": false
       },
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 8,
         "StartColumn": 12,
         "EndLine": 8,
@@ -100,7 +85,7 @@
         "IsFromType": false
       },
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 10,
         "StartColumn": 36,
         "EndLine": 10,
@@ -121,7 +106,7 @@
     "Name": "testval",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 14,
         "StartColumn": 9,
         "EndLine": 14,
@@ -134,7 +119,7 @@
         "IsFromType": false
       },
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 15,
         "StartColumn": 5,
         "EndLine": 15,
@@ -159,7 +144,7 @@
     "Name": "shadowed",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,
@@ -180,7 +165,7 @@
     "Name": "shadowed",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,

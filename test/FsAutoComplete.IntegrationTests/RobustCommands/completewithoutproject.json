@@ -39,7 +39,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RobustCommands/Project/Program.fs",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
       "StartLine": 4,
       "EndLine": 4,
       "StartColumn": 15,
@@ -49,7 +49,7 @@
       "Subcategory": "typecheck"
     },
     {
-      "FileName": "<absolute path removed>/test/IntegrationTests/RobustCommands/Project/Program.fs",
+      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
       "StartLine": 8,
       "EndLine": 8,
       "StartColumn": 12,

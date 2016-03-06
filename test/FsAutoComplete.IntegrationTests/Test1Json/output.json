@@ -1,61 +1,46 @@
 {
-  "Kind": "error",
-  "Data": "Nie można odnaleźć określonego pliku"
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": []
-}
-{
-  "Kind": "info",
-  "Data": "Synchronous parsing started"
-}
-{
-  "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/Test1Json/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/Test1Json/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 28,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/test/IntegrationTests/Test1Json/Program.fs",
-      "StartLine": 10,
-      "EndLine": 10,
-      "StartColumn": 12,
-      "EndColumn": 19,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
+    ],
+    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/Test1.fsproj": ""
     }
-  ]
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
 }
 {
   "Kind": "helptext",
@@ -118,6 +103,12 @@
       "GlyphChar": "M"
     },
     {
+      "Name": "Terrific",
+      "ReplacementText": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
@@ -126,8 +117,59 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
   "Kind": "helptext",
@@ -155,8 +197,59 @@
   ]
 }
 {
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
   "Kind": "completion",
-  "Data": []
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
   "Kind": "tooltip",
@@ -185,7 +278,7 @@
   "Data": [
     [
       {
-        "Signature": "val testval : obj\n\nFull name: Program.testval",
+        "Signature": "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval",
         "Comment": ""
       }
     ]
@@ -203,13 +296,17 @@
   ]
 }
 {
-  "Kind": "error",
-  "Data": "Could not find declaration"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+    "Line": 13,
+    "Column": 12
+  }
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/IntegrationTests/Test1Json/Script.fsx",
+    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
     "Line": 4,
     "Column": 7
   }
