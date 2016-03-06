@@ -1,0 +1,91 @@
+{
+  "Kind": "error",
+  "Data": "Nie można odnaleźć określonego pliku"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+      "StartLine": 4,
+      "EndLine": 4,
+      "StartColumn": 15,
+      "EndColumn": 22,
+      "Severity": "Error",
+      "Message": "The namespace or module 'FileTwo' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+      "StartLine": 8,
+      "EndLine": 8,
+      "StartColumn": 12,
+      "EndColumn": 28,
+      "Severity": "Error",
+      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+      "StartLine": 10,
+      "EndLine": 10,
+      "StartColumn": 12,
+      "EndColumn": 19,
+      "Severity": "Error",
+      "Message": "The namespace or module 'FileTwo' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+    "Line": 2,
+    "Column": 7
+  }
+}
+{
+  "Kind": "error",
+  "Data": "Could not find declaration"
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Program.fs",
+    "Line": 6,
+    "Column": 5
+  }
+}
+{
+  "Kind": "error",
+  "Data": "Could not find declaration"
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/test/IntegrationTests/FindDeclarations/Script.fsx",
+    "Line": 4,
+    "Column": 7
+  }
+}

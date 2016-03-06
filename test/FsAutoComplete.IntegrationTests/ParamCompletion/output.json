@@ -1,0 +1,247 @@
+{
+  "Kind": "error",
+  "Data": "Nie można odnaleźć określonego pliku"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/ParamCompletion/Program.fs",
+      "StartLine": 4,
+      "EndLine": 4,
+      "StartColumn": 15,
+      "EndColumn": 22,
+      "Severity": "Error",
+      "Message": "The namespace or module 'FileTwo' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/ParamCompletion/Program.fs",
+      "StartLine": 8,
+      "EndLine": 8,
+      "StartColumn": 12,
+      "EndColumn": 28,
+      "Severity": "Error",
+      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Name": "",
+    "CurrentParameter": 0,
+    "Overloads": []
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Name": "",
+    "CurrentParameter": 0,
+    "Overloads": []
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Name": "",
+    "CurrentParameter": 0,
+    "Overloads": []
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Name": "",
+    "CurrentParameter": 1,
+    "Overloads": []
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Name": "Parse",
+    "CurrentParameter": 0,
+    "Overloads": [
+      {
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
+        "TypeText": ": System.DateTime",
+        "Parameters": [
+          {
+            "Name": "s",
+            "CanonicalTypeTextForSorting": "System.String",
+            "Display": "s: string",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      },
+      {
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
+        "TypeText": ": System.DateTime",
+        "Parameters": [
+          {
+            "Name": "s",
+            "CanonicalTypeTextForSorting": "System.String",
+            "Display": "s: string",
+            "Description": ""
+          },
+          {
+            "Name": "provider",
+            "CanonicalTypeTextForSorting": "System.IFormatProvider",
+            "Display": "provider: System.IFormatProvider",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      },
+      {
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
+        "TypeText": ": System.DateTime",
+        "Parameters": [
+          {
+            "Name": "s",
+            "CanonicalTypeTextForSorting": "System.String",
+            "Display": "s: string",
+            "Description": ""
+          },
+          {
+            "Name": "provider",
+            "CanonicalTypeTextForSorting": "System.IFormatProvider",
+            "Display": "provider: System.IFormatProvider",
+            "Description": ""
+          },
+          {
+            "Name": "styles",
+            "CanonicalTypeTextForSorting": "System.Globalization.DateTimeStyles",
+            "Display": "styles: System.Globalization.DateTimeStyles",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "method",
+  "Data": {
+    "Name": "Parse",
+    "CurrentParameter": 0,
+    "Overloads": [
+      {
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
+        "TypeText": ": System.DateTime",
+        "Parameters": [
+          {
+            "Name": "s",
+            "CanonicalTypeTextForSorting": "System.String",
+            "Display": "s: string",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      },
+      {
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
+        "TypeText": ": System.DateTime",
+        "Parameters": [
+          {
+            "Name": "s",
+            "CanonicalTypeTextForSorting": "System.String",
+            "Display": "s: string",
+            "Description": ""
+          },
+          {
+            "Name": "provider",
+            "CanonicalTypeTextForSorting": "System.IFormatProvider",
+            "Display": "provider: System.IFormatProvider",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      },
+      {
+        "Tip": [
+          [
+            {
+              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+              "Comment": ""
+            }
+          ]
+        ],
+        "TypeText": ": System.DateTime",
+        "Parameters": [
+          {
+            "Name": "s",
+            "CanonicalTypeTextForSorting": "System.String",
+            "Display": "s: string",
+            "Description": ""
+          },
+          {
+            "Name": "provider",
+            "CanonicalTypeTextForSorting": "System.IFormatProvider",
+            "Display": "provider: System.IFormatProvider",
+            "Description": ""
+          },
+          {
+            "Name": "styles",
+            "CanonicalTypeTextForSorting": "System.Globalization.DateTimeStyles",
+            "Display": "styles: System.Globalization.DateTimeStyles",
+            "Description": ""
+          }
+        ],
+        "IsStaticArguments": false
+      }
+    ]
+  }
+}

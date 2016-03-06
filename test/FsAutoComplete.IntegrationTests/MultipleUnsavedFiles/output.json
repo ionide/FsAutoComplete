@@ -1,0 +1,58 @@
+{
+  "Kind": "error",
+  "Data": "Nie można odnaleźć określonego pliku"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/MultipleUnsavedFiles/Program.fs",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 15,
+      "EndColumn": 22,
+      "Severity": "Error",
+      "Message": "The namespace or module 'FileTwo' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/MultipleUnsavedFiles/Program.fs",
+      "StartLine": 1,
+      "EndLine": 1,
+      "StartColumn": 15,
+      "EndColumn": 22,
+      "Severity": "Error",
+      "Message": "The namespace or module 'FileTwo' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "Kind": "error",
+  "Data": "Nie można odnaleźć określonego pliku"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/RobustCommands/Project/Program.fs",
+      "StartLine": 4,
+      "EndLine": 4,
+      "StartColumn": 15,
+      "EndColumn": 22,
+      "Severity": "Error",
+      "Message": "The namespace or module 'FileTwo' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/test/IntegrationTests/RobustCommands/Project/Program.fs",
+      "StartLine": 8,
+      "EndLine": 8,
+      "StartColumn": 12,
+      "EndColumn": 28,
+      "Severity": "Error",
+      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}

@@ -1,7 +1,7 @@
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    FAKE (4.20.0)
+    FAKE (4.21.4)
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Compiler.Service.ProjectCracker (2.0.0.6)
     FSharp.Core (4.0.0.1)
@@ -16,10 +16,18 @@ NUGET
     Mono.Cecil (0.9.6.1)
     NDesk.Options (0.2.1)
     Newtonsoft.Json (8.0.2)
-    NUnit (3.0.1)
-    NUnit.Console (3.0.1)
-    NUnit.Runners (3.0.1)
-      NUnit.Console (3.0.1)
+    NUnit (3.2.0)
+    NUnit.ConsoleRunner (3.2.0)
+    NUnit.Extension.NUnitProjectLoader (3.2.0)
+    NUnit.Extension.NUnitV2Driver (3.2.0)
+    NUnit.Extension.NUnitV2ResultWriter (3.2.0)
+    NUnit.Extension.VSProjectLoader (3.2.0)
+    NUnit.Runners (3.2.0)
+      NUnit.ConsoleRunner (3.2.0)
+      NUnit.Extension.NUnitProjectLoader (3.2.0)
+      NUnit.Extension.NUnitV2Driver (3.2.0)
+      NUnit.Extension.NUnitV2ResultWriter (3.2.0)
+      NUnit.Extension.VSProjectLoader (3.2.0)
     Octokit (0.18.0)
       Microsoft.Net.Http
     Suave (1.1.1)

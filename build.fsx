@@ -25,7 +25,7 @@ let release = List.head releaseNotesData
 
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
-let integrationTestDir = "src" </> project </> "test" </> "integration"
+let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "fsautocomplete.zip"
 
 let suaveSummary = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."

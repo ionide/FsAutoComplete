@@ -1,0 +1,4 @@
+{
+  "Kind": "error",
+  "Data": "File '<absolute path removed>/test/IntegrationTests/RobustCommands/NoSuchProject.fsproj' does not exist"
+}

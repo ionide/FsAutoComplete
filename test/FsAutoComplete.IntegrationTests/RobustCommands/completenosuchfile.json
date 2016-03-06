@@ -1,0 +1,8 @@
+{
+  "Kind": "error",
+  "Data": "Nie można odnaleźć określonego pliku"
+}
+{
+  "Kind": "error",
+  "Data": "File '<absolute path removed>/test/IntegrationTests/RobustCommands/NoSuchFile.fs' not parsed"
+}
