@@ -88,23 +88,23 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     if Path.DirectorySeparatorChar = '/' then
       lines.[i] <- Regex.Replace(lines.[i],
-                                 "/.*?FsAutoComplete/test/(.*?(\"|$))",
-                                 "<absolute path removed>/test/$1")
+                                 "/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
+                                 "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
       lines.[i] <- Regex.Replace(lines.[i],
                                  "\"/[^\"]*?/([^\"/]*?\.dll\")",
                                   "\"<absolute path removed>/$1")
     else
       if Path.GetExtension fn = ".json" then
         lines.[i] <- Regex.Replace(lines.[i].Replace(@"\\", "/"),
-                                   "[a-zA-Z]:/.*?FsAutoComplete/test/(.*?(\"|$))",
-                                   "<absolute path removed>/test/$1")
+                                   "[a-zA-Z]:/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
+                                   "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
         lines.[i] <- Regex.Replace(lines.[i],
                                    "\"[a-zA-Z]:/[^\"]*?/([^\"/]*?\.dll\")",
                                    "\"<absolute path removed>/$1")
       else
         lines.[i] <- Regex.Replace(lines.[i].Replace('\\','/'),
-                                   "[a-zA-Z]:/.*?FsAutoComplete/test/(.*?(\"|$))",
-                                   "<absolute path removed>/test/$1")
+                                   "[a-zA-Z]:/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
+                                   "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
 
 
     lines.[i] <- lines.[i].Replace("\r", "")

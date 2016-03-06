@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ParamCompletion/Test1.fsproj",
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/ParamCompletion/Test1.fsproj",
     "Files": [
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ParamCompletion/FileTwo.fs",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ParamCompletion/Program.fs"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/ParamCompletion/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/ParamCompletion/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ParamCompletion/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/ParamCompletion/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -14,7 +14,7 @@
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/ParamCompletion/Test1.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/ParamCompletion/Test1.fsproj": ""
     }
   }
 }

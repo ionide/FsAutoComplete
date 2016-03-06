@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj",
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj",
     "Files": [
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -14,7 +14,7 @@
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj": ""
     }
   }
 }
@@ -45,7 +45,7 @@
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
     "Line": 2,
     "Column": 7
   }
@@ -53,7 +53,7 @@
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
     "Line": 13,
     "Column": 12
   }
@@ -61,7 +61,7 @@
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
     "Line": 6,
     "Column": 5
   }
@@ -69,7 +69,7 @@
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
     "Line": 11,
     "Column": 6
   }
@@ -77,7 +77,7 @@
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/FindDeclarations/Script.fsx",
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Script.fsx",
     "Line": 4,
     "Column": 7
   }

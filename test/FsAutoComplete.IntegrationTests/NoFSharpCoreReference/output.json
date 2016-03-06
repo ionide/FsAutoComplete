@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj",
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj",
     "Files": [
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/FileTwo.fs",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Program.fs"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -14,7 +14,7 @@
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj": ""
     }
   }
 }

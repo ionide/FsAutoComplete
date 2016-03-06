@@ -6,7 +6,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/CompletionFilter/Script.fsx",
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/CompletionFilter/Script.fsx",
       "StartLine": 2,
       "EndLine": 2,
       "StartColumn": 21,

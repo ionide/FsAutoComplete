@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj",
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj",
     "Files": [
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/FileTwo.fs",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -14,7 +14,7 @@
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj": ""
     }
   }
 }
@@ -26,7 +26,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs",
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs",
       "StartLine": 1,
       "EndLine": 1,
       "StartColumn": 1,

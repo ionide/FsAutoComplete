@@ -1,12 +1,12 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj",
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj",
     "Files": [
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/FileTwo.fs",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs"
     ],
-    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/bin/Debug/Test1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/bin/Debug/Test1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
@@ -14,7 +14,7 @@
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj": ""
     }
   }
 }
@@ -34,7 +34,7 @@
   "Kind": "errors",
   "Data": [
     {
-      "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Script.fsx",
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Script.fsx",
       "StartLine": 6,
       "EndLine": 6,
       "StartColumn": 15,
@@ -59,7 +59,7 @@
     "Name": "testval",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 4,
         "StartColumn": 5,
         "EndLine": 4,
@@ -72,7 +72,7 @@
         "IsFromType": false
       },
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 8,
         "StartColumn": 12,
         "EndLine": 8,
@@ -85,7 +85,7 @@
         "IsFromType": false
       },
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 10,
         "StartColumn": 36,
         "EndLine": 10,
@@ -106,7 +106,7 @@
     "Name": "testval",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 14,
         "StartColumn": 9,
         "EndLine": 14,
@@ -119,7 +119,7 @@
         "IsFromType": false
       },
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 15,
         "StartColumn": 5,
         "EndLine": 15,
@@ -144,7 +144,7 @@
     "Name": "shadowed",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,
@@ -165,7 +165,7 @@
     "Name": "shadowed",
     "Uses": [
       {
-        "FileName": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
         "StartLine": 12,
         "StartColumn": 5,
         "EndLine": 12,

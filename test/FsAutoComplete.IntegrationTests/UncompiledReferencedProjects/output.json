@@ -1,23 +1,23 @@
 {
   "Kind": "project",
   "Data": {
-    "Project": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj",
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj",
     "Files": [
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fs"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fs"
     ],
-    "Output": "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/bin/Debug/MultiProject1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/bin/Debug/MultiProject1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/bin/Debug/Project1A.dll",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/bin/Debug/Project1B.exe",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/bin/Debug/Project1A.dll",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/bin/Debug/Project1B.exe",
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj": "",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1A.fsproj": "",
-      "<absolute path removed>/test/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1B.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj": "",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1A.fsproj": "",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1B.fsproj": ""
     }
   }
 }
