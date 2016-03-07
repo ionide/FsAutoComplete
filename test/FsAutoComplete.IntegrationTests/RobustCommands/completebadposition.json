@@ -1,0 +1,36 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs"
+    ],
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj": ""
+    }
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}
+{
+  "Kind": "error",
+  "Data": "Position is out of range"
+}

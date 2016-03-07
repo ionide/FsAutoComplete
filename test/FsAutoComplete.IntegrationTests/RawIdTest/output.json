@@ -1,0 +1,308 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'X' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'X' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'Y' is not defined",
+      "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 1,
+      "EndColumn": 2,
+      "Severity": "Error",
+      "Message": "The value or constructor 'Y' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Another`Column",
+    "Overloads": [
+      [
+        {
+          "Signature": "val Another`Column : int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "Column1",
+      "ReplacementText": "Column1",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    }
+  ]
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "Column1",
+      "ReplacementText": "Column1",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Another`Column",
+    "Overloads": [
+      [
+        {
+          "Signature": "val Another`Column : int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    },
+    {
+      "Name": "Column1",
+      "ReplacementText": "Column1",
+      "Glyph": "Field",
+      "GlyphChar": "F"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Another`Column",
+    "Overloads": [
+      [
+        {
+          "Signature": "property Y.Another`Column: int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "ReplacementText": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Column Two",
+    "Overloads": [
+      [
+        {
+          "Signature": "property Y.Column Two: int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "ReplacementText": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Another`Column",
+    "Overloads": [
+      [
+        {
+          "Signature": "property Y.Another`Column: int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Column1",
+      "ReplacementText": "Column1",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    }
+  ]
+}

@@ -1,0 +1,189 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj",
+    "Files": [
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs"
+    ],
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/SymbolUse.fsproj": ""
+    }
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": [
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Script.fsx",
+      "StartLine": 6,
+      "EndLine": 6,
+      "StartColumn": 15,
+      "EndColumn": 24,
+      "Severity": "Error",
+      "Message": "The value, constructor, namespace or type 'Directory' is not defined",
+      "Subcategory": "typecheck"
+    }
+  ]
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "testval",
+    "Uses": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 4,
+        "StartColumn": 5,
+        "EndLine": 4,
+        "EndColumn": 12,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 8,
+        "StartColumn": 12,
+        "EndLine": 8,
+        "EndColumn": 19,
+        "IsFromDefinition": false,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 10,
+        "StartColumn": 36,
+        "EndLine": 10,
+        "EndColumn": 43,
+        "IsFromDefinition": false,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "testval",
+    "Uses": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 14,
+        "StartColumn": 9,
+        "EndLine": 14,
+        "EndColumn": 16,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 15,
+        "StartColumn": 5,
+        "EndLine": 15,
+        "EndColumn": 12,
+        "IsFromDefinition": false,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "info",
+  "Data": "No symbol information found"
+}
+{
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "shadowed",
+    "Uses": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 12,
+        "StartColumn": 5,
+        "EndLine": 12,
+        "EndColumn": 13,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "shadowed",
+    "Uses": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 12,
+        "StartColumn": 5,
+        "EndLine": 12,
+        "EndColumn": 13,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      }
+    ]
+  }
+}
+{
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "Directory",
+    "Uses": []
+  }
+}

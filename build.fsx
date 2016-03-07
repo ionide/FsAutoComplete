@@ -6,6 +6,7 @@ open Fake.ReleaseNotesHelper
 open Fake.UserInputHelper
 open Fake.ZipHelper
 open Fake.AssemblyInfoFile
+open Fake.Testing
 open System
 open System.IO
 open System.Text.RegularExpressions
@@ -22,15 +23,15 @@ let releaseNotesData =
 let release = List.head releaseNotesData
 
 
-let buildDir = project + "/bin/Debug/"
-let buildReleaseDir = project + "/bin/Release/"
-let integrationTestDir = project + "/test/integration/"
+let buildDir = "src" </> project </> "bin" </> "Debug"
+let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
+let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "fsautocomplete.zip"
 
 let suaveSummary = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."
 let suaveProject = "FsAutoComplete.Suave"
-let suaveBuildDebugDir = suaveProject + "/bin/Debug"
-let suaveBuildReleaseDir = suaveProject + "/bin/Release"
+let suaveBuildDebugDir = "src" </> suaveProject </>  "bin" </> "Debug"
+let suaveBuildReleaseDir = "src" </> suaveProject </> "bin" </> "Release"
 let suaveReleaseArchive = "fsautocomplete.suave.zip"
 
 // Pattern specifying assemblies to be tested using NUnit
@@ -79,11 +80,11 @@ Target "IntegrationTest" (fun _ ->
 
 Target "UnitTest" (fun _ ->
     !! testAssemblies
-    |> NUnit (fun p ->
+    |> NUnit3 (fun p ->
         { p with
-            DisableShadowCopy = true
+            ShadowCopy = true
             TimeOut = TimeSpan.FromMinutes 20.
-            OutputFile = "TestResults.xml" })
+            OutputDir = "TestResults.xml" })
 )
 
 
@@ -123,6 +124,19 @@ Target "SuaveReleaseArchive" (fun _ ->
         ++ (suaveBuildReleaseDir + "/*.exe")
         ++ (suaveBuildReleaseDir + "/*.exe.config"))
 )
+
+Target "LocalRelease" (fun _ ->
+    ensureDirectory "bin/release"
+    CopyFiles "bin/release"(   
+        !! (buildReleaseDir      + "/*.dll")
+        ++ (buildReleaseDir      + "/*.exe")
+        ++ (buildReleaseDir      + "/*.exe.config")
+        ++ (suaveBuildReleaseDir + "/*.dll")
+        ++ (suaveBuildReleaseDir + "/*.exe")
+        ++ (suaveBuildReleaseDir + "/*.exe.config")
+    )
+)
+
 
 #load "lib/Octokit.fsx"
 open Octokit
@@ -175,6 +189,9 @@ Target "All" id
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"
+
+"BuildRelease"
+    ==> "LocalRelease"
 
 "AssemblyInfo"
   ==> "BuildRelease"

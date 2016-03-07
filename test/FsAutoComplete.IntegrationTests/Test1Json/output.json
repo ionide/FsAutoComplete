@@ -1,0 +1,640 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
+    ],
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Test1.fsproj": ""
+    }
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "funky",
+    "Overloads": [
+      [
+        {
+          "Signature": "val funky : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "funky",
+      "ReplacementText": "funky",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Equals",
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Equals",
+      "ReplacementText": "Equals",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetHashCode",
+      "ReplacementText": "GetHashCode",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "GetType",
+      "ReplacementText": "GetType",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "Terrific",
+      "ReplacementText": "Terrific",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "ToString",
+      "ReplacementText": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "func",
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "ReplacementText": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "helptext",
+  "Data": {
+    "Name": "Bar",
+    "Overloads": [
+      [
+        {
+          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
+}
+{
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T"
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C"
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P"
+    },
+    {
+      "Name": "add",
+      "ReplacementText": "add",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
+      "Name": "addition",
+      "ReplacementText": "addition",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add",
+        "Comment": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val func : x:int -> int\n\nFull name: Program.X.func",
+        "Comment": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval",
+        "Comment": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val funky : x:int -> int\n\nFull name: Script.XA.funky",
+        "Comment": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+    "Line": 13,
+    "Column": 12
+  }
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+    "Line": 4,
+    "Column": 7
+  }
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "Program_1_of_1",
+        "Name": "Program",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 1,
+          "EndLine": 16
+        },
+        "BodyRange": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 15
+        }
+      },
+      "Nested": [
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "main",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
+          }
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "X_1_of_1",
+        "Name": "X",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
+        },
+        "BodyRange": {
+          "StartColumn": 9,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
+        }
+      },
+      "Nested": [
+        {
+          "UniqueName": "X_1_of_1",
+          "Name": "func",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
+          },
+          "BodyRange": {
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
+          }
+        }
+      ]
+    }
+  ]
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "FileTwo_1_of_1",
+        "Name": "FileTwo",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "BodyRange": {
+          "StartColumn": 15,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
+        }
+      },
+      "Nested": [
+        {
+          "UniqueName": "FileTwo_1_of_1",
+          "Name": "add",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
+          }
+        },
+        {
+          "UniqueName": "FileTwo_1_of_1",
+          "Name": "addition",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
+          }
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "Foo_1_of_1",
+        "Name": "Foo",
+        "Glyph": "Type",
+        "GlyphChar": "T",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 6,
+          "StartLine": 3,
+          "EndColumn": 8,
+          "EndLine": 5
+        },
+        "BodyRange": {
+          "StartColumn": 3,
+          "StartLine": 4,
+          "EndColumn": 8,
+          "EndLine": 5
+        }
+      },
+      "Nested": [
+        {
+          "UniqueName": "Foo_1_of_1",
+          "Name": "Bar",
+          "Glyph": "Struct",
+          "GlyphChar": "S",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
+          }
+        },
+        {
+          "UniqueName": "Foo_1_of_1",
+          "Name": "Qux",
+          "Glyph": "Struct",
+          "GlyphChar": "S",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
+          }
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "NewObjectType_1_of_1",
+        "Name": "NewObjectType",
+        "Glyph": "Class",
+        "GlyphChar": "C",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 6,
+          "StartLine": 11,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "BodyRange": {
+          "StartColumn": 3,
+          "StartLine": 13,
+          "EndColumn": 6,
+          "EndLine": 14
+        }
+      },
+      "Nested": [
+        {
+          "UniqueName": "NewObjectType_1_of_1",
+          "Name": "Terrific",
+          "Glyph": "Method",
+          "GlyphChar": "M",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
+          },
+          "BodyRange": {
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
+          }
+        }
+      ]
+    }
+  ]
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "Script_1_of_1",
+        "Name": "Script",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 1,
+          "EndLine": 7
+        },
+        "BodyRange": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 22,
+          "EndLine": 4
+        }
+      },
+      "Nested": []
+    },
+    {
+      "Declaration": {
+        "UniqueName": "XA_1_of_1",
+        "Name": "XA",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
+        },
+        "BodyRange": {
+          "StartColumn": 10,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
+        }
+      },
+      "Nested": [
+        {
+          "UniqueName": "XA_1_of_1",
+          "Name": "funky",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
+          }
+        }
+      ]
+    }
+  ]
+}
