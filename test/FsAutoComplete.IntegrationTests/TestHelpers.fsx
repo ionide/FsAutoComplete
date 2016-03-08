@@ -47,6 +47,9 @@ type FsAutoCompleteWrapper() =
   member x.tooltip (fn: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "tooltip \"%s\" %d %d\n" fn line col
 
+  member x.typesig (fn: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "typesig \"%s\" %d %d\n" fn line col
+
   member x.finddeclaration (fn: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "finddecl \"%s\" %d %d\n" fn line col
 

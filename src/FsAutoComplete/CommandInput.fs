@@ -9,6 +9,7 @@ type PosCommand =
   | Methods
   | SymbolUse
   | ToolTip
+  | TypeSig
   | FindDeclaration
 
 type ParseKind =
@@ -95,6 +96,7 @@ module CommandInput =
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
+             (string "typesig " |> Parser.map (fun _ -> TypeSig)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
     let! _ = char '"'

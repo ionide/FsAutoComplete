@@ -1,0 +1,24 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": []
+}
+{
+  "Kind": "typesig",
+  "Data": "val funky : x:int -> int"
+}
+{
+  "Kind": "typesig",
+  "Data": "module CommandResponse"
+}
+{
+  "Kind": "typesig",
+  "Data": "type ResponseMsg<'T> "
+}
+{
+  "Kind": "typesig",
+  "Data": "val funky : x:int -> int"
+}
