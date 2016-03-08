@@ -8,33 +8,17 @@
 }
 {
   "Kind": "typesig",
-  "Data": [
-    [
-      "val funky : x:int -> int\n\nFull name: Script.XA.funky"
-    ]
-  ]
+  "Data": "val funky : x:int -> int"
 }
 {
   "Kind": "typesig",
-  "Data": [
-    [
-      "module CommandResponse\n\nfrom Script"
-    ]
-  ]
+  "Data": "module CommandResponse"
 }
 {
   "Kind": "typesig",
-  "Data": [
-    [
-      "type ResponseMsg<'T> =\n  {Kind: string;\n   Data: 'T;}\n  member f : y:'a -> int\n\nFull name: Script.CommandResponse.ResponseMsg<_>"
-    ]
-  ]
+  "Data": "type ResponseMsg<'T> "
 }
 {
   "Kind": "typesig",
-  "Data": [
-    [
-      "val funky : x:int -> int\n\nFull name: Script.XA.funky"
-    ]
-  ]
+  "Data": "val funky : x:int -> int"
 }
