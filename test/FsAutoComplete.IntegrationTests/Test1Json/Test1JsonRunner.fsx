@@ -19,7 +19,7 @@ p.parse "FileTwo.fs"
 p.parse "Script.fsx"
 p.parse "Program.fs"
 p.completion "Script.fsx" 6 16
-p.completion "Program.fs" 8 20
+p.completionFilter "Program.fs" 8 21 "StartsWith"
 p.completion "Program.fs" 4 23
 p.completion "Program.fs" 6 14
 p.completion "Program.fs" 10 20

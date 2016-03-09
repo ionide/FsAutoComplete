@@ -18,12 +18,12 @@ let p = new FsAutoCompleteWrapper()
 p.project "Test1.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Program.fs"
-p.methods "Program.fs" 4 36
-p.methods "Program.fs" 4 37
-p.methods "Program.fs" 8 30
-p.methods "Program.fs" 8 35
-p.methods "Program.fs" 10 39
-p.methods "Program.fs" 14 3
+p.methods "Program.fs" 9 36
+p.methods "Program.fs" 9 37
+p.methods "Program.fs" 13 30
+p.methods "Program.fs" 13 35
+p.methods "Program.fs" 15 34
+p.methods "Program.fs" 19 3
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
