@@ -70,11 +70,11 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "Equals",
+    "Name": "Terrific",
     "Overloads": [
       [
         {
-          "Signature": "System.Object.Equals(obj: obj) : bool",
+          "Signature": "member FileTwo.NewObjectType.Terrific : y:int -> int",
           "Comment": ""
         }
       ]
@@ -84,24 +84,6 @@
 {
   "Kind": "completion",
   "Data": [
-    {
-      "Name": "Equals",
-      "ReplacementText": "Equals",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "GetHashCode",
-      "ReplacementText": "GetHashCode",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
-    {
-      "Name": "GetType",
-      "ReplacementText": "GetType",
-      "Glyph": "Method",
-      "GlyphChar": "M"
-    },
     {
       "Name": "Terrific",
       "ReplacementText": "Terrific",

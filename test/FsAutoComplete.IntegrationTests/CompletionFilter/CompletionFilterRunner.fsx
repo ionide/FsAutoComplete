@@ -14,9 +14,9 @@ File.Delete "output.json"
 let p = new FsAutoCompleteWrapper()
 
 p.parse "Script.fsx"
-p.completion "Script.fsx" 2 22
-p.completionFilter "Script.fsx" 2 22 "StartsWith"
-p.completionFilter "Script.fsx" 2 22 "Contains"
+p.completion "Script.fsx" 8 4
+p.completionFilter "Script.fsx" 8 4 "StartsWith"
+p.completionFilter "Script.fsx" 8 4 "Contains"
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

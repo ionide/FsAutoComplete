@@ -262,12 +262,12 @@
         "Tip": [
           [
             {
-              "Signature": "System.DateTime.Parse(s: string) : System.DateTime",
+              "Signature": "static member MyDateTime.Parse : s:string -> unit",
               "Comment": ""
             }
           ]
         ],
-        "TypeText": ": System.DateTime",
+        "TypeText": ": unit",
         "Parameters": [
           {
             "Name": "s",
@@ -282,12 +282,12 @@
         "Tip": [
           [
             {
-              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+              "Signature": "static member MyDateTime.Parse : s:string * z:MyDateTime -> unit",
               "Comment": ""
             }
           ]
         ],
-        "TypeText": ": System.DateTime",
+        "TypeText": ": unit",
         "Parameters": [
           {
             "Name": "s",
@@ -296,9 +296,9 @@
             "Description": ""
           },
           {
-            "Name": "provider",
-            "CanonicalTypeTextForSorting": "System.IFormatProvider",
-            "Display": "provider: System.IFormatProvider",
+            "Name": "z",
+            "CanonicalTypeTextForSorting": "Program.MyDateTime",
+            "Display": "z: MyDateTime",
             "Description": ""
           }
         ],
@@ -308,12 +308,12 @@
         "Tip": [
           [
             {
-              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+              "Signature": "static member MyDateTime.Parse : s:string * y:int -> unit",
               "Comment": ""
             }
           ]
         ],
-        "TypeText": ": System.DateTime",
+        "TypeText": ": unit",
         "Parameters": [
           {
             "Name": "s",
@@ -322,15 +322,9 @@
             "Description": ""
           },
           {
-            "Name": "provider",
-            "CanonicalTypeTextForSorting": "System.IFormatProvider",
-            "Display": "provider: System.IFormatProvider",
-            "Description": ""
-          },
-          {
-            "Name": "styles",
-            "CanonicalTypeTextForSorting": "System.Globalization.DateTimeStyles",
-            "Display": "styles: System.Globalization.DateTimeStyles",
+            "Name": "y",
+            "CanonicalTypeTextForSorting": "System.Int32",
+            "Display": "y: int",
             "Description": ""
           }
         ],
@@ -349,12 +343,12 @@
         "Tip": [
           [
             {
-              "Signature": "System.DateTime.Parse(s: string) : System.DateTime",
+              "Signature": "static member MyDateTime.Parse : s:string -> unit",
               "Comment": ""
             }
           ]
         ],
-        "TypeText": ": System.DateTime",
+        "TypeText": ": unit",
         "Parameters": [
           {
             "Name": "s",
@@ -369,12 +363,12 @@
         "Tip": [
           [
             {
-              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider) : System.DateTime",
+              "Signature": "static member MyDateTime.Parse : s:string * z:MyDateTime -> unit",
               "Comment": ""
             }
           ]
         ],
-        "TypeText": ": System.DateTime",
+        "TypeText": ": unit",
         "Parameters": [
           {
             "Name": "s",
@@ -383,9 +377,9 @@
             "Description": ""
           },
           {
-            "Name": "provider",
-            "CanonicalTypeTextForSorting": "System.IFormatProvider",
-            "Display": "provider: System.IFormatProvider",
+            "Name": "z",
+            "CanonicalTypeTextForSorting": "Program.MyDateTime",
+            "Display": "z: MyDateTime",
             "Description": ""
           }
         ],
@@ -395,12 +389,12 @@
         "Tip": [
           [
             {
-              "Signature": "System.DateTime.Parse(s: string, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) : System.DateTime",
+              "Signature": "static member MyDateTime.Parse : s:string * y:int -> unit",
               "Comment": ""
             }
           ]
         ],
-        "TypeText": ": System.DateTime",
+        "TypeText": ": unit",
         "Parameters": [
           {
             "Name": "s",
@@ -409,15 +403,9 @@
             "Description": ""
           },
           {
-            "Name": "provider",
-            "CanonicalTypeTextForSorting": "System.IFormatProvider",
-            "Display": "provider: System.IFormatProvider",
-            "Description": ""
-          },
-          {
-            "Name": "styles",
-            "CanonicalTypeTextForSorting": "System.Globalization.DateTimeStyles",
-            "Display": "styles: System.Globalization.DateTimeStyles",
+            "Name": "y",
+            "CanonicalTypeTextForSorting": "System.Int32",
+            "Display": "y: int",
             "Description": ""
           }
         ],
