@@ -24,7 +24,7 @@ module Contract =
     type HelptextRequest = {Symbol : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
-
+ 
 [<AutoOpen>]
 module internal Utils =
     let private fromJson<'a> json =
@@ -71,8 +71,8 @@ let main argv =
         state := state'
         let res' = res |> List.toArray |> Json.toJson
         return! Response.response HttpCode.HTTP_200 res' r
-    }
-
+    } 
+ 
     let app =
         Writers.setMimeType "application/json; charset=utf-8" >=>
         POST >=>
