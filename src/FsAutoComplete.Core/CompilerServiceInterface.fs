@@ -119,10 +119,9 @@ type ProjectChecker(options : Map<string, FSharpProjectOptions>) =
   member x.GetUsesOfSymbol(symbol) = async {
     let! res =
       options 
-      |> Map.toArray
-      |> Array.map (fun (k,v) -> 
-          getUsesOfSymbol symbol v
-      )
+      |> Map.toSeq
+      |> Seq.distinctBy(fun (_,v) -> v.ProjectFileName)
+      |> Seq.map (fun (_,v) -> getUsesOfSymbol symbol v)
       |> Async.Parallel
     return res |> Array.collect id
   }
