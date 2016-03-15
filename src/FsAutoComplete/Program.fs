@@ -67,7 +67,7 @@ module internal Main =
                   | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
                   | Some tyRes ->
 
-                  match cmd with
+                  match cmd with 
                   | Completion ->
                       Commands.completion writeJson !state checker tyRes line col lineStr filter
                   | ToolTip ->
@@ -80,6 +80,8 @@ module internal Main =
                       Commands.findDeclarations writeJson !state checker tyRes line col lineStr
                   | Methods ->
                       Commands.methods writeJson !state checker tyRes line col lines
+                  | SymbolUseProject ->
+                      Commands.symbolUseProject writeJson !state checker tyRes file line col lineStr
             | CompilerLocation ->
                 Commands.compilerLocation writeJson !state checker
 

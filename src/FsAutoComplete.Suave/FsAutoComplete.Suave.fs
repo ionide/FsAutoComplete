@@ -84,6 +84,7 @@ let main argv =
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> Commands.helptext writeJson !state checker data.Symbol)
             path "/completion" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.completion writeJson !state checker tyRes data.Line data.Column lineStr (Some data.Filter) )
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.toolTip writeJson !state checker tyRes data.Line data.Column lineStr )
+            path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUseProject writeJson !state checker tyRes data.FileName data.Line data.Column lineStr )
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUse writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.findDeclarations writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/methods" >=> positionHandler (fun data tyRes _ lines ->  Commands.methods writeJson !state checker tyRes data.Line data.Column lines )

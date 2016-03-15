@@ -125,6 +125,9 @@ type FSharpCompilerServiceChecker() =
                      
     return { rawOptions with OtherOptions = ensureCorrectFSharpCore rawOptions.OtherOptions }
   }
+  
+  member x.ParseAndCheckProject(options) = 
+    checker.ParseAndCheckProject options
 
   member x.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
@@ -132,6 +135,8 @@ type FSharpCompilerServiceChecker() =
   member x.TryGetRecentTypeCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentTypeCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun x -> new ParseAndCheckResults(x))
+
+  
 
   member x.GetDeclarations (fileName, source, options) = async {
     let! parseResult = checker.ParseFileInProject(fileName, source, options)
