@@ -97,7 +97,7 @@ module Commands =
                     // This allows it to be displayed immediately in the editor.
                     let firstMatchOpt =
                       Array.sortBy declName decls
-                      |> Array.tryFind (fun d -> (declName d).StartsWith residue)
+                      |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
                     let res = match firstMatchOpt with
                                 | None -> [Response.completion serialize (decls)]
                                 | Some d ->

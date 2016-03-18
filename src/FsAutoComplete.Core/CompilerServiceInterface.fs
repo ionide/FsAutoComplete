@@ -92,8 +92,8 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
       
       let decls =
         match filter with
-        | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith residue then yield d |]
-        | Some "Contains" -> [| for d in results.Items do if d.Name.Contains residue then yield d |]
+        | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
+        | Some "Contains" -> [| for d in results.Items do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
         | _ -> results.Items
       return Some (decls, residue)
     with :? TimeoutException -> return None
