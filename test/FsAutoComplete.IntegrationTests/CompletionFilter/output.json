@@ -109,6 +109,12 @@
   "Kind": "completion",
   "Data": [
     {
+      "Name": "Convert",
+      "ReplacementText": "Convert",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    },
+    {
       "Name": "GoodTime",
       "ReplacementText": "GoodTime",
       "Glyph": "Method",
