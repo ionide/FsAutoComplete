@@ -55,18 +55,19 @@ module internal Main =
 
             | HelpText sym ->
                 Commands.helptext writeJson !state checker sym
-            | PosCommand(cmd, file, line, col, timeout, filter) ->
+                Commands.helptext writeJson !state checker sym
+            | PosCommand(cmd, file, lineStr, line, col, _timeout, filter) ->
                 let file = Path.GetFullPath file
-                match (!state).TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
+                match (!state).TryGetFileCheckerOptionsWithLines (file) with
                 | Failure s -> async { return [Response.error writeJson (s)], !state }
-                | Success (options, lines, lineStr) ->
+                | Success (options) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
                   //       for completions e.g. `(some typed expr).$`
-                  let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+                  let projectOptions, lines = options
+                  let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, projectOptions)
                   match tyResOpt with
                   | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
                   | Some tyRes ->
-
                   match cmd with
                   | Completion ->
                       Commands.completion writeJson !state checker tyRes line col lineStr filter
