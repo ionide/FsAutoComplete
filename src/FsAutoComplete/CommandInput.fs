@@ -91,7 +91,13 @@ module CommandInput =
       let lines = [||]
       return Parse (filename, full, lines) }
 
-  // Parse 'completion "<filename>" <line> <col> [timeout]' command
+  let escapedQuote = parser {
+    let! _ = char '\\'
+    let! _ = char '"'
+    return '"'
+  }
+
+  // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
@@ -104,7 +110,7 @@ module CommandInput =
     let! _ = char '"'
     let! _ = many (string " ")
     let! _ = char '"'
-    let! lineStr = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+    let! lineStr = some (sat ((<>) '"') <|> escapedQuote) |> Parser.map String.ofSeq
     let! _ = char '"'
     let! _ = many (string " ")
     let! line = some digit |> Parser.map (String.ofSeq >> int)
