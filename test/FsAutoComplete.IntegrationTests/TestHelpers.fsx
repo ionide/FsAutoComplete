@@ -35,26 +35,26 @@ type FsAutoCompleteWrapper() =
   member x.parseContent (filename: string) (content: string) : unit =
     fprintf p.StandardInput "parse \"%s\" sync\n%s\n<<EOF>>\n" filename content
 
-  member x.completion (fn: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "completion \"%s\" %d %d\n" fn line col
+  member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
+    fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
-  member x.methods (fn: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "methods \"%s\" %d %d\n" fn line col
+  member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
+    fprintf p.StandardInput "methods \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
-  member x.completionFilter (fn: string) (line: int) (col: int) (filter: string) : unit =
-    fprintf p.StandardInput "completion \"%s\" %d %d filter=%s\n" fn line col filter
+  member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
+    fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d filter=%s\n" fn lineStr line col filter
 
-  member x.tooltip (fn: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "tooltip \"%s\" %d %d\n" fn line col
+  member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "tooltip \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
-  member x.typesig (fn: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "typesig \"%s\" %d %d\n" fn line col
+  member x.typesig (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "typesig \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
-  member x.finddeclaration (fn: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "finddecl \"%s\" %d %d\n" fn line col
+  member x.finddeclaration (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "finddecl \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
-  member x.symboluse (fn: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "symboluse \"%s\" %d %d\n" fn line col
+  member x.symboluse (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "symboluse \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
   member x.declarations (fn: string) : unit =
     fprintf p.StandardInput "declarations \"%s\"\n" fn

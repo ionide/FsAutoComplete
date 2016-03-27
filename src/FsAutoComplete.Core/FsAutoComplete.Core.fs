@@ -101,8 +101,8 @@ module Commands =
                     let res = match firstMatchOpt with
                                 | None -> [Response.completion serialize (decls)]
                                 | Some d ->
-                                    [ Response.completion serialize (decls)
-                                      Response.helpText serialize (d.Name, d.DescriptionText) ]
+                                    [Response.helpText serialize (d.Name, d.DescriptionText)
+                                     Response.completion serialize (decls)]
 
                     let helptext =
                       Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls

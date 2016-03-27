@@ -18,12 +18,12 @@ p.project "SymbolUse.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Script.fsx"
 p.parse "Program.fs"
-p.symboluse "Program.fs" 4 5 //testval
-p.symboluse "Program.fs" 14 12 //testval shadowed
-p.symboluse "Program.fs" 12 4 //miss
-p.symboluse "Program.fs" 12 5 //shadowed start
-p.symboluse "Program.fs" 12 13 //shadowed end
-p.symboluse "Script.fsx" 6 18 // no uses due to compile error
+p.symboluse "Program.fs" "let testval = FileTwo.NewObjectType()" 4 5 //testval
+p.symboluse "Program.fs" "    let testval = 123" 14 12 //testval shadowed
+p.symboluse "Program.fs" "let shadowed = " 12 4 //miss
+p.symboluse "Program.fs" "let shadowed = " 12 5 //shadowed start
+p.symboluse "Program.fs" "let shadowed = " 12 13 //shadowed end
+p.symboluse "Script.fsx" "    System.IO.Directory" 6 18 // no uses due to compile error
 
 Threading.Thread.Sleep(1000)
 p.send "quit\n"
