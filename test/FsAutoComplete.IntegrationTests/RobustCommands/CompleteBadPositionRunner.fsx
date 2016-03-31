@@ -10,8 +10,8 @@ let p = new FsAutoCompleteWrapper()
 
 p.project "Project/Test1.fsproj"
 p.parse "Project/Program.fs"
-p.completion "Project/Program.fs" 50 0
-p.completion "Project/Program.fs" 1 100
+p.completion "Project/Program.fs" "whatever" 50 1
+p.completion "Project/Program.fs" "module X =" 1 100
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "completebadposition.json"

@@ -55,31 +55,36 @@ module internal Main =
 
             | HelpText sym ->
                 Commands.helptext writeJson !state checker sym
-            | PosCommand(cmd, file, line, col, timeout, filter) ->
+            | PosCommand(cmd, file, lineStr, line, col, _timeout, filter) ->
                 let file = Path.GetFullPath file
-                match (!state).TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) with
+                match (!state).TryGetFileCheckerOptionsWithLines (file) with
                 | Failure s -> async { return [Response.error writeJson (s)], !state }
-                | Success (options, lines, lineStr) ->
-                  // TODO: Should sometimes pass options.Source in here to force a reparse
-                  //       for completions e.g. `(some typed expr).$`
-                  let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-                  match tyResOpt with
-                  | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
-                  | Some tyRes ->
-
-                  match cmd with
-                  | Completion ->
-                      Commands.completion writeJson !state checker tyRes line col lineStr filter
-                  | ToolTip ->
-                      Commands.toolTip writeJson !state checker tyRes line col lineStr
-                  | TypeSig ->
-                      Commands.typesig writeJson !state checker tyRes line col lineStr
-                  | SymbolUse ->
-                      Commands.symbolUse writeJson !state checker tyRes line col lineStr
-                  | FindDeclaration ->
-                      Commands.findDeclarations writeJson !state checker tyRes line col lineStr
-                  | Methods ->
-                      Commands.methods writeJson !state checker tyRes line col lines
+                | Success (options) ->
+                  let projectOptions, lines = options
+                  let ok = line <= lines.Length && line >= 1 &&
+                           col <= lineStr.Length + 1 && col >= 1
+                  if not ok then
+                      async { return [Response.error writeJson "Position is out of range"], !state}
+                  else
+                    // TODO: Should sometimes pass options.Source in here to force a reparse
+                    //       for completions e.g. `(some typed expr).$`
+                    let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, projectOptions)
+                    match tyResOpt with
+                    | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
+                    | Some tyRes ->
+                    match cmd with
+                    | Completion ->
+                        Commands.completion writeJson !state checker tyRes line col lineStr filter
+                    | ToolTip ->
+                        Commands.toolTip writeJson !state checker tyRes line col lineStr
+                    | TypeSig ->
+                        Commands.typesig writeJson !state checker tyRes line col lineStr
+                    | SymbolUse ->
+                        Commands.symbolUse writeJson !state checker tyRes line col lineStr
+                    | FindDeclaration ->
+                        Commands.findDeclarations writeJson !state checker tyRes line col lineStr
+                    | Methods ->
+                        Commands.methods writeJson !state checker tyRes line col lines
             | CompilerLocation ->
                 Commands.compilerLocation writeJson !state checker
 
