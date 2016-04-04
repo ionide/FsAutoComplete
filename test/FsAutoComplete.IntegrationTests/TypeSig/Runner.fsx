@@ -14,10 +14,10 @@ File.Delete "output.json"
 let p = new FsAutoCompleteWrapper()
 
 p.parse "Script.fsx"
-p.typesig "Script.fsx" 4 10
-p.typesig "Script.fsx" 8 19
-p.typesig "Script.fsx" 10 14
-p.typesig "Script.fsx" 4 10
+p.typesig "Script.fsx" "  let funky x = x + 1" 4 10
+p.typesig "Script.fsx" "module CommandResponse =" 8 19
+p.typesig "Script.fsx" "  type ResponseMsg<'T> =" 10 14
+p.typesig "Script.fsx" "  let funky x = x + 1" 4 10
 p.send "quit\n"
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

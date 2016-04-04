@@ -44,7 +44,7 @@ type State =
       LoadTime = DateTime.Now
       UnresolvedReferences = None }
 
-  member private x.TryGetFileCheckerOptionsWithLines(file) : Result<FSharpProjectOptions * string[]> =
+  member x.TryGetFileCheckerOptionsWithLines(file) : Result<FSharpProjectOptions * string[]> =
     match x.Files.TryFind(file) with
     | None -> Failure (sprintf "File '%s' not parsed" file)
     | Some (volFile) ->

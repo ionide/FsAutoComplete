@@ -19,7 +19,7 @@ type ParseKind =
 
 // Command that can be entered on the command-line
 type Command =
-  | PosCommand of PosCommand * string * int * int * int option * string option
+  | PosCommand of PosCommand * string * string * int * int * int option * string option
   | HelpText of string
   | Declarations of string
   | Parse of string * ParseKind * string[]
@@ -92,7 +92,13 @@ module CommandInput =
       let lines = [||]
       return Parse (filename, full, lines) }
 
-  // Parse 'completion "<filename>" <line> <col> [timeout]' command
+  let escapedQuote = parser {
+    let! _ = char '\\'
+    let! _ = char '"'
+    return '"'
+  }
+
+  // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
@@ -103,6 +109,10 @@ module CommandInput =
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+    let! _ = char '"'
+    let! _ = many (string " ")
+    let! _ = char '"'
+    let! lineStr = some (sat ((<>) '"') <|> escapedQuote) |> Parser.map String.ofSeq
     let! _ = char '"'
     let! _ = many (string " ")
     let! line = some digit |> Parser.map (String.ofSeq >> int)
@@ -119,7 +129,7 @@ module CommandInput =
                          |> Parser.map String.ofSeq
                 return Some b }) <|>
       (parser { return None })
-    return PosCommand(f, filename, line, col, timeout, filter) }
+    return PosCommand(f, filename, lineStr, line, col, timeout, filter) }
 
   let helptext = parser {
       let! _ = string "helptext"
