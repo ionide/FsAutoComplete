@@ -1,3 +1,10 @@
+#### 0.28.0 - 05.04.2016
+
+* Backwards-incompatible: Make completions faster by not requiring a parse on each request: #99
+* Add `SymbolUseProject` command: #101.
+* Add typesig command, that doesn't get Comment data: #73
+* Add extraction of xmldoc from other assemblies (from .xml files).
+
 #### 0.27.4 - 18.02.2016
 
 * Normalize paths to source files from projects: #94.
@@ -27,7 +34,7 @@
 #### 0.26.0 - 20.10.2015
 
 * Fix for uncompiled referenced projects: #78.
-* Backwards-incompatible: Framework no longer returned in `project` reponse.
+* Backwards-incompatible: Framework no longer returned in `project` response.
 
 #### 0.25.1 - 16.10.2015
 
