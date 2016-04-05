@@ -85,6 +85,8 @@ module internal Main =
                         Commands.findDeclarations writeJson !state checker tyRes line col lineStr
                     | Methods ->
                         Commands.methods writeJson !state checker tyRes line col lines
+                    | SymbolUseProject ->
+                      Commands.symbolUseProject writeJson !state checker tyRes file line col lineStr
             | CompilerLocation ->
                 Commands.compilerLocation writeJson !state checker
 

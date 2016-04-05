@@ -8,6 +8,7 @@ type PosCommand =
   | Completion
   | Methods
   | SymbolUse
+  | SymbolUseProject 
   | ToolTip
   | TypeSig
   | FindDeclaration
@@ -101,6 +102,7 @@ module CommandInput =
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
+             (string "symboluseproject " |> Parser.map (fun _ -> SymbolUse)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
              (string "typesig " |> Parser.map (fun _ -> TypeSig)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>

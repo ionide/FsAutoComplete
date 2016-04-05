@@ -234,7 +234,7 @@ module CommandResponse =
                       IsFromComputationExpression = su.IsFromComputationExpression
                       IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
                       IsFromPattern = su.IsFromPattern
-                      IsFromType = su.IsFromType } ] }
+                      IsFromType = su.IsFromType } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symboluse"; Data = su }
 
   let methods (serialize : obj -> string) (meth: FSharpMethodGroup, commas: int) =

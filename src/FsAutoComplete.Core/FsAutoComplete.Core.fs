@@ -137,6 +137,16 @@ module Commands =
         return match res with
                 | Result.Failure s -> [Response.info serialize (s)], state
                 | Result.Success (sym,usages) -> [Response.symbolUse serialize (sym,usages)], state
+    } 
+     
+    let symbolUseProject (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) file line col lineStr = async {
+        let! res = tyRes.TryGetSymbolUse line col lineStr
+        match res with
+            | Result.Failure s -> return [Response.info serialize (s)], state
+            | Result.Success (sym,usages) -> 
+                let pChecker = checker.GetProjectChecker(state.FileCheckOptions)
+                let! symbols = pChecker.GetUsesOfSymbol sym.Symbol
+                return [Response.symbolUse serialize (sym,symbols)], state
     }
 
     let findDeclarations  (serialize : obj -> string) (state : State) (checker : FSharpCompilerServiceChecker) (tyRes : ParseAndCheckResults ) line col lineStr = async {
