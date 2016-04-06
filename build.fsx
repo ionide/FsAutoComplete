@@ -90,7 +90,7 @@ Target "UnitTest" (fun _ ->
 
 
 Target "AssemblyInfo" (fun _ ->
-  let fileName = project + "/AssemblyInfo.fs"
+  let fileName = "src" </> project </> "AssemblyInfo.fs"
   CreateFSharpAssemblyInfo fileName
     [ Attribute.Title project
       Attribute.Product project
@@ -100,7 +100,7 @@ Target "AssemblyInfo" (fun _ ->
 )
 
 Target "SuaveAssemblyInfo" (fun _ ->
-  let fileName = suaveProject + "/AssemblyInfo.fs"
+  let fileName = "src" </> suaveProject </> "AssemblyInfo.fs"
   CreateFSharpAssemblyInfo fileName
     [ Attribute.Title suaveProject
       Attribute.Product suaveProject
