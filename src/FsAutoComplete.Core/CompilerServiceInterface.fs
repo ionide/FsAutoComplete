@@ -137,6 +137,10 @@ type FSharpCompilerServiceChecker() =
                    [| yield fsharpCoreRef
                       yield! Seq.filter (fun (s: string) -> not (s.EndsWith("FSharp.Core.dll"))) options |])
     |> Option.getOrElse options
+    
+  let chooseByPrefix prefix (s: string) =
+    if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
+    else None
 
   member x.GetProjectOptionsFromScript(file, source) = async {
     let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
@@ -175,16 +179,25 @@ type FSharpCompilerServiceChecker() =
                p.OtherOptions
           { p with OtherOptions = opts }, logMap
 
-        let chooseByPrefix prefix (s: string) =
-          if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
-          else None
-
         let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
         Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, logMap)
-      with e ->
+      with e -> 
+        Failure e.Message
+        
+  member x.TryGetCoreProjectOptions (file : string) : Result<_> = 
+    if not (File.Exists file) then
+      Failure (sprintf "File '%s' does not exist" file)
+    else
+      try
+        let po = ProjectCoreCracker.GetProjectOptionsFromProjectFile file
+        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
+        let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
+        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))   
+      with e -> 
         Failure e.Message
         
 
