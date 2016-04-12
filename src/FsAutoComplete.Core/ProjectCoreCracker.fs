@@ -12,6 +12,10 @@ module ProjectCoreCracker =
       Directory.GetFiles(projDir, "dotnet-compile-fsc.rsp", SearchOption.AllDirectories) 
       |> Seq.head
       |> File.ReadAllLines
+      |> Array.map (fun s -> if s.EndsWith ".fs" then 
+                                let p = Path.GetFullPath s
+                                (p.Chars 0).ToString().ToLower() + p.Substring(1)
+                             else s )
       
     { 
       ProjectFileName = file
