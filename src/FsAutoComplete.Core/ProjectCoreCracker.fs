@@ -16,6 +16,7 @@ module ProjectCoreCracker =
                                 let p = Path.GetFullPath s
                                 (p.Chars 0).ToString().ToLower() + p.Substring(1)
                              else s )
+      |> Array.filter((<>) "--nocopyfsharpcore") 
       
     { 
       ProjectFileName = file
