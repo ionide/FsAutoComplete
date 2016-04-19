@@ -37,6 +37,8 @@ module Options =
       - find all uses of the symbol for the specified location across whole project
     tooltip ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - get tool tip for the specified location
+    typesig ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
+      - get type signature for the specified location
     finddecl ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - find the point of declaration of the symbol at specified location
     methods ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
