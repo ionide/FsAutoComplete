@@ -25,19 +25,19 @@ module Options =
         Optional 'sync' is used to force the parse to occur
         synchronously for testing purposes. Not intended for
         use in production.
-    completion ""<filename>"" <line> <col> [timeout] [filter=(StartsWith|Contains)]
+    completion ""<filename>"" ""<lineStr>"" <line> <col> [timeout] [filter=(StartsWith|Contains)]
       - trigger completion request for the specified location
         optionally filter in the specified manner
     helptext <candidate>
       - fetch type signature for specified completion candidate
         (from last completion request). Only use in JSON mode.
-    symboluse ""<filename>"" <line> <col> [timeout]
+    symboluse ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - find all uses of the symbol for the specified location
-    tooltip ""<filename>"" <line> <col> [timeout]
+    tooltip ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - get tool tip for the specified location
-    finddecl ""<filename>"" <line> <col> [timeout]
+    finddecl ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - find the point of declaration of the symbol at specified location
-    methods ""<filename>"" <line> <col> [timeout]
+    methods ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - find the method signatures at specified location
     project ""<filename>""
       - associates the current session with the specified project
