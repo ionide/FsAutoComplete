@@ -33,6 +33,8 @@ module Options =
         (from last completion request). Only use in JSON mode.
     symboluse ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - find all uses of the symbol for the specified location
+    symboluseproject ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
+      - find all uses of the symbol for the specified location across whole project
     tooltip ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
       - get tool tip for the specified location
     finddecl ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
