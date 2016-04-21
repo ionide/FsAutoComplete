@@ -11,3 +11,4 @@ nuget NUnit.Runners
 nuget Octokit
 nuget Suave
 nuget FSharpLint.Core prerelease
+nuget FSharp.Core
