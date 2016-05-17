@@ -2,6 +2,7 @@ namespace FsAutoComplete
 
 open System
 open System.IO
+open Utils
 
 module Environment =
   let private environVar v = Environment.GetEnvironmentVariable v
@@ -17,11 +18,7 @@ module Environment =
       |> fun detected -> if detected = null then @"C:\Program Files (x86)\" else detected
 
   // Below code slightly modified from FAKE MSBuildHelper.fs
-
-  let inline private combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
-
-  let inline private (@@) path1 path2 = combinePaths path1 path2
-
+  
   let private tryFindFile dirs file =
       let files =
           dirs
@@ -41,7 +38,7 @@ module Environment =
               | _ -> "")
           |> Seq.filter ((<>) "")
           |> Seq.cache
-      if not (Seq.isEmpty files) then Some(Seq.head files)
+      if not (Seq.isEmpty files) then Some(Seq.head files) 
       else None
 
   let private tryFindPath backupPaths tool =
@@ -95,4 +92,13 @@ module Environment =
         programFilesX86 @@ @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\"
       let fsharpCoreVersions = ["4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
       tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
+
+  let referenceAssembliesPath = 
+     programFilesX86 @@ @"Reference Assemblies\Microsoft\Framework\.NETFramework"
+  
+  let dotNetVersions = 
+    Directory.EnumerateDirectories referenceAssembliesPath
+    |> Seq.sort
+    |> Seq.toArray
+    |> Array.rev
       

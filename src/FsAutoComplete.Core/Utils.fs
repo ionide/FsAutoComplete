@@ -21,6 +21,10 @@ module Utils =
         let p = Path.GetFullPath file
         (p.Chars 0).ToString().ToLower() + p.Substring(1)
     else file
+    
+  let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
+
+  let inline (@@) path1 path2 = combinePaths path1 path2
 
 module Option =
   let getOrElse defaultValue option =

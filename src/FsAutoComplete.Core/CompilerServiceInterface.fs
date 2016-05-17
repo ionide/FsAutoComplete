@@ -4,6 +4,7 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Utils
 
 type ParseAndCheckResults(parseResults: FSharpParseFileResults,
                           checkResults: FSharpCheckFileResults,
@@ -138,14 +139,32 @@ type FSharpCompilerServiceChecker() =
                       yield! Seq.filter (fun (s: string) -> not (s.EndsWith("FSharp.Core.dll"))) options |])
     |> Option.getOrElse options
     
+  let ensureCorrectVersions (options: string[]) = 
+    let version = Environment.dotNetVersions |> Seq.head
+    let oldRef = Environment.referenceAssembliesPath @@ "v4.0" 
+    let newRef = Environment.referenceAssembliesPath @@ version
+    
+    let fsharpCoreRef = options |> Seq.find (fun s -> s.EndsWith "FSharp.Core.dll")
+    
+    let newOptions =
+      options
+      |> Seq.filter (fun s -> not (s.EndsWith "FSharp.Core.dll"))
+      |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
+    [| yield fsharpCoreRef
+       yield! newOptions |]
+    
   let chooseByPrefix prefix (s: string) =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
   member x.GetProjectOptionsFromScript(file, source) = async {
     let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
+    let opts = 
+      rawOptions.OtherOptions
+      |> ensureCorrectFSharpCore
+      |> ensureCorrectVersions
                      
-    return { rawOptions with OtherOptions = ensureCorrectFSharpCore rawOptions.OtherOptions }
+    return { rawOptions with OtherOptions = opts }
   }
   
   member x.GetProjectChecker(options) = 
