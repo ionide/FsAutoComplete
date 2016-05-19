@@ -140,18 +140,20 @@ type FSharpCompilerServiceChecker() =
     |> Option.getOrElse options
     
   let ensureCorrectVersions (options: string[]) = 
-    let version = Environment.dotNetVersions |> Seq.head
-    let oldRef = Environment.referenceAssembliesPath @@ "v4.0" 
-    let newRef = Environment.referenceAssembliesPath @@ version
-    
-    let fsharpCoreRef = options |> Seq.find (fun s -> s.EndsWith "FSharp.Core.dll")
-    
-    let newOptions =
-      options
-      |> Seq.filter (fun s -> not (s.EndsWith "FSharp.Core.dll"))
-      |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
-    [| yield fsharpCoreRef
-       yield! newOptions |]
+    if Utils.runningOnMono then options
+    else 
+      let version = Environment.dotNetVersions |> Seq.head
+      let oldRef = Environment.referenceAssembliesPath @@ "v4.0"  
+      let newRef = Environment.referenceAssembliesPath @@ version
+      
+      let fsharpCoreRef = options |> Seq.find (fun s -> s.EndsWith "FSharp.Core.dll")
+      
+      let newOptions =
+        options
+        |> Seq.filter (fun s -> not (s.EndsWith "FSharp.Core.dll"))
+        |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
+      [| yield fsharpCoreRef
+         yield! newOptions |]
     
   let chooseByPrefix prefix (s: string) =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
