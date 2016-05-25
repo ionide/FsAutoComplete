@@ -2,7 +2,7 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open Utils
+open Utils 
 
 module Environment =
   let private environVar v = Environment.GetEnvironmentVariable v
@@ -54,7 +54,7 @@ module Environment =
   let msbuild =
       if Utils.runningOnMono then "xbuild"
       else
-        let MSBuildPath =
+        let MSBuildPath = 
             (programFilesX86 @@ @"\MSBuild\14.0\Bin") + ";" +
             (programFilesX86 @@ @"\MSBuild\12.0\Bin") + ";" +
             (programFilesX86 @@ @"\MSBuild\12.0\Bin\amd64") + ";" +
@@ -96,7 +96,7 @@ module Environment =
   let referenceAssembliesPath = 
      programFilesX86 @@ @"Reference Assemblies\Microsoft\Framework\.NETFramework"
   
-  let dotNetVersions = 
+  let dotNetVersions () = 
     Directory.EnumerateDirectories referenceAssembliesPath
     |> Seq.sort
     |> Seq.toArray

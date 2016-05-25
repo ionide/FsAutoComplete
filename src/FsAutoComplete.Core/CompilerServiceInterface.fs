@@ -142,7 +142,7 @@ type FSharpCompilerServiceChecker() =
   let ensureCorrectVersions (options: string[]) = 
     if Utils.runningOnMono then options
     else 
-      let version = Environment.dotNetVersions |> Seq.head
+      let version = Environment.dotNetVersions () |> Seq.head 
       let oldRef = Environment.referenceAssembliesPath @@ "v4.0"  
       let newRef = Environment.referenceAssembliesPath @@ version
       
