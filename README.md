@@ -44,6 +44,20 @@ The [integration tests](FsAutoComplete/test/integration) use a simple strategy o
 
 There are [unit tests](FSharp.CompilerBinding.Tests) for FSharp.CompilerBinding, which smoothes the integration with [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests are simply constructed using NUnit.
 
+## Troubleshooting
+
+### Project file loading issues
+
+Try invoking the binary for project file cracking directly:
+
+    mono FSharp.Compiler.Service.ProjectCrackerTool.exe --text <path to>/MyProject.fsproj true
+
+Inspect the log output. At the top will be an F# data structure containing compiler options including referenced assemblies. This is then followed by a detailed MSBuild log. Take a look for any error messages to do with assembly resolution. It is common for this fake build to fail overall, because it does not actually compile the project, so latter steps such as copying of output will fail. This will not interfere with assembly resolution.
+
+### FileWatcher exceptions
+
+You may see a stack trace finishing with `System.IO.IOException: kqueue() error at init, error code = ’0’`. This is due to a limitation in the number of filehandles that the Mono file watchers can keep open. Restarting FsAutoComplete or the hosting editor should help. If not, try setting `export MONO_MANAGED_WATCHER=disabled` in your `~/.bash_profile`. Note that on OSX, this setting will only take effect if you launch emacs from the terminal.
+
 ## Communication protocol
 
 It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](FsAutoComplete/test/integration/Test1).
