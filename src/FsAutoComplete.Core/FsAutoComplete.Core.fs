@@ -48,11 +48,16 @@ module Commands =
         return match state.ProjectLoadTimes.TryFind file with
                 | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> [],state
                 | _ ->
+                let options = 
+                  if file.EndsWith "fsproj" then
+                    checker.TryGetProjectOptions(file, verbose)
+                  else
+                    checker.TryGetCoreProjectOptions file
 
-                match checker.TryGetProjectOptions(file, verbose) with
+                match options with
                 | Result.Failure s -> [Response.error serialize s],state
                 | Result.Success(po, projectFiles, outFileOpt, references, logMap) ->
-                    let pf = projectFiles |> List.map Path.GetFullPath
+                    let pf = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
                     let res = Response.project serialize (file, pf, outFileOpt, references, logMap)
                     let checkOptions = pf |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
                     let loadTimes = Map.add file time state.ProjectLoadTimes
