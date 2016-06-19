@@ -15,8 +15,10 @@ open System.IO
 
 type FileSystem (actualFs: IFileSystem, getFiles: unit -> Map<string, VolatileFile>) =
     let getFile (filename: string) =
-       let files = getFiles ()
-       Map.tryFind filename files
+        let files = getFiles ()
+        printfn "[getFile] Currently known: %A" (files |> Map.toSeq |> Seq.map fst)
+        printfn "[getFile] Looking for: %s" filename
+        Map.tryFind filename files
 
     let getContent (filename: string) =
         match getFile filename with
