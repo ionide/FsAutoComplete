@@ -4,6 +4,8 @@ open System
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
+
+
 type State =
   {
     Files : Map<string,VolatileFile>
@@ -21,6 +23,8 @@ type State =
       ColorizationOutput = false }
 
   member x.WithFileTextGetCheckerOptions(file, lines) : State * FSharpProjectOptions =
+    let file = Utils.normalizePath file
+
     let opts =
       match x.FileCheckOptions.TryFind file with
       | None -> State.FileWithoutProjectOptions(file)
@@ -30,6 +34,7 @@ type State =
              FileCheckOptions = Map.add file opts x.FileCheckOptions }, opts
 
   member x.WithFileTextAndCheckerOptions(file, lines, opts) =
+    let file = Utils.normalizePath file
     let fileState = { Lines = lines; Touched = DateTime.Now }
     { x with Files = Map.add file fileState x.Files
              FileCheckOptions = Map.add file opts x.FileCheckOptions }
@@ -45,6 +50,7 @@ type State =
       UnresolvedReferences = None }
 
   member x.TryGetFileCheckerOptionsWithLines(file) : Result<FSharpProjectOptions * string[]> =
+    let file = Utils.normalizePath file
     match x.Files.TryFind(file) with
     | None -> Failure (sprintf "File '%s' not parsed" file)
     | Some (volFile) ->
@@ -54,11 +60,13 @@ type State =
       | Some opts -> Success (opts, volFile.Lines)
 
   member x.TryGetFileCheckerOptionsWithSource(file) : Result<FSharpProjectOptions * string> =
+    let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Failure x -> Failure x
     | Success (opts, lines) -> Success (opts, String.concat "\n" lines)
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) : Result<FSharpProjectOptions * string[] * string> =
+    let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Failure x -> Failure x
     | Success (opts, lines) ->

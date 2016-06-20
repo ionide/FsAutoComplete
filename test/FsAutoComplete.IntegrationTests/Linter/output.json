@@ -10,16 +10,6 @@
   "Kind": "lint",
   "Data": [
     {
-      "Info": "Found trailing whitespace line at end of file.",
-      "Range": {
-        "StartColumn": 1,
-        "StartLine": 10,
-        "EndColumn": 1,
-        "EndLine": 10
-      },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n"
-    },
-    {
       "Info": "`not (a=b)` might be able to be refactored into `a<>b`.",
       "Range": {
         "StartColumn": 17,
@@ -66,16 +56,6 @@
         "StartLine": 5,
         "EndColumn": 22,
         "EndLine": 5
-      },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n"
-    },
-    {
-      "Info": "`List.fold ( + ) 0` might be able to be refactored into `List.sum`.",
-      "Range": {
-        "StartColumn": 13,
-        "StartLine": 6,
-        "EndColumn": 30,
-        "EndLine": 6
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n"
     },

@@ -1,34 +1,37 @@
+REDIRECTS: ON
 NUGET
   remote: https://www.nuget.org/api/v2
-  specs:
-    FAKE (4.21.4)
-    FSharp.Compiler.Service (2.0.0.6)
-    FSharp.Compiler.Service.ProjectCracker (2.0.0.6)
+    FAKE (4.29)
+    FParsec (1.0.2)
+    FSharp.Compiler.Service (3.0)
+    FSharp.Compiler.Service.ProjectCracker (3.0)
     FSharp.Core (4.0.0.1)
-    FSharpLint.Core (0.0.15-beta)
-      FSharp.Compiler.Service (>= 2.0.0.3)
-    Microsoft.Bcl (1.1.10)
+    FSharpLint.Core (0.3.0-beta)
+      FParsec
+      FSharp.Compiler.Service
+      FSharp.Compiler.Service.ProjectCracker
+    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
       Microsoft.Bcl.Build (>= 1.0.14)
-    Microsoft.Bcl.Build (1.0.21) - import_targets: false
-    Microsoft.Net.Http (2.2.29)
+    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
+    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
       Microsoft.Bcl (>= 1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Mono.Cecil (0.9.6.1)
     NDesk.Options (0.2.1)
-    Newtonsoft.Json (8.0.2)
-    NUnit (3.2.0)
-    NUnit.ConsoleRunner (3.2.0)
-    NUnit.Extension.NUnitProjectLoader (3.2.0)
-    NUnit.Extension.NUnitV2Driver (3.2.0)
-    NUnit.Extension.NUnitV2ResultWriter (3.2.0)
-    NUnit.Extension.VSProjectLoader (3.2.0)
-    NUnit.Runners (3.2.0)
-      NUnit.ConsoleRunner (3.2.0)
-      NUnit.Extension.NUnitProjectLoader (3.2.0)
-      NUnit.Extension.NUnitV2Driver (3.2.0)
-      NUnit.Extension.NUnitV2ResultWriter (3.2.0)
-      NUnit.Extension.VSProjectLoader (3.2.0)
-    Octokit (0.18.0)
-      Microsoft.Net.Http
-    Suave (1.1.1)
+    Newtonsoft.Json (8.0.3)
+    NUnit (3.2.1)
+    NUnit.ConsoleRunner (3.2.1)
+    NUnit.Extension.NUnitProjectLoader (3.2.1)
+    NUnit.Extension.NUnitV2Driver (3.2.1)
+    NUnit.Extension.NUnitV2ResultWriter (3.2.1)
+    NUnit.Extension.VSProjectLoader (3.2.1)
+    NUnit.Runners (3.2.1)
+      NUnit.ConsoleRunner (3.2.1)
+      NUnit.Extension.NUnitProjectLoader (3.2.1)
+      NUnit.Extension.NUnitV2Driver (3.2.1)
+      NUnit.Extension.NUnitV2ResultWriter (3.2.1)
+      NUnit.Extension.VSProjectLoader (3.2.1)
+    Octokit (0.20)
+      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
+    Suave (1.1.2)
       FSharp.Core (>= 3.1.2.5)

@@ -22,6 +22,7 @@ module Contract =
     type ProjectRequest = { FileName : string;}
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
+    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
  
@@ -82,14 +83,32 @@ let main argv =
             path "/project" >=> handler (fun (data : ProjectRequest) -> Commands.project writeJson !state checker data.FileName DateTime.Now false)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> Commands.declarations writeJson !state checker data.FileName)
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> Commands.helptext writeJson !state checker data.Symbol)
-            path "/completion" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.completion writeJson !state checker tyRes data.Line data.Column lineStr (Some data.Filter) )
+            path "/completion" >=> handler (fun (data : CompletionRequest) ->  async {
+                let file = Path.GetFullPath data.FileName
+                let! (res, (state' : State)) =
+                    match (!state).TryGetFileCheckerOptionsWithLines(file) with
+                    | Failure s -> async { return [CommandResponse.error writeJson (s)], !state }
+                    | Success (options, lines) ->
+                    let line = data.Line
+                    let col = data.Column
+                    let lineStr = data.SourceLine
+                    let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
+                    if not ok then
+                        async { return [CommandResponse.error writeJson "Position is out of range"], !state}
+                    else                    
+                        let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+                        match tyResOpt with
+                        | None -> async { return [ CommandResponse.info writeJson "Cached typecheck results not yet available"], !state }
+                        | Some tyRes -> Commands.completion writeJson !state checker tyRes data.Line data.Column lineStr (Some data.Filter)
+                return res,state'
+                })
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.toolTip writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUseProject writeJson !state checker tyRes data.FileName data.Line data.Column lineStr )
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.symbolUse writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ ->  Commands.findDeclarations writeJson !state checker tyRes data.Line data.Column lineStr )
             path "/methods" >=> positionHandler (fun data tyRes _ lines ->  Commands.methods writeJson !state checker tyRes data.Line data.Column lines )
             path "/compilerlocation" >=> (fun r -> async {
-                let! (res,state') = Commands.compilerLocation writeJson !state checker
+                let! (res,state') = Commands.compilerLocation writeJson !state checker 
                 state := state'
                 let res' = res |> List.toArray |> Json.toJson
                 return! Response.response HttpCode.HTTP_200 res' r
