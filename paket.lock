@@ -1,12 +1,15 @@
+REDIRECTS: ON
 NUGET
   remote: https://www.nuget.org/api/v2
-  specs:
-    FAKE (4.25.4)
+    FAKE (4.29)
+    FParsec (1.0.2)
     FSharp.Compiler.Service (3.0)
     FSharp.Compiler.Service.ProjectCracker (3.0)
     FSharp.Core (4.0.0.1)
-    FSharpLint.Core (0.0.16)
-      FSharp.Compiler.Service (>= 2.0.0.8)
+    FSharpLint.Core (0.3.0-beta)
+      FParsec
+      FSharp.Compiler.Service
+      FSharp.Compiler.Service.ProjectCracker
     Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
       Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
@@ -28,7 +31,7 @@ NUGET
       NUnit.Extension.NUnitV2Driver (3.2.1)
       NUnit.Extension.NUnitV2ResultWriter (3.2.1)
       NUnit.Extension.VSProjectLoader (3.2.1)
-    Octokit (0.19)
+    Octokit (0.20)
       Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
     Suave (1.1.2)
       FSharp.Core (>= 3.1.2.5)
