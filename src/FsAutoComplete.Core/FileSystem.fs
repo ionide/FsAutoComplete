@@ -15,10 +15,12 @@ open System.IO
 
 type FileSystem (actualFs: IFileSystem, getFiles: unit -> Map<string, VolatileFile>) =
     let getFile (filename: string) =
+       let filename = Utils.normalizePath filename
        let files = getFiles ()
        Map.tryFind filename files
 
     let getContent (filename: string) =
+        let filename = Utils.normalizePath filename
         match getFile filename with
         | Some d ->
            let bytes = System.Text.Encoding.UTF8.GetBytes (String.Join ("\n", d.Lines))
@@ -46,12 +48,12 @@ type FileSystem (actualFs: IFileSystem, getFiles: unit -> Map<string, VolatileFi
                 | _      -> actualFs.GetLastWriteTimeShim fileName
 
         member x.GetTempPathShim() = actualFs.GetTempPathShim()
-        member x.FileStreamCreateShim fileName = actualFs.FileStreamCreateShim fileName
-        member x.FileStreamWriteExistingShim fileName = actualFs.FileStreamWriteExistingShim fileName
-        member x.GetFullPathShim fileName = actualFs.GetFullPathShim fileName
-        member x.IsInvalidPathShim fileName = actualFs.IsInvalidPathShim fileName
-        member x.IsPathRootedShim fileName = actualFs.IsPathRootedShim fileName
-        member x.SafeExists fileName = actualFs.SafeExists fileName
-        member x.FileDelete fileName = actualFs.FileDelete fileName
-        member x.AssemblyLoadFrom fileName = actualFs.AssemblyLoadFrom fileName
+        member x.FileStreamCreateShim fileName = actualFs.FileStreamCreateShim (Utils.normalizePath fileName)
+        member x.FileStreamWriteExistingShim fileName = actualFs.FileStreamWriteExistingShim (Utils.normalizePath fileName)
+        member x.GetFullPathShim fileName = actualFs.GetFullPathShim (Utils.normalizePath fileName)
+        member x.IsInvalidPathShim fileName = actualFs.IsInvalidPathShim (Utils.normalizePath fileName)
+        member x.IsPathRootedShim fileName = actualFs.IsPathRootedShim (Utils.normalizePath fileName)
+        member x.SafeExists fileName = actualFs.SafeExists (Utils.normalizePath fileName)
+        member x.FileDelete fileName = actualFs.FileDelete (Utils.normalizePath fileName)
+        member x.AssemblyLoadFrom fileName = actualFs.AssemblyLoadFrom (Utils.normalizePath fileName)
         member x.AssemblyLoad(assemblyName) = actualFs.AssemblyLoad assemblyName
