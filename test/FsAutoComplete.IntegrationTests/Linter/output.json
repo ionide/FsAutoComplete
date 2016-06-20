@@ -60,16 +60,6 @@
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n"
     },
     {
-      "Info": "`List.fold ( + ) 0` might be able to be refactored into `List.sum`.",
-      "Range": {
-        "StartColumn": 13,
-        "StartLine": 6,
-        "EndColumn": 30,
-        "EndLine": 6
-      },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n"
-    },
-    {
       "Info": "`a<>true` might be able to be refactored into `not a`.",
       "Range": {
         "StartColumn": 15,
