@@ -86,10 +86,10 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Success (symboluse, symboluses) }
 
-  member x.TryGetCompletions line col lineStr filter = async {
-    let longName, residue = Parsing.findLongIdentsAndResidue(col - 1, lineStr)
+  member x.TryGetCompletions pos lineStr filter = async {
+    let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
     try
-      let! results = checkResults.GetDeclarationListInfo(Some parseResults, line, col, lineStr, longName, residue, fun (_,_) -> false)
+      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, pos.Col, lineStr, longName, residue, fun (_,_) -> false)
       
       let decls =
         match filter with
@@ -143,8 +143,8 @@ type FSharpCompilerServiceChecker() =
     if Utils.runningOnMono then options
     else 
       let version = Environment.dotNetVersions () |> Seq.head 
-      let oldRef = Environment.referenceAssembliesPath @@ "v4.0"  
-      let newRef = Environment.referenceAssembliesPath @@ version
+      let oldRef = Environment.referenceAssembliesPath </> "v4.0"  
+      let newRef = Environment.referenceAssembliesPath </> version
       
       let fsharpCoreRef = options |> Seq.find (fun s -> s.EndsWith "FSharp.Core.dll")
       

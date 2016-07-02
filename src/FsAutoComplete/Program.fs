@@ -2,14 +2,10 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-
 open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
-
-open Newtonsoft.Json
-open Newtonsoft.Json.Converters
 open JsonSerializer
 open FsAutoComplete
+open FsAutoComplete.Commands
 
 module internal Main =
   module Response = CommandResponse
@@ -22,98 +18,85 @@ module internal Main =
 
   let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
 
-  let main (state:State) : int =
-    let state = ref state
+  let main (state : State) : int =
+    let mutable state = state
     let mutable quit = false
 
+    let context tyRes =
+        { Serialize = writeJson
+          State = state
+          TyRes = tyRes
+          Checker = checker }
+
     while not quit do
-      currentFiles <- (!state).Files
-      try
-        let res =
-            match commandQueue.Get() with
-            | Parse(file,kind,lines) -> async {
-                let! (res,state) = Commands.parse writeJson !state checker file lines
-                //Hack for tests
-                let r = match kind with
-                        | Synchronous -> Response.info writeJson "Synchronous parsing started" 
-                        | Normal -> Response.info writeJson "Background parsing started"
-                return [r] @res,state
-                }
+      currentFiles <- state.Files
+      async {
+          match commandQueue.Get() with
+          | Parse (file, kind, lines) -> 
+              let! res, state = Commands.parse writeJson state checker file lines
+              //Hack for tests
+              let r = match kind with
+                      | Synchronous -> Response.info writeJson "Synchronous parsing started" 
+                      | Normal -> Response.info writeJson "Background parsing started"
+              return r :: res, state
 
-            | Project (file,time,verbose) ->
-                //THIS SHOULD BE INITIALIZED SOMEWHERE ELSE ?
-                let fp = Path.GetFullPath file
-                let fsw = new FileSystemWatcher()
-                fsw.Path <- Path.GetDirectoryName fp
-                fsw.Filter <- Path.GetFileName fp
-                fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fp, DateTime.Now, verbose)))
-                fsw.EnableRaisingEvents <- true
-                Commands.project writeJson !state checker file time verbose
+          | Project (file, time, verbose) ->
+              //THIS SHOULD BE INITIALIZED SOMEWHERE ELSE ?
+              let fullPath = Path.GetFullPath file
+              let fsw = new FileSystemWatcher(Path = Path.GetDirectoryName fullPath, Filter = Path.GetFileName fullPath)
+              fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fullPath, DateTime.Now, verbose)))
+              fsw.EnableRaisingEvents <- true
+              return! Commands.project writeJson state checker file time verbose
 
-            | Declarations file ->
-                Commands.declarations writeJson !state checker file
-
-            | HelpText sym ->
-                Commands.helptext writeJson !state checker sym
-            | PosCommand(cmd, file, lineStr, line, col, _timeout, filter) ->
-                let file = Path.GetFullPath file
-                match (!state).TryGetFileCheckerOptionsWithLines (file) with
-                | Failure s -> async { return [Response.error writeJson (s)], !state }
-                | Success (options) ->
+          | Declarations file -> return! Commands.declarations writeJson state checker file
+          | HelpText sym -> return! Commands.helptext writeJson state sym
+          | PosCommand(cmd, file, lineStr, pos, _timeout, filter) ->
+              let file = Path.GetFullPath file
+              match state.TryGetFileCheckerOptionsWithLines file with
+              | Failure s -> return [Response.error writeJson s], state
+              | Success (options) ->
                   let projectOptions, lines = options
-                  let ok = line <= lines.Length && line >= 1 &&
-                           col <= lineStr.Length + 1 && col >= 1
+                  let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
+                           pos.Col <= lineStr.Length + 1 && pos.Col >= 1
                   if not ok then
-                      async { return [Response.error writeJson "Position is out of range"], !state}
+                      return [Response.error writeJson "Position is out of range"], state
                   else
                     // TODO: Should sometimes pass options.Source in here to force a reparse
                     //       for completions e.g. `(some typed expr).$`
                     let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, projectOptions)
                     match tyResOpt with
-                    | None -> async { return [ Response.info writeJson "Cached typecheck results not yet available"], !state }
+                    | None -> return [ Response.info writeJson "Cached typecheck results not yet available"], state
                     | Some tyRes ->
-                    match cmd with
-                    | Completion ->
-                        Commands.completion writeJson !state checker tyRes line col lineStr filter
-                    | ToolTip ->
-                        Commands.toolTip writeJson !state checker tyRes line col lineStr
-                    | TypeSig ->
-                        Commands.typesig writeJson !state checker tyRes line col lineStr
-                    | SymbolUse ->
-                        Commands.symbolUse writeJson !state checker tyRes line col lineStr
-                    | FindDeclaration ->
-                        Commands.findDeclarations writeJson !state checker tyRes line col lineStr
-                    | Methods ->
-                        Commands.methods writeJson !state checker tyRes line col lines
-                    | SymbolUseProject ->
-                      Commands.symbolUseProject writeJson !state checker tyRes file line col lineStr
-            | CompilerLocation ->
-                Commands.compilerLocation writeJson !state checker
+                        let ctx = context tyRes
+                        return!
+                          match cmd with
+                          | Completion -> Commands.completion ctx pos lineStr filter
+                          | ToolTip -> Commands.toolTip ctx pos lineStr
+                          | TypeSig -> Commands.typesig ctx pos lineStr
+                          | SymbolUse -> Commands.symbolUse ctx pos lineStr
+                          | FindDeclaration -> Commands.findDeclarations ctx pos lineStr
+                          | Methods -> Commands.methods ctx pos lines
+                          | SymbolUseProject -> Commands.symbolUseProject ctx pos lineStr
 
-            | Colorization enabled ->
-                Commands.colorization writeJson !state checker enabled
-
-            | Lint filename ->
-                Commands.lint writeJson !state checker filename
-
-            | Error(msg) ->
-                Commands.error writeJson !state checker msg
-
-            | Quit ->
-                quit <- true
-                async {return [], !state}
-        let res', state' = res |> Async.RunSynchronously
-        state := state'
-        res' |> List.iter Console.WriteLine
-        ()
-
-      with e ->
-        let msg = "Unexpected internal error. Please report at \
-                   https://github.com/fsharp/FsAutoComplete/issues, \
-                   attaching the exception information:\n"
-                   + e.ToString()
-        Response.error writeJson msg |> Console.WriteLine
-
+          | CompilerLocation -> return! Commands.compilerLocation writeJson state
+          | Colorization enabled -> return! Commands.colorization state enabled
+          | Lint filename -> return! Commands.lint writeJson state checker filename
+          | Error msg -> return! Commands.error writeJson state msg
+          | Quit ->
+              quit <- true
+              return [], state
+      }
+      |> Async.Catch
+      |> Async.RunSynchronously
+      |> function
+         | Choice1Of2 (res, state') ->
+            state <- state'
+            res |> List.iter Console.WriteLine
+         | Choice2Of2 exn ->
+            exn
+            |> sprintf "Unexpected internal error. Please report at https://github.com/fsharp/FsAutoComplete/issues, attaching the exception information:\n%O"
+            |> Response.error writeJson 
+            |> Console.WriteLine
     0
 
   [<EntryPoint>]
@@ -129,8 +112,7 @@ module internal Main =
       try
         async {
           while true do
-            let cmd = CommandInput.parseCommand(Console.ReadLine())
-            commandQueue.Add(cmd)
+            commandQueue.Add (CommandInput.parseCommand(Console.ReadLine()))
         }
         |> Async.Start
 

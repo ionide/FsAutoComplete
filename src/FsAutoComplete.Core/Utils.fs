@@ -6,6 +6,10 @@ type Result<'a> =
   | Success of 'a
   | Failure of string
 
+type Pos = 
+    { Line: int
+      Col: int }
+
 module Utils =
   
   let isAScript fileName =
@@ -24,7 +28,7 @@ module Utils =
     
   let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
-  let inline (@@) path1 path2 = combinePaths path1 path2
+  let inline (</>) path1 path2 = combinePaths path1 path2
 
 module Option =
   let getOrElse defaultValue option =

@@ -19,7 +19,7 @@ type ParseKind =
 
 // Command that can be entered on the command-line
 type Command =
-  | PosCommand of PosCommand * string * string * int * int * int option * string option
+  | PosCommand of PosCommand * string * string * Pos * int option * string option
   | HelpText of string
   | Declarations of string
   | Parse of string * ParseKind * string[]
@@ -129,7 +129,7 @@ module CommandInput =
                          |> Parser.map String.ofSeq
                 return Some b }) <|>
       (parser { return None })
-    return PosCommand(f, filename, lineStr, line, col, timeout, filter) }
+    return PosCommand(f, filename, lineStr, { Line = line; Col = col }, timeout, filter) }
 
   let helptext = parser {
       let! _ = string "helptext"
