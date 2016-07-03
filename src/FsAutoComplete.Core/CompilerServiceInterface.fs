@@ -105,26 +105,13 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
 
-type ProjectChecker(options : Map<string, FSharpProjectOptions>) =
-  let checker = FSharpChecker.Instance
-  
-  let getUsesOfSymbol symbol opt = async {
-    let! res = checker.ParseAndCheckProject opt
-    return! res.GetUsesOfSymbol symbol
-  }
-  
-  member __.GetUsesOfSymbol(symbol) = async {
-    let! res =
-      options 
-      |> Map.toSeq
-      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
-      |> Seq.map (fun (_, v) -> getUsesOfSymbol symbol v)
-      |> Async.Parallel
-    return res |> Array.collect id
-  }
-
 type FSharpCompilerServiceChecker() =
-  let checker = FSharpChecker.Instance
+  let checker = 
+    FSharpChecker.Create(
+      projectCacheSize = 50, 
+      keepAllBackgroundResolutions = false,
+      keepAssemblyContents = false)
+
   do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
 
   let ensureCorrectFSharpCore (options: string[]) =
@@ -155,6 +142,19 @@ type FSharpCompilerServiceChecker() =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
+  member __.GetUsesOfSymbol (options : Map<string, FSharpProjectOptions>, symbol) = async {
+    let! res =
+      options 
+      |> Map.toSeq
+      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
+      |> Seq.map (fun (_, opts) -> async {
+           let! res = checker.ParseAndCheckProject opts
+           return! res.GetUsesOfSymbol symbol
+         })
+      |> Async.Parallel
+    return res |> Array.collect id
+  }
+
   member __.GetProjectOptionsFromScript(file, source) = async {
     let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
     let opts = 
@@ -165,9 +165,6 @@ type FSharpCompilerServiceChecker() =
     return { rawOptions with OtherOptions = opts }
   }
   
-  member __.GetProjectChecker(options) = 
-    ProjectChecker(options)
-
   member __.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
 
