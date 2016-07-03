@@ -11,15 +11,15 @@ type Commands (serialize : Serializer) =
     let checker = FSharpCompilerServiceChecker()
     let mutable state = FsAutoComplete.State.Initial
 
-    let serializeResultAsync (successToString: Serializer -> 'a -> Async<string>) =
+    member private __.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
             // A failure is only info here, as this command is expected to be
             // used 'on idle', and frequent errors are expected.
-            | Result.Failure e -> async.Return [Response.info serialize e]
+            | Result.Failure e -> async.Return [(defaultArg failureToString Response.info) serialize e]
             | Result.Success r -> successToString serialize r |> Async.map List.singleton
 
-    let serializeResult (successToString: Serializer -> 'a -> string) = 
-        serializeResultAsync (fun s x -> successToString s x |> async.Return)
+    member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) = 
+        x.SerializeResultAsync ((fun s x -> successToString s x |> async.Return), ?failureToString = failureToString)
     
     member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentTypeCheckResultsForFile
     member __.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
@@ -82,11 +82,11 @@ type Commands (serialize : Serializer) =
 
     member __.Declarations file = async {
         let file = Path.GetFullPath file
-        return! match state.TryGetFileCheckerOptionsWithSource file with
-                | Failure s -> async.Return ([Response.error serialize s])
-                | Success (checkOptions, source) -> async {
-                    let! decls = checker.GetDeclarations(file, source, checkOptions)
-                    return [Response.declarations serialize decls] }
+        match state.TryGetFileCheckerOptionsWithSource file with
+        | Failure s -> return [Response.error serialize s]
+        | Success (checkOptions, source) ->
+            let! decls = checker.GetDeclarations(file, source, checkOptions)
+            return [Response.declarations serialize decls]
     }
 
     member __.Helptext sym =
@@ -95,11 +95,7 @@ type Commands (serialize : Serializer) =
         | Some tip -> [Response.helpText serialize (sym, tip)]
 
     member __.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
-
-    member __.Colorization enabled =
-        state <- { state with ColorizationOutput = enabled }
-        []
-
+    member __.Colorization enabled = state <- { state with ColorizationOutput = enabled }
     member __.Error msg = [Response.error serialize msg]
 
     member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter = async {
@@ -125,27 +121,27 @@ type Commands (serialize : Serializer) =
                 | None -> [Response.error serialize "Timed out while fetching completions"]
     }
 
-    member __.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> serializeResult Response.toolTip
+    member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> x.SerializeResult Response.toolTip
 
-    member __.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> serializeResult Response.typeSig
+    member x.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> x.SerializeResult Response.typeSig
 
-    member __.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> serializeResult Response.symbolUse
+    member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResult Response.symbolUse
          
-    member __.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> serializeResultAsync (fun _ (sym, _usages) -> 
+    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) -> 
             async {
                 let! symbols = checker.GetUsesOfSymbol (state.FileCheckOptions, sym.Symbol)
                 return Response.symbolUse serialize (sym, symbols)
             })
     
-    member __.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryFindDeclaration pos.Line pos.Col lineStr |> serializeResult Response.findDeclaration
+    member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryFindDeclaration pos.Line pos.Col lineStr |> x.SerializeResult (Response.findDeclaration, Response.error)
     
-    member __.Methods (tyRes : ParseAndCheckResults) (pos: Pos) lines =
-        tyRes.TryGetMethodOverrides lines pos.Line pos.Col |> serializeResult Response.methods
+    member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) lines =
+        tyRes.TryGetMethodOverrides lines pos.Line pos.Col |> x.SerializeResult (Response.methods, Response.error)
     
     member __.Lint file = async {
         let file = Path.GetFullPath file

@@ -69,7 +69,7 @@ module internal Main =
                             | SymbolUseProject -> commands.SymbolUseProject tyRes pos lineStr
 
           | CompilerLocation -> return commands.CompilerLocation()
-          | Colorization enabled -> return commands.Colorization enabled
+          | Colorization enabled -> commands.Colorization enabled; return []
           | Lint filename -> return! commands.Lint filename
           | Error msg -> return commands.Error msg
           | Quit ->
