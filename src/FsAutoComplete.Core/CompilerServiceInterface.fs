@@ -2,15 +2,16 @@ namespace FsAutoComplete
 
 open System 
 open System.IO
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
 
-type ParseAndCheckResults(parseResults: FSharpParseFileResults,
-                          checkResults: FSharpCheckFileResults,
-                          _version: int) =
+type ParseAndCheckResults
+    (
+        parseResults: FSharpParseFileResults,
+        checkResults: FSharpCheckFileResults
+    ) =
 
-  member x.TryGetMethodOverrides (lines: string[]) (line: int) (col: int) = async {
+  member __.TryGetMethodOverrides (lines: string[]) (line: int) (col: int) = async {
     // Find the starting point, ideally right after the first '('
     let lineCutoff = line - 6
     let commas, line, col =
@@ -45,7 +46,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
 
     return Success(meth, commas) }
 
-  member x.TryFindDeclaration line col lineStr = async {
+  member __.TryFindDeclaration line col lineStr = async {
     match Parsing.findLongIdents(col - 1, lineStr) with
     | None -> return Failure "Could not find ident at this location"
     | Some(col,identIsland) ->
@@ -57,7 +58,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
       | FSharpFindDeclResult.DeclFound range -> return Success range 
     }
 
-  member x.TryGetToolTip line col lineStr = async {
+  member __.TryGetToolTip line col lineStr = async {
     match Parsing.findLongIdents(col - 1, lineStr) with
     | None -> return Failure "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
@@ -72,7 +73,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
       | _ -> return Success(tip)
   }
 
-  member x.TryGetSymbolUse line col lineStr =
+  member __.TryGetSymbolUse line col lineStr =
     async {
         match Parsing.findLongIdents(col - 1, lineStr) with
         | None -> return (Failure "No ident at this location")
@@ -86,7 +87,7 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Success (symboluse, symboluses) }
 
-  member x.TryGetCompletions pos lineStr filter = async {
+  member __.TryGetCompletions pos lineStr filter = async {
     let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
     try
       let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, pos.Col, lineStr, longName, residue, fun (_,_) -> false)
@@ -100,14 +101,9 @@ type ParseAndCheckResults(parseResults: FSharpParseFileResults,
     with :? TimeoutException -> return None
   }
 
-  member x.GetExtraColorizations =
-    checkResults.GetExtraColorizationsAlternate()
-
-  member x.GetAST =
-    parseResults.ParseTree
-
-  member x.GetCheckResults =
-    checkResults
+  member __.GetExtraColorizations = checkResults.GetExtraColorizationsAlternate()
+  member __.GetAST = parseResults.ParseTree
+  member __.GetCheckResults = checkResults
 
 type ProjectChecker(options : Map<string, FSharpProjectOptions>) =
   let checker = FSharpChecker.Instance
@@ -117,12 +113,12 @@ type ProjectChecker(options : Map<string, FSharpProjectOptions>) =
     return! res.GetUsesOfSymbol symbol
   }
   
-  member x.GetUsesOfSymbol(symbol) = async {
+  member __.GetUsesOfSymbol(symbol) = async {
     let! res =
       options 
       |> Map.toSeq
-      |> Seq.distinctBy(fun (_,v) -> v.ProjectFileName)
-      |> Seq.map (fun (_,v) -> getUsesOfSymbol symbol v)
+      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
+      |> Seq.map (fun (_, v) -> getUsesOfSymbol symbol v)
       |> Async.Parallel
     return res |> Array.collect id
   }
@@ -159,7 +155,7 @@ type FSharpCompilerServiceChecker() =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
-  member x.GetProjectOptionsFromScript(file, source) = async {
+  member __.GetProjectOptionsFromScript(file, source) = async {
     let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
     let opts = 
       rawOptions.OtherOptions
@@ -169,24 +165,22 @@ type FSharpCompilerServiceChecker() =
     return { rawOptions with OtherOptions = opts }
   }
   
-  member x.GetProjectChecker(options) = 
+  member __.GetProjectChecker(options) = 
     ProjectChecker(options)
 
-  member x.ParseAndCheckFileInProject(fileName, version, source, options) =
+  member __.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
 
-  member x.TryGetRecentTypeCheckResultsForFile(file, options, ?source) =
+  member __.TryGetRecentTypeCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentTypeCheckResultsForFile(file, options, ?source=source)
-    |> Option.map (fun x -> new ParseAndCheckResults(x))
- 
-   
+    |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr))
 
-  member x.GetDeclarations (fileName, source, options) = async {
+  member __.GetDeclarations (fileName, source, options) = async {
     let! parseResult = checker.ParseFileInProject(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
 
-  member x.TryGetProjectOptions (file: string, verbose: bool) : Result<_> =
+  member __.TryGetProjectOptions (file: string, verbose: bool) : Result<_> =
     if not (File.Exists file) then
       Failure (sprintf "File '%s' does not exist" file)
     else
@@ -208,7 +202,7 @@ type FSharpCompilerServiceChecker() =
       with e -> 
         Failure e.Message
         
-  member x.TryGetCoreProjectOptions (file : string) : Result<_> = 
+  member __.TryGetCoreProjectOptions (file : string) : Result<_> = 
     if not (File.Exists file) then
       Failure (sprintf "File '%s' does not exist" file)
     else

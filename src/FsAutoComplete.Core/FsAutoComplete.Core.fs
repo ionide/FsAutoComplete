@@ -7,16 +7,22 @@ open FSharpLint.Application
 
 module Response = CommandResponse
 
-module Commands =
-    type Serializer = obj -> string
+type Commands (serialize : Serializer) =
+    let checker = FSharpCompilerServiceChecker()
 
-    type Context = 
-        { Serialize: Serializer
-          State: State
-          TyRes : ParseAndCheckResults 
-          Checker : FSharpCompilerServiceChecker }
+    let serializeResultAsync (successToString: Serializer -> 'a -> Async<string>) =
+        Async.bind <| function
+            // A failure is only info here, as this command is expected to be
+            // used 'on idle', and frequent errors are expected.
+            | Result.Failure e -> async.Return [Response.info serialize e]
+            | Result.Success r -> successToString serialize r |> Async.map List.singleton
 
-    let parse (serialize : Serializer) (state : State) (checker : FSharpCompilerServiceChecker) file lines = async {
+    let serializeResult (successToString: Serializer -> 'a -> string) = 
+        serializeResultAsync (fun s x -> successToString s x |> async.Return)
+    
+    member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentTypeCheckResultsForFile
+
+    member __.Parse (state : State) file lines = async {
         let colorizations = state.ColorizationOutput
         let parse' fileName text options =
             async {
@@ -43,7 +49,7 @@ module Commands =
           return res, state'
     }
 
-    let project (serialize : Serializer) (state : State) (checker : FSharpCompilerServiceChecker) file time verbose = async {
+    member __.Project (state : State) file time verbose = async {
         let file = Path.GetFullPath file
 
         // The FileSystemWatcher often triggers multiple times for
@@ -70,7 +76,7 @@ module Commands =
                     [res], state'
     }
 
-    let declarations (serialize : Serializer) (state : State) (checker : FSharpCompilerServiceChecker) file = async {
+    member __.Declarations (state : State) file = async {
         let file = Path.GetFullPath file
         return! match state.TryGetFileCheckerOptionsWithSource(file) with
                 | Failure s -> async {return  [Response.error serialize (s)], state }
@@ -79,26 +85,22 @@ module Commands =
                     return [Response.declarations serialize (decls)], state }
     }
 
-    let helptext (serialize : Serializer) (state : State) sym = async {
+    member __.Helptext (state : State) sym = async {
         return match Map.tryFind sym state.HelpText with
                 | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)], state
                 | Some tip -> [Response.helpText serialize (sym, tip)], state
     }
 
-    let compilerLocation (serialize : Serializer) (state : State) = async {
-        return [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild], state
-    }
+    member __.CompilerLocation () =
+        [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
 
-    let colorization (state : State) enabled = async {
-        return [], { state with ColorizationOutput = enabled }
-    }
+    member __.Colorization (state : State) enabled =
+        async.Return ([], { state with ColorizationOutput = enabled })
 
-    let error (serialize : Serializer) (state : State) msg = async {
-        return [Response.error serialize msg], state
-    }
+    member __.Error msg = async.Return [Response.error serialize msg]
 
-    let completion (ctx: Context) (pos: Pos) lineStr filter = async {
-        let! res = ctx.TyRes.TryGetCompletions pos lineStr filter
+    member __.Completion (state : State) (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter = async {
+        let! res = tyRes.TryGetCompletions pos lineStr filter
         return match res with
                 | Some (decls, residue) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
@@ -109,98 +111,69 @@ module Commands =
                       Array.sortBy declName decls
                       |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
                     let res = match firstMatchOpt with
-                                | None -> [Response.completion ctx.Serialize (decls)]
+                                | None -> [Response.completion serialize decls]
                                 | Some d ->
-                                    [Response.helpText ctx.Serialize (d.Name, d.DescriptionText)
-                                     Response.completion ctx.Serialize (decls)]
+                                    [Response.helpText serialize (d.Name, d.DescriptionText)
+                                     Response.completion serialize decls]
 
                     let helptext =
                       Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
-                    res, { ctx.State with HelpText = helptext }
+                    res, { state with HelpText = helptext }
 
                 | None ->
-                    [Response.error ctx.Serialize "Timed out while fetching completions"], ctx.State
+                    [Response.error serialize "Timed out while fetching completions"], state
     }
 
-    let toolTip (ctx: Context) (pos: Pos) lineStr = async {
-        // A failure is only info here, as this command is expected to be
-        // used 'on idle', and frequent errors are expected.
-        let! res = ctx.TyRes.TryGetToolTip pos.Line pos.Col lineStr
-        return match res with
-                | Result.Failure s -> [Response.info ctx.Serialize (s)], ctx.State
-                | Result.Success tip -> [Response.toolTip ctx.Serialize tip], ctx.State
-    }
 
-    let typesig (ctx: Context) (pos: Pos) lineStr = async {
-        // A failure is only info here, as this command is expected to be
-        // used 'on idle', and frequent errors are expected.
-        let! res = ctx.TyRes.TryGetToolTip pos.Line pos.Col lineStr
-        return match res with
-                | Result.Failure s -> [Response.info ctx.Serialize (s)], ctx.State
-                | Result.Success tip -> [Response.typeSig ctx.Serialize tip], ctx.State
-    }
+    member __.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> serializeResult Response.toolTip
 
-    let symbolUse (ctx: Context) (pos: Pos) lineStr = async {
-        // A failure is only info here, as this command is expected to be
-        // used 'on idle', and frequent errors are expected.
-        let! res = ctx.TyRes.TryGetSymbolUse pos.Line pos.Col lineStr
-        return match res with
-                | Result.Failure s -> [Response.info ctx.Serialize (s)], ctx.State
-                | Result.Success (sym,usages) -> [Response.symbolUse ctx.Serialize (sym,usages)], ctx.State
-    } 
-     
-    let symbolUseProject (ctx: Context) (pos: Pos) lineStr = async {
-        let! res = ctx.TyRes.TryGetSymbolUse pos.Line pos.Col lineStr
-        match res with
-            | Result.Failure s -> return [Response.info ctx.Serialize (s)], ctx.State
-            | Result.Success (sym, _usages) -> 
-                let pChecker = ctx.Checker.GetProjectChecker(ctx.State.FileCheckOptions)
+    member __.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> serializeResult Response.typeSig
+
+    member __.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> serializeResult Response.symbolUse
+         
+    member __.SymbolUseProject (state : State) (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> serializeResultAsync (fun _ (sym, _usages) -> 
+            async {
+                let pChecker = checker.GetProjectChecker state.FileCheckOptions
                 let! symbols = pChecker.GetUsesOfSymbol sym.Symbol
-                return [Response.symbolUse ctx.Serialize (sym,symbols)], ctx.State
-    }
-
-    let findDeclarations (ctx: Context) (pos: Pos) lineStr = async {
-        let! res = ctx.TyRes.TryFindDeclaration pos.Line pos.Col lineStr
-        return match res with
-                | Result.Failure s -> [Response.error ctx.Serialize (s)], ctx.State
-                | Result.Success range -> [Response.findDeclaration ctx.Serialize range], ctx.State
-    }
-
-    let methods (ctx: Context) (pos: Pos) lines = async {
-        let! res = ctx.TyRes.TryGetMethodOverrides lines pos.Line pos.Col
-        return match res with
-                | Result.Failure s -> [Response.error ctx.Serialize (s)], ctx.State
-                | Result.Success (meth, commas) -> [Response.methods ctx.Serialize (meth, commas)], ctx.State
-    }
-
-    let lint (serialize: Serializer) (state: State) (checker : FSharpCompilerServiceChecker)  file = async {
+                return Response.symbolUse serialize (sym, symbols)
+            })
+    
+    member __.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryFindDeclaration pos.Line pos.Col lineStr |> serializeResult Response.findDeclaration
+    
+    member __.Methods (tyRes : ParseAndCheckResults) (pos: Pos) lines =
+        tyRes.TryGetMethodOverrides lines pos.Line pos.Col |> serializeResult Response.methods
+    
+    member __.Lint (state: State) file = async {
         let file = Path.GetFullPath file
         let res =
             match state.TryGetFileCheckerOptionsWithSource file with
-            | Failure s -> [Response.error serialize (s)], state
-            | Success (options,source) ->
-            
-            let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-            
-            match tyResOpt with
-            | None -> [ Response.info serialize "Cached typecheck results not yet available"], state
-            | Some tyRes ->
-                match tyRes.GetAST with
-                | None -> [ Response.info serialize "Something went wrong during parsing"], state
-                | Some tree ->
-                    let res =
-                        Lint.lintParsedSource
-                            Lint.OptionalLintParameters.Default
-                            { Ast = tree
-                              Source = source
-                              TypeCheckResults = Some tyRes.GetCheckResults
-                              FSharpVersion = Version() }
-                    let res' =
-                        match res with
-                        | LintResult.Failure _ -> [ Response.info serialize "Something went wrong during parsing"]
-                        | LintResult.Success warnings -> [ Response.lint serialize warnings ]
+            | Failure s -> [Response.error serialize s]
+            | Success (options, source) ->
+                let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
                 
-                    res', state
+                match tyResOpt with
+                | None -> [ Response.info serialize "Cached typecheck results not yet available"]
+                | Some tyRes ->
+                    match tyRes.GetAST with
+                    | None -> [ Response.info serialize "Something went wrong during parsing"]
+                    | Some tree ->
+                        let res =
+                            Lint.lintParsedSource
+                                Lint.OptionalLintParameters.Default
+                                { Ast = tree
+                                  Source = source
+                                  TypeCheckResults = Some tyRes.GetCheckResults
+                                  FSharpVersion = Version() }
+                        let res' =
+                            match res with
+                            | LintResult.Failure _ -> [ Response.info serialize "Something went wrong during parsing"]
+                            | LintResult.Success warnings -> [ Response.lint serialize warnings ]
+                    
+                        res'
         return res
-
     }

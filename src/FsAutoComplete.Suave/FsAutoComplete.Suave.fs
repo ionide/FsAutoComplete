@@ -13,7 +13,6 @@ open Newtonsoft.Json
 open Microsoft.FSharp.Compiler
 
 open FsAutoComplete
-open FsAutoComplete.Commands
 open FsAutoComplete.JsonSerializer
 
 [<AutoOpen>]
@@ -40,14 +39,7 @@ module internal Utils =
 let main argv =
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     let mutable state = FsAutoComplete.State.Initial
-    let checker = new FSharpCompilerServiceChecker()
-    
-    let context tyRes =
-        { Serialize = writeJson
-          State = state
-          TyRes = tyRes
-          Checker = checker }
-
+    let commands = Commands(writeJson)
     let currentFiles = ref Map.empty
     let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
     let fs = new FileSystem(originalFs, fun () -> !currentFiles)
@@ -61,34 +53,34 @@ let main argv =
           return! Response.response HttpCode.HTTP_200 res' r
         }
 
-    let positionHandler (f : PositionRequest -> Context -> string -> string [] -> Async<string list * State>) : WebPart = fun (r : HttpContext) -> async {
-        let data = r.request |> getResourceFromReq<PositionRequest>
-        let file = Path.GetFullPath data.FileName
-        let! (res, (state' : State)) =
-            match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, data.Pos) with
-            | Failure s -> async { return [CommandResponse.error writeJson (s)], state }
-            | Success (options, lines, lineStr) ->
-              // TODO: Should sometimes pass options.Source in here to force a reparse
-              //       for completions e.g. `(some typed expr).$`
-              let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-              match tyResOpt with
-              | None -> async { return [ CommandResponse.info writeJson "Cached typecheck results not yet available"], state }
-              | Some tyRes -> f data (context tyRes) lineStr lines
-        state <- state'
-        let res' = res |> List.toArray |> Json.toJson
-        return! Response.response HttpCode.HTTP_200 res' r
-    } 
+    let positionHandler (f : PositionRequest -> State -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) -> 
+        async {
+            let data = r.request |> getResourceFromReq<PositionRequest>
+            let file = Path.GetFullPath data.FileName
+            let! res =
+                match state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, data.Pos) with
+                | Failure s -> async.Return ([CommandResponse.error writeJson s])
+                | Success (options, lines, lineStr) ->
+                  // TODO: Should sometimes pass options.Source in here to force a reparse
+                  //       for completions e.g. `(some typed expr).$`
+                  let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                  match tyResOpt with
+                  | None -> async.Return ([CommandResponse.info writeJson "Cached typecheck results not yet available"])
+                  | Some tyRes -> f data state tyRes lineStr lines
+            let res' = res |> List.toArray |> Json.toJson
+            return! Response.response HttpCode.HTTP_200 res' r
+        } 
  
     let app =
         Writers.setMimeType "application/json; charset=utf-8" >=>
         POST >=>
         choose [
-            path "/parse"        >=> handler (fun (data : ParseRequest) -> Commands.parse writeJson state checker data.FileName data.Lines)
+            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse state data.FileName data.Lines)
             //TODO: Add filewatcher
-            path "/project"      >=> handler (fun (data : ProjectRequest) -> Commands.project writeJson state checker data.FileName DateTime.Now false)
-            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> Commands.declarations writeJson state checker data.FileName)
-            path "/helptext"     >=> handler (fun (data : HelptextRequest) -> Commands.helptext writeJson state data.Symbol)
-            path "/completion"   >=> handler (fun (data : CompletionRequest) ->  async {
+            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project state data.FileName DateTime.Now false)
+            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations state data.FileName)
+            path "/helptext" >=> handler (fun (data : HelptextRequest) -> commands.Helptext state data.Symbol)
+            path "/completion" >=> handler (fun (data : CompletionRequest) ->  async {
                 let file = Path.GetFullPath data.FileName
                 match state.TryGetFileCheckerOptionsWithLines(file) with
                 | Failure s -> return [CommandResponse.error writeJson s], state
@@ -100,23 +92,22 @@ let main argv =
                     if not ok then
                         return [CommandResponse.error writeJson "Position is out of range"], state
                     else                    
-                        let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+                        let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"], state
-                        | Some tyRes -> return! Commands.completion (context tyRes) data.Pos lineStr (Some data.Filter)
+                        | Some tyRes -> return! commands.Completion state tyRes data.Pos lineStr (Some data.Filter)
                 })
-            path "/tooltip"          >=> positionHandler (fun data ctx lineStr _ -> Commands.toolTip ctx data.Pos lineStr )
-            path "/symboluseproject" >=> positionHandler (fun data ctx lineStr _ -> Commands.symbolUseProject ctx data.Pos lineStr )
-            path "/symboluse"        >=> positionHandler (fun data ctx lineStr _ -> Commands.symbolUse ctx data.Pos lineStr )
-            path "/finddeclaration"  >=> positionHandler (fun data ctx lineStr _ -> Commands.findDeclarations ctx data.Pos lineStr )
-            path "/methods"          >=> positionHandler (fun data ctx _ lines   -> Commands.methods ctx data.Pos lines )
-            path "/compilerlocation" >=> (fun httpCtx -> async {
-                let! res, state' = Commands.compilerLocation writeJson state
-                state <- state'
-                let res' = res |> List.toArray |> Json.toJson
-                return! Response.response HttpCode.HTTP_200 res' httpCtx
-                })
-            path "/lint" >=> handler (fun (data: LintRequest) -> Commands.lint writeJson state checker data.FileName)
+            path "/tooltip" >=> positionHandler (fun data _ tyRes lineStr _ -> commands.ToolTip tyRes data.Pos lineStr)
+            path "/symboluseproject" >=> positionHandler (fun data state tyRes lineStr _ -> commands.SymbolUseProject state tyRes data.Pos lineStr)
+            path "/symboluse" >=> positionHandler (fun data _ tyRes lineStr _ -> commands.SymbolUse tyRes data.Pos lineStr)
+            path "/finddeclaration" >=> positionHandler (fun data _ tyRes lineStr _ -> commands.FindDeclarations tyRes data.Pos lineStr)
+            path "/methods" >=> positionHandler (fun data _ tyRes _ lines   -> commands.Methods tyRes data.Pos lines)
+            path "/compilerlocation" >=> fun httpCtx -> 
+                async {
+                    let res = commands.CompilerLocation() |> Json.toJson
+                    return! Response.response HttpCode.HTTP_200 res httpCtx
+                }
+            path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint state data.FileName |> Async.map (fun r -> r, state))
         ]
 
 

@@ -5,12 +5,9 @@ open System.IO
 open Microsoft.FSharp.Compiler
 open JsonSerializer
 open FsAutoComplete
-open FsAutoComplete.Commands
 
 module internal Main =
   module Response = CommandResponse
-  let checker = new FSharpCompilerServiceChecker()
-
   let mutable currentFiles = Map.empty
   let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
   let fs = new FileSystem(originalFs, fun () -> currentFiles)
@@ -20,20 +17,16 @@ module internal Main =
 
   let main (state : State) : int =
     let mutable state = state
+    let passState = Async.map (fun x -> x, state)
     let mutable quit = false
-
-    let context tyRes =
-        { Serialize = writeJson
-          State = state
-          TyRes = tyRes
-          Checker = checker }
+    let commands = Commands(writeJson)
 
     while not quit do
       currentFiles <- state.Files
       async {
           match commandQueue.Get() with
           | Parse (file, kind, lines) -> 
-              let! res, state = Commands.parse writeJson state checker file lines
+              let! res, state = commands.Parse state file lines
               //Hack for tests
               let r = match kind with
                       | Synchronous -> Response.info writeJson "Synchronous parsing started" 
@@ -46,15 +39,15 @@ module internal Main =
               let fsw = new FileSystemWatcher(Path = Path.GetDirectoryName fullPath, Filter = Path.GetFileName fullPath)
               fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fullPath, DateTime.Now, verbose)))
               fsw.EnableRaisingEvents <- true
-              return! Commands.project writeJson state checker file time verbose
+              return! commands.Project state file time verbose
 
-          | Declarations file -> return! Commands.declarations writeJson state checker file
-          | HelpText sym -> return! Commands.helptext writeJson state sym
-          | PosCommand(cmd, file, lineStr, pos, _timeout, filter) ->
+          | Declarations file -> return! commands.Declarations state file
+          | HelpText sym -> return! commands.Helptext state sym
+          | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file
               match state.TryGetFileCheckerOptionsWithLines file with
               | Failure s -> return [Response.error writeJson s], state
-              | Success (options) ->
+              | Success options ->
                   let projectOptions, lines = options
                   let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
                            pos.Col <= lineStr.Length + 1 && pos.Col >= 1
@@ -63,25 +56,24 @@ module internal Main =
                   else
                     // TODO: Should sometimes pass options.Source in here to force a reparse
                     //       for completions e.g. `(some typed expr).$`
-                    let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, projectOptions)
+                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, projectOptions)
                     match tyResOpt with
                     | None -> return [ Response.info writeJson "Cached typecheck results not yet available"], state
                     | Some tyRes ->
-                        let ctx = context tyRes
                         return!
-                          match cmd with
-                          | Completion -> Commands.completion ctx pos lineStr filter
-                          | ToolTip -> Commands.toolTip ctx pos lineStr
-                          | TypeSig -> Commands.typesig ctx pos lineStr
-                          | SymbolUse -> Commands.symbolUse ctx pos lineStr
-                          | FindDeclaration -> Commands.findDeclarations ctx pos lineStr
-                          | Methods -> Commands.methods ctx pos lines
-                          | SymbolUseProject -> Commands.symbolUseProject ctx pos lineStr
+                            match cmd with
+                            | Completion -> commands.Completion state tyRes pos lineStr filter
+                            | ToolTip -> commands.ToolTip tyRes pos lineStr |> passState
+                            | TypeSig -> commands.Typesig tyRes pos lineStr |> passState
+                            | SymbolUse -> commands.SymbolUse tyRes pos lineStr |> passState
+                            | FindDeclaration -> commands.FindDeclarations tyRes pos lineStr |> passState
+                            | Methods -> commands.Methods tyRes pos lines |> passState
+                            | SymbolUseProject -> commands.SymbolUseProject state tyRes pos lineStr |> passState
 
-          | CompilerLocation -> return! Commands.compilerLocation writeJson state
-          | Colorization enabled -> return! Commands.colorization state enabled
-          | Lint filename -> return! Commands.lint writeJson state checker filename
-          | Error msg -> return! Commands.error writeJson state msg
+          | CompilerLocation -> return commands.CompilerLocation(), state
+          | Colorization enabled -> return! commands.Colorization state enabled
+          | Lint filename -> return! commands.Lint state filename |> passState
+          | Error msg -> return! commands.Error msg |> passState 
           | Quit ->
               quit <- true
               return [], state
@@ -118,4 +110,4 @@ module internal Main =
 
         main State.Initial
       finally
-        (!Debug.output).Close ()
+        (!Debug.output).Close()

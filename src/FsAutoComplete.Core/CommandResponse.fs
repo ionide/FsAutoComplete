@@ -196,14 +196,14 @@ module CommandResponse =
       Nested : Declaration []
   }
 
-  let info (serialize : obj -> string) (s: string) = serialize { Kind = "info"; Data = s }
-  let error (serialize : obj -> string) (s: string) = serialize { Kind = "error"; Data = s }
+  let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
+  let error (serialize : Serializer) (s: string) = serialize { Kind = "error"; Data = s }
 
-  let helpText (serialize : obj -> string) (name: string, tip: FSharpToolTipText) =
+  let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
-  let project (serialize : obj -> string) (projectFileName, projectFiles, outFileOpt, references, logMap) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap) =
     let projectData =
       { Project = projectFileName
         Files = projectFiles
@@ -212,14 +212,14 @@ module CommandResponse =
         Logs = logMap }
     serialize { Kind = "project"; Data = projectData }
 
-  let completion (serialize : obj -> string) (decls: FSharpDeclarationListItem[]) =
+  let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
                                let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                                yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar } ] }
 
-  let symbolUse (serialize : obj -> string) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
+  let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
     let su =
       { Name = symbol.Symbol.DisplayName
         Uses =
@@ -237,7 +237,7 @@ module CommandResponse =
                       IsFromType = su.IsFromType } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symboluse"; Data = su }
 
-  let methods (serialize : obj -> string) (meth: FSharpMethodGroup, commas: int) =
+  let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"
                    Data = {  Name = meth.MethodName
                              CurrentParameter = commas
@@ -261,19 +261,19 @@ module CommandResponse =
                               ] }
                 }
 
-  let errors (serialize : obj -> string) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
+  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
     serialize { Kind = "errors";  Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
 
-  let colorizations (serialize : obj -> string) (colorizations: (Range.range * FSharpTokenColorKind)[]) =
+  let colorizations (serialize : Serializer) (colorizations: (Range.range * FSharpTokenColorKind)[]) =
     let data = [ for r, k in colorizations do
                    yield { Range = r; Kind = Enum.GetName(typeof<FSharpTokenColorKind>, k) } ]
     serialize { Kind = "colorizations"; Data = data }
 
-  let findDeclaration (serialize : obj -> string) (range: Range.range) =
+  let findDeclaration (serialize : Serializer) (range: Range.range) =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
     serialize { Kind = "finddecl"; Data = data }
 
-  let declarations (serialize : obj -> string) (decls : FSharpNavigationTopLevelDeclaration[]) =
+  let declarations (serialize : Serializer) (decls : FSharpNavigationTopLevelDeclaration[]) =
      let decls' =
       decls |> Array.map (fun d ->
         { Declaration = Declaration.OfDeclarationItem d.Declaration;
@@ -281,22 +281,22 @@ module CommandResponse =
         })
      serialize { Kind = "declarations"; Data = decls' }
 
-  let toolTip (serialize : obj -> string) (tip) =
+  let toolTip (serialize : Serializer) (tip) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
 
-  let typeSig (serialize : obj -> string) (tip) =
+  let typeSig (serialize : Serializer) (tip) =
     let data = TipFormatter.extractSignature tip
     serialize { Kind = "typesig"; Data = data }
 
-  let compilerLocation (serialize : obj -> string) fsc fsi msbuild =
+  let compilerLocation (serialize : Serializer) fsc fsi msbuild =
     let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }
     serialize { Kind = "compilerlocation"; Data = data }
 
-  let message (serialize : obj -> string) (kind: string, data: 'a) =
+  let message (serialize : Serializer) (kind: string, data: 'a) =
     serialize { Kind = kind; Data = data }
 
-  let lint (serialize : obj -> string) (warnings : LintWarning.Warning list) =
+  let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
     let data = warnings |> List.toArray
       
     serialize { Kind = "lint"; Data = data }
