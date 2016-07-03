@@ -53,7 +53,7 @@ let main argv =
           return! Response.response HttpCode.HTTP_200 res' r
         }
 
-    let positionHandler (f : PositionRequest -> State -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) -> 
+    let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) -> 
         async {
             let data = r.request |> getResourceFromReq<PositionRequest>
             let file = Path.GetFullPath data.FileName
@@ -66,11 +66,11 @@ let main argv =
                   let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                   match tyResOpt with
                   | None -> async.Return ([CommandResponse.info writeJson "Cached typecheck results not yet available"])
-                  | Some tyRes -> f data state tyRes lineStr lines
+                  | Some tyRes -> f data tyRes lineStr lines
             let res' = res |> List.toArray |> Json.toJson
             return! Response.response HttpCode.HTTP_200 res' r
         } 
- 
+
     let app =
         Writers.setMimeType "application/json; charset=utf-8" >=>
         POST >=>
@@ -97,19 +97,18 @@ let main argv =
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"], state
                         | Some tyRes -> return! commands.Completion state tyRes data.Pos lineStr (Some data.Filter)
                 })
-            path "/tooltip" >=> positionHandler (fun data _ tyRes lineStr _ -> commands.ToolTip tyRes data.Pos lineStr)
-            path "/symboluseproject" >=> positionHandler (fun data state tyRes lineStr _ -> commands.SymbolUseProject state tyRes data.Pos lineStr)
-            path "/symboluse" >=> positionHandler (fun data _ tyRes lineStr _ -> commands.SymbolUse tyRes data.Pos lineStr)
-            path "/finddeclaration" >=> positionHandler (fun data _ tyRes lineStr _ -> commands.FindDeclarations tyRes data.Pos lineStr)
-            path "/methods" >=> positionHandler (fun data _ tyRes _ lines   -> commands.Methods tyRes data.Pos lines)
+            path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes data.Pos lineStr)
+            path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject state tyRes data.Pos lineStr)
+            path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes data.Pos lineStr)
+            path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclarations tyRes data.Pos lineStr)
+            path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes data.Pos lines)
             path "/compilerlocation" >=> fun httpCtx -> 
                 async {
-                    let res = commands.CompilerLocation() |> Json.toJson
+                    let res = commands.CompilerLocation() |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint state data.FileName |> Async.map (fun r -> r, state))
         ]
-
 
     let port =
         try
