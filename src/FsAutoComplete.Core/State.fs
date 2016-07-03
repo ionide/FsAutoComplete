@@ -65,12 +65,12 @@ type State =
     | Failure x -> Failure x
     | Success (opts, lines) -> Success (opts, String.concat "\n" lines)
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, line, col) : Result<FSharpProjectOptions * string[] * string> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) : Result<FSharpProjectOptions * string[] * string> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Failure x -> Failure x
     | Success (opts, lines) ->
-      let ok = line <= lines.Length && line >= 1 &&
-               col <= lines.[line - 1].Length + 1 && col >= 1
+      let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
+               pos.Col <= lines.[pos.Line - 1].Length + 1 && pos.Col >= 1
       if not ok then Failure "Position is out of range"
-      else Success (opts, lines, lines.[line - 1])
+      else Success (opts, lines, lines.[pos.Line - 1])
