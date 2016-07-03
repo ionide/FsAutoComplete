@@ -21,8 +21,8 @@ module Contract =
     type ProjectRequest = { FileName : string;}
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
-    type CompletionRequest = {FileName : string; SourceLine : string; Pos: Pos; Filter : string}
-    type PositionRequest = {FileName : string; Pos: Pos; Filter : string}
+    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string}
+    type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
  
 [<AutoOpen>]
@@ -56,7 +56,7 @@ let main argv =
             let data = r.request |> getResourceFromReq<PositionRequest>
             let file = Path.GetFullPath data.FileName
             let! res =
-                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, data.Pos) with
+                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, { Line = data.Line; Col = data.Column }) with
                 | Failure s -> async.Return ([CommandResponse.error writeJson s])
                 | Success (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
@@ -83,8 +83,8 @@ let main argv =
                 match commands.TryGetFileCheckerOptionsWithLines file with
                 | Failure s -> return [CommandResponse.error writeJson s]
                 | Success (options, lines) ->
-                    let line = data.Pos.Line
-                    let col = data.Pos.Col
+                    let line = data.Line
+                    let col = data.Column
                     let lineStr = data.SourceLine
                     let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
                     if not ok then
@@ -93,13 +93,13 @@ let main argv =
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
-                        | Some tyRes -> return! commands.Completion tyRes data.Pos lineStr (Some data.Filter)
+                        | Some tyRes -> return! commands.Completion tyRes { Line = data.Line; Col = data.Column } lineStr (Some data.Filter)
                 })
-            path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes data.Pos lineStr)
-            path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes data.Pos lineStr)
-            path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes data.Pos lineStr)
-            path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclarations tyRes data.Pos lineStr)
-            path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes data.Pos lines)
+            path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes { Line = data.Line; Col = data.Column } lineStr)
+            path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes { Line = data.Line; Col = data.Column } lineStr)
+            path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes { Line = data.Line; Col = data.Column } lineStr)
+            path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclarations tyRes { Line = data.Line; Col = data.Column } lineStr)
+            path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes { Line = data.Line; Col = data.Column } lines)
             path "/compilerlocation" >=> fun httpCtx -> 
                 async {
                     let res = commands.CompilerLocation() |> List.toArray |> Json.toJson
