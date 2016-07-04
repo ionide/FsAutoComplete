@@ -108,9 +108,9 @@ type ParseAndCheckResults
 type FSharpCompilerServiceChecker() =
   let checker = 
     FSharpChecker.Create(
-      projectCacheSize = 50, 
-      keepAllBackgroundResolutions = false,
-      keepAssemblyContents = false)
+      projectCacheSize = 200, 
+      keepAllBackgroundResolutions = true,
+      keepAssemblyContents = true)
 
   do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
 
