@@ -52,30 +52,36 @@ type Commands (serialize : Serializer) =
           return! parse' file text checkOptions
     }
 
-    member __.Project projectFileName verbose = async {
+    member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
-        let projectFileLastWriteTime = File.GetLastWriteTimeUtc projectFileName
+        let project = state.Projects.TryFind projectFileName
+        
+        let project = project |> Option.getOrElseFun (fun _ -> 
+            let project = new Project(projectFileName, onChange)
+            state <- { state with Projects = state.Projects |> Map.add projectFileName project }
+            project)
 
         return
-            match state.Projects.TryFind projectFileName with
-            | Some (response, projectFileLastWriteTimeOld) 
-                when projectFileLastWriteTime = projectFileLastWriteTimeOld -> [response]
-            | _ ->
+            match project.Response with
+            | Some response -> [response]
+            | None ->
                 let options =
-                  if Path.GetExtension projectFileName = ".fsproj" then
-                    checker.TryGetProjectOptions(projectFileName, verbose)
-                  else
-                    checker.TryGetCoreProjectOptions projectFileName
+                    if Path.GetExtension projectFileName = ".fsproj" then
+                        checker.TryGetProjectOptions (projectFileName, verbose)
+                    else
+                        checker.TryGetCoreProjectOptions projectFileName
                 
                 match options with
-                | Result.Failure error -> [Response.error serialize error]
-                | Result.Success(opts, projectFiles, outFileOpt, references, logMap) ->
+                | Result.Failure error -> 
+                    project.Response <- None
+                    [Response.error serialize error]
+                | Result.Success (opts, projectFiles, outFileOpt, references, logMap) ->
                     let projectFiles = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
-                    let res = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
+                    let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
                     let checkOptions = projectFiles |> List.fold (fun s f -> Map.add f opts s) state.FileCheckOptions
-                    state <- { state with FileCheckOptions = checkOptions
-                                          Projects = state.Projects |> Map.add projectFileName (res, projectFileLastWriteTime) }
-                    [res]
+                    state <- { state with FileCheckOptions = checkOptions }
+                    project.Response <- Some response
+                    [response]
     }
 
     member __.Declarations file = async {

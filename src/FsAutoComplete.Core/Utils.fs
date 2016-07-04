@@ -40,6 +40,11 @@ module Option =
     | None -> defaultValue
     | Some x -> x
 
+  let getOrElseFun defaultValue option =
+    match option with
+    | None -> defaultValue()
+    | Some x -> x
+
 module Async =
     /// Transforms an Async value using the specified function.
     [<CompiledName("Map")>]
