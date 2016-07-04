@@ -52,32 +52,30 @@ type Commands (serialize : Serializer) =
           return! parse' file text checkOptions
     }
 
-    member __.Project file time verbose = async {
-        let file = Path.GetFullPath file
+    member __.Project projectFileName verbose = async {
+        let projectFileName = Path.GetFullPath projectFileName
+        let projectFileLastWriteTime = File.GetLastWriteTimeUtc projectFileName
 
-        // The FileSystemWatcher often triggers multiple times for
-        // each event, as editors often modify files in several steps.
-        // This 'debounces' the events, by only reloading a max of once
-        // per second.
-        return 
-            match state.ProjectLoadTimes.TryFind file with
-            | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> []
+        return
+            match state.Projects.TryFind projectFileName with
+            | Some (response, projectFileLastWriteTimeOld) 
+                when projectFileLastWriteTime = projectFileLastWriteTimeOld -> [response]
             | _ ->
-            let options = 
-              if file.EndsWith "fsproj" then
-                checker.TryGetProjectOptions(file, verbose)
-              else
-                checker.TryGetCoreProjectOptions file
-
-            match options with
-            | Result.Failure s -> [Response.error serialize s]
-            | Result.Success(po, projectFiles, outFileOpt, references, logMap) ->
-                let pf = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
-                let res = Response.project serialize (file, pf, outFileOpt, references, logMap)
-                let checkOptions = pf |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
-                let loadTimes = Map.add file time state.ProjectLoadTimes
-                state <- { state with FileCheckOptions = checkOptions; ProjectLoadTimes = loadTimes }
-                [res]
+                let options =
+                  if Path.GetExtension projectFileName = ".fsproj" then
+                    checker.TryGetProjectOptions(projectFileName, verbose)
+                  else
+                    checker.TryGetCoreProjectOptions projectFileName
+                
+                match options with
+                | Result.Failure error -> [Response.error serialize error]
+                | Result.Success(opts, projectFiles, outFileOpt, references, logMap) ->
+                    let projectFiles = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
+                    let res = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
+                    let checkOptions = projectFiles |> List.fold (fun s f -> Map.add f opts s) state.FileCheckOptions
+                    state <- { state with FileCheckOptions = checkOptions
+                                          Projects = state.Projects |> Map.add projectFileName (res, projectFileLastWriteTime) }
+                    [res]
     }
 
     member __.Declarations file = async {

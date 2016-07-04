@@ -75,7 +75,7 @@ let main argv =
         choose [
             path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines)
             //TODO: Add filewatcher
-            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName DateTime.Now false)
+            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName)
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> commands.Helptext data.Symbol |> async.Return)
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {

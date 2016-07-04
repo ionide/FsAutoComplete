@@ -31,13 +31,13 @@ module internal Main =
                       | Normal -> Response.info writeJson "Background parsing started"
               return r :: res
 
-          | Project (file, time, verbose) ->
+          | Project (file, verbose) ->
               //THIS SHOULD BE INITIALIZED SOMEWHERE ELSE ?
               let fullPath = Path.GetFullPath file
               let fsw = new FileSystemWatcher(Path = Path.GetDirectoryName fullPath, Filter = Path.GetFileName fullPath)
-              fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fullPath, DateTime.Now, verbose)))
+              fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fullPath, verbose)))
               fsw.EnableRaisingEvents <- true
-              return! commands.Project file time verbose
+              return! commands.Project file verbose
 
           | Declarations file -> return! commands.Declarations file
           | HelpText sym -> return commands.Helptext sym

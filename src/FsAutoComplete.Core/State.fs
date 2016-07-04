@@ -1,16 +1,15 @@
 ﻿namespace FsAutoComplete
 
 open System
-open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-
+type SerializedProjectResponse = string
 
 type State =
   {
     Files : Map<string,VolatileFile>
     FileCheckOptions : Map<string,FSharpProjectOptions>
-    ProjectLoadTimes : Map<string,DateTime>
+    Projects : Map<CommandResponse.ProjectFile, SerializedProjectResponse * DateTime>
     HelpText : Map<String, FSharpToolTipText>
     ColorizationOutput: bool 
   }
@@ -18,7 +17,7 @@ type State =
   static member Initial =
     { Files = Map.empty
       FileCheckOptions = Map.empty
-      ProjectLoadTimes = Map.empty
+      Projects = Map.empty
       HelpText = Map.empty
       ColorizationOutput = false }
 

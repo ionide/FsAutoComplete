@@ -12,6 +12,8 @@ type Pos =
 
 type Serializer = obj -> string
 
+type FilePath = string
+
 module Utils =
   
   let isAScript fileName =

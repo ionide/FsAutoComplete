@@ -68,12 +68,14 @@ module CommandResponse =
       GlyphChar: string
     }
 
+  type ProjectFile = FilePath
+
   type ProjectResponse =
     {
-      Project: string
-      Files: List<string>
+      Project: ProjectFile
+      Files: List<FilePath>
       Output: string
-      References: List<string>
+      References: List<ProjectFile>
       Logs: Map<string, string>
     }
 
