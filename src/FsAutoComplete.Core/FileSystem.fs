@@ -1,8 +1,6 @@
 namespace FsAutoComplete
 
 open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
 open System
 
 type VolatileFile =
@@ -47,13 +45,13 @@ type FileSystem (actualFs: IFileSystem, getFiles: unit -> Map<string, VolatileFi
                 | Some f -> f.Touched
                 | _      -> actualFs.GetLastWriteTimeShim fileName
 
-        member x.GetTempPathShim() = actualFs.GetTempPathShim()
-        member x.FileStreamCreateShim fileName = actualFs.FileStreamCreateShim (Utils.normalizePath fileName)
-        member x.FileStreamWriteExistingShim fileName = actualFs.FileStreamWriteExistingShim (Utils.normalizePath fileName)
-        member x.GetFullPathShim fileName = actualFs.GetFullPathShim (Utils.normalizePath fileName)
-        member x.IsInvalidPathShim fileName = actualFs.IsInvalidPathShim (Utils.normalizePath fileName)
-        member x.IsPathRootedShim fileName = actualFs.IsPathRootedShim (Utils.normalizePath fileName)
-        member x.SafeExists fileName = actualFs.SafeExists (Utils.normalizePath fileName)
-        member x.FileDelete fileName = actualFs.FileDelete (Utils.normalizePath fileName)
-        member x.AssemblyLoadFrom fileName = actualFs.AssemblyLoadFrom (Utils.normalizePath fileName)
-        member x.AssemblyLoad(assemblyName) = actualFs.AssemblyLoad assemblyName
+        member __.GetTempPathShim() = actualFs.GetTempPathShim()
+        member __.FileStreamCreateShim fileName = actualFs.FileStreamCreateShim (Utils.normalizePath fileName)
+        member __.FileStreamWriteExistingShim fileName = actualFs.FileStreamWriteExistingShim (Utils.normalizePath fileName)
+        member __.GetFullPathShim fileName = actualFs.GetFullPathShim (Utils.normalizePath fileName)
+        member __.IsInvalidPathShim fileName = actualFs.IsInvalidPathShim (Utils.normalizePath fileName)
+        member __.IsPathRootedShim fileName = actualFs.IsPathRootedShim (Utils.normalizePath fileName)
+        member __.SafeExists fileName = actualFs.SafeExists (Utils.normalizePath fileName)
+        member __.FileDelete fileName = actualFs.FileDelete (Utils.normalizePath fileName)
+        member __.AssemblyLoadFrom fileName = actualFs.AssemblyLoadFrom (Utils.normalizePath fileName)
+        member __.AssemblyLoad(assemblyName) = actualFs.AssemblyLoad assemblyName
