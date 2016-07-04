@@ -18,9 +18,9 @@ type Commands (serialize : Serializer) =
             | Result.Failure e -> async.Return [(defaultArg failureToString Response.info) serialize e]
             | Result.Success r -> successToString serialize r |> Async.map List.singleton
 
-    member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) = 
+    member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) =
         x.SerializeResultAsync ((fun s x -> successToString s x |> async.Return), ?failureToString = failureToString)
-    
+
     member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentTypeCheckResultsForFile
     member __.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
     member __.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
@@ -52,6 +52,11 @@ type Commands (serialize : Serializer) =
           return! parse' file text checkOptions
     }
 
+    member __.ParseAll () = async {
+        let! errors = checker.ParseAndCheckAllProjects state.FileCheckOptions
+        return [Response.errors serialize errors ]
+    }
+
     member __.Project file time verbose = async {
         let file = Path.GetFullPath file
 
@@ -59,11 +64,11 @@ type Commands (serialize : Serializer) =
         // each event, as editors often modify files in several steps.
         // This 'debounces' the events, by only reloading a max of once
         // per second.
-        return 
+        return
             match state.ProjectLoadTimes.TryFind file with
             | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> []
             | _ ->
-            let options = 
+            let options =
               if file.EndsWith "fsproj" then
                 checker.TryGetProjectOptions(file, verbose)
               else
@@ -117,7 +122,7 @@ type Commands (serialize : Serializer) =
 
                     let helptext = Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
                     state <- { state with HelpText = helptext }
-                    res 
+                    res
                 | None -> [Response.error serialize "Timed out while fetching completions"]
     }
 
@@ -129,20 +134,20 @@ type Commands (serialize : Serializer) =
 
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResult Response.symbolUse
-         
+
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) -> 
+        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) ->
             async {
                 let! symbols = checker.GetUsesOfSymbol (state.FileCheckOptions, sym.Symbol)
                 return Response.symbolUse serialize (sym, symbols)
             })
-    
+
     member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryFindDeclaration pos.Line pos.Col lineStr |> x.SerializeResult (Response.findDeclaration, Response.error)
-    
+
     member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) lines =
         tyRes.TryGetMethodOverrides lines pos.Line pos.Col |> x.SerializeResult (Response.methods, Response.error)
-    
+
     member __.Lint file = async {
         let file = Path.GetFullPath file
         let res =
@@ -150,7 +155,7 @@ type Commands (serialize : Serializer) =
             | Failure s -> [Response.error serialize s]
             | Success (options, source) ->
                 let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
-                
+
                 match tyResOpt with
                 | None -> [ Response.info serialize "Cached typecheck results not yet available"]
                 | Some tyRes ->
@@ -168,7 +173,7 @@ type Commands (serialize : Serializer) =
                             match res with
                             | LintResult.Failure _ -> [ Response.info serialize "Something went wrong during parsing"]
                             | LintResult.Success warnings -> [ Response.lint serialize warnings ]
-                    
+
                         res'
         return res
     }

@@ -1,6 +1,6 @@
 namespace FsAutoComplete
 
-open System 
+open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
@@ -42,7 +42,7 @@ type ParseAndCheckResults
     | None -> return Failure "Could not find ident at this location"
     | Some identIsland ->
 
-    let! meth = checkResults.GetMethodsAlternate(line, col, lineStr, Some identIsland) 
+    let! meth = checkResults.GetMethodsAlternate(line, col, lineStr, Some identIsland)
 
     return Success(meth, commas) }
 
@@ -52,10 +52,10 @@ type ParseAndCheckResults
     | Some(col,identIsland) ->
 
       let! declarations = checkResults.GetDeclarationLocationAlternate(line, col + 1, lineStr, identIsland, false)
-      
+
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range -> return Success range 
+      | FSharpFindDeclResult.DeclFound range -> return Success range
     }
 
   member __.TryGetToolTip line col lineStr = async {
@@ -65,7 +65,7 @@ type ParseAndCheckResults
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipTextAlternate(line, col + 1, lineStr, identIsland, FSharpTokenTag.Identifier)
-      
+
       match tip with
       | FSharpToolTipText(elems) when elems |> List.forall (function
         FSharpToolTipElement.None -> true | _ -> false) ->
@@ -91,7 +91,7 @@ type ParseAndCheckResults
     let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
     try
       let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, pos.Col, lineStr, longName, residue, fun (_,_) -> false)
-      
+
       let decls =
         match filter with
         | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
@@ -106,9 +106,9 @@ type ParseAndCheckResults
   member __.GetCheckResults = checkResults
 
 type FSharpCompilerServiceChecker() =
-  let checker = 
+  let checker =
     FSharpChecker.Create(
-      projectCacheSize = 50, 
+      projectCacheSize = 50,
       keepAllBackgroundResolutions = false,
       keepAssemblyContents = false)
 
@@ -121,30 +121,30 @@ type FSharpCompilerServiceChecker() =
                    [| yield fsharpCoreRef
                       yield! Seq.filter (fun (s: string) -> not (s.EndsWith("FSharp.Core.dll"))) options |])
     |> Option.getOrElse options
-    
-  let ensureCorrectVersions (options: string[]) = 
+
+  let ensureCorrectVersions (options: string[]) =
     if Utils.runningOnMono then options
-    else 
-      let version = Environment.dotNetVersions () |> Seq.head 
-      let oldRef = Environment.referenceAssembliesPath </> "v4.0"  
+    else
+      let version = Environment.dotNetVersions () |> Seq.head
+      let oldRef = Environment.referenceAssembliesPath </> "v4.0"
       let newRef = Environment.referenceAssembliesPath </> version
-      
+
       let fsharpCoreRef = options |> Seq.find (fun s -> s.EndsWith "FSharp.Core.dll")
-      
+
       let newOptions =
         options
         |> Seq.filter (fun s -> not (s.EndsWith "FSharp.Core.dll"))
         |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
       [| yield fsharpCoreRef
          yield! newOptions |]
-    
+
   let chooseByPrefix prefix (s: string) =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
   member __.GetUsesOfSymbol (options : Map<string, FSharpProjectOptions>, symbol) = async {
     let! res =
-      options 
+      options
       |> Map.toSeq
       |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
       |> Seq.map (fun (_, opts) -> async {
@@ -157,14 +157,28 @@ type FSharpCompilerServiceChecker() =
 
   member __.GetProjectOptionsFromScript(file, source) = async {
     let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
-    let opts = 
+    let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
       |> ensureCorrectVersions
-                     
+
     return { rawOptions with OtherOptions = opts }
   }
-  
+
+  member __.ParseAndCheckAllProjects (options : Map<string, FSharpProjectOptions>) = async {
+    let! res =
+      options
+      |> Map.toSeq
+      |> Seq.distinctBy(fun (_,v) -> v.ProjectFileName)
+      |> Seq.map(fun (_, v) -> async {
+          let! r = checker.ParseAndCheckProject v
+          return r.Errors
+        })
+      |> Async.Parallel
+    return res |> Array.collect id
+  }
+
+
   member __.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
 
@@ -196,10 +210,10 @@ type FSharpCompilerServiceChecker() =
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
         Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, logMap)
-      with e -> 
+      with e ->
         Failure e.Message
-        
-  member __.TryGetCoreProjectOptions (file : string) : Result<_> = 
+
+  member __.TryGetCoreProjectOptions (file : string) : Result<_> =
     if not (File.Exists file) then
       Failure (sprintf "File '%s' does not exist" file)
     else
@@ -208,9 +222,9 @@ type FSharpCompilerServiceChecker() =
         let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))   
-      with e -> 
+        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
+      with e ->
         Failure e.Message
-        
 
-     
+
+
