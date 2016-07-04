@@ -24,7 +24,7 @@ module Contract =
     type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
- 
+
 [<AutoOpen>]
 module internal Utils =
     let private fromJson<'a> json =
@@ -51,7 +51,7 @@ let main argv =
           return! Response.response HttpCode.HTTP_200 res' r
         }
 
-    let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) -> 
+    let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) ->
         async {
             let data = r.request |> getResourceFromReq<PositionRequest>
             let file = Path.GetFullPath data.FileName
@@ -67,7 +67,7 @@ let main argv =
                   | Some tyRes -> f data tyRes lineStr lines
             let res' = res |> List.toArray |> Json.toJson
             return! Response.response HttpCode.HTTP_200 res' r
-        } 
+        }
 
     let app =
         Writers.setMimeType "application/json; charset=utf-8" >=>
@@ -76,6 +76,12 @@ let main argv =
             path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines)
             //TODO: Add filewatcher
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
+            path "/parseProjects" >=> fun httpCtx ->
+                async {
+                    let! errors = commands.ParseAll()
+                    let res = errors |> List.toArray |> Json.toJson
+                    return! Response.response HttpCode.HTTP_200 res httpCtx
+                }
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName)
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> commands.Helptext data.Symbol |> async.Return)
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {
@@ -89,7 +95,7 @@ let main argv =
                     let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
                     if not ok then
                         return [CommandResponse.error writeJson "Position is out of range"]
-                    else                    
+                    else
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
@@ -100,7 +106,7 @@ let main argv =
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclarations tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes { Line = data.Line; Col = data.Column } lines)
-            path "/compilerlocation" >=> fun httpCtx -> 
+            path "/compilerlocation" >=> fun httpCtx ->
                 async {
                     let res = commands.CompilerLocation() |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
