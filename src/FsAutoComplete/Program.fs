@@ -7,20 +7,21 @@ open JsonSerializer
 open FsAutoComplete
 
 module internal Main =
+  open System.Collections.Concurrent
+
   module Response = CommandResponse
   let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
   let commands = Commands writeJson
   let fs = new FileSystem(originalFs, commands.Files.TryFind)
   AbstractIL.Internal.Library.Shim.FileSystem <- fs
-
-  let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
+  let commandQueue = new BlockingCollection<Command>(10)
 
   let main () : int =
     let mutable quit = false
 
     while not quit do
       async {
-          match commandQueue.Get() with
+          match commandQueue.Take() with
           | Parse (file, kind, lines) -> 
               let! res = commands.Parse file lines
               //Hack for tests

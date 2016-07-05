@@ -10,7 +10,7 @@ type private ProjectMessage =
     | GetResponse of AsyncReplyChannel<SerializedProjectResponse option>
     | SetResponse of SerializedProjectResponse option
 
-type Project (projectFile, onChange) =
+type Project (projectFile, onChange: ProjectFilePath -> unit) =
     let agent = MailboxProcessor.Start <| fun mb ->
         let rec loop (lastWriteTime, response) = async {
             let! msg = mb.Receive()
