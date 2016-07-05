@@ -2,39 +2,43 @@
 
 open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open System.Collections.Concurrent
+
+type DeclName = string
 
 type State =
   {
-    Files : Map<string,VolatileFile>
-    FileCheckOptions : Map<string,FSharpProjectOptions>
-    Projects : Map<CommandResponse.ProjectFile, Project>
-    HelpText : Map<String, FSharpToolTipText>
-    ColorizationOutput: bool 
+    Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
+    FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
+    Projects : ConcurrentDictionary<ProjectFilePath, Project>
+    HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
+    mutable ColorizationOutput: bool 
   }
 
   static member Initial =
-    { Files = Map.empty
-      FileCheckOptions = Map.empty
-      Projects = Map.empty
-      HelpText = Map.empty
+    { Files = ConcurrentDictionary()
+      FileCheckOptions = ConcurrentDictionary()
+      Projects = ConcurrentDictionary()
+      HelpText = ConcurrentDictionary()
       ColorizationOutput = false }
 
-  member x.WithFileTextGetCheckerOptions(file, lines) : State * FSharpProjectOptions =
+  member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions =
     let file = Utils.normalizePath file
 
     let opts =
       match x.FileCheckOptions.TryFind file with
-      | None -> State.FileWithoutProjectOptions(file)
+      | None -> State.FileWithoutProjectOptions file
       | Some opts -> opts
-    let fileState = { Lines = lines; Touched = DateTime.Now }
-    { x with Files = Map.add file fileState x.Files
-             FileCheckOptions = Map.add file opts x.FileCheckOptions }, opts
+    
+    x.Files.[file] <- { Lines = lines; Touched = DateTime.Now }
+    x.FileCheckOptions.[file] <- opts
+    opts
 
-  member x.WithFileTextAndCheckerOptions(file, lines, opts) =
+  member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts) =
     let file = Utils.normalizePath file
     let fileState = { Lines = lines; Touched = DateTime.Now }
-    { x with Files = Map.add file fileState x.Files
-             FileCheckOptions = Map.add file opts x.FileCheckOptions }
+    x.Files.[file] <- fileState
+    x.FileCheckOptions.[file] <- opts
 
   static member private FileWithoutProjectOptions(file) =
     { ProjectFileName = file + ".fsproj"
@@ -46,7 +50,7 @@ type State =
       LoadTime = DateTime.Now
       UnresolvedReferences = None }
 
-  member x.TryGetFileCheckerOptionsWithLines(file) : Result<FSharpProjectOptions * string[]> =
+  member x.TryGetFileCheckerOptionsWithLines(file: SourceFilePath) : Result<FSharpProjectOptions * LineStr[]> =
     let file = Utils.normalizePath file
     match x.Files.TryFind(file) with
     | None -> Failure (sprintf "File '%s' not parsed" file)
@@ -56,13 +60,13 @@ type State =
       | None -> Success (State.FileWithoutProjectOptions(file), volFile.Lines)
       | Some opts -> Success (opts, volFile.Lines)
 
-  member x.TryGetFileCheckerOptionsWithSource(file) : Result<FSharpProjectOptions * string> =
+  member x.TryGetFileCheckerOptionsWithSource(file: SourceFilePath) : Result<FSharpProjectOptions * string> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Failure x -> Failure x
     | Success (opts, lines) -> Success (opts, String.concat "\n" lines)
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) : Result<FSharpProjectOptions * string[] * string> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos) : Result<FSharpProjectOptions * LineStr[] * LineStr> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Failure x -> Failure x

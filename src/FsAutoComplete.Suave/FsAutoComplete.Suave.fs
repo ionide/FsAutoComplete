@@ -1,8 +1,6 @@
 module FsAutoComplete.Suave
 
-open System
 open System.IO
-
 open Suave
 open Suave.Http
 open Suave.Operators
@@ -39,9 +37,8 @@ module internal Utils =
 let main argv =
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     let commands = Commands(writeJson)
-    let currentFiles = ref Map.empty
     let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-    let fs = new FileSystem(originalFs, fun () -> !currentFiles)
+    let fs = new FileSystem(originalFs, commands.Files.TryFind)
     AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
     let handler f : WebPart = fun (r : HttpContext) -> async {

@@ -8,19 +8,17 @@ open FsAutoComplete
 
 module internal Main =
   module Response = CommandResponse
-  let mutable currentFiles = Map.empty
   let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-  let fs = new FileSystem(originalFs, fun () -> currentFiles)
+  let commands = Commands writeJson
+  let fs = new FileSystem(originalFs, commands.Files.TryFind)
   AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
   let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
 
   let main () : int =
     let mutable quit = false
-    let commands = Commands(writeJson)
 
     while not quit do
-      currentFiles <- commands.Files
       async {
           match commandQueue.Get() with
           | Parse (file, kind, lines) -> 
