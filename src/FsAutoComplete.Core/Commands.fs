@@ -31,24 +31,25 @@ type Commands (serialize : Serializer) =
         let parse' fileName text options =
             async {
                 let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
-                return match checkResults with
-                        | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                        | FSharpCheckFileAnswer.Succeeded results ->
-                            if colorizations then
-                                [ Response.errors serialize (results.Errors)
-                                  Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                            else [ Response.errors serialize (results.Errors) ]
+                return 
+                    match checkResults with
+                    | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
+                    | FSharpCheckFileAnswer.Succeeded results ->
+                        if colorizations then
+                            [ Response.errors serialize (results.Errors)
+                              Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
+                        else [ Response.errors serialize (results.Errors) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
 
         if Utils.isAScript file then
-          let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-          state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
-          return! parse' file text checkOptions
+            let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+            state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+            return! parse' file text checkOptions
         else
-          let checkOptions = state.GetCheckerOptions(file, lines)
-          return! parse' file text checkOptions
+            let checkOptions = state.GetCheckerOptions(file, lines)
+            return! parse' file text checkOptions
     }
 
     member __.ParseAll () = async {

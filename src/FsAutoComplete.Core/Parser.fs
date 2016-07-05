@@ -16,7 +16,6 @@ type LazyList<'T> =
   | Nil
   | Cons of 'T * Lazy<LazyList<'T>>
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module LazyList =
   let ofSeq (s:seq<'T>) =
     let en = s.GetEnumerator()
