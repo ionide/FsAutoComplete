@@ -91,7 +91,13 @@ type Commands (serialize : Serializer) =
         | Failure s -> return [Response.error serialize s]
         | Success (checkOptions, source) ->
             let! decls = checker.GetDeclarations(file, source, checkOptions)
+            let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
+    }
+
+    member __.DeclarationsInProjects () = async {
+        let! decls = checker.GetDeclarationsInProjects state.FileCheckOptions
+        return [Response.declarations serialize decls]
     }
 
     member __.Helptext sym =
