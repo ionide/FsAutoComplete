@@ -298,5 +298,5 @@ module CommandResponse =
 
   let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
     let data = warnings |> List.toArray
-      
+
     serialize { Kind = "lint"; Data = data }

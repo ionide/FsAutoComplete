@@ -94,6 +94,11 @@ type Commands (serialize : Serializer) =
             return [Response.declarations serialize decls]
     }
 
+    member __.DeclarationsInProjects () = async {
+        let! decls = checker.GetDeclarationsInProjects state.FileCheckOptions
+        return [Response.declarations serialize decls]
+    }
+
     member __.Helptext sym =
         match Map.tryFind sym state.HelpText with
         | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
