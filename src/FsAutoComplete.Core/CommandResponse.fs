@@ -178,8 +178,9 @@ module CommandResponse =
       IsTopLevel: bool
       Range: Range.range
       BodyRange : Range.range
+      File : string
     }
-    static member OfDeclarationItem(e:FSharpNavigationDeclarationItem) =
+    static member OfDeclarationItem(e:FSharpNavigationDeclarationItem, fn) =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
       {
         UniqueName = e.UniqueName
@@ -189,6 +190,7 @@ module CommandResponse =
         IsTopLevel = e.IsSingleTopLevel
         Range = e.Range
         BodyRange = e.BodyRange
+        File = fn
       }
 
   type DeclarationResponse = {
@@ -273,11 +275,11 @@ module CommandResponse =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
     serialize { Kind = "finddecl"; Data = data }
 
-  let declarations (serialize : Serializer) (decls : FSharpNavigationTopLevelDeclaration[]) =
+  let declarations (serialize : Serializer) (decls : (FSharpNavigationTopLevelDeclaration * string) []) =
      let decls' =
-      decls |> Array.map (fun d ->
-        { Declaration = Declaration.OfDeclarationItem d.Declaration;
-          Nested = d.Nested |> Array.map Declaration.OfDeclarationItem
+      decls |> Array.map (fun (d, fn) ->
+        { Declaration = Declaration.OfDeclarationItem (d.Declaration, fn);
+          Nested = d.Nested |> Array.map ( fun a -> Declaration.OfDeclarationItem(a,fn))
         })
      serialize { Kind = "declarations"; Data = decls' }
 

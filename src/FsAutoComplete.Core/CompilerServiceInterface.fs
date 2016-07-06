@@ -217,7 +217,7 @@ type FSharpCompilerServiceChecker() =
             |> Seq.map fst
             |> Seq.map (fun f -> async {
                 let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(f, opts)
-                return parseRes.GetNavigationItems().Declarations
+                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun a -> a, f))
               })
             |> Async.Parallel
          })
