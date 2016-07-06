@@ -314,7 +314,8 @@
           "StartLine": 1,
           "EndColumn": 6,
           "EndLine": 15
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
       },
       "Nested": [
         {
@@ -334,7 +335,8 @@
             "StartLine": 13,
             "EndColumn": 6,
             "EndLine": 15
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
         }
       ]
     },
@@ -356,7 +358,8 @@
           "StartLine": 1,
           "EndColumn": 21,
           "EndLine": 2
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
       },
       "Nested": [
         {
@@ -376,7 +379,8 @@
             "StartLine": 2,
             "EndColumn": 21,
             "EndLine": 2
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
         }
       ]
     }
@@ -403,7 +407,8 @@
           "StartLine": 1,
           "EndColumn": 6,
           "EndLine": 14
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
       },
       "Nested": [
         {
@@ -423,7 +428,8 @@
             "StartLine": 9,
             "EndColumn": 20,
             "EndLine": 9
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
         },
         {
           "UniqueName": "FileTwo_1_of_1",
@@ -442,7 +448,8 @@
             "StartLine": 7,
             "EndColumn": 25,
             "EndLine": 7
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
         }
       ]
     },
@@ -464,7 +471,8 @@
           "StartLine": 4,
           "EndColumn": 8,
           "EndLine": 5
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
       },
       "Nested": [
         {
@@ -484,7 +492,8 @@
             "StartLine": 4,
             "EndColumn": 8,
             "EndLine": 4
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
         },
         {
           "UniqueName": "Foo_1_of_1",
@@ -503,7 +512,8 @@
             "StartLine": 5,
             "EndColumn": 8,
             "EndLine": 5
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
         }
       ]
     },
@@ -525,7 +535,8 @@
           "StartLine": 13,
           "EndColumn": 6,
           "EndLine": 14
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
       },
       "Nested": [
         {
@@ -545,7 +556,8 @@
             "StartLine": 13,
             "EndColumn": 6,
             "EndLine": 14
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
         }
       ]
     }
@@ -572,7 +584,8 @@
           "StartLine": 1,
           "EndColumn": 22,
           "EndLine": 4
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx"
       },
       "Nested": []
     },
@@ -594,7 +607,8 @@
           "StartLine": 3,
           "EndColumn": 22,
           "EndLine": 4
-        }
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx"
       },
       "Nested": [
         {
@@ -614,7 +628,8 @@
             "StartLine": 4,
             "EndColumn": 22,
             "EndLine": 4
-          }
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx"
         }
       ]
     }
