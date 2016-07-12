@@ -1,5 +1,16 @@
 #### 0.29.0 - 12.07.2016
 
+* Add command for all declarations in known projects: #117.
+* cache ProjectResponse, invalidate it if project file's last write time changed: #116.
+* Add command to parse all known projects: #115.
+* Merge Ionide changes (#110):
+  - Naive support for project.json (this probably will be dropped in futture but let's have it now)
+  - Better (file) paths normalization across different features
+  - Resolve scripts to latest .Net on Windows
+  - Make completion faster on Suave
+  - Depend on F# 4 (FSharp.Core deployed with application) instead of 4.3.1
+* Fix Symboluseproject: #104.
+
 #### 0.28.0 - 05.04.2016
 
 * Backwards-incompatible: Make completions faster by not requiring a parse on each request: #99
