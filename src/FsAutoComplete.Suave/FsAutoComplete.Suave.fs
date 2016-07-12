@@ -80,6 +80,12 @@ let main argv =
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName)
+            path "/declarationsProjects" >=> fun httpCtx ->
+                async {
+                    let! errors = commands.DeclarationsInProjects ()
+                    let res = errors |> List.toArray |> Json.toJson
+                    return! Response.response HttpCode.HTTP_200 res httpCtx
+                }
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> commands.Helptext data.Symbol |> async.Return)
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {
                 let file = Path.GetFullPath data.FileName

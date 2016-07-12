@@ -142,6 +142,17 @@ type FSharpCompilerServiceChecker() =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
+  let rec allSymbolsInEntities (entities: Collections.Generic.IList<FSharpEntity>) =
+    [ for e in entities do
+          yield (e :> FSharpSymbol)
+          for x in e.MembersFunctionsAndValues do
+             yield (x :> FSharpSymbol)
+          for x in e.UnionCases do
+             yield (x :> FSharpSymbol)
+          for x in e.FSharpFields do
+             yield (x :> FSharpSymbol)
+          yield! allSymbolsInEntities e.NestedEntities ]
+
   member __.GetUsesOfSymbol (options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
     let! res =
       options
@@ -187,6 +198,24 @@ type FSharpCompilerServiceChecker() =
     let! parseResult = checker.ParseFileInProject(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
+
+  member __.GetDeclarationsInProjects (options : seq<string * FSharpProjectOptions>) =
+      options
+      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
+      |> Seq.map (fun (_, opts) -> async {
+          let! _ = checker.ParseAndCheckProject opts
+          return!
+            options
+            |> Seq.filter (fun (_, projectOpts) -> projectOpts = opts)
+            |> Seq.map fst
+            |> Seq.map (fun projectFile -> async {
+                let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(projectFile, opts)
+                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, projectFile))
+              })
+            |> Async.Parallel
+         })
+      |> Async.Parallel
+      |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)
 
   member __.TryGetProjectOptions (file: SourceFilePath, verbose: bool) : Result<_> =
     if not (File.Exists file) then
