@@ -1,3 +1,5 @@
+#### 0.29.0 - 12.07.2016
+
 #### 0.28.0 - 05.04.2016
 
 * Backwards-incompatible: Make completions faster by not requiring a parse on each request: #99
