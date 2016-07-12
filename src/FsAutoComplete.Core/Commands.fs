@@ -9,7 +9,7 @@ module Response = CommandResponse
 
 type Commands (serialize : Serializer) =
     let checker = FSharpCompilerServiceChecker()
-    let mutable state = FsAutoComplete.State.Initial
+    let state = FsAutoComplete.State.Initial
 
     member private __.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -31,58 +31,62 @@ type Commands (serialize : Serializer) =
         let parse' fileName text options =
             async {
                 let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
-                return match checkResults with
-                        | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                        | FSharpCheckFileAnswer.Succeeded results ->
-                            if colorizations then
-                                [ Response.errors serialize (results.Errors)
-                                  Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                            else [ Response.errors serialize (results.Errors) ]
+                return 
+                    match checkResults with
+                    | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
+                    | FSharpCheckFileAnswer.Succeeded results ->
+                        if colorizations then
+                            [ Response.errors serialize (results.Errors)
+                              Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
+                        else [ Response.errors serialize (results.Errors) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
 
         if Utils.isAScript file then
-          let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-          state <- state.WithFileTextAndCheckerOptions(file, lines, checkOptions)
-          return! parse' file text checkOptions
+            let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+            state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+            return! parse' file text checkOptions
         else
-          let state', checkOptions = state.WithFileTextGetCheckerOptions(file, lines)
-          state <- state'
-          return! parse' file text checkOptions
+            let checkOptions = state.GetCheckerOptions(file, lines)
+            return! parse' file text checkOptions
     }
 
     member __.ParseAll () = async {
-        let! errors = checker.ParseAndCheckAllProjects state.FileCheckOptions
+        let! errors = checker.ParseAndCheckAllProjects (state.FileCheckOptions.ToSeq())
         return [Response.errors serialize errors ]
     }
 
-    member __.Project file time verbose = async {
-        let file = Path.GetFullPath file
+    member __.Project projectFileName verbose onChange = async {
+        let projectFileName = Path.GetFullPath projectFileName
+        let project = state.Projects.TryFind projectFileName
+        
+        let project = project |> Option.getOrElseFun (fun _ -> 
+            let project = new Project(projectFileName, onChange)
+            state.Projects.[projectFileName] <- project
+            project)
 
-        // The FileSystemWatcher often triggers multiple times for
-        // each event, as editors often modify files in several steps.
-        // This 'debounces' the events, by only reloading a max of once
-        // per second.
         return
-            match state.ProjectLoadTimes.TryFind file with
-            | Some oldtime when time - oldtime < TimeSpan.FromSeconds(1.0) -> []
-            | _ ->
-            let options =
-              if file.EndsWith "fsproj" then
-                checker.TryGetProjectOptions(file, verbose)
-              else
-                checker.TryGetCoreProjectOptions file
-
-            match options with
-            | Result.Failure s -> [Response.error serialize s]
-            | Result.Success(po, projectFiles, outFileOpt, references, logMap) ->
-                let pf = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
-                let res = Response.project serialize (file, pf, outFileOpt, references, logMap)
-                let checkOptions = pf |> List.fold (fun s f -> Map.add f po s) state.FileCheckOptions
-                let loadTimes = Map.add file time state.ProjectLoadTimes
-                state <- { state with FileCheckOptions = checkOptions; ProjectLoadTimes = loadTimes }
-                [res]
+            match project.Response with
+            | Some response -> [response]
+            | None ->
+                let options =
+                    if Path.GetExtension projectFileName = ".fsproj" then
+                        checker.TryGetProjectOptions (projectFileName, verbose)
+                    else
+                        checker.TryGetCoreProjectOptions projectFileName
+                
+                match options with
+                | Result.Failure error -> 
+                    project.Response <- None
+                    [Response.error serialize error]
+                | Result.Success (opts, projectFiles, outFileOpt, references, logMap) ->
+                    let projectFiles = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
+                    let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
+                    for file in projectFiles do
+                        state.FileCheckOptions.[file] <- opts
+                    project.Response <- Some response
+                    [response]
     }
 
     member __.Declarations file = async {
@@ -96,17 +100,17 @@ type Commands (serialize : Serializer) =
     }
 
     member __.DeclarationsInProjects () = async {
-        let! decls = checker.GetDeclarationsInProjects state.FileCheckOptions
+        let! decls = checker.GetDeclarationsInProjects <| state.FileCheckOptions.ToSeq()
         return [Response.declarations serialize decls]
     }
 
     member __.Helptext sym =
-        match Map.tryFind sym state.HelpText with
+        match state.HelpText.TryFind sym with
         | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
         | Some tip -> [Response.helpText serialize (sym, tip)]
 
     member __.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
-    member __.Colorization enabled = state <- { state with ColorizationOutput = enabled }
+    member __.Colorization enabled = state.ColorizationOutput <- enabled
     member __.Error msg = [Response.error serialize msg]
 
     member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter = async {
@@ -126,35 +130,35 @@ type Commands (serialize : Serializer) =
                                     [Response.helpText serialize (d.Name, d.DescriptionText)
                                      Response.completion serialize decls]
 
-                    let helptext = Seq.fold (fun m d -> Map.add (declName d) d.DescriptionText m) Map.empty decls
-                    state <- { state with HelpText = helptext }
+                    for decl in decls do
+                        state.HelpText.[declName decl] <- decl.DescriptionText
                     res
                 | None -> [Response.error serialize "Timed out while fetching completions"]
     }
 
     member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> x.SerializeResult Response.toolTip
+        tyRes.TryGetToolTip pos lineStr |> x.SerializeResult Response.toolTip
 
     member x.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos.Line pos.Col lineStr |> x.SerializeResult Response.typeSig
+        tyRes.TryGetToolTip pos lineStr |> x.SerializeResult Response.typeSig
 
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResult Response.symbolUse
+        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
 
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos.Line pos.Col lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) ->
+        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) ->
             async {
-                let! symbols = checker.GetUsesOfSymbol (state.FileCheckOptions, sym.Symbol)
+                let! symbols = checker.GetUsesOfSymbol (state.FileCheckOptions.ToSeq(), sym.Symbol)
                 return Response.symbolUse serialize (sym, symbols)
             })
 
     member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryFindDeclaration pos.Line pos.Col lineStr |> x.SerializeResult (Response.findDeclaration, Response.error)
+        tyRes.TryFindDeclaration pos lineStr |> x.SerializeResult (Response.findDeclaration, Response.error)
 
-    member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) lines =
-        tyRes.TryGetMethodOverrides lines pos.Line pos.Col |> x.SerializeResult (Response.methods, Response.error)
+    member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
+        tyRes.TryGetMethodOverrides lines pos |> x.SerializeResult (Response.methods, Response.error)
 
-    member __.Lint file = async {
+    member __.Lint (file: SourceFilePath) = async {
         let file = Path.GetFullPath file
         let res =
             match state.TryGetFileCheckerOptionsWithSource file with

@@ -70,10 +70,10 @@ module CommandResponse =
 
   type ProjectResponse =
     {
-      Project: string
-      Files: List<string>
+      Project: ProjectFilePath
+      Files: List<SourceFilePath>
       Output: string
-      References: List<string>
+      References: List<ProjectFilePath>
       Logs: Map<string, string>
     }
 

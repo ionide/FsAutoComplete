@@ -25,7 +25,7 @@ type Command =
   | Parse of string * ParseKind * string[]
   | Error of string
   | Lint of string
-  | Project of string * DateTime * bool
+  | Project of string * bool
   | Colorization of bool
   | CompilerLocation
   | Quit
@@ -62,7 +62,7 @@ module CommandInput =
       (parser { let! _ = some (string " verbose")
                 return true }) <|>
       (parser { return false })
-    return Project(filename,DateTime.Now,verbose) }
+    return Project(filename, verbose) }
 
   /// Parse 'lint' command
   let lint = parser {

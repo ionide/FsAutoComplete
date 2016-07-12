@@ -1,4 +1,5 @@
-namespace FsAutoComplete
+[<AutoOpen>]
+module FsAutoComplete.Utils
 
 open System.IO
 
@@ -12,30 +13,37 @@ type Pos =
 
 type Serializer = obj -> string
 
-module Utils =
+type ProjectFilePath = string
+type SourceFilePath = string
+type LineStr = string
+
+let isAScript fileName =
+    let ext = Path.GetExtension fileName
+    [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
+
+let runningOnMono = 
+  try System.Type.GetType("Mono.Runtime") <> null
+  with _ -> false
+
+let normalizePath (file : string) = 
+  if file.EndsWith ".fs" then 
+      let p = Path.GetFullPath file
+      (p.Chars 0).ToString().ToLower() + p.Substring(1)
+  else file
   
-  let isAScript fileName =
-      let ext = Path.GetExtension fileName
-      [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
+let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
-  let runningOnMono = 
-    try System.Type.GetType("Mono.Runtime") <> null
-    with _ -> false
-
-  let normalizePath (file : string) = 
-    if file.EndsWith ".fs" then 
-        let p = Path.GetFullPath file
-        (p.Chars 0).ToString().ToLower() + p.Substring(1)
-    else file
-    
-  let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
-
-  let inline (</>) path1 path2 = combinePaths path1 path2
+let inline (</>) path1 path2 = combinePaths path1 path2
 
 module Option =
   let getOrElse defaultValue option =
     match option with
     | None -> defaultValue
+    | Some x -> x
+
+  let getOrElseFun defaultValue option =
+    match option with
+    | None -> defaultValue()
     | Some x -> x
 
 module Async =
@@ -61,3 +69,12 @@ module Async =
 
 module List =
     let inline singleton x = [x]
+
+type System.Collections.Concurrent.ConcurrentDictionary<'key, 'value> with
+    member x.TryFind key =
+        match x.TryGetValue key with
+        | true, value -> Some value
+        | _ -> None
+
+    member x.ToSeq() =
+        x |> Seq.map (fun (KeyValue(k, v)) -> k, v)

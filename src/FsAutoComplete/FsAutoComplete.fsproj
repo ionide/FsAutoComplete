@@ -64,7 +64,6 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Debug.fs" />
-    <Compile Include="BlockingQueueAgent.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="CommandInput.fs" />
     <Compile Include="JsonSerializer.fs" />

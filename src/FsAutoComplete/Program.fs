@@ -7,22 +7,21 @@ open JsonSerializer
 open FsAutoComplete
 
 module internal Main =
-  module Response = CommandResponse
-  let mutable currentFiles = Map.empty
-  let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-  let fs = new FileSystem(originalFs, fun () -> currentFiles)
-  AbstractIL.Internal.Library.Shim.FileSystem <- fs
+  open System.Collections.Concurrent
 
-  let commandQueue = new FSharpx.Control.BlockingQueueAgent<Command>(10)
+  module Response = CommandResponse
+  let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
+  let commands = Commands writeJson
+  let fs = new FileSystem(originalFs, commands.Files.TryFind)
+  AbstractIL.Internal.Library.Shim.FileSystem <- fs
+  let commandQueue = new BlockingCollection<Command>(10)
 
   let main () : int =
     let mutable quit = false
-    let commands = Commands(writeJson)
 
     while not quit do
-      currentFiles <- commands.Files
       async {
-          match commandQueue.Get() with
+          match commandQueue.Take() with
           | Parse (file, kind, lines) -> 
               let! res = commands.Parse file lines
               //Hack for tests
@@ -31,14 +30,8 @@ module internal Main =
                       | Normal -> Response.info writeJson "Background parsing started"
               return r :: res
 
-          | Project (file, time, verbose) ->
-              //THIS SHOULD BE INITIALIZED SOMEWHERE ELSE ?
-              let fullPath = Path.GetFullPath file
-              let fsw = new FileSystemWatcher(Path = Path.GetDirectoryName fullPath, Filter = Path.GetFileName fullPath)
-              fsw.Changed.Add(fun _ -> commandQueue.Add(Project (fullPath, DateTime.Now, verbose)))
-              fsw.EnableRaisingEvents <- true
-              return! commands.Project file time verbose
-
+          | Project (file, verbose) -> 
+              return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose)))
           | Declarations file -> return! commands.Declarations file
           | HelpText sym -> return commands.Helptext sym
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
