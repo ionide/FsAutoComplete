@@ -229,7 +229,7 @@ module CommandResponse =
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                                yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar }
                             for k in keywords do
-                              yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "k"}
+                              yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
                           ] }
 
   let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
