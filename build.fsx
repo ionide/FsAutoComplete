@@ -50,6 +50,9 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
+// Used to prevent parallel FSI process launching on CI Build servers
+let isCIBuild = environVar "CI" <> null // CI is set to true by default on Appveyor, for Travis this envar is defined in the config
+
 let runIntegrationTest (num:int) (fsx: string) : bool =
   let dir = Path.GetDirectoryName fsx
 
@@ -59,10 +62,11 @@ let runIntegrationTest (num:int) (fsx: string) : bool =
   if not success then
     for msg in msgs do
       traceError msg.Message
-  tracefn "\nCompleted FSIHelper - %i\n" num
+  if not isCIBuild then // Only show when the script completed during parallel execution
+    tracefn "\nCompleted FSIHelper - %i\n" num
   success
 
-let isCIBuild = environVar "CI" <> null // CI is set to true by default on Appveyor, for Travis this envar is defined in the config
+
 
 Target "IntegrationTest" (fun _ ->
 
@@ -86,7 +90,7 @@ Target "IntegrationTest" (fun _ ->
     let ok, out, err =
       Git.CommandHelper.runGitCommand
                         "."
-                        ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
+                        ("-c core.fileMode=false diff --exit-code " + (__SOURCE_DIRECTORY__ </> integrationTestDir))
     if not ok then
       trace (toLines out)
       failwithf "Integration tests failed:\n%s" err
