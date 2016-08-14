@@ -54,9 +54,7 @@ let runIntegrationTest (num:int) (fsx: string) : bool =
   let dir = Path.GetDirectoryName fsx
 
   tracefn "Running FSIHelper - %i\n    '%s'\n    '%s'\n    '%s'\n" num FSIHelper.fsiPath dir fsx
-  let success, msgs = 
-    // Adjust working directory for each integration test script
-    System.Environment.CurrentDirectory <- dir
+  let success, msgs =         
     FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
   if not success then
     for msg in msgs do
@@ -75,7 +73,12 @@ Target "IntegrationTest" (fun _ ->
         |> Seq.forall id
     else
         integrationTests 
-        |> Seq.mapi runIntegrationTest
+        |> Seq.mapi (fun idx fsx ->
+            // Adjust working directory for each integration test script
+            let dir = Path.GetDirectoryName fsx   
+            System.Environment.CurrentDirectory <- dir
+            runIntegrationTest idx fsx
+        )
         |> Seq.forall id      
   if not runOk then
     failwith "Integration tests did not run successfully"
