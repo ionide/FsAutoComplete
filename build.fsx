@@ -54,7 +54,10 @@ let runIntegrationTest (num:int) (fsx: string) : bool =
   let dir = Path.GetDirectoryName fsx
 
   tracefn "Running FSIHelper - %i\n    '%s'\n    '%s'\n    '%s'\n" num FSIHelper.fsiPath dir fsx
-  let success, msgs = FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
+  let success, msgs = 
+    // Adjust working directory for each integration test script
+    System.Environment.CurrentDirectory <- dir
+    FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
   if not success then
     for msg in msgs do
       traceError msg.Message
@@ -64,20 +67,15 @@ let runIntegrationTest (num:int) (fsx: string) : bool =
 let isCIBuild = environVar "CI" <> null // CI is set to true by default on Appveyor, for Travis this envar is defined in the config
 
 Target "IntegrationTest" (fun _ ->
-  let execTest idx fsx =
-    // Adjust working directory for each integration test script
-    let dir = Path.GetDirectoryName fsx   
-    System.Environment.CurrentDirectory <- dir
-    runIntegrationTest idx fsx 
 
   let runOk =
     if not isCIBuild then // Don't run parallel tests during CI builds
         integrationTests |> Array.ofSeq
-        |> Array.Parallel.mapi execTest
+        |> Array.Parallel.mapi runIntegrationTest
         |> Seq.forall id
     else
         integrationTests 
-        |> Seq.mapi execTest
+        |> Seq.mapi runIntegrationTest
         |> Seq.forall id      
   if not runOk then
     failwith "Integration tests did not run successfully"
