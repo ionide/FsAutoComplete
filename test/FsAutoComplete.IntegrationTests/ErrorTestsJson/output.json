@@ -52,7 +52,7 @@
       "StartColumn": 19,
       "EndColumn": 23,
       "Severity": "Error",
-      "Message": "This expression was expected to have type\n    int    \nbut here has type\n    string    ",
+      "Message": "This expression was expected to have type\n    'int'    \nbut here has type\n    'string'    ",
       "Subcategory": "typecheck"
     }
   ]
