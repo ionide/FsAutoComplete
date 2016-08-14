@@ -63,6 +63,7 @@ let runIntegrationTest (fsx: string) : bool =
 Target "IntegrationTest" (fun _ ->
   let runOk =
    [ for fsx in integrationTests do
+        // Adjust working directory for each integration test script
         let dir = Path.GetDirectoryName fsx   
         System.Environment.CurrentDirectory <- dir
         yield runIntegrationTest fsx 
@@ -70,7 +71,8 @@ Target "IntegrationTest" (fun _ ->
   if not runOk then
     failwith "Integration tests did not run successfully"
   else
-
+    // reset working directory for git command
+    System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
     let ok, out, err =
       Git.CommandHelper.runGitCommand
                         "."
