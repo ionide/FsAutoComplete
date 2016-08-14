@@ -1,6 +1,12 @@
 os:
   - Windows Server 2012
   - Visual Studio 2015
+
+install:
+    # Install F# 4.0 for Windows Server 2012
+  - ps: $webclient = New-Object Net.WebClient; $url = 'http://download.microsoft.com/download/9/1/2/9122D406-F1E3-4880-A66D-D6C65E8B1545/FSharp_Bundle.exe'; $webclient.DownloadFile($url, "$pwd\FSharp_Bundle.exe"); .\FSharp_Bundle.exe /install /quiet
+
 build_script:
   - cmd: build.cmd Test
+
 test: off
