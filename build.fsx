@@ -63,8 +63,10 @@ let runIntegrationTest (fsx: string) : bool =
 Target "IntegrationTest" (fun _ ->
   let runOk =
    [ for fsx in integrationTests do
-       yield runIntegrationTest fsx ]
-   |> Seq.forall id
+        let dir = Path.GetDirectoryName fsx   
+        System.Environment.CurrentDirectory <- dir
+        yield runIntegrationTest fsx 
+    ] |> Seq.forall id
   if not runOk then
     failwith "Integration tests did not run successfully"
   else
