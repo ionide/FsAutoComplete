@@ -85,7 +85,7 @@ Target "IntegrationTest" (fun _ ->
   else
     let ok, out, err =
       Git.CommandHelper.runGitCommand
-                        __SOURCE_DIRECTORY__
+                        "."
                         ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
     if not ok then
       trace (toLines out)
