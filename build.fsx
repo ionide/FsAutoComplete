@@ -50,32 +50,32 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
-let runIntegrationTest (fsx: string) : bool =
+let runIntegrationTest (num:int) (fsx: string) : bool =
   let dir = Path.GetDirectoryName fsx
 
-  tracefn "Running FSIHelper\n    '%s'\n    '%s'\n    '%s'\n"  FSIHelper.fsiPath dir fsx
-  let b, msgs = FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
-  if not b then
+  tracefn "Running FSIHelper - %i\n    '%s'\n    '%s'\n    '%s'\n" num FSIHelper.fsiPath dir fsx
+  let success, msgs = FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
+  if not success then
     for msg in msgs do
       traceError msg.Message
-  b
+  success
 
 Target "IntegrationTest" (fun _ ->
   let runOk =
-   [ for fsx in integrationTests do
-        // Adjust working directory for each integration test script
+    integrationTests |> Array.ofSeq
+    |> Array.Parallel.mapi (fun idx fsx -> 
         let dir = Path.GetDirectoryName fsx   
         System.Environment.CurrentDirectory <- dir
-        yield runIntegrationTest fsx 
-    ] |> Seq.forall id
+        runIntegrationTest idx fsx
+    )
+    |> Seq.forall id
+
   if not runOk then
     failwith "Integration tests did not run successfully"
   else
-    // reset working directory for git command
-    System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
     let ok, out, err =
       Git.CommandHelper.runGitCommand
-                        "."
+                        __SOURCE_DIRECTORY__
                         ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
     if not ok then
       trace (toLines out)
