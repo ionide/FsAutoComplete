@@ -50,11 +50,11 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
-let runIntegrationTest (fn: string) : bool =
-  let dir = Path.GetDirectoryName fn
+let runIntegrationTest (fsx: string) : bool =
+  let dir = Path.GetDirectoryName fsx
 
-  tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
-  let b, msgs = FSIHelper.executeFSI dir fn []
+  tracefn "Running FSIHelper\n    '%s'\n    '%s'\n    '%s'\n"  FSIHelper.fsiPath dir fsx
+  let b, msgs = FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
   if not b then
     for msg in msgs do
       traceError msg.Message
@@ -62,8 +62,8 @@ let runIntegrationTest (fn: string) : bool =
 
 Target "IntegrationTest" (fun _ ->
   let runOk =
-   [ for i in integrationTests do
-       yield runIntegrationTest i ]
+   [ for fsx in integrationTests do
+       yield runIntegrationTest fsx ]
    |> Seq.forall id
   if not runOk then
     failwith "Integration tests did not run successfully"
@@ -138,7 +138,7 @@ Target "LocalRelease" (fun _ ->
 )
 
 
-#load "lib/Octokit.fsx"
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "Release" (fun _ ->

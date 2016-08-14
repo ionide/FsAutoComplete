@@ -1,3 +1,4 @@
 FSharp.Compiler.Service
 NDesk.Options
 Newtonsoft.Json
+FSharp.Core

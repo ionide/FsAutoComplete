@@ -21,7 +21,7 @@ type Commands (serialize : Serializer) =
     member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) =
         x.SerializeResultAsync ((fun s x -> successToString s x |> async.Return), ?failureToString = failureToString)
 
-    member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentTypeCheckResultsForFile
+    member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
     member __.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
     member __.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member __.Files = state.Files
@@ -164,7 +164,7 @@ type Commands (serialize : Serializer) =
             match state.TryGetFileCheckerOptionsWithSource file with
             | Failure s -> [Response.error serialize s]
             | Success (options, source) ->
-                let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
                 match tyResOpt with
                 | None -> [ Response.info serialize "Cached typecheck results not yet available"]

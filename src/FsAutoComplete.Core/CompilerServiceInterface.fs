@@ -190,8 +190,8 @@ type FSharpCompilerServiceChecker() =
   member __.ParseAndCheckFileInProject(fileName, version, source, options) =
     checker.ParseAndCheckFileInProject(fileName, version, source, options)
 
-  member __.TryGetRecentTypeCheckResultsForFile(file, options, ?source) =
-    checker.TryGetRecentTypeCheckResultsForFile(file, options, ?source=source)
+  member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
+    checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr))
 
   member __.GetDeclarations (fileName, source, options) = async {

@@ -31,6 +31,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Suave", "src
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "paket-files", "paket-files", "{38EA4F0C-611A-4DE8-8A42-80151F1A732A}"
+	ProjectSection(SolutionItems) = preProject
+		paket-files\fsharp\FAKE\modules\Octokit\Octokit.fsx = paket-files\fsharp\FAKE\modules\Octokit\Octokit.fsx
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
