@@ -244,13 +244,13 @@ module CommandResponse =
                    Data = {  Name = meth.MethodName
                              CurrentParameter = commas
                              Overloads =
-                              [ for o in meth.Methods do
-                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+                              [ for methodItem in meth.Methods do
+                                 let tip = TipFormatter.formatTip methodItem.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
                                  yield {
                                    Tip = tip
-                                   TypeText = o.TypeText
+                                   TypeText = methodItem.TypeText
                                    Parameters =
-                                     [ for p in o.Parameters do
+                                     [ for p in methodItem.Parameters do
                                         yield {
                                           Name = p.ParameterName
                                           CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
@@ -258,7 +258,7 @@ module CommandResponse =
                                           Description = p.Description
                                         }
                                    ]
-                                   IsStaticArguments = o.IsStaticArguments
+                                   IsStaticArguments = not methodItem.HasParameters
                                  }
                               ] }
                 }

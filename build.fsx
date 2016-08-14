@@ -50,32 +50,52 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
-let runIntegrationTest (fn: string) : bool =
-  let dir = Path.GetDirectoryName fn
+// Used to prevent parallel FSI process launching on CI Build servers
+let isCIBuild = environVar "CI" <> null // CI is set to true by default on Appveyor, for Travis this envar is defined in the config
 
-  tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
-  let b, msgs = FSIHelper.executeFSI dir fn []
-  if not b then
+let runIntegrationTest (num:int) (fsx: string) : bool =
+  let dir = Path.GetDirectoryName fsx
+
+  tracefn "Running FSIHelper - %i\n    '%s'\n    '%s'\n    '%s'\n" num FSIHelper.fsiPath dir fsx
+  let success, msgs =         
+    FSIHelper.executeFSIWithScriptArgsAndReturnMessages fsx [|"--shadowcopyreferences"|]
+  if not success then
     for msg in msgs do
       traceError msg.Message
-  b
+  if not isCIBuild then // Only show when the script completed during parallel execution
+    tracefn "\nCompleted FSIHelper - %i\n" num
+  success
+
+
 
 Target "IntegrationTest" (fun _ ->
+
   let runOk =
-   [ for i in integrationTests do
-       yield runIntegrationTest i ]
-   |> Seq.forall id
+    if not isCIBuild then // Don't run parallel tests during CI builds
+        integrationTests |> Array.ofSeq
+        |> Array.Parallel.mapi runIntegrationTest
+        |> Seq.forall id
+    else
+        integrationTests 
+        |> Seq.mapi (fun idx fsx ->
+            // Adjust working directory for each integration test script
+            let dir = Path.GetDirectoryName fsx   
+            System.Environment.CurrentDirectory <- dir
+            runIntegrationTest idx fsx
+        )
+        |> Seq.forall id      
   if not runOk then
     failwith "Integration tests did not run successfully"
   else
-
     let ok, out, err =
       Git.CommandHelper.runGitCommand
                         "."
-                        ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
+                        ("-c core.fileMode=false diff --exit-code " + (__SOURCE_DIRECTORY__ </> integrationTestDir))
     if not ok then
       trace (toLines out)
       failwithf "Integration tests failed:\n%s" err
+    // Reset working dir after tests have completed
+    System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 )
 
 Target "UnitTest" (fun _ ->
@@ -138,7 +158,7 @@ Target "LocalRelease" (fun _ ->
 )
 
 
-#load "lib/Octokit.fsx"
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "Release" (fun _ ->

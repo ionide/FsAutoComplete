@@ -1,6 +1,8 @@
 source https://www.nuget.org/api/v2/
+redirects: on
+framework: >= net45
 
-nuget FSharp.Compiler.Service framework: >= net45
+nuget FSharp.Compiler.Service
 nuget FSharp.Compiler.Service.ProjectCracker
 nuget Mono.Cecil
 nuget NDesk.Options
@@ -11,4 +13,6 @@ nuget NUnit.Runners
 nuget Octokit
 nuget Suave
 nuget FSharpLint.Core prerelease
-nuget FSharp.Core redirects:on
+nuget FSharp.Core
+
+github fsharp/FAKE modules/Octokit/Octokit.fsx

@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E1A34828
 		.gitignore = .gitignore
 		.travis.yml = .travis.yml
 		appveyor.yml = appveyor.yml
+		before-deploy.ps1 = before-deploy.ps1
 		build.cmd = build.cmd
 		build.fsx = build.fsx
 		build.sh = build.sh
@@ -30,6 +31,11 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Suave", "src\FsAutoComplete.Suave\FsAutoComplete.Suave.fsproj", "{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "paket-files", "paket-files", "{38EA4F0C-611A-4DE8-8A42-80151F1A732A}"
+	ProjectSection(SolutionItems) = preProject
+		paket-files\fsharp\FAKE\modules\Octokit\Octokit.fsx = paket-files\fsharp\FAKE\modules\Octokit\Octokit.fsx
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

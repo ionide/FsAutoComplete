@@ -1,2 +1,4 @@
 FSharpLint.Core
 FSharp.Compiler.Service.ProjectCracker
+FSharp.Core
+FSharp.Compiler.Service
