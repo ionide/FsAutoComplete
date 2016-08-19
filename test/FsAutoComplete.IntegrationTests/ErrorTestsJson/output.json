@@ -98,6 +98,384 @@
       "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
+    },
+    {
+      "Name": "abstract",
+      "ReplacementText": "abstract",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "and",
+      "ReplacementText": "and",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "as",
+      "ReplacementText": "as",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "assert",
+      "ReplacementText": "assert",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "base",
+      "ReplacementText": "base",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "begin",
+      "ReplacementText": "begin",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "class",
+      "ReplacementText": "class",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "default",
+      "ReplacementText": "default",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "delegate",
+      "ReplacementText": "delegate",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "do",
+      "ReplacementText": "do",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "done",
+      "ReplacementText": "done",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "downcast",
+      "ReplacementText": "downcast",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "downto",
+      "ReplacementText": "downto",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "elif",
+      "ReplacementText": "elif",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "else",
+      "ReplacementText": "else",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "end",
+      "ReplacementText": "end",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "exception",
+      "ReplacementText": "exception",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "extern",
+      "ReplacementText": "extern",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "false",
+      "ReplacementText": "false",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "finally",
+      "ReplacementText": "finally",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "for",
+      "ReplacementText": "for",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "fun",
+      "ReplacementText": "fun",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "function",
+      "ReplacementText": "function",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "global",
+      "ReplacementText": "global",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "if",
+      "ReplacementText": "if",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "in",
+      "ReplacementText": "in",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "inherit",
+      "ReplacementText": "inherit",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "inline",
+      "ReplacementText": "inline",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "interface",
+      "ReplacementText": "interface",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "internal",
+      "ReplacementText": "internal",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "lazy",
+      "ReplacementText": "lazy",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "let",
+      "ReplacementText": "let",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "match",
+      "ReplacementText": "match",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "member",
+      "ReplacementText": "member",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "module",
+      "ReplacementText": "module",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "mutable",
+      "ReplacementText": "mutable",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "namespace",
+      "ReplacementText": "namespace",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "new",
+      "ReplacementText": "new",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "null",
+      "ReplacementText": "null",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "of",
+      "ReplacementText": "of",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "open",
+      "ReplacementText": "open",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "or",
+      "ReplacementText": "or",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "override",
+      "ReplacementText": "override",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "private",
+      "ReplacementText": "private",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "public",
+      "ReplacementText": "public",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "rec",
+      "ReplacementText": "rec",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "return",
+      "ReplacementText": "return",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "sig",
+      "ReplacementText": "sig",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "static",
+      "ReplacementText": "static",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "struct",
+      "ReplacementText": "struct",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "then",
+      "ReplacementText": "then",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "to",
+      "ReplacementText": "to",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "true",
+      "ReplacementText": "true",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "try",
+      "ReplacementText": "try",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "type",
+      "ReplacementText": "type",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "upcast",
+      "ReplacementText": "upcast",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "use",
+      "ReplacementText": "use",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "val",
+      "ReplacementText": "val",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "void",
+      "ReplacementText": "void",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "when",
+      "ReplacementText": "when",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "while",
+      "ReplacementText": "while",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "with",
+      "ReplacementText": "with",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "yield",
+      "ReplacementText": "yield",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
     }
   ]
 }
@@ -123,6 +501,384 @@
       "ReplacementText": "func",
       "Glyph": "Method",
       "GlyphChar": "M"
+    },
+    {
+      "Name": "abstract",
+      "ReplacementText": "abstract",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "and",
+      "ReplacementText": "and",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "as",
+      "ReplacementText": "as",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "assert",
+      "ReplacementText": "assert",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "base",
+      "ReplacementText": "base",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "begin",
+      "ReplacementText": "begin",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "class",
+      "ReplacementText": "class",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "default",
+      "ReplacementText": "default",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "delegate",
+      "ReplacementText": "delegate",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "do",
+      "ReplacementText": "do",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "done",
+      "ReplacementText": "done",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "downcast",
+      "ReplacementText": "downcast",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "downto",
+      "ReplacementText": "downto",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "elif",
+      "ReplacementText": "elif",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "else",
+      "ReplacementText": "else",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "end",
+      "ReplacementText": "end",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "exception",
+      "ReplacementText": "exception",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "extern",
+      "ReplacementText": "extern",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "false",
+      "ReplacementText": "false",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "finally",
+      "ReplacementText": "finally",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "for",
+      "ReplacementText": "for",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "fun",
+      "ReplacementText": "fun",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "function",
+      "ReplacementText": "function",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "global",
+      "ReplacementText": "global",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "if",
+      "ReplacementText": "if",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "in",
+      "ReplacementText": "in",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "inherit",
+      "ReplacementText": "inherit",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "inline",
+      "ReplacementText": "inline",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "interface",
+      "ReplacementText": "interface",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "internal",
+      "ReplacementText": "internal",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "lazy",
+      "ReplacementText": "lazy",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "let",
+      "ReplacementText": "let",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "match",
+      "ReplacementText": "match",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "member",
+      "ReplacementText": "member",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "module",
+      "ReplacementText": "module",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "mutable",
+      "ReplacementText": "mutable",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "namespace",
+      "ReplacementText": "namespace",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "new",
+      "ReplacementText": "new",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "null",
+      "ReplacementText": "null",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "of",
+      "ReplacementText": "of",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "open",
+      "ReplacementText": "open",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "or",
+      "ReplacementText": "or",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "override",
+      "ReplacementText": "override",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "private",
+      "ReplacementText": "private",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "public",
+      "ReplacementText": "public",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "rec",
+      "ReplacementText": "rec",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "return",
+      "ReplacementText": "return",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "sig",
+      "ReplacementText": "sig",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "static",
+      "ReplacementText": "static",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "struct",
+      "ReplacementText": "struct",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "then",
+      "ReplacementText": "then",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "to",
+      "ReplacementText": "to",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "true",
+      "ReplacementText": "true",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "try",
+      "ReplacementText": "try",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "type",
+      "ReplacementText": "type",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "upcast",
+      "ReplacementText": "upcast",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "use",
+      "ReplacementText": "use",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "val",
+      "ReplacementText": "val",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "void",
+      "ReplacementText": "void",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "when",
+      "ReplacementText": "when",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "while",
+      "ReplacementText": "while",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "with",
+      "ReplacementText": "with",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
+    },
+    {
+      "Name": "yield",
+      "ReplacementText": "yield",
+      "Glyph": "Keyword",
+      "GlyphChar": "K"
     }
   ]
 }
