@@ -13,3 +13,5 @@ nuget Octokit
 nuget Suave
 nuget FSharpLint.Core prerelease
 nuget FSharp.Core redirects:on
+
+github fsharp/FAKE modules/Octokit/Octokit.fsx

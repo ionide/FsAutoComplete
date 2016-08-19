@@ -127,7 +127,7 @@ Target "SuaveReleaseArchive" (fun _ ->
 
 Target "LocalRelease" (fun _ ->
     ensureDirectory "bin/release"
-    CopyFiles "bin/release"(   
+    CopyFiles "bin/release"(
         !! (buildReleaseDir      + "/*.dll")
         ++ (buildReleaseDir      + "/*.exe")
         ++ (buildReleaseDir      + "/*.exe.config")
@@ -137,8 +137,7 @@ Target "LocalRelease" (fun _ ->
     )
 )
 
-
-#load "lib/Octokit.fsx"
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "Release" (fun _ ->

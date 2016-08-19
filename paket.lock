@@ -35,3 +35,7 @@ NUGET
     System.Collections.Immutable (1.2)
     System.Reflection.Metadata (1.4.1-beta-24227-04)
       System.Collections.Immutable (>= 1.2)
+GITHUB
+  remote: fsharp/FAKE
+    modules/Octokit/Octokit.fsx (934dc8313e2c54793813058fe2540511ad3b8468)
+      Octokit (>= 0.20)
