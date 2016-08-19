@@ -20,6 +20,7 @@ pack/*
 
 packages
 .paket/paket.exe
+paket-files/
 
 TestResults.xml
 TestResult.xml
