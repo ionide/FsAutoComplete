@@ -10,6 +10,7 @@ module Response = CommandResponse
 type Commands (serialize : Serializer) =
     let checker = FSharpCompilerServiceChecker()
     let state = FsAutoComplete.State.Initial
+    let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
 
     member private __.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -172,9 +173,11 @@ type Commands (serialize : Serializer) =
                     match tyRes.GetAST with
                     | None -> [ Response.info serialize "Something went wrong during parsing"]
                     | Some tree ->
+                        fsharpLintConfig.LoadConfigurationForProject file
+                        let opts = fsharpLintConfig.GetConfigurationForProject (file)
                         let res =
                             Lint.lintParsedSource
-                                Lint.OptionalLintParameters.Default
+                                { Lint.OptionalLintParameters.Default with Configuration = Some opts}
                                 { Ast = tree
                                   Source = source
                                   TypeCheckResults = Some tyRes.GetCheckResults
