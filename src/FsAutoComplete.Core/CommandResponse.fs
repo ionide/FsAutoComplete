@@ -258,7 +258,7 @@ module CommandResponse =
                                           Description = p.Description
                                         }
                                    ]
-                                   IsStaticArguments = o.IsStaticArguments
+                                   IsStaticArguments = not o.HasParameters
                                  }
                               ] }
                 }

@@ -21,7 +21,7 @@ type Commands (serialize : Serializer) =
     member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) =
         x.SerializeResultAsync ((fun s x -> successToString s x |> async.Return), ?failureToString = failureToString)
 
-    member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentTypeCheckResultsForFile
+    member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
     member __.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
     member __.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member __.Files = state.Files
@@ -31,7 +31,7 @@ type Commands (serialize : Serializer) =
         let parse' fileName text options =
             async {
                 let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
-                return 
+                return
                     match checkResults with
                     | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
                     | FSharpCheckFileAnswer.Succeeded results ->
@@ -60,8 +60,8 @@ type Commands (serialize : Serializer) =
     member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
         let project = state.Projects.TryFind projectFileName
-        
-        let project = project |> Option.getOrElseFun (fun _ -> 
+
+        let project = project |> Option.getOrElseFun (fun _ ->
             let project = new Project(projectFileName, onChange)
             state.Projects.[projectFileName] <- project
             project)
@@ -75,9 +75,9 @@ type Commands (serialize : Serializer) =
                         checker.TryGetProjectOptions (projectFileName, verbose)
                     else
                         checker.TryGetCoreProjectOptions projectFileName
-                
+
                 match options with
-                | Result.Failure error -> 
+                | Result.Failure error ->
                     project.Response <- None
                     [Response.error serialize error]
                 | Result.Success (opts, projectFiles, outFileOpt, references, logMap) ->
@@ -164,7 +164,7 @@ type Commands (serialize : Serializer) =
             match state.TryGetFileCheckerOptionsWithSource file with
             | Failure s -> [Response.error serialize s]
             | Success (options, source) ->
-                let tyResOpt = checker.TryGetRecentTypeCheckResultsForFile(file, options)
+                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
                 match tyResOpt with
                 | None -> [ Response.info serialize "Cached typecheck results not yet available"]
