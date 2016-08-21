@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FSharpLintSettings>
+    <Analysers>
+        <Hints>
+            <Hints>
+            </Hints>
+            <Enabled>false</Enabled>
+        </Hints>
+    </Analysers>
+</FSharpLintSettings>
