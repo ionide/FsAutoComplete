@@ -60,7 +60,7 @@ You may see a stack trace finishing with `System.IO.IOException: kqueue() error 
 
 ## Communication protocol
 
-It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](FsAutoComplete/test/integration/Test1).
+It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](test/FsAutoComplete.IntegrationTests/Test1Json).
 
 The available commands can be listed by running `fsautocomplete.exe --commands`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
 
