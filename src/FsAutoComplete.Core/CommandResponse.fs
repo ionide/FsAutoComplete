@@ -22,7 +22,7 @@ module internal CompletionUtils =
       0x0005,  ("Event", "e")
       0x0007,  ("Field", "F") (* fieldblue ? *)
       0x0020,  ("Field", "Fy") (* fieldyellow ? *)
-      0x0001,  ("Field", "Fc") (* const *)
+      0x0001,  ("Function", "Fc") (* const *)
       0x0004,  ("Property", "P") (* enummember *)
       0x0006,  ("Exception", "X") (* exception *)
       0x0009,  ("Text File Icon", "t") (* TextLine *)
