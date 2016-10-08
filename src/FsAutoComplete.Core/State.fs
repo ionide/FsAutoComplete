@@ -12,7 +12,7 @@ type State =
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
-    mutable ColorizationOutput: bool 
+    mutable ColorizationOutput: bool
   }
 
   static member Initial =
@@ -29,7 +29,7 @@ type State =
       match x.FileCheckOptions.TryFind file with
       | None -> State.FileWithoutProjectOptions file
       | Some opts -> opts
-    
+
     x.Files.[file] <- { Lines = lines; Touched = DateTime.Now }
     x.FileCheckOptions.[file] <- opts
     opts
@@ -66,7 +66,7 @@ type State =
     | Failure x -> Failure x
     | Success (opts, lines) -> Success (opts, String.concat "\n" lines)
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos) : Result<FSharpProjectOptions * LineStr[] * LineStr> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos : Pos) : Result<FSharpProjectOptions * LineStr[] * LineStr> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Failure x -> Failure x

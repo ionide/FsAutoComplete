@@ -2211,8 +2211,8 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "main",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2255,8 +2255,8 @@
         {
           "UniqueName": "X_1_of_1",
           "Name": "func",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 7,
@@ -2304,8 +2304,8 @@
         {
           "UniqueName": "FileTwo_1_of_1",
           "Name": "add",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2324,8 +2324,8 @@
         {
           "UniqueName": "FileTwo_1_of_1",
           "Name": "addition",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2504,8 +2504,8 @@
         {
           "UniqueName": "XA_1_of_1",
           "Name": "funky",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 7,

@@ -51,7 +51,7 @@ type ParseAndCheckResults
     | None -> return Failure "Could not find ident at this location"
     | Some(col, identIsland) ->
 
-      let! declarations = checkResults.GetDeclarationLocationAlternate(pos.Line, col + 1, lineStr, identIsland, false)
+      let! declarations = checkResults.GetDeclarationLocationAlternate(pos.Line, col, lineStr, identIsland, false)
 
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
@@ -64,7 +64,7 @@ type ParseAndCheckResults
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let! tip = checkResults.GetToolTipTextAlternate(pos.Line, col + 1, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let! tip = checkResults.GetToolTipTextAlternate(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
       | FSharpToolTipText(elems) when elems |> List.forall (function
@@ -79,7 +79,7 @@ type ParseAndCheckResults
         | None -> return (Failure "No ident at this location")
         | Some(colu, identIsland) ->
 
-        let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu + 1, lineStr, identIsland)
+        let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
         | None -> return (Failure "No symbol information found")
         | Some symboluse ->
@@ -112,7 +112,7 @@ type FSharpCompilerServiceChecker() =
       keepAllBackgroundResolutions = true,
       keepAssemblyContents = true)
 
-  do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
+  do checker.BeforeBackgroundFileCheck.Add ignore
 
   let ensureCorrectFSharpCore (options: string[]) =
     Environment.fsharpCoreOpt
@@ -207,8 +207,7 @@ type FSharpCompilerServiceChecker() =
           return!
             options
             |> Seq.filter (fun (_, projectOpts) -> projectOpts = opts)
-            |> Seq.map fst
-            |> Seq.map (fun projectFile -> async {
+            |> Seq.map (fun (projectFile,_) -> async {
                 let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(projectFile, opts)
                 return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, projectFile))
               })

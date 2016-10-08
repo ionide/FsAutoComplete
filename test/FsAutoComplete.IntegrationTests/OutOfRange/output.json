@@ -446,12 +446,26 @@
   ]
 }
 {
-  "Kind": "info",
-  "Data": "No tooltip information"
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "module XA\n\nfrom Script",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
-  "Kind": "info",
-  "Data": "No tooltip information"
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "module XA\n\nfrom Script",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
   "Kind": "error",
@@ -466,12 +480,20 @@
   }
 }
 {
-  "Kind": "error",
-  "Data": "Could not find declaration"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+    "Line": 3,
+    "Column": 8
+  }
 }
 {
-  "Kind": "error",
-  "Data": "Could not find declaration"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+    "Line": 3,
+    "Column": 8
+  }
 }
 {
   "Kind": "error",

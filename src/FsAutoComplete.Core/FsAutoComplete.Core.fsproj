@@ -66,6 +66,7 @@
   -->
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="Lexer.fs" />
     <Compile Include="Environment.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />

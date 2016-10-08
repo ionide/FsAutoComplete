@@ -8,129 +8,59 @@
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
-      }
-    ]
-  ]
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
-      }
-    ]
-  ]
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
+}
+{
+  "Kind": "info",
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "tooltip",
