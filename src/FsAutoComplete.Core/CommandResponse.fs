@@ -45,6 +45,16 @@ module internal CompletionUtils =
     | Some(s), _ -> s // Is the second number good for anything?
     | _, _ -> ("", "")
 
+  let getEnclosingEntityChar = function
+    | FSharpEnclosingEntityKind.Namespace -> "N"
+    | FSharpEnclosingEntityKind.Module -> "M"
+    | FSharpEnclosingEntityKind.Class -> "C"
+    | FSharpEnclosingEntityKind.Exception -> "E"
+    | FSharpEnclosingEntityKind.Interface -> "I"
+    | FSharpEnclosingEntityKind.Record -> "R"
+    | FSharpEnclosingEntityKind.Enum -> "En"
+    | FSharpEnclosingEntityKind.DU -> "D"
+
 module CommandResponse =
 
   type ResponseMsg<'T> =
@@ -179,6 +189,8 @@ module CommandResponse =
       Range: Range.range
       BodyRange : Range.range
       File : string
+      EnclosingEntity: string
+      IsAbstract: bool
     }
     static member OfDeclarationItem(e:FSharpNavigationDeclarationItem, fn) =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
@@ -191,6 +203,8 @@ module CommandResponse =
         Range = e.Range
         BodyRange = e.BodyRange
         File = fn
+        EnclosingEntity = CompletionUtils.getEnclosingEntityChar e.EnclosingEntityKind
+        IsAbstract = e.IsAbstract
       }
 
   type DeclarationResponse = {
