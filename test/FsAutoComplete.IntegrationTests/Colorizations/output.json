@@ -28,6 +28,240 @@
     },
     {
       "Range": {
+        "StartColumn": 15,
+        "StartLine": 8,
+        "EndColumn": 17,
+        "EndLine": 8
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 13,
+        "StartLine": 10,
+        "EndColumn": 15,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 18,
+        "StartLine": 10,
+        "EndColumn": 22,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 23,
+        "StartLine": 10,
+        "EndColumn": 31,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 32,
+        "StartLine": 10,
+        "EndColumn": 34,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 13,
+        "StartLine": 10,
+        "EndColumn": 15,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 18,
+        "StartLine": 10,
+        "EndColumn": 22,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 23,
+        "StartLine": 10,
+        "EndColumn": 31,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 32,
+        "StartLine": 10,
+        "EndColumn": 34,
+        "EndLine": 10
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 3,
+        "StartLine": 12,
+        "EndColumn": 28,
+        "EndLine": 12
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 3,
+        "StartLine": 12,
+        "EndColumn": 28,
+        "EndLine": 12
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 16,
+        "StartLine": 14,
+        "EndColumn": 19,
+        "EndLine": 14
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 20,
+        "StartLine": 14,
+        "EndColumn": 22,
+        "EndLine": 14
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 13,
+        "StartLine": 24,
+        "EndColumn": 15,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 25,
+        "StartLine": 24,
+        "EndColumn": 33,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 34,
+        "StartLine": 24,
+        "EndColumn": 38,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 65,
+        "StartLine": 24,
+        "EndColumn": 69,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 44,
+        "StartLine": 24,
+        "EndColumn": 46,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 49,
+        "StartLine": 24,
+        "EndColumn": 57,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 58,
+        "StartLine": 24,
+        "EndColumn": 62,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 25,
+        "StartLine": 24,
+        "EndColumn": 33,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 34,
+        "StartLine": 24,
+        "EndColumn": 38,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 65,
+        "StartLine": 24,
+        "EndColumn": 69,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 44,
+        "StartLine": 24,
+        "EndColumn": 46,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 49,
+        "StartLine": 24,
+        "EndColumn": 57,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 58,
+        "StartLine": 24,
+        "EndColumn": 62,
+        "EndLine": 24
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
         "StartColumn": 13,
         "StartLine": 50,
         "EndColumn": 19,
@@ -46,12 +280,174 @@
     },
     {
       "Range": {
+        "StartColumn": 17,
+        "StartLine": 64,
+        "EndColumn": 23,
+        "EndLine": 64
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
         "StartColumn": 16,
         "StartLine": 68,
         "EndColumn": 22,
         "EndLine": 68
       },
       "Kind": "Keyword"
+    },
+    {
+      "Range": {
+        "StartColumn": 15,
+        "StartLine": 82,
+        "EndColumn": 28,
+        "EndLine": 82
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 15,
+        "StartLine": 82,
+        "EndColumn": 28,
+        "EndLine": 82
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 15,
+        "StartLine": 82,
+        "EndColumn": 28,
+        "EndLine": 82
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 15,
+        "StartLine": 82,
+        "EndColumn": 28,
+        "EndLine": 82
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 21,
+        "StartLine": 84,
+        "EndColumn": 58,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 21,
+        "StartLine": 84,
+        "EndColumn": 58,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 59,
+        "StartLine": 84,
+        "EndColumn": 65,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 66,
+        "StartLine": 84,
+        "EndColumn": 72,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 21,
+        "StartLine": 84,
+        "EndColumn": 58,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 21,
+        "StartLine": 84,
+        "EndColumn": 58,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 59,
+        "StartLine": 84,
+        "EndColumn": 65,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 66,
+        "StartLine": 84,
+        "EndColumn": 72,
+        "EndLine": 84
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 13,
+        "StartLine": 87,
+        "EndColumn": 29,
+        "EndLine": 87
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 13,
+        "StartLine": 87,
+        "EndColumn": 29,
+        "EndLine": 87
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 25,
+        "StartLine": 86,
+        "EndColumn": 31,
+        "EndLine": 86
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 3,
+        "StartLine": 93,
+        "EndColumn": 14,
+        "EndLine": 93
+      },
+      "Kind": "TypeName"
+    },
+    {
+      "Range": {
+        "StartColumn": 3,
+        "StartLine": 93,
+        "EndColumn": 14,
+        "EndLine": 93
+      },
+      "Kind": "TypeName"
     }
   ]
 }

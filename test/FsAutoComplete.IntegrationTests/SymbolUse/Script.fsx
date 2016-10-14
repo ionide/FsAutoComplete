@@ -3,6 +3,6 @@ module console
 
 [<EntryPoint>]
 let main argv =
-    System.IO.Directory
+    console.undefinedsymbol 3
 
     0 // return an integer exit code

@@ -52,23 +52,24 @@ let integrationTests =
 
 let runIntegrationTest (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
-
+ 
   tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
-  let b, msgs = FSIHelper.executeFSI dir fn []
-  if not b then
+  let result, msgs = FSIHelper.executeFSI dir fn []
+  let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
+  if not result then
     for msg in msgs do
       traceError msg.Message
-  b
+  result
 
 Target "IntegrationTest" (fun _ ->
   let runOk =
-   [ for i in integrationTests do
-       yield runIntegrationTest i ]
+   integrationTests
+   |> Seq.map runIntegrationTest
    |> Seq.forall id
+  
   if not runOk then
     failwith "Integration tests did not run successfully"
   else
-
     let ok, out, err =
       Git.CommandHelper.runGitCommand
                         "."

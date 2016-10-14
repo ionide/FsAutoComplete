@@ -2205,7 +2205,9 @@
           "EndColumn": 6,
           "EndLine": 15
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
       },
       "Nested": [
         {
@@ -2226,7 +2228,97 @@
             "EndColumn": 6,
             "EndLine": 15
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "testval",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 12,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 12,
+            "EndLine": 4
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "val2",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 9,
+            "EndLine": 6
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 9,
+            "EndLine": 6
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "val3",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 8,
+            "EndColumn": 9,
+            "EndLine": 8
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 8,
+            "EndColumn": 9,
+            "EndLine": 8
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "val4",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 10,
+            "EndColumn": 9,
+            "EndLine": 10
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 10,
+            "EndColumn": 9,
+            "EndLine": 10
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
         }
       ]
     },
@@ -2249,7 +2341,9 @@
           "EndColumn": 21,
           "EndLine": 2
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
       },
       "Nested": [
         {
@@ -2270,7 +2364,9 @@
             "EndColumn": 21,
             "EndLine": 2
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
         }
       ]
     }
@@ -2298,7 +2394,9 @@
           "EndColumn": 6,
           "EndLine": 14
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
       },
       "Nested": [
         {
@@ -2319,7 +2417,9 @@
             "EndColumn": 20,
             "EndLine": 9
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
         },
         {
           "UniqueName": "FileTwo_1_of_1",
@@ -2339,7 +2439,9 @@
             "EndColumn": 25,
             "EndLine": 7
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
         }
       ]
     },
@@ -2362,7 +2464,9 @@
           "EndColumn": 8,
           "EndLine": 5
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+        "EnclosingEntity": "D",
+        "IsAbstract": false
       },
       "Nested": [
         {
@@ -2383,7 +2487,9 @@
             "EndColumn": 8,
             "EndLine": 4
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "D",
+          "IsAbstract": false
         },
         {
           "UniqueName": "Foo_1_of_1",
@@ -2403,7 +2509,9 @@
             "EndColumn": 8,
             "EndLine": 5
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "D",
+          "IsAbstract": false
         }
       ]
     },
@@ -2426,7 +2534,9 @@
           "EndColumn": 6,
           "EndLine": 14
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+        "EnclosingEntity": "C",
+        "IsAbstract": false
       },
       "Nested": [
         {
@@ -2447,7 +2557,9 @@
             "EndColumn": 6,
             "EndLine": 14
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "C",
+          "IsAbstract": false
         }
       ]
     }
@@ -2472,12 +2584,37 @@
         "BodyRange": {
           "StartColumn": 1,
           "StartLine": 1,
-          "EndColumn": 22,
-          "EndLine": 4
+          "EndColumn": 10,
+          "EndLine": 6
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
       },
-      "Nested": []
+      "Nested": [
+        {
+          "UniqueName": "Script_1_of_1",
+          "Name": "val99",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 10,
+            "EndLine": 6
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 10,
+            "EndLine": 6
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        }
+      ]
     },
     {
       "Declaration": {
@@ -2498,7 +2635,9 @@
           "EndColumn": 22,
           "EndLine": 4
         },
-        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx"
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
       },
       "Nested": [
         {
@@ -2519,7 +2658,9 @@
             "EndColumn": 22,
             "EndLine": 4
           },
-          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx"
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
         }
       ]
     }
