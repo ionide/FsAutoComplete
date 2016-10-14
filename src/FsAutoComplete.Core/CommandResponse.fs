@@ -56,7 +56,7 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.DU -> "D"
 
 module CommandResponse =
-
+ 
   type ResponseMsg<'T> =
     {
       Kind: string
