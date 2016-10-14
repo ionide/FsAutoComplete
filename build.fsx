@@ -52,7 +52,7 @@ let integrationTests =
 
 let runIntegrationTest (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
-  
+ 
   tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
   let result, msgs = FSIHelper.executeFSI dir fn []
   let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
