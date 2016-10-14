@@ -40,7 +40,7 @@
       "StartColumn": 15,
       "EndColumn": 24,
       "Severity": "Error",
-      "Message": "The value, constructor, namespace or type 'Directory' is not defined\r\nMaybe you want one of the following:\r\n   Direct\r\n   Ports\r\n   Compression\r\n   ErrorEventArgs\r\n   NotifyFilters",
+      "Message": "The value, constructor, namespace or type 'Directory' is not defined\nMaybe you want one of the following:\n   Direct\n   Ports\n   Compression\n   ErrorEventArgs\n   NotifyFilters",
       "Subcategory": "typecheck"
     }
   ]

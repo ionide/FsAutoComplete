@@ -110,7 +110,7 @@ let writeNormalizedOutput (fn: string) (s: string) =
                                    "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
 
 
-    lines.[i] <- lines.[i].Replace("\r", "")
+    lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
 
   // Write manually to ensure \n line endings on all platforms
   using (new StreamWriter(fn))
