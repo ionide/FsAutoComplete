@@ -2235,8 +2235,8 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "testval",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2257,8 +2257,8 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "val2",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2279,8 +2279,8 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "val3",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2301,8 +2301,8 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "val4",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
@@ -2595,8 +2595,8 @@
         {
           "UniqueName": "Script_1_of_1",
           "Name": "val99",
-          "Glyph": "Field",
-          "GlyphChar": "F",
+          "Glyph": "Function",
+          "GlyphChar": "Fc",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
