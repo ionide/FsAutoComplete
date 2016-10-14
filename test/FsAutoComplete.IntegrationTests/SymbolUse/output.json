@@ -37,10 +37,10 @@
       "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Script.fsx",
       "StartLine": 6,
       "EndLine": 6,
-      "StartColumn": 15,
-      "EndColumn": 24,
+      "StartColumn": 5,
+      "EndColumn": 12,
       "Severity": "Error",
-      "Message": "The value, constructor, namespace or type 'Directory' is not defined\nMaybe you want one of the following:\n   Direct\n   Ports\n   Compression\n   ErrorEventArgs\n   NotifyFilters",
+      "Message": "The namespace or module 'console' is not defined",
       "Subcategory": "typecheck"
     }
   ]
@@ -181,9 +181,6 @@
   }
 }
 {
-  "Kind": "symboluse",
-  "Data": {
-    "Name": "Directory",
-    "Uses": []
-  }
+  "Kind": "info",
+  "Data": "No symbol information found"
 }
