@@ -15,7 +15,7 @@ open FsAutoComplete.JsonSerializer
 
 [<AutoOpen>]
 module Contract =
-    type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]}
+    type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
     type ProjectRequest = { FileName : string;}
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
@@ -70,7 +70,7 @@ let main argv =
         Writers.setMimeType "application/json; charset=utf-8" >=>
         POST >=>
         choose [
-            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines)
+            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
             //TODO: Add filewatcher
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/parseProjects" >=> fun httpCtx ->

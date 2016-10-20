@@ -4,6 +4,7 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
+open System.Collections.Concurrent
 
 type ParseAndCheckResults
     (
@@ -105,6 +106,14 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
 
+type private FileState =
+    | Checked
+    | NeedChecking
+    | BeingChecked
+    | Cancelled
+
+type Version = int
+
 type FSharpCompilerServiceChecker() =
   let checker =
     FSharpChecker.Create(
@@ -112,7 +121,35 @@ type FSharpCompilerServiceChecker() =
       keepAllBackgroundResolutions = true,
       keepAssemblyContents = true)
 
+  let files = ConcurrentDictionary<string, Version * FileState>()
   do checker.BeforeBackgroundFileCheck.Add ignore
+  
+  let isResultObsolete fileName = 
+      match files.TryGetValue fileName with
+      | true, (_, Cancelled) -> true
+      | _ -> false
+
+  let fileChanged filePath version = 
+    files.AddOrUpdate (filePath, (version, NeedChecking), (fun _ (oldVersion, oldState) -> 
+        if version <> oldVersion then
+           (version,
+            match oldState with
+            | BeingChecked -> Cancelled
+            | Cancelled -> Cancelled
+            | NeedChecking -> NeedChecking
+            | Checked -> NeedChecking)
+        else oldVersion, oldState))
+    |> debug "[LanguageService] %s changed: set status to %A" filePath
+
+
+  let fixFileName path = 
+    if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
+    else 
+        match Environment.OSVersion.Platform with
+        | PlatformID.Unix 
+        | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
+        | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
+        </> Path.GetFileName path
 
   let ensureCorrectFSharpCore (options: string[]) =
     Environment.fsharpCoreOpt
@@ -187,8 +224,42 @@ type FSharpCompilerServiceChecker() =
     return res |> Array.collect id
   }
 
-  member __.ParseAndCheckFileInProject(fileName, version, source, options) =
-    checker.ParseAndCheckFileInProject(fileName, version, source, options)
+  member __.ParseAndCheckFileInProject(filePath, version, source, options) =
+    async { 
+      debug "[LanguageService] ParseAndCheckFileInProject - enter"
+      fileChanged filePath version
+      let fixedFilePath = fixFileName filePath
+      let! res = Async.Catch (async {
+          try
+               // wait until the previous checking completed
+               while files.ContainsKey filePath &&
+                     (match files.TryGetValue filePath with
+                      | true, (v, Checked) 
+                      | true, (v, NeedChecking) -> 
+                         files.[filePath] <- (v, BeingChecked)
+                         true
+                      | _ -> false) do
+                   do! Async.Sleep 20
+               
+               debug "[LanguageService] Change state for %s to `BeingChecked`" filePath
+               debug "[LanguageService] Parse and typecheck source..."
+               return! checker.ParseAndCheckFileInProject 
+                                 (fixedFilePath, version, source, options, 
+                                  IsResultObsolete (fun _ -> isResultObsolete filePath), null) 
+          finally 
+               match files.TryGetValue filePath with
+               | true, (v, BeingChecked)
+               | true, (v, Cancelled) -> files.[filePath] <- (v, Checked)
+               | _ -> ()
+      })
+
+      debug "[LanguageService]: Check completed"
+      // Construct new typed parse result if the task succeeded
+      return
+          match res with
+          | Choice1Of2 x -> Success x
+          | Choice2Of2 e -> Failure e.Message
+    }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)

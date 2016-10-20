@@ -23,7 +23,7 @@ module internal Main =
       async {
           match commandQueue.Take() with
           | Parse (file, kind, lines) -> 
-              let! res = commands.Parse file lines
+              let! res = commands.Parse file lines 0
               //Hack for tests
               let r = match kind with
                       | Synchronous -> Response.info writeJson "Synchronous parsing started" 

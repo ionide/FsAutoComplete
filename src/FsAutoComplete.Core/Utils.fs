@@ -78,3 +78,6 @@ type System.Collections.Concurrent.ConcurrentDictionary<'key, 'value> with
 
     member x.ToSeq() =
         x |> Seq.map (fun (KeyValue(k, v)) -> k, v)
+
+let inline debug msg = Printf.kprintf System.Diagnostics.Debug.WriteLine msg
+let inline fail msg = Printf.kprintf System.Diagnostics.Debug.Fail msg

@@ -27,19 +27,22 @@ type Commands (serialize : Serializer) =
     member __.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member __.Files = state.Files
 
-    member __.Parse file lines = async {
+    member __.Parse file lines version = async {
         let colorizations = state.ColorizationOutput
         let parse' fileName text options =
             async {
-                let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
+                let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                 return
-                    match checkResults with
-                    | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                    | FSharpCheckFileAnswer.Succeeded results ->
-                        if colorizations then
-                            [ Response.errors serialize (results.Errors)
-                              Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                        else [ Response.errors serialize (results.Errors) ]
+                    match result with
+                    | Failure e -> [Response.error serialize e]
+                    | Success (_, checkResults) ->
+                        match checkResults with
+                        | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
+                        | FSharpCheckFileAnswer.Succeeded results ->
+                            if colorizations then
+                                [ Response.errors serialize (results.Errors)
+                                  Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
+                            else [ Response.errors serialize (results.Errors) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
