@@ -22,15 +22,15 @@ module internal Main =
     while not quit do
       async {
           match commandQueue.Take() with
-          | Parse (file, kind, lines) -> 
+          | Parse (file, kind, lines) ->
               let! res = commands.Parse file lines 0
               //Hack for tests
               let r = match kind with
-                      | Synchronous -> Response.info writeJson "Synchronous parsing started" 
+                      | Synchronous -> Response.info writeJson "Synchronous parsing started"
                       | Normal -> Response.info writeJson "Background parsing started"
               return r :: res
 
-          | Project (file, verbose) -> 
+          | Project (file, verbose) ->
               return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose)))
           | Declarations file -> return! commands.Declarations file
           | HelpText sym -> return commands.Helptext sym
@@ -53,7 +53,7 @@ module internal Main =
                     | Some tyRes ->
                         return!
                             match cmd with
-                            | Completion -> commands.Completion tyRes pos lineStr filter
+                            | Completion -> commands.Completion tyRes pos lineStr filter false
                             | ToolTip -> commands.ToolTip tyRes pos lineStr
                             | TypeSig -> commands.Typesig tyRes pos lineStr
                             | SymbolUse -> commands.SymbolUse tyRes pos lineStr
@@ -76,7 +76,7 @@ module internal Main =
          | Choice2Of2 exn ->
             exn
             |> sprintf "Unexpected internal error. Please report at https://github.com/fsharp/FsAutoComplete/issues, attaching the exception information:\n%O"
-            |> Response.error writeJson 
+            |> Response.error writeJson
             |> Console.WriteLine
     0
 

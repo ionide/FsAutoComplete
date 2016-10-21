@@ -117,7 +117,7 @@ type Commands (serialize : Serializer) =
     member __.Colorization enabled = state.ColorizationOutput <- enabled
     member __.Error msg = [Response.error serialize msg]
 
-    member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter = async {
+    member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords = async {
         let! res = tyRes.TryGetCompletions pos lineStr filter
         return match res with
                 | Some (decls, residue) ->
@@ -129,10 +129,10 @@ type Commands (serialize : Serializer) =
                       Array.sortBy declName decls
                       |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
                     let res = match firstMatchOpt with
-                                | None -> [Response.completion serialize decls]
+                                | None -> [Response.completion serialize decls includeKeywords]
                                 | Some d ->
                                     [Response.helpText serialize (d.Name, d.DescriptionText)
-                                     Response.completion serialize decls]
+                                     Response.completion serialize decls includeKeywords]
 
                     for decl in decls do
                         state.HelpText.[declName decl] <- decl.DescriptionText

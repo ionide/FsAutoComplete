@@ -19,7 +19,7 @@ module Contract =
     type ProjectRequest = { FileName : string;}
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
-    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string}
+    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
 
@@ -102,7 +102,7 @@ let main argv =
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
-                        | Some tyRes -> return! commands.Completion tyRes { Line = data.Line; Col = data.Column } lineStr (Some data.Filter)
+                        | Some tyRes -> return! commands.Completion tyRes { Line = data.Line; Col = data.Column } lineStr (Some data.Filter) data.IncludeKeywords
                 })
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes { Line = data.Line; Col = data.Column } lineStr)

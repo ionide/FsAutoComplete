@@ -56,7 +56,7 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.DU -> "D"
 
 module CommandResponse =
- 
+
   type ResponseMsg<'T> =
     {
       Kind: string
@@ -228,7 +228,7 @@ module CommandResponse =
         Logs = logMap }
     serialize { Kind = "project"; Data = projectData }
 
-  let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) =
+  let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       let keywords = ["abstract"; "and"; "as"; "assert"; "base"; "begin"; "class"; "default"; "delegate"; "do";
           "done"; "downcast"; "downto"; "elif"; "else"; "end"; "exception"; "extern"; "false"; "finally"; "for";
           "fun"; "function"; "global"; "if"; "in"; "inherit"; "inline"; "interface"; "internal"; "lazy"; "let";
@@ -242,8 +242,9 @@ module CommandResponse =
                                let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                                yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar }
-                            for k in keywords do
-                              yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
+                            if includeKeywords then
+                              for k in keywords do
+                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
                           ] }
 
   let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
