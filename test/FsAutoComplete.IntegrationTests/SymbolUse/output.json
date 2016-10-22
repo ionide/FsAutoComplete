@@ -160,8 +160,25 @@
   }
 }
 {
-  "Kind": "info",
-  "Data": "No ident at this location"
+  "Kind": "symboluse",
+  "Data": {
+    "Name": "shadowed",
+    "Uses": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
+        "StartLine": 12,
+        "StartColumn": 5,
+        "EndLine": 12,
+        "EndColumn": 13,
+        "IsFromDefinition": true,
+        "IsFromAttribute": false,
+        "IsFromComputationExpression": false,
+        "IsFromDispatchSlotImplementation": false,
+        "IsFromPattern": false,
+        "IsFromType": false
+      }
+    ]
+  }
 }
 {
   "Kind": "info",

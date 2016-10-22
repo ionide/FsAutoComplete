@@ -264,7 +264,7 @@ module Parsing =
           |> Option.bind tryGetLexerSymbolIslands
 
   let findLongIdents (col, lineStr) =
-    findIdents col lineStr SymbolLookupKind.ByLongIdent
+    findIdents col lineStr SymbolLookupKind.Fuzzy
 
   let findLongIdentsAndResidue (col, lineStr:string) =
       let lineStr = lineStr.Substring(0, col)
