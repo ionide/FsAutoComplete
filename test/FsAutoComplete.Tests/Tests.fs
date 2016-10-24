@@ -15,27 +15,23 @@ let ``activePatternCracking`` () =
   Assert.AreEqual(lineStr.[col], ')')
 
 
-//Broken on Lexer based Parser
-
-// [<Test>]
-// let ``symbolicOperatorCracking`` () =
-//   match Parsing.findLongIdents(0, "|<>|") with
-//   | None -> Assert.Fail()
-//   | Some (col, idents) ->
-
-//   Assert.AreEqual(3,col)
-//   Assert.AreEqual(["|<>|"],idents)
-//   Assert.AreEqual("|<>|".[col], '|')
-
 [<Test>]
-let ``normalCracking`` () =
-  match Parsing.findLongIdents(8, "First.Second.Third") with
+let ``symbolicOperatorCracking`` () =
+  match Parsing.findLongIdents(0, "|<>|") with
   | None -> Assert.Fail()
   | Some (col, idents) ->
 
-  Assert.AreEqual(12,col)
-  Assert.AreEqual(["First";"Second"],idents)
-  Assert.AreEqual("First.Second.Third".[col], '.')
+   Assert.AreEqual(4, col)
+   Assert.AreEqual(["|<>|"], idents)
+   Assert.AreEqual("|<>|".[col-1], '|')
+
+[<Test>]
+let ``normalCracking`` () =
+  match Parsing.findLongIdents(15, "First.Second.Third") with
+  | None -> Assert.Fail()
+  | Some (col, idents) ->
+     Assert.AreEqual(18, col)
+     CollectionAssert.AreEqual (["Third"], idents, "idents")
 
 [<Test>]
 let ``should find FSharp.Core`` () =

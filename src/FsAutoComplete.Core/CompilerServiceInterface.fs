@@ -301,11 +301,19 @@ type FSharpCompilerServiceChecker() =
                p.OtherOptions
           { p with OtherOptions = opts }, logMap
 
-        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let po =
+            match po.ProjectFileNames with
+            | [||] ->
+                 let compileFiles, otherOptions =
+                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs"))
+                 { po with ProjectFileNames = compileFiles; OtherOptions = otherOptions }
+            | _ -> po
+
+        let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, logMap)
+        Success (po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
       with e ->
         Failure e.Message
 
