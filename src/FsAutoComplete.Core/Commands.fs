@@ -10,6 +10,7 @@ module Response = CommandResponse
 type Commands (serialize : Serializer) =
     let checker = FSharpCompilerServiceChecker()
     let state = FsAutoComplete.State.Initial
+    let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
 
     member private __.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -26,19 +27,22 @@ type Commands (serialize : Serializer) =
     member __.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member __.Files = state.Files
 
-    member __.Parse file lines = async {
+    member __.Parse file lines version = async {
         let colorizations = state.ColorizationOutput
         let parse' fileName text options =
             async {
-                let! _parseResults, checkResults = checker.ParseAndCheckFileInProject(fileName, 0, text, options)
+                let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                 return
-                    match checkResults with
-                    | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                    | FSharpCheckFileAnswer.Succeeded results ->
-                        if colorizations then
-                            [ Response.errors serialize (results.Errors)
-                              Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                        else [ Response.errors serialize (results.Errors) ]
+                    match result with
+                    | Failure e -> [Response.error serialize e]
+                    | Success (_, checkResults) ->
+                        match checkResults with
+                        | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
+                        | FSharpCheckFileAnswer.Succeeded results ->
+                            if colorizations then
+                                [ Response.errors serialize (results.Errors)
+                                  Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
+                            else [ Response.errors serialize (results.Errors) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
@@ -113,7 +117,7 @@ type Commands (serialize : Serializer) =
     member __.Colorization enabled = state.ColorizationOutput <- enabled
     member __.Error msg = [Response.error serialize msg]
 
-    member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter = async {
+    member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords = async {
         let! res = tyRes.TryGetCompletions pos lineStr filter
         return match res with
                 | Some (decls, residue) ->
@@ -125,10 +129,10 @@ type Commands (serialize : Serializer) =
                       Array.sortBy declName decls
                       |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
                     let res = match firstMatchOpt with
-                                | None -> [Response.completion serialize decls]
+                                | None -> [Response.completion serialize decls includeKeywords]
                                 | Some d ->
                                     [Response.helpText serialize (d.Name, d.DescriptionText)
-                                     Response.completion serialize decls]
+                                     Response.completion serialize decls includeKeywords]
 
                     for decl in decls do
                         state.HelpText.[declName decl] <- decl.DescriptionText
@@ -172,9 +176,11 @@ type Commands (serialize : Serializer) =
                     match tyRes.GetAST with
                     | None -> [ Response.info serialize "Something went wrong during parsing"]
                     | Some tree ->
+                        fsharpLintConfig.LoadConfigurationForProject file
+                        let opts = fsharpLintConfig.GetConfigurationForProject (file)
                         let res =
                             Lint.lintParsedSource
-                                Lint.OptionalLintParameters.Default
+                                { Lint.OptionalLintParameters.Default with Configuration = Some opts}
                                 { Ast = tree
                                   Source = source
                                   TypeCheckResults = Some tyRes.GetCheckResults

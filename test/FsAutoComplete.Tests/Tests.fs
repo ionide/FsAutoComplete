@@ -9,10 +9,11 @@ let ``activePatternCracking`` () =
   | None -> Assert.Fail()
   | Some (col, _idents) ->
 
-  Assert.AreEqual(15,col)
+  Assert.AreEqual(16,col)
   //Assert.AreEqual(["|Zero|Succ|"],idents)
   // Actually returns "Zero|Succ|", but this is fine for tooltips
-  Assert.AreEqual(lineStr.[col], '|')
+  Assert.AreEqual(lineStr.[col], ')')
+
 
 [<Test>]
 let ``symbolicOperatorCracking`` () =
@@ -20,19 +21,17 @@ let ``symbolicOperatorCracking`` () =
   | None -> Assert.Fail()
   | Some (col, idents) ->
 
-  Assert.AreEqual(3,col)
-  Assert.AreEqual(["|<>|"],idents)
-  Assert.AreEqual("|<>|".[col], '|')
+   Assert.AreEqual(4, col)
+   Assert.AreEqual(["|<>|"], idents)
+   Assert.AreEqual("|<>|".[col-1], '|')
 
 [<Test>]
 let ``normalCracking`` () =
-  match Parsing.findLongIdents(8, "First.Second.Third") with
+  match Parsing.findLongIdents(15, "First.Second.Third") with
   | None -> Assert.Fail()
   | Some (col, idents) ->
-
-  Assert.AreEqual(11,col)
-  Assert.AreEqual(["First";"Second"],idents)
-  Assert.AreEqual("First.Second.Third".[col], 'd')
+     Assert.AreEqual(18, col)
+     CollectionAssert.AreEqual (["Third"], idents, "idents")
 
 [<Test>]
 let ``should find FSharp.Core`` () =

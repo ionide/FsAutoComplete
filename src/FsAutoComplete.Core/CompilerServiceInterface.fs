@@ -4,6 +4,7 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
+open System.Collections.Concurrent
 
 type ParseAndCheckResults
     (
@@ -51,7 +52,7 @@ type ParseAndCheckResults
     | None -> return Failure "Could not find ident at this location"
     | Some(col, identIsland) ->
 
-      let! declarations = checkResults.GetDeclarationLocationAlternate(pos.Line, col + 1, lineStr, identIsland, false)
+      let! declarations = checkResults.GetDeclarationLocationAlternate(pos.Line, col, lineStr, identIsland, false)
 
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
@@ -64,7 +65,7 @@ type ParseAndCheckResults
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let! tip = checkResults.GetToolTipTextAlternate(pos.Line, col + 1, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let! tip = checkResults.GetToolTipTextAlternate(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
       | FSharpToolTipText(elems) when elems |> List.forall (function
@@ -79,7 +80,7 @@ type ParseAndCheckResults
         | None -> return (Failure "No ident at this location")
         | Some(colu, identIsland) ->
 
-        let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu + 1, lineStr, identIsland)
+        let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
         | None -> return (Failure "No symbol information found")
         | Some symboluse ->
@@ -105,6 +106,14 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
 
+type private FileState =
+    | Checked
+    | NeedChecking
+    | BeingChecked
+    | Cancelled
+
+type Version = int
+
 type FSharpCompilerServiceChecker() =
   let checker =
     FSharpChecker.Create(
@@ -112,7 +121,35 @@ type FSharpCompilerServiceChecker() =
       keepAllBackgroundResolutions = true,
       keepAssemblyContents = true)
 
-  do checker.BeforeBackgroundFileCheck.Add (fun _ -> ())
+  let files = ConcurrentDictionary<string, Version * FileState>()
+  do checker.BeforeBackgroundFileCheck.Add ignore
+  
+  let isResultObsolete fileName = 
+      match files.TryGetValue fileName with
+      | true, (_, Cancelled) -> true
+      | _ -> false
+
+  let fileChanged filePath version = 
+    files.AddOrUpdate (filePath, (version, NeedChecking), (fun _ (oldVersion, oldState) -> 
+        if version <> oldVersion then
+           (version,
+            match oldState with
+            | BeingChecked -> Cancelled
+            | Cancelled -> Cancelled
+            | NeedChecking -> NeedChecking
+            | Checked -> NeedChecking)
+        else oldVersion, oldState))
+    |> debug "[LanguageService] %s changed: set status to %A" filePath
+
+
+  let fixFileName path = 
+    if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
+    else 
+        match Environment.OSVersion.Platform with
+        | PlatformID.Unix 
+        | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
+        | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
+        </> Path.GetFileName path
 
   let ensureCorrectFSharpCore (options: string[]) =
     Environment.fsharpCoreOpt
@@ -187,8 +224,42 @@ type FSharpCompilerServiceChecker() =
     return res |> Array.collect id
   }
 
-  member __.ParseAndCheckFileInProject(fileName, version, source, options) =
-    checker.ParseAndCheckFileInProject(fileName, version, source, options)
+  member __.ParseAndCheckFileInProject(filePath, version, source, options) =
+    async { 
+      debug "[LanguageService] ParseAndCheckFileInProject - enter"
+      fileChanged filePath version
+      let fixedFilePath = fixFileName filePath
+      let! res = Async.Catch (async {
+          try
+               // wait until the previous checking completed
+               while files.ContainsKey filePath &&
+                     (match files.TryGetValue filePath with
+                      | true, (v, Checked) 
+                      | true, (v, NeedChecking) -> 
+                         files.[filePath] <- (v, BeingChecked)
+                         true
+                      | _ -> false) do
+                   do! Async.Sleep 20
+               
+               debug "[LanguageService] Change state for %s to `BeingChecked`" filePath
+               debug "[LanguageService] Parse and typecheck source..."
+               return! checker.ParseAndCheckFileInProject 
+                                 (fixedFilePath, version, source, options, 
+                                  IsResultObsolete (fun _ -> isResultObsolete filePath), null) 
+          finally 
+               match files.TryGetValue filePath with
+               | true, (v, BeingChecked)
+               | true, (v, Cancelled) -> files.[filePath] <- (v, Checked)
+               | _ -> ()
+      })
+
+      debug "[LanguageService]: Check completed"
+      // Construct new typed parse result if the task succeeded
+      return
+          match res with
+          | Choice1Of2 x -> Success x
+          | Choice2Of2 e -> Failure e.Message
+    }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
@@ -207,8 +278,7 @@ type FSharpCompilerServiceChecker() =
           return!
             options
             |> Seq.filter (fun (_, projectOpts) -> projectOpts = opts)
-            |> Seq.map fst
-            |> Seq.map (fun projectFile -> async {
+            |> Seq.map (fun (projectFile,_) -> async {
                 let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(projectFile, opts)
                 return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, projectFile))
               })
@@ -231,11 +301,19 @@ type FSharpCompilerServiceChecker() =
                p.OtherOptions
           { p with OtherOptions = opts }, logMap
 
-        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let po =
+            match po.ProjectFileNames with
+            | [||] ->
+                 let compileFiles, otherOptions =
+                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs"))
+                 { po with ProjectFileNames = compileFiles; OtherOptions = otherOptions }
+            | _ -> po
+
+        let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, logMap)
+        Success (po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
       with e ->
         Failure e.Message
 

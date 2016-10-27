@@ -21,8 +21,8 @@ module internal CompletionUtils =
       0x00011, ("Property", "P")
       0x0005,  ("Event", "e")
       0x0007,  ("Field", "F") (* fieldblue ? *)
-      0x0020,  ("Field", "F") (* fieldyellow ? *)
-      0x0001,  ("Field", "F") (* const *)
+      0x0020,  ("Field", "Fy") (* fieldyellow ? *)
+      0x0001,  ("Function", "Fc") (* const *)
       0x0004,  ("Property", "P") (* enummember *)
       0x0006,  ("Exception", "X") (* exception *)
       0x0009,  ("Text File Icon", "t") (* TextLine *)
@@ -33,7 +33,7 @@ module internal CompletionUtils =
       0x00014, ("Class", "C") (* Typedef *)
       0x00015, ("Type", "T") (* Type *)
       0x00016, ("Type", "T") (* Union *)
-      0x00017, ("Field", "F") (* Variable *)
+      0x00017, ("Field", "V") (* Variable *)
       0x00019, ("Class", "C") (* Intrinsic *)
       0x0001f, ("Other", "o") (* error *)
       0x00021, ("Other", "o") (* Misc1 *)
@@ -56,7 +56,7 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.DU -> "D"
 
 module CommandResponse =
- 
+
   type ResponseMsg<'T> =
     {
       Kind: string
@@ -228,12 +228,24 @@ module CommandResponse =
         Logs = logMap }
     serialize { Kind = "project"; Data = projectData }
 
-  let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) =
+  let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
+      let keywords = ["abstract"; "and"; "as"; "assert"; "base"; "begin"; "class"; "default"; "delegate"; "do";
+          "done"; "downcast"; "downto"; "elif"; "else"; "end"; "exception"; "extern"; "false"; "finally"; "for";
+          "fun"; "function"; "global"; "if"; "in"; "inherit"; "inline"; "interface"; "internal"; "lazy"; "let";
+          "match"; "member"; "module"; "mutable"; "namespace"; "new"; "null"; "of"; "open"; "or"; "override";
+          "private"; "public"; "rec"; "return"; "sig"; "static"; "struct"; "then"; "to"; "true"; "try"; "type";
+          "upcast"; "use"; "val"; "void"; "when"; "while"; "with"; "yield"
+      ]
+
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
                                let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar } ] }
+                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar }
+                            if includeKeywords then
+                              for k in keywords do
+                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
+                          ] }
 
   let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
     let su =

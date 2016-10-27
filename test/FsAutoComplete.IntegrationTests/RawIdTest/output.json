@@ -136,136 +136,14 @@
     {
       "Name": "Another`Column",
       "ReplacementText": "``Another`Column``",
-      "Glyph": "Field",
-      "GlyphChar": "F"
+      "Glyph": "Function",
+      "GlyphChar": "Fc"
     },
     {
       "Name": "Column1",
       "ReplacementText": "Column1",
-      "Glyph": "Field",
-      "GlyphChar": "F"
-    }
-  ]
-}
-{
-  "Kind": "completion",
-  "Data": [
-    {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
-      "Glyph": "Field",
-      "GlyphChar": "F"
-    },
-    {
-      "Name": "Column1",
-      "ReplacementText": "Column1",
-      "Glyph": "Field",
-      "GlyphChar": "F"
-    }
-  ]
-}
-{
-  "Kind": "helptext",
-  "Data": {
-    "Name": "Another`Column",
-    "Overloads": [
-      [
-        {
-          "Signature": "val Another`Column : int",
-          "Comment": ""
-        }
-      ]
-    ]
-  }
-}
-{
-  "Kind": "completion",
-  "Data": [
-    {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
-      "Glyph": "Field",
-      "GlyphChar": "F"
-    },
-    {
-      "Name": "Column1",
-      "ReplacementText": "Column1",
-      "Glyph": "Field",
-      "GlyphChar": "F"
-    }
-  ]
-}
-{
-  "Kind": "helptext",
-  "Data": {
-    "Name": "Another`Column",
-    "Overloads": [
-      [
-        {
-          "Signature": "property Y.Another`Column: int",
-          "Comment": ""
-        }
-      ]
-    ]
-  }
-}
-{
-  "Kind": "completion",
-  "Data": [
-    {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Column Two",
-      "ReplacementText": "``Column Two``",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Column1",
-      "ReplacementText": "Column1",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    }
-  ]
-}
-{
-  "Kind": "helptext",
-  "Data": {
-    "Name": "Column Two",
-    "Overloads": [
-      [
-        {
-          "Signature": "property Y.Column Two: int",
-          "Comment": ""
-        }
-      ]
-    ]
-  }
-}
-{
-  "Kind": "completion",
-  "Data": [
-    {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Column Two",
-      "ReplacementText": "``Column Two``",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Column1",
-      "ReplacementText": "Column1",
-      "Glyph": "Property",
-      "GlyphChar": "P"
+      "Glyph": "Function",
+      "GlyphChar": "Fc"
     }
   ]
 }

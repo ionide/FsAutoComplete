@@ -15,11 +15,11 @@ open FsAutoComplete.JsonSerializer
 
 [<AutoOpen>]
 module Contract =
-    type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]}
+    type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
     type ProjectRequest = { FileName : string;}
     type DeclarationsRequest = {FileName : string}
     type HelptextRequest = {Symbol : string}
-    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string}
+    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
 
@@ -43,9 +43,12 @@ let main argv =
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
-          let! res = f data
-          let res' = res |> List.toArray |> Json.toJson
-          return! Response.response HttpCode.HTTP_200 res' r
+          let! res = Async.Catch (f data)
+          match res with
+          | Choice1Of2 res ->
+             let res' = res |> List.toArray |> Json.toJson
+             return! Response.response HttpCode.HTTP_200 res' r
+          | Choice2Of2 e -> return! Response.response HttpCode.HTTP_500 (Json.toJson e) r
         }
 
     let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) ->
@@ -58,10 +61,18 @@ let main argv =
                 | Success (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
                   //       for completions e.g. `(some typed expr).$`
-                  let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
-                  match tyResOpt with
-                  | None -> async.Return ([CommandResponse.info writeJson "Cached typecheck results not yet available"])
-                  | Some tyRes -> f data tyRes lineStr lines
+                  try 
+                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options) 
+                    match tyResOpt with
+                    | None -> async.Return [CommandResponse.info writeJson "Cached typecheck results not yet available"]
+                    | Some tyRes -> 
+                        async {
+                            let! r = Async.Catch (f data tyRes lineStr lines)
+                            match r with
+                            | Choice1Of2 r -> return r
+                            | Choice2Of2 e -> return [CommandResponse.error writeJson e.Message]
+                        }
+                  with e -> async.Return [CommandResponse.error writeJson e.Message]
             let res' = res |> List.toArray |> Json.toJson
             return! Response.response HttpCode.HTTP_200 res' r
         }
@@ -70,7 +81,7 @@ let main argv =
         Writers.setMimeType "application/json; charset=utf-8" >=>
         POST >=>
         choose [
-            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines)
+            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
             //TODO: Add filewatcher
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/parseProjects" >=> fun httpCtx ->
@@ -102,9 +113,10 @@ let main argv =
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
-                        | Some tyRes -> return! commands.Completion tyRes { Line = data.Line; Col = data.Column } lineStr (Some data.Filter)
+                        | Some tyRes -> return! commands.Completion tyRes { Line = data.Line; Col = data.Column } lineStr (Some data.Filter) data.IncludeKeywords
                 })
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes { Line = data.Line; Col = data.Column } lineStr)
+            path "/signature" >=> positionHandler (fun data tyRes lineStr _ -> commands.Typesig tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclarations tyRes { Line = data.Line; Col = data.Column } lineStr)

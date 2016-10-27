@@ -35,6 +35,14 @@ let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimS
 
 let inline (</>) path1 path2 = combinePaths path1 path2
 
+let private sepChar = Path.DirectorySeparatorChar
+            
+let normalizeDirSeparators (path: string) =
+  match sepChar with
+  | '\\' -> path.Replace('/', '\\')
+  | '/' -> path.Replace('\\', '/')
+  | _ -> path
+
 module Option =
   let getOrElse defaultValue option =
     match option with
@@ -78,3 +86,6 @@ type System.Collections.Concurrent.ConcurrentDictionary<'key, 'value> with
 
     member x.ToSeq() =
         x |> Seq.map (fun (KeyValue(k, v)) -> k, v)
+
+let inline debug msg = Printf.kprintf System.Diagnostics.Debug.WriteLine msg
+let inline fail msg = Printf.kprintf System.Diagnostics.Debug.Fail msg

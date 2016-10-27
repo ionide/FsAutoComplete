@@ -136,7 +136,7 @@
 }
 {
   "Kind": "info",
-  "Data": "No symbol information found"
+  "Data": "No ident at this location"
 }
 {
   "Kind": "symboluse",

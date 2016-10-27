@@ -8,7 +8,7 @@
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "tooltip",
@@ -67,11 +67,11 @@
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "tooltip",
@@ -130,7 +130,7 @@
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "tooltip",
