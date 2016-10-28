@@ -24,6 +24,16 @@
       "Severity": "Error",
       "Message": "The value or constructor 'XA' is not defined",
       "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+      "StartLine": 6,
+      "EndLine": 6,
+      "StartColumn": 15,
+      "EndColumn": 16,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
     }
   ]
 }

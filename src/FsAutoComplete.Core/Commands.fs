@@ -35,14 +35,15 @@ type Commands (serialize : Serializer) =
                 return
                     match result with
                     | Failure e -> [Response.error serialize e]
-                    | Success (_, checkResults) ->
+                    | Success (parseResult, checkResults) ->
                         match checkResults with
                         | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
                         | FSharpCheckFileAnswer.Succeeded results ->
+                            let errors = Array.append results.Errors parseResult.Errors
                             if colorizations then
-                                [ Response.errors serialize (results.Errors)
+                                [ Response.errors serialize errors
                                   Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                            else [ Response.errors serialize (results.Errors) ]
+                            else [ Response.errors serialize errors ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
