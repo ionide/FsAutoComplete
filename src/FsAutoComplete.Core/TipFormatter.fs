@@ -121,6 +121,7 @@ let extractSignature (FSharpToolTipText tips) =
         | _ -> None
 
     tips
+    |> Seq.sortBy (function FSharpToolTipElement.Single _ -> 0 | _ -> 1)
     |> Seq.tryPick firstResult
     |> Option.map getSignature
     |> Option.getOrElse ""

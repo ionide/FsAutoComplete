@@ -66,12 +66,18 @@ type ParseAndCheckResults
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipTextAlternate(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
-
-      match tip with
-      | FSharpToolTipText(elems) when elems |> List.forall (function
-        FSharpToolTipElement.None -> true | _ -> false) ->
-         return Failure "No tooltip information"
-      | _ -> return Success(tip)
+      return
+        match tip with
+        | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) ->
+            match identIsland with
+            | [ident] ->
+               KeywordList.tryGetKeywordDescription ident
+               |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
+               |> function
+               | Some tip -> Success tip
+               | None -> Failure "No tooltip information"
+            | _ -> Failure "No tooltip information"
+        | _ -> Success(tip)
   }
 
   member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr) =

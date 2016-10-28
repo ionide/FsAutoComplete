@@ -72,6 +72,7 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
+    <Compile Include="KeywordList.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
