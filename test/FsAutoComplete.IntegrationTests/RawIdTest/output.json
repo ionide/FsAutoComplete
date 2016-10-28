@@ -54,6 +54,36 @@
       "Severity": "Error",
       "Message": "The value or constructor 'X' is not defined",
       "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Module.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
     }
   ]
 }
@@ -113,6 +143,36 @@
       "Severity": "Error",
       "Message": "The value or constructor 'Y' is not defined",
       "Subcategory": "typecheck"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 9,
+      "EndLine": 9,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 2,
+      "EndColumn": 3,
+      "Severity": "Error",
+      "Message": "Missing qualification after '.'",
+      "Subcategory": "parse"
+    },
+    {
+      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RawIdTest/Test-Class.fsx",
+      "StartLine": 11,
+      "EndLine": 11,
+      "StartColumn": 3,
+      "EndColumn": 4,
+      "Severity": "Error",
+      "Message": "Unexpected reserved keyword in implementation file",
+      "Subcategory": "parse"
     }
   ]
 }
