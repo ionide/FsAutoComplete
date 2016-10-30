@@ -1,3 +1,12 @@
+#### 0.30.0 - 30.10.2016
+
+* Add EnclosingEntity and IsAbstract to Declaration contract: #129.
+* Merge Ionide changes (#123):
+  - Glyphs
+  - Update dependencies
+  - Lint settings
+  - Keyword completion
+
 #### 0.29.0 - 12.07.2016
 
 * Add command for all declarations in known projects: #117.
