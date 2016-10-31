@@ -1,3 +1,8 @@
+#### 0.30.1 - 31.10.2016
+
+* Add parse errors, tooltips for keywords, and signatures for
+  constructors: #135.
+
 #### 0.30.0 - 30.10.2016
 
 * Add EnclosingEntity and IsAbstract to Declaration contract: #129.
