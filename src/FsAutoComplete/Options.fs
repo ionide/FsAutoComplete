@@ -8,7 +8,7 @@ open System.Diagnostics
 open System.Reflection
 
 module Version =
-  let string = "FsAutoComplete " + AssemblyVersionInformation.Version
+  let string = "FsAutoComplete " + AssemblyVersionInformation.AssemblyVersion
 
 module Options =
 

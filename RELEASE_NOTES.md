@@ -1,7 +1,11 @@
-#### 0.30.1 - 31.10.2016
+#### 0.30.2 - 31.10.2016
 
 * Add parse errors, tooltips for keywords, and signatures for
   constructors: #135.
+
+#### 0.30.1 - 31.10.2016
+
+* Invalid release, ignore.
 
 #### 0.30.0 - 30.10.2016
 
