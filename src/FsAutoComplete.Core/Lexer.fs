@@ -12,6 +12,7 @@ type SymbolKind =
     | GenericTypeParameter
     | StaticallyResolvedTypeParameter
     | ActivePattern
+    | Keyword
     | Other
 
 type LexerSymbol =
@@ -110,6 +111,7 @@ module Lexer =
 
     let inline isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
     let inline isOperator t = t.ColorClass = FSharpTokenColorKind.Operator
+    let inline isKeyword t = t.ColorClass = FSharpTokenColorKind.Keyword
 
     let inline internal (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|) ((token: FSharpTokenInfo), (lineStr:string)) =
         if token.Tag = FSharpTokenTag.QUOTE then GenericTypeParameterPrefix
@@ -162,7 +164,11 @@ module Lexer =
                         | Some ( { Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
                               DraftToken.Create SymbolKind.Ident ap.Token
                         | _ ->
-                            let kind = if isOperator token then Operator elif isIdentifier token then Ident else Other
+                            let kind = 
+                                if isOperator token then Operator 
+                                elif isIdentifier token then Ident 
+                                elif isKeyword token then Keyword
+                                else Other
                             DraftToken.Create kind token
                     draftToken :: acc, Some draftToken
             ) ([], None)
@@ -249,7 +255,7 @@ module Lexer =
             tokensUnderCursor
             |> List.tryFind (fun { DraftToken.Kind = k } ->
                 match k with
-                | Ident | GenericTypeParameter | StaticallyResolvedTypeParameter -> true
+                | Ident | GenericTypeParameter | StaticallyResolvedTypeParameter | Keyword -> true
                 | _ -> false)
                 /// Gets the option if Some x, otherwise try to get another value
 

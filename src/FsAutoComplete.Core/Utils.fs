@@ -49,6 +49,11 @@ module Option =
     | None -> defaultValue
     | Some x -> x
 
+  let orElse other option =
+    match option with
+    | None -> other()
+    | Some x -> Some x
+
   let getOrElseFun defaultValue option =
     match option with
     | None -> defaultValue()

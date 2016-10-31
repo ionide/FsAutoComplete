@@ -14,9 +14,12 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 type private XmlDocMember(doc: XmlDocument) =
   let nl = System.Environment.NewLine
   let readContent (node: XmlNode) =
-    // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
+    match node with
+    | null -> null
+    | _ ->
+        // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
     // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
-    Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "$1")
+        Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "$1")
   let readChildren name (doc: XmlDocument) =
     doc.DocumentElement.GetElementsByTagName name
     |> Seq.cast<XmlNode>
@@ -121,6 +124,7 @@ let extractSignature (FSharpToolTipText tips) =
         | _ -> None
 
     tips
+    |> Seq.sortBy (function FSharpToolTipElement.Single _ -> 0 | _ -> 1)
     |> Seq.tryPick firstResult
     |> Option.map getSignature
     |> Option.getOrElse ""

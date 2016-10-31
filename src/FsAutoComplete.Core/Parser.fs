@@ -251,7 +251,9 @@ module Parsing =
   let tryGetFirst p s = match apply p s with h::_ -> Some h | [] -> None
 
   let inline private tryGetLexerSymbolIslands sym =
-      match sym.Text with "" -> None | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
+      match sym.Text with 
+      | "" -> None 
+      | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
 
   // Parsing - find the identifier around the current location
   // (we look for full identifier in the backward direction, but only
