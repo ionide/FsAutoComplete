@@ -6,7 +6,6 @@ module FsAutoComplete.TipFormatter
 open System
 open System.IO
 open System.Xml
-open System.Text
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -25,15 +24,15 @@ type private XmlDocMember(doc: XmlDocument) =
     |> Seq.cast<XmlNode>
     |> Seq.map (fun node -> node.Attributes.[0].InnerText.Replace("T:",""), readContent node)
     |> Map.ofSeq
-  member val Summary = readContent doc.DocumentElement.ChildNodes.[0]
-  member val Params = readChildren "param" doc
-  member val Exceptions = readChildren "exception" doc
+  let summary = readContent doc.DocumentElement.ChildNodes.[0]
+  let pars = readChildren "param" doc
+  let exceptions = readChildren "exception" doc
   override x.ToString() =
-    x.Summary + nl + nl +
-    (x.Params |> Seq.map (fun kv -> kv.Key + ": " + kv.Value) |> String.concat nl) +
-    (if x.Exceptions.Count = 0 then ""
+    summary + nl + nl +
+    (pars |> Seq.map (fun kv -> kv.Key + ": " + kv.Value) |> String.concat nl) +
+    (if exceptions.Count = 0 then ""
      else nl + nl + "Exceptions:" + nl +
-          (x.Exceptions |> Seq.map (fun kv -> "\t" + kv.Key + ": " + kv.Value) |> String.concat nl))
+          (exceptions |> Seq.map (fun kv -> "\t" + kv.Key + ": " + kv.Value) |> String.concat nl))
 
 let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
   let acc' =
@@ -86,23 +85,21 @@ let private getXmlDoc =
 // Formatting of tool-tip information displayed in F# IntelliSense
 // --------------------------------------------------------------------------------------
 let private buildFormatComment cmt =
-  match cmt with
-  | FSharpXmlDoc.Text s -> s
-  | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
-    match getXmlDoc dllFile with
-    | Some doc when doc.ContainsKey memberName -> string doc.[memberName]
+    match cmt with
+    | FSharpXmlDoc.Text s -> s
+    | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
+       match getXmlDoc dllFile with
+       | Some doc when doc.ContainsKey memberName -> string doc.[memberName]
+       | _ -> ""
     | _ -> ""
-  | _ -> ""
 
-let formatTip (FSharpToolTipText tips) = 
+let formatTip (FSharpToolTipText tips) : (string * string) list list = 
     tips
-    |> Seq.where (function
-                    | FSharpToolTipElement.Single _ | FSharpToolTipElement.Group _ -> true
-                    | _ -> false)
-    |>  Seq.fold (fun acc t -> match t with
-                                | FSharpToolTipElement.Single (it, comment) -> [(it, comment |> buildFormatComment)]::acc
-                                | FSharpToolTipElement.Group (items) -> (items |> List.map (fun (it, comment) ->  (it, comment |> buildFormatComment) )) :: acc
-                                | _ -> acc) []
+    |> List.choose (function
+        | FSharpToolTipElement.Single (it, comment) -> Some [it, buildFormatComment comment]
+        | FSharpToolTipElement.Group items -> 
+            Some (items |> List.map (fun (it, comment) ->  (it, buildFormatComment comment)))
+        | _ -> None)
 
 let extractSignature (FSharpToolTipText tips) =
     let getSignature (str: string) =

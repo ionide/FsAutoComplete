@@ -48,7 +48,7 @@ module CommandInput =
   let declarations = parser {
     let! _ = string "declarations "
     let! _ = char '"'
-    let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+    let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
     let! _ = char '"'
     return Declarations(filename) }
 
@@ -56,7 +56,7 @@ module CommandInput =
   let project = parser {
     let! _ = string "project "
     let! _ = char '"'
-    let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+    let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
     let! _ = char '"'
     let! verbose =
       (parser { let! _ = some (string " verbose")
@@ -68,7 +68,7 @@ module CommandInput =
   let lint = parser {
       let! _ = string "lint "
       let! _ = char '"'
-      let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+      let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
       return Lint(filename) }
 
@@ -83,7 +83,7 @@ module CommandInput =
     parser {
       let! _ = string "parse "
       let! _ = char '"'
-      let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+      let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
       let! _ = many (string " ")
       let! full = (parser { let! _ = string "sync"
@@ -108,25 +108,25 @@ module CommandInput =
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
     let! _ = char '"'
-    let! filename = some (sat ((<>) '"')) |> Parser.map String.ofSeq
+    let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
     let! _ = char '"'
     let! _ = many (string " ")
     let! _ = char '"'
-    let! lineStr = some (sat ((<>) '"') <|> escapedQuote) |> Parser.map String.ofSeq
+    let! lineStr = some (sat ((<>) '"') <|> escapedQuote) |> Parser.map String.OfSeq
     let! _ = char '"'
     let! _ = many (string " ")
-    let! line = some digit |> Parser.map (String.ofSeq >> int)
+    let! line = some digit |> Parser.map (String.OfSeq >> int)
     let! _ = many (string " ")
-    let! col = some digit |> Parser.map (String.ofSeq >> int)
+    let! col = some digit |> Parser.map (String.OfSeq >> int)
     let! timeout =
       (parser { let! _ = some (string " ")
-                return! some digit |> Parser.map (String.ofSeq >> int >> Some) }) <|>
+                return! some digit |> Parser.map (String.OfSeq >> int >> Some) }) <|>
       (parser { return None })
     let! filter =
       (parser { let! _ = many (string " ")
                 let! _ = string "filter="
                 let! b = (string "StartsWith" <|> string "Contains")
-                         |> Parser.map String.ofSeq
+                         |> Parser.map String.OfSeq
                 return Some b }) <|>
       (parser { return None })
     return PosCommand(f, filename, lineStr, { Line = line; Col = col }, timeout, filter) }
@@ -134,7 +134,7 @@ module CommandInput =
   let helptext = parser {
       let! _ = string "helptext"
       let! _ = some (string " ")
-      let! sym = many (sat (fun _ -> true)) |> Parser.map String.ofSeq
+      let! sym = many (sat (fun _ -> true)) |> Parser.map String.OfSeq
       return HelpText sym
     }
 

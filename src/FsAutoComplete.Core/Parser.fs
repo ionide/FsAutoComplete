@@ -12,11 +12,11 @@ open Microsoft.FSharp.Compiler
 // Simple implementation of LazyList
 // --------------------------------------------------------------------------------------
 
-type LazyList<'T> =
+type private LazyList<'T> =
   | Nil
   | Cons of 'T * Lazy<LazyList<'T>>
 
-module LazyList =
+module private LazyList =
   let ofSeq (s:seq<'T>) =
     let en = s.GetEnumerator()
     let rec take() =
@@ -28,38 +28,38 @@ module LazyList =
     take()
 
 module Parser =
-
   open System
 
   /// Add some useful methods for creating strings from sequences
-  type System.String with
-    static member ofSeq s = new String(s |> Seq.toArray)
-    static member ofReversedSeq s = new String(s |> Seq.toArray |> Array.rev)
+  type String with
+    static member OfSeq chars = chars |> Seq.toArray |> String
+    static member OfReversedSeq chars = chars |> Seq.toArray |> Array.rev |> String
 
   /// Parser is implemented using lazy list (so that we can use seq<_>)
-  type Parser<'T> = P of (LazyList<char> -> ('T * LazyList<char>) list)
-
+  type Parser<'T> = private P of (LazyList<char> -> ('T * LazyList<char>) list)
 
   // Basic functions needed by the computation builder
 
-  let result v = P(fun c -> [v, c])
-  let zero () = P(fun _ -> [])
-  let bind (P p) f = P(fun inp ->
+  let result v = P (fun c -> [v, c])
+  let zero () = P (fun _ -> [])
+  
+  let bind (P p) f = P (fun inp ->
     [ for (pr, inp') in p inp do
         let (P pars) = f pr
         yield! pars inp' ])
+  
   let plus (P p) (P q) = P (fun inp ->
     (p inp) @ (q inp) )
 
   let (<|>) p1 p2 = plus p1 p2
 
   type ParserBuilder() =
-    member x.Bind(v, f) = bind v f
-    member x.Zero() = zero()
-    member x.Return(v) = result(v)
-    member x.ReturnFrom(p) = p
-    member x.Combine(a, b) = plus a b
-    member x.Delay(f) = f()
+    member __.Bind(v, f) = bind v f
+    member __.Zero() = zero()
+    member __.Return(v) = result(v)
+    member __.ReturnFrom(p) = p
+    member __.Combine(a, b) = plus a b
+    member __.Delay(f) = f()
 
   let parser = new ParserBuilder()
 
@@ -68,26 +68,14 @@ module Parser =
 
   let item = P(function | LazyList.Nil -> [] | LazyList.Cons(c, r) -> [c,r.Value])
 
-  let sequence (P p) (P q) = P (fun inp ->
-    [ for (pr, inp') in p inp do
-        for (qr, inp'') in q inp' do
-          yield (pr, qr), inp''])
-
   let sat p = parser {
     let! v = item
     if (p v) then return v }
 
   let char x = sat ((=) x)
   let digit = sat Char.IsDigit
-  let lower = sat Char.IsLower
-  let upper = sat Char.IsUpper
   let letter = sat Char.IsLetter
-  let nondigit = sat (Char.IsDigit >> not)
   let whitespace = sat (Char.IsWhiteSpace)
-
-  let alphanum = parser {
-    return! letter
-    return! digit }
 
   let rec word = parser {
     return []
@@ -135,27 +123,19 @@ module Parser =
 /// of the current cursor location etc.)
 module Parsing =
   open Parser
-  open System.Diagnostics
 
   module Legacy =
-
     let inline isFirstOpChar ch =
         ch = '!' || ch = '%'|| ch = '&' || ch = '*'|| ch = '+'|| ch = '-'|| ch = '.'|| ch = '/'|| ch = '<'|| ch = '='|| ch = '>'|| ch = '@'|| ch = '^'|| ch = '|'|| ch = '~'
+  
     let isOpChar ch = ch = '?' || isFirstOpChar ch
 
-    let private symOpLits = [ "?"; "?<-"; "<@"; "<@@"; "@>"; "@@>" ]
-
-    let isSymbolicOp (str:string) =
-      List.exists ((=) str) symOpLits ||
-        (str.Length > 1 && isFirstOpChar str.[0] && Seq.forall isOpChar str.[1..])
-
-    let parseSymOpFragment = some (sat isOpChar)
     let parseBackSymOpFragment = parser {
       // This is unfortunate, but otherwise cracking at $ in A.$B
       // causes the backward parse to return a symbol fragment.
       let! c  = sat (fun c -> c <> '.' && isOpChar c)
       let! cs = many (sat isOpChar)
-      return String.ofReversedSeq (c::cs)
+      return String.OfReversedSeq (c::cs)
       }
 
     /// Parses F# short-identifier (i.e. not including '.'); also ignores active patterns
@@ -166,29 +146,11 @@ module Parsing =
 
     let rawIdChar = sat (fun c -> c <> '\n' && c <> '\t' && c <> '\r' && c <> '`')
 
-    let singleBackTick = parser {
-      let! _ = char '`'
-      let! x = rawIdChar
-      return ['`';x]
-    }
-
-    let rawIdCharAsString = parser {
-      let! x = rawIdChar
-      return [x]
-    }
-
-    // Parse a raw identifier backwards
-    let rawIdResidue = parser {
-      let! x = many (rawIdCharAsString <|> singleBackTick)
-      let! _ = string "``"
-      return List.concat x
-    }
-
     /// Parse F# short-identifier and reverse the resulting string
     let parseBackIdent =
       parser {
           let! x = optional (string "``")
-          let! res = many (if x.IsSome then rawIdChar else fsharpIdentCharacter) |> map String.ofReversedSeq
+          let! res = many (if x.IsSome then rawIdChar else fsharpIdentCharacter) |> map String.OfReversedSeq
           let! _ = optional (string "``")
           return res }
 
@@ -202,29 +164,6 @@ module Parsing =
         return ident::rest }
       return [] }
 
-    /// Parse long identifier with raw residue (backwards) (e.g. "Debug.``A.B Hel")
-    /// and returns it as a tuple (reverses the results after parsing)
-    let parseBackIdentWithRawResidue = parser {
-      let! residue = rawIdResidue
-      let residue = String.ofReversedSeq residue
-      return! parser {
-        let! long = parseBackLongIdentRest
-        return residue, long |> List.rev }
-      return residue, [] }
-
-    /// Parse long identifier with residue (backwards) (e.g. "Debug.Wri")
-    /// and returns it as a tuple (reverses the results after parsing)
-    let parseBackIdentWithResidue = parser {
-      let! residue = many fsharpIdentCharacter
-      let residue = String.ofReversedSeq residue
-      return! parser {
-        let! long = parseBackLongIdentRest
-        return residue, long |> List.rev }
-      return residue, [] }
-
-    let parseBackIdentWithEitherResidue =
-      parseBackIdentWithResidue <|> parseBackIdentWithRawResidue
-
     let parseBackLongIdent = parser {
       return! parser {
         let! ident = parseBackSymOpFragment <|> parseBackIdent
@@ -233,7 +172,7 @@ module Parsing =
       return [] }
 
     let parseBackTriggerThenLongIdent = parser {
-      let! _ = (char '(' <|> char '<')
+      let! _ = char '(' <|> char '<'
       let! _  = many whitespace
       return! parseBackLongIdent
       }
@@ -262,7 +201,7 @@ module Parsing =
   let findIdents col lineStr lookupType =
       if lineStr = "" then None
       else
-          Lexer.getSymbol lineStr 0 col lineStr lookupType [||] Lexer.singleLineQueryLexState
+          Lexer.getSymbol 0 col lineStr lookupType [||]
           |> Option.bind tryGetLexerSymbolIslands
 
   let findLongIdents (col, lineStr) =
@@ -271,7 +210,7 @@ module Parsing =
   let findLongIdentsAndResidue (col, lineStr:string) =
       let lineStr = lineStr.Substring(0, col)
 
-      match Lexer.getSymbol lineStr 0 col lineStr SymbolLookupKind.ByLongIdent [||] Lexer.singleLineQueryLexState with
+      match Lexer.getSymbol 0 col lineStr SymbolLookupKind.ByLongIdent [||] with
       | Some sym ->
           match sym.Text with
           | "" -> [], ""
@@ -300,16 +239,3 @@ module Parsing =
     match identIsland with
     | [] | [ "" ] -> None
     | _ -> Some identIsland
-
-  let findResidue (col, lineStr:string) =
-      // scan backwards until we find the start of the current symbol
-      let rec loop index =
-          if index = 0 then
-              0
-          elif lineStr.[index - 1] = '.' || lineStr.[index - 1] = ' ' then
-              index
-          else
-              loop (index - 1)
-
-      let index = loop col
-      lineStr.[index..]

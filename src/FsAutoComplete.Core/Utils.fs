@@ -2,6 +2,9 @@
 module FsAutoComplete.Utils
 
 open System.IO
+open System.Collections.Concurrent
+open System.Diagnostics
+open System
 
 type Result<'a> =
   | Success of 'a
@@ -12,7 +15,6 @@ type Pos =
       Col: int }
 
 type Serializer = obj -> string
-
 type ProjectFilePath = string
 type SourceFilePath = string
 type LineStr = string
@@ -22,7 +24,7 @@ let isAScript fileName =
     [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
 
 let runningOnMono = 
-  try System.Type.GetType("Mono.Runtime") <> null
+  try not << isNull <| Type.GetType "Mono.Runtime"
   with _ -> false
 
 let normalizePath (file : string) = 
@@ -43,6 +45,7 @@ let normalizeDirSeparators (path: string) =
   | '/' -> path.Replace('\\', '/')
   | _ -> path
 
+[<RequireQualifiedAccess>]
 module Option =
   let getOrElse defaultValue option =
     match option with
@@ -59,6 +62,12 @@ module Option =
     | None -> defaultValue()
     | Some x -> x
 
+  let inline orTry f =
+    function
+    | Some x -> Some x
+    | None -> f()
+
+[<RequireQualifiedAccess>]
 module Async =
     /// Transforms an Async value using the specified function.
     [<CompiledName("Map")>]
@@ -80,10 +89,7 @@ module Async =
             return! binding x
         }
 
-module List =
-    let inline singleton x = [x]
-
-type System.Collections.Concurrent.ConcurrentDictionary<'key, 'value> with
+type ConcurrentDictionary<'key, 'value> with
     member x.TryFind key =
         match x.TryGetValue key with
         | true, value -> Some value
@@ -92,5 +98,5 @@ type System.Collections.Concurrent.ConcurrentDictionary<'key, 'value> with
     member x.ToSeq() =
         x |> Seq.map (fun (KeyValue(k, v)) -> k, v)
 
-let inline debug msg = Printf.kprintf System.Diagnostics.Debug.WriteLine msg
-let inline fail msg = Printf.kprintf System.Diagnostics.Debug.Fail msg
+let inline debug msg = Printf.kprintf Debug.WriteLine msg
+let inline fail msg = Printf.kprintf Debug.Fail msg
