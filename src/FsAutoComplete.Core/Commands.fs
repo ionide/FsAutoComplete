@@ -41,9 +41,9 @@ type Commands (serialize : Serializer) =
                         | FSharpCheckFileAnswer.Succeeded results ->
                             let errors = Array.append results.Errors parseResult.Errors
                             if colorizations then
-                                [ Response.errors serialize errors
+                                [ Response.errors serialize (errors, fileName)
                                   Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                            else [ Response.errors serialize errors ]
+                            else [ Response.errors serialize (errors, fileName) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
@@ -57,10 +57,23 @@ type Commands (serialize : Serializer) =
             return! parse' file text checkOptions
     }
 
-    member __.ParseAll () = async {
-        let! errors = checker.ParseAndCheckAllProjects (state.FileCheckOptions.ToSeq())
-        return [Response.errors serialize errors ]
-    }
+    member __.ParseAll () =
+        do checker.ParseAndCheckAllProjects (state.FileCheckOptions.ToSeq())
+        [Response.errors serialize ([||], "") ]
+
+    member __.FileChecked =
+        checker.FileChecked
+        |> Event.map (fun fn ->
+            let file = Path.GetFullPath fn
+            let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
+            match res with
+            | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
+            | Some kv ->
+                async {
+                    let! (_, checkResults) = checker.GetBackgroundCheckResultsForFileInProject(fn, kv.Value)
+                    return [ Response.errors serialize (checkResults.Errors, file) ] })
+
+
 
     member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName

@@ -24,7 +24,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Ops.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -32,7 +35,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "helptext",
@@ -226,7 +232,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Core.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -234,7 +243,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "helptext",
@@ -408,7 +420,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Ops.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -416,7 +431,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "helptext",
@@ -590,7 +608,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Core.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -598,7 +619,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "helptext",

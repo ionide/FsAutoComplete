@@ -24,7 +24,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -32,7 +35,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -40,7 +46,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "helptext",

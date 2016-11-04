@@ -24,7 +24,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "error",

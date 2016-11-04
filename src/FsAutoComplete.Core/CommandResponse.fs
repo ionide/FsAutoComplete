@@ -173,6 +173,12 @@ module CommandResponse =
         Subcategory = e.Subcategory
       }
 
+  type ErrorResponse =
+    {
+      File: string
+      Errors: FSharpErrorInfo []
+    }
+
   type Colorization =
     {
       Range: Range.range
@@ -289,8 +295,10 @@ module CommandResponse =
                               ] }
                 }
 
-  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
-    serialize { Kind = "errors";  Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
+  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[], file: string) =
+    serialize { Kind = "errors";
+                Data = { File = file
+                         Errors = Array.map FSharpErrorInfo.OfFSharpError errors }}
 
   let colorizations (serialize : Serializer) (colorizations: (Range.range * FSharpTokenColorKind)[]) =
     let data = [ for r, k in colorizations do

@@ -4,7 +4,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Colorizations/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -12,7 +15,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Colorizations/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "colorizations",
@@ -457,5 +463,8 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Colorizations/Script.fsx",
+    "Errors": []
+  }
 }

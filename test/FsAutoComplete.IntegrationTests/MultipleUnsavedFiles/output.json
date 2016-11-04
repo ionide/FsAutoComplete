@@ -24,7 +24,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -32,7 +35,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -40,7 +46,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
@@ -48,16 +57,19 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
-      "StartLine": 1,
-      "EndLine": 1,
-      "StartColumn": 23,
-      "EndColumn": 29,
-      "Severity": "Error",
-      "Message": "The value, constructor, namespace or type 'addTwo' is not defined",
-      "Subcategory": "typecheck"
-    }
-  ]
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+        "StartLine": 1,
+        "EndLine": 1,
+        "StartColumn": 23,
+        "EndColumn": 29,
+        "Severity": "Error",
+        "Message": "The value, constructor, namespace or type 'addTwo' is not defined",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }

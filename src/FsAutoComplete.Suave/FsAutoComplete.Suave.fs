@@ -6,6 +6,8 @@ open Suave.Http
 open Suave.Operators
 open Suave.Web
 open Suave.WebPart
+open Suave.WebSocket
+open Suave.Sockets.Control
 open Suave.Filters
 open Newtonsoft.Json
 open Microsoft.FSharp.Compiler
@@ -35,11 +37,22 @@ module internal Utils =
 
 [<EntryPoint>]
 let main argv =
+    let mutable client : WebSocket option  = None
+
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     let commands = Commands(writeJson)
     let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
     let fs = new FileSystem(originalFs, commands.Files.TryFind)
     AbstractIL.Internal.Library.Shim.FileSystem <- fs
+
+    commands.FileChecked
+    |> Event.add (fun response ->
+        client |> Option.iter (fun socket ->
+            async {
+                let! res = response
+                let cnt = res |> List.toArray |> Json.toJson
+                return! socket.send Text cnt true
+            } |> Async.Ignore |> Async.Start ))
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -61,11 +74,11 @@ let main argv =
                 | Success (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
                   //       for completions e.g. `(some typed expr).$`
-                  try 
-                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options) 
+                  try
+                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                     match tyResOpt with
                     | None -> async.Return [CommandResponse.info writeJson "Cached typecheck results not yet available"]
-                    | Some tyRes -> 
+                    | Some tyRes ->
                         async {
                             let! r = Async.Catch (f data tyRes lineStr lines)
                             match r with
@@ -77,16 +90,32 @@ let main argv =
             return! Response.response HttpCode.HTTP_200 res' r
         }
 
+
+    let echo (webSocket : WebSocket) =
+        fun cx ->
+            client <- Some webSocket
+            socket {
+                let loop = ref true
+                while !loop do
+                    let! msg = webSocket.read()
+                    match msg with
+                    | (Ping, _, _) -> do! webSocket.send Pong [||] true
+                    | (Close, _, _) ->
+                        do! webSocket.send Close [||] true
+                        client <- None
+                        loop := false
+                    | _ -> ()
+                }
+
     let app =
-        Writers.setMimeType "application/json; charset=utf-8" >=>
-        POST >=>
         choose [
+            path "/notify" >=> handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
             //TODO: Add filewatcher
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/parseProjects" >=> fun httpCtx ->
                 async {
-                    let! errors = commands.ParseAll()
+                    let errors = commands.ParseAll()
                     let res = errors |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
@@ -128,6 +157,7 @@ let main argv =
                 }
             path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint data.FileName)
         ]
+
 
     let port =
         try

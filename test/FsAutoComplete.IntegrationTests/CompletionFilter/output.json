@@ -4,18 +4,21 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/CompletionFilter/Script.fsx",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 3,
-      "EndColumn": 4,
-      "Severity": "Error",
-      "Message": "The value, constructor, namespace or type 'T' is not defined",
-      "Subcategory": "typecheck"
-    }
-  ]
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/CompletionFilter/Script.fsx",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/CompletionFilter/Script.fsx",
+        "StartLine": 8,
+        "EndLine": 8,
+        "StartColumn": 3,
+        "EndColumn": 4,
+        "Severity": "Error",
+        "Message": "The value, constructor, namespace or type 'T' is not defined",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }
 {
   "Kind": "helptext",

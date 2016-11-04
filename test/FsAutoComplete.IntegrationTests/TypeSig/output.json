@@ -4,7 +4,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/TypeSig/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "typesig",
