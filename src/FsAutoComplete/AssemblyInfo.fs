@@ -5,13 +5,13 @@ open System.Reflection
 [<assembly: AssemblyTitleAttribute("FsAutoComplete")>]
 [<assembly: AssemblyProductAttribute("FsAutoComplete")>]
 [<assembly: AssemblyDescriptionAttribute("A command line tool for interfacing with FSharp.Compiler.Service over a pipe.")>]
-[<assembly: AssemblyVersionAttribute("0.29.0")>]
-[<assembly: AssemblyFileVersionAttribute("0.29.0")>]
+[<assembly: AssemblyVersionAttribute("0.30.2")>]
+[<assembly: AssemblyFileVersionAttribute("0.30.2")>]
 do ()
 
 module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FsAutoComplete"
     let [<Literal>] AssemblyProduct = "FsAutoComplete"
     let [<Literal>] AssemblyDescription = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
-    let [<Literal>] AssemblyVersion = "0.29.0"
-    let [<Literal>] AssemblyFileVersion = "0.29.0"
+    let [<Literal>] AssemblyVersion = "0.30.2"
+    let [<Literal>] AssemblyFileVersion = "0.30.2"
