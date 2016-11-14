@@ -221,13 +221,15 @@ type FSharpCompilerServiceChecker() =
     | None -> async {return Failure "Project for current file not found"}
     | Some (name, option) ->
       async {
-        let! opts =
+        let! results =
           options
           |> Seq.map snd
           |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (k,v) -> v.ProjectFileName) |> Array.contains option.ProjectFileName )
           |> Seq.map checker.ParseAndCheckProject
           |> Async.Parallel
-        return Success opts
+        let! currentResult =  checker.ParseAndCheckProject option
+        let res = [| yield currentResult; yield! results |]
+        return Success res
       }
 
 
