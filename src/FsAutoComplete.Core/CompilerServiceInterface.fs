@@ -210,10 +210,27 @@ type FSharpCompilerServiceChecker() =
     return { rawOptions with OtherOptions = opts }
   }
 
-  member __.ParseAndCheckAllProjects (options : (SourceFilePath * FSharpProjectOptions) seq) =
+  member __.ParseAndCheckAllProjectsInBackground (options : FSharpProjectOptions seq) =
     options
-    |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
-    |> Seq.iter (checker.CheckProjectInBackground << snd)
+    |> Seq.distinctBy(fun v -> v.ProjectFileName)
+    |> Seq.iter (checker.CheckProjectInBackground)
+
+  member __.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
+    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
+    match project with
+    | None -> async {return Failure "Project for current file not found"}
+    | Some (name, option) ->
+      async {
+        let! opts =
+          options
+          |> Seq.map snd
+          |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (k,v) -> v.ProjectFileName) |> Array.contains option.ProjectFileName )
+          |> Seq.map checker.ParseAndCheckProject
+          |> Async.Parallel
+        return Success opts
+      }
+
+
 
   member __.GetBackgroundCheckResultsForFileInProject =
     checker.GetBackgroundCheckResultsForFileInProject

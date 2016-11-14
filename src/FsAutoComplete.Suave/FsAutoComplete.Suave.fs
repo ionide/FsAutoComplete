@@ -111,14 +111,15 @@ let main argv =
         choose [
             path "/notify" >=> handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
+            path "/parseProjects" >=> handler (fun (data : ProjectRequest) -> commands.ParseProjectsForFile data.FileName)
             //TODO: Add filewatcher
-            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
-            path "/parseProjects" >=> fun httpCtx ->
+            path "/parseProjectsInBackground" >=> fun httpCtx ->
                 async {
-                    let errors = commands.ParseAll()
+                    let errors = commands.ParseAllInBackground()
                     let res = errors |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
+            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName)
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {

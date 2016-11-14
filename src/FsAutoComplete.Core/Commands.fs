@@ -57,9 +57,19 @@ type Commands (serialize : Serializer) =
             return! parse' file text checkOptions
     }
 
-    member __.ParseAll () =
-        do checker.ParseAndCheckAllProjects (state.FileCheckOptions.ToSeq())
+    member __.ParseAllInBackground () =
+        do checker.ParseAndCheckAllProjectsInBackground (state.FileCheckOptions.ToSeq() |> Seq.map snd)
         [Response.errors serialize ([||], "") ]
+
+    member __.ParseProjectsForFile file = async {
+        let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
+        return
+            match res with
+            | Failure e -> [Response.error serialize e]
+            | Success results ->
+                let errors = results |> Array.collect (fun r -> r.Errors)
+                [ Response.errors serialize (errors, file)]
+    }
 
     member __.FileChecked =
         checker.FileChecked
