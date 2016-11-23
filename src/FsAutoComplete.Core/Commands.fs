@@ -94,13 +94,31 @@ type Commands (serialize : Serializer) =
             state.Projects.[projectFileName] <- project
             project)
 
+        let isMsbuild15Project file =
+            //.NET Core Sdk preview3 replace project.json with fsproj
+            //Easy way to detect new fsproj is to check the msbuild version of .fsproj
+            //  MSBuild version 15 (`ToolsVersion="15.0"`) is the new project format
+            //The `dotnet-compile-fsc.rsp` are created also in `preview3`, so we can
+            //  reuse the same behaviour of `preview2`
+            if not (File.Exists file) then 
+                false
+            else
+                file
+                |> File.ReadAllLines
+                |> Array.take 3
+                |> Array.tryFind (fun s -> s.Contains("ToolsVersion=\"15.0\""))
+                |> Option.isSome
+
         return
             match project.Response with
             | Some response -> [response]
             | None ->
                 let options =
                     if Path.GetExtension projectFileName = ".fsproj" then
-                        checker.TryGetProjectOptions (projectFileName, verbose)
+                        if isMsbuild15Project projectFileName then
+                            checker.TryGetCoreProjectOptions projectFileName
+                        else
+                            checker.TryGetProjectOptions (projectFileName, verbose)
                     else
                         checker.TryGetCoreProjectOptions projectFileName
 
