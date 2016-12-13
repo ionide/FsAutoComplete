@@ -94,40 +94,46 @@ type Commands (serialize : Serializer) =
             state.Projects.[projectFileName] <- project
             project)
 
-        let isMsbuild15Project file =
+        let (|NetCore|Net45|Unsupported|) file =
             //.NET Core Sdk preview3 replace project.json with fsproj
             //Easy way to detect new fsproj is to check the msbuild version of .fsproj
             //  MSBuild version 15 (`ToolsVersion="15.0"`) is the new project format
             //The `dotnet-compile-fsc.rsp` are created also in `preview3`, so we can
             //  reuse the same behaviour of `preview2`
-            if not (File.Exists file) then 
-                false
+            let rec findToolsVersion (sr:StreamReader) limit =
+                // only preview3+ uses ToolsVersion='15.0'
+                let isPreview3 (toolsVersion:string) = toolsVersion.Contains("=\"15.0\"")
+                if limit = 0 then
+                    Unsupported // unsupported project type
+                else
+                    let line = sr.ReadLine()
+                    if not <| line.Contains("ToolsVersion") then
+                        findToolsVersion sr (limit-1)
+                    else // both net45 and preview3+ have 'ToolsVersion'
+                        if isPreview3 line then NetCore else Net45 
+            if not <| File.Exists(projectFileName) then Net45 // no such file is handled downstream
+            elif Path.GetExtension file = ".json" then NetCore // dotnet core preview 2 or earlier
             else
-                file
-                |> File.ReadAllLines
-                |> Array.take 3
-                |> Array.tryFind (fun s -> s.Contains("ToolsVersion=\"15.0\""))
-                |> Option.isSome
+                use sr = File.OpenText(file)
+                findToolsVersion sr 3
+                           
 
         return
             match project.Response with
             | Some response -> [response]
             | None ->
                 let options =
-                    if Path.GetExtension projectFileName = ".fsproj" then
-                        if isMsbuild15Project projectFileName then
-                            checker.TryGetCoreProjectOptions projectFileName
-                        else
-                            checker.TryGetProjectOptions (projectFileName, verbose)
-                    else
-                        checker.TryGetCoreProjectOptions projectFileName
+                    match projectFileName with
+                    | NetCore -> checker.TryGetCoreProjectOptions projectFileName
+                    | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
+                    | Unsupported -> Failure (sprintf "File '%s' is not supported" projectFileName)
 
                 match options with
                 | Result.Failure error ->
                     project.Response <- None
                     [Response.error serialize error]
                 | Result.Success (opts, projectFiles, outFileOpt, references, logMap) ->
-                    let projectFiles = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
+                    let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                     let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
                     for file in projectFiles do
                         state.FileCheckOptions.[file] <- opts
