@@ -1,3 +1,4 @@
+/// Original code from VisualFSharpPowerTools project: https://github.com/fsprojects/VisualFSharpPowerTools/blob/master/src/FSharp.Editing/Coloring/UnopenedNamespacesResolver.fs
 namespace FsAutoComplete.UnopenedNamespacesResolver
 
 open FsAutoComplete
