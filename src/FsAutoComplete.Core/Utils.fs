@@ -10,7 +10,7 @@ type Result<'a> =
   | Success of 'a
   | Failure of string
 
-type Pos = 
+type Pos =
     { Line: int
       Col: int }
 
@@ -23,22 +23,22 @@ let isAScript fileName =
     let ext = Path.GetExtension fileName
     [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
 
-let runningOnMono = 
+let runningOnMono =
   try not << isNull <| Type.GetType "Mono.Runtime"
   with _ -> false
 
-let normalizePath (file : string) = 
-  if file.EndsWith ".fs" then 
+let normalizePath (file : string) =
+  if file.EndsWith ".fs" then
       let p = Path.GetFullPath file
       (p.Chars 0).ToString().ToLower() + p.Substring(1)
   else file
-  
+
 let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
 let inline (</>) path1 path2 = combinePaths path1 path2
 
 let private sepChar = Path.DirectorySeparatorChar
-            
+
 let normalizeDirSeparators (path: string) =
   match sepChar with
   | '\\' -> path.Replace('/', '\\')
@@ -89,6 +89,37 @@ module Async =
             return! binding x
         }
 
+[<RequireQualifiedAccess>]
+[<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
+module Array =
+    let inline private checkNonNull argName arg =
+        match box arg with
+        | null -> nullArg argName
+        | _ -> ()
+
+    /// Fold over the array passing the index and element at that index to a folding function
+    let foldi (folder: 'State -> int -> 'T -> 'State) (state: 'State) (array: 'T []) =
+        checkNonNull "array" array
+        if array.Length = 0 then state else
+        let folder = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt folder
+        let mutable state:'State = state
+        let len = array.Length
+        for i = 0 to len - 1 do
+            state <- folder.Invoke (state, i, array.[i])
+        state
+
+[<RequireQualifiedAccess>]
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module String =
+    let (|StartsWith|_|) pattern value =
+        if String.IsNullOrWhiteSpace value then
+            None
+        elif value.StartsWith pattern then
+            Some()
+        else None
+
+
+
 type ConcurrentDictionary<'key, 'value> with
     member x.TryFind key =
         match x.TryGetValue key with
@@ -97,6 +128,17 @@ type ConcurrentDictionary<'key, 'value> with
 
     member x.ToSeq() =
         x |> Seq.map (fun (KeyValue(k, v)) -> k, v)
+
+type Path with
+    static member GetFullPathSafe path =
+        try Path.GetFullPath path
+        with _ -> path
+
+    static member GetFileNameSafe path =
+        try Path.GetFileName path
+        with _ -> path
+
+
 
 let inline debug msg = Printf.kprintf Debug.WriteLine msg
 let inline fail msg = Printf.kprintf Debug.Fail msg
