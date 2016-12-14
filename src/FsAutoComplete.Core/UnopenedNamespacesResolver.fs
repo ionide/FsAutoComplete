@@ -5,15 +5,6 @@ open FsAutoComplete.UntypedAstUtils
 
 type LongIdent = string
 
-type ModuleKind = { IsAutoOpen: bool; HasModuleSuffix: bool }
-
-type EntityKind =
-    | Attribute
-    | Type
-    | FunctionOrValue of isActivePattern:bool
-    | Module of ModuleKind
-    override x.ToString() = sprintf "%A" x
-
 
 type Entity =
     { FullRelativeName: LongIdent
@@ -570,3 +561,4 @@ module InsertContext =
             && not (doc.GetLineStr(state2, docLine - 1).Trim().StartsWith "open") then
                 doc.Insert (state2, docLine, "")
         else state2
+
