@@ -110,13 +110,13 @@ type Commands (serialize : Serializer) =
                     if not <| line.Contains("ToolsVersion") then
                         findToolsVersion sr (limit-1)
                     else // both net45 and preview3+ have 'ToolsVersion'
-                        if isPreview3 line then NetCore else Net45 
+                        if isPreview3 line then NetCore else Net45
             if not <| File.Exists(projectFileName) then Net45 // no such file is handled downstream
             elif Path.GetExtension file = ".json" then NetCore // dotnet core preview 2 or earlier
             else
                 use sr = File.OpenText(file)
                 findToolsVersion sr 3
-                           
+
 
         return
             match project.Response with
@@ -198,10 +198,19 @@ type Commands (serialize : Serializer) =
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
 
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) ->
+        let fn = tyRes.FileName
+        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
             async {
-                let! symbols = checker.GetUsesOfSymbol (state.FileCheckOptions.ToSeq(), sym.Symbol)
-                return Response.symbolUse serialize (sym, symbols)
+                let fsym = sym.Symbol
+                if fsym.IsPrivateToFile then
+                    return Response.symbolUse serialize (sym, usages)
+                elif fsym.IsInternalToProject then
+                    let opts = state.FileCheckOptions.[tyRes.FileName]
+                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                    return Response.symbolUse serialize (sym, symbols)
+                else
+                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToSeq(), sym.Symbol)
+                    return Response.symbolUse serialize (sym, symbols)
             })
 
     member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
