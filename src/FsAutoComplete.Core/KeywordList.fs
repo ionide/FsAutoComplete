@@ -1,7 +1,7 @@
 ﻿namespace FsAutoComplete
 
 module internal KeywordList =
-    let private modifiers = 
+    let private modifiers =
         Map.ofList [
             "abstract",  """Indicates a method that either has no implementation in the type in which it is declared or that is virtual and has a default implementation."""
             "inline",  """Used to indicate a function that should be integrated directly into the caller's code."""
@@ -100,8 +100,8 @@ Used in match expressions"""
 
     let tryGetKeywordDescription (keyword: string) =
         keywordDescriptions |> Map.tryFind keyword
-        |> Option.orElse (fun _ -> modifiers |> Map.tryFind keyword)
+        |> Option.orElseFun (fun _ -> modifiers |> Map.tryFind keyword)
 
-    let allKeywords : string list = 
-        [ yield! modifiers |> Map.toSeq |> Seq.map fst       
+    let allKeywords : string list =
+        [ yield! modifiers |> Map.toSeq |> Seq.map fst
           yield! keywordDescriptions |> Map.toSeq |> Seq.map fst ]
