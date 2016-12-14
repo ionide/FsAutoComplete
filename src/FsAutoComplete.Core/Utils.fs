@@ -52,6 +52,9 @@ let normalizeDirSeparators (path: string) =
 
 [<RequireQualifiedAccess>]
 module Option =
+
+  let inline attempt (f: unit -> 'T) = try Some <| f() with _ -> None
+
   let getOrElse defaultValue option =
     match option with
     | None -> defaultValue
@@ -78,6 +81,13 @@ module Option =
     function
     | Some x -> Some x
     | None -> f()
+
+  /// Some(Some x) -> Some x | None -> None
+  let inline flatten x =
+    match x with
+    | Some x -> x
+    | None -> None
+
 
 [<RequireQualifiedAccess>]
 module Async =
@@ -170,6 +180,15 @@ module Array =
     /// Returns true if one array has trailing elements equal to another's.
     let endsWith (suffix: _ []) (whole: _ []) =
         isSubArray suffix whole (whole.Length-suffix.Length)
+
+    /// Returns a new array with an element replaced with a given value.
+    let replace index value (array: _ []) =
+        checkNonNull "array" array
+        if index >= array.Length then raise (IndexOutOfRangeException "index")
+        let res = Array.copy array
+        res.[index] <- value
+        res
+
 
 
 
