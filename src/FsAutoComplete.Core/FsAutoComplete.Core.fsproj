@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="UntypedAstUtils.fs" />
+    <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Environment.fs" />
