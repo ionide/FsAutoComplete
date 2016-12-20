@@ -4,6 +4,9 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
+open FsAutoComplete.UnopenedNamespacesResolver
+open Microsoft.FSharp.Compiler
+
 
 module Response = CommandResponse
 
@@ -249,4 +252,78 @@ type Commands (serialize : Serializer) =
 
                         res'
         return res
+    }
+
+    member __.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) = async {
+        let! entitiesRes = tyRes.GetAllEntities ()
+        let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+
+        match symbol with
+        | None -> return [Response.info serialize "Symbol at position not found"]
+        | Some sym ->
+        match entitiesRes with
+        | None -> return [Response.info serialize "Something went wrong"]
+        | Some entities ->
+        match tyRes.GetAST with
+        | None -> return [Response.info serialize "Parsed Tree not avaliable"]
+        | Some parsedTree ->
+        match Parsing.findLongIdents(pos.Col, line) with
+        | None -> return [Response.info serialize "Ident not found"]
+        | Some (_,idents) ->
+        match ParsedInput.getEntityKind parsedTree pos with
+        | None -> return [Response.info serialize "EntityKind not found"]
+        | Some entityKind ->
+            let isAttribute = entityKind = EntityKind.Attribute
+            let entities =
+                entities |> List.filter (fun e ->
+                    match entityKind, e.Kind with
+                    | EntityKind.Attribute, EntityKind.Attribute
+                    | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
+                    | EntityKind.FunctionOrValue _, _ -> true
+                    | EntityKind.Attribute, _
+                    | _, EntityKind.Module _
+                    | EntityKind.Module _, _
+                    | EntityKind.Type, _ -> false)
+
+            let entities =
+                entities
+                |> List.collect (fun e ->
+                      [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
+                        if isAttribute then
+                            let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
+                            if e.Kind = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
+                                yield
+                                    e.TopRequireQualifiedAccessParent,
+                                    e.AutoOpenParent,
+                                    e.Namespace,
+                                    e.CleanedIdents
+                                    |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
+            let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree (idents |> List.toArray)
+            let word = sym.Text
+            let candidates = entities |> Seq.collect createEntity |> Seq.toList
+
+            let openNamespace =
+                candidates
+                |> Seq.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
+                |> Seq.groupBy (fun (ns, _, _) -> ns)
+                |> Seq.map (fun (ns, xs) ->
+                    ns,
+                    xs
+                    |> Seq.map (fun (_, name, ctx) -> name, ctx)
+                    |> Seq.distinctBy (fun (name, _) -> name)
+                    |> Seq.sortBy fst
+                    |> Seq.toArray)
+                |> Seq.collect (fun (ns, names) ->
+                    let multipleNames = names |> Array.length > 1
+                    names |> Seq.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
+                |> Seq.toList
+
+            let qualifySymbolActions =
+                candidates
+                |> Seq.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
+                |> Seq.distinct
+                |> Seq.sort
+                |> Seq.toList
+
+            return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
     }

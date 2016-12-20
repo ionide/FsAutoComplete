@@ -157,6 +157,8 @@ let main argv =
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint data.FileName)
+            path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes { Line = data.Line; Col = data.Column } lineStr)
+
         ]
 
 
