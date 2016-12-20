@@ -4,6 +4,7 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open FsAutoComplete.UnopenedNamespacesResolver
 open FSharpLint.Application
 
 module internal CompletionUtils =
@@ -218,6 +219,28 @@ module CommandResponse =
       Nested : Declaration []
   }
 
+  type OpenNamespace = {
+    Namespace : string
+    Name : string
+    Type : string
+    Line : int
+    Column : int
+    MultipleNames : bool
+  }
+
+  type QualifySymbol = {
+    Name : string
+    Qualifier : string
+  }
+
+  type ResolveNamespaceResponse = {
+    Opens : OpenNamespace []
+    Qualifies: QualifySymbol []
+    Word : string
+  }
+
+
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
   let error (serialize : Serializer) (s: string) = serialize { Kind = "error"; Data = s }
 
@@ -328,3 +351,35 @@ module CommandResponse =
     let data = warnings |> List.toArray
 
     serialize { Kind = "lint"; Data = data }
+
+
+  let resolveNamespace (serialize : Serializer) (word: string, opens : (string * string * InsertContext * bool) list, qualfies : (string * string) list) =
+    let ops =
+      opens
+      |> List.map (fun (ns, name, ctx, multiple) ->
+        {
+          Namespace = ns
+          Name = name
+          Type = ctx.ScopeKind.ToString()
+          Line = ctx.Pos.Line
+          Column = ctx.Pos.Col
+          MultipleNames = multiple
+        })
+      |> List.toArray
+
+    let quals =
+      qualfies
+      |> List.map (fun (name, q) ->
+        {
+          Name = name
+          Qualifier = q
+        })
+      |> List.toArray
+
+    let data = {
+      Opens = ops
+      Qualifies = quals
+      Word = word
+    }
+
+    serialize { Kind = "namespaces"; Data = data} 
