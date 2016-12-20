@@ -112,6 +112,8 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
 
+  member __.FileName = parseResults.FileName
+
 type private FileState =
     | Checked
     | NeedChecking
@@ -129,14 +131,14 @@ type FSharpCompilerServiceChecker() =
 
   let files = ConcurrentDictionary<string, Version * FileState>()
   do checker.BeforeBackgroundFileCheck.Add ignore
-  
-  let isResultObsolete fileName = 
+
+  let isResultObsolete fileName =
       match files.TryGetValue fileName with
       | true, (_, Cancelled) -> true
       | _ -> false
 
-  let fileChanged filePath version = 
-    files.AddOrUpdate (filePath, (version, NeedChecking), (fun _ (oldVersion, oldState) -> 
+  let fileChanged filePath version =
+    files.AddOrUpdate (filePath, (version, NeedChecking), (fun _ (oldVersion, oldState) ->
         if version <> oldVersion then
            (version,
             match oldState with
@@ -148,21 +150,24 @@ type FSharpCompilerServiceChecker() =
     |> debug "[LanguageService] %s changed: set status to %A" filePath
 
 
-  let fixFileName path = 
+  let fixFileName path =
     if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
-    else 
+    else
         match Environment.OSVersion.Platform with
-        | PlatformID.Unix 
+        | PlatformID.Unix
         | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
         | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
         </> Path.GetFileName path
+
+  let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
+
 
   let ensureCorrectFSharpCore (options: string[]) =
     Environment.fsharpCoreOpt
     |> Option.map (fun path ->
                    let fsharpCoreRef = sprintf "-r:%s" path
                    [| yield fsharpCoreRef
-                      yield! Seq.filter (fun (s: string) -> not (s.EndsWith("FSharp.Core.dll"))) options |])
+                      yield! options |> Seq.filter (not << isFSharpCore) |])
     |> Option.getOrElse options
 
   let ensureCorrectVersions (options: string[]) =
@@ -172,11 +177,11 @@ type FSharpCompilerServiceChecker() =
       let oldRef = Environment.referenceAssembliesPath </> "v4.0"
       let newRef = Environment.referenceAssembliesPath </> version
 
-      let fsharpCoreRef = options |> Seq.find (fun s -> s.EndsWith "FSharp.Core.dll")
+      let fsharpCoreRef = options |> Seq.find isFSharpCore
 
       let newOptions =
         options
-        |> Seq.filter (fun s -> not (s.EndsWith "FSharp.Core.dll"))
+        |> Seq.filter (not << isFSharpCore)
         |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
       [| yield fsharpCoreRef
          yield! newOptions |]
@@ -185,28 +190,15 @@ type FSharpCompilerServiceChecker() =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
-  let rec allSymbolsInEntities (entities: Collections.Generic.IList<FSharpEntity>) =
-    [ for e in entities do
-          yield (e :> FSharpSymbol)
-          for x in e.MembersFunctionsAndValues do
-             yield (x :> FSharpSymbol)
-          for x in e.UnionCases do
-             yield (x :> FSharpSymbol)
-          for x in e.FSharpFields do
-             yield (x :> FSharpSymbol)
-          yield! allSymbolsInEntities e.NestedEntities ]
-
-  member __.GetUsesOfSymbol (options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
-    let! res =
-      options
-      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
-      |> Seq.map (fun (_, opts) -> async {
-           let! res = checker.ParseAndCheckProject opts
-           return! res.GetUsesOfSymbol symbol
-         })
-      |> Async.Parallel
-    return res |> Array.collect id
-  }
+  let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
+    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
+    project |> Option.map (fun (name, option) ->
+      [
+        yield! options
+               |> Seq.map snd
+               |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (k,v) -> v.ProjectFileName) |> Array.contains option.ProjectFileName )
+        yield option
+      ])
 
   member __.GetProjectOptionsFromScript(file, source) = async {
     let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
@@ -218,20 +210,35 @@ type FSharpCompilerServiceChecker() =
     return { rawOptions with OtherOptions = opts }
   }
 
-  member __.ParseAndCheckAllProjects (options : (SourceFilePath * FSharpProjectOptions) seq) = async {
-    let! res =
-      options
-      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
-      |> Seq.map(fun (_, v) -> async {
-          let! r = checker.ParseAndCheckProject v
-          return r.Errors
-        })
-      |> Async.Parallel
-    return res |> Array.collect id
-  }
+  member __.ParseAndCheckAllProjectsInBackground (options : FSharpProjectOptions seq) =
+    options
+    |> Seq.distinctBy(fun v -> v.ProjectFileName)
+    |> Seq.iter (checker.CheckProjectInBackground)
+
+  member __.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
+    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
+    match project with
+    | None -> async {return Failure "Project for current file not found"}
+    | Some (name, option) ->
+      async {
+        let projs = defaultArg (getDependingProjects file options) []
+        let! results =
+          projs
+          |> Seq.map checker.ParseAndCheckProject
+          |> Async.Parallel
+        let! currentResult =  checker.ParseAndCheckProject option
+        let res = [| yield currentResult; yield! results |]
+        return Success res
+      }
+
+  member __.GetBackgroundCheckResultsForFileInProject =
+    checker.GetBackgroundCheckResultsForFileInProject
+
+  member __.FileChecked =
+    checker.FileChecked
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
-    async { 
+    async {
       debug "[LanguageService] ParseAndCheckFileInProject - enter"
       fileChanged filePath version
       let fixedFilePath = fixFileName filePath
@@ -240,19 +247,19 @@ type FSharpCompilerServiceChecker() =
                // wait until the previous checking completed
                while files.ContainsKey filePath &&
                      (match files.TryGetValue filePath with
-                      | true, (v, Checked) 
-                      | true, (v, NeedChecking) -> 
+                      | true, (v, Checked)
+                      | true, (v, NeedChecking) ->
                          files.[filePath] <- (v, BeingChecked)
                          true
                       | _ -> false) do
                    do! Async.Sleep 20
-               
+
                debug "[LanguageService] Change state for %s to `BeingChecked`" filePath
                debug "[LanguageService] Parse and typecheck source..."
-               return! checker.ParseAndCheckFileInProject 
-                                 (fixedFilePath, version, source, options, 
-                                  IsResultObsolete (fun _ -> isResultObsolete filePath), null) 
-          finally 
+               return! checker.ParseAndCheckFileInProject
+                                 (fixedFilePath, version, source, options,
+                                  IsResultObsolete (fun _ -> isResultObsolete filePath), null)
+          finally
                match files.TryGetValue filePath with
                | true, (v, BeingChecked)
                | true, (v, Cancelled) -> files.[filePath] <- (v, Checked)
@@ -271,27 +278,7 @@ type FSharpCompilerServiceChecker() =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr))
 
-  member __.GetDeclarations (fileName, source, options) = async {
-    let! parseResult = checker.ParseFileInProject(fileName, source, options)
-    return parseResult.GetNavigationItems().Declarations
-  }
 
-  member __.GetDeclarationsInProjects (options : seq<string * FSharpProjectOptions>) =
-      options
-      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
-      |> Seq.map (fun (_, opts) -> async {
-          let! _ = checker.ParseAndCheckProject opts
-          return!
-            options
-            |> Seq.filter (fun (_, projectOpts) -> projectOpts = opts)
-            |> Seq.map (fun (projectFile,_) -> async {
-                let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(projectFile, opts)
-                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, projectFile))
-              })
-            |> Async.Parallel
-         })
-      |> Async.Parallel
-      |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)
 
   member __.TryGetProjectOptions (file: SourceFilePath, verbose: bool) : Result<_> =
     if not (File.Exists file) then
@@ -336,5 +323,40 @@ type FSharpCompilerServiceChecker() =
       with e ->
         Failure e.Message
 
+  member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
+    let projects = getDependingProjects file options
+    return!
+      match projects with
+      | None -> async {return [||]}
+      | Some projects -> async {
+        let! res =
+          projects
+          |> Seq.map (fun (opts) -> async {
+              let! res = checker.ParseAndCheckProject opts
+              return! res.GetUsesOfSymbol symbol
+            })
+          |> Async.Parallel
+        return res |> Array.collect id }
+  }
 
+  member __.GetDeclarations (fileName, source, options) = async {
+    let! parseResult = checker.ParseFileInProject(fileName, source, options)
+    return parseResult.GetNavigationItems().Declarations
+  }
 
+  member __.GetDeclarationsInProjects (options : seq<string * FSharpProjectOptions>) =
+      options
+      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
+      |> Seq.map (fun (_, opts) -> async {
+          let! _ = checker.ParseAndCheckProject opts
+          return!
+            options
+            |> Seq.filter (fun (_, projectOpts) -> projectOpts = opts)
+            |> Seq.map (fun (projectFile,_) -> async {
+                let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(projectFile, opts)
+                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, projectFile))
+              })
+            |> Async.Parallel
+         })
+      |> Async.Parallel
+      |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)

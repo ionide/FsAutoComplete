@@ -4,7 +4,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/LinterWithOptions/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "lint",

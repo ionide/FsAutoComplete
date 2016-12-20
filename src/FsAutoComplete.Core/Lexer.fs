@@ -1,9 +1,5 @@
 namespace FsAutoComplete
 
-open System
-open System.Diagnostics
-open System.IO
-open System.Text
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 type SymbolKind =
@@ -21,7 +17,6 @@ type LexerSymbol =
       LeftColumn: int
       RightColumn: int
       Text: string }
-    member x.Range = x.Line, x.LeftColumn, x.Line, x.RightColumn
 
 [<RequireQualifiedAccess>]
 type SymbolLookupKind =
@@ -30,74 +25,16 @@ type SymbolLookupKind =
     | ByLongIdent
     | Simple
 
-type internal DraftToken =
+type private DraftToken =
     { Kind: SymbolKind
       Token: FSharpTokenInfo
       RightColumn: int }
     static member inline Create kind token =
         { Kind = kind; Token = token; RightColumn = token.LeftColumn + token.FullMatchedLength - 1 }
 
-type TokenisedLine = TokenisedLine of tokens:FSharpTokenInfo list * stateAtEOL:int64
-
 module Lexer =
-    let inline isNotNull v = not (isNull v)
-
-    let getLines (str: string) =
-        use reader = new StringReader(str)
-        [|
-            let line = ref (reader.ReadLine())
-            while isNotNull (!line) do
-                yield !line
-                line := reader.ReadLine()
-            if str.EndsWith("\n") then
-                // last trailing space not returned
-                // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
-                yield String.Empty
-        |]
-    /// Get the array of all lex states in current source
-    let internal getLexStates defines (source: string) =
-        [|
-            /// Iterate through the whole line to get the final lex state
-            let rec loop (lineTokenizer: FSharpLineTokenizer) lexState =
-                match lineTokenizer.ScanToken lexState with
-                | None, newLexState -> newLexState
-                | Some _, newLexState ->
-                    loop lineTokenizer newLexState
-
-            let sourceTokenizer = SourceTokenizer(defines, Some "/tmp.fsx")
-            let lines = getLines source
-            let mutable lexState = 0L
-            for line in lines do
-                yield lexState
-                let lineTokenizer = sourceTokenizer.CreateLineTokenizer line
-                lexState <- loop lineTokenizer lexState
-        |]
-
-    /// Provide a default implementation where we cache lex states of the current document.
-    /// Assume that current document will be queried repeatedly
-    /// Note: The source and defines are equality checked whenever this function is used which
-    /// means that currentDocumentState is rebuilt whenever a different source or defines list is presented
-    let queryLexState =
-        let mutable currentDocumentState = ref None
-        fun source defines line ->
-            let lexStates =
-                match !currentDocumentState with
-                | Some (lexStates, s, d) when s = source && d = defines ->
-                    lexStates
-                // OPTIMIZE: if the new document has the current document as a prefix,
-                // we can reuse lexing results and process only the added part.
-                | _ ->
-                    //LoggingService.LogDebug "queryLexState: lexing current document"
-                    let lexStates = getLexStates defines source
-                    currentDocumentState := Some (lexStates, source, defines)
-                    lexStates
-            Debug.Assert(line >= 0 && line < Array.length lexStates, "Should have lex states for every line.")
-            lexStates.[line]
-
-    let singleLineQueryLexState _ _ _ = 0L
-
     /// Return all tokens of current line
-    let tokenizeLine source (args: string[]) line lineStr queryLexState =
+    let private tokenizeLine (args: string[]) lineStr =
         let defines =
             args |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s.[9..] else None)
                  |> Seq.toList
@@ -107,13 +44,13 @@ module Lexer =
             match lineTokenizer.ScanToken lexState with
             | Some tok, state -> loop state (tok :: acc)
             | _ -> List.rev acc
-        loop (queryLexState source defines line) []
+        loop 0L []
 
-    let inline isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
-    let inline isOperator t = t.ColorClass = FSharpTokenColorKind.Operator
-    let inline isKeyword t = t.ColorClass = FSharpTokenColorKind.Keyword
+    let inline private isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
+    let inline private isOperator t = t.ColorClass = FSharpTokenColorKind.Operator
+    let inline private isKeyword t = t.ColorClass = FSharpTokenColorKind.Keyword
 
-    let inline internal (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|) ((token: FSharpTokenInfo), (lineStr:string)) =
+    let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|) ((token: FSharpTokenInfo), (lineStr:string)) =
         if token.Tag = FSharpTokenTag.QUOTE then GenericTypeParameterPrefix
         elif token.Tag = FSharpTokenTag.INFIX_AT_HAT_OP then
              // The lexer return INFIX_AT_HAT_OP token for both "^" and "@" symbols.
@@ -137,7 +74,7 @@ module Lexer =
     // Statically resolved type parameters: we convert INFIX_AT_HAT_OP + IDENT tokens into single IDENT token, altering its LeftColumn
     // and FullMathedLength (for "^type" which is tokenized as (INFIX_AT_HAT_OP, left=2) + (IDENT, left=3, length=4)
     // we'll get (IDENT, left=2, length=5).
-    let internal fixTokens lineStr (tokens : FSharpTokenInfo list) =
+    let private fixTokens lineStr (tokens : FSharpTokenInfo list) =
         tokens
         |> List.fold (fun (acc, lastToken) token ->
             match lastToken with
@@ -174,31 +111,8 @@ module Lexer =
             ) ([], None)
         |> fst
 
-
-    let getTokensWithInitialState state lines filename defines =
-        [ let mutable state = state
-          let sourceTok = SourceTokenizer(defines, filename)
-          for lineText in lines do
-              let tokenizer = sourceTok.CreateLineTokenizer(lineText)
-              let rec parseLine() =
-                  [ match tokenizer.ScanToken(state) with
-                    | Some(tok), nstate ->
-                        state <- nstate
-                        yield tok
-                        yield! parseLine()
-                    | None, nstate -> state <- nstate ]
-              yield parseLine(), state ]
-
-    let findTokenAt col (tokens:FSharpTokenInfo list) =
-        let isTokenAtOffset col (t:FSharpTokenInfo) = col-1 >= t.LeftColumn && col-1 <= t.RightColumn
-        tokens |> List.tryFindBack (isTokenAtOffset col)
-
-    let isNonTipToken token =
-        token.ColorClass = FSharpTokenColorKind.Comment || token.ColorClass = FSharpTokenColorKind.String ||
-                        (*token.ColorClass = FSharpTokenColorKind.Text ||*) token.ColorClass = FSharpTokenColorKind.InactiveCode
-
     // Returns symbol at a given position.
-    let getSymbolFromTokens (tokens: FSharpTokenInfo list) line col (lineStr: string) lookupKind: LexerSymbol option =
+    let private getSymbolFromTokens (tokens: FSharpTokenInfo list) line col (lineStr: string) lookupKind: LexerSymbol option =
         let tokens = fixTokens lineStr tokens
 
         // One or two tokens that in touch with the cursor (for "let x|(g) = ()" the tokens will be "x" and "(")
@@ -210,11 +124,6 @@ module Lexer =
                 tokens |> List.filter (fun x -> x.RightColumn = col)
             | SymbolLookupKind.ByLongIdent ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
-
-        let inline orTry f =
-            function
-            | Some x -> Some x
-            | None -> f()
 
         //printfn "Filtered tokens: %+A" tokensUnderCursor
         match lookupKind with
@@ -259,7 +168,7 @@ module Lexer =
                 | _ -> false)
                 /// Gets the option if Some x, otherwise try to get another value
 
-            |> orTry (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
+            |> Option.orTry (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
             |> Option.map (fun token ->
                 { Kind = token.Kind
                   Line = line
@@ -276,10 +185,10 @@ module Lexer =
                   RightColumn = token.RightColumn + 1
                   Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
 
-    let getSymbol source line col lineStr lookupKind (args: string[]) queryLexState =
-        let tokens = tokenizeLine source args line lineStr queryLexState
+    let getSymbol line col lineStr lookupKind (args: string[]) =
+        let tokens = tokenizeLine args lineStr
         try
             getSymbolFromTokens tokens line col lineStr lookupKind
-        with e ->
+        with _ ->
             //LoggingService.LogInfo (sprintf "Getting lex symbols failed with %O" e)
             None

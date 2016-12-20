@@ -24,16 +24,19 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs",
-      "StartLine": 1,
-      "EndLine": 1,
-      "StartColumn": 1,
-      "EndColumn": 4,
-      "Severity": "Error",
-      "Message": "The value or constructor 'Bla' is not defined",
-      "Subcategory": "typecheck"
-    }
-  ]
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs",
+        "StartLine": 1,
+        "EndLine": 1,
+        "StartColumn": 1,
+        "EndColumn": 4,
+        "Severity": "Error",
+        "Message": "The value or constructor 'Bla' is not defined",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }

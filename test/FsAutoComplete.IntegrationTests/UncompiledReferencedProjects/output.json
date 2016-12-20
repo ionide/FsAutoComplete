@@ -27,7 +27,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "tooltip",

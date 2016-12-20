@@ -4,38 +4,41 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
-      "StartLine": 6,
-      "EndLine": 6,
-      "StartColumn": 15,
-      "EndColumn": 16,
-      "Severity": "Error",
-      "Message": "Missing qualification after '.'",
-      "Subcategory": "parse"
-    },
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
-      "StartLine": 6,
-      "EndLine": 6,
-      "StartColumn": 13,
-      "EndColumn": 15,
-      "Severity": "Error",
-      "Message": "The value or constructor 'XA' is not defined",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
-      "StartLine": 6,
-      "EndLine": 6,
-      "StartColumn": 15,
-      "EndColumn": 16,
-      "Severity": "Error",
-      "Message": "Missing qualification after '.'",
-      "Subcategory": "parse"
-    }
-  ]
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+        "StartLine": 6,
+        "EndLine": 6,
+        "StartColumn": 15,
+        "EndColumn": 16,
+        "Severity": "Error",
+        "Message": "Missing qualification after '.'",
+        "Subcategory": "parse"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+        "StartLine": 6,
+        "EndLine": 6,
+        "StartColumn": 13,
+        "EndColumn": 15,
+        "Severity": "Error",
+        "Message": "The value or constructor 'XA' is not defined",
+        "Subcategory": "typecheck"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/OutOfRange/Script.fsx",
+        "StartLine": 6,
+        "EndLine": 6,
+        "StartColumn": 15,
+        "EndColumn": 16,
+        "Severity": "Error",
+        "Message": "Missing qualification after '.'",
+        "Subcategory": "parse"
+      }
+    ]
+  }
 }
 {
   "Kind": "error",

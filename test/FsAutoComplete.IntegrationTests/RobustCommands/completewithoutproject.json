@@ -4,7 +4,10 @@
 }
 {
   "Kind": "errors",
-  "Data": []
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "helptext",
@@ -37,28 +40,31 @@
 }
 {
   "Kind": "errors",
-  "Data": [
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
-      "StartLine": 4,
-      "EndLine": 4,
-      "StartColumn": 15,
-      "EndColumn": 22,
-      "Severity": "Error",
-      "Message": "The namespace or module 'FileTwo' is not defined",
-      "Subcategory": "typecheck"
-    },
-    {
-      "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
-      "StartLine": 8,
-      "EndLine": 8,
-      "StartColumn": 12,
-      "EndColumn": 28,
-      "Severity": "Error",
-      "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
-      "Subcategory": "typecheck"
-    }
-  ]
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
+        "StartLine": 4,
+        "EndLine": 4,
+        "StartColumn": 15,
+        "EndColumn": 22,
+        "Severity": "Error",
+        "Message": "The namespace or module 'FileTwo' is not defined",
+        "Subcategory": "typecheck"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Program.fs",
+        "StartLine": 8,
+        "EndLine": 8,
+        "StartColumn": 12,
+        "EndColumn": 28,
+        "Severity": "Error",
+        "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }
 {
   "Kind": "completion",

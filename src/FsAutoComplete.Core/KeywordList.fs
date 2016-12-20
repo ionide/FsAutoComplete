@@ -101,3 +101,7 @@ Used in match expressions"""
     let tryGetKeywordDescription (keyword: string) =
         keywordDescriptions |> Map.tryFind keyword
         |> Option.orElse (fun _ -> modifiers |> Map.tryFind keyword)
+
+    let allKeywords : string list = 
+        [ yield! modifiers |> Map.toSeq |> Seq.map fst       
+          yield! keywordDescriptions |> Map.toSeq |> Seq.map fst ]

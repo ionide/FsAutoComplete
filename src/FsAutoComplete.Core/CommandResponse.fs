@@ -173,6 +173,12 @@ module CommandResponse =
         Subcategory = e.Subcategory
       }
 
+  type ErrorResponse =
+    {
+      File: string
+      Errors: FSharpErrorInfo []
+    }
+
   type Colorization =
     {
       Range: Range.range
@@ -229,21 +235,13 @@ module CommandResponse =
     serialize { Kind = "project"; Data = projectData }
 
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
-      let keywords = ["abstract"; "and"; "as"; "assert"; "base"; "begin"; "class"; "default"; "delegate"; "do";
-          "done"; "downcast"; "downto"; "elif"; "else"; "end"; "exception"; "extern"; "false"; "finally"; "for";
-          "fun"; "function"; "global"; "if"; "in"; "inherit"; "inline"; "interface"; "internal"; "lazy"; "let";
-          "match"; "member"; "module"; "mutable"; "namespace"; "new"; "null"; "of"; "open"; "or"; "override";
-          "private"; "public"; "rec"; "return"; "sig"; "static"; "struct"; "then"; "to"; "true"; "try"; "type";
-          "upcast"; "use"; "val"; "void"; "when"; "while"; "with"; "yield"
-      ]
-
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
                                let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                                yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar }
                             if includeKeywords then
-                              for k in keywords do
+                              for k in KeywordList.allKeywords do
                                 yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
                           ] }
 
@@ -289,8 +287,10 @@ module CommandResponse =
                               ] }
                 }
 
-  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[]) =
-    serialize { Kind = "errors";  Data = Seq.map FSharpErrorInfo.OfFSharpError errors }
+  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[], file: string) =
+    serialize { Kind = "errors";
+                Data = { File = file
+                         Errors = Array.map FSharpErrorInfo.OfFSharpError errors }}
 
   let colorizations (serialize : Serializer) (colorizations: (Range.range * FSharpTokenColorKind)[]) =
     let data = [ for r, k in colorizations do

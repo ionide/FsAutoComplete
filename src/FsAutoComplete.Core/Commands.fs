@@ -41,9 +41,9 @@ type Commands (serialize : Serializer) =
                         | FSharpCheckFileAnswer.Succeeded results ->
                             let errors = Array.append results.Errors parseResult.Errors
                             if colorizations then
-                                [ Response.errors serialize errors
+                                [ Response.errors serialize (errors, fileName)
                                   Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
-                            else [ Response.errors serialize errors ]
+                            else [ Response.errors serialize (errors, fileName) ]
             }
         let file = Path.GetFullPath file
         let text = String.concat "\n" lines
@@ -57,10 +57,33 @@ type Commands (serialize : Serializer) =
             return! parse' file text checkOptions
     }
 
-    member __.ParseAll () = async {
-        let! errors = checker.ParseAndCheckAllProjects (state.FileCheckOptions.ToSeq())
-        return [Response.errors serialize errors ]
+    member __.ParseAllInBackground () =
+        do checker.ParseAndCheckAllProjectsInBackground (state.FileCheckOptions.ToSeq() |> Seq.map snd)
+        [Response.errors serialize ([||], "") ]
+
+    member __.ParseProjectsForFile file = async {
+        let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
+        return
+            match res with
+            | Failure e -> [Response.error serialize e]
+            | Success results ->
+                let errors = results |> Array.collect (fun r -> r.Errors)
+                [ Response.errors serialize (errors, file)]
     }
+
+    member __.FileChecked =
+        checker.FileChecked
+        |> Event.map (fun fn ->
+            let file = Path.GetFullPath fn
+            let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
+            match res with
+            | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
+            | Some kv ->
+                async {
+                    let! (_, checkResults) = checker.GetBackgroundCheckResultsForFileInProject(fn, kv.Value)
+                    return [ Response.errors serialize (checkResults.Errors, file) ] })
+
+
 
     member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
@@ -71,22 +94,46 @@ type Commands (serialize : Serializer) =
             state.Projects.[projectFileName] <- project
             project)
 
+        let (|NetCore|Net45|Unsupported|) file =
+            //.NET Core Sdk preview3 replace project.json with fsproj
+            //Easy way to detect new fsproj is to check the msbuild version of .fsproj
+            //  MSBuild version 15 (`ToolsVersion="15.0"`) is the new project format
+            //The `dotnet-compile-fsc.rsp` are created also in `preview3`, so we can
+            //  reuse the same behaviour of `preview2`
+            let rec findToolsVersion (sr:StreamReader) limit =
+                // only preview3+ uses ToolsVersion='15.0'
+                let isPreview3 (toolsVersion:string) = toolsVersion.Contains("=\"15.0\"")
+                if limit = 0 then
+                    Unsupported // unsupported project type
+                else
+                    let line = sr.ReadLine()
+                    if not <| line.Contains("ToolsVersion") then
+                        findToolsVersion sr (limit-1)
+                    else // both net45 and preview3+ have 'ToolsVersion'
+                        if isPreview3 line then NetCore else Net45
+            if not <| File.Exists(projectFileName) then Net45 // no such file is handled downstream
+            elif Path.GetExtension file = ".json" then NetCore // dotnet core preview 2 or earlier
+            else
+                use sr = File.OpenText(file)
+                findToolsVersion sr 3
+
+
         return
             match project.Response with
             | Some response -> [response]
             | None ->
                 let options =
-                    if Path.GetExtension projectFileName = ".fsproj" then
-                        checker.TryGetProjectOptions (projectFileName, verbose)
-                    else
-                        checker.TryGetCoreProjectOptions projectFileName
+                    match projectFileName with
+                    | NetCore -> checker.TryGetCoreProjectOptions projectFileName
+                    | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
+                    | Unsupported -> Failure (sprintf "File '%s' is not supported" projectFileName)
 
                 match options with
                 | Result.Failure error ->
                     project.Response <- None
                     [Response.error serialize error]
                 | Result.Success (opts, projectFiles, outFileOpt, references, logMap) ->
-                    let projectFiles = projectFiles |> List.map Path.GetFullPath |> List.map Utils.normalizePath
+                    let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                     let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
                     for file in projectFiles do
                         state.FileCheckOptions.[file] <- opts
@@ -151,10 +198,19 @@ type Commands (serialize : Serializer) =
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
 
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, _usages) ->
+        let fn = tyRes.FileName
+        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
             async {
-                let! symbols = checker.GetUsesOfSymbol (state.FileCheckOptions.ToSeq(), sym.Symbol)
-                return Response.symbolUse serialize (sym, symbols)
+                let fsym = sym.Symbol
+                if fsym.IsPrivateToFile then
+                    return Response.symbolUse serialize (sym, usages)
+                elif fsym.IsInternalToProject then
+                    let opts = state.FileCheckOptions.[tyRes.FileName]
+                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                    return Response.symbolUse serialize (sym, symbols)
+                else
+                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToSeq(), sym.Symbol)
+                    return Response.symbolUse serialize (sym, symbols)
             })
 
     member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
