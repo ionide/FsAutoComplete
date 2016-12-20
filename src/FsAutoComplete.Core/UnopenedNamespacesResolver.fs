@@ -103,7 +103,9 @@ module ParsedInput =
 
     type private EndLine = int
 
-    let getEntityKind (input: ParsedInput) (pos: Range.pos) : EntityKind option =
+    let getEntityKind (input: ParsedInput) (p: Pos) : EntityKind option =
+        let pos = Range.mkPos p.Line p.Col
+
         let (|ConstructorPats|) = function
             | Pats ps -> ps
             | NamePatPairs(xs, _) -> List.map snd xs
