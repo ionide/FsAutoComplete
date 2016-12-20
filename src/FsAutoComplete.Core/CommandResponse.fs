@@ -376,8 +376,10 @@ module CommandResponse =
         })
       |> List.toArray
 
-    serialize {
+    let data = {
       Opens = ops
       Qualifies = quals
       Word = word
     }
+
+    serialize { Kind = "namespaces"; Data = data} 
