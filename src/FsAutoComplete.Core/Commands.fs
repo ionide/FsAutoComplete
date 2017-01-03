@@ -200,6 +200,9 @@ type Commands (serialize : Serializer) =
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
 
+    member x.Help (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetF1Help pos lineStr |> x.SerializeResult Response.help
+
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         let fn = tyRes.FileName
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->

@@ -94,6 +94,17 @@ type ParseAndCheckResults
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Success (symboluse, symboluses) }
 
+  member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
+    async {
+        match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+        | None -> return (Failure "No ident at this location")
+        | Some(colu, identIsland) ->
+
+        let! help = checkResults.GetF1KeywordAlternate(pos.Line, colu, lineStr, identIsland)
+        match help with
+        | None -> return (Failure "No symbol information found")
+        | Some hlp -> return Success hlp}
+
   member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
     let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
     try
