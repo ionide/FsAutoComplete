@@ -43,6 +43,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="UntypedAstUtils.fs" />
+    <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Environment.fs" />
@@ -51,6 +53,8 @@
     <Compile Include="Parser.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="KeywordList.fs" />
+    <Compile Include="AssemblyContentProvider.fs" />
+    <Compile Include="UnopenedNamespacesResolver.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />

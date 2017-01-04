@@ -108,10 +108,34 @@ type ParseAndCheckResults
     with :? TimeoutException -> return None
   }
 
+  member __.GetAllEntities () =
+    async {
+      try
+        return
+          Some
+            [
+              yield! AssemblyContentProvider.getAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
+              let ctx = checkResults.ProjectContext
+              let assembliesByFileName =
+                ctx.GetReferencedAssemblies()
+                |> Seq.groupBy (fun asm -> asm.FileName)
+                |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
+                |> Seq.toList
+                |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
+                            // get Content.Entities from it.
+
+              for fileName, signatures in assembliesByFileName do
+                let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
+                yield! AssemblyContentProvider.getAssemblyContent None contentType fileName signatures
+
+            ]
+      with
+      | _ -> return None
+  }
+
   member __.GetExtraColorizations = checkResults.GetExtraColorizationsAlternate()
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
-
   member __.FileName = parseResults.FileName
 
 type private FileState =
@@ -360,3 +384,6 @@ type FSharpCompilerServiceChecker() =
          })
       |> Async.Parallel
       |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)
+
+
+
