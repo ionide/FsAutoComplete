@@ -60,9 +60,10 @@ type Commands (serialize : Serializer) =
             return! parse' file text checkOptions
     }
 
-    member __.ParseAllInBackground () =
-        do checker.ParseAndCheckAllProjectsInBackground (state.FileCheckOptions.ToSeq() |> Seq.map snd)
-        [Response.errors serialize ([||], "") ]
+    member __.ParseAndCheckProjectsInBackgroundForFile file = async {
+        do checker.CheckProjectsInBackgroundForFile (file, state.FileCheckOptions.ToSeq() )
+        return [Response.errors serialize ([||], "") ]
+    }
 
     member __.ParseProjectsForFile file = async {
         let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
@@ -74,19 +75,21 @@ type Commands (serialize : Serializer) =
                 [ Response.errors serialize (errors, file)]
     }
 
-    member __.FileChecked =
-        checker.FileChecked
-        |> Event.map (fun fn ->
-            let file = Path.GetFullPath fn
-            let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
-            match res with
-            | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
-            | Some kv ->
-                async {
-                    let! (_, checkResults) = checker.GetBackgroundCheckResultsForFileInProject(fn, kv.Value)
-                    return [ Response.errors serialize (checkResults.Errors, file) ] })
-
-
+    // member __.FileChecked =
+    //     checker.FileChecked
+    //     |> Event.map (fun fn ->
+    //         let file = Path.GetFullPath fn
+    //         let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
+    //         match res with
+    //         | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
+    //         | Some kv ->
+    //             async {
+    //                 let result= checker.TryGetRecentCheckResultsForFile(fn, kv.Value)
+    //                 return
+    //                     match result with
+    //                     | None -> [Response.info serialize "File not parsed"]
+    //                     | Some res -> [ Response.errors serialize (res.GetCheckResults.Errors, file) ]
+    //             })
 
     member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
