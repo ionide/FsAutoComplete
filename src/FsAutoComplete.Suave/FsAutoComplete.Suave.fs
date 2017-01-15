@@ -110,7 +110,7 @@ let main argv =
 
     let app =
         choose [
-            path "/notify" >=> handShake echo
+            // path "/notify" >=> handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
             path "/parseProjects" >=> handler (fun (data : ProjectRequest) -> commands.ParseProjectsForFile data.FileName)
             //TODO: Add filewatcher
