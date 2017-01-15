@@ -261,15 +261,6 @@ type Commands (serialize : Serializer) =
     }
 
     member __.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) = async {
-        let! entitiesRes = tyRes.GetAllEntities ()
-        let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
-
-        match symbol with
-        | None -> return [Response.info serialize "Symbol at position not found"]
-        | Some sym ->
-        match entitiesRes with
-        | None -> return [Response.info serialize "Something went wrong"]
-        | Some entities ->
         match tyRes.GetAST with
         | None -> return [Response.info serialize "Parsed Tree not avaliable"]
         | Some parsedTree ->
@@ -279,6 +270,16 @@ type Commands (serialize : Serializer) =
         match ParsedInput.getEntityKind parsedTree pos with
         | None -> return [Response.info serialize "EntityKind not found"]
         | Some entityKind ->
+
+        let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+        match symbol with
+        | None -> return [Response.info serialize "Symbol at position not found"]
+        | Some sym ->
+
+        let! entitiesRes = tyRes.GetAllEntities ()
+        match entitiesRes with
+        | None -> return [Response.info serialize "Something went wrong"]
+        | Some entities ->
             let isAttribute = entityKind = EntityKind.Attribute
             let entities =
                 entities |> List.filter (fun e ->
