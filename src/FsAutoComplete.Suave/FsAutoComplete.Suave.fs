@@ -45,14 +45,15 @@ let main argv =
     let fs = new FileSystem(originalFs, commands.Files.TryFind)
     AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
-    commands.FileChecked
-    |> Event.add (fun response ->
-        client |> Option.iter (fun socket ->
-            async {
-                let! res = response
-                let cnt = res |> List.toArray |> Json.toJson
-                return! socket.send Text cnt true
-            } |> Async.Ignore |> Async.Start ))
+    // commands.FileChecked
+    // |> Event.add (fun response ->
+    //     client |> Option.iter (fun socket ->
+    //         async {
+    //             let! res = response
+
+    //             let cnt = res |> List.toArray |> Json.toJson
+    //             return! socket.send Text cnt true
+    //         } |> Async.Ignore |> Async.Start ))
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -109,16 +110,11 @@ let main argv =
 
     let app =
         choose [
-            path "/notify" >=> handShake echo
+            // path "/notify" >=> handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
             path "/parseProjects" >=> handler (fun (data : ProjectRequest) -> commands.ParseProjectsForFile data.FileName)
             //TODO: Add filewatcher
-            path "/parseProjectsInBackground" >=> fun httpCtx ->
-                async {
-                    let errors = commands.ParseAllInBackground()
-                    let res = errors |> List.toArray |> Json.toJson
-                    return! Response.response HttpCode.HTTP_200 res httpCtx
-                }
+            path "/parseProjectsInBackground" >=> handler (fun (data : ProjectRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName)
             path "/declarationsProjects" >=> fun httpCtx ->
@@ -151,6 +147,8 @@ let main argv =
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclarations tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes { Line = data.Line; Col = data.Column } lines)
+            path "/help" >=> positionHandler (fun data tyRes line _   -> commands.Help tyRes { Line = data.Line; Col = data.Column } line)
+
             path "/compilerlocation" >=> fun httpCtx ->
                 async {
                     let res = commands.CompilerLocation() |> List.toArray |> Json.toJson

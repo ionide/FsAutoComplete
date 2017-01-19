@@ -13,6 +13,5 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FsAutoComplete.Suave"
     let [<Literal>] AssemblyProduct = "FsAutoComplete.Suave"
     let [<Literal>] AssemblyDescription = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."
-
     let [<Literal>] AssemblyVersion = "0.30.2"
     let [<Literal>] AssemblyFileVersion = "0.30.2"

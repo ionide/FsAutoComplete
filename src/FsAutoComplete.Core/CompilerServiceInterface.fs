@@ -94,6 +94,17 @@ type ParseAndCheckResults
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Success (symboluse, symboluses) }
 
+  member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
+    async {
+        match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+        | None -> return (Failure "No ident at this location")
+        | Some(colu, identIsland) ->
+
+        let! help = checkResults.GetF1KeywordAlternate(pos.Line, colu, lineStr, identIsland)
+        match help with
+        | None -> return (Failure "No symbol information found")
+        | Some hlp -> return Success hlp}
+
   member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
     let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
     try
@@ -150,7 +161,7 @@ type FSharpCompilerServiceChecker() =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = true,
+      keepAllBackgroundResolutions = false,
       keepAssemblyContents = true)
 
   let files = ConcurrentDictionary<string, Version * FileState>()
@@ -234,10 +245,9 @@ type FSharpCompilerServiceChecker() =
     return { rawOptions with OtherOptions = opts }
   }
 
-  member __.ParseAndCheckAllProjectsInBackground (options : FSharpProjectOptions seq) =
-    options
-    |> Seq.distinctBy(fun v -> v.ProjectFileName)
-    |> Seq.iter (checker.CheckProjectInBackground)
+  member __.CheckProjectsInBackgroundForFile (file,options : seq<string * FSharpProjectOptions>) =
+    defaultArg (getDependingProjects file options) []
+    |> List.iter (checker.CheckProjectInBackground)
 
   member __.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)

@@ -60,9 +60,10 @@ type Commands (serialize : Serializer) =
             return! parse' file text checkOptions
     }
 
-    member __.ParseAllInBackground () =
-        do checker.ParseAndCheckAllProjectsInBackground (state.FileCheckOptions.ToSeq() |> Seq.map snd)
-        [Response.errors serialize ([||], "") ]
+    member __.ParseAndCheckProjectsInBackgroundForFile file = async {
+        do checker.CheckProjectsInBackgroundForFile (file, state.FileCheckOptions.ToSeq() )
+        return [Response.errors serialize ([||], "") ]
+    }
 
     member __.ParseProjectsForFile file = async {
         let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
@@ -74,19 +75,21 @@ type Commands (serialize : Serializer) =
                 [ Response.errors serialize (errors, file)]
     }
 
-    member __.FileChecked =
-        checker.FileChecked
-        |> Event.map (fun fn ->
-            let file = Path.GetFullPath fn
-            let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
-            match res with
-            | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
-            | Some kv ->
-                async {
-                    let! (_, checkResults) = checker.GetBackgroundCheckResultsForFileInProject(fn, kv.Value)
-                    return [ Response.errors serialize (checkResults.Errors, file) ] })
-
-
+    // member __.FileChecked =
+    //     checker.FileChecked
+    //     |> Event.map (fun fn ->
+    //         let file = Path.GetFullPath fn
+    //         let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
+    //         match res with
+    //         | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
+    //         | Some kv ->
+    //             async {
+    //                 let result= checker.TryGetRecentCheckResultsForFile(fn, kv.Value)
+    //                 return
+    //                     match result with
+    //                     | None -> [Response.info serialize "File not parsed"]
+    //                     | Some res -> [ Response.errors serialize (res.GetCheckResults.Errors, file) ]
+    //             })
 
     member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
@@ -200,6 +203,9 @@ type Commands (serialize : Serializer) =
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
 
+    member x.Help (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetF1Help pos lineStr |> x.SerializeResult Response.help
+
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         let fn = tyRes.FileName
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
@@ -255,15 +261,6 @@ type Commands (serialize : Serializer) =
     }
 
     member __.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) = async {
-        let! entitiesRes = tyRes.GetAllEntities ()
-        let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
-
-        match symbol with
-        | None -> return [Response.info serialize "Symbol at position not found"]
-        | Some sym ->
-        match entitiesRes with
-        | None -> return [Response.info serialize "Something went wrong"]
-        | Some entities ->
         match tyRes.GetAST with
         | None -> return [Response.info serialize "Parsed Tree not avaliable"]
         | Some parsedTree ->
@@ -273,6 +270,16 @@ type Commands (serialize : Serializer) =
         match ParsedInput.getEntityKind parsedTree pos with
         | None -> return [Response.info serialize "EntityKind not found"]
         | Some entityKind ->
+
+        let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+        match symbol with
+        | None -> return [Response.info serialize "Symbol at position not found"]
+        | Some sym ->
+
+        let! entitiesRes = tyRes.GetAllEntities ()
+        match entitiesRes with
+        | None -> return [Response.info serialize "Something went wrong"]
+        | Some entities ->
             let isAttribute = entityKind = EntityKind.Attribute
             let entities =
                 entities |> List.filter (fun e ->

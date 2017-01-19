@@ -286,6 +286,9 @@ module CommandResponse =
                       IsFromType = su.IsFromType } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symboluse"; Data = su }
 
+  let help (serialize : Serializer) (data : string) =
+    serialize { Kind = "help"; Data = data }
+
   let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"
                    Data = {  Name = meth.MethodName
@@ -382,4 +385,4 @@ module CommandResponse =
       Word = word
     }
 
-    serialize { Kind = "namespaces"; Data = data} 
+    serialize { Kind = "namespaces"; Data = data}
