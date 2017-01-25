@@ -373,8 +373,22 @@ type FSharpCompilerServiceChecker() =
         return res |> Array.collect id }
   }
 
-  member __.GetDeclarations (fileName, source, options) = async {
-    let! parseResult = checker.ParseFileInProject(fileName, source, options)
+  member __.GetDeclarations (fileName, source, options, version) = async {
+    let! parseResult =
+      match checker.TryGetRecentCheckResultsForFile(fileName, options,source), version with
+      | Some (pr, _, v), Some ver when v = ver ->  async {return pr}
+      | _ ->
+        async {
+          let! chkd =
+            checker.FileParsed
+            |> Event.filter ((=) fileName)
+            |> Async.AwaitEvent
+
+          return!
+            match checker.TryGetRecentCheckResultsForFile(fileName,options,source) with
+            | None -> checker.ParseFileInProject(fileName, source, options)
+            | Some (pr,_,_) -> async {return pr}
+        }
     return parseResult.GetNavigationItems().Declarations
   }
 
