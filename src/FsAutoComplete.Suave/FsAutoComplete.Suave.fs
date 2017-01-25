@@ -19,7 +19,7 @@ open FsAutoComplete.JsonSerializer
 module Contract =
     type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
     type ProjectRequest = { FileName : string;}
-    type DeclarationsRequest = {FileName : string}
+    type DeclarationsRequest = {FileName : string; Version : int}
     type HelptextRequest = {Symbol : string}
     type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
@@ -116,7 +116,7 @@ let main argv =
             //TODO: Add filewatcher
             path "/parseProjectsInBackground" >=> handler (fun (data : ProjectRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
-            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName)
+            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {
                     let! errors = commands.DeclarationsInProjects ()
