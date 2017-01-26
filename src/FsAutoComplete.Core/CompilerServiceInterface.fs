@@ -377,6 +377,7 @@ type FSharpCompilerServiceChecker() =
     let! parseResult =
       match checker.TryGetRecentCheckResultsForFile(fileName, options,source), version with
       | Some (pr, _, v), Some ver when v = ver ->  async {return pr}
+      | _, None -> checker.ParseFileInProject(fileName, source, options)
       | _ ->
         async {
           let! chkd =
