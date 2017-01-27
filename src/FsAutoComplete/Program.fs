@@ -32,7 +32,7 @@ module internal Main =
 
           | Project (file, verbose) ->
               return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose)))
-          | Declarations file -> return! commands.Declarations file
+          | Declarations file -> return! commands.Declarations file None
           | HelpText sym -> return commands.Helptext sym
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file

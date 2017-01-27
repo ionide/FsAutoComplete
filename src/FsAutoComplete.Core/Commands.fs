@@ -101,27 +101,30 @@ type Commands (serialize : Serializer) =
             project)
 
         let (|NetCore|Net45|Unsupported|) file =
-            //.NET Core Sdk preview3 replace project.json with fsproj
+            //.NET Core Sdk preview3+ replace project.json with fsproj
             //Easy way to detect new fsproj is to check the msbuild version of .fsproj
             //  MSBuild version 15 (`ToolsVersion="15.0"`) is the new project format
-            //The `dotnet-compile-fsc.rsp` are created also in `preview3`, so we can
+            //Post preview5 has (`Sdk="Fsharp.NET.Sdk;Microsoft.NET.Sdk"`), use that
+            //  for checking .NET Core fsproj
+            //The `dotnet-compile-fsc.rsp` are created also in `preview3+`, so we can
             //  reuse the same behaviour of `preview2`
-            let rec findToolsVersion (sr:StreamReader) limit =
-                // only preview3+ uses ToolsVersion='15.0'
-                let isPreview3 (toolsVersion:string) = toolsVersion.Contains("=\"15.0\"")
+            let rec getProjectType (sr:StreamReader) limit =
+                // only preview3-5 uses ToolsVersion='15.0'
+                // post preview5 dropped this, check Sdk field
+                let isNetCore (line:string) = line.Contains("=\"15.0\"") || line.Contains("Fsharp.NET.Sdk")
                 if limit = 0 then
                     Unsupported // unsupported project type
                 else
                     let line = sr.ReadLine()
-                    if not <| line.Contains("ToolsVersion") then
-                        findToolsVersion sr (limit-1)
-                    else // both net45 and preview3+ have 'ToolsVersion'
-                        if isPreview3 line then NetCore else Net45
+                    if not <| line.Contains("ToolsVersion") && not <| line.Contains("Sdk=") then
+                        getProjectType sr (limit-1)
+                    else // both net45 and preview3-5 have 'ToolsVersion', > 5 has 'Sdk'
+                        if isNetCore line then NetCore else Net45
             if not <| File.Exists(projectFileName) then Net45 // no such file is handled downstream
             elif Path.GetExtension file = ".json" then NetCore // dotnet core preview 2 or earlier
             else
                 use sr = File.OpenText(file)
-                findToolsVersion sr 3
+                getProjectType sr 3
 
 
         return
@@ -147,12 +150,12 @@ type Commands (serialize : Serializer) =
                     [response]
     }
 
-    member __.Declarations file = async {
+    member __.Declarations file version = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithSource file with
         | Failure s -> return [Response.error serialize s]
         | Success (checkOptions, source) ->
-            let! decls = checker.GetDeclarations(file, source, checkOptions)
+            let! decls = checker.GetDeclarations(file, source, checkOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
     }
