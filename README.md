@@ -38,11 +38,11 @@ This can be obtained by installing Visual Studio 2013 or downloading:
 
 ## Building and testing
 
-There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](../.travis.yml) and [AppVeyor](../appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
+There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](.travis.yml) and [AppVeyor](appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
 
-The [integration tests](FsAutoComplete/test/integration) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
+The [integration tests](test/FsAutoComplete.IntegrationTests) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
 
-There are [unit tests](FSharp.CompilerBinding.Tests) for FSharp.CompilerBinding, which smoothes the integration with [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests are simply constructed using NUnit.
+There are [unit tests](test/FsAutoComplete.Tests) for FSharp.CompilerBinding, which smoothes the integration with [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests are simply constructed using NUnit.
 
 ## Troubleshooting
 
