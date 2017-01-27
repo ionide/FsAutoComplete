@@ -2,10 +2,11 @@
 
 This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by:
 
+* [Atom](https://github.com/ionide/ionide-atom-fsharp)
 * [Emacs](https://github.com/fsharp/emacs-fsharp-mode)
-* [Vim](https://github.com/fsharp/vim-fsharp)
 * [Sublime Text](https://github.com/fsharp/sublime-fsharp-package)
-* [Atom](https://github.com/fsprojects/FSharp.Atom)
+* [Vim](https://github.com/fsharp/vim-fsharp)
+* [Visual Studio Code](https://github.com/ionide/ionide-vscode-fsharp)
 
 This README is targeted at developers.
 
