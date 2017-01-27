@@ -1,3 +1,18 @@
+#### 0.31.0 - 27.01.2017
+
+* Improvements from downstream ionide fork:
+  - support msbuild15, same as preview2
+  - Add Background checking
+  - Performance updates for find usages
+  - Implement GetNamespaceSuggestions
+  - Update FSharpLint version
+  - Optimize GetNamespaceSuggestions 
+  - Optimize GetDeclarations
+  - Add endpoint for F1 Help
+  - ... and more!
+  
+(Some of these features only exposed currently via HTTP interface)
+
 #### 0.30.2 - 31.10.2016
 
 * Add parse errors, tooltips for keywords, and signatures for
