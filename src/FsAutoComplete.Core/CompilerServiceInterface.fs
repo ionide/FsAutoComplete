@@ -147,6 +147,7 @@ type ParseAndCheckResults
   member __.GetExtraColorizations = checkResults.GetExtraColorizationsAlternate()
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
+  member __.GetParseResults = parseResults
   member __.FileName = parseResults.FileName
 
 type private FileState =

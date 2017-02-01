@@ -14,6 +14,19 @@ type Pos =
     { Line: int
       Col: int }
 
+type Range =
+    { StartLine : int
+      StartColumn : int
+      EndLine : int
+      EndColumn: int}
+
+type Document =
+    { FullName : string
+      LineCount : int
+      GetText : unit -> string
+      GetLineText0 : int -> string
+      GetLineText1 : int -> string}
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Pos =
     let make line column = { Line = line; Col = column }

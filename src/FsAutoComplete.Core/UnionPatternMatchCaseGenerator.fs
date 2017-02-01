@@ -434,20 +434,17 @@ let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entit
         |> Set.count
     caseCount > 0 && writtenCaseCount < caseCount
 
-let tryFindPatternMatchExprInBufferAtPos (codeGenService: ICodeGenerationService<'Project, 'Pos, 'Range>) project (pos: 'Pos) document =
+let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
-        let! parseResults = codeGenService.ParseFileInProject(document, project)
+        let! parseResults = codeGenService.ParseFileInProject(document.FullName)
         let! input = parseResults.ParseTree
         return! tryFindPatternMatchExprInParsedInput (codeGenService.ExtractFSharpPos pos) input
     }
 
-let tryFindBarTokenLPosInRange
-    (codeGenService: ICodeGenerationService<'Project, 'Pos, 'Range>) project
-    (range: range) (document: IDocument) =
-    tryFindTokenLPosInRange codeGenService project range document
-        (fun tokenInfo -> tokenInfo.TokenName = "BAR")
+let tryFindBarTokenLPosInRange (codeGenService: CodeGenerationService) (range: range) (document: Document) =
+    tryFindTokenLPosInRange codeGenService range document (fun tokenInfo -> tokenInfo.TokenName = "BAR")
 
-let tryFindInsertionParams (codeGenService: ICodeGenerationService<_, _, 'Range>) project document (patMatchExpr: PatternMatchExpr) =
+let tryFindInsertionParams (codeGenService: CodeGenerationService) document (patMatchExpr: PatternMatchExpr) =
     match List.rev patMatchExpr.Clauses with
     | [] ->
         // Not possible normally
@@ -528,8 +525,7 @@ let tryFindInsertionParams (codeGenService: ICodeGenerationService<_, _, 'Range>
                 mkFileIndexRange (clause.Range.FileIndex) start clause.Range.Start
 
         let barTokenOpt =
-            tryFindBarTokenLPosInRange codeGenService project
-                possibleBarLocationRange document
+            tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
 
         match barTokenOpt with
         | Some(_, barTokenLPos) ->
@@ -561,21 +557,28 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
         | _ -> not (synExprContainsError expr.Expr)
 
 
-let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService<'Project, 'Pos, 'Range>) project (pos: 'Pos) document =
+let tryFindCaseInsertionParamsAtPos (codeGenService: CodeGenerationService) pos document =
     asyncMaybe {
-        let! patMatchExpr = tryFindPatternMatchExprInBufferAtPos codeGenService project pos document
+        let! patMatchExpr = tryFindPatternMatchExprInBufferAtPos codeGenService pos document
 
         if checkThatPatternMatchExprEndsWithCompleteClause patMatchExpr then
-            let! insertionParams = tryFindInsertionParams codeGenService project document patMatchExpr
+            let! insertionParams = tryFindInsertionParams codeGenService document patMatchExpr
             return patMatchExpr, insertionParams
         else
             return! None
     }
 
-let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService<'Project, 'Pos, 'Range>) project (pos: 'Pos) document =
+let tryFindUnionDefinitionFromPos (codeGenService: CodeGenerationService) pos document =
     asyncMaybe {
-        let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService project pos document
-        let! symbolRange, _symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(project, document, pos, SymbolKind.Ident)
+        let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
+        let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
+        let symbolRange = {
+            StartLine = symbol.Line
+            StartColumn = symbol.LeftColumn
+            EndLine = symbol.Line
+            EndColumn = symbol.RightColumn
+        }
+
         let! superficialTypeDefinition =
             match symbolUse.Symbol with
             | TypedAstPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
@@ -638,9 +641,7 @@ let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
     writer.WriteLine("")
     writer.Write("| {0}{1} -> {2}", caseName, paramsPattern, ctxt.CaseDefaultValue)
 
-let formatMatchExpr insertionParams (caseDefaultValue: string)
-                    (patMatchExpr: PatternMatchExpr) (entity: FSharpEntity) =
-    Debug.Assert(entity.IsFSharpUnion, "Entity has to be an F# union.")
+let formatMatchExpr insertionParams (caseDefaultValue: string) (patMatchExpr: PatternMatchExpr) (entity: FSharpEntity) =
     use writer = new ColumnIndentedTextWriter()
 
     let casesWritten = getWrittenCases patMatchExpr

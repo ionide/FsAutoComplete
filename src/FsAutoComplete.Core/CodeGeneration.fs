@@ -11,29 +11,62 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 [<Measure>] type Line0
 [<Measure>] type Line1
 
-type IDocument =
-    abstract FullName: string
-    abstract GetText: unit -> string
-    abstract GetLineText0: int<Line0> -> string
-    abstract GetLineText1: int<Line1> -> string
-    abstract LineCount: int
+type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State) =
+    member x.TokenizeLine(fileName, i) =
+        match state.TryGetFileCheckerOptionsWithLines fileName with
+        | Failure _ -> None
+        | Success (opts, lines) ->
+            try
+                let line = lines.[ i - 1 ]
+                Lexer.tokenizeLine [||] line |> Some
+            with
+            | _ -> None
 
-type IRange =
-    abstract StartLine: int<Line1>
-    abstract StartColumn: int
-    abstract EndLine: int<Line1>
-    abstract EndColumn: int
+    member x.GetSymbolAtPosition(fileName, pos) =
+        match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+        | Failure _ -> None
+        | Success (opts, lines, line) ->
+            try
+                Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+            with
+            | _ -> None
 
-type ICodeGenerationService<'Project, 'Pos, 'Range> =
-    abstract TokenizeLine: 'Project * IDocument * int<Line1> -> FSharpTokenInfo list option
-    abstract GetSymbolAtPosition: 'Project * IDocument * pos:'Pos -> option<'Range * LexerSymbol>
-    abstract GetSymbolAndUseAtPositionOfKind: 'Project * IDocument * 'Pos * SymbolKind -> Async<option<'Range * LexerSymbol * FSharpSymbolUse>>
-    abstract ParseFileInProject: IDocument * 'Project -> Async<FSharpParseFileResults option>
-    abstract ExtractFSharpPos: 'Pos -> pos
+    member x.GetSymbolAndUseAtPositionOfKind(fileName, pos, kind) =
+        asyncMaybe {
+            let! symbol = x.GetSymbolAtPosition(fileName,pos)
+            if symbol.Kind = kind then
+                match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+                | Failure _ -> return! None
+                | Success (opts, _, line) ->
+                    let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts)
+                    let! symbolUse =
+                        async {
+                            let! r = result.TryGetSymbolUse pos line
+                            match r with
+                            | Failure _ -> return None
+                            | Success (suse, _) -> return Some suse
+                    }
+                    return! Some (symbol, symbolUse)
+            else
+                return! None
+        }
+
+    member x.ParseFileInProject(fileName) =
+        match state.TryGetFileCheckerOptionsWithLines fileName with
+        | Failure _ -> None
+        | Success (opts, lines) ->
+            try
+                checker.TryGetRecentCheckResultsForFile(fileName, opts) |> Option.map (fun n -> n.GetParseResults)
+            with
+            | _ -> None
+
+    member x.ExtractFSharpPos (p : Pos) =
+        mkPos p.Line p.Col
 
 [<AutoOpen>]
 module internal CodeGenerationUtils =
     open Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming
+
 
     type ColumnIndentedTextWriter() =
         let stringWriter = new StringWriter()
@@ -79,16 +112,14 @@ module internal CodeGenerationUtils =
     let hasAttribute<'T> (attrs: seq<FSharpAttribute>) =
         attrs |> Seq.exists (fun a -> a.AttributeType.CompiledName = typeof<'T>.Name)
 
-    let tryFindTokenLPosInRange
-        (codeGenService: ICodeGenerationService<'Project, 'Pos, 'Range>) project
-        (range: range) (document: IDocument) (predicate: FSharpTokenInfo -> bool) =
+    let tryFindTokenLPosInRange (codeGenService: CodeGenerationService) (range: range) (document: Document) (predicate: FSharpTokenInfo -> bool) =
         // Normalize range
         // NOTE: FCS compiler sometimes returns an invalid range. In particular, the
         // range end limit can exceed the end limit of the document
         let range =
             if range.EndLine > document.LineCount then
                 let newEndLine = document.LineCount
-                let newEndColumn = document.GetLineText1(document.LineCount * 1<Line1>).Length
+                let newEndColumn = document.GetLineText1(document.LineCount).Length
                 let newEndPos = mkPos newEndLine newEndColumn
 
                 mkFileIndexRange (range.FileIndex) range.Start newEndPos
@@ -97,7 +128,7 @@ module internal CodeGenerationUtils =
 
         let lineIdxAndTokenSeq = seq {
             for lineIdx = range.StartLine to range.EndLine do
-              match codeGenService.TokenizeLine(project, document, (lineIdx * 1<Line1>))
+              match codeGenService.TokenizeLine(document.FullName, lineIdx)
                     |> Option.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo)) with
               | Some xs -> yield! xs
               | None -> ()
