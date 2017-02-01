@@ -321,8 +321,8 @@
         "BodyRange": {
           "StartColumn": 1,
           "StartLine": 1,
-          "EndColumn": 6,
-          "EndLine": 15
+          "EndColumn": 9,
+          "EndLine": 13
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
         "EnclosingEntity": "M",
@@ -338,14 +338,14 @@
           "Range": {
             "StartColumn": 5,
             "StartLine": 13,
-            "EndColumn": 6,
-            "EndLine": 15
+            "EndColumn": 9,
+            "EndLine": 13
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 13,
-            "EndColumn": 6,
-            "EndLine": 15
+            "EndColumn": 9,
+            "EndLine": 13
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
           "EnclosingEntity": "M",
@@ -457,7 +457,7 @@
         "BodyRange": {
           "StartColumn": 9,
           "StartLine": 1,
-          "EndColumn": 21,
+          "EndColumn": 11,
           "EndLine": 2
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -474,13 +474,13 @@
           "Range": {
             "StartColumn": 7,
             "StartLine": 2,
-            "EndColumn": 21,
+            "EndColumn": 11,
             "EndLine": 2
           },
           "BodyRange": {
             "StartColumn": 7,
             "StartLine": 2,
-            "EndColumn": 21,
+            "EndColumn": 11,
             "EndLine": 2
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -527,13 +527,13 @@
           "Range": {
             "StartColumn": 5,
             "StartLine": 9,
-            "EndColumn": 20,
+            "EndColumn": 8,
             "EndLine": 9
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 9,
-            "EndColumn": 20,
+            "EndColumn": 8,
             "EndLine": 9
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
@@ -549,13 +549,13 @@
           "Range": {
             "StartColumn": 5,
             "StartLine": 7,
-            "EndColumn": 25,
+            "EndColumn": 13,
             "EndLine": 7
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 7,
-            "EndColumn": 25,
+            "EndColumn": 13,
             "EndLine": 7
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
@@ -751,7 +751,7 @@
         "BodyRange": {
           "StartColumn": 10,
           "StartLine": 3,
-          "EndColumn": 22,
+          "EndColumn": 12,
           "EndLine": 4
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
@@ -768,13 +768,13 @@
           "Range": {
             "StartColumn": 7,
             "StartLine": 4,
-            "EndColumn": 22,
+            "EndColumn": 12,
             "EndLine": 4
           },
           "BodyRange": {
             "StartColumn": 7,
             "StartLine": 4,
-            "EndColumn": 22,
+            "EndColumn": 12,
             "EndLine": 4
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
