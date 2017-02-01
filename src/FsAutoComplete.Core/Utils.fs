@@ -189,12 +189,51 @@ module Array =
         res.[index] <- value
         res
 
+    /// pass an array byref to reverse it in place
+    let revInPlace (array: 'T []) =
+        checkNonNull "array" array
+        if areEqual array [||] then () else
+        let arrlen, revlen = array.Length-1, array.Length/2 - 1
+        for idx in 0 .. revlen do
+            let t1 = array.[idx]
+            let t2 = array.[arrlen-idx]
+            array.[idx] <- t2
+            array.[arrlen-idx] <- t1
+
+
 
 
 
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module String =
+    let inline toCharArray (str:string) = str.ToCharArray()
+
+    let lowerCaseFirstChar (str: string) =
+        if String.IsNullOrEmpty str
+         || Char.IsLower(str, 0) then str else
+        let strArr = toCharArray str
+        match Array.tryHead strArr with
+        | None -> str
+        | Some c  ->
+            strArr.[0] <- Char.ToLower c
+            String (strArr)
+
+
+    let extractTrailingIndex (str: string) =
+        match str with
+        | null -> null, None
+        | _ ->
+            let charr = str.ToCharArray()
+            Array.revInPlace charr
+            let digits = Array.takeWhile Char.IsDigit charr
+            Array.revInPlace digits
+            String digits
+            |> function
+               | "" -> str, None
+               | index -> str.Substring (0, str.Length - index.Length), Some (int index)
+
+
     let (|StartsWith|_|) pattern value =
         if String.IsNullOrWhiteSpace value then
             None

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Name>FsAutoComplete.Core</Name>
@@ -47,6 +47,7 @@
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Lexer.fs" />
+    <Compile Include="CodeGeneration.fs" />
     <Compile Include="Environment.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />
