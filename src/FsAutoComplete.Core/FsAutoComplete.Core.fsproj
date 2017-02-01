@@ -56,6 +56,7 @@
     <Compile Include="KeywordList.fs" />
     <Compile Include="AssemblyContentProvider.fs" />
     <Compile Include="UnopenedNamespacesResolver.fs" />
+    <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
