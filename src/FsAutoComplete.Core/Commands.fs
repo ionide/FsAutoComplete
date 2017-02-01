@@ -5,6 +5,7 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open FsAutoComplete.UnopenedNamespacesResolver
+open FsAutoComplete.UnionPatternMatchCaseGenerator
 open Microsoft.FSharp.Compiler
 
 
@@ -336,4 +337,30 @@ type Commands (serialize : Serializer) =
                 |> Seq.toList
 
             return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
+    }
+
+    member __.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) = async {
+        let codeGenService = CodeGenerationService(checker, state)
+        let doc = {
+            Document.LineCount = lines.Length
+            FullName = tyRes.FileName
+            GetText = fun _ -> lines |> String.concat "\n"
+            GetLineText0 = fun i -> lines.[i]
+            GetLineText1 = fun i -> lines.[i - 1]
+        }
+
+        let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
+        match res with
+        | None -> return [Response.info serialize "Union at position not found"]
+        | Some (symbolRange, patMatchExpr, unionTypeDefinition, insertionPos) ->
+
+        if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
+            let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
+            let pos = {
+                Col = insertionPos.InsertionPos.Column
+                Line = insertionPos.InsertionPos.Line
+            }
+            return [Response.unionCase serialize result pos ]
+        else
+            return [Response.info serialize "Union at position not found"]
     }
