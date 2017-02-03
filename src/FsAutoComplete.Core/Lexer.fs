@@ -34,7 +34,7 @@ type private DraftToken =
 
 module Lexer =
     /// Return all tokens of current line
-    let private tokenizeLine (args: string[]) lineStr =
+    let tokenizeLine (args: string[]) lineStr =
         let defines =
             args |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s.[9..] else None)
                  |> Seq.toList
@@ -101,9 +101,9 @@ module Lexer =
                         | Some ( { Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
                               DraftToken.Create SymbolKind.Ident ap.Token
                         | _ ->
-                            let kind = 
-                                if isOperator token then Operator 
-                                elif isIdentifier token then Ident 
+                            let kind =
+                                if isOperator token then Operator
+                                elif isIdentifier token then Ident
                                 elif isKeyword token then Keyword
                                 else Other
                             DraftToken.Create kind token

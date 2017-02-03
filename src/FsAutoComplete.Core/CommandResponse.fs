@@ -239,6 +239,11 @@ module CommandResponse =
     Word : string
   }
 
+  type UnionCaseResponse = {
+    Text : string
+    Position : Pos
+  }
+
 
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
@@ -386,3 +391,11 @@ module CommandResponse =
     }
 
     serialize { Kind = "namespaces"; Data = data}
+
+  let unionCase (serialize : Serializer) (text : string) position =
+    let data = {
+      Text = text
+      Position = position
+    }
+    serialize { Kind = "unionCase"; Data = data}
+

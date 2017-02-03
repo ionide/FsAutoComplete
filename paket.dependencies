@@ -10,7 +10,7 @@ nuget FAKE
 nuget NUnit
 nuget NUnit.Runners
 nuget Octokit
-nuget Suave
+nuget Suave < 2.0
 nuget FSharpLint.Core prerelease
 nuget FSharp.Core redirects:on
 
