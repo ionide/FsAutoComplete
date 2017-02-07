@@ -1,3 +1,7 @@
+#### 0.31.1 - 07.02.2017
+
+* Allow for inconsistent casing of "Fsharp" when detecting: #149.
+
 #### 0.31.0 - 27.01.2017
 
 * Improvements from downstream ionide fork:
