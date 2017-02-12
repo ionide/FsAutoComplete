@@ -24,6 +24,7 @@ module Contract =
     type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
+    type FormatRequest = {FileName : string; PageWidth: int; ReoorderOpenDeclaration: bool}
 
 [<AutoOpen>]
 module internal Utils =
@@ -156,6 +157,7 @@ let main argv =
             path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint data.FileName)
             path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
+            path "/format" >=> handler (fun (data: FormatRequest) -> Formatter.formatSourceFile data.ReoorderOpenDeclaration data.PageWidth data.FileName)
         ]
 
     let port =

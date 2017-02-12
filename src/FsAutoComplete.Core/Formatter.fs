@@ -6,7 +6,8 @@ open System.IO
 
 module Formatter =
 
-    exception InvalidCodeException of unit
+    exception InvalidCodeException of SourceFile:string
+        with override x.ToString() = sprintf "File %s contains invalid F# code." x.SourceFile
 
     let formatSourceFile reorderOpen pageWidth source = async {
         let config = {FormatConfig.Default with PageWidth = pageWidth; ReorderOpenDeclaration = reorderOpen}
@@ -14,7 +15,7 @@ module Formatter =
         let formattedContent = CodeFormatter.FormatDocument(source, originalContent, config)
         if formattedContent <> originalContent then
             if not <| CodeFormatter.IsValidFSharpCode (source, formattedContent) then
-                return raise <| InvalidCodeException()
+                return source |> InvalidCodeException |> raise
             else
                 return [formattedContent]
         else
