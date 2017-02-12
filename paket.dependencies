@@ -1,6 +1,7 @@
 framework: net45
 source https://www.nuget.org/api/v2/
 
+nuget Fantomas
 nuget FSharp.Compiler.Service framework: >= net45
 nuget FSharp.Compiler.Service.ProjectCracker
 nuget Mono.Cecil
