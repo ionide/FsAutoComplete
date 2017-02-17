@@ -48,7 +48,9 @@ type State =
       IsIncompleteTypeCheckEnvironment = true
       UseScriptResolutionRules = false
       LoadTime = DateTime.Now
-      UnresolvedReferences = None }
+      UnresolvedReferences = None
+      OriginalLoadReferences = []
+      ExtraProjectInfo = None }
 
   member x.TryGetFileCheckerOptionsWithLines(file: SourceFilePath) : Result<FSharpProjectOptions * LineStr[]> =
     let file = Utils.normalizePath file
