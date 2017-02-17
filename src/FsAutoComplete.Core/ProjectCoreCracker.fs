@@ -4,20 +4,20 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-module ProjectCoreCracker = 
-  let GetProjectOptionsFromProjectFile (file : string)  = 
+module ProjectCoreCracker =
+  let GetProjectOptionsFromProjectFile (file : string)  =
     let projDir = Path.GetDirectoryName file
-    let rsp =  
-      Directory.GetFiles(projDir, "dotnet-compile-fsc.rsp", SearchOption.AllDirectories) 
+    let rsp =
+      Directory.GetFiles(projDir, "dotnet-compile-fsc.rsp", SearchOption.AllDirectories)
       |> Seq.head
       |> File.ReadAllLines
-      |> Array.map (fun s -> if s.EndsWith ".fs" then 
+      |> Array.map (fun s -> if s.EndsWith ".fs" then
                                 let p = Path.GetFullPath s
                                 (p.Chars 0).ToString().ToLower() + p.Substring(1)
                              else s )
-      |> Array.filter((<>) "--nocopyfsharpcore") 
-      
-    { 
+      |> Array.filter((<>) "--nocopyfsharpcore")
+
+    {
       ProjectFileName = file
       ProjectFileNames = [||]
       OtherOptions = rsp
@@ -26,4 +26,6 @@ module ProjectCoreCracker =
       UseScriptResolutionRules = false
       LoadTime = DateTime.Now
       UnresolvedReferences = None;
+      OriginalLoadReferences = []
+      ExtraProjectInfo = None
     }
