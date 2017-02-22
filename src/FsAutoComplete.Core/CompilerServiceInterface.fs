@@ -144,7 +144,7 @@ type ParseAndCheckResults
       | _ -> return None
   }
 
-  member __.GetSemanticClassification = checkResults.GetSemanticClassification()
+  member __.GetSemanticClassification = checkResults.GetSemanticClassification None
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
   member __.GetParseResults = parseResults

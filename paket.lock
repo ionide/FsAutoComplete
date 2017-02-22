@@ -1,15 +1,15 @@
 FRAMEWORK: NET45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.50)
+    FAKE (4.50.1)
     FParsec (1.0.2)
-    FSharp.Compiler.Service (10.0.3)
+    FSharp.Compiler.Service (11.0.1)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Compiler.Service.ProjectCracker (10.0.3)
+    FSharp.Compiler.Service.ProjectCracker (11.0.1)
     FSharp.Core (4.1) - redirects: on
       System.ValueTuple (>= 4.3)
-    FSharpLint.Core (0.7.0-beta)
+    FSharpLint.Core (0.7.1-beta)
       FParsec (>= 1.0.2)
       FSharp.Compiler.Service (>= 10.0.1)
       FSharp.Compiler.Service.ProjectCracker (>= 10.0.1)
@@ -39,5 +39,5 @@ NUGET
     System.ValueTuple (4.3) - redirects: on
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (e842705560e95dd75dd2c6a78fb1ae62db545297)
+    modules/Octokit/Octokit.fsx (33e702f6c220f3facaf41f20dae03a912eeebf9a)
       Octokit (>= 0.20)
