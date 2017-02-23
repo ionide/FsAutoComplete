@@ -3,10 +3,10 @@ NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.50.1)
     FParsec (1.0.2)
-    FSharp.Compiler.Service (11.0.1)
+    FSharp.Compiler.Service (11.0.2)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Compiler.Service.ProjectCracker (11.0.1)
+    FSharp.Compiler.Service.ProjectCracker (11.0.2)
     FSharp.Core (4.1) - redirects: on
       System.ValueTuple (>= 4.3)
     FSharpLint.Core (0.7.1-beta)

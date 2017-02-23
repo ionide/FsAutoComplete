@@ -44,7 +44,7 @@
         "StartColumn": 1,
         "EndColumn": 2,
         "Severity": "Error",
-        "Message": "The value or constructor 'X' is not defined",
+        "Message": "The value or constructor 'X' is not defined.",
         "Subcategory": "typecheck"
       },
       {
@@ -54,7 +54,7 @@
         "StartColumn": 1,
         "EndColumn": 2,
         "Severity": "Error",
-        "Message": "The value or constructor 'X' is not defined",
+        "Message": "The value or constructor 'X' is not defined.",
         "Subcategory": "typecheck"
       },
       {
@@ -136,7 +136,7 @@
         "StartColumn": 1,
         "EndColumn": 2,
         "Severity": "Error",
-        "Message": "The value or constructor 'Y' is not defined",
+        "Message": "No constructors are available for the type 'Y'",
         "Subcategory": "typecheck"
       },
       {
@@ -146,7 +146,7 @@
         "StartColumn": 1,
         "EndColumn": 2,
         "Severity": "Error",
-        "Message": "The value or constructor 'Y' is not defined",
+        "Message": "No constructors are available for the type 'Y'",
         "Subcategory": "typecheck"
       },
       {
@@ -200,16 +200,22 @@
   "Kind": "completion",
   "Data": [
     {
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
+      "Glyph": "Field",
+      "GlyphChar": "V"
+    },
+    {
       "Name": "Another`Column",
       "ReplacementText": "``Another`Column``",
-      "Glyph": "Function",
-      "GlyphChar": "Fc"
+      "Glyph": "Field",
+      "GlyphChar": "V"
     },
     {
       "Name": "Column1",
       "ReplacementText": "Column1",
-      "Glyph": "Function",
-      "GlyphChar": "Fc"
+      "Glyph": "Field",
+      "GlyphChar": "V"
     }
   ]
 }
@@ -231,14 +237,14 @@
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
-      "Name": "Column Two",
-      "ReplacementText": "``Column Two``",
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },

@@ -34,7 +34,7 @@
         "StartColumn": 15,
         "EndColumn": 22,
         "Severity": "Error",
-        "Message": "The namespace or module 'FileTwo' is not defined",
+        "Message": "The value, namespace, type or module 'FileTwo' is not defined.",
         "Subcategory": "typecheck"
       },
       {
@@ -76,7 +76,7 @@
         "StartColumn": 13,
         "EndColumn": 20,
         "Severity": "Error",
-        "Message": "The value or constructor 'unnamed' is not defined",
+        "Message": "The value or constructor 'unnamed' is not defined.",
         "Subcategory": "typecheck"
       }
     ]

@@ -34,7 +34,7 @@
         "StartColumn": 1,
         "EndColumn": 4,
         "Severity": "Error",
-        "Message": "The value or constructor 'Bla' is not defined",
+        "Message": "The value or constructor 'Bla' is not defined.",
         "Subcategory": "typecheck"
       }
     ]
