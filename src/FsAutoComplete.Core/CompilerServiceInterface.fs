@@ -330,10 +330,22 @@ type FSharpCompilerServiceChecker() =
         let po =
             match po.ProjectFileNames with
             | [||] ->
-                 let compileFiles, otherOptions =
-                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs"))
-                 { po with ProjectFileNames = compileFiles; OtherOptions = otherOptions }
-            | _ -> po
+                let compileFiles, otherOptions =
+                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi"))
+                { po with ProjectFileNames = compileFiles; OtherOptions = otherOptions }
+            | _ -> 
+                let fsiFiles, otherOptions =
+                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith (".fsi"))
+                let fileNames = 
+                    po.ProjectFileNames 
+                    |> Array.fold (fun acc e -> 
+                        match fsiFiles |> Array.tryFind ((=) (e + "i")) with
+                        | Some fsi ->
+                            [| yield! acc; yield fsi; yield e  |]
+                        | None -> [| yield! acc; yield e |] ) [||]
+
+                { po with ProjectFileNames = fileNames ; OtherOptions = otherOptions }
+                
 
         let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
