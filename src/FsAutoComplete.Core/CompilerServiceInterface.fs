@@ -355,6 +355,19 @@ type FSharpCompilerServiceChecker() =
       with e ->
         Failure e.Message
 
+  member __.TryGetProjectJsonProjectOptions (file : SourceFilePath) : Result<_> =
+    if not (File.Exists file) then
+      Failure (sprintf "File '%s' does not exist" file)
+    else
+      try
+        let po = ProjectCoreCracker.GetProjectOptionsFromResponseFile file
+        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
+        let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
+        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
+      with e ->
+        Failure e.Message
+
   member __.TryGetCoreProjectOptions (file : SourceFilePath) : Result<_> =
     if not (File.Exists file) then
       Failure (sprintf "File '%s' does not exist" file)

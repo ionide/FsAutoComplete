@@ -101,7 +101,7 @@ type Commands (serialize : Serializer) =
             state.Projects.[projectFileName] <- project
             project)
 
-        let (|NetCore|Net45|Unsupported|) file =
+        let (|NetCoreProjectJson|NetCoreSdk|Net45|Unsupported|) file =
             //.NET Core Sdk preview3+ replace project.json with fsproj
             //Easy way to detect new fsproj is to check the msbuild version of .fsproj
             //  MSBuild version 15 (`ToolsVersion="15.0"`) is the new project format
@@ -120,9 +120,9 @@ type Commands (serialize : Serializer) =
                     if not <| line.Contains("ToolsVersion") && not <| line.Contains("Sdk=") then
                         getProjectType sr (limit-1)
                     else // both net45 and preview3-5 have 'ToolsVersion', > 5 has 'Sdk'
-                        if isNetCore line then NetCore else Net45
+                        if isNetCore line then NetCoreSdk else Net45
             if not <| File.Exists(projectFileName) then Net45 // no such file is handled downstream
-            elif Path.GetExtension file = ".json" then NetCore // dotnet core preview 2 or earlier
+            elif Path.GetExtension file = ".json" then NetCoreProjectJson // dotnet core preview 2 or earlier
             else
                 use sr = File.OpenText(file)
                 getProjectType sr 3
@@ -134,9 +134,10 @@ type Commands (serialize : Serializer) =
             | None ->
                 let options =
                     match projectFileName with
-                    | NetCore -> checker.TryGetCoreProjectOptions projectFileName
+                    | NetCoreProjectJson -> checker.TryGetProjectJsonProjectOptions projectFileName
+                    | NetCoreSdk -> checker.TryGetCoreProjectOptions projectFileName
                     | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
-                    | Unsupported -> Failure (sprintf "File '%s' is not supported" projectFileName)
+                    | Unsupported -> checker.TryGetProjectOptions (projectFileName, verbose)
 
                 match options with
                 | Result.Failure error ->

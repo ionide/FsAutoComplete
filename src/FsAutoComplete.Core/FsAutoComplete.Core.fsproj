@@ -88,6 +88,17 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
+        <Reference Include="Dotnet.ProjInfo">
+          <HintPath>..\..\packages\Dotnet.ProjInfo\lib\net45\Dotnet.ProjInfo.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
         <Reference Include="FParsec">
           <HintPath>..\..\packages\FParsec\lib\net40-client\FParsec.dll</HintPath>
           <Private>True</Private>
