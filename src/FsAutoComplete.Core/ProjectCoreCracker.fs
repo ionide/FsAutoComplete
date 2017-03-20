@@ -46,7 +46,7 @@ module ProjectCoreCracker =
       p.WaitForExit()
       
       let exitCode = p.ExitCode
-      exitCode, ()
+      exitCode, (workingDir, exePath, args)
 
   let GetProjectOptionsFromProjectFile (file : string) =
     let rec projInfo file =
@@ -74,11 +74,21 @@ module ProjectCoreCracker =
           | Choice1Of2 (Dotnet.ProjInfo.Inspect.GetResult.FscArgs x) -> rsp <- x
           | Choice1Of2 (Dotnet.ProjInfo.Inspect.GetResult.P2PRefs x) -> p2p <- x
           | Choice1Of2 (Dotnet.ProjInfo.Inspect.GetResult.Properties p) -> props <- p
-          | Choice2Of2 _ -> failwith "errors"
+          | Choice2Of2 r -> failwithf "error getting msbuild info: %A" r
 
         match results with
         | Choice1Of2 r -> r |> List.iter doResult
-        | Choice2Of2 r -> failwith "errors"
+        | Choice2Of2 r ->
+            match r with
+            | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) -> 
+                failwithf "Unexpected MSBuild result %s" r
+            | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) -> 
+                [ sprintf "MSBuild failed with exitCode %i" exitCode
+                  sprintf "Working Directory: '%s'" workDir
+                  sprintf "Exe Path: '%s'" exePath
+                  sprintf "Args: '%s'" args ]
+                |> String.concat " "
+                |> failwith
 
         //TODO cache projects info of p2p ref
         let p2pProjects = p2p |> List.map projInfo
