@@ -46,7 +46,7 @@ type Commands (serialize : Serializer) =
                             let errors = Array.append results.Errors parseResult.Errors
                             if colorizations then
                                 [ Response.errors serialize (errors, fileName)
-                                  Response.colorizations serialize (results.GetExtraColorizationsAlternate()) ]
+                                  Response.colorizations serialize (results.GetSemanticClassification()) ]
                             else [ Response.errors serialize (errors, fileName) ]
             }
         let file = Path.GetFullPath file

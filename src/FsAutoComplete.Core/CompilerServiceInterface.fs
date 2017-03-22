@@ -144,7 +144,7 @@ type ParseAndCheckResults
       | _ -> return None
   }
 
-  member __.GetExtraColorizations = checkResults.GetExtraColorizationsAlternate()
+  member __.GetSemanticClassification = checkResults.GetSemanticClassification()
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
   member __.GetParseResults = parseResults
@@ -291,9 +291,7 @@ type FSharpCompilerServiceChecker() =
 
                debug "[LanguageService] Change state for %s to `BeingChecked`" filePath
                debug "[LanguageService] Parse and typecheck source..."
-               return! checker.ParseAndCheckFileInProject
-                                 (fixedFilePath, version, source, options,
-                                  IsResultObsolete (fun _ -> isResultObsolete filePath), null)
+               return! checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null) //TODO: Add cancelation again
           finally
                match files.TryGetValue filePath with
                | true, (v, BeingChecked)
@@ -383,7 +381,7 @@ type FSharpCompilerServiceChecker() =
         async {
           let! chkd =
             checker.FileParsed
-            |> Event.filter ((=) fileName)
+            |> Event.filter (fun (fn,_) -> fn = fileName)
             |> Async.AwaitEvent
 
           return!
