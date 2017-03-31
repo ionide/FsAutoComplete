@@ -22,17 +22,15 @@ type State =
       HelpText = ConcurrentDictionary()
       ColorizationOutput = false }
 
-  member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions =
+  member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
     let file = Utils.normalizePath file
 
-    let opts =
-      match x.FileCheckOptions.TryFind file with
-      | None -> State.FileWithoutProjectOptions file
-      | Some opts -> opts
-
-    x.Files.[file] <- { Lines = lines; Touched = DateTime.Now }
-    x.FileCheckOptions.[file] <- opts
-    opts
+    x.FileCheckOptions.TryFind file
+    |> Option.map (fun opts ->
+        x.Files.[file] <- { Lines = lines; Touched = DateTime.Now }
+        x.FileCheckOptions.[file] <- opts
+        opts
+    )
 
   member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts) =
     let file = Utils.normalizePath file
@@ -41,7 +39,7 @@ type State =
     x.FileCheckOptions.[file] <- opts
 
   static member private FileWithoutProjectOptions(file) =
-    let opts=  
+    let opts=
         defaultArg (Environment.fsharpCoreOpt  |> Option.map (fun path -> [| yield sprintf "-r:%s" path; yield "--noframework" |] )) [|"--noframework"|]
 
     { ProjectFileName = file + ".fsproj"

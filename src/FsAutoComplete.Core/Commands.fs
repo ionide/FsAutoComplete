@@ -57,7 +57,14 @@ type Commands (serialize : Serializer) =
             state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
             return! parse' file text checkOptions
         else
-            let checkOptions = state.GetCheckerOptions(file, lines)
+            let! checkOptions =
+                match state.GetCheckerOptions(file, lines) with
+                | Some c -> async.Return c
+                | None -> async {
+                    let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                    state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+                    return checkOptions
+                }
             return! parse' file text checkOptions
     }
 
