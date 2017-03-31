@@ -5,12 +5,11 @@ NUGET
       FSharp.Core (>= 4.0.0.1)
     FAKE (4.55)
     FParsec (1.0.2)
-    FSharp.Compiler.Service (11.0.6)
+    FSharp.Compiler.Service (11.0.9)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Compiler.Service.ProjectCracker (11.0.6)
-    FSharp.Core (4.1.0.2) - redirects: on
-      System.ValueTuple (>= 4.3)
+    FSharp.Compiler.Service.ProjectCracker (11.0.9)
+    FSharp.Core (4.0.0.1) - redirects: on
     FSharpLint.Core (0.7.4-beta)
       FParsec (>= 1.0.2)
       FSharp.Compiler.Service (>= 11.0.4)
@@ -38,8 +37,7 @@ NUGET
     System.Collections.Immutable (1.3.1)
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
-    System.ValueTuple (4.3) - redirects: on
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (d67516367361a02ae7836744e8396040ed5e4b22)
+    modules/Octokit/Octokit.fsx (8a0082b3cea5849e1ba1fbdb014f4197aa62d09a)
       Octokit (>= 0.20)
