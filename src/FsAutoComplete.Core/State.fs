@@ -41,9 +41,12 @@ type State =
     x.FileCheckOptions.[file] <- opts
 
   static member private FileWithoutProjectOptions(file) =
+    let opts=  
+        defaultArg (Environment.fsharpCoreOpt  |> Option.map (fun path -> [| yield sprintf "-r:%s" path; yield "--noframework" |] )) [|"--noframework"|]
+
     { ProjectFileName = file + ".fsproj"
       ProjectFileNames = [|file|]
-      OtherOptions = [|"--noframework"|]
+      OtherOptions = opts // "--noframework"
       ReferencedProjects = [| |]
       IsIncompleteTypeCheckEnvironment = true
       UseScriptResolutionRules = false
