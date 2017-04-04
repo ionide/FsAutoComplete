@@ -24,7 +24,7 @@
         "StartColumn": 13,
         "EndColumn": 15,
         "Severity": "Error",
-        "Message": "The value or constructor 'XA' is not defined",
+        "Message": "The value or constructor 'XA' is not defined.",
         "Subcategory": "typecheck"
       },
       {

@@ -50,7 +50,7 @@
         "StartColumn": 15,
         "EndColumn": 22,
         "Severity": "Error",
-        "Message": "The namespace or module 'FileTwo' is not defined",
+        "Message": "The value, namespace, type or module 'FileTwo' is not defined.",
         "Subcategory": "typecheck"
       },
       {

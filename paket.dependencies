@@ -1,8 +1,9 @@
 framework: net45
 source https://www.nuget.org/api/v2/
 
-nuget FSharp.Compiler.Service framework: >= net45
-nuget FSharp.Compiler.Service.ProjectCracker
+nuget FSharp.Compiler.Service 11.0.9 framework: >= net45
+nuget FSharp.Compiler.Service.ProjectCracker 11.0.9
+nuget Dotnet.ProjInfo
 nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json
@@ -12,6 +13,6 @@ nuget NUnit.Runners
 nuget Octokit
 nuget Suave < 2.0
 nuget FSharpLint.Core prerelease
-nuget FSharp.Core redirects:on
+nuget FSharp.Core 4.0.0.1 redirects:on
 
 github fsharp/FAKE modules/Octokit/Octokit.fsx

@@ -321,8 +321,8 @@
         "BodyRange": {
           "StartColumn": 1,
           "StartLine": 1,
-          "EndColumn": 9,
-          "EndLine": 13
+          "EndColumn": 6,
+          "EndLine": 15
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
         "EnclosingEntity": "M",
@@ -332,20 +332,20 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "main",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 13,
-            "EndColumn": 9,
-            "EndLine": 13
+            "EndColumn": 6,
+            "EndLine": 15
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 13,
-            "EndColumn": 9,
-            "EndLine": 13
+            "EndColumn": 6,
+            "EndLine": 15
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
           "EnclosingEntity": "M",
@@ -354,19 +354,19 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "testval",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 4,
-            "EndColumn": 12,
+            "EndColumn": 38,
             "EndLine": 4
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 4,
-            "EndColumn": 12,
+            "EndColumn": 38,
             "EndLine": 4
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -376,19 +376,19 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "val2",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 6,
-            "EndColumn": 9,
+            "EndColumn": 20,
             "EndLine": 6
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 6,
-            "EndColumn": 9,
+            "EndColumn": 20,
             "EndLine": 6
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -398,19 +398,19 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "val3",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 8,
-            "EndColumn": 9,
+            "EndColumn": 33,
             "EndLine": 8
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 8,
-            "EndColumn": 9,
+            "EndColumn": 33,
             "EndLine": 8
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -420,19 +420,19 @@
         {
           "UniqueName": "Program_1_of_1",
           "Name": "val4",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 10,
-            "EndColumn": 9,
+            "EndColumn": 43,
             "EndLine": 10
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 10,
-            "EndColumn": 9,
+            "EndColumn": 43,
             "EndLine": 10
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -457,7 +457,7 @@
         "BodyRange": {
           "StartColumn": 9,
           "StartLine": 1,
-          "EndColumn": 11,
+          "EndColumn": 21,
           "EndLine": 2
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -468,19 +468,19 @@
         {
           "UniqueName": "X_1_of_1",
           "Name": "func",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 7,
             "StartLine": 2,
-            "EndColumn": 11,
+            "EndColumn": 21,
             "EndLine": 2
           },
           "BodyRange": {
             "StartColumn": 7,
             "StartLine": 2,
-            "EndColumn": 11,
+            "EndColumn": 21,
             "EndLine": 2
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
@@ -521,19 +521,19 @@
         {
           "UniqueName": "FileTwo_1_of_1",
           "Name": "add",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 9,
-            "EndColumn": 8,
+            "EndColumn": 20,
             "EndLine": 9
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 9,
-            "EndColumn": 8,
+            "EndColumn": 20,
             "EndLine": 9
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
@@ -543,19 +543,19 @@
         {
           "UniqueName": "FileTwo_1_of_1",
           "Name": "addition",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 7,
-            "EndColumn": 13,
+            "EndColumn": 25,
             "EndLine": 7
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 7,
-            "EndColumn": 13,
+            "EndColumn": 25,
             "EndLine": 7
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
@@ -703,7 +703,7 @@
         "BodyRange": {
           "StartColumn": 1,
           "StartLine": 1,
-          "EndColumn": 10,
+          "EndColumn": 24,
           "EndLine": 6
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
@@ -714,19 +714,19 @@
         {
           "UniqueName": "Script_1_of_1",
           "Name": "val99",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 5,
             "StartLine": 6,
-            "EndColumn": 10,
+            "EndColumn": 24,
             "EndLine": 6
           },
           "BodyRange": {
             "StartColumn": 5,
             "StartLine": 6,
-            "EndColumn": 10,
+            "EndColumn": 24,
             "EndLine": 6
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
@@ -751,7 +751,7 @@
         "BodyRange": {
           "StartColumn": 10,
           "StartLine": 3,
-          "EndColumn": 12,
+          "EndColumn": 22,
           "EndLine": 4
         },
         "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
@@ -762,19 +762,19 @@
         {
           "UniqueName": "XA_1_of_1",
           "Name": "funky",
-          "Glyph": "Function",
-          "GlyphChar": "Fc",
+          "Glyph": "Field",
+          "GlyphChar": "F",
           "IsTopLevel": false,
           "Range": {
             "StartColumn": 7,
             "StartLine": 4,
-            "EndColumn": 12,
+            "EndColumn": 22,
             "EndLine": 4
           },
           "BodyRange": {
             "StartColumn": 7,
             "StartLine": 4,
-            "EndColumn": 12,
+            "EndColumn": 22,
             "EndLine": 4
           },
           "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",

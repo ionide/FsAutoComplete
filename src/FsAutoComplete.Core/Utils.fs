@@ -46,7 +46,7 @@ let runningOnMono =
   with _ -> false
 
 let normalizePath (file : string) =
-  if file.EndsWith ".fs" then
+  if file.EndsWith ".fs" || file.EndsWith ".fsi" then
       let p = Path.GetFullPath file
       (p.Chars 0).ToString().ToLower() + p.Substring(1)
   else file
