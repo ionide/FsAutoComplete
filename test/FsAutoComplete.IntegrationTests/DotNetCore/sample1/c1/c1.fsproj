@@ -11,5 +11,4 @@
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
     <ProjectReference Include="..\l1\l1.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\..\..\..\.paket\Paket.Restore.targets" />
 </Project>

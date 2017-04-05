@@ -11,5 +11,4 @@
     <PackageReference Include="FSharp.Core" Version="4.1.*" />
     <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
   </ItemGroup>
-  <Import Project="..\..\..\..\..\.paket\Paket.Restore.targets" />
 </Project>
