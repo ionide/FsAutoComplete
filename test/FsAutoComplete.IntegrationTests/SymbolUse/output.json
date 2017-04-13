@@ -43,9 +43,9 @@
         "StartLine": 6,
         "EndLine": 6,
         "StartColumn": 5,
-        "EndColumn": 12,
+        "EndColumn": 14,
         "Severity": "Error",
-        "Message": "The value, namespace, type or module 'console' is not defined. Maybe you want one of the following:\n   Consts\n   Control",
+        "Message": "The value, namespace, type or module 'myconsole' is not defined.",
         "Subcategory": "typecheck"
       }
     ]

@@ -1,8 +1,8 @@
 
-module console
+module myconsole
 
 [<EntryPoint>]
 let main argv =
-    console.undefinedsymbol 3
+    myconsole.undefinedsymbol 3
 
     0 // return an integer exit code
