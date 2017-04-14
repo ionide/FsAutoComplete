@@ -6,7 +6,8 @@ open System
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
-Diagnostics.Process.Start("dotnet", "restore sample1/c1")
+runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1"
+|> ignore
 
 let p = new FsAutoCompleteWrapper()
 
