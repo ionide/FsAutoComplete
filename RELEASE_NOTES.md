@@ -1,3 +1,7 @@
+#### 0.32.0 - 16.04.2017
+
+* .NET Core project support
+
 #### 0.31.1 - 07.02.2017
 
 * Allow for inconsistent casing of "Fsharp" when detecting: #149.
