@@ -111,15 +111,13 @@ type Commands (serialize : Serializer) =
         let (|NetCoreProjectJson|NetCoreSdk|Net45|Unsupported|) file =
             //.NET Core Sdk preview3+ replace project.json with fsproj
             //Easy way to detect new fsproj is to check the msbuild version of .fsproj
-            //  MSBuild version 15 (`ToolsVersion="15.0"`) is the new project format
             //Post preview5 has (`Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk"`), use that
             //  for checking .NET Core fsproj. NB: casing of FSharp may be inconsistent.
             //The `dotnet-compile-fsc.rsp` are created also in `preview3+`, so we can
             //  reuse the same behaviour of `preview2`
             let rec getProjectType (sr:StreamReader) limit =
-                // only preview3-5 uses ToolsVersion='15.0'
                 // post preview5 dropped this, check Sdk field
-                let isNetCore (line:string) = line.Contains("=\"15.0\"") || line.ToLower().Contains("sdk=")
+                let isNetCore (line:string) = line.ToLower().Contains("sdk=")
                 if limit = 0 then
                     Unsupported // unsupported project type
                 else
