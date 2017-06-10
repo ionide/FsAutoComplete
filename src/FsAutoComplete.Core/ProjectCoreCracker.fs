@@ -98,11 +98,17 @@ module ProjectCoreCracker =
             | Some t -> t
             | None -> failwith "error, 'TargetPath' property not found"
 
+        let compileFilesToAbsolutePath (f: string) =
+            if f.EndsWith(".fs") then
+                if Path.IsPathRooted f then f else Path.Combine(projDir, f)
+            else
+                f
+
         let po =
             {
                 ProjectFileName = file
                 ProjectFileNames = [||]
-                OtherOptions = rsp |> Array.ofList
+                OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
                 ReferencedProjects = p2pProjects |> Array.ofList
                 IsIncompleteTypeCheckEnvironment = false
                 UseScriptResolutionRules = false
