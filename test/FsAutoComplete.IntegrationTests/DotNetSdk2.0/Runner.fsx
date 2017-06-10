@@ -19,7 +19,7 @@ let sdkDir =
   
     printfn "downloading .net core sdk install script"
     use client = new System.Net.WebClient()
-    let installScriptPath = Path.Combine( __SOURCE_DIRECTORY__, ".dotnetsdk", file)
+    let installScriptPath = Path.Combine(sdkDir, file)
     client.DownloadFile("https://raw.githubusercontent.com/dotnet/cli/release/2.0.0/scripts/obtain/" + file, installScriptPath)
 
     printfn "installing .net core sdk to '%s'" sdkDir
