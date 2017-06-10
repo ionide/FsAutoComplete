@@ -7,8 +7,8 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
 let sdkDir =
-  let isWin = true
-  let file = if isWin then "dotnet-install.ps1" else "dotnet-install.sh"
+  let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
+  let file = if isWindows then "dotnet-install.ps1" else "dotnet-install.sh"
   let repoDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..")
   let sdkDir = Path.Combine(repoDir, ".dotnetsdk2_0") |> Path.GetFullPath
 
@@ -24,8 +24,12 @@ let sdkDir =
 
     printfn "installing .net core sdk to '%s'" sdkDir
 
-    let powershell script args = runProcess __SOURCE_DIRECTORY__ "powershell" (sprintf """-NoProfile -ExecutionPolicy unrestricted -File "%s" %s """ script args) |> ignore
-    powershell installScriptPath  (sprintf "-InstallDir %s -Channel release/2.0.0" sdkDir)
+    if isWindows then
+      let powershell script args = runProcess __SOURCE_DIRECTORY__ "powershell" (sprintf """-NoProfile -ExecutionPolicy unrestricted -File "%s" %s """ script args) |> ignore
+      powershell installScriptPath  (sprintf "-InstallDir %s -Channel release/2.0.0" sdkDir)
+    else
+      let bash script args = runProcess __SOURCE_DIRECTORY__ "bash" (sprintf """ "%s" %s """ script args) |> ignore
+      bash installScriptPath  (sprintf "--install-dir %s -channel release/2.0.0" sdkDir)
 
   sdkDir
 
