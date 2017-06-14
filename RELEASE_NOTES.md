@@ -1,3 +1,7 @@
+#### 0.33.0 - 13.06.2017
+
+* add sdk 2.0 support (#166)
+
 #### 0.32.0 - 16.04.2017
 
 * .NET Core project support
