@@ -2,8 +2,17 @@ language: csharp
 dist: trusty
 dotnet: 1.0.1
 
+mono:
+ - 4.8.0
+ - latest # => "stable release"
+ - weekly # => "latest commits"
+
 sudo: false
 
 script:
   - ./build.sh Test
 
+matrix:
+  allow_failures:
+    - mono: latest
+    - mono: weekly
