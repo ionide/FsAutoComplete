@@ -375,7 +375,10 @@ type FSharpCompilerServiceChecker() =
       try
         let po = ProjectCoreCracker.GetProjectOptionsFromProjectFile file
         let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
-        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
+        let outputFile = 
+            Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
+            |> Option.orElseFun (fun () -> Seq.tryPick (chooseByPrefix "-o:") po.OtherOptions)
+            |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
         Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
       with e ->
