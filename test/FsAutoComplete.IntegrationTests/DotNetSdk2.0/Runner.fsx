@@ -42,8 +42,14 @@ let withPath dir f =
     System.Environment.SetEnvironmentVariable("PATH", pathvar)
 
 let doIt () =
-  runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1"
-  |> ignore
+  runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+
+  match runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
+  | 0 -> ()
+  | err ->
+    let msg = sprintf "failure during 'dotnet restore sample1/c1' with error %i" err
+    msg |> writeNormalizedOutput "output.json"
+    failwith msg
 
   let p = new FsAutoCompleteWrapper()
 
