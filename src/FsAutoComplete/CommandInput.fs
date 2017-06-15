@@ -74,9 +74,9 @@ module CommandInput =
 
   /// Read multi-line input as a list of strings
   let rec readInput input =
-    let str = Console.ReadLine()
-    if str = "<<EOF>>" then List.rev input
-    else readInput (str::input)
+    match Console.ReadLine() with
+    | null | "<<EOF>>" -> List.rev input
+    | str -> readInput (str::input)
 
   // Parse 'parse "<filename>" [sync]' command
   let parse =
