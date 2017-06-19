@@ -56,9 +56,9 @@ let runIntegrationTest (fn: string) : bool =
   tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
   let result, msgs = FSIHelper.executeFSI dir fn []
   let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
-  //if not result then
-  for msg in msgs do
-    traceError msg.Message
+  if not result then
+    for msg in msgs do
+      traceError msg.Message
   result
 
 Target "IntegrationTest" (fun _ ->
