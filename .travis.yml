@@ -11,6 +11,8 @@ sudo: false
 
 script:
   - ./build.sh Test
+  - cd test/FsAutoComplete.IntegrationTests/DotNetCore
+  - fsharpi Runner.fsx
 
 matrix:
   allow_failures:
