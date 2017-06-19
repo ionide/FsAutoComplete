@@ -6,6 +6,8 @@ open System
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
+runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+
 match runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
 | 0 -> ()
 | err ->
