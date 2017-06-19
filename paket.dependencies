@@ -3,7 +3,7 @@ source https://www.nuget.org/api/v2/
 
 nuget FSharp.Compiler.Service 11.0.9 framework: >= net45
 nuget FSharp.Compiler.Service.ProjectCracker 11.0.9
-nuget Dotnet.ProjInfo 0.7.2
+nuget Dotnet.ProjInfo 0.7.3
 nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json
