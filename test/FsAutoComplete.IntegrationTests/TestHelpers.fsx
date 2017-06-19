@@ -120,6 +120,7 @@ let writeNormalizedOutput (fn: string) (s: string) =
         f.Write('\n')
 
 let runProcess (workingDir: string) (exePath: string) (args: string) =
+    printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
     let psi = System.Diagnostics.ProcessStartInfo()
     psi.FileName <- exePath
     psi.WorkingDirectory <- workingDir 
