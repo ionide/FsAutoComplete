@@ -4,6 +4,13 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
+module MSBuildPrj = Dotnet.ProjInfo.Inspect
+
+type NavigateProjectSM =
+    | NoCrossTargeting of NoCrossTargetingData
+    | CrossTargeting of string list
+and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP2PRefsInfo list; Properties: Map<string,string> }
+
 module ProjectCoreCracker =
   let GetProjectOptionsFromResponseFile (file : string)  =
     let projDir = Path.GetDirectoryName file
@@ -49,76 +56,98 @@ module ProjectCoreCracker =
       exitCode, (workingDir, exePath, args)
 
   let GetProjectOptionsFromProjectFile (file : string) =
-    let rec projInfo file =
+    
+    let rec projInfo additionalMSBuildProps file =
         let projDir = Path.GetDirectoryName file
 
-        let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
-
-        let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
         let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
-        let getP2PRefs = Dotnet.ProjInfo.Inspect.getP2PRefs
-        let gp () = Dotnet.ProjInfo.Inspect.getProperties ["TargetPath"]
-        let log = ignore
+        let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
+        let gp () = Dotnet.ProjInfo.Inspect.getProperties ["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"]
 
         let results =
-          file
-          |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] []
+            let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
+
+            let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
+            let log = ignore
+
+            let additionalArgs = additionalMSBuildProps |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
+
+            file
+            |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
     
-        // $(TargetPath)
-        let mutable rsp : string list = []
-        let mutable p2p : string list = []
-        let mutable props : (string * string) list = []
+        let todo =
+            match results with
+            | Choice1Of2 [getFscArgsResult; getP2PRefsResult; gpResult] -> 
+                match getFscArgsResult, getP2PRefsResult, gpResult with
+                | Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice1Of2 (MSBuildPrj.GetResult.Properties props) ->
+                    // Projects with multiple target frameworks, fails if the target framework is not choosen
+                    let prop key = props |> Map.ofList |> Map.tryFind key
 
-        let doResult result =
-          match result with
-          | Choice1Of2 (Dotnet.ProjInfo.Inspect.GetResult.FscArgs x) -> rsp <- x
-          | Choice1Of2 (Dotnet.ProjInfo.Inspect.GetResult.P2PRefs x) -> p2p <- x
-          | Choice1Of2 (Dotnet.ProjInfo.Inspect.GetResult.Properties p) -> props <- p
-          | Choice2Of2 r -> failwithf "error getting msbuild info: %A" r
+                    match prop "IsCrossTargetingBuild", prop "TargetFrameworks" with
+                    | Some (MSBuildPrj.MSBuild.ConditionEquals "true"), Some (MSBuildPrj.MSBuild.StringList tfms) ->
+                        CrossTargeting tfms
+                    | _ ->
+                        failwithf "error getting msbuild info: some targets skipped, found props: %A" props
+                | Choice1Of2 (MSBuildPrj.GetResult.FscArgs fa), Choice1Of2 (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), Choice1Of2 (MSBuildPrj.GetResult.Properties p) ->
+                    NoCrossTargeting { FscArgs = fa; P2PRefs = p2p; Properties = p |> Map.ofList }
+                | r ->
+                    failwithf "error getting msbuild info: %A" r
+            | Choice1Of2 r -> 
+                failwithf "error getting msbuild info: internal error, more info returned than expected %A" r
+            | Choice2Of2 r ->
+                match r with
+                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget -> 
+                    failwithf "Unexpected MSBuild result, all targets skipped"
+                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) -> 
+                    failwithf "Unexpected MSBuild result %s" r
+                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) -> 
+                    [ sprintf "MSBuild failed with exitCode %i" exitCode
+                      sprintf "Working Directory: '%s'" workDir
+                      sprintf "Exe Path: '%s'" exePath
+                      sprintf "Args: '%s'" args ]
+                    |> String.concat " "
+                    |> failwith
 
-        match results with
-        | Choice1Of2 r -> r |> List.iter doResult
-        | Choice2Of2 r ->
-            match r with
-            | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) -> 
-                failwithf "Unexpected MSBuild result %s" r
-            | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) -> 
-                [ sprintf "MSBuild failed with exitCode %i" exitCode
-                  sprintf "Working Directory: '%s'" workDir
-                  sprintf "Exe Path: '%s'" exePath
-                  sprintf "Args: '%s'" args ]
-                |> String.concat " "
-                |> failwith
+        match todo with
+        | CrossTargeting (tfm :: _) ->
+            // Atm setting a preferenece is not supported in FSAC
+            // As workaround, lets choose the first of the target frameworks and use that
+            file |> projInfo ["TargetFramework", tfm]
+        | CrossTargeting [] ->
+            failwithf "Unexpected, found cross targeting but empty target frameworks list"
+        | NoCrossTargeting { FscArgs = rsp; P2PRefs = p2ps; Properties = props } ->
 
-        //TODO cache projects info of p2p ref
-        let p2pProjects = p2p |> List.map projInfo
+            //TODO cache projects info of p2p ref
+            let p2pProjects =
+                p2ps
+                |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
 
-        let tar =
-            match props |> Map.ofList |> Map.tryFind "TargetPath" with
-            | Some t -> t
-            | None -> failwith "error, 'TargetPath' property not found"
+            let tar =
+                match props |> Map.tryFind "TargetPath" with
+                | Some t -> t
+                | None -> failwith "error, 'TargetPath' property not found"
 
-        let compileFilesToAbsolutePath (f: string) =
-            if f.EndsWith(".fs") then
-                if Path.IsPathRooted f then f else Path.Combine(projDir, f)
-            else
-                f
+            let compileFilesToAbsolutePath (f: string) =
+                if f.EndsWith(".fs") then
+                    if Path.IsPathRooted f then f else Path.Combine(projDir, f)
+                else
+                    f
 
-        let po =
-            {
-                ProjectFileName = file
-                ProjectFileNames = [||]
-                OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
-                ReferencedProjects = p2pProjects |> Array.ofList
-                IsIncompleteTypeCheckEnvironment = false
-                UseScriptResolutionRules = false
-                LoadTime = DateTime.Now
-                UnresolvedReferences = None;
-                OriginalLoadReferences = []
-                ExtraProjectInfo = None
-            }
+            let po =
+                {
+                    ProjectFileName = file
+                    ProjectFileNames = [||]
+                    OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
+                    ReferencedProjects = p2pProjects |> Array.ofList
+                    IsIncompleteTypeCheckEnvironment = false
+                    UseScriptResolutionRules = false
+                    LoadTime = DateTime.Now
+                    UnresolvedReferences = None;
+                    OriginalLoadReferences = []
+                    ExtraProjectInfo = None
+                }
 
-        tar, po
+            tar, po
 
-    let _, po = projInfo file
+    let _, po = projInfo [] file
     po
