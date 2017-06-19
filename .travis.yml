@@ -13,6 +13,8 @@ script:
   - ./build.sh Test
   - cd test/FsAutoComplete.IntegrationTests/DotNetCore
   - fsharpi Runner.fsx
+  - dotnet build -v n sample1/c1
+  - dotnet run -p sample1/c1/c1.fsproj
 
 matrix:
   allow_failures:
