@@ -6,21 +6,26 @@ open System
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
-runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+let doIt () =
+  runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
-match runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
-| 0 -> ()
-| err ->
+  use _expectNetFxBcl = DotnetCli.withNetFxBclAvaiable "4.5"
+
+  match runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
+  | 0 -> ()
+  | err ->
     let msg = sprintf "failure during 'dotnet restore sample1/c1' with error %i" err
     msg |> writeNormalizedOutput "output.json"
     failwith msg
 
-let p = new FsAutoCompleteWrapper()
+  let p = new FsAutoCompleteWrapper()
 
-p.project "sample1/c1/c1.fsproj"
-p.parse "sample1/c1/Program.fs"
+  p.project "sample1/c1/c1.fsproj"
+  p.parse "sample1/c1/Program.fs"
 
-p.send "quit\n"
-p.finalOutput ()
-|> writeNormalizedOutput "output.json"
+  p.send "quit\n"
+  p.finalOutput ()
+  |> writeNormalizedOutput "output.json"
 
+
+doIt ()

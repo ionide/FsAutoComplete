@@ -137,3 +137,64 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
       
     let exitCode = p.ExitCode
     exitCode
+
+let setEnvVar envVar f =
+  let oldValue = System.Environment.GetEnvironmentVariable(envVar)
+  let newValue = f oldValue
+  System.Environment.SetEnvironmentVariable(envVar, newValue)
+
+  { new IDisposable with 
+    member x.Dispose() =
+      System.Environment.SetEnvironmentVariable(envVar, oldValue) }
+
+let withPath dir =
+  setEnvVar "PATH" (fun pathvar -> dir + Path.PathSeparator.ToString() + pathvar)
+
+module DotnetCli =
+  let sdk2Dir ()=
+    let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
+    let file = if isWindows then "dotnet-install.ps1" else "dotnet-install.sh"
+    let repoDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "..")
+    let sdkDir = Path.Combine(repoDir, ".dotnetsdk2_0") |> Path.GetFullPath
+
+    if Directory.Exists(sdkDir) then
+      printfn ".net core sdk found in '%s'" sdkDir
+      sdkDir
+    else
+      printfn ".net core sdk not found in '%s'" sdkDir
+
+      Directory.CreateDirectory(sdkDir) |> ignore
+    
+      printfn "downloading .net core sdk install script"
+      use client = new System.Net.WebClient()
+      let installScriptPath = Path.Combine(sdkDir, file)
+      let installScriptUrl = "https://raw.githubusercontent.com/dotnet/cli/release/2.0.0/scripts/obtain/" + file
+      try
+        client.DownloadFile(installScriptUrl, installScriptPath)
+      with _ when not(isWindows) ->
+        //DownloadFile fails in WLS (https://github.com/Microsoft/BashOnWindows/issues/1639), fallback to curl
+        printfn "download failed, retry with curl"
+        match runProcess __SOURCE_DIRECTORY__  "curl" (sprintf "%s -o %s" installScriptUrl installScriptPath) with
+        | 0 -> ()
+        | _ -> failwithf "Failed to download script '%s' from curl" installScriptUrl
+
+      printfn "installing .net core sdk to '%s'" sdkDir
+
+      if isWindows then
+        let powershell script args = runProcess __SOURCE_DIRECTORY__ "powershell" (sprintf """-NoProfile -ExecutionPolicy unrestricted -File "%s" %s """ script args) |> ignore
+        powershell installScriptPath  (sprintf "-InstallDir %s -Channel release/2.0.0" sdkDir)
+      else
+        let bash script args = runProcess __SOURCE_DIRECTORY__ "bash" (sprintf """ "%s" %s """ script args) |> ignore
+        bash installScriptPath  (sprintf "--install-dir %s -channel release/2.0.0" sdkDir)
+
+      sdkDir
+
+  let withNetFxBclAvaiable version =
+    let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
+    match isWindows with
+    | true -> 
+      //on windows is not needed
+      { new IDisposable with member x.Dispose() = () }
+    | false ->
+      let monoLibPath = "/usr/lib/mono/"
+      setEnvVar "FrameworkPathOverride" (fun _ -> sprintf "%s%s-api/" monoLibPath version)
