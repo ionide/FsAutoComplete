@@ -1,6 +1,6 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>netstandard1.6;net45</TargetFrameworks>
+    <TargetFramework>netstandard1.6</TargetFramework>
     <MyCustomProp>custom value</MyCustomProp>
   </PropertyGroup>
   <ItemGroup>
