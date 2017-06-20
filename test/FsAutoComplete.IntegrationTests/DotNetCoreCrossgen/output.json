@@ -83,7 +83,7 @@
       "<absolute path removed>/System.Threading.dll",
       "<absolute path removed>/System.Xml.ReaderWriter.dll",
       "<absolute path removed>/System.Xml.XDocument.dll",
-      "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgen/sample1/l1/bin/Debug/netstandard1.6/l1.dll"
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgen/sample1/l1/bin/Debug/netcoreapp1.0/l1.dll"
     ],
     "Logs": {}
   }

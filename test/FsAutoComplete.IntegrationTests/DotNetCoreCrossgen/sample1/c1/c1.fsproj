@@ -1,7 +1,7 @@
 <Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>netcoreapp1.0;net461</TargetFrameworks>
+    <TargetFrameworks>netcoreapp1.0;netcoreapp1.1</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.fs" />
