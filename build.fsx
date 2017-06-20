@@ -50,16 +50,32 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
+let isTestSkipped fn =
+  let file = Path.GetFileName(fn)
+  let dir = Path.GetFileName(Path.GetDirectoryName(fn))
+  match dir, file with
+  | "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
+    match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
+    | true, _ -> None //always run it on windows
+    | false, "1" -> None //force run on mono
+    | false, _ -> Some "not supported on this mono version" //by default skipped on mono
+  | _ -> None
+
 let runIntegrationTest (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
- 
-  tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
-  let result, msgs = FSIHelper.executeFSI dir fn []
-  let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
-  if not result then
-    for msg in msgs do
-      traceError msg.Message
-  result
+
+  match isTestSkipped fn with
+  | Some msg ->
+    tracefn "Skipped '%s' reason: %s"  fn msg
+    true
+  | None ->
+    tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
+    let result, msgs = FSIHelper.executeFSI dir fn []
+    let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
+    if not result then
+      for msg in msgs do
+        traceError msg.Message
+    result
 
 Target "IntegrationTest" (fun _ ->
   let runOk =
