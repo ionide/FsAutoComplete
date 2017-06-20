@@ -9,8 +9,6 @@ File.Delete "output.json"
 let doIt () =
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
-  use _expectNetFxBcl = DotnetCli.withNetFxBclAvaiable "4.5"
-
   match runProcess __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
   | 0 -> ()
   | err ->
