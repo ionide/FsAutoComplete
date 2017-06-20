@@ -41,15 +41,24 @@ module ProjectCoreCracker =
       let psi = System.Diagnostics.ProcessStartInfo()
       psi.FileName <- exePath
       psi.WorkingDirectory <- workingDir 
-      psi.RedirectStandardOutput <- false
-      psi.RedirectStandardError <- false
+      psi.RedirectStandardOutput <- true
+      psi.RedirectStandardError <- true
       psi.Arguments <- args
       psi.CreateNoWindow <- true
       psi.UseShellExecute <- false
 
       use p = new System.Diagnostics.Process()
       p.StartInfo <- psi
+
+      let sbOut = System.Text.StringBuilder()
+      p.OutputDataReceived.Add(fun ea -> sbOut.AppendLine(ea.Data) |> ignore)
+
+      let sbErr = System.Text.StringBuilder()
+      p.ErrorDataReceived.Add(fun ea -> sbErr.AppendLine(ea.Data) |> ignore)
+
       p.Start() |> ignore
+      p.BeginOutputReadLine()
+      p.BeginErrorReadLine()
       p.WaitForExit()
       
       let exitCode = p.ExitCode
