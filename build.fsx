@@ -54,6 +54,7 @@ let isTestSkipped fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
   match dir, file with
+  | "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
   | "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
     | true, _ -> None //always run it on windows
