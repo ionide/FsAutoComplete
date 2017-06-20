@@ -1,0 +1,99 @@
+{
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0CrossgenWithNetFx/sample1/c1/c1.fsproj",
+    "Files": [
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0CrossgenWithNetFx/sample1/c1/Program.fs"
+    ],
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0CrossgenWithNetFx/sample1/c1/obj/Debug/net461/c1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/Newtonsoft.Json.dll",
+      "<absolute path removed>/System.Collections.Concurrent.dll",
+      "<absolute path removed>/System.Collections.dll",
+      "<absolute path removed>/System.ComponentModel.Annotations.dll",
+      "<absolute path removed>/System.ComponentModel.Composition.dll",
+      "<absolute path removed>/System.ComponentModel.EventBasedAsync.dll",
+      "<absolute path removed>/System.ComponentModel.dll",
+      "<absolute path removed>/System.Console.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.Data.dll",
+      "<absolute path removed>/System.Diagnostics.Contracts.dll",
+      "<absolute path removed>/System.Diagnostics.Debug.dll",
+      "<absolute path removed>/System.Diagnostics.Tools.dll",
+      "<absolute path removed>/System.Diagnostics.Tracing.dll",
+      "<absolute path removed>/System.Drawing.dll",
+      "<absolute path removed>/System.Dynamic.Runtime.dll",
+      "<absolute path removed>/System.Globalization.dll",
+      "<absolute path removed>/System.IO.Compression.FileSystem.dll",
+      "<absolute path removed>/System.IO.dll",
+      "<absolute path removed>/System.Linq.Expressions.dll",
+      "<absolute path removed>/System.Linq.Parallel.dll",
+      "<absolute path removed>/System.Linq.Queryable.dll",
+      "<absolute path removed>/System.Linq.dll",
+      "<absolute path removed>/System.Net.NetworkInformation.dll",
+      "<absolute path removed>/System.Net.Primitives.dll",
+      "<absolute path removed>/System.Net.Requests.dll",
+      "<absolute path removed>/System.Net.WebHeaderCollection.dll",
+      "<absolute path removed>/System.Numerics.dll",
+      "<absolute path removed>/System.ObjectModel.dll",
+      "<absolute path removed>/System.Reflection.Emit.ILGeneration.dll",
+      "<absolute path removed>/System.Reflection.Emit.Lightweight.dll",
+      "<absolute path removed>/System.Reflection.Emit.dll",
+      "<absolute path removed>/System.Reflection.Extensions.dll",
+      "<absolute path removed>/System.Reflection.Primitives.dll",
+      "<absolute path removed>/System.Reflection.dll",
+      "<absolute path removed>/System.Resources.ResourceManager.dll",
+      "<absolute path removed>/System.Runtime.Extensions.dll",
+      "<absolute path removed>/System.Runtime.Handles.dll",
+      "<absolute path removed>/System.Runtime.InteropServices.WindowsRuntime.dll",
+      "<absolute path removed>/System.Runtime.InteropServices.dll",
+      "<absolute path removed>/System.Runtime.Numerics.dll",
+      "<absolute path removed>/System.Runtime.Serialization.Json.dll",
+      "<absolute path removed>/System.Runtime.Serialization.Primitives.dll",
+      "<absolute path removed>/System.Runtime.Serialization.Xml.dll",
+      "<absolute path removed>/System.Runtime.Serialization.dll",
+      "<absolute path removed>/System.Runtime.dll",
+      "<absolute path removed>/System.Security.Principal.dll",
+      "<absolute path removed>/System.ServiceModel.Duplex.dll",
+      "<absolute path removed>/System.ServiceModel.Http.dll",
+      "<absolute path removed>/System.ServiceModel.NetTcp.dll",
+      "<absolute path removed>/System.ServiceModel.Primitives.dll",
+      "<absolute path removed>/System.ServiceModel.Security.dll",
+      "<absolute path removed>/System.Text.Encoding.Extensions.dll",
+      "<absolute path removed>/System.Text.Encoding.dll",
+      "<absolute path removed>/System.Text.RegularExpressions.dll",
+      "<absolute path removed>/System.Threading.Tasks.Parallel.dll",
+      "<absolute path removed>/System.Threading.Tasks.dll",
+      "<absolute path removed>/System.Threading.Thread.dll",
+      "<absolute path removed>/System.Threading.ThreadPool.dll",
+      "<absolute path removed>/System.Threading.Timer.dll",
+      "<absolute path removed>/System.Threading.dll",
+      "<absolute path removed>/System.ValueTuple.dll",
+      "<absolute path removed>/System.Xml.Linq.dll",
+      "<absolute path removed>/System.Xml.ReaderWriter.dll",
+      "<absolute path removed>/System.Xml.XDocument.dll",
+      "<absolute path removed>/System.Xml.XmlSerializer.dll",
+      "<absolute path removed>/System.Xml.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0CrossgenWithNetFx/sample1/l1/bin/Debug/net46/l1.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {}
+  }
+}
+non-IL or abstract method with non-zero RVA
+non-IL or abstract method with non-zero RVA
+non-IL or abstract method with non-zero RVA
+non-IL or abstract method with non-zero RVA
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0CrossgenWithNetFx/sample1/c1/Program.fs",
+    "Errors": []
+  }
+}
