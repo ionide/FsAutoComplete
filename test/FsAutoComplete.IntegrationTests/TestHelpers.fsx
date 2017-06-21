@@ -193,7 +193,7 @@ let withPath dir =
   setEnvVar "PATH" (fun pathvar -> dir + Path.PathSeparator.ToString() + pathvar)
 
 module DotnetCli =
-  let sdk2Dir ()=
+  let sdk2Dir () =
     let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
     let file = if isWindows then "dotnet-install.ps1" else "dotnet-install.sh"
     let repoDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "..")
@@ -230,6 +230,12 @@ module DotnetCli =
         bash installScriptPath  (sprintf "--install-dir %s -channel release/2.0.0" sdkDir)
 
       sdkDir
+
+  let useSdk sdkDir =
+    let p = withPath sdkDir
+    let e = setEnvVar "DOTNET_CLI_TELEMETRY_OPTOUT" (fun _ -> "1")
+    { new IDisposable with
+      member x.Dispose() = p.Dispose(); e.Dispose() }
 
   let withNetFxBclAvaiable version =
     let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT

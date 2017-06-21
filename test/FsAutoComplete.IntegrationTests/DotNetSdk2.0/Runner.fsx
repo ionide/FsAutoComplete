@@ -9,7 +9,7 @@ File.Delete "output.json"
 let doIt () =
   let sdkDir = DotnetCli.sdk2Dir ()
   
-  use _modifiedEnv = withPath sdkDir
+  use _sdk2 = DotnetCli.useSdk sdkDir
 
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
