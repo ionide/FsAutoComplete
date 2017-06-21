@@ -7,11 +7,9 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
 let doIt () =
-  let sdkDir = DotnetCli.sdk2Dir ()
-  
-  use _sdk2 = DotnetCli.useSdk sdkDir
-
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+
+  use _withNetFxLib = DotnetCli.withNetFxBclAvaiable "4.6.1"
 
   match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
   | NonExitCodeResult data ->
@@ -25,5 +23,6 @@ let doIt () =
     p.send "quit\n"
     p.finalOutput ()
     |> writeNormalizedOutput "output.json"
+
 
 doIt ()

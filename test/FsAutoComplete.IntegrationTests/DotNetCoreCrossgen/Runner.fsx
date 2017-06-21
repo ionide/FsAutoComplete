@@ -7,10 +7,6 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
 let doIt () =
-  let sdkDir = DotnetCli.sdk2Dir ()
-  
-  use _sdk2 = DotnetCli.useSdk sdkDir
-
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
   match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
@@ -25,5 +21,6 @@ let doIt () =
     p.send "quit\n"
     p.finalOutput ()
     |> writeNormalizedOutput "output.json"
+
 
 doIt ()

@@ -8,7 +8,9 @@ File.Delete "output.json"
 
 let doIt () =
   let sdkDir = DotnetCli.sdk2Dir ()
-  
+
+  use _withNetFxLib = DotnetCli.withNetFxBclAvaiable "4.6.1"
+
   use _sdk2 = DotnetCli.useSdk sdkDir
 
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
