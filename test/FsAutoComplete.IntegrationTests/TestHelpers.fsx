@@ -175,11 +175,6 @@ let processResultLog msg (err, outData, errData) =
     errData |> List.iter (fun (s: string) -> sb.Append(s) |> ignore)
     sb.ToString()
 
-let logNonExitCode f processResult =
-  match processResult with
-  | (0,_,_) -> ()
-  | data -> f data
-
 let (|NonExitCodeResult|_|) processResult =
   match processResult with
   | (0,_,_) -> None

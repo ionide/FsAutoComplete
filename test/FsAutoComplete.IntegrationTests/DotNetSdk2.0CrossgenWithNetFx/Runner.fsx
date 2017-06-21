@@ -15,16 +15,17 @@ let doIt () =
 
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
-  runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1"
-  |> logNonExitCode (processResultLog "failed 'dotnet restore sample1/c1'" >> writeNormalizedOutput "output.json")
+  match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
+  | NonExitCodeResult data ->
+    data |> processResultLog "failed 'dotnet restore sample1/c1'" |> writeNormalizedOutput "output.json"
+  | _ ->
+    let p = new FsAutoCompleteWrapper()
 
-  let p = new FsAutoCompleteWrapper()
+    p.project "sample1/c1/c1.fsproj"
+    p.parse "sample1/c1/Program.fs"
 
-  p.project "sample1/c1/c1.fsproj"
-  p.parse "sample1/c1/Program.fs"
-
-  p.send "quit\n"
-  p.finalOutput ()
-  |> writeNormalizedOutput "output.json"
+    p.send "quit\n"
+    p.finalOutput ()
+    |> writeNormalizedOutput "output.json"
 
 doIt ()
