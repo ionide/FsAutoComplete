@@ -191,10 +191,9 @@ module DotnetCli =
 
   let withNetFxBclAvaiable version =
     let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
-    match isWindows with
-    | true -> 
+    if isWindows then
       //on windows is not needed
       { new IDisposable with member x.Dispose() = () }
-    | false ->
+    else
       let monoLibPath = "/usr/lib/mono/"
       setEnvVar "FrameworkPathOverride" (fun _ -> sprintf "%s%s-api/" monoLibPath version)
