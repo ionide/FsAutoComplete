@@ -138,6 +138,34 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     let exitCode = p.ExitCode
     exitCode
 
+let runProcessCaptureOut (workingDir: string) (exePath: string) (args: string) =
+    printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
+    let psi = System.Diagnostics.ProcessStartInfo()
+    psi.FileName <- exePath
+    psi.WorkingDirectory <- workingDir
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    psi.Arguments <- args
+    psi.CreateNoWindow <- true
+    psi.UseShellExecute <- false
+
+    use p = new System.Diagnostics.Process()
+    p.StartInfo <- psi
+
+    let sbOut = System.Collections.Generic.List<string>()
+    p.OutputDataReceived.Add(fun ea -> sbOut.Add(ea.Data) |> ignore)
+
+    let sbErr = System.Collections.Generic.List<string>()
+    p.ErrorDataReceived.Add(fun ea -> sbErr.Add(ea.Data) |> ignore)
+
+    p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+    p.WaitForExit()
+
+    let exitCode = p.ExitCode
+    (exitCode, sbOut, sbErr)
+
 let setEnvVar envVar f =
   let oldValue = System.Environment.GetEnvironmentVariable(envVar)
   let newValue = f oldValue
