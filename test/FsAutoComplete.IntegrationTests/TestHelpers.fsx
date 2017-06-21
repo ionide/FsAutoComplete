@@ -180,6 +180,11 @@ let logNonExitCode f processResult =
   | (0,_,_) -> ()
   | data -> f data
 
+let (|NonExitCodeResult|_|) processResult =
+  match processResult with
+  | (0,_,_) -> None
+  | data -> Some data
+
 let setEnvVar envVar f =
   let oldValue = System.Environment.GetEnvironmentVariable(envVar)
   let newValue = f oldValue
