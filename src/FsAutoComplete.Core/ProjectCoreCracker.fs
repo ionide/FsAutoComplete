@@ -129,6 +129,8 @@ module ProjectCoreCracker =
             //TODO cache projects info of p2p ref
             let p2pProjects =
                 p2ps
+                // do not follow others lang project, is not supported by FCS anyway
+                |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
                 |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
 
             let tar =
