@@ -13,16 +13,8 @@ let doIt () =
 
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
-  match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
-  | (0,_,_) -> ()
-  | (err,outData,errData) ->
-    let sb = System.Text.StringBuilder()
-    sb.Append(sprintf "failure during 'dotnet restore sample1/c1' with error %i" err) |> ignore
-    sb.Append("Output:") |> ignore
-    outData |> Seq.iter (sb.Append >> ignore)
-    sb.Append("Error:") |> ignore
-    outData |> Seq.iter (sb.Append >> ignore)
-    sb.ToString() |> writeNormalizedOutput "output.json"
+  runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1"
+  |> logNonExitCode (processResultLog "failed 'dotnet restore sample1/c1'" >> writeNormalizedOutput "output.json")
 
   let p = new FsAutoCompleteWrapper()
 

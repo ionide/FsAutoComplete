@@ -164,7 +164,21 @@ let runProcessCaptureOut (workingDir: string) (exePath: string) (args: string) =
     p.WaitForExit()
 
     let exitCode = p.ExitCode
-    (exitCode, sbOut, sbErr)
+    (exitCode, sbOut |> List.ofSeq, sbErr |> List.ofSeq)
+
+let processResultLog msg (err, outData, errData) =
+    let sb = System.Text.StringBuilder()
+    sb.Append(sprintf "%s with exit code %i" msg err) |> ignore
+    sb.Append("Output:") |> ignore
+    outData |> List.iter (fun (s: string) -> sb.Append(s) |> ignore)
+    sb.Append("Error:") |> ignore
+    errData |> List.iter (fun (s: string) -> sb.Append(s) |> ignore)
+    sb.ToString()
+
+let logNonExitCode f processResult =
+  match processResult with
+  | (0,_,_) -> ()
+  | data -> f data
 
 let setEnvVar envVar f =
   let oldValue = System.Environment.GetEnvironmentVariable(envVar)
