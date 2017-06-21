@@ -233,7 +233,7 @@ module DotnetCli =
 
   let useSdk sdkDir =
     let p = withPath sdkDir
-    let e = setEnvVar "DOTNET_CLI_TELEMETRY_OPTOUT" (fun _ -> "1")
+    let e = setEnvVar "DOTNET_SKIP_FIRST_TIME_EXPERIENCE" (fun _ -> "1")
     { new IDisposable with
       member x.Dispose() = p.Dispose(); e.Dispose() }
 
