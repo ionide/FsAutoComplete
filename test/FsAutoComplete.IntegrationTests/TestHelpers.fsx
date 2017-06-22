@@ -23,6 +23,8 @@ type FsAutoCompleteWrapper() =
     p.StartInfo.RedirectStandardInput  <- true
     p.StartInfo.UseShellExecute <- false
     p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
+      p.StartInfo.Arguments <- "--wait-for-debugger"
     p.Start () |> ignore
 
   member x.project (s: string) : unit =
