@@ -90,6 +90,7 @@ module internal Main =
       printfn "Unrecognised arguments: %s" (String.concat "," extra)
       1
     else
+      Debug.checkIfWaitForDebugger()
       try
         async {
           while true do
