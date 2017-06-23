@@ -6,6 +6,12 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 
 module MSBuildPrj = Dotnet.ProjInfo.Inspect
 
+type GetProjectOptionsErrors =
+     | ProjectNotRestored of string
+     | GenericError of string
+
+exception ProjectInspectException of GetProjectOptionsErrors
+
 type NavigateProjectSM =
     | NoCrossTargeting of NoCrossTargetingData
     | CrossTargeting of string list
@@ -68,6 +74,10 @@ module ProjectCoreCracker =
     
     let rec projInfo additionalMSBuildProps file =
         let projDir = Path.GetDirectoryName file
+
+        let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
+        if not(File.Exists(projectAssetsJsonPath)) then
+            raise (ProjectInspectException (ProjectNotRestored file))
 
         let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
