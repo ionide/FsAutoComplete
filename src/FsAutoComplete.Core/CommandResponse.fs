@@ -79,6 +79,16 @@ module CommandResponse =
       GlyphChar: string
     }
 
+  type ResponseError<'T> =
+    {
+      Code: int
+      Message: string
+      Data: 'T
+    }
+
+  type ErrorCodes =
+    | ProjectNotRestored = 100
+
   type ProjectResponse =
     {
       Project: ProjectFilePath
@@ -248,6 +258,7 @@ module CommandResponse =
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
   let error (serialize : Serializer) (s: string) = serialize { Kind = "error"; Data = s }
+  let errorG (serialize : Serializer) (code: ErrorCodes) message data = serialize { Kind = "error"; Data = { Code = (int code); Message = message; Data = data }  }
 
   let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
