@@ -145,10 +145,10 @@ type Commands (serialize : Serializer) =
                     | Unsupported -> checker.TryGetProjectOptions (projectFileName, verbose)
 
                 match options with
-                | Result.Failure error ->
+                | Result.Err error ->
                     project.Response <- None
-                    [Response.error serialize error]
-                | Result.Success (opts, projectFiles, outFileOpt, references, logMap) ->
+                    [Response.projectError serialize error]
+                | Result.Ok (opts, projectFiles, outFileOpt, references, logMap) ->
                     let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                     let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
                     for file in projectFiles do

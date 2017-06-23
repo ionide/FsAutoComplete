@@ -313,9 +313,9 @@ type FSharpCompilerServiceChecker() =
 
 
 
-  member __.TryGetProjectOptions (file: SourceFilePath, verbose: bool) : Result<_> =
+  member __.TryGetProjectOptions (file: SourceFilePath, verbose: bool) =
     if not (File.Exists file) then
-      Failure (sprintf "File '%s' does not exist" file)
+      Err (GenericError(sprintf "File '%s' does not exist" file))
     else
       try
         let po, logMap =
@@ -351,26 +351,26 @@ type FSharpCompilerServiceChecker() =
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
 
-        Success (po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
+        Ok (po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
       with e ->
-        Failure e.Message
+        Err (GenericError(e.Message))
 
-  member __.TryGetProjectJsonProjectOptions (file : SourceFilePath) : Result<_> =
+  member __.TryGetProjectJsonProjectOptions (file : SourceFilePath) =
     if not (File.Exists file) then
-      Failure (sprintf "File '%s' does not exist" file)
+      Err (GenericError(sprintf "File '%s' does not exist" file))
     else
       try
         let po = ProjectCoreCracker.GetProjectOptionsFromResponseFile file
         let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
+        Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
       with e ->
-        Failure e.Message
+        Err (GenericError(e.Message))
 
-  member __.TryGetCoreProjectOptions (file : SourceFilePath) : Result<_> =
+  member __.TryGetCoreProjectOptions (file : SourceFilePath) =
     if not (File.Exists file) then
-      Failure (sprintf "File '%s' does not exist" file)
+      Err (GenericError(sprintf "File '%s' does not exist" file))
     else
       try
         let po = ProjectCoreCracker.GetProjectOptionsFromProjectFile file
@@ -380,9 +380,10 @@ type FSharpCompilerServiceChecker() =
             |> Option.orElseFun (fun () -> Seq.tryPick (chooseByPrefix "-o:") po.OtherOptions)
             |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        Success (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
-      with e ->
-        Failure e.Message
+        Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
+      with
+        | ProjectInspectException d -> Err d
+        | e -> Err (GenericError(e.Message))
 
   member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
     let projects = getDependingProjects file options

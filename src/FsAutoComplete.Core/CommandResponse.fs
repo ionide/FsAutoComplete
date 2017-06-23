@@ -273,6 +273,11 @@ module CommandResponse =
         Logs = logMap }
     serialize { Kind = "project"; Data = projectData }
 
+  let projectError (serialize : Serializer) errorDetails =
+    match errorDetails with
+    | GenericError errorMessage -> error serialize errorMessage //compatibility with old api
+    | ProjectNotRestored project -> errorG serialize (ErrorCodes.ProjectNotRestored) "Project not restored" project
+
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do

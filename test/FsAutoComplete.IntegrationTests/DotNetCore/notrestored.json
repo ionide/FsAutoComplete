@@ -1,0 +1,8 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 100,
+    "Message": "Project not restored",
+    "Data": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCore/sample1/c1/c1.fsproj"
+  }
+}
