@@ -82,4 +82,7 @@ module Options =
         fun _ -> printfn "%s" Version.string;
                  p.WriteOptionDescriptions(stdout);
                  exit 0
+      "wait-for-debugger", "wait for a debugger to attach to the process",
+        fun _ -> Debug.waitForDebugger := true
+
     ]
