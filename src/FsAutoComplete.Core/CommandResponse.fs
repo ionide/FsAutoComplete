@@ -86,8 +86,14 @@ module CommandResponse =
       Data: 'T
     }
 
+  [<RequireQualifiedAccess>]
   type ErrorCodes =
     | ProjectNotRestored = 100
+
+  [<RequireQualifiedAccess>]
+  type ErrorData =
+    | ProjectNotRestored of ProjectNotRestoredData
+  and ProjectNotRestoredData = { Project: ProjectFilePath }
 
   type ProjectResponse =
     {
@@ -258,7 +264,11 @@ module CommandResponse =
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
   let error (serialize : Serializer) (s: string) = serialize { Kind = "error"; Data = s }
-  let errorG (serialize : Serializer) (code: ErrorCodes) message data = serialize { Kind = "error"; Data = { Code = (int code); Message = message; Data = data }  }
+  let errorG (serialize : Serializer) (errorData: ErrorData) message =
+    let inline ser code data =
+        serialize { Kind = "error"; Data = { Code = (int code); Message = message; Data = data }  }
+    match errorData with
+    | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d
 
   let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
@@ -276,7 +286,7 @@ module CommandResponse =
   let projectError (serialize : Serializer) errorDetails =
     match errorDetails with
     | GenericError errorMessage -> error serialize errorMessage //compatibility with old api
-    | ProjectNotRestored project -> errorG serialize (ErrorCodes.ProjectNotRestored) "Project not restored" project
+    | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored" 
 
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
