@@ -9,11 +9,6 @@ File.Delete outputJson
 
 runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
-let deleteDir d = 
-  if Directory.Exists(d) then
-    printfn "Deleting dir '%s'" d
-    Directory.Delete(d, true)
-
 [ for c in ["c1";"l1"] do
     for outDir in ["obj";"bin"] do
       yield System.IO.Path.Combine("sample1", c, outDir) ]
