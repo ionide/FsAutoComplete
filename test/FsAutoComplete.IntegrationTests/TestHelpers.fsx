@@ -155,10 +155,14 @@ let runProcessCaptureOut (workingDir: string) (exePath: string) (args: string) =
     p.StartInfo <- psi
 
     let sbOut = System.Collections.Generic.List<string>()
-    p.OutputDataReceived.Add(fun ea -> sbOut.Add(ea.Data) |> ignore)
+    p.OutputDataReceived.Add(fun ea ->
+        printfn "%s" (ea.Data)
+        sbOut.Add(ea.Data) |> ignore)
 
     let sbErr = System.Collections.Generic.List<string>()
-    p.ErrorDataReceived.Add(fun ea -> sbErr.Add(ea.Data) |> ignore)
+    p.ErrorDataReceived.Add(fun ea ->
+        printfn "%s" (ea.Data)
+        sbErr.Add(ea.Data) |> ignore)
 
     p.Start() |> ignore
     p.BeginOutputReadLine()
