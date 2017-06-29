@@ -208,11 +208,13 @@ module DotnetCli =
       printfn ".net core sdk not found in '%s'" sdkDir
 
       Directory.CreateDirectory(sdkDir) |> ignore
+
+      let branch = "release/2.0.0-preview2"
     
-      printfn "downloading .net core sdk install script"
       use client = new System.Net.WebClient()
       let installScriptPath = Path.Combine(sdkDir, file)
-      let installScriptUrl = "https://raw.githubusercontent.com/dotnet/cli/release/2.0.0/scripts/obtain/" + file
+      let installScriptUrl = sprintf "https://raw.githubusercontent.com/dotnet/cli/%s/scripts/obtain/%s" branch file
+      printfn "downloading .net core sdk install script %s" installScriptUrl
       try
         client.DownloadFile(installScriptUrl, installScriptPath)
       with _ when not(isWindows) ->
@@ -222,14 +224,14 @@ module DotnetCli =
         | 0 -> ()
         | _ -> failwithf "Failed to download script '%s' from curl" installScriptUrl
 
-      printfn "installing .net core sdk to '%s'" sdkDir
+      printfn "installing .net core sdk (branch %s) to '%s'" branch sdkDir
 
       if isWindows then
         let powershell script args = runProcess __SOURCE_DIRECTORY__ "powershell" (sprintf """-NoProfile -ExecutionPolicy unrestricted -File "%s" %s """ script args) |> ignore
-        powershell installScriptPath  (sprintf "-InstallDir %s -Channel release/2.0.0" sdkDir)
+        powershell installScriptPath  (sprintf "-InstallDir %s -Channel %s" sdkDir branch)
       else
         let bash script args = runProcess __SOURCE_DIRECTORY__ "bash" (sprintf """ "%s" %s """ script args) |> ignore
-        bash installScriptPath  (sprintf "--install-dir %s -channel release/2.0.0" sdkDir)
+        bash installScriptPath  (sprintf "--install-dir %s -channel %s" sdkDir branch)
 
       sdkDir
 
