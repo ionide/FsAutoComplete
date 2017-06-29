@@ -4,7 +4,7 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.json"
+File.Delete "appandlib.json"
 
 let doIt () =
   let sdkDir = DotnetCli.sdk2Dir ()
@@ -15,7 +15,7 @@ let doIt () =
 
   match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
   | NonExitCodeResult data ->
-    data |> processResultLog "failed 'dotnet restore sample1/c1'" |> writeNormalizedOutput "output.json"
+    data |> processResultLog "failed 'dotnet restore sample1/c1'" |> writeNormalizedOutput "appandlib.json"
   | _ ->
     let p = new FsAutoCompleteWrapper()
 
@@ -24,6 +24,6 @@ let doIt () =
 
     p.send "quit\n"
     p.finalOutput ()
-    |> writeNormalizedOutput "output.json"
+    |> writeNormalizedOutput "appandlib.json"
 
 doIt ()
