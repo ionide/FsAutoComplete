@@ -1,4 +1,8 @@
 {
   "Kind": "error",
-  "Data": "Unknown command or wrong arguments"
+  "Data": {
+    "Code": 1,
+    "Message": "Unknown command or wrong arguments",
+    "Data": {}
+  }
 }

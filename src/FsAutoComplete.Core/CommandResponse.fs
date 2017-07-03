@@ -88,10 +88,12 @@ module CommandResponse =
 
   [<RequireQualifiedAccess>]
   type ErrorCodes =
+    | GenericError = 1
     | ProjectNotRestored = 100
 
   [<RequireQualifiedAccess>]
   type ErrorData =
+    | GenericError
     | ProjectNotRestored of ProjectNotRestoredData
   and ProjectNotRestoredData = { Project: ProjectFilePath }
 
@@ -263,12 +265,15 @@ module CommandResponse =
 
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
-  let error (serialize : Serializer) (s: string) = serialize { Kind = "error"; Data = s }
+
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
     let inline ser code data =
         serialize { Kind = "error"; Data = { Code = (int code); Message = message; Data = data }  }
     match errorData with
+    | ErrorData.GenericError -> ser (ErrorCodes.GenericError) (obj())
     | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d
+
+  let error (serialize : Serializer) (s: string) = errorG serialize ErrorData.GenericError s
 
   let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))

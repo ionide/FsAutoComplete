@@ -20,5 +20,9 @@
 }
 {
   "Kind": "error",
-  "Data": "File '<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs' not parsed"
+  "Data": {
+    "Code": 1,
+    "Message": "File '<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchFile.fs' not parsed",
+    "Data": {}
+  }
 }
