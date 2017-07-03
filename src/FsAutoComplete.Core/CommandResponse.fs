@@ -83,7 +83,7 @@ module CommandResponse =
     {
       Code: int
       Message: string
-      Data: 'T
+      AdditionalData: 'T
     }
 
   [<RequireQualifiedAccess>]
@@ -268,7 +268,7 @@ module CommandResponse =
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
     let inline ser code data =
-        serialize { Kind = "error"; Data = { Code = (int code); Message = message; Data = data }  }
+        serialize { Kind = "error"; Data = { Code = (int code); Message = message; AdditionalData = data }  }
     match errorData with
     | ErrorData.GenericError -> ser (ErrorCodes.GenericError) (obj())
     | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d

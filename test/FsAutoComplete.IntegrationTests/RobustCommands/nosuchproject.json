@@ -3,6 +3,6 @@
   "Data": {
     "Code": 1,
     "Message": "File '<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchProject.fsproj' does not exist",
-    "Data": {}
+    "AdditionalData": {}
   }
 }

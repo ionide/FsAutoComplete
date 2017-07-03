@@ -34,7 +34,7 @@
   "Data": {
     "Code": 1,
     "Message": "Position is out of range",
-    "Data": {}
+    "AdditionalData": {}
   }
 }
 {
@@ -42,6 +42,6 @@
   "Data": {
     "Code": 1,
     "Message": "Position is out of range",
-    "Data": {}
+    "AdditionalData": {}
   }
 }
