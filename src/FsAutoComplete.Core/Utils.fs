@@ -10,6 +10,10 @@ type Result<'a> =
   | Success of 'a
   | Failure of string
 
+type Result<'a,'b> =
+  | Ok of 'a
+  | Err of 'b
+
 type Pos =
     { Line: int
       Col: int }

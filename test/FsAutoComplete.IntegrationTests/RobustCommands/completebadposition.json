@@ -31,9 +31,17 @@
 }
 {
   "Kind": "error",
-  "Data": "Position is out of range"
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
 }
 {
   "Kind": "error",
-  "Data": "Position is out of range"
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
 }

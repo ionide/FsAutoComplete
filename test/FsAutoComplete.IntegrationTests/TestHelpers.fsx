@@ -186,6 +186,11 @@ let (|NonExitCodeResult|_|) processResult =
   | (0,_,_) -> None
   | data -> Some data
 
+let deleteDir d = 
+  if Directory.Exists(d) then
+    printfn "Deleting dir '%s'" d
+    Directory.Delete(d, true)
+
 let setEnvVar envVar f =
   let oldValue = System.Environment.GetEnvironmentVariable(envVar)
   let newValue = f oldValue

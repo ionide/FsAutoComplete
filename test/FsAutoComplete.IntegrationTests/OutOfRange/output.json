@@ -42,7 +42,11 @@
 }
 {
   "Kind": "error",
-  "Data": "Position is out of range"
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
 }
 {
   "Kind": "helptext",
@@ -97,7 +101,11 @@
 }
 {
   "Kind": "error",
-  "Data": "Position is out of range"
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
 }
 {
   "Kind": "finddecl",
@@ -117,9 +125,17 @@
 }
 {
   "Kind": "error",
-  "Data": "Could not find declaration"
+  "Data": {
+    "Code": 1,
+    "Message": "Could not find declaration",
+    "AdditionalData": {}
+  }
 }
 {
   "Kind": "error",
-  "Data": "Position is out of range"
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
 }

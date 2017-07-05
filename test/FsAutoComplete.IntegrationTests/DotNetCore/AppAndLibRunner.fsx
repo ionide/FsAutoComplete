@@ -4,13 +4,14 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.json"
+let outputJson = "appandlib.json"
+File.Delete outputJson
 
 runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
 match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" with
 | NonExitCodeResult data ->
-    data |> processResultLog "failed 'dotnet restore sample1/c1'" |> writeNormalizedOutput "output.json"
+    data |> processResultLog "failed 'dotnet restore sample1/c1'" |> writeNormalizedOutput outputJson
 | _ ->
     let p = new FsAutoCompleteWrapper()
 
@@ -19,4 +20,4 @@ match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sample1/c1" wi
 
     p.send "quit\n"
     p.finalOutput ()
-    |> writeNormalizedOutput "output.json"
+    |> writeNormalizedOutput outputJson
