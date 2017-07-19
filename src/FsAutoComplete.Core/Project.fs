@@ -11,6 +11,9 @@ type private ProjectMessage =
     | SetResponse of SerializedProjectResponse option
 
 type Project (projectFile, onChange: ProjectFilePath -> unit) =
+    let fullPath = Path.GetFullPath projectFile
+    let projectAsset = (Path.GetDirectoryName projectFile) </> "obj" </> "project.assets.json"
+
     let agent = MailboxProcessor.Start <| fun mb ->
         let rec loop (lastWriteTime, response) = async {
             let! msg = mb.Receive()
@@ -24,22 +27,36 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
                 return! loop (lastWriteTime, response)
             | SetResponse r ->
                 return! loop (lastWriteTime, r)
-        }    
+        }
         loop (File.GetLastWriteTimeUtc projectFile, None)
 
-    let fullPath = Path.GetFullPath projectFile
-
-    let fsw = 
+    ///File System Watcher for `fsproj` file
+    let fsw =
         new FileSystemWatcher(
-            Path = Path.GetDirectoryName fullPath, 
+            Path = Path.GetDirectoryName fullPath,
             Filter = Path.GetFileName fullPath,
             NotifyFilter = NotifyFilters.LastWrite)
 
-    do fsw.Changed.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTime projectFile)))
+    do fsw.Changed.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectFile)))
     do fsw.EnableRaisingEvents <- true
+
+    do
+        if projectAsset |> Path.GetDirectoryName |> Directory.Exists |> not then
+            projectAsset |> Path.GetDirectoryName |> Directory.CreateDirectory |> ignore
+    ///File System Watcher for `obj` dir, at the moment only `project.assets.json`
+    let afsw =
+        new FileSystemWatcher(
+            Path = Path.GetDirectoryName projectAsset,
+            Filter = Path.GetFileName projectAsset,
+            NotifyFilter = NotifyFilters.LastWrite)
+
+    do afsw.Changed.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAsset)))
+    do afsw.EnableRaisingEvents <- true
 
     member __.Response with get() = agent.PostAndReply GetResponse
                         and set r = agent.Post (SetResponse r)
 
     interface IDisposable with
-        member __.Dispose() = fsw.Dispose()
+        member __.Dispose() =
+            afsw.Dispose()
+            fsw.Dispose()
