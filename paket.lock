@@ -1,4 +1,4 @@
-FRAMEWORK: NET45
+RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     Dotnet.ProjInfo (0.7.4)

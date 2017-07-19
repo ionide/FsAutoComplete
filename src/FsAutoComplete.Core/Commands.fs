@@ -135,7 +135,11 @@ type Commands (serialize : Serializer) =
 
         return
             match project.Response with
-            | Some response -> [response]
+            | Some response ->
+                for file in response.Files do
+                    state.FileCheckOptions.[file] <- response.Options
+                let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log)
+                [r]
             | None ->
                 let options =
                     match projectFileName with
@@ -153,7 +157,15 @@ type Commands (serialize : Serializer) =
                     let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
                     for file in projectFiles do
                         state.FileCheckOptions.[file] <- opts
-                    project.Response <- Some response
+                    let cached = {
+                        Options = opts
+                        Files = projectFiles
+                        OutFile = outFileOpt
+                        References = references
+                        Log = logMap
+                    }
+
+                    project.Response <- Some cached
                     [response]
     }
 
