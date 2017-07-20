@@ -2,6 +2,19 @@ namespace FsAutoComplete
 
 open System
 open System.IO
+
+[<RequireQualifiedAccess>]
+type ProjectSdkType =
+    | Verbose
+    | ProjectJson
+    | DotnetSdk
+
+[<RequireQualifiedAccess>]
+type ProjectOutputType =
+    | Library
+    | Exe
+    | Custom of string
+
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 module MSBuildPrj = Dotnet.ProjInfo.Inspect

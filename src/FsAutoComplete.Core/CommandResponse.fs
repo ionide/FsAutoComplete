@@ -104,6 +104,9 @@ module CommandResponse =
       Output: string
       References: List<ProjectFilePath>
       Logs: Map<string, string>
+      SdkType: ProjectSdkType
+      OutputType: ProjectOutputType
+      AdditionalInfo: Map<string, string>
     }
 
   type OverloadDescription =
@@ -279,13 +282,16 @@ module CommandResponse =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, sdkType, outType, additionals) =
     let projectData =
       { Project = projectFileName
         Files = projectFiles
         Output = match outFileOpt with Some x -> x | None -> "null"
         References = List.sortBy IO.Path.GetFileName references
-        Logs = logMap }
+        Logs = logMap
+        SdkType = sdkType
+        OutputType = outType
+        AdditionalInfo = additionals  }
     serialize { Kind = "project"; Data = projectData }
 
   let projectError (serialize : Serializer) errorDetails =

@@ -222,10 +222,6 @@ type FSharpCompilerServiceChecker() =
       [| yield fsharpCoreRef
          yield! newOptions |]
 
-  let chooseByPrefix prefix (s: string) =
-    if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
-    else None
-
   let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
     project |> Option.map (fun (name, option) ->

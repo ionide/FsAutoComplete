@@ -27,6 +27,22 @@ module JsonSerializer =
     writer.WriteValue(range.EndLine)
     writer.WriteEndObject()
 
+  let projectSdkTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
+    let s =
+        match value with
+        | ProjectSdkType.Verbose -> "verbose"
+        | ProjectSdkType.ProjectJson -> "project.json"
+        | ProjectSdkType.DotnetSdk -> "dotnet/sdk"
+    serializer.Serialize(writer, s)
+
+  let projectOutputTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
+    let s =
+        match value with
+        | ProjectOutputType.Library -> "lib"
+        | ProjectOutputType.Exe -> "exe"
+        | ProjectOutputType.Custom(x) -> x.ToLower()
+    serializer.Serialize(writer, s)
+
   let private jsonConverters =
 
     let jsonWriter (f: JsonWriter -> 'T -> JsonSerializer -> unit) =
@@ -49,7 +65,9 @@ module JsonSerializer =
 
     let writers =
         [| jsonWriter fsharpErrorSeverityWriter
-           jsonWriter rangeWriter |]
+           jsonWriter rangeWriter
+           jsonWriter projectSdkTypeWriter
+           jsonWriter projectOutputTypeWriter |]
 
     writers
     |> Array.map writeOnlyConverter

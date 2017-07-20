@@ -137,12 +137,12 @@ type Commands (serialize : Serializer) =
             match project.Response with
             | Some response -> [response]
             | None ->
-                let options =
+                let sdkType, options =
                     match projectFileName with
-                    | NetCoreProjectJson -> checker.TryGetProjectJsonProjectOptions projectFileName
-                    | NetCoreSdk -> checker.TryGetCoreProjectOptions projectFileName
-                    | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
-                    | Unsupported -> checker.TryGetProjectOptions (projectFileName, verbose)
+                    | NetCoreProjectJson -> ProjectSdkType.ProjectJson, checker.TryGetProjectJsonProjectOptions projectFileName
+                    | NetCoreSdk -> ProjectSdkType.DotnetSdk, checker.TryGetCoreProjectOptions projectFileName
+                    | Net45 -> ProjectSdkType.Verbose, checker.TryGetProjectOptions (projectFileName, verbose)
+                    | Unsupported -> ProjectSdkType.Verbose, checker.TryGetProjectOptions (projectFileName, verbose)
 
                 match options with
                 | Result.Err error ->
@@ -150,7 +150,13 @@ type Commands (serialize : Serializer) =
                     [Response.projectError serialize error]
                 | Result.Ok (opts, projectFiles, outFileOpt, references, logMap) ->
                     let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
-                    let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
+                    let outType =
+                        match opts.OtherOptions |> Array.tryPick (chooseByPrefix "--target:") with
+                        | Some "exe" -> ProjectOutputType.Exe
+                        | Some "library" -> ProjectOutputType.Library
+                        | Some x -> ProjectOutputType.Custom x
+                        | None -> ProjectOutputType.Exe //the default
+                    let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, sdkType, outType, Map.empty)
                     for file in projectFiles do
                         state.FileCheckOptions.[file] <- opts
                     project.Response <- Some response
