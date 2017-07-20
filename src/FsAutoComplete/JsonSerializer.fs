@@ -6,7 +6,7 @@ open Newtonsoft.Json.Converters
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-module JsonSerializer =
+module private JsonSerializerConverters =
 
   let fsharpErrorSeverityWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
     let s =
@@ -43,19 +43,13 @@ module JsonSerializer =
         | ProjectOutputType.Custom(x) -> x.ToLower()
     serializer.Serialize(writer, s)
 
-  let private jsonConverters =
+  let internal jsonConverters =
 
-    let jsonWriter (f: JsonWriter -> 'T -> JsonSerializer -> unit) =
-        let boxedF (writer: JsonWriter) (v: obj) (serializer : JsonSerializer) =
-            let typed = v :?> 'T
-            f writer typed serializer
-        typeof<'T>, boxedF
-
-    let writeOnlyConverter (converterOfType, f) = 
+    let writeOnlyConverter (f: JsonWriter -> 'T -> JsonSerializer -> unit) (canConvert: Type -> Type -> bool) =
         { new JsonConverter() with
-            member x.CanConvert(t:System.Type) = t = converterOfType
+            member x.CanConvert(t:System.Type) = canConvert typeof<'T> t
 
-            member x.WriteJson(writer, value, serializer) = f writer value serializer
+            member x.WriteJson(writer, value, serializer) = f writer (value :?> 'T) serializer
 
             member x.ReadJson(_reader, _t, _, _serializer) =
               raise (System.NotSupportedException())
@@ -63,13 +57,11 @@ module JsonSerializer =
             member x.CanRead = false
             member x.CanWrite = true }
 
-    let writers =
-        [| jsonWriter fsharpErrorSeverityWriter
-           jsonWriter rangeWriter
-           jsonWriter projectSdkTypeWriter
-           jsonWriter projectOutputTypeWriter |]
+    [| writeOnlyConverter fsharpErrorSeverityWriter (=)
+       writeOnlyConverter rangeWriter (=)
+       writeOnlyConverter projectSdkTypeWriter (=)
+       writeOnlyConverter projectOutputTypeWriter (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty) |]
 
-    writers
-    |> Array.map writeOnlyConverter
+module JsonSerializer =
 
-  let internal writeJson(o: obj) = JsonConvert.SerializeObject(o, jsonConverters)
+  let internal writeJson(o: obj) = JsonConvert.SerializeObject(o, JsonSerializerConverters.jsonConverters)
