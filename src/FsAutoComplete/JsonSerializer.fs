@@ -51,6 +51,30 @@ module private JsonSerializerConverters =
         | ProjectOutputType.Custom(x) -> x.ToLower()
     serializer.Serialize(writer, s)
 
+  type OptionConverter() =
+    inherit JsonConverter()
+
+    override x.CanConvert(t) =
+      t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
+
+    override x.WriteJson(writer, value, serializer) =
+      let value =
+        if isNull value then null
+        else
+          let _,fields = Microsoft.FSharp.Reflection.FSharpValue.GetUnionFields(value, value.GetType())
+          fields.[0]
+      serializer.Serialize(writer, value)
+
+    override x.ReadJson(reader, t, existingValue, serializer) =
+        let innerType = t.GetGenericArguments().[0]
+        let innerType =
+          if innerType.IsValueType then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
+          else innerType
+        let value = serializer.Deserialize(reader, innerType)
+        let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(t)
+        if isNull value then Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(cases.[0], [||])
+        else Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(cases.[1], [|value|])
+
   let internal jsonConverters =
 
     let writeOnlyConverter (f: JsonWriter -> 'T -> JsonSerializer -> unit) (canConvert: Type -> Type -> bool) =
@@ -69,7 +93,8 @@ module private JsonSerializerConverters =
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
        writeOnlyConverter projectSdkTypeWriter sameDU
-       writeOnlyConverter projectOutputTypeWriter sameDU |]
+       writeOnlyConverter projectOutputTypeWriter sameDU
+       OptionConverter() :> JsonConverter |]
 
 module JsonSerializer =
 
