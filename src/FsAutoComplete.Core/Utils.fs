@@ -39,6 +39,7 @@ module Pos =
 type Serializer = obj -> string
 type ProjectFilePath = string
 type SourceFilePath = string
+type FilePath = string
 type LineStr = string
 
 let isAScript fileName =

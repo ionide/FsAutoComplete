@@ -97,6 +97,37 @@ module CommandResponse =
     | ProjectNotRestored of ProjectNotRestoredData
   and ProjectNotRestoredData = { Project: ProjectFilePath }
 
+  [<RequireQualifiedAccess>]
+  type ProjectResponseInfo =
+    | DotnetSdk of ProjectResponseInfoDotnetSdk
+    | Verbose of ProjectResponseInfoVerbose
+    | ProjectJson of ProjectResponseInfoProjectJson
+  and ProjectResponseInfoDotnetSdk =
+    {
+      IsTestProject: bool
+      Configuration: string
+      IsPackable: bool
+      TargetFramework: string
+      TargetFrameworkIdentifier: string
+      TargetFrameworkVersion: string
+      MSBuildRuntimeType: string
+      RestoreSuccess: bool
+      Configurations: string list
+      TargetFrameworks: string list
+      RunCmd: (string * string) option
+      IsPublishable: bool option
+      BundledNETCoreAppTargetFrameworkVersion: string option
+      BundledNETStandardTargetFrameworkVersion: string option
+    }
+  and ProjectResponseInfoVerbose =
+    {
+      IsTestProject: bool
+    }
+  and ProjectResponseInfoProjectJson =
+    {
+      IsTestProject: bool
+    }
+
   type ProjectResponse =
     {
       Project: ProjectFilePath
@@ -104,8 +135,8 @@ module CommandResponse =
       Output: string
       References: List<ProjectFilePath>
       Logs: Map<string, string>
-      SdkType: ProjectSdkType
       OutputType: ProjectOutputType
+      Info: ProjectResponseInfo
       AdditionalInfo: Map<string, string>
     }
 
@@ -282,16 +313,43 @@ module CommandResponse =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, sdkType, outType, additionals) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
+    let projectInfo =
+      match extra.ProjectSdkType with
+      | ProjectSdkType.Verbose ->
+        ProjectResponseInfo.Verbose { ProjectResponseInfoVerbose.IsTestProject = false }
+      | ProjectSdkType.ProjectJson ->
+        ProjectResponseInfo.ProjectJson { ProjectResponseInfoProjectJson.IsTestProject = false }
+      | ProjectSdkType.DotnetSdk info ->
+        ProjectResponseInfo.DotnetSdk { 
+          IsTestProject = info.IsTestProject
+          Configuration = info.Configuration
+          IsPackable = info.IsPackable
+          TargetFramework = info.TargetFramework
+          TargetFrameworkIdentifier = info.TargetFrameworkIdentifier
+          TargetFrameworkVersion = info.TargetFrameworkVersion
+          MSBuildRuntimeType = info.MSBuildRuntimeType
+          RestoreSuccess = info.RestoreSuccess
+          Configurations = info.Configurations
+          TargetFrameworks = info.TargetFrameworks          
+          RunCmd =
+            match info.RunCommand, info.RunArguments with
+            | Some cmd, Some args -> Some (cmd, args)
+            | Some cmd, None -> Some (cmd, "")
+            | _ -> None
+          IsPublishable = info.IsPublishable
+          BundledNETCoreAppTargetFrameworkVersion = info.BundledNETCoreAppTargetFrameworkVersion
+          BundledNETStandardTargetFrameworkVersion = info.BundledNETStandardTargetFrameworkVersion
+        }
     let projectData =
       { Project = projectFileName
         Files = projectFiles
         Output = match outFileOpt with Some x -> x | None -> "null"
         References = List.sortBy IO.Path.GetFileName references
         Logs = logMap
-        SdkType = sdkType
-        OutputType = outType
-        AdditionalInfo = additionals  }
+        OutputType = extra.ProjectOutputType
+        Info = projectInfo
+        AdditionalInfo = additionals }
     serialize { Kind = "project"; Data = projectData }
 
   let projectError (serialize : Serializer) errorDetails =

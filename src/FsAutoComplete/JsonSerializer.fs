@@ -28,12 +28,20 @@ module private JsonSerializerConverters =
     writer.WriteEndObject()
 
   let projectSdkTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
-    let s =
+    let t, v =
         match value with
-        | ProjectSdkType.Verbose -> "verbose"
-        | ProjectSdkType.ProjectJson -> "project.json"
-        | ProjectSdkType.DotnetSdk -> "dotnet/sdk"
-    serializer.Serialize(writer, s)
+        | CommandResponse.ProjectResponseInfo.Verbose v ->
+            "verbose", box v
+        | CommandResponse.ProjectResponseInfo.ProjectJson p ->
+            "project.json", box p
+        | CommandResponse.ProjectResponseInfo.DotnetSdk d->
+            "dotnet/sdk", box d
+    writer.WriteStartObject()
+    writer.WritePropertyName("SdkType")
+    writer.WriteValue(t)
+    writer.WritePropertyName("Data")
+    serializer.Serialize(writer, v)
+    writer.WriteEndObject()
 
   let projectOutputTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
     let s =
@@ -59,7 +67,7 @@ module private JsonSerializerConverters =
 
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
-       writeOnlyConverter projectSdkTypeWriter (=)
+       writeOnlyConverter projectSdkTypeWriter (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty)
        writeOnlyConverter projectOutputTypeWriter (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty) |]
 
 module JsonSerializer =

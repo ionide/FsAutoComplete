@@ -7,13 +7,48 @@ open System.IO
 type ProjectSdkType =
     | Verbose
     | ProjectJson
-    | DotnetSdk
+    | DotnetSdk of ProjectSdkTypeDotnetSdk
+and ProjectSdkTypeDotnetSdk =
+    {
+      IsTestProject: bool
+      Configuration: string // Debug
+      IsPackable: bool // true
+      TargetFramework: string // netcoreapp1.0
+      TargetFrameworkIdentifier: string // .NETCoreApp
+      TargetFrameworkVersion: string // v1.0
+
+      MSBuildAllProjects: FilePath list //;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\FSharp.NET.Sdk\Sdk\Sdk.props;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\Sdk\Sdk.props;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Sdk.props;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Sdk.DefaultItems.props;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.SupportedTargetFrameworks.props;e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\obj\c1.fsproj.nuget.g.props;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\FSharp.NET.Sdk\Sdk\Sdk.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\Sdk\Sdk.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Sdk.BeforeCommon.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.DefaultAssemblyInfo.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.DefaultOutputPaths.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.TargetFrameworkInference.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.RuntimeIdentifierInference.targets;C:\Users\e.sada\.nuget\packages\fsharp.net.sdk\1.0.5\build\FSharp.NET.Core.Sdk.targets;e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\c1.fsproj;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Microsoft.Common.CurrentVersion.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\NuGet.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\15.0\Microsoft.Common.targets\ImportAfter\Microsoft.TestPlatform.ImportAfter.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Microsoft.TestPlatform.targets;e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\obj\c1.fsproj.nuget.g.targets;e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\obj\c1.fsproj.proj-info.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Sdk.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Sdk.Common.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.PackageDependencyResolution.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Sdk.DefaultItems.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.DisableStandardFrameworkResolution.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.GenerateAssemblyInfo.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.Publish.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\Microsoft.NET.Sdk\build\Microsoft.NET.PreserveCompilationContext.targets;C:\dotnetcli\dotnet-dev-win-x64.1.0.4\sdk\1.0.4\Sdks\NuGet.Build.Tasks.Pack\build\NuGet.Build.Tasks.Pack.targets
+      MSBuildRuntimeType: string // Core
+      MSBuildToolsVersion: string // 15.0
+
+      ProjectAssetsFile: FilePath // e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\obj\project.assets.json
+      RestoreSuccess: bool // True
+
+      Configurations: string list // Debug;Release
+      TargetFrameworks: string list // netcoreapp1.0;netstandard1.6
+
+      //may not exists
+      RunArguments: string option // exec "e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\bin\Debug\netcoreapp1.0\c1.dll"
+      RunCommand: string option // dotnet
+
+      //from 2.0
+      IsPublishable: bool option // true
+      BundledNETCoreAppTargetFrameworkVersion: string option // 2.0
+      BundledNETStandardTargetFrameworkVersion: string option // 2.0
+
+    }
 
 [<RequireQualifiedAccess>]
 type ProjectOutputType =
     | Library
     | Exe
     | Custom of string
+
+type ExtraProjectInfoData =
+    {
+        ProjectOutputType: ProjectOutputType
+        ProjectSdkType: ProjectSdkType
+    }
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -53,7 +88,10 @@ module ProjectCoreCracker =
       LoadTime = DateTime.Now
       UnresolvedReferences = None;
       OriginalLoadReferences = []
-      ExtraProjectInfo = None
+      ExtraProjectInfo = Some (box { 
+        ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.ProjectJson
+        ExtraProjectInfoData.ProjectOutputType = ProjectOutputType.Library
+      })
     }
 
   let runProcess (workingDir: string) (exePath: string) (args: string) =
@@ -83,6 +121,56 @@ module ProjectCoreCracker =
       let exitCode = p.ExitCode
       exitCode, (workingDir, exePath, args)
 
+  let msbuildPropBool (s: string) =
+    match s.Trim() with
+    | "" -> None
+    | MSBuildPrj.MSBuild.ConditionEquals "True" -> Some true
+    | _ -> Some false
+
+  let msbuildPropStringList (s: string) =
+    match s.Trim() with
+    | "" -> []
+    | MSBuildPrj.MSBuild.StringList list  -> list
+    | _ -> []
+
+  let msbuildPropProjectOutputType (s: string) =
+    match s.Trim() with
+    | MSBuildPrj.MSBuild.ConditionEquals "Exe" -> ProjectOutputType.Exe
+    | MSBuildPrj.MSBuild.ConditionEquals "Library" -> ProjectOutputType.Library
+    | x -> ProjectOutputType.Custom x
+
+  let getExtraInfo props =
+    let msbuildPropBool prop =
+        props |> Map.tryFind prop |> Option.bind msbuildPropBool
+    let msbuildPropStringList prop =
+        props |> Map.tryFind prop |> Option.map msbuildPropStringList
+    let msbuildPropString prop =
+        props |> Map.tryFind prop
+
+    { ProjectSdkTypeDotnetSdk.IsTestProject = msbuildPropBool "IsTestProject" |> Option.getOrElse false
+      Configuration = msbuildPropString "Configuration" |> Option.getOrElse ""
+      IsPackable = msbuildPropBool "IsPackable" |> Option.getOrElse false
+      TargetFramework = msbuildPropString "TargetFramework" |> Option.getOrElse ""
+      TargetFrameworkIdentifier = msbuildPropString "TargetFrameworkIdentifier" |> Option.getOrElse ""
+      TargetFrameworkVersion = msbuildPropString "TargetFrameworkVersion" |> Option.getOrElse ""
+
+      MSBuildAllProjects = msbuildPropStringList "MSBuildAllProjects" |> Option.getOrElse []
+      MSBuildRuntimeType = msbuildPropString "MSBuildRuntimeType" |> Option.getOrElse ""
+      MSBuildToolsVersion = msbuildPropString "MSBuildToolsVersion" |> Option.getOrElse ""
+
+      ProjectAssetsFile = msbuildPropString "ProjectAssetsFile" |> Option.getOrElse ""
+      RestoreSuccess = msbuildPropBool "RestoreSuccess" |> Option.getOrElse false
+
+      Configurations = msbuildPropStringList "Configurations" |> Option.getOrElse []
+      TargetFrameworks = msbuildPropStringList "TargetFrameworks" |> Option.getOrElse []
+
+      RunArguments = msbuildPropString "RunArguments"
+      RunCommand = msbuildPropString "RunCommand"
+
+      IsPublishable = msbuildPropBool "IsPublishable"
+      BundledNETCoreAppTargetFrameworkVersion = msbuildPropString "BundledNETCoreAppTargetFrameworkVersion"
+      BundledNETStandardTargetFrameworkVersion = msbuildPropString "BundledNETStandardTargetFrameworkVersion" }
+
   let GetProjectOptionsFromProjectFile (file : string) =
     
     let rec projInfo additionalMSBuildProps file =
@@ -94,7 +182,28 @@ module ProjectCoreCracker =
 
         let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
-        let gp () = Dotnet.ProjInfo.Inspect.getProperties ["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"]
+        let additionalInfo = //needed for extra 
+            [ "OutputType"
+              "IsTestProject"
+              "Configuration"
+              "IsPackable"
+              "TargetFramework"
+              "TargetFrameworkIdentifier"
+              "TargetFrameworkVersion"
+              "MSBuildAllProjects"
+              "MSBuildRuntimeType"
+              "MSBuildToolsVersion"
+              "ProjectAssetsFile"
+              "RestoreSuccess"
+              "Configurations"
+              "TargetFrameworks"
+              "RunArguments"
+              "RunCommand"
+              "IsPublishable"
+              "BundledNETCoreAppTargetFrameworkVersion"
+              "BundledNETStandardTargetFrameworkVersion"
+            ]
+        let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"] @ additionalInfo)
 
         let results =
             let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
@@ -166,7 +275,7 @@ module ProjectCoreCracker =
                     if Path.IsPathRooted f then f else Path.Combine(projDir, f)
                 else
                     f
-
+            let extraInfo = getExtraInfo props
             let po =
                 {
                     ProjectFileName = file
@@ -178,7 +287,15 @@ module ProjectCoreCracker =
                     LoadTime = DateTime.Now
                     UnresolvedReferences = None;
                     OriginalLoadReferences = []
-                    ExtraProjectInfo = None
+                    ExtraProjectInfo =
+                        Some (box {
+                            ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
+                            ExtraProjectInfoData.ProjectOutputType =
+                                props
+                                |>  Map.tryFind "OutputType"
+                                |> Option.map msbuildPropProjectOutputType
+                                |> Option.getOrElse (ProjectOutputType.Library)
+                        })
                 }
 
             tar, po
