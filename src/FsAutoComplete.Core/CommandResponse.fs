@@ -110,14 +110,11 @@ module CommandResponse =
       TargetFramework: string
       TargetFrameworkIdentifier: string
       TargetFrameworkVersion: string
-      MSBuildRuntimeType: string
       RestoreSuccess: bool
       Configurations: string list
       TargetFrameworks: string list
       RunCmd: (string * string) option
       IsPublishable: bool option
-      BundledNETCoreAppTargetFrameworkVersion: string option
-      BundledNETStandardTargetFrameworkVersion: string option
     }
 
   type ProjectResponse =
@@ -320,7 +317,6 @@ module CommandResponse =
           TargetFramework = info.TargetFramework
           TargetFrameworkIdentifier = info.TargetFrameworkIdentifier
           TargetFrameworkVersion = info.TargetFrameworkVersion
-          MSBuildRuntimeType = info.MSBuildRuntimeType
           RestoreSuccess = info.RestoreSuccess
           Configurations = info.Configurations
           TargetFrameworks = info.TargetFrameworks          
@@ -330,8 +326,6 @@ module CommandResponse =
             | Some cmd, None -> Some (cmd, "")
             | _ -> None
           IsPublishable = info.IsPublishable
-          BundledNETCoreAppTargetFrameworkVersion = info.BundledNETCoreAppTargetFrameworkVersion
-          BundledNETStandardTargetFrameworkVersion = info.BundledNETStandardTargetFrameworkVersion
         }
     let projectData =
       { Project = projectFileName

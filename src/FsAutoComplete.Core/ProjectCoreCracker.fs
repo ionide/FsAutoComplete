@@ -104,7 +104,6 @@ module ProjectCoreCracker =
       TargetFrameworkVersion = msbuildPropString "TargetFrameworkVersion" |> Option.getOrElse ""
 
       MSBuildAllProjects = msbuildPropStringList "MSBuildAllProjects" |> Option.getOrElse []
-      MSBuildRuntimeType = msbuildPropString "MSBuildRuntimeType" |> Option.getOrElse ""
       MSBuildToolsVersion = msbuildPropString "MSBuildToolsVersion" |> Option.getOrElse ""
 
       ProjectAssetsFile = msbuildPropString "ProjectAssetsFile" |> Option.getOrElse ""
@@ -116,9 +115,7 @@ module ProjectCoreCracker =
       RunArguments = msbuildPropString "RunArguments"
       RunCommand = msbuildPropString "RunCommand"
 
-      IsPublishable = msbuildPropBool "IsPublishable"
-      BundledNETCoreAppTargetFrameworkVersion = msbuildPropString "BundledNETCoreAppTargetFrameworkVersion"
-      BundledNETStandardTargetFrameworkVersion = msbuildPropString "BundledNETStandardTargetFrameworkVersion" }
+      IsPublishable = msbuildPropBool "IsPublishable" }
 
   let GetProjectOptionsFromProjectFile (file : string) =
     
@@ -140,8 +137,6 @@ module ProjectCoreCracker =
               "TargetFrameworkIdentifier"
               "TargetFrameworkVersion"
               "MSBuildAllProjects"
-              "MSBuildRuntimeType"
-              "MSBuildToolsVersion"
               "ProjectAssetsFile"
               "RestoreSuccess"
               "Configurations"
@@ -149,8 +144,6 @@ module ProjectCoreCracker =
               "RunArguments"
               "RunCommand"
               "IsPublishable"
-              "BundledNETCoreAppTargetFrameworkVersion"
-              "BundledNETStandardTargetFrameworkVersion"
             ]
         let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"] @ additionalInfo)
 
