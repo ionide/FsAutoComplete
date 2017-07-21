@@ -49,6 +49,7 @@
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="KeywordList.fs" />
     <Compile Include="AssemblyContentProvider.fs" />
