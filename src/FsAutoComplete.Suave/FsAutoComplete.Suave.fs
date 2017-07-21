@@ -13,7 +13,7 @@ open Newtonsoft.Json
 open Microsoft.FSharp.Compiler
 
 open FsAutoComplete
-open FsAutoComplete.JsonSerializer
+open FsAutoComplete.JsonSerializerSuave
 
 [<AutoOpen>]
 module Contract =
