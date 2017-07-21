@@ -346,11 +346,17 @@ type FSharpCompilerServiceChecker() =
         let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
+        let outType =
+            match Seq.tryPick (chooseByPrefix "--target:") po.OtherOptions with
+            | Some "library" -> ProjectOutputType.Library
+            | Some "exe" -> ProjectOutputType.Exe
+            | Some v -> ProjectOutputType.Custom v
+            | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
         let rec setExtraInfo po =
             { po with
                  ExtraProjectInfo = Some (box { 
                     ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
-                    ProjectOutputType = ProjectOutputType.Library
+                    ProjectOutputType = outType
                  })
                  ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
 

@@ -27,6 +27,13 @@ module ProjectCoreCracker =
                              else s )
       |> Array.filter((<>) "--nocopyfsharpcore")
 
+    let outType =
+        match Seq.tryPick (chooseByPrefix "--target:") rsp with
+        | Some "library" -> ProjectOutputType.Library
+        | Some "exe" -> ProjectOutputType.Exe
+        | Some v -> ProjectOutputType.Custom v
+        | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
+
     {
       ProjectFileName = file
       ProjectFileNames = [||]
@@ -39,7 +46,7 @@ module ProjectCoreCracker =
       OriginalLoadReferences = []
       ExtraProjectInfo = Some (box { 
         ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.ProjectJson
-        ExtraProjectInfoData.ProjectOutputType = ProjectOutputType.Library
+        ExtraProjectInfoData.ProjectOutputType = outType
       })
     }
 
