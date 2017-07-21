@@ -65,10 +65,11 @@ module private JsonSerializerConverters =
             member x.CanRead = false
             member x.CanWrite = true }
 
+    let sameDU ty t = Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
-       writeOnlyConverter projectSdkTypeWriter (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty)
-       writeOnlyConverter projectOutputTypeWriter (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty) |]
+       writeOnlyConverter projectSdkTypeWriter sameDU
+       writeOnlyConverter projectOutputTypeWriter sameDU |]
 
 module JsonSerializer =
 
