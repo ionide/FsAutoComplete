@@ -113,9 +113,10 @@ module CommandResponse =
       RestoreSuccess: bool
       Configurations: string list
       TargetFrameworks: string list
-      RunCmd: (string * string) option
+      RunCmd: RunCmd option
       IsPublishable: bool option
     }
+  and [<RequireQualifiedAccess>] RunCmd = { Command: string; Arguments: string }
 
   type ProjectResponse =
     {
@@ -322,8 +323,8 @@ module CommandResponse =
           TargetFrameworks = info.TargetFrameworks          
           RunCmd =
             match info.RunCommand, info.RunArguments with
-            | Some cmd, Some args -> Some (cmd, args)
-            | Some cmd, None -> Some (cmd, "")
+            | Some cmd, Some args -> Some { RunCmd.Command = cmd; Arguments = args }
+            | Some cmd, None -> Some { RunCmd.Command = cmd; Arguments = "" }
             | _ -> None
           IsPublishable = info.IsPublishable
         }
