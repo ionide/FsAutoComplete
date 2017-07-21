@@ -100,8 +100,8 @@ module CommandResponse =
   [<RequireQualifiedAccess>]
   type ProjectResponseInfo =
     | DotnetSdk of ProjectResponseInfoDotnetSdk
-    | Verbose of ProjectResponseInfoVerbose
-    | ProjectJson of ProjectResponseInfoProjectJson
+    | Verbose
+    | ProjectJson
   and ProjectResponseInfoDotnetSdk =
     {
       IsTestProject: bool
@@ -118,14 +118,6 @@ module CommandResponse =
       IsPublishable: bool option
       BundledNETCoreAppTargetFrameworkVersion: string option
       BundledNETStandardTargetFrameworkVersion: string option
-    }
-  and ProjectResponseInfoVerbose =
-    {
-      IsTestProject: bool
-    }
-  and ProjectResponseInfoProjectJson =
-    {
-      IsTestProject: bool
     }
 
   type ProjectResponse =
@@ -317,9 +309,9 @@ module CommandResponse =
     let projectInfo =
       match extra.ProjectSdkType with
       | ProjectSdkType.Verbose ->
-        ProjectResponseInfo.Verbose { ProjectResponseInfoVerbose.IsTestProject = false }
+        ProjectResponseInfo.Verbose
       | ProjectSdkType.ProjectJson ->
-        ProjectResponseInfo.ProjectJson { ProjectResponseInfoProjectJson.IsTestProject = false }
+        ProjectResponseInfo.ProjectJson
       | ProjectSdkType.DotnetSdk info ->
         ProjectResponseInfo.DotnetSdk { 
           IsTestProject = info.IsTestProject

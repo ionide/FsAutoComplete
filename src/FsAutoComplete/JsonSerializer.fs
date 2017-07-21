@@ -30,10 +30,10 @@ module private JsonSerializerConverters =
   let projectSdkTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
     let t, v =
         match value with
-        | CommandResponse.ProjectResponseInfo.Verbose v ->
-            "verbose", box v
-        | CommandResponse.ProjectResponseInfo.ProjectJson p ->
-            "project.json", box p
+        | CommandResponse.ProjectResponseInfo.Verbose ->
+            "verbose", (Object())
+        | CommandResponse.ProjectResponseInfo.ProjectJson ->
+            "project.json", (Object())
         | CommandResponse.ProjectResponseInfo.DotnetSdk d->
             "dotnet/sdk", box d
     writer.WriteStartObject()
