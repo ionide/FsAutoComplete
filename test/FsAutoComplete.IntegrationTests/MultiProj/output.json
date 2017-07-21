@@ -15,7 +15,13 @@
     ],
     "Logs": {
       "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Proj1.fsproj": ""
-    }
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
   }
 }
 {
@@ -223,7 +229,13 @@
     ],
     "Logs": {
       "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Proj2.fsproj": ""
-    }
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
   }
 }
 {

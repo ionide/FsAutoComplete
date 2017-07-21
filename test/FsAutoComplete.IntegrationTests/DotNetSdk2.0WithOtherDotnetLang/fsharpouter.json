@@ -153,7 +153,41 @@
       "<absolute path removed>/mscorlib.dll",
       "<absolute path removed>/netstandard.dll"
     ],
-    "Logs": {}
+    "Logs": {},
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "dotnet/sdk",
+      "Data": {
+        "IsTestProject": false,
+        "Configuration": "Debug",
+        "IsPackable": true,
+        "TargetFramework": "netcoreapp2.0",
+        "TargetFrameworkIdentifier": ".NETCoreApp",
+        "TargetFrameworkVersion": "v2.0",
+        "RestoreSuccess": true,
+        "Configurations": [
+          "Debug",
+          "Release"
+        ],
+        "TargetFrameworks": [],
+        "RunCmd": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Command": "dotnet",
+              "Arguments": "exec \"<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0WithOtherDotnetLang/sampleo/c1/bin/Debug/netcoreapp2.0/c1.dll\""
+            }
+          ]
+        },
+        "IsPublishable": {
+          "Case": "Some",
+          "Fields": [
+            true
+          ]
+        }
+      }
+    },
+    "AdditionalInfo": {}
   }
 }
 {
