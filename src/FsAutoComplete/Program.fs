@@ -91,6 +91,7 @@ module internal Main =
       1
     else
       Debug.checkIfWaitForDebugger()
+      Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
       try
         async {
           while true do

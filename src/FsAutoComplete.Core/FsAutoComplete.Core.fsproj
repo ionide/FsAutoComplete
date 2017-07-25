@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />

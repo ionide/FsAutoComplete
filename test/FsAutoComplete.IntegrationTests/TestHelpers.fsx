@@ -15,9 +15,7 @@ type FsAutoCompleteWrapper() =
   let cachedOutput = new Text.StringBuilder()
 
   do
-    p.StartInfo.FileName <-
-      IO.Path.Combine(__SOURCE_DIRECTORY__,
-                      "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+    p.StartInfo.FileName <- FsAutoCompleteWrapper.ExePath ()
     p.StartInfo.RedirectStandardOutput <- true
     p.StartInfo.RedirectStandardError  <- true
     p.StartInfo.RedirectStandardInput  <- true
@@ -26,6 +24,10 @@ type FsAutoCompleteWrapper() =
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       p.StartInfo.Arguments <- "--wait-for-debugger"
     p.Start () |> ignore
+
+  static member ExePath () =
+      IO.Path.Combine(__SOURCE_DIRECTORY__,
+                      "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
 
   member x.project (s: string) : unit =
     fprintf p.StandardInput "project \"%s\"\n" s
