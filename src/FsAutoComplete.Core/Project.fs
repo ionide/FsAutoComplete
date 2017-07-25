@@ -91,7 +91,7 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
             if File.Exists projectAsset then
                 let a = File.GetLastWriteTimeUtc projectAsset
                 let p = File.GetLastWriteTimeUtc projectFile
-                if a > p then a else p
+                max a p
             else
                 File.GetLastWriteTimeUtc projectFile
         let state = persistentCache.LoadCache lwt
