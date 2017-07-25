@@ -97,10 +97,6 @@
         "TargetFrameworkIdentifier": ".NETCoreApp",
         "TargetFrameworkVersion": "v1.0",
         "RestoreSuccess": true,
-        "Configurations": [
-          "Debug",
-          "Release"
-        ],
         "TargetFrameworks": [
           "netcoreapp1.0",
           "netcoreapp1.1"

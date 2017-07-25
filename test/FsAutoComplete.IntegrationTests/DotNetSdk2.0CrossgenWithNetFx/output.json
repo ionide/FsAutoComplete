@@ -38,10 +38,6 @@
         "TargetFrameworkIdentifier": ".NETFramework",
         "TargetFrameworkVersion": "v4.6.1",
         "RestoreSuccess": true,
-        "Configurations": [
-          "Debug",
-          "Release"
-        ],
         "TargetFrameworks": [
           "net461",
           "netcoreapp2.0"

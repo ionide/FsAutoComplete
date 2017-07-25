@@ -165,10 +165,6 @@
         "TargetFrameworkIdentifier": ".NETCoreApp",
         "TargetFrameworkVersion": "v2.0",
         "RestoreSuccess": true,
-        "Configurations": [
-          "Debug",
-          "Release"
-        ],
         "TargetFrameworks": [],
         "RunCmd": {
           "Case": "Some",

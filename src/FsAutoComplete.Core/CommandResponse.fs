@@ -111,7 +111,6 @@ module CommandResponse =
       TargetFrameworkIdentifier: string
       TargetFrameworkVersion: string
       RestoreSuccess: bool
-      Configurations: string list
       TargetFrameworks: string list
       RunCmd: RunCmd option
       IsPublishable: bool option
@@ -319,7 +318,6 @@ module CommandResponse =
           TargetFrameworkIdentifier = info.TargetFrameworkIdentifier
           TargetFrameworkVersion = info.TargetFrameworkVersion
           RestoreSuccess = info.RestoreSuccess
-          Configurations = info.Configurations
           TargetFrameworks = info.TargetFrameworks          
           RunCmd =
             match info.RunCommand, info.RunArguments with
