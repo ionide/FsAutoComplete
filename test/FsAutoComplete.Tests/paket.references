@@ -1,3 +1,4 @@
 NUnit
 NUnit.Runners
 FSharp.Compiler.Service
+FSharp.Compiler.Tools

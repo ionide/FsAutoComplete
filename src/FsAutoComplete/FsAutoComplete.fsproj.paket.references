@@ -2,3 +2,4 @@ FSharp.Compiler.Service
 FSharp.Compiler.Service.ProjectCracker
 NDesk.Options
 Newtonsoft.Json
+FSharp.Compiler.Tools
