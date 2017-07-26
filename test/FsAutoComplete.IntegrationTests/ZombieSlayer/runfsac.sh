@@ -2,4 +2,4 @@
 echo Host process: $$
 
 # read _
-$1 --verbose --hostPID=$$
+mono $1 --verbose --hostPID=$$
