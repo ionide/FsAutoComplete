@@ -68,7 +68,7 @@ let run () =
     let start =
         let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
         if isWindows then
-            startWrapper __SOURCE_DIRECTORY__ "powershell.exe" (sprintf """-ExecutionPolicy Bypass -File runfsac.ps1 "%s" """ fsacExePath)
+            startWrapper __SOURCE_DIRECTORY__ "powershell.exe" (sprintf """-NonInteractive -ExecutionPolicy Bypass -File runfsac.ps1 "%s" """ fsacExePath)
         else
             startWrapper __SOURCE_DIRECTORY__ "sh" (sprintf """./runfsac.sh "%s" """ fsacExePath)
 
