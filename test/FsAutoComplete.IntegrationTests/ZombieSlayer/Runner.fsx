@@ -74,6 +74,8 @@ let run () =
 
     let mutable fsacProc : Process option = None
 
+    let manualResetEvent = new System.Threading.ManualResetEvent(true)
+    
     use p = start (fun (hostProc, s) ->
         match s with
         | FSACStartedMsg fsacPID ->
@@ -86,12 +88,20 @@ let run () =
             // let's kill the host process
             printfn "killing host (PID=%i)" hostProc.Id
             log "killing host"
+            
+            manualResetEvent.Reset()
+            
             hostProc.Kill()
             log "killed host"
+            
+            manualResetEvent.Set() |> ignore
         | _ -> ()
         )
 
     let exited = p.WaitForExit(TimeSpan.FromSeconds(30.0).TotalMilliseconds |> int)
+    
+    //wait until log is written
+    manualResetEvent.WaitOne()
 
     // check fsac shouldnt be alive
     match exited, fsacProc with
