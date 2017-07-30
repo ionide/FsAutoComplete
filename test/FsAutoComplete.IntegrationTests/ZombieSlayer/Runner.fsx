@@ -91,7 +91,7 @@ let run () =
         | _ -> ()
         )
 
-    let exited = p.WaitForExit(TimeSpan.FromSeconds(5.0).TotalMilliseconds |> int)
+    let exited = p.WaitForExit(TimeSpan.FromSeconds(30.0).TotalMilliseconds |> int)
 
     // check fsac shouldnt be alive
     match exited, fsacProc with
