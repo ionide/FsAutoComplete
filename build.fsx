@@ -73,22 +73,36 @@ let runIntegrationTest (fn: string) : bool =
     true
   | None ->
     tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
-    let result, msgs = FSIHelper.executeFSI dir fn []
-    let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
-    if not result then
-      for msg in msgs do
-        traceError msg.Message
-    result
+    let testExecution =
+      try
+        let fsiExec = async {
+            return Some (FSIHelper.executeFSI dir fn [])
+          }
+        Async.RunSynchronously (fsiExec, TimeSpan.FromMinutes(10.0).TotalMilliseconds |> int)
+      with :? TimeoutException ->
+        None
+    match testExecution with
+    | None -> //timeout
+      false
+    | Some (result, msgs) ->
+      let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
+      if not result then
+        for msg in msgs do
+          traceError msg.Message
+      result
 
 Target "IntegrationTest" (fun _ ->
+  trace "Running Integration tests..."
   let runOk =
    integrationTests
    |> Seq.map runIntegrationTest
    |> Seq.forall id
   
   if not runOk then
+    trace "Integration tests did not run successfully"
     failwith "Integration tests did not run successfully"
   else
+    trace "checking tests results..."
     let ok, out, err =
       Git.CommandHelper.runGitCommand
                         "."
@@ -96,15 +110,18 @@ Target "IntegrationTest" (fun _ ->
     if not ok then
       trace (toLines out)
       failwithf "Integration tests failed:\n%s" err
+  trace "Done Integration tests."
 )
 
 Target "UnitTest" (fun _ ->
+    trace "Running Unit tests."
     !! testAssemblies
     |> NUnit3 (fun p ->
         { p with
             ShadowCopy = true
-            TimeOut = TimeSpan.FromMinutes 20.
+            TimeOut = TimeSpan.FromMinutes 10.
             OutputDir = "TestResults.xml" })
+    trace "Done Unit tests."
 )
 
 

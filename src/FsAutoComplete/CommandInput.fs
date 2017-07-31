@@ -28,6 +28,7 @@ type Command =
   | Project of string * bool
   | Colorization of bool
   | CompilerLocation
+  | Started
   | Quit
 
 module CommandInput =
