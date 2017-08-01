@@ -15,7 +15,13 @@
     ],
     "Logs": {
       "<absolute path removed>/FsAutoComplete.IntegrationTests/ErrorTestsJson/Test1.fsproj": ""
-    }
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
   }
 }
 {

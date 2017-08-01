@@ -222,10 +222,6 @@ type FSharpCompilerServiceChecker() =
       [| yield fsharpCoreRef
          yield! newOptions |]
 
-  let chooseByPrefix prefix (s: string) =
-    if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
-    else None
-
   let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
     project |> Option.map (fun (name, option) ->
@@ -350,8 +346,21 @@ type FSharpCompilerServiceChecker() =
         let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
+        let outType =
+            match Seq.tryPick (chooseByPrefix "--target:") po.OtherOptions with
+            | Some "library" -> ProjectOutputType.Library
+            | Some "exe" -> ProjectOutputType.Exe
+            | Some v -> ProjectOutputType.Custom v
+            | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
+        let rec setExtraInfo po =
+            { po with
+                 ExtraProjectInfo = Some (box { 
+                    ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
+                    ProjectOutputType = outType
+                 })
+                 ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
 
-        Ok (po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
+        Ok (setExtraInfo po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
       with e ->
         Err (GenericError(e.Message))
 

@@ -75,7 +75,35 @@
       "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/l1/bin/Debug/net45/l1.dll",
       "<absolute path removed>/mscorlib.dll"
     ],
-    "Logs": {}
+    "Logs": {},
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "dotnet/sdk",
+      "Data": {
+        "IsTestProject": false,
+        "Configuration": "Debug",
+        "IsPackable": true,
+        "TargetFramework": "net461",
+        "TargetFrameworkIdentifier": ".NETFramework",
+        "TargetFrameworkVersion": "v4.6.1",
+        "RestoreSuccess": true,
+        "TargetFrameworks": [
+          "net461",
+          "netcoreapp1.0"
+        ],
+        "RunCmd": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Command": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/c1/bin/Debug/net461/c1.exe",
+              "Arguments": ""
+            }
+          ]
+        },
+        "IsPublishable": null
+      }
+    },
+    "AdditionalInfo": {}
   }
 }
 {

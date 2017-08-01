@@ -15,7 +15,13 @@
     ],
     "Logs": {
       "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FindDecl.fsproj": ""
-    }
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
   }
 }
 {

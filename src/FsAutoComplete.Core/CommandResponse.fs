@@ -97,6 +97,26 @@ module CommandResponse =
     | ProjectNotRestored of ProjectNotRestoredData
   and ProjectNotRestoredData = { Project: ProjectFilePath }
 
+  [<RequireQualifiedAccess>]
+  type ProjectResponseInfo =
+    | DotnetSdk of ProjectResponseInfoDotnetSdk
+    | Verbose
+    | ProjectJson
+  and ProjectResponseInfoDotnetSdk =
+    {
+      IsTestProject: bool
+      Configuration: string
+      IsPackable: bool
+      TargetFramework: string
+      TargetFrameworkIdentifier: string
+      TargetFrameworkVersion: string
+      RestoreSuccess: bool
+      TargetFrameworks: string list
+      RunCmd: RunCmd option
+      IsPublishable: bool option
+    }
+  and [<RequireQualifiedAccess>] RunCmd = { Command: string; Arguments: string }
+
   type ProjectResponse =
     {
       Project: ProjectFilePath
@@ -104,6 +124,9 @@ module CommandResponse =
       Output: string
       References: List<ProjectFilePath>
       Logs: Map<string, string>
+      OutputType: ProjectOutputType
+      Info: ProjectResponseInfo
+      AdditionalInfo: Map<string, string>
     }
 
   type OverloadDescription =
@@ -279,13 +302,39 @@ module CommandResponse =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
+    let projectInfo =
+      match extra.ProjectSdkType with
+      | ProjectSdkType.Verbose ->
+        ProjectResponseInfo.Verbose
+      | ProjectSdkType.ProjectJson ->
+        ProjectResponseInfo.ProjectJson
+      | ProjectSdkType.DotnetSdk info ->
+        ProjectResponseInfo.DotnetSdk { 
+          IsTestProject = info.IsTestProject
+          Configuration = info.Configuration
+          IsPackable = info.IsPackable
+          TargetFramework = info.TargetFramework
+          TargetFrameworkIdentifier = info.TargetFrameworkIdentifier
+          TargetFrameworkVersion = info.TargetFrameworkVersion
+          RestoreSuccess = info.RestoreSuccess
+          TargetFrameworks = info.TargetFrameworks          
+          RunCmd =
+            match info.RunCommand, info.RunArguments with
+            | Some cmd, Some args -> Some { RunCmd.Command = cmd; Arguments = args }
+            | Some cmd, None -> Some { RunCmd.Command = cmd; Arguments = "" }
+            | _ -> None
+          IsPublishable = info.IsPublishable
+        }
     let projectData =
       { Project = projectFileName
         Files = projectFiles
         Output = match outFileOpt with Some x -> x | None -> "null"
         References = List.sortBy IO.Path.GetFileName references
-        Logs = logMap }
+        Logs = logMap
+        OutputType = extra.ProjectOutputType
+        Info = projectInfo
+        AdditionalInfo = additionals }
     serialize { Kind = "project"; Data = projectData }
 
   let projectError (serialize : Serializer) errorDetails =

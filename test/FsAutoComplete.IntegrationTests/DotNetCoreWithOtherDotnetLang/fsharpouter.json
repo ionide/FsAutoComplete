@@ -85,7 +85,32 @@
       "<absolute path removed>/System.Xml.XDocument.dll",
       "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/l1/bin/Debug/netstandard1.3/l1.dll"
     ],
-    "Logs": {}
+    "Logs": {},
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "dotnet/sdk",
+      "Data": {
+        "IsTestProject": false,
+        "Configuration": "Debug",
+        "IsPackable": true,
+        "TargetFramework": "netcoreapp1.0",
+        "TargetFrameworkIdentifier": ".NETCoreApp",
+        "TargetFrameworkVersion": "v1.0",
+        "RestoreSuccess": true,
+        "TargetFrameworks": [],
+        "RunCmd": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Command": "dotnet",
+              "Arguments": "exec \"<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/c1/bin/Debug/netcoreapp1.0/c1.dll\""
+            }
+          ]
+        },
+        "IsPublishable": null
+      }
+    },
+    "AdditionalInfo": {}
   }
 }
 {

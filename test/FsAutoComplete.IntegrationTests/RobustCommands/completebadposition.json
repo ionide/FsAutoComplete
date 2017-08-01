@@ -15,7 +15,13 @@
     ],
     "Logs": {
       "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj": ""
-    }
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
   }
 }
 {

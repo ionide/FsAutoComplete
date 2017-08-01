@@ -149,12 +149,22 @@ type Commands (serialize : Serializer) =
                     project.Response <- None
                     [Response.projectError serialize error]
                 | Result.Ok (opts, projectFiles, outFileOpt, references, logMap) ->
-                    let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
-                    let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
-                    for file in projectFiles do
-                        state.FileCheckOptions.[file] <- opts
-                    project.Response <- Some response
-                    [response]
+                    match opts.ExtraProjectInfo with
+                    | None ->
+                        project.Response <- None
+                        [Response.projectError serialize (GenericError "expected ExtraProjectInfo after project parsing, was None")]
+                    | Some x ->
+                        match x with
+                        | :? ExtraProjectInfoData as extraInfo ->
+                            let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
+                            let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
+                            for file in projectFiles do
+                                state.FileCheckOptions.[file] <- opts
+                            project.Response <- Some response
+                            [response]
+                        | x -> 
+                            project.Response <- None
+                            [Response.projectError serialize (GenericError (sprintf "expected ExtraProjectInfo after project parsing, was %A" x))]
     }
 
     member __.Declarations file version = async {
