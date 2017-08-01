@@ -94,6 +94,29 @@ type ParseAndCheckResults
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Success (symboluse, symboluses) }
 
+  member __.TryGetSignatureData (pos: Pos) (lineStr: LineStr) =
+    async {
+        match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+        | None -> return (Failure "No ident at this location")
+        | Some(colu, identIsland) ->
+
+        let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+        match symboluse with
+        | None -> return (Failure "No symbol information found")
+        | Some symboluse ->
+          let fsym = symboluse.Symbol
+          match fsym with
+          | :? FSharpMemberOrFunctionOrValue as symbol ->
+            let parms =
+              symbol.CurriedParameterGroups
+              |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
+              |> Seq.toList
+            let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
+            return Success(typ, parms)
+          | _ ->
+            return (Failure "Not a member, function or value" )
+    }
+
   member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
@@ -333,19 +356,19 @@ type FSharpCompilerServiceChecker() =
                 let compileFiles, otherOptions =
                     po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi"))
                 { po with ProjectFileNames = compileFiles; OtherOptions = otherOptions }
-            | _ -> 
+            | _ ->
                 let fsiFiles, otherOptions =
                     po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith (".fsi"))
-                let fileNames = 
-                    po.ProjectFileNames 
-                    |> Array.fold (fun acc e -> 
+                let fileNames =
+                    po.ProjectFileNames
+                    |> Array.fold (fun acc e ->
                         match fsiFiles |> Array.tryFind ((=) (e + "i")) with
                         | Some fsi ->
                             [| yield! acc; yield fsi; yield e  |]
                         | None -> [| yield! acc; yield e |] ) [||]
 
                 { po with ProjectFileNames = fileNames ; OtherOptions = otherOptions }
-                
+
 
         let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
@@ -375,7 +398,7 @@ type FSharpCompilerServiceChecker() =
       try
         let po = ProjectCoreCracker.GetProjectOptionsFromProjectFile file
         let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
-        let outputFile = 
+        let outputFile =
             Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
             |> Option.orElseFun (fun () -> Seq.tryPick (chooseByPrefix "-o:") po.OtherOptions)
             |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
