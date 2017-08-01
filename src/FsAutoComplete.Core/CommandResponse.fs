@@ -285,7 +285,15 @@ module CommandResponse =
     Position : Pos
   }
 
+  type Parameter = {
+    Name : string
+    Type : string
+  }
 
+  type SignatureData = {
+    OutputType : string
+    Parameters : Parameter list list
+  }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
@@ -340,7 +348,7 @@ module CommandResponse =
   let projectError (serialize : Serializer) errorDetails =
     match errorDetails with
     | GenericError errorMessage -> error serialize errorMessage //compatibility with old api
-    | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored" 
+    | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored"
 
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
@@ -370,6 +378,12 @@ module CommandResponse =
                       IsFromPattern = su.IsFromPattern
                       IsFromType = su.IsFromType } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symboluse"; Data = su }
+
+  let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
+    let pms =
+      parms
+      |> List.map (List.map (fun (n, t) -> { Name= n; Type = t }))
+    serialize { Kind = "signatureData"; Data = { Parameters = pms; OutputType = typ } }
 
   let help (serialize : Serializer) (data : string) =
     serialize { Kind = "help"; Data = data }

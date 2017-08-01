@@ -236,6 +236,9 @@ type Commands (serialize : Serializer) =
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
 
+    member x.SignatureData (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryGetSignatureData pos lineStr |> x.SerializeResult Response.signatureData
+
     member x.Help (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetF1Help pos lineStr |> x.SerializeResult Response.help
 
