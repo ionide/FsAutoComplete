@@ -138,7 +138,7 @@ type Commands (serialize : Serializer) =
             | Some response ->
                 for file in response.Files do
                     state.FileCheckOptions.[file] <- response.Options
-                let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log)
+                let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
                 [r]
             | None ->
                 let options =
@@ -161,7 +161,7 @@ type Commands (serialize : Serializer) =
                         match x with
                         | :? ExtraProjectInfoData as extraInfo ->
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
-                            let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
+                            let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
                             for file in projectFiles do
                                 state.FileCheckOptions.[file] <- opts
                             let cached = {
@@ -170,11 +170,12 @@ type Commands (serialize : Serializer) =
                                 OutFile = outFileOpt
                                 References = references
                                 Log = logMap
+                                ExtraInfo = extraInfo
                             }
 
                             project.Response <- Some cached
                             [response]
-                        | x -> 
+                        | x ->
                             project.Response <- None
                             [Response.projectError serialize (GenericError (sprintf "expected ExtraProjectInfo after project parsing, was %A" x))]
     }

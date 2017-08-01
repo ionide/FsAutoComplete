@@ -11,6 +11,7 @@ type ProjectCrackerCache = {
     OutFile : string option
     References : string list
     Log : Map<string, string>
+    ExtraInfo: ExtraProjectInfoData
 }
 
 type private ProjectPersistentCacheMessage =
