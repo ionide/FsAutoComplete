@@ -85,4 +85,11 @@ module Options =
       "wait-for-debugger", "wait for a debugger to attach to the process",
         fun _ -> Debug.waitForDebugger := true
 
+      "hostPID=", "Host process ID",
+        fun s -> try
+                   Debug.hostPID := Some (int s)
+                 with
+                   | e -> printfn "Bad Host process ID '%s' expected int: %s" s e.Message
+                          exit 1
+
     ]

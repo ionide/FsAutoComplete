@@ -153,20 +153,30 @@ type Commands (serialize : Serializer) =
                     project.Response <- None
                     [Response.projectError serialize error]
                 | Result.Ok (opts, projectFiles, outFileOpt, references, logMap) ->
-                    let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
-                    let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
-                    for file in projectFiles do
-                        state.FileCheckOptions.[file] <- opts
-                    let cached = {
-                        Options = opts
-                        Files = projectFiles
-                        OutFile = outFileOpt
-                        References = references
-                        Log = logMap
-                    }
+                    match opts.ExtraProjectInfo with
+                    | None ->
+                        project.Response <- None
+                        [Response.projectError serialize (GenericError "expected ExtraProjectInfo after project parsing, was None")]
+                    | Some x ->
+                        match x with
+                        | :? ExtraProjectInfoData as extraInfo ->
+                            let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
+                            let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap)
+                            for file in projectFiles do
+                                state.FileCheckOptions.[file] <- opts
+                            let cached = {
+                                Options = opts
+                                Files = projectFiles
+                                OutFile = outFileOpt
+                                References = references
+                                Log = logMap
+                            }
 
-                    project.Response <- Some cached
-                    [response]
+                            project.Response <- Some cached
+                            [response]
+                        | x -> 
+                            project.Response <- None
+                            [Response.projectError serialize (GenericError (sprintf "expected ExtraProjectInfo after project parsing, was %A" x))]
     }
 
     member __.Declarations file version = async {

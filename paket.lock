@@ -1,6 +1,7 @@
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
+    Argu (3.7)
     Dotnet.ProjInfo (0.7.4)
       FSharp.Core (>= 4.0.0.1)
     FAKE (4.61.3)

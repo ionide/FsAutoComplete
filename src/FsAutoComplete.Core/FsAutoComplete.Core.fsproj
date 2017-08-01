@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
@@ -48,6 +49,7 @@
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="KeywordList.fs" />
     <Compile Include="AssemblyContentProvider.fs" />

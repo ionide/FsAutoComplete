@@ -18,7 +18,13 @@
       "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj": "",
       "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1A.fsproj": "",
       "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1B.fsproj": ""
-    }
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
   }
 }
 {

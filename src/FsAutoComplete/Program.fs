@@ -22,6 +22,8 @@ module internal Main =
     while not quit do
       async {
           match commandQueue.Take() with
+          | Started ->
+              return [ Response.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id)) ]
           | Parse (file, kind, lines) ->
               let! res = commands.Parse file lines 0
               //Hack for tests
@@ -91,8 +93,12 @@ module internal Main =
       1
     else
       Debug.checkIfWaitForDebugger()
+      Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
       try
         async {
+          if !Debug.verbose then
+            commandQueue.Add(Command.Started)
+
           while true do
             commandQueue.Add (CommandInput.parseCommand(Console.ReadLine()))
         }

@@ -2,13 +2,10 @@ namespace FsAutoComplete
 
 open System
 open System.IO
+
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 module MSBuildPrj = Dotnet.ProjInfo.Inspect
-
-type GetProjectOptionsErrors =
-     | ProjectNotRestored of string
-     | GenericError of string
 
 exception ProjectInspectException of GetProjectOptionsErrors
 
@@ -30,6 +27,13 @@ module ProjectCoreCracker =
                              else s )
       |> Array.filter((<>) "--nocopyfsharpcore")
 
+    let outType =
+        match Seq.tryPick (chooseByPrefix "--target:") rsp with
+        | Some "library" -> ProjectOutputType.Library
+        | Some "exe" -> ProjectOutputType.Exe
+        | Some v -> ProjectOutputType.Custom v
+        | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
+
     {
       ProjectFileName = file
       ProjectFileNames = [||]
@@ -40,7 +44,10 @@ module ProjectCoreCracker =
       LoadTime = DateTime.Now
       UnresolvedReferences = None;
       OriginalLoadReferences = []
-      ExtraProjectInfo = None
+      ExtraProjectInfo = Some (box { 
+        ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.ProjectJson
+        ExtraProjectInfoData.ProjectOutputType = outType
+      })
     }
 
   let runProcess (workingDir: string) (exePath: string) (args: string) =
@@ -70,6 +77,53 @@ module ProjectCoreCracker =
       let exitCode = p.ExitCode
       exitCode, (workingDir, exePath, args)
 
+  let msbuildPropBool (s: string) =
+    match s.Trim() with
+    | "" -> None
+    | MSBuildPrj.MSBuild.ConditionEquals "True" -> Some true
+    | _ -> Some false
+
+  let msbuildPropStringList (s: string) =
+    match s.Trim() with
+    | "" -> []
+    | MSBuildPrj.MSBuild.StringList list  -> list
+    | _ -> []
+
+  let msbuildPropProjectOutputType (s: string) =
+    match s.Trim() with
+    | MSBuildPrj.MSBuild.ConditionEquals "Exe" -> ProjectOutputType.Exe
+    | MSBuildPrj.MSBuild.ConditionEquals "Library" -> ProjectOutputType.Library
+    | x -> ProjectOutputType.Custom x
+
+  let getExtraInfo props =
+    let msbuildPropBool prop =
+        props |> Map.tryFind prop |> Option.bind msbuildPropBool
+    let msbuildPropStringList prop =
+        props |> Map.tryFind prop |> Option.map msbuildPropStringList
+    let msbuildPropString prop =
+        props |> Map.tryFind prop
+
+    { ProjectSdkTypeDotnetSdk.IsTestProject = msbuildPropBool "IsTestProject" |> Option.getOrElse false
+      Configuration = msbuildPropString "Configuration" |> Option.getOrElse ""
+      IsPackable = msbuildPropBool "IsPackable" |> Option.getOrElse false
+      TargetFramework = msbuildPropString "TargetFramework" |> Option.getOrElse ""
+      TargetFrameworkIdentifier = msbuildPropString "TargetFrameworkIdentifier" |> Option.getOrElse ""
+      TargetFrameworkVersion = msbuildPropString "TargetFrameworkVersion" |> Option.getOrElse ""
+
+      MSBuildAllProjects = msbuildPropStringList "MSBuildAllProjects" |> Option.getOrElse []
+      MSBuildToolsVersion = msbuildPropString "MSBuildToolsVersion" |> Option.getOrElse ""
+
+      ProjectAssetsFile = msbuildPropString "ProjectAssetsFile" |> Option.getOrElse ""
+      RestoreSuccess = msbuildPropBool "RestoreSuccess" |> Option.getOrElse false
+
+      Configurations = msbuildPropStringList "Configurations" |> Option.getOrElse []
+      TargetFrameworks = msbuildPropStringList "TargetFrameworks" |> Option.getOrElse []
+
+      RunArguments = msbuildPropString "RunArguments"
+      RunCommand = msbuildPropString "RunCommand"
+
+      IsPublishable = msbuildPropBool "IsPublishable" }
+
   let GetProjectOptionsFromProjectFile (file : string) =
     
     let rec projInfo additionalMSBuildProps file =
@@ -81,7 +135,24 @@ module ProjectCoreCracker =
 
         let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
-        let gp () = Dotnet.ProjInfo.Inspect.getProperties ["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"]
+        let additionalInfo = //needed for extra 
+            [ "OutputType"
+              "IsTestProject"
+              "Configuration"
+              "IsPackable"
+              "TargetFramework"
+              "TargetFrameworkIdentifier"
+              "TargetFrameworkVersion"
+              "MSBuildAllProjects"
+              "ProjectAssetsFile"
+              "RestoreSuccess"
+              "Configurations"
+              "TargetFrameworks"
+              "RunArguments"
+              "RunCommand"
+              "IsPublishable"
+            ]
+        let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"] @ additionalInfo)
 
         let results =
             let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
@@ -153,7 +224,7 @@ module ProjectCoreCracker =
                     if Path.IsPathRooted f then f else Path.Combine(projDir, f)
                 else
                     f
-
+            let extraInfo = getExtraInfo props
             let po =
                 {
                     ProjectFileName = file
@@ -165,7 +236,15 @@ module ProjectCoreCracker =
                     LoadTime = DateTime.Now
                     UnresolvedReferences = None;
                     OriginalLoadReferences = []
-                    ExtraProjectInfo = None
+                    ExtraProjectInfo =
+                        Some (box {
+                            ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
+                            ExtraProjectInfoData.ProjectOutputType =
+                                props
+                                |>  Map.tryFind "OutputType"
+                                |> Option.map msbuildPropProjectOutputType
+                                |> Option.getOrElse (ProjectOutputType.Library)
+                        })
                 }
 
             tar, po

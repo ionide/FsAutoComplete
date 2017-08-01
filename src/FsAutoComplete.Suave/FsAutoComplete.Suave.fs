@@ -13,7 +13,7 @@ open Newtonsoft.Json
 open Microsoft.FSharp.Compiler
 
 open FsAutoComplete
-open FsAutoComplete.JsonSerializer
+open FsAutoComplete.JsonSerializerSuave
 
 [<AutoOpen>]
 module Contract =
@@ -34,6 +34,30 @@ module internal Utils =
         let getString rawForm =
             System.Text.Encoding.UTF8.GetString(rawForm)
         req.rawForm |> getString |> fromJson<'a>
+
+  let zombieCheckWithHostPID pid quit =
+    try
+      let hostProcess = System.Diagnostics.Process.GetProcessById(pid)
+      ProcessWatcher.watch hostProcess (fun _ -> quit ())
+    with
+    | e ->
+      printfn "Host process ID %i not found: %s" pid e.Message
+      // If the process dies before we get here then request shutdown
+      // immediately
+      quit ()
+
+open Argu
+
+type CLIArguments =
+    | [<MainCommand; Unique>] Port of tcp_port:int
+    | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
+with
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Port _ -> "the listening port."
+            | HostPID _ -> "the Host process ID."
+
 
 [<EntryPoint>]
 let main argv =
@@ -160,20 +184,35 @@ let main argv =
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
         ]
 
-    let port =
+    let main (args: ParseResults<CLIArguments>) =
+        let port = args.GetResult (<@ Port @>, defaultValue = 8088)
+
+        let defaultBinding = defaultConfig.bindings.[0]
+        let withPort = { defaultBinding.socketBinding with port = uint16 port }
+        let serverConfig =
+            { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
         try
-            int argv.[0]
+            match args.TryGetResult (<@ HostPID @>) with
+            | Some pid ->
+                serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete.Suave" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+                zombieCheckWithHostPID pid (fun () -> exit 0)
+            | None -> () 
+
+            startWebServer serverConfig app
+            0
         with
-        _ -> 8088
+        | e ->
+            printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
+            1
 
-    let defaultBinding = defaultConfig.bindings.[0]
-    let withPort = { defaultBinding.socketBinding with port = uint16 port }
-    let serverConfig =
-        { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
+    let parser = ArgumentParser.Create<CLIArguments>(programName = "FsAutoComplete.Suave.exe")
     try
-        startWebServer serverConfig app
+        let results = parser.Parse argv
+        main results
     with
-    | e ->
-        printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
-
-    0
+        | :? ArguParseException as ex ->
+            printfn "%s" (parser.PrintUsage())
+            2
+        | e ->
+            printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
+            3
