@@ -424,8 +424,8 @@ module CommandResponse =
       qualfies
       |> List.map (fun (name, q) ->
         {
-          Name = name
-          Qualifier = q
+          QualifySymbol.Name = name
+          QualifySymbol.Qualifier = q
         })
       |> List.toArray
 
