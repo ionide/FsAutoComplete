@@ -8,10 +8,11 @@ type PosCommand =
   | Completion
   | Methods
   | SymbolUse
-  | SymbolUseProject 
+  | SymbolUseProject
   | ToolTip
   | TypeSig
   | FindDeclaration
+  | SignatureData
 
 type ParseKind =
   | Normal
@@ -107,7 +108,9 @@ module CommandInput =
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
              (string "typesig " |> Parser.map (fun _ -> TypeSig)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
-             (string "finddecl " |> Parser.map (fun _ -> FindDeclaration))
+             (string "finddecl " |> Parser.map (fun _ -> FindDeclaration)) <|>
+             (string "sigdata " |> Parser.map (fun _ -> SignatureData))
+
     let! _ = char '"'
     let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
     let! _ = char '"'
@@ -153,7 +156,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error 
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

@@ -62,7 +62,7 @@ module internal Main =
                             | FindDeclaration -> commands.FindDeclarations tyRes pos lineStr
                             | Methods -> commands.Methods tyRes pos lines
                             | SymbolUseProject -> commands.SymbolUseProject tyRes pos lineStr
-
+                            | SignatureData -> commands.SignatureData tyRes pos lineStr
           | CompilerLocation -> return commands.CompilerLocation()
           | Colorization enabled -> commands.Colorization enabled; return []
           | Lint filename -> return! commands.Lint filename
