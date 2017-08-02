@@ -295,6 +295,35 @@ module CommandResponse =
     Parameters : Parameter list list
   }
 
+  type WorkspacePeekResponse = {
+    Found: WorkspacePeekFound list
+  }
+  and WorkspacePeekFound =
+    | Directory of WorkspacePeekFoundDirectory
+    | Solution of WorkspacePeekFoundSolution
+  and WorkspacePeekFoundDirectory = {
+    Directory: string
+    Fsprojs: string list
+  }
+  and WorkspacePeekFoundSolution = {
+    Path: string
+    Items: WorkspacePeekFoundSolutionItem list
+    Configurations: WorkspacePeekFoundSolutionConfiguration list
+  }
+  and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItem = {
+    Guid: Guid
+    Name: string
+    Kind: WorkspacePeekFoundSolutionItemKind
+  }
+  and WorkspacePeekFoundSolutionItemKind =
+    | MsbuildFormat of WorkspacePeekFoundSolutionConfiguration list
+    | Folder of (WorkspacePeekFoundSolutionItem list) * (string list)
+  and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionConfiguration = {
+    Id: string
+    ConfigurationName: string
+    PlatformName: string
+  }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -349,6 +378,31 @@ module CommandResponse =
     match errorDetails with
     | GenericError errorMessage -> error serialize errorMessage //compatibility with old api
     | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored"
+
+  let workspacePeek (serialize : Serializer) (found: FsAutoComplete.WorkspacePeek.Interesting list) =
+    let mapInt i =
+        match i with
+        | FsAutoComplete.WorkspacePeek.Interesting.Directory (p, fsprojs) ->
+            WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
+        | FsAutoComplete.WorkspacePeek.Interesting.Solution (p, sd) ->
+            let rec item (x: FsAutoComplete.WorkspacePeek.SolutionItem) =
+                let kind =
+                    match x.Kind with
+                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unknown
+                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unsupported ->
+                        None
+                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.MsbuildFormat msbuildProj ->
+                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat [])
+                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Folder(children, items) ->
+                        let c = children |> List.choose item
+                        Some (WorkspacePeekFoundSolutionItemKind.Folder(c,items))
+                kind
+                |> Option.map (fun k -> { WorkspacePeekFoundSolutionItem.Guid = x.Guid; Name = x.Name; Kind = k })
+            let items = sd.Items |> List.choose item
+            WorkspacePeekFound.Solution { WorkspacePeekFoundSolution.Path = p; Items = items; Configurations = [] }
+
+    let data = { WorkspacePeekResponse.Found = found |> List.map mapInt }
+    serialize { Kind = "project"; Data = data }
 
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"

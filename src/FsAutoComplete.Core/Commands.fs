@@ -396,3 +396,9 @@ type Commands (serialize : Serializer) =
         else
             return [Response.info serialize "Union at position not found"]
     }
+
+    member __.WorkspacePeek (dir: string) (deep: int) = async {
+        let d = WorkspacePeek.peek dir deep
+
+        return [Response.workspacePeek serialize d]
+    }
