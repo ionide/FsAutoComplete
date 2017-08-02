@@ -316,8 +316,15 @@ module CommandResponse =
     Kind: WorkspacePeekFoundSolutionItemKind
   }
   and WorkspacePeekFoundSolutionItemKind =
-    | MsbuildFormat of WorkspacePeekFoundSolutionConfiguration list
-    | Folder of (WorkspacePeekFoundSolutionItem list) * (string list)
+    | MsbuildFormat of WorkspacePeekFoundSolutionItemKindMsbuildFormat
+    | Folder of WorkspacePeekFoundSolutionItemKindFolder
+  and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindMsbuildFormat = {
+    Configurations: WorkspacePeekFoundSolutionConfiguration list
+  }
+  and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindFolder = {
+    Items: WorkspacePeekFoundSolutionItem list
+    Files: string list
+  }
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionConfiguration = {
     Id: string
     ConfigurationName: string
@@ -392,10 +399,15 @@ module CommandResponse =
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unsupported ->
                         None
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.MsbuildFormat msbuildProj ->
-                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat [])
-                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Folder(children, items) ->
+                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat { 
+                            WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] 
+                        })
+                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Folder(children, files) ->
                         let c = children |> List.choose item
-                        Some (WorkspacePeekFoundSolutionItemKind.Folder(c,items))
+                        Some (WorkspacePeekFoundSolutionItemKind.Folder { 
+                            WorkspacePeekFoundSolutionItemKindFolder.Items = c
+                            Files = files
+                        })
                 kind
                 |> Option.map (fun k -> { WorkspacePeekFoundSolutionItem.Guid = x.Guid; Name = x.Name; Kind = k })
             let items = sd.Items |> List.choose item
