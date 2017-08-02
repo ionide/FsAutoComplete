@@ -32,8 +32,7 @@ and SolutionItemMsbuildConfiguration = {
 [<RequireQualifiedAccess>]
 type Interesting =
 | Solution of string * SolutionData
-| Directory of string
-| Fsx of string
+| Directory of string * string list
 
 let tryParseSln slnFilePath = 
     let slnFile =
@@ -45,8 +44,8 @@ let tryParseSln slnFilePath =
     match slnFile with
     | None -> None
     | Some sln ->
-        let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) : SolutionItem =
-            let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) : SolutionItemKind =
+        let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) =
+            let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) =
                 match item.ProjectType with
                 | Microsoft.Build.Construction.SolutionProjectType.KnownToBeMSBuildFormat ->
                     SolutionItemKind.MsbuildFormat []
@@ -77,29 +76,39 @@ let tryParseSln slnFilePath =
             Items = items |> List.ofSeq
             Configurations = []
         }
-        Some (Interesting.Solution (slnFilePath, data))
+        Some (slnFilePath, data)
 
 open System.IO
 
-let peek13 (rootDir: string) deep =
+type private UsefulFile =
+    | FsProj
+    | Sln
+    | Fsx
+
+let private partitionByChoice3 =
+    let foldBy (a, b, c) t =
+        match t with
+        | Choice1Of3 x -> (x :: a, b, c)
+        | Choice2Of3 x -> (a, x :: b, c)
+        | Choice3Of3 x -> (a, b, x :: c)
+    Array.fold foldBy ([],[],[])
+
+let peek (rootDir: string) deep =
     let dirInfo = DirectoryInfo(rootDir)
 
+    //TODO accept glob list to ignore
     let ignored (s: string) = s.StartsWith(".")
 
     let scanDir (dirInfo: DirectoryInfo) =
-        let slnsFiles, fsxsFiles =
-            dirInfo.EnumerateFiles("*.*", SearchOption.TopDirectoryOnly)
-            |> Seq.filter (fun s -> s.FullName.EndsWith(".sln") || s.FullName.EndsWith(".fsx"))
-            |> Seq.toArray
-            |> Array.partition (fun s -> s.FullName.EndsWith(".sln"))
-
-        let slns =
-            slnsFiles
-            |> Array.choose (fun f -> tryParseSln f.FullName)
-        let fsxs =
-            fsxsFiles
-            |> Array.map (fun f -> Interesting.Fsx (f.FullName))
-        slns, fsxs
+        let hasExt ext (s: FileInfo) = s.FullName.EndsWith(ext)
+        dirInfo.EnumerateFiles("*.*", SearchOption.TopDirectoryOnly)
+        |> Seq.choose (fun s ->
+            match s with
+            | x when x |> hasExt ".sln" -> Some (UsefulFile.Sln, x)
+            | x when x |> hasExt ".fsx" -> Some (UsefulFile.Fsx, x)
+            | x when x |> hasExt ".fsproj" -> Some (UsefulFile.FsProj, x)
+            | _ -> None)
+        |> Seq.toArray
 
     let dirs =
         let rec scanDirs (dirInfo: DirectoryInfo) lvl =
@@ -114,10 +123,26 @@ let peek13 (rootDir: string) deep =
         scanDirs dirInfo 0
         |> Array.ofSeq
 
-    let found = dirs |> Array.Parallel.map scanDir
+    let getInfo (t, (f: FileInfo)) =
+        match t with
+        | UsefulFile.Sln ->
+            tryParseSln f.FullName
+            |> Option.map Choice1Of3
+        | UsefulFile.Fsx ->
+            Some (Choice2Of3 (f.FullName))
+        | UsefulFile.FsProj ->
+            Some (Choice3Of3 (f.FullName))
 
-    let slns = found |> Array.map fst |> Array.collect id |> Array.sortBy (function Interesting.Solution (p,_) -> p | _ -> "")
-    let fsxs = found |> Array.map snd |> Array.collect id |> Array.sortBy (function Interesting.Fsx p -> p | _ -> "")
+    let found =
+        dirs
+        |> Array.Parallel.collect scanDir
+        |> Array.Parallel.choose getInfo
 
-    let dir = Interesting.Directory rootDir
-    [ yield! slns; yield! fsxs; yield dir ]
+    let slns, _fsxs, fsprojs =
+        found |> partitionByChoice3
+
+    //TODO weight order of fsprojs from sln
+    let dir = rootDir, (fsprojs |> List.sort)
+
+    [ yield! slns |> List.map Interesting.Solution
+      yield dir |> Interesting.Directory ]
