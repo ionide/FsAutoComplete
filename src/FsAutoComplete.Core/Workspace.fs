@@ -44,6 +44,13 @@ let tryParseSln slnFilePath =
     match slnFile with
     | None -> None
     | Some sln ->
+        let slnDir = Path.GetDirectoryName slnFilePath
+        let makeAbsoluteFromSlnDir path =
+            if Path.IsPathRooted path then
+                path
+            else
+                Path.Combine(slnDir, path)
+                |> Path.GetFullPath
         let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) =
             let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) =
                 match item.ProjectType with
@@ -55,7 +62,11 @@ let tryParseSln slnFilePath =
                         |> Seq.filter (fun x -> x.ParentProjectGuid = item.ProjectGuid)
                         |> Seq.map parseItem
                         |> List.ofSeq
-                    SolutionItemKind.Folder (children, (item.FolderFiles |> List.ofSeq))
+                    let files =
+                        item.FolderFiles
+                        |> Seq.map makeAbsoluteFromSlnDir
+                        |> List.ofSeq
+                    SolutionItemKind.Folder (children, files)
                 | Microsoft.Build.Construction.SolutionProjectType.EtpSubProject
                 | Microsoft.Build.Construction.SolutionProjectType.WebDeploymentProject
                 | Microsoft.Build.Construction.SolutionProjectType.WebProject ->
