@@ -55,7 +55,7 @@ let tryParseSln slnFilePath =
             let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) =
                 match item.ProjectType with
                 | Microsoft.Build.Construction.SolutionProjectType.KnownToBeMSBuildFormat ->
-                    SolutionItemKind.MsbuildFormat []
+                    (item.RelativePath |> makeAbsoluteFromSlnDir), SolutionItemKind.MsbuildFormat []
                 | Microsoft.Build.Construction.SolutionProjectType.SolutionFolder ->
                     let children =
                         sln.ProjectsInOrder
@@ -66,18 +66,19 @@ let tryParseSln slnFilePath =
                         item.FolderFiles
                         |> Seq.map makeAbsoluteFromSlnDir
                         |> List.ofSeq
-                    SolutionItemKind.Folder (children, files)
+                    item.ProjectName, SolutionItemKind.Folder (children, files)
                 | Microsoft.Build.Construction.SolutionProjectType.EtpSubProject
                 | Microsoft.Build.Construction.SolutionProjectType.WebDeploymentProject
                 | Microsoft.Build.Construction.SolutionProjectType.WebProject ->
-                    SolutionItemKind.Unsupported
+                    (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unsupported
                 | Microsoft.Build.Construction.SolutionProjectType.Unknown
                 | _ ->
-                    SolutionItemKind.Unknown
+                    (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unknown
 
+            let name, itemKind = parseKind item 
             { Guid = item.ProjectGuid |> Guid.Parse
-              Name = item.ProjectName
-              Kind = parseKind item }
+              Name = name
+              Kind = itemKind }
 
         let items =
             sln.ProjectsInOrder
