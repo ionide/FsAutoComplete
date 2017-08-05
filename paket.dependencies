@@ -5,6 +5,7 @@ nuget Argu 3.7
 nuget FSharp.Compiler.Service 11.0.9 framework: >= net45
 nuget FSharp.Compiler.Service.ProjectCracker 11.0.9
 nuget Dotnet.ProjInfo 0.7.4
+nuget Sln 0.1.0
 nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json

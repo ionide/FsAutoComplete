@@ -1,5 +1,5 @@
 FSharp.Compiler.Service.ProjectCracker
 FSharp.Compiler.Service
 FSharpLint.Core
-Dotnet.ProjInfo
-Newtonsoft.Json
+Sln
+Dotnet.ProjInfoNewtonsoft.Json
