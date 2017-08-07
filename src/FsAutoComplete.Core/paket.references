@@ -2,3 +2,4 @@ Fantomas
 FSharp.Compiler.Service.ProjectCracker
 FSharp.Compiler.Service
 FSharpLint.Core
+Dotnet.ProjInfo

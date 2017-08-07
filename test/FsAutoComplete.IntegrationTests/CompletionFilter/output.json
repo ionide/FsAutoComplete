@@ -14,7 +14,7 @@
         "StartColumn": 3,
         "EndColumn": 4,
         "Severity": "Error",
-        "Message": "The value, constructor, namespace or type 'T' is not defined",
+        "Message": "The value, constructor, namespace or type 'T' is not defined.",
         "Subcategory": "typecheck"
       }
     ]

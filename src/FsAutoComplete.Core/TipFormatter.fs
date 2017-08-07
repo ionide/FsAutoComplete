@@ -93,12 +93,13 @@ let private buildFormatComment cmt =
        | _ -> ""
     | _ -> ""
 
-let formatTip (FSharpToolTipText tips) : (string * string) list list = 
+let formatTip (FSharpToolTipText tips) : (string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Single (it, comment) -> Some [it, buildFormatComment comment]
-        | FSharpToolTipElement.Group items -> 
+        | FSharpToolTipElement.Group items ->
             Some (items |> List.map (fun (it, comment) ->  (it, buildFormatComment comment)))
+        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
 let extractSignature (FSharpToolTipText tips) =

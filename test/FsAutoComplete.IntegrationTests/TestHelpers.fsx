@@ -118,3 +118,21 @@ let writeNormalizedOutput (fn: string) (s: string) =
       for line in lines do
         f.Write(line)
         f.Write('\n')
+
+let runProcess (workingDir: string) (exePath: string) (args: string) =
+    let psi = System.Diagnostics.ProcessStartInfo()
+    psi.FileName <- exePath
+    psi.WorkingDirectory <- workingDir 
+    psi.RedirectStandardOutput <- false
+    psi.RedirectStandardError <- false
+    psi.Arguments <- args
+    psi.CreateNoWindow <- true
+    psi.UseShellExecute <- false
+
+    use p = new System.Diagnostics.Process()
+    p.StartInfo <- psi
+    p.Start() |> ignore
+    p.WaitForExit()
+      
+    let exitCode = p.ExitCode
+    exitCode

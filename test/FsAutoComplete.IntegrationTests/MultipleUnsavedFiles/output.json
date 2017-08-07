@@ -67,7 +67,7 @@
         "StartColumn": 23,
         "EndColumn": 29,
         "Severity": "Error",
-        "Message": "The value, constructor, namespace or type 'addTwo' is not defined",
+        "Message": "The value, constructor, namespace or type 'addTwo' is not defined. Maybe you want one of the following:\n   addTwo2",
         "Subcategory": "typecheck"
       }
     ]

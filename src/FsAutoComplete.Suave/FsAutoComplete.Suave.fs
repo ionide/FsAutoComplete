@@ -63,7 +63,9 @@ let main argv =
           | Choice1Of2 res ->
              let res' = res |> List.toArray |> Json.toJson
              return! Response.response HttpCode.HTTP_200 res' r
-          | Choice2Of2 e -> return! Response.response HttpCode.HTTP_500 (Json.toJson e) r
+          | Choice2Of2 e ->
+            printfn "Unhandled error - %s \n %s" e.Message e.StackTrace
+            return! Response.response HttpCode.HTTP_500 (Json.toJson e) r
         }
 
     let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) ->
@@ -170,5 +172,10 @@ let main argv =
     let withPort = { defaultBinding.socketBinding with port = uint16 port }
     let serverConfig =
         { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
-    startWebServer serverConfig app
+    try
+        startWebServer serverConfig app
+    with
+    | e ->
+        printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
+
     0

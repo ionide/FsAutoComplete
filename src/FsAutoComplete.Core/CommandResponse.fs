@@ -323,10 +323,10 @@ module CommandResponse =
                 Data = { File = file
                          Errors = Array.map FSharpErrorInfo.OfFSharpError errors }}
 
-  let colorizations (serialize : Serializer) (colorizations: (Range.range * FSharpTokenColorKind)[]) =
-    let data = [ for r, k in colorizations do
-                   yield { Range = r; Kind = Enum.GetName(typeof<FSharpTokenColorKind>, k) } ]
-    serialize { Kind = "colorizations"; Data = data }
+  let colorizations (serialize : Serializer) (colorizations: (Range.range * SemanticClassificationType)[]) =
+    // let data = [ for r, k in colorizations do
+    //                yield { Range = r; Kind = Enum.GetName(typeof<SemanticClassificationType>, k) } ]
+    serialize { Kind = "colorizations"; Data = [] } //TODO: Fix colorization
 
   let findDeclaration (serialize : Serializer) (range: Range.range) =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
