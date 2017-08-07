@@ -24,7 +24,7 @@ module Contract =
     type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
     type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
     type LintRequest = {FileName : string}
-    type WorkspacePeekRequest = {Directory : string; Deep: int}
+    type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
 
 [<AutoOpen>]
 module internal Utils =
@@ -184,7 +184,7 @@ let main argv =
             path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint data.FileName)
             path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
-            path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep)
+            path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
         ]
 
     let main (args: ParseResults<CLIArguments>) =

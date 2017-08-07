@@ -105,11 +105,13 @@ let private partitionByChoice3 =
         | Choice3Of3 x -> (a, b, x :: c)
     Array.fold foldBy ([],[],[])
 
-let peek (rootDir: string) deep =
+let peek (rootDir: string) deep (excludedDirs: string list) =
     let dirInfo = DirectoryInfo(rootDir)
 
     //TODO accept glob list to ignore
-    let ignored (s: string) = s.StartsWith(".")
+    let ignored =
+        let normalizedDirs = excludedDirs |> List.map (fun s -> s.ToUpperInvariant()) |> Array.ofList
+        (fun (s: string) -> normalizedDirs |> Array.contains (s.ToUpperInvariant()))
 
     let scanDir (dirInfo: DirectoryInfo) =
         let hasExt ext (s: FileInfo) = s.FullName.EndsWith(ext)
