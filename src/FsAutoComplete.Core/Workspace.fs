@@ -45,12 +45,14 @@ let tryParseSln slnFilePath =
     | None -> None
     | Some sln ->
         let slnDir = Path.GetDirectoryName slnFilePath
-        let makeAbsoluteFromSlnDir path =
-            if Path.IsPathRooted path then
-                path
-            else
-                Path.Combine(slnDir, path)
-                |> Path.GetFullPath
+        let makeAbsoluteFromSlnDir =
+            let makeAbs path =
+                if Path.IsPathRooted path then
+                    path
+                else
+                    Path.Combine(slnDir, path)
+                    |> Path.GetFullPath
+            Utils.normalizeDirSeparators >> makeAbs
         let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) =
             let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) =
                 match item.ProjectType with
