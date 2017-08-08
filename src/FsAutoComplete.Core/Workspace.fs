@@ -35,15 +35,7 @@ type Interesting =
 | Directory of string * string list
 
 let tryParseSln slnFilePath = 
-    let slnFile =
-        try
-            Microsoft.Build.Construction.SolutionFile.Parse(slnFilePath)
-            |> Some
-        with _ ->
-            None
-    match slnFile with
-    | None -> None
-    | Some sln ->
+    let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
         let slnDir = Path.GetDirectoryName slnFilePath
         let makeAbsoluteFromSlnDir =
             let makeAbs path =
@@ -90,7 +82,17 @@ let tryParseSln slnFilePath =
             Items = items |> List.ofSeq
             Configurations = []
         }
-        Some (slnFilePath, data)
+        (slnFilePath, data)
+
+    let slnFile =
+        try
+            Microsoft.Build.Construction.SolutionFile.Parse(slnFilePath)
+            |> Some
+        with _ ->
+            None
+
+    slnFile
+    |> Option.map parseSln
 
 open System.IO
 
