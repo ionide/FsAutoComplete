@@ -414,7 +414,7 @@ module CommandResponse =
             WorkspacePeekFound.Solution { WorkspacePeekFoundSolution.Path = p; Items = items; Configurations = [] }
 
     let data = { WorkspacePeekResponse.Found = found |> List.map mapInt }
-    serialize { Kind = "project"; Data = data }
+    serialize { Kind = "workspacePeek"; Data = data }
 
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
