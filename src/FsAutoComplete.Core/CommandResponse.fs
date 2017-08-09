@@ -323,7 +323,7 @@ module CommandResponse =
   }
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindFolder = {
     Items: WorkspacePeekFoundSolutionItem list
-    Files: string list
+    Files: FilePath list
   }
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionConfiguration = {
     Id: string
