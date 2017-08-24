@@ -316,17 +316,17 @@ type Commands (serialize : Serializer) =
         match entitiesRes with
         | None -> return [Response.info serialize "Something went wrong"]
         | Some entities ->
-            let isAttribute = entityKind = EntityKind.Attribute
+            let isAttribute = entityKind = FsAutoComplete.EntityKind.Attribute
             let entities =
                 entities |> List.filter (fun e ->
-                    match entityKind, e.Kind with
-                    | EntityKind.Attribute, EntityKind.Attribute
-                    | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
-                    | EntityKind.FunctionOrValue _, _ -> true
-                    | EntityKind.Attribute, _
+                    match entityKind, (e.Kind LookupType.Fuzzy) with
+                    | FsAutoComplete.EntityKind.Attribute, EntityKind.Attribute
+                    | FsAutoComplete.EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
+                    | FsAutoComplete.EntityKind.FunctionOrValue _, _ -> true
+                    | FsAutoComplete.EntityKind.Attribute, _
                     | _, EntityKind.Module _
-                    | EntityKind.Module _, _
-                    | EntityKind.Type, _ -> false)
+                    | FsAutoComplete.EntityKind.Module _, _
+                    | FsAutoComplete.EntityKind.Type, _ -> false)
 
             let entities =
                 entities
@@ -334,7 +334,7 @@ type Commands (serialize : Serializer) =
                       [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
                         if isAttribute then
                             let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
-                            if e.Kind = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
+                            if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
                                 yield
                                     e.TopRequireQualifiedAccessParent,
                                     e.AutoOpenParent,
