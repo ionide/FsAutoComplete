@@ -389,7 +389,7 @@ module ParsedInput =
         let ns: string[] option ref = ref None
         let modules = ResizeArray<Idents * EndLine * Col>()
 
-        let inline longIdentToIdents ident = ident |> Seq.map (fun x -> string x) |> Seq.toArray
+        let inline longIdentToIdents ident = ident |> Seq.map string |> Seq.toArray
 
         let addModule (longIdent: LongIdent) endLine col =
             modules.Add(longIdent |> List.map string |> List.toArray, endLine, col)
