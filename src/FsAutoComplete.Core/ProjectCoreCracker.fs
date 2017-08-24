@@ -36,15 +36,16 @@ module ProjectCoreCracker =
 
     {
       ProjectFileName = file
-      ProjectFileNames = [||]
+      SourceFiles = [||]
       OtherOptions = rsp
       ReferencedProjects = [||]
       IsIncompleteTypeCheckEnvironment = false
       UseScriptResolutionRules = false
       LoadTime = DateTime.Now
       UnresolvedReferences = None;
+      Stamp = None
       OriginalLoadReferences = []
-      ExtraProjectInfo = Some (box { 
+      ExtraProjectInfo = Some (box {
         ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.ProjectJson
         ExtraProjectInfoData.ProjectOutputType = outType
       })
@@ -53,7 +54,7 @@ module ProjectCoreCracker =
   let runProcess (workingDir: string) (exePath: string) (args: string) =
       let psi = System.Diagnostics.ProcessStartInfo()
       psi.FileName <- exePath
-      psi.WorkingDirectory <- workingDir 
+      psi.WorkingDirectory <- workingDir
       psi.RedirectStandardOutput <- true
       psi.RedirectStandardError <- true
       psi.Arguments <- args
@@ -73,7 +74,7 @@ module ProjectCoreCracker =
       p.BeginOutputReadLine()
       p.BeginErrorReadLine()
       p.WaitForExit()
-      
+
       let exitCode = p.ExitCode
       exitCode, (workingDir, exePath, args)
 
@@ -125,7 +126,7 @@ module ProjectCoreCracker =
       IsPublishable = msbuildPropBool "IsPublishable" }
 
   let GetProjectOptionsFromProjectFile (file : string) =
-    
+
     let rec projInfo additionalMSBuildProps file =
         let projDir = Path.GetDirectoryName file
 
@@ -135,7 +136,7 @@ module ProjectCoreCracker =
 
         let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
-        let additionalInfo = //needed for extra 
+        let additionalInfo = //needed for extra
             [ "OutputType"
               "IsTestProject"
               "Configuration"
@@ -164,10 +165,10 @@ module ProjectCoreCracker =
 
             file
             |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
-    
+
         let todo =
             match results with
-            | Choice1Of2 [getFscArgsResult; getP2PRefsResult; gpResult] -> 
+            | Choice1Of2 [getFscArgsResult; getP2PRefsResult; gpResult] ->
                 match getFscArgsResult, getP2PRefsResult, gpResult with
                 | Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice1Of2 (MSBuildPrj.GetResult.Properties props) ->
                     // Projects with multiple target frameworks, fails if the target framework is not choosen
@@ -182,15 +183,15 @@ module ProjectCoreCracker =
                     NoCrossTargeting { FscArgs = fa; P2PRefs = p2p; Properties = p |> Map.ofList }
                 | r ->
                     failwithf "error getting msbuild info: %A" r
-            | Choice1Of2 r -> 
+            | Choice1Of2 r ->
                 failwithf "error getting msbuild info: internal error, more info returned than expected %A" r
             | Choice2Of2 r ->
                 match r with
-                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget -> 
+                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget ->
                     failwithf "Unexpected MSBuild result, all targets skipped"
-                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) -> 
+                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) ->
                     failwithf "Unexpected MSBuild result %s" r
-                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) -> 
+                | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) ->
                     [ sprintf "MSBuild failed with exitCode %i" exitCode
                       sprintf "Working Directory: '%s'" workDir
                       sprintf "Exe Path: '%s'" exePath
@@ -228,7 +229,7 @@ module ProjectCoreCracker =
             let po =
                 {
                     ProjectFileName = file
-                    ProjectFileNames = [||]
+                    SourceFiles = [||]
                     OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
                     ReferencedProjects = p2pProjects |> Array.ofList
                     IsIncompleteTypeCheckEnvironment = false
@@ -236,6 +237,7 @@ module ProjectCoreCracker =
                     LoadTime = DateTime.Now
                     UnresolvedReferences = None;
                     OriginalLoadReferences = []
+                    Stamp = None
                     ExtraProjectInfo =
                         Some (box {
                             ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)

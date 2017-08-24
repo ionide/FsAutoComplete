@@ -8,43 +8,30 @@ open FsAutoComplete.UnopenedNamespacesResolver
 open FSharpLint.Application
 
 module internal CompletionUtils =
-  let map =
-    [ 0x0000,  ("Class", "C")
-      0x0003,  ("Enum", "E")
-      0x00012, ("Struct", "S")
-      0x00018, ("Struct", "S") (* value type *)
-      0x0002,  ("Delegate", "D")
-      0x0008,  ("Interface", "I")
-      0x000e,  ("Module", "N") (* module *)
-      0x000f,  ("Namespace", "N")
-      0x000c,  ("Method", "M")
-      0x000d,  ("Extension Method", "M") (* method2 ? *)
-      0x00011, ("Property", "P")
-      0x0005,  ("Event", "e")
-      0x0007,  ("Field", "F") (* fieldblue ? *)
-      0x0020,  ("Field", "Fy") (* fieldyellow ? *)
-      0x0001,  ("Function", "Fc") (* const *)
-      0x0004,  ("Property", "P") (* enummember *)
-      0x0006,  ("Exception", "X") (* exception *)
-      0x0009,  ("Text File Icon", "t") (* TextLine *)
-      0x000a,  ("Regular File", "R") (* Script *)
-      0x000b,  ("Script", "s") (* Script2 *)
-      0x0010,  ("Tip of the day", "t") (* Formula *);
-      0x00013, ("Class", "C") (* Template *)
-      0x00014, ("Class", "C") (* Typedef *)
-      0x00015, ("Type", "T") (* Type *)
-      0x00016, ("Type", "T") (* Union *)
-      0x00017, ("Field", "V") (* Variable *)
-      0x00019, ("Class", "C") (* Intrinsic *)
-      0x0001f, ("Other", "o") (* error *)
-      0x00021, ("Other", "o") (* Misc1 *)
-      0x0022,  ("Other", "o") (* Misc2 *)
-      0x00023, ("Other", "o") (* Misc3 *) ] |> Map.ofSeq
+  let getIcon (glyph : FSharpGlyph) =
+    match glyph with
+    | FSharpGlyph.Class -> ("Class", "C")
+    | FSharpGlyph.Constant -> ("Constant", "Cn")
+    | FSharpGlyph.Delegate -> ("Delegate", "D")
+    | FSharpGlyph.Enum -> ("Enum", "E")
+    | FSharpGlyph.EnumMember -> ("Property", "P")
+    | FSharpGlyph.Event -> ("Event", "e")
+    | FSharpGlyph.Exception -> ("Exception", "X")
+    | FSharpGlyph.Field -> ("Field", "F")
+    | FSharpGlyph.Interface -> ("Interface", "I")
+    | FSharpGlyph.Method -> ("Method", "M")
+    | FSharpGlyph.OverridenMethod -> ("Method", "M")
+    | FSharpGlyph.Module -> ("Module", "N")
+    | FSharpGlyph.NameSpace -> ("Namespace", "N")
+    | FSharpGlyph.Property -> ("Property", "P")
+    | FSharpGlyph.Struct -> ("Struct", "S")
+    | FSharpGlyph.Typedef -> ("Class", "C")
+    | FSharpGlyph.Type -> ("Type", "T")
+    | FSharpGlyph.Union -> ("Type", "T")
+    | FSharpGlyph.Variable -> ("Variable", "V")
+    | FSharpGlyph.ExtensionMethod -> ("Extension Method", "M")
+    | FSharpGlyph.Error -> ("Error", "E")
 
-  let getIcon glyph =
-    match map.TryFind (glyph / 6), map.TryFind (glyph % 6) with
-    | Some(s), _ -> s // Is the second number good for anything?
-    | _, _ -> ("", "")
 
   let getEnclosingEntityChar = function
     | FSharpEnclosingEntityKind.Namespace -> "N"
@@ -203,7 +190,7 @@ module CommandResponse =
       Message:string
       Subcategory:string
     }
-    static member OfFSharpError(e:Microsoft.FSharp.Compiler.FSharpErrorInfo) =
+    static member OfFSharpError(e:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
       {
         FileName = e.FileName
         StartLine = e.StartLineAlternate
@@ -354,7 +341,7 @@ module CommandResponse =
       | ProjectSdkType.ProjectJson ->
         ProjectResponseInfo.ProjectJson
       | ProjectSdkType.DotnetSdk info ->
-        ProjectResponseInfo.DotnetSdk { 
+        ProjectResponseInfo.DotnetSdk {
           IsTestProject = info.IsTestProject
           Configuration = info.Configuration
           IsPackable = info.IsPackable
@@ -362,7 +349,7 @@ module CommandResponse =
           TargetFrameworkIdentifier = info.TargetFrameworkIdentifier
           TargetFrameworkVersion = info.TargetFrameworkVersion
           RestoreSuccess = info.RestoreSuccess
-          TargetFrameworks = info.TargetFrameworks          
+          TargetFrameworks = info.TargetFrameworks
           RunCmd =
             match info.RunCommand, info.RunArguments with
             | Some cmd, Some args -> Some { RunCmd.Command = cmd; Arguments = args }
@@ -463,14 +450,14 @@ module CommandResponse =
                                  let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
                                  yield {
                                    Tip = tip
-                                   TypeText = o.TypeText
+                                   TypeText = o.ReturnTypeText
                                    Parameters =
                                      [ for p in o.Parameters do
                                         yield {
                                           Name = p.ParameterName
                                           CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
                                           Display = p.Display
-                                          Description = p.Description
+                                          Description = p.Display
                                         }
                                    ]
                                    IsStaticArguments = not o.HasParameters
@@ -478,7 +465,7 @@ module CommandResponse =
                               ] }
                 }
 
-  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.FSharpErrorInfo[], file: string) =
+  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[], file: string) =
     serialize { Kind = "errors";
                 Data = { File = file
                          Errors = Array.map FSharpErrorInfo.OfFSharpError errors }}

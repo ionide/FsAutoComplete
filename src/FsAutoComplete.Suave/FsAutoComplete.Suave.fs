@@ -52,12 +52,12 @@ open Argu
 type CLIArguments =
     | [<MainCommand; Unique>] Port of tcp_port:int
     | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
-with
-    interface IArgParserTemplate with
-        member s.Usage =
-            match s with
-            | Port _ -> "the listening port."
-            | HostPID _ -> "the Host process ID."
+    with
+        interface IArgParserTemplate with
+            member s.Usage =
+                match s with
+                | Port _ -> "the listening port."
+                | HostPID _ -> "the Host process ID."
 
 
 [<EntryPoint>]
@@ -67,7 +67,7 @@ let main argv =
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     let commands = Commands(writeJson)
     let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-    let fs = new FileSystem(originalFs, commands.Files.TryFind)
+    let fs = FileSystem(originalFs, commands.Files.TryFind)
     AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
     // commands.FileChecked
@@ -199,7 +199,7 @@ let main argv =
             | Some pid ->
                 serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete.Suave" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
                 zombieCheckWithHostPID pid (fun () -> exit 0)
-            | None -> () 
+            | None -> ()
 
             startWebServer serverConfig app
             0

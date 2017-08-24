@@ -43,7 +43,7 @@ type State =
         defaultArg (Environment.fsharpCoreOpt  |> Option.map (fun path -> [| yield sprintf "-r:%s" path; yield "--noframework" |] )) [|"--noframework"|]
 
     { ProjectFileName = file + ".fsproj"
-      ProjectFileNames = [|file|]
+      SourceFiles = [|file|]
       OtherOptions = opts // "--noframework"
       ReferencedProjects = [| |]
       IsIncompleteTypeCheckEnvironment = true
@@ -51,7 +51,8 @@ type State =
       LoadTime = DateTime.Now
       UnresolvedReferences = None
       OriginalLoadReferences = []
-      ExtraProjectInfo = None }
+      ExtraProjectInfo = None
+      Stamp = None}
 
   member x.TryGetFileCheckerOptionsWithLines(file: SourceFilePath) : Result<FSharpProjectOptions * LineStr[]> =
     let file = Utils.normalizePath file
