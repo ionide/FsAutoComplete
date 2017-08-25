@@ -97,7 +97,8 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
-            Some (items |> List.map (fun (it) ->  (it.MainDescription, buildFormatComment it.XmlDoc)))
+            let getRemarks (it : FSharpToolTipElementData<string>) = defaultArg (it.Remarks |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)) ""
+            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
