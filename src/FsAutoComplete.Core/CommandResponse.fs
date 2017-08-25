@@ -457,7 +457,7 @@ module CommandResponse =
                                           Name = p.ParameterName
                                           CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
                                           Display = p.Display
-                                          Description = p.Display
+                                          Description = "" //TODO: Investigate if Description is needed at all - not used in Ionide, check in Emacs and vim.
                                         }
                                    ]
                                    IsStaticArguments = not o.HasParameters
