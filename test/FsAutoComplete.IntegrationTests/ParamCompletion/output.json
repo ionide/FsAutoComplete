@@ -105,7 +105,7 @@
             }
           ]
         ],
-        "TypeText": ": Set<'a> (requires comparison)",
+        "TypeText": ": Set<'a>",
         "Parameters": [
           {
             "Name": "y",
@@ -192,7 +192,7 @@
             }
           ]
         ],
-        "TypeText": ": Set<'a> (requires comparison)",
+        "TypeText": ": Set<'a>",
         "Parameters": [
           {
             "Name": "y",
