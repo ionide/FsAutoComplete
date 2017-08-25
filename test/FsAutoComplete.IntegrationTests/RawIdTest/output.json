@@ -200,21 +200,21 @@
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Column Two",
-      "ReplacementText": "``Column Two``",
-      "Glyph": "Field",
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
+      "Glyph": "Variable",
       "GlyphChar": "V"
     },
     {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
-      "Glyph": "Field",
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
+      "Glyph": "Variable",
       "GlyphChar": "V"
     },
     {
       "Name": "Column1",
       "ReplacementText": "Column1",
-      "Glyph": "Field",
+      "Glyph": "Variable",
       "GlyphChar": "V"
     }
   ]
@@ -237,14 +237,14 @@
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Column Two",
-      "ReplacementText": "``Column Two``",
+      "Name": "Another`Column",
+      "ReplacementText": "``Another`Column``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
     {
-      "Name": "Another`Column",
-      "ReplacementText": "``Another`Column``",
+      "Name": "Column Two",
+      "ReplacementText": "``Column Two``",
       "Glyph": "Property",
       "GlyphChar": "P"
     },
