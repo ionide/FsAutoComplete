@@ -97,7 +97,7 @@
 }
 {
   "Kind": "info",
-  "Data": "No tooltip information"
+  "Data": "Cannot find ident for tooltip"
 }
 {
   "Kind": "error",
@@ -127,7 +127,7 @@
   "Kind": "error",
   "Data": {
     "Code": 1,
-    "Message": "Could not find declaration",
+    "Message": "Could not find ident at this location",
     "AdditionalData": {}
   }
 }
