@@ -37,7 +37,8 @@ let suaveReleaseArchive = "fsautocomplete.suave.zip"
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
-MSBuildDefaults <- {MSBuildDefaults with ToolsVersion = Some "14.0"}
+if Environment.OSVersion.Platform = PlatformID.Win32NT then
+  MSBuildDefaults <- {MSBuildDefaults with ToolsVersion = Some "14.0"}
 
 Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
