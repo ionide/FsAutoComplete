@@ -96,9 +96,9 @@ let private buildFormatComment cmt =
 let formatTip (FSharpToolTipText tips) : (string * string) list list =
     tips
     |> List.choose (function
-        | FSharpToolTipElement.Single (it, comment) -> Some [it, buildFormatComment comment]
         | FSharpToolTipElement.Group items ->
-            Some (items |> List.map (fun (it, comment) ->  (it, buildFormatComment comment)))
+            let getRemarks (it : FSharpToolTipElementData<string>) = defaultArg (it.Remarks |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)) ""
+            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
@@ -117,12 +117,10 @@ let extractSignature (FSharpToolTipText tips) =
 
     let firstResult x =
         match x with
-        | FSharpToolTipElement.Single (t, _) when not (String.IsNullOrWhiteSpace t) -> Some t
-        | FSharpToolTipElement.Group gs -> List.tryPick (fun (t, _) -> if not (String.IsNullOrWhiteSpace t) then Some t else None) gs
+        | FSharpToolTipElement.Group gs -> List.tryPick (fun (t : FSharpToolTipElementData<string>) -> if not (String.IsNullOrWhiteSpace t.MainDescription) then Some t.MainDescription else None) gs
         | _ -> None
 
     tips
-    |> Seq.sortBy (function FSharpToolTipElement.Single _ -> 0 | _ -> 1)
     |> Seq.tryPick firstResult
     |> Option.map getSignature
     |> Option.getOrElse ""

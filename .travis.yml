@@ -8,7 +8,7 @@ script:
 
 matrix:
   include:
-    - mono: 4.8.0
+    - mono: 5.2.0
       dotnet: 1.0.1
     - mono: latest # => "stable release"
       dotnet: 1.0.1

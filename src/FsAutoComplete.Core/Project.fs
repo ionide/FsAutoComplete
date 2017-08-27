@@ -20,6 +20,8 @@ type private ProjectPersistentCacheMessage =
 
 type ProjectPersistentCache (projectFile) =
     let cachePath = (Path.GetDirectoryName projectFile) </> "obj" </> "fsac.cache"
+    let settings = JsonSerializerSettings()
+    do settings.MissingMemberHandling <- MissingMemberHandling.Error
 
     let agent = MailboxProcessor.Start <| fun mb ->
         let rec loop () = async {

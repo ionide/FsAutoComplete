@@ -161,42 +161,6 @@
           }
         ]
       }
-    },
-    {
-      "Info": "`x = null`; suggestion: Consider using pattern matching, or if you're using F# 4 then `isNull`.",
-      "Range": {
-        "StartColumn": 15,
-        "StartLine": 8,
-        "EndColumn": 21,
-        "EndLine": 8
-      },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
-      "Fix": null
-    },
-    {
-      "Info": "`not (a = b)` might be able to be refactored into `a <> b`.",
-      "Range": {
-        "StartColumn": 17,
-        "StartLine": 1,
-        "EndColumn": 26,
-        "EndLine": 1
-      },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
-      "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "not (a=b)",
-            "FromRange": {
-              "StartColumn": 17,
-              "StartLine": 1,
-              "EndColumn": 26,
-              "EndLine": 1
-            },
-            "ToText": "a <> b"
-          }
-        ]
-      }
     }
   ]
 }

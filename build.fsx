@@ -37,6 +37,9 @@ let suaveReleaseArchive = "fsautocomplete.suave.zip"
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
+if Environment.OSVersion.Platform = PlatformID.Win32NT then
+  MSBuildDefaults <- {MSBuildDefaults with ToolsVersion = Some "14.0"}
+
 Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
@@ -97,7 +100,7 @@ Target "IntegrationTest" (fun _ ->
    integrationTests
    |> Seq.map runIntegrationTest
    |> Seq.forall id
-  
+
   if not runOk then
     trace "Integration tests did not run successfully"
     failwith "Integration tests did not run successfully"

@@ -43,7 +43,7 @@ type ParseAndCheckResults
     | None -> return Failure "Could not find ident at this location"
     | Some identIsland ->
 
-    let! meth = checkResults.GetMethodsAlternate(line, col, lineStr, Some identIsland)
+    let! meth = checkResults.GetMethods(line, col, lineStr, Some identIsland)
 
     return Success(meth, commas) }
 
@@ -52,11 +52,12 @@ type ParseAndCheckResults
     | None -> return Failure "Could not find ident at this location"
     | Some(col, identIsland) ->
 
-      let! declarations = checkResults.GetDeclarationLocationAlternate(pos.Line, col, lineStr, identIsland, false)
+      let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
 
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range -> return Success range
+      | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return Failure "External declaration" //TODO: Handle external declarations
     }
 
   member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) = async {
@@ -65,7 +66,7 @@ type ParseAndCheckResults
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let! tip = checkResults.GetToolTipTextAlternate(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
       return
         match tip with
         | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) ->
@@ -123,7 +124,7 @@ type ParseAndCheckResults
         | None -> return (Failure "No ident at this location")
         | Some(colu, identIsland) ->
 
-        let! help = checkResults.GetF1KeywordAlternate(pos.Line, colu, lineStr, identIsland)
+        let! help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
         match help with
         | None -> return (Failure "No symbol information found")
         | Some hlp -> return Success hlp}
@@ -131,13 +132,15 @@ type ParseAndCheckResults
   member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
     let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
     try
-      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, pos.Col, lineStr, longName, residue, fun (_,_) -> false)
+      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, pos.Col, lineStr, longName, residue, (fun () -> []))
 
       let decls =
         match filter with
         | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
         | Some "Contains" -> [| for d in results.Items do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
         | _ -> results.Items
+        
+      let decls = decls |> Array.sortBy (fun d -> d.Name)
       return Some (decls, residue)
     with :? TimeoutException -> return None
   }
@@ -160,7 +163,7 @@ type ParseAndCheckResults
 
               for fileName, signatures in assembliesByFileName do
                 let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
-                yield! AssemblyContentProvider.getAssemblyContent None contentType fileName signatures
+                yield! AssemblyContentProvider.getAssemblyContent (fun _ -> []) contentType fileName signatures
 
             ]
       with
@@ -256,7 +259,7 @@ type FSharpCompilerServiceChecker() =
       ])
 
   member __.GetProjectOptionsFromScript(file, source) = async {
-    let! rawOptions = checker.GetProjectOptionsFromScript(file, source)
+    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
@@ -347,26 +350,26 @@ type FSharpCompilerServiceChecker() =
           { p with OtherOptions = opts }, logMap
 
         let po =
-            match po.ProjectFileNames with
+            match po.SourceFiles with
             | [||] ->
                 let compileFiles, otherOptions =
                     po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi"))
-                { po with ProjectFileNames = compileFiles; OtherOptions = otherOptions }
+                { po with SourceFiles = compileFiles; OtherOptions = otherOptions }
             | _ ->
                 let fsiFiles, otherOptions =
                     po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith (".fsi"))
                 let fileNames =
-                    po.ProjectFileNames
+                    po.SourceFiles
                     |> Array.fold (fun acc e ->
                         match fsiFiles |> Array.tryFind ((=) (e + "i")) with
                         | Some fsi ->
                             [| yield! acc; yield fsi; yield e  |]
                         | None -> [| yield! acc; yield e |] ) [||]
 
-                { po with ProjectFileNames = fileNames ; OtherOptions = otherOptions }
+                { po with SourceFiles = fileNames ; OtherOptions = otherOptions }
 
 
-        let po = { po with ProjectFileNames = po.ProjectFileNames |> Array.map normalizeDirSeparators }
+        let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
         let outType =
@@ -377,13 +380,13 @@ type FSharpCompilerServiceChecker() =
             | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
         let rec setExtraInfo po =
             { po with
-                 ExtraProjectInfo = Some (box { 
+                 ExtraProjectInfo = Some (box {
                     ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
                     ProjectOutputType = outType
                  })
                  ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
 
-        Ok (setExtraInfo po, Array.toList po.ProjectFileNames, outputFile, Seq.toList references, logMap)
+        Ok (setExtraInfo po, Array.toList po.SourceFiles, outputFile, Seq.toList references, logMap)
       with e ->
         Err (GenericError(e.Message))
 
