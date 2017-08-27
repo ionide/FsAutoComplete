@@ -2,7 +2,7 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open Utils 
+open Utils
 
 module Environment =
   let private environVar v = Environment.GetEnvironmentVariable v
@@ -18,7 +18,7 @@ module Environment =
       |> fun detected -> if detected = null then @"C:\Program Files (x86)\" else detected
 
   // Below code slightly modified from FAKE MSBuildHelper.fs
-  
+
   let private tryFindFile dirs file =
       let files =
           dirs
@@ -38,7 +38,7 @@ module Environment =
               | _ -> "")
           |> Seq.filter ((<>) "")
           |> Seq.cache
-      if not (Seq.isEmpty files) then Some(Seq.head files) 
+      if not (Seq.isEmpty files) then Some(Seq.head files)
       else None
 
   let private tryFindPath backupPaths tool =
@@ -54,7 +54,7 @@ module Environment =
   let msbuild =
       if Utils.runningOnMono then "xbuild"
       else
-        let MSBuildPath = 
+        let MSBuildPath =
             (programFilesX86 </> @"\MSBuild\14.0\Bin") + ";" +
             (programFilesX86 </> @"\MSBuild\12.0\Bin") + ";" +
             (programFilesX86 </> @"\MSBuild\12.0\Bin\amd64") + ";" +
@@ -66,7 +66,7 @@ module Environment =
         else findPath MSBuildPath "MSBuild.exe"
 
   let private fsharpInstallationPath =
-    ["4.0"; "3.1"; "3.0"]
+    ["4.1"; "4.0"; "3.1"; "3.0"]
     |> List.map (fun v -> programFilesX86 </> @"\Microsoft SDKs\F#\" </> v </> @"\Framework\v4.0")
     |> List.tryFind Directory.Exists
 
@@ -90,15 +90,15 @@ module Environment =
     else
       let referenceAssembliesPath =
         programFilesX86 </> @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\"
-      let fsharpCoreVersions = ["4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
+      let fsharpCoreVersions = ["4.4.1.0"; "4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
       tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
 
-  let referenceAssembliesPath = 
+  let referenceAssembliesPath =
      programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework"
-  
-  let dotNetVersions () = 
+
+  let dotNetVersions () =
     Directory.EnumerateDirectories referenceAssembliesPath
     |> Seq.sort
     |> Seq.toArray
     |> Array.rev
-      
+
