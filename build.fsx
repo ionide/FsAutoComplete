@@ -54,6 +54,10 @@ let isTestSkipped fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
   match dir, file with
+  | "ProjectCache", "Runner.fsx" ->
+    match environVar "APPVEYOR" with
+    | "True" -> Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
+    | _ -> None
   | "DotNetSdk2.0Crossgen", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/179"
   | "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
