@@ -206,11 +206,15 @@ let withPath dir =
   setEnvVar "PATH" (fun pathvar -> dir + Path.PathSeparator.ToString() + pathvar)
 
 module DotnetCli =
-  let sdk2Dir () =
+
+  // see https://github.com/dotnet/core/blob/master/release-notes/download-archive.md for released version
+  // the channel and version are passed to Channel and Version argument of install script, see that for 
+  // more help 
+  let private dotnetSdkInstallScript channel version =
     let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
     let file = if isWindows then "dotnet-install.ps1" else "dotnet-install.sh"
     let repoDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "..")
-    let sdkDir = Path.Combine(repoDir, ".dotnetsdk2_0") |> Path.GetFullPath
+    let sdkDir = Path.Combine(repoDir, ".dotnetsdk", channel) |> Path.GetFullPath
 
     if Directory.Exists(sdkDir) then
       printfn ".net core sdk found in '%s'" sdkDir
@@ -219,12 +223,10 @@ module DotnetCli =
       printfn ".net core sdk not found in '%s'" sdkDir
 
       Directory.CreateDirectory(sdkDir) |> ignore
-
-      let branch = "release/2.0.0-preview2"
     
       use client = new System.Net.WebClient()
       let installScriptPath = Path.Combine(sdkDir, file)
-      let installScriptUrl = sprintf "https://raw.githubusercontent.com/dotnet/cli/%s/scripts/obtain/%s" branch file
+      let installScriptUrl = sprintf "https://dot.net/v1/%s" file
       printfn "downloading .net core sdk install script %s" installScriptUrl
       try
         client.DownloadFile(installScriptUrl, installScriptPath)
@@ -235,16 +237,19 @@ module DotnetCli =
         | 0 -> ()
         | _ -> failwithf "Failed to download script '%s' from curl" installScriptUrl
 
-      printfn "installing .net core sdk (branch %s) to '%s'" branch sdkDir
+      printfn "installing .net core sdk (channel %s, version %s) to '%s'" channel version sdkDir
 
       if isWindows then
         let powershell script args = runProcess __SOURCE_DIRECTORY__ "powershell" (sprintf """-NoProfile -ExecutionPolicy unrestricted -File "%s" %s """ script args) |> ignore
-        powershell installScriptPath  (sprintf "-InstallDir %s -Channel %s" sdkDir branch)
+        powershell installScriptPath  (sprintf "-InstallDir %s -Channel %s -Version %s" sdkDir channel version)
       else
         let bash script args = runProcess __SOURCE_DIRECTORY__ "bash" (sprintf """ "%s" %s """ script args) |> ignore
-        bash installScriptPath  (sprintf "--install-dir %s -channel %s" sdkDir branch)
+        bash installScriptPath  (sprintf "--install-dir %s -channel %s -version %s" sdkDir channel version)
 
       sdkDir
+
+  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.0.4"
+  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0"
 
   let useSdk sdkDir =
     let p = withPath sdkDir
