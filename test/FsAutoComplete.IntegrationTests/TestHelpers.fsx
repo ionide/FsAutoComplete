@@ -209,12 +209,12 @@ module DotnetCli =
 
   // see https://github.com/dotnet/core/blob/master/release-notes/download-archive.md for released version
   // the channel and version are passed to Channel and Version argument of install script, see that for 
-  // more help 
-  let private dotnetSdkInstallScript channel version =
+  // more help
+  let private dotnetSdkInstallScript channel version toDir =
     let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
     let file = if isWindows then "dotnet-install.ps1" else "dotnet-install.sh"
     let repoDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "..")
-    let sdkDir = Path.Combine(repoDir, ".dotnetsdk", channel) |> Path.GetFullPath
+    let sdkDir = Path.Combine(repoDir, ".dotnetsdk", toDir) |> Path.GetFullPath
 
     if Directory.Exists(sdkDir) then
       printfn ".net core sdk found in '%s'" sdkDir
@@ -248,8 +248,8 @@ module DotnetCli =
 
       sdkDir
 
-  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.0.4"
-  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0"
+  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.0.4" "v1.0.4"
+  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0" "v2.0.0"
 
   let useSdk sdkDir =
     let p = withPath sdkDir
