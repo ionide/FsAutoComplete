@@ -7,6 +7,10 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
 let doIt () =
+  let sdkDir = DotnetCli.sdk1Dir ()
+
+  use _sdk1 = DotnetCli.useSdk sdkDir
+
   runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
 
   use _withNetFxLib = DotnetCli.withNetFxBclAvaiable "4.6.1"
@@ -23,6 +27,5 @@ let doIt () =
     p.send "quit\n"
     p.finalOutput ()
     |> writeNormalizedOutput "output.json"
-
 
 doIt ()
