@@ -116,12 +116,14 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
 
+  //workaround for https://github.com/fsharp/fsharp/issues/774
+  let lines = lines |> Array.filter ((<>) "non-IL or abstract method with non-zero RVA")
+
   // Write manually to ensure \n line endings on all platforms
-  using (new StreamWriter(fn))
-  <| fun f ->
-      for line in lines do
-        f.Write(line)
-        f.Write('\n')
+  use f = new StreamWriter(fn)
+  for line in lines do
+    f.Write(line)
+    f.Write('\n')
 
 let runProcess (workingDir: string) (exePath: string) (args: string) =
     printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
