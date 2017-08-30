@@ -69,6 +69,9 @@ type FsAutoCompleteWrapper() =
   member x.send (s: string) : unit =
     fprintf p.StandardInput "%s" s
 
+  member x.workspacepeek (dir: string) (deep: int): unit =
+    fprintf p.StandardInput "workspacepeek \"%s\" %i\n" dir deep
+
   /// Wait for a single line to be output (one JSON message)
   /// Note that this line will appear at the *start* of output.json,
   /// so use carefully, and preferably only at the beginning.

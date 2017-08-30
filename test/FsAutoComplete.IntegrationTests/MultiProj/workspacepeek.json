@@ -1,0 +1,72 @@
+{
+  "Kind": "workspacePeek",
+  "Data": {
+    "Found": [
+      {
+        "Type": "solution",
+        "Data": {
+          "Path": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Sample/Sample.sln",
+          "Items": [
+            {
+              "Guid": "b9fef411-5f4d-4021-9a20-fb6597faa915",
+              "Name": "docs",
+              "Kind": {
+                "Kind": "folder",
+                "Data": {
+                  "Items": [],
+                  "Files": [
+                    "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/others/devguide.txt",
+                    "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/others/readme.md"
+                  ]
+                }
+              }
+            },
+            {
+              "Guid": "116cc2f9-f987-4b3d-915a-34cac04a73da",
+              "Name": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Proj1.fsproj",
+              "Kind": {
+                "Kind": "msbuildFormat",
+                "Data": {
+                  "Configurations": []
+                }
+              }
+            },
+            {
+              "Guid": "7fe228f9-217e-41a8-924d-f9dfedfdd2b4",
+              "Name": "Tests",
+              "Kind": {
+                "Kind": "folder",
+                "Data": {
+                  "Items": [
+                    {
+                      "Guid": "713bc809-9dc5-422d-b2e6-04f6d26f7a11",
+                      "Name": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Proj2.fsproj",
+                      "Kind": {
+                        "Kind": "msbuildFormat",
+                        "Data": {
+                          "Configurations": []
+                        }
+                      }
+                    }
+                  ],
+                  "Files": []
+                }
+              }
+            }
+          ],
+          "Configurations": []
+        }
+      },
+      {
+        "Type": "directory",
+        "Data": {
+          "Directory": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj",
+          "Fsprojs": [
+            "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Proj1.fsproj",
+            "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Proj2.fsproj"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -5,7 +5,7 @@
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{116cc2f9-f987-4b3d-915a-34cac04a73da}</ProjectGuid>
+    <ProjectGuid>{713bc809-9dc5-422d-b2e6-04f6d26f7a11}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Proj2</RootNamespace>
     <AssemblyName>Proj2</AssemblyName>

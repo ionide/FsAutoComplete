@@ -29,6 +29,7 @@ type Command =
   | Project of string * bool
   | Colorization of bool
   | CompilerLocation
+  | WorkspacePeek of string * int * string[]
   | Started
   | Quit
 
@@ -100,6 +101,18 @@ module CommandInput =
     return '"'
   }
 
+  // Parse 'parse "<filename>" [sync]' command
+  let workspacePeek =
+    parser {
+      let! _ = string "workspacepeek "
+      let! _ = char '"'
+      let! dir = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      let! _ = many (string " ")
+      let! deep = some digit |> Parser.map (String.OfSeq >> int)
+      let excludeDir = [| |]
+      return WorkspacePeek (dir, deep, excludeDir) }
+
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
@@ -156,7 +169,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

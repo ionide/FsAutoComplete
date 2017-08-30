@@ -15,6 +15,34 @@ module private JsonSerializerConverters =
         | FSharpErrorSeverity.Warning -> "Warning"
     serializer.Serialize(writer, s)
 
+  let workspacePeekFoundWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
+    let t, v =
+        match value with
+        | CommandResponse.WorkspacePeekFound.Directory d ->
+            "directory", box d
+        | CommandResponse.WorkspacePeekFound.Solution sln ->
+            "solution", box sln
+    writer.WriteStartObject()
+    writer.WritePropertyName("Type")
+    writer.WriteValue(t)
+    writer.WritePropertyName("Data")
+    serializer.Serialize(writer, v)
+    writer.WriteEndObject()
+
+  let workspacePeekFoundSolutionItemKindWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
+    let t, v =
+        match value with
+        | CommandResponse.WorkspacePeekFoundSolutionItemKind.Folder d ->
+            "folder", box d
+        | CommandResponse.WorkspacePeekFoundSolutionItemKind.MsbuildFormat msbuildProj ->
+            "msbuildFormat", box msbuildProj
+    writer.WriteStartObject()
+    writer.WritePropertyName("Kind")
+    writer.WriteValue(t)
+    writer.WritePropertyName("Data")
+    serializer.Serialize(writer, v)
+    writer.WriteEndObject()
+
   let rangeWriter (writer: JsonWriter) (range: Range.range) (_serializer : JsonSerializer) =
     writer.WriteStartObject()
     writer.WritePropertyName("StartColumn")
@@ -68,6 +96,8 @@ module private JsonSerializerConverters =
     let sameDU ty t = Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
+       writeOnlyConverter workspacePeekFoundWriter sameDU
+       writeOnlyConverter workspacePeekFoundSolutionItemKindWriter sameDU
        writeOnlyConverter projectSdkTypeWriter sameDU
        writeOnlyConverter projectOutputTypeWriter sameDU |]
 

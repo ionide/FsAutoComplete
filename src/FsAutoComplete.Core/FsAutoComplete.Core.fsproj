@@ -56,6 +56,7 @@
     <Compile Include="AssemblyContentProvider.fs" />
     <Compile Include="UnopenedNamespacesResolver.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
+    <Compile Include="Workspace.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
     <Compile Include="State.fs" />
@@ -168,6 +169,17 @@
       <ItemGroup>
         <Reference Include="Newtonsoft.Json">
           <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="Sln">
+          <HintPath>..\..\packages\Sln\lib\net45\Sln.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
