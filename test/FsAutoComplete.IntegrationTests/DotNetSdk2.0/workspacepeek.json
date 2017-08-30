@@ -1,0 +1,46 @@
+{
+  "Kind": "workspacePeek",
+  "Data": {
+    "Found": [
+      {
+        "Type": "solution",
+        "Data": {
+          "Path": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1/sample1.sln",
+          "Items": [
+            {
+              "Guid": "eecbf4bf-4f97-488a-a04d-55cdeca39b88",
+              "Name": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1/l1/l1.fsproj",
+              "Kind": {
+                "Kind": "msbuildFormat",
+                "Data": {
+                  "Configurations": []
+                }
+              }
+            },
+            {
+              "Guid": "5686ca40-e1c8-4635-8c49-9be9415bb8cf",
+              "Name": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1/c1/c1.fsproj",
+              "Kind": {
+                "Kind": "msbuildFormat",
+                "Data": {
+                  "Configurations": []
+                }
+              }
+            }
+          ],
+          "Configurations": []
+        }
+      },
+      {
+        "Type": "directory",
+        "Data": {
+          "Directory": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1",
+          "Fsprojs": [
+            "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1/c1/c1.fsproj",
+            "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1/l1/l1.fsproj"
+          ]
+        }
+      }
+    ]
+  }
+}
