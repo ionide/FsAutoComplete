@@ -6,12 +6,17 @@ open System
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
-runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+let doIt () =
+  let sdkDir = DotnetCli.sdk1Dir ()
 
-match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sampleo/c1" with
-| NonExitCodeResult data ->
+  use _sdk1 = DotnetCli.useSdk sdkDir
+
+  runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+
+  match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sampleo/c1" with
+  | NonExitCodeResult data ->
     data |> processResultLog "failed 'dotnet restore sampleo/c1'" |> writeNormalizedOutput "output.json"
-| _ ->
+  | _ ->
     match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "build sampleo/l1" with
     | NonExitCodeResult data ->
         data |> processResultLog "failed 'dotnet build sampleo/l1'" |> writeNormalizedOutput "output.json"
@@ -24,3 +29,5 @@ match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sampleo/c1" wi
         p.send "quit\n"
         p.finalOutput ()
         |> writeNormalizedOutput "fsharpouter.json"
+
+doIt ()

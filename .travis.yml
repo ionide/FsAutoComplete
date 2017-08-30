@@ -8,14 +8,18 @@ script:
 
 matrix:
   include:
-    - mono: 4.8.0
-      dotnet: 1.0.1
+    - mono: 4.8.1
+      dotnet: 1.0.4
+    - mono: 5.2.0
+      dotnet: 1.0.4
+      env:
+        - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
     - mono: latest # => "stable release"
-      dotnet: 1.0.1
+      dotnet: 1.0.4
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
     - mono: weekly # => "latest commits"
-      dotnet: 1.0.1
+      dotnet: 1.0.4
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
 

@@ -7,17 +7,24 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let outputJson = "notrestored.json"
 File.Delete outputJson
 
-runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+let doIt () =
+  let sdkDir = DotnetCli.sdk1Dir ()
 
-[ for c in ["c1";"l1"] do
+  use _sdk1 = DotnetCli.useSdk sdkDir
+
+  runProcess __SOURCE_DIRECTORY__ "dotnet" "--info" |> ignore
+
+  [ for c in ["c1";"l1"] do
     for outDir in ["obj";"bin"] do
       yield System.IO.Path.Combine("sample1", c, outDir) ]
-|> List.iter deleteDir
+  |> List.iter deleteDir
 
-let p = new FsAutoCompleteWrapper()
+  let p = new FsAutoCompleteWrapper()
 
-p.project "sample1/c1/c1.fsproj"
+  p.project "sample1/c1/c1.fsproj"
 
-p.send "quit\n"
-p.finalOutput ()
-|> writeNormalizedOutput outputJson
+  p.send "quit\n"
+  p.finalOutput ()
+  |> writeNormalizedOutput outputJson
+
+doIt ()
