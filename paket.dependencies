@@ -1,11 +1,11 @@
 framework: net45
 source https://www.nuget.org/api/v2/
 
-nuget Argu 3.7
-nuget FSharp.Compiler.Service 11.0.9 framework: >= net45
-nuget FSharp.Compiler.Service.ProjectCracker 11.0.9
-nuget Dotnet.ProjInfo 0.7.4
-nuget Sln 0.2.0
+nuget Argu ~> 3.7
+nuget FSharp.Compiler.Service ~> 11
+nuget FSharp.Compiler.Service.ProjectCracker ~> 11
+nuget Dotnet.ProjInfo ~> 0.7
+nuget Sln ~> 0.2
 nuget Mono.Cecil
 nuget NDesk.Options
 nuget Newtonsoft.Json
@@ -16,5 +16,6 @@ nuget Octokit
 nuget Suave < 2.0
 nuget FSharpLint.Core prerelease
 nuget FSharp.Core 4.0.0.1 redirects:on
+nuget System.Collections.Immutable < 1.4
 
 github fsharp/FAKE modules/Octokit/Octokit.fsx
