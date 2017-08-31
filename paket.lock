@@ -7,10 +7,10 @@ NUGET
     FAKE (4.63)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1)
-    FSharp.Compiler.Service (11.0.9)
+    FSharp.Compiler.Service (11.0.10)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
-    FSharp.Compiler.Service.ProjectCracker (11.0.9)
+    FSharp.Compiler.Service.ProjectCracker (11.0.10)
     FSharp.Core (4.0.0.1) - redirects: on
     FSharpLint.Core (0.7.4-beta)
       FParsec (>= 1.0.2)
