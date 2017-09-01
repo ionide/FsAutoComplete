@@ -197,37 +197,6 @@
   "Kind": "errors",
   "Data": {
     "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0Crossgen/sample1/c1/Program.fs",
-    "Errors": [
-      {
-        "FileName": "startup",
-        "StartLine": 1,
-        "EndLine": 1,
-        "StartColumn": 1,
-        "EndColumn": 1,
-        "Severity": "Error",
-        "Message": "Problem reading assembly '<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0Crossgen/sample1/l1/bin/Debug/netstandard2.0/l1.dll': Build was not evaluated, expected the results to be ready after 'Eval'.",
-        "Subcategory": "parameter"
-      },
-      {
-        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0Crossgen/sample1/c1/Program.fs",
-        "StartLine": 7,
-        "EndLine": 7,
-        "StartColumn": 5,
-        "EndColumn": 7,
-        "Severity": "Error",
-        "Message": "The value, namespace, type or module 'l1' is not defined.",
-        "Subcategory": "typecheck"
-      },
-      {
-        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0Crossgen/sample1/c1/Program.fs",
-        "StartLine": 8,
-        "EndLine": 8,
-        "StartColumn": 5,
-        "EndColumn": 7,
-        "Severity": "Error",
-        "Message": "The value, namespace, type or module 'l1' is not defined.",
-        "Subcategory": "typecheck"
-      }
-    ]
+    "Errors": []
   }
 }
