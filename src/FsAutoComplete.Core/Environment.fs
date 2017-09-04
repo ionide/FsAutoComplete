@@ -97,8 +97,11 @@ module Environment =
      programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework"
 
   let dotNetVersions () =
-    Directory.EnumerateDirectories referenceAssembliesPath
-    |> Seq.sort
-    |> Seq.toArray
-    |> Array.rev
+    if Directory.Exists referenceAssembliesPath then
+      Directory.EnumerateDirectories referenceAssembliesPath
+      |> Seq.sort
+      |> Seq.toArray
+      |> Array.rev
+    else
+      Array.empty
 
