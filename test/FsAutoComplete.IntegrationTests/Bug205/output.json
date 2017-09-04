@@ -1,0 +1,15 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Bug205/Script.fsx",
+    "Errors": []
+  }
+}
+{
+  "Kind": "lint",
+  "Data": []
+}
