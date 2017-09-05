@@ -20,7 +20,7 @@
         "EndColumn": 27,
         "EndLine": 2
       },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
+      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
         "Case": "Some",
         "Fields": [
@@ -45,7 +45,7 @@
         "EndColumn": 23,
         "EndLine": 3
       },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
+      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
         "Case": "Some",
         "Fields": [
@@ -70,7 +70,7 @@
         "EndColumn": 21,
         "EndLine": 4
       },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
+      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
         "Case": "Some",
         "Fields": [
@@ -95,7 +95,7 @@
         "EndColumn": 22,
         "EndLine": 5
       },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
+      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
         "Case": "Some",
         "Fields": [
@@ -120,7 +120,7 @@
         "EndColumn": 22,
         "EndLine": 7
       },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
+      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
         "Case": "Some",
         "Fields": [
@@ -145,7 +145,7 @@
         "EndColumn": 38,
         "EndLine": 9
       },
-      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n",
+      "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
         "Case": "Some",
         "Fields": [
