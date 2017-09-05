@@ -278,21 +278,24 @@ type Commands (serialize : Serializer) =
                     match tyRes.GetAST with
                     | None -> [ Response.info serialize "Something went wrong during parsing"]
                     | Some tree ->
-                        fsharpLintConfig.LoadConfigurationForProject file
-                        let opts = fsharpLintConfig.GetConfigurationForProject (file)
-                        let res =
-                            Lint.lintParsedSource
-                                { Lint.OptionalLintParameters.Default with Configuration = Some opts}
-                                { Ast = tree
-                                  Source = source
-                                  TypeCheckResults = Some tyRes.GetCheckResults
-                                  FSharpVersion = Version() }
-                        let res' =
-                            match res with
-                            | LintResult.Failure _ -> [ Response.info serialize "Something went wrong during parsing"]
-                            | LintResult.Success warnings -> [ Response.lint serialize warnings ]
+                        try
+                            fsharpLintConfig.LoadConfigurationForProject file
+                            let opts = fsharpLintConfig.GetConfigurationForProject (file)
+                            let res =
+                                Lint.lintParsedSource
+                                    { Lint.OptionalLintParameters.Default with Configuration = Some opts}
+                                    { Ast = tree
+                                      Source = source
+                                      TypeCheckResults = Some tyRes.GetCheckResults
+                                      FSharpVersion = Version() }
+                            let res' =
+                                match res with
+                                | LintResult.Failure _ -> [ Response.info serialize "Something went wrong, linter failed"]
+                                | LintResult.Success warnings -> [ Response.lint serialize warnings ]
 
-                        res'
+                            res'
+                        with _ex ->
+                            [ Response.info serialize "Something went wrong during linter"]
         return res
     }
 
