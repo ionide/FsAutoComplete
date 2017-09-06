@@ -43,7 +43,6 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="..\FsAutoComplete\JsonSerializer.fs" />
-    <Compile Include="JsonSerializerSuave.fs" />
     <Compile Include="FsAutoComplete.Suave.fs" />
     <None Include="App.config" />
   </ItemGroup>
