@@ -112,9 +112,12 @@ module internal Main =
     try
       let results = parser.Parse args
 
-      Options.apply results
-
-      start ()
+      match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
+      | Options.TransportMode.Stdio ->
+          Options.apply results
+          start ()
+      | Options.TransportMode.Http ->
+          FsAutoComplete.Suave.main results
     with
     | :? ArguParseException as ex ->
       printfn "%s" ex.Message

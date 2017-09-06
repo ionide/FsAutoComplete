@@ -56,6 +56,10 @@ module Options =
 
   open Argu
 
+  type TransportMode =
+      | Stdio
+      | Http
+
   type CLIArguments =
       | Version
       | [<AltCommandLine("-v")>] Verbose
@@ -64,6 +68,8 @@ module Options =
       | Commands
       | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
       | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
+      | Mode of TransportMode
+      | Port of tcp_port:int
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -75,6 +81,8 @@ module Options =
                   | Commands -> "list the commands that this program understands"
                   | WaitForDebugger _ -> "wait for a debugger to attach to the process"
                   | HostPID _ -> "the Host process ID."
+                  | Port _ -> "the listening port."
+                  | Mode _ -> "the transport type."
 
   let apply (args: ParseResults<CLIArguments>) =
 

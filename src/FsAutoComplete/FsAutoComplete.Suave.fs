@@ -49,19 +49,7 @@ module internal Utils =
 
 open Argu
 
-type CLIArguments =
-    | [<MainCommand; Unique>] Port of tcp_port:int
-    | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
-    with
-        interface IArgParserTemplate with
-            member s.Usage =
-                match s with
-                | Port _ -> "the listening port."
-                | HostPID _ -> "the Host process ID."
-
-
-[<EntryPoint>]
-let main argv =
+let main (args: ParseResults<Options.CLIArguments>) =
     let mutable client : WebSocket option  = None
 
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
@@ -69,16 +57,6 @@ let main argv =
     let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
     let fs = FileSystem(originalFs, commands.Files.TryFind)
     AbstractIL.Internal.Library.Shim.FileSystem <- fs
-
-    // commands.FileChecked
-    // |> Event.add (fun response ->
-    //     client |> Option.iter (fun socket ->
-    //         async {
-    //             let! res = response
-
-    //             let cnt = res |> List.toArray |> Json.toJson
-    //             return! socket.send Text cnt true
-    //         } |> Async.Ignore |> Async.Start ))
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -187,35 +165,18 @@ let main argv =
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
         ]
 
-    let main (args: ParseResults<CLIArguments>) =
-        let port = args.GetResult (<@ Port @>, defaultValue = 8088)
+    let port = args.GetResult (<@ Options.CLIArguments.Port @>, defaultValue = 8088)
 
-        let defaultBinding = defaultConfig.bindings.[0]
-        let withPort = { defaultBinding.socketBinding with port = uint16 port }
-        let serverConfig =
-            { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
-        try
-            match args.TryGetResult (<@ HostPID @>) with
-            | Some pid ->
-                serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete.Suave" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
-                zombieCheckWithHostPID pid (fun () -> exit 0)
-            | None -> ()
+    let defaultBinding = defaultConfig.bindings.[0]
+    let withPort = { defaultBinding.socketBinding with port = uint16 port }
+    let serverConfig =
+        { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
 
-            startWebServer serverConfig app
-            0
-        with
-        | e ->
-            printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
-            1
+    match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
+    | Some pid ->
+        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete.Suave" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+        zombieCheckWithHostPID pid (fun () -> exit 0)
+    | None -> ()
 
-    let parser = ArgumentParser.Create<CLIArguments>(programName = "FsAutoComplete.Suave.exe")
-    try
-        let results = parser.Parse argv
-        main results
-    with
-        | :? ArguParseException as ex ->
-            printfn "%s" (parser.PrintUsage())
-            2
-        | e ->
-            printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
-            3
+    startWebServer serverConfig app
+    0
