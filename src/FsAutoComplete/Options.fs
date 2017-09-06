@@ -54,42 +54,58 @@ module Options =
 
   let verboseFilter : Ref<Option<Set<string>>> = ref None
 
-  let p = new NDesk.Options.OptionSet()
-  Seq.iter (fun (s:string,d:string,a:string -> unit) -> ignore (p.Add(s,d,a)))
-    [
-      "version", "display versioning information",
-        fun _ -> printfn "%s" Version.string;
-                 exit 0
+  open Argu
 
-      "v|verbose", "enable verbose mode",
-        fun _ -> Debug.verbose := true
+  type CLIArguments =
+      | Version
+      | [<AltCommandLine("-v")>] Verbose
+      | [<AltCommandLine("-l")>] Logfile of path:string
+      | VFilter of filter:string
+      | Commands
+      | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
+      | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
+      with
+          interface IArgParserTemplate with
+              member s.Usage =
+                  match s with
+                  | Version -> "display versioning information"
+                  | Verbose -> "enable verbose mode"
+                  | Logfile _ -> "send verbose output to specified log file"
+                  | VFilter _ -> "apply a comma-separated {FILTER} to verbose output"
+                  | Commands -> "list the commands that this program understands"
+                  | WaitForDebugger _ -> "wait for a debugger to attach to the process"
+                  | HostPID _ -> "the Host process ID."
 
-      "l|logfile=", "send verbose output to specified log file",
-        fun s -> try
-                   Debug.output := (IO.File.CreateText(s) :> IO.TextWriter)
-                 with
-                   | e -> printfn "Bad log file: %s" e.Message
-                          exit 1
+  let apply (args: ParseResults<CLIArguments>) =
 
-      "vfilter=", "apply a comma-separated {FILTER} to verbose output",
-        fun v -> Debug.categories := v.Split(',') |> set |> Some
+    let applyArg arg =
+      match arg with
+      | Version ->
+          printfn "%s" Version.string
+          exit 0
+      | Verbose ->
+          Debug.verbose := true
+      | Logfile s ->
+          try
+            Debug.output := (IO.File.CreateText(s) :> IO.TextWriter)
+          with
+          | e ->
+            printfn "Bad log file: %s" e.Message
+            exit 1
+      | VFilter v ->
+          Debug.categories := v.Split(',') |> set |> Some
+      | Commands ->
+          printfn "%s" commandText
+          exit 0
+      | WaitForDebugger ->
+          Debug.waitForDebugger := true
+      | HostPID s ->
+          Debug.hostPID := Some s
 
-      "commands", "list the commands that this program understands",
-        fun _ -> printfn "%s" commandText
-                 exit 0
-
-      "h|?|help", "display this help!",
-        fun _ -> printfn "%s" Version.string;
-                 p.WriteOptionDescriptions(stdout);
-                 exit 0
-      "wait-for-debugger", "wait for a debugger to attach to the process",
-        fun _ -> Debug.waitForDebugger := true
-
-      "hostPID=", "Host process ID",
-        fun s -> try
-                   Debug.hostPID := Some (int s)
-                 with
-                   | e -> printfn "Bad Host process ID '%s' expected int: %s" s e.Message
-                          exit 1
-
-    ]
+    if args.IsUsageRequested then
+        printfn "%s" Version.string
+        printfn "%s" (args.Parser.PrintUsage())
+        exit 0
+    else
+      args.GetAllResults()
+      |> List.iter applyArg

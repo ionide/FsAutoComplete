@@ -83,16 +83,15 @@ module internal Main =
             |> Console.WriteLine
     0
 
+  open Argu
+
   [<EntryPoint>]
   let entry args =
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
     Console.InputEncoding <- Text.Encoding.UTF8
     Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
-    let extra = Options.p.Parse args
-    if extra.Count <> 0 then
-      printfn "Unrecognised arguments: %s" (String.concat "," extra)
-      1
-    else
+
+    let start () =
       Debug.checkIfWaitForDebugger()
       Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
       try
@@ -108,3 +107,20 @@ module internal Main =
         main()
       finally
         (!Debug.output).Close()
+
+    let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete.exe")
+    try
+      let results = parser.Parse args
+
+      Options.apply results
+
+      start ()
+    with
+    | :? ArguParseException as ex ->
+      printfn "%s" ex.Message
+      match ex.ErrorCode with
+      | ErrorCode.HelpText -> 0
+      | _ -> 1  // Unrecognised arguments
+    | e ->
+      printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
+      3

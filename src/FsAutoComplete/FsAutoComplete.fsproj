@@ -81,6 +81,17 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
+        <Reference Include="Argu">
+          <HintPath>..\..\packages\Argu\lib\net40\Argu.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
         <Reference Include="FSharp.Compiler.Service">
           <HintPath>..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
           <Private>True</Private>
@@ -94,17 +105,6 @@
       <ItemGroup>
         <Reference Include="FSharp.Compiler.Service.ProjectCracker">
           <HintPath>..\..\packages\FSharp.Compiler.Service.ProjectCracker\lib\net45\FSharp.Compiler.Service.ProjectCracker.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
-      <ItemGroup>
-        <Reference Include="NDesk.Options">
-          <HintPath>..\..\packages\NDesk.Options\lib\NDesk.Options.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
