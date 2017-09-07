@@ -1,4 +1,4 @@
-namespace FsAutoComplete
+module FsAutoComplete.Stdio
 
 open System
 open System.IO
@@ -8,9 +8,7 @@ open FsAutoComplete
 open System.Collections.Concurrent
 module Response = CommandResponse
 
-module internal Stdio =
-
-  let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
+let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
     while not quit do
@@ -77,14 +75,14 @@ module internal Stdio =
             |> Console.WriteLine
     0
 
-  let start (commands: Commands) =
-      Console.InputEncoding <- Text.Encoding.UTF8
-      Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
+let start (commands: Commands) =
+    Console.InputEncoding <- Text.Encoding.UTF8
+    Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
 
-      let commandQueue = new BlockingCollection<Command>(10)
+    let commandQueue = new BlockingCollection<Command>(10)
 
-      Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
-      try
+    Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
+    try
         async {
           if !Debug.verbose then
             commandQueue.Add(Command.Started)
@@ -95,5 +93,5 @@ module internal Stdio =
         |> Async.Start
 
         main commands commandQueue
-      finally
+    finally
         (!Debug.output).Close()
