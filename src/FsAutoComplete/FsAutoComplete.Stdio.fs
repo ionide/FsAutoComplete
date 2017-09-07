@@ -85,7 +85,6 @@ module internal Stdio =
       Console.InputEncoding <- Text.Encoding.UTF8
       Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
 
-      Debug.checkIfWaitForDebugger()
       Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
       try
         async {
