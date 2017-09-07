@@ -38,13 +38,8 @@
           "netcoreapp1.0"
         ],
         "RunCmd": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Command": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/c1/bin/Debug/net461/c1.exe",
-              "Arguments": ""
-            }
-          ]
+          "Command": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/c1/bin/Debug/net461/c1.exe",
+          "Arguments": ""
         },
         "IsPublishable": null
       }
