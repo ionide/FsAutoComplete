@@ -105,8 +105,7 @@ module Options =
       | Commands ->
           printfn "%s" commandText
           exit 0
-      | WaitForDebugger ->
-          Debug.waitForDebugger := true
+      | WaitForDebugger
       | HostPID _
       | Mode _
       | Port _ ->

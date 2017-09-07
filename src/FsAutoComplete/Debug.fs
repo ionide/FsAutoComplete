@@ -5,7 +5,6 @@ namespace FsAutoComplete
 
 module Debug =
 
-  let waitForDebugger = ref false
   let verbose = ref false
   let categories : Ref<Option<Set<string>>> =
     ref None
@@ -50,10 +49,9 @@ module Debug =
     else
       Format<_>.Instance
 
-  let checkIfWaitForDebugger () =
-    if !waitForDebugger then
-      while not(System.Diagnostics.Debugger.IsAttached) do
-        System.Threading.Thread.Sleep(100)
+  let waitForDebugger () =
+    while not(System.Diagnostics.Debugger.IsAttached) do
+      System.Threading.Thread.Sleep(100)
 
   let zombieCheckWithHostPID quit pid =
     try

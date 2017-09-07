@@ -23,7 +23,8 @@ let entry args =
 
       Options.apply results
 
-      Debug.checkIfWaitForDebugger()
+      results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)
+      |> Option.iter (ignore >> Debug.waitForDebugger)
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
