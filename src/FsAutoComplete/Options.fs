@@ -109,11 +109,9 @@ module Options =
           Debug.waitForDebugger := true
       | HostPID s ->
           Debug.hostPID := Some s
+      | Mode _
+      | Port _ ->
+          ()
 
-    if args.IsUsageRequested then
-        printfn "%s" Version.string
-        printfn "%s" (args.Parser.PrintUsage())
-        exit 0
-    else
-      args.GetAllResults()
-      |> List.iter applyArg
+    args.GetAllResults()
+    |> List.iter applyArg

@@ -49,7 +49,7 @@ module internal Utils =
 
 open Argu
 
-let main (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
+let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let mutable client : WebSocket option  = None
 
     let handler f : WebPart = fun (r : HttpContext) -> async {

@@ -37,6 +37,7 @@
     <Compile Include="Options.fs" />
     <Compile Include="CommandInput.fs" />
     <Compile Include="JsonSerializer.fs" />
+    <Compile Include="FsAutoComplete.Stdio.fs" />
     <Compile Include="FsAutoComplete.Suave.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
