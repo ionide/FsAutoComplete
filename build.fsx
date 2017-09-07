@@ -28,12 +28,6 @@ let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "fsautocomplete.zip"
 
-let suaveSummary = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."
-let suaveProject = "FsAutoComplete.Suave"
-let suaveBuildDebugDir = "src" </> suaveProject </>  "bin" </> "Debug"
-let suaveBuildReleaseDir = "src" </> suaveProject </> "bin" </> "Release"
-let suaveReleaseArchive = "fsautocomplete.suave.zip"
-
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
@@ -141,16 +135,6 @@ Target "AssemblyInfo" (fun _ ->
       Attribute.FileVersion release.AssemblyVersion ]
 )
 
-Target "SuaveAssemblyInfo" (fun _ ->
-  let fileName = "src" </> suaveProject </> "AssemblyInfo.fs"
-  CreateFSharpAssemblyInfo fileName
-    [ Attribute.Title suaveProject
-      Attribute.Product suaveProject
-      Attribute.Description suaveSummary
-      Attribute.Version release.AssemblyVersion
-      Attribute.FileVersion release.AssemblyVersion ]
-)
-
 Target "ReleaseArchive" (fun _ ->
   Zip buildReleaseDir
       releaseArchive
@@ -159,23 +143,12 @@ Target "ReleaseArchive" (fun _ ->
         ++ (buildReleaseDir + "/*.exe.config"))
 )
 
-Target "SuaveReleaseArchive" (fun _ ->
-  Zip suaveBuildReleaseDir
-      suaveReleaseArchive
-      ( !! (suaveBuildReleaseDir + "/*.dll")
-        ++ (suaveBuildReleaseDir + "/*.exe")
-        ++ (suaveBuildReleaseDir + "/*.exe.config"))
-)
-
 Target "LocalRelease" (fun _ ->
     ensureDirectory "bin/release"
     CopyFiles "bin/release"(
         !! (buildReleaseDir      + "/*.dll")
         ++ (buildReleaseDir      + "/*.exe")
         ++ (buildReleaseDir      + "/*.exe.config")
-        ++ (suaveBuildReleaseDir + "/*.dll")
-        ++ (suaveBuildReleaseDir + "/*.exe")
-        ++ (suaveBuildReleaseDir + "/*.exe.config")
     )
 )
 
@@ -203,14 +176,13 @@ Target "Release" (fun _ ->
     createClient user pw
     |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
     |> uploadFile releaseArchive
-    |> uploadFile suaveReleaseArchive
     |> releaseDraft
     |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
-  CleanDirs [ buildDir; buildReleaseDir; suaveBuildDebugDir; suaveBuildReleaseDir ]
-  DeleteFiles [releaseArchive; suaveReleaseArchive ]
+  CleanDirs [ buildDir; buildReleaseDir ]
+  DeleteFiles [releaseArchive]
 )
 
 Target "Build" id
@@ -237,11 +209,6 @@ Target "All" id
 "AssemblyInfo"
   ==> "BuildRelease"
   ==> "ReleaseArchive"
-  ==> "Release"
-
-"SuaveAssemblyInfo"
-  ==> "BuildRelease"
-  ==> "SuaveReleaseArchive"
   ==> "Release"
 
 RunTargetOrDefault "BuildDebug"
