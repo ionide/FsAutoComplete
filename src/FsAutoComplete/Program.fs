@@ -21,6 +21,9 @@ let entry args =
 
       let results = parser.Parse args
 
+      results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)
+      |> Option.iter (ignore >> Debug.waitForDebugger)
+
       results.TryGetResult(<@ Options.CLIArguments.Version @>)
       |> Option.iter (fun _ ->
           printfn "%s" Version.string
@@ -32,9 +35,6 @@ let entry args =
           exit 0 )
 
       Options.apply results
-
-      results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)
-      |> Option.iter (ignore >> Debug.waitForDebugger)
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
