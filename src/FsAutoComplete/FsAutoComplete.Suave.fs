@@ -49,14 +49,8 @@ module internal Utils =
 
 open Argu
 
-let main (args: ParseResults<Options.CLIArguments>) =
+let main (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let mutable client : WebSocket option  = None
-
-    System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
-    let commands = Commands(writeJson)
-    let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-    let fs = FileSystem(originalFs, commands.Files.TryFind)
-    AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
