@@ -21,6 +21,16 @@ let entry args =
 
       let results = parser.Parse args
 
+      results.TryGetResult(<@ Options.CLIArguments.Version @>)
+      |> Option.iter (fun _ ->
+          printfn "%s" Version.string
+          exit 0 )
+
+      results.TryGetResult(<@ Options.CLIArguments.Commands @>)
+      |> Option.iter (fun _ ->
+          printfn "%s" Options.commandText
+          exit 0 )
+
       Options.apply results
 
       results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)

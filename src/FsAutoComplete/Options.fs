@@ -88,9 +88,6 @@ module Options =
 
     let applyArg arg =
       match arg with
-      | Version ->
-          printfn "%s" Version.string
-          exit 0
       | Verbose ->
           Debug.verbose := true
       | Logfile s ->
@@ -102,9 +99,8 @@ module Options =
             exit 1
       | VFilter v ->
           Debug.categories := v.Split(',') |> set |> Some
-      | Commands ->
-          printfn "%s" commandText
-          exit 0
+      | Commands
+      | Version
       | WaitForDebugger
       | HostPID _
       | Mode _
