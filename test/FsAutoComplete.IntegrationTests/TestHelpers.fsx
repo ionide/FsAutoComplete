@@ -132,7 +132,7 @@ type FsAutoCompleteWrapperHttp() =
     Request.createUrl Post (urlWithId requestId "%s" action)
     |> Request.bodyString (r |> JsonConvert.SerializeObject)
     |> Request.responseAsString
-    |> run
+    |> Hopac.run
     |> fun s -> printfn "%s" s; s
     |> crazyness
     |> List.map formatJson
@@ -201,7 +201,8 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "lint" (makeRequestId())
 
   member x.send (s: string) : unit =
-    ()
+    if s.Contains("quit") then
+      p.Kill ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
     { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
