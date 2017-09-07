@@ -5,13 +5,10 @@ open System.IO
 open Microsoft.FSharp.Compiler
 open JsonSerializer
 open FsAutoComplete
+open System.Collections.Concurrent
+open Argu
 
 module internal Main =
-  open System.Collections.Concurrent
-
-  module Response = CommandResponse
-
-  open Argu
 
   [<EntryPoint>]
   let entry args =
