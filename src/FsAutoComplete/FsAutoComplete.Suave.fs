@@ -33,17 +33,6 @@ module internal Utils =
             System.Text.Encoding.UTF8.GetString(rawForm)
         req.rawForm |> getString |> fromJson<'a>
 
-  let zombieCheckWithHostPID pid quit =
-    try
-      let hostProcess = System.Diagnostics.Process.GetProcessById(pid)
-      ProcessWatcher.watch hostProcess (fun _ -> quit ())
-    with
-    | e ->
-      printfn "Host process ID %i not found: %s" pid e.Message
-      // If the process dies before we get here then request shutdown
-      // immediately
-      quit ()
-
 open Argu
 
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
@@ -166,7 +155,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
         serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
-        zombieCheckWithHostPID pid (fun () -> exit 0)
+        Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 
     startWebServer serverConfig app

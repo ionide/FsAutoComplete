@@ -27,7 +27,7 @@ let entry args =
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
-          FsAutoComplete.Stdio.start commands
+          FsAutoComplete.Stdio.start commands results
       | Options.TransportMode.Http ->
           FsAutoComplete.Suave.start commands results
     with

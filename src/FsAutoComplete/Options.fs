@@ -107,8 +107,7 @@ module Options =
           exit 0
       | WaitForDebugger ->
           Debug.waitForDebugger := true
-      | HostPID s ->
-          Debug.hostPID := Some s
+      | HostPID _
       | Mode _
       | Port _ ->
           ()

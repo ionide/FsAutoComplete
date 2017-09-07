@@ -73,13 +73,16 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
             |> Console.WriteLine
     0
 
-let start (commands: Commands) =
+
+let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     Console.InputEncoding <- Text.Encoding.UTF8
     Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
 
     let commandQueue = new BlockingCollection<Command>(10)
 
-    Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
+    args.TryGetResult(<@ Options.CLIArguments.HostPID @>)
+    |> Option.iter (Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit)))
+
     try
         async {
           if !Debug.verbose then
