@@ -19,3 +19,11 @@ nuget FSharp.Core 4.0.0.1 redirects:on
 nuget System.Collections.Immutable < 1.4
 
 github fsharp/FAKE modules/Octokit/Octokit.fsx
+
+group IntegrationTests
+  framework: net45
+  source https://nuget.org/api/v2
+  generate_load_scripts: true
+
+  nuget Http.fs
+  nuget Newtonsoft.Json

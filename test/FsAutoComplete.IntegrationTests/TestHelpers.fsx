@@ -3,8 +3,8 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#I "../../packages/Newtonsoft.Json/lib/net45/"
-#r "Newtonsoft.Json.dll"
+#load "../../.paket/load/net45/IntegrationTests/integrationtests.group.fsx"
+
 open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
@@ -91,11 +91,14 @@ let formatJson json =
     with _ -> json
 
 
+open HttpFs
 
 type FsAutoCompleteWrapperHttp() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
+
+  let port = 8089
 
   do
     p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
@@ -106,6 +109,7 @@ type FsAutoCompleteWrapperHttp() =
     p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       p.StartInfo.Arguments <- "--wait-for-debugger"
+    p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     p.Start () |> ignore
 
   member x.project (s: string) : unit =
