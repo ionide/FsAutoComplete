@@ -3,7 +3,9 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#load "../../.paket/load/net45/IntegrationTests/integrationtests.group.fsx"
+#load "../../.paket/load/net45/IntegrationTests/Hopac.fsx"
+#load "../../.paket/load/net45/IntegrationTests/Http.fs.fsx"
+#load "../../.paket/load/net45/IntegrationTests/Newtonsoft.Json.fsx"
 
 open Newtonsoft.Json
 
@@ -91,7 +93,11 @@ let formatJson json =
     with _ -> json
 
 
-open HttpFs
+open Hopac
+open HttpFs.Client
+
+type TheParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
+type TheProjectRequest = { FileName : string;}
 
 type FsAutoCompleteWrapperHttp() =
 
@@ -112,12 +118,42 @@ type FsAutoCompleteWrapperHttp() =
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     p.Start () |> ignore
 
+  let url format = Printf.ksprintf (sprintf "http://localhost:%i/%s" port) format
+  let urlWithId (id: int) format = Printf.ksprintf (fun s -> sprintf "http://localhost:%i/%s?requestId=%i" port s id) format
+
+  let crazyness jsonEncodedAsJson =
+    jsonEncodedAsJson
+    |> JsonConvert.DeserializeObject
+    :?>  Newtonsoft.Json.Linq.JArray
+    |> Seq.cast<Newtonsoft.Json.Linq.JValue>
+    |> Seq.map (fun v -> v.Value :?> string)
+    |> Seq.toList
+
+  let doRequest action atElement requestId r =
+    Request.createUrl Post (urlWithId requestId action)
+    |> Request.bodyString (r |> JsonConvert.SerializeObject)
+    |> Request.responseAsString
+    |> run
+    |> crazyness
+    |> List.map formatJson
+    |> List.tryItem atElement
+
+  let allResp = ResizeArray<string> ()
+
+  let makeRequestId () = 12
+
   member x.project (s: string) : unit =
-    fprintf p.StandardInput "project \"%s\"\n" s
+    { TheProjectRequest.FileName = s }
+    |> doRequest "project" 0 (makeRequestId())
+    |> Option.iter allResp.Add
 
   member x.parse (s: string) : unit =
-    let text = if IO.File.Exists s then IO.File.ReadAllText(s) else ""
-    fprintf p.StandardInput "parse \"%s\" sync\n%s\n<<EOF>>\n" s text
+    let lines = 
+      let text = if IO.File.Exists s then IO.File.ReadAllText(s) else ""
+      text.Split('\n')
+    { TheParseRequest.FileName = s; IsAsync = false; Lines = lines; Version = 0 }
+    |> doRequest "parse" 0 (makeRequestId())
+    |> Option.iter allResp.Add
 
   member x.parseContent (filename: string) (content: string) : unit =
     fprintf p.StandardInput "parse \"%s\" sync\n%s\n<<EOF>>\n" filename content
@@ -150,7 +186,7 @@ type FsAutoCompleteWrapperHttp() =
     fprintf p.StandardInput "lint \"%s\"\n" fn
 
   member x.send (s: string) : unit =
-    fprintf p.StandardInput "%s" s
+    ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
     fprintf p.StandardInput "workspacepeek \"%s\" %i\n" dir deep
@@ -162,10 +198,8 @@ type FsAutoCompleteWrapperHttp() =
     cachedOutput.AppendLine(p.StandardOutput.ReadLine()) |> ignore
 
   member x.finalOutput () : string =
-    let s = p.StandardOutput.ReadToEnd()
-    let t = p.StandardError.ReadToEnd()
-    p.WaitForExit()
-    cachedOutput.ToString() + s + t
+    allResp
+    |> String.concat "\n"
 
 
 #if FSAC_TEST_HTTP
