@@ -22,19 +22,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "not (a<>b)",
-            "FromRange": {
-              "StartColumn": 17,
-              "StartLine": 2,
-              "EndColumn": 27,
-              "EndLine": 2
-            },
-            "ToText": "a = b"
-          }
-        ]
+        "FromText": "not (a<>b)",
+        "FromRange": {
+          "StartColumn": 17,
+          "StartLine": 2,
+          "EndColumn": 27,
+          "EndLine": 2
+        },
+        "ToText": "a = b"
       }
     },
     {
@@ -47,19 +42,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "fun a -> a",
-            "FromRange": {
-              "StartColumn": 13,
-              "StartLine": 3,
-              "EndColumn": 23,
-              "EndLine": 3
-            },
-            "ToText": "id"
-          }
-        ]
+        "FromText": "fun a -> a",
+        "FromRange": {
+          "StartColumn": 13,
+          "StartLine": 3,
+          "EndColumn": 23,
+          "EndLine": 3
+        },
+        "ToText": "id"
       }
     },
     {
@@ -72,19 +62,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "not true",
-            "FromRange": {
-              "StartColumn": 13,
-              "StartLine": 4,
-              "EndColumn": 21,
-              "EndLine": 4
-            },
-            "ToText": "false"
-          }
-        ]
+        "FromText": "not true",
+        "FromRange": {
+          "StartColumn": 13,
+          "StartLine": 4,
+          "EndColumn": 21,
+          "EndLine": 4
+        },
+        "ToText": "false"
       }
     },
     {
@@ -97,19 +82,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "not false",
-            "FromRange": {
-              "StartColumn": 13,
-              "StartLine": 5,
-              "EndColumn": 22,
-              "EndLine": 5
-            },
-            "ToText": "true"
-          }
-        ]
+        "FromText": "not false",
+        "FromRange": {
+          "StartColumn": 13,
+          "StartLine": 5,
+          "EndColumn": 22,
+          "EndLine": 5
+        },
+        "ToText": "true"
       }
     },
     {
@@ -122,19 +102,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "a<>true",
-            "FromRange": {
-              "StartColumn": 15,
-              "StartLine": 7,
-              "EndColumn": 22,
-              "EndLine": 7
-            },
-            "ToText": "not a"
-          }
-        ]
+        "FromText": "a<>true",
+        "FromRange": {
+          "StartColumn": 15,
+          "StartLine": 7,
+          "EndColumn": 22,
+          "EndLine": 7
+        },
+        "ToText": "not a"
       }
     },
     {
@@ -147,19 +122,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "List.head (List.sort a)",
-            "FromRange": {
-              "StartColumn": 15,
-              "StartLine": 9,
-              "EndColumn": 38,
-              "EndLine": 9
-            },
-            "ToText": "List.min a"
-          }
-        ]
+        "FromText": "List.head (List.sort a)",
+        "FromRange": {
+          "StartColumn": 15,
+          "StartLine": 9,
+          "EndColumn": 38,
+          "EndLine": 9
+        },
+        "ToText": "List.min a"
       }
     },
     {
@@ -183,19 +153,14 @@
       },
       "Input": "let test1 a b = not (a=b)\nlet test2 a b = not (a<>b)\nlet test3 = fun a -> a\nlet test4 = not true\nlet test5 = not false\nlet test6 = List.fold ( + ) 0\nlet test7 a = a<>true\nlet test8 a = a=null\nlet test9 a = List.head (List.sort a) \n\n//test regression for https://github.com/fsharp/FsAutoComplete/issues/205\nlet x = [1];; \nlet y = x @ [2;3];;\n",
       "Fix": {
-        "Case": "Some",
-        "Fields": [
-          {
-            "FromText": "not (a=b)",
-            "FromRange": {
-              "StartColumn": 17,
-              "StartLine": 1,
-              "EndColumn": 26,
-              "EndLine": 1
-            },
-            "ToText": "a <> b"
-          }
-        ]
+        "FromText": "not (a=b)",
+        "FromRange": {
+          "StartColumn": 17,
+          "StartLine": 1,
+          "EndColumn": 26,
+          "EndLine": 1
+        },
+        "ToText": "a <> b"
       }
     }
   ]
