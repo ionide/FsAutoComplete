@@ -168,7 +168,7 @@ let main (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
-        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete.Suave" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
         zombieCheckWithHostPID pid (fun () -> exit 0)
     | None -> ()
 
