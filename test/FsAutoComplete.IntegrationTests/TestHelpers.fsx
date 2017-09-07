@@ -130,7 +130,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Seq.map (fun v -> v.Value :?> string)
     |> Seq.toList
 
-  let doRequest action atElement requestId r =
+  let doRequest action requestId r =
     Request.createUrl Post (urlWithId requestId "%s" action)
     |> Request.bodyString (r |> JsonConvert.SerializeObject)
     |> Request.responseAsString
@@ -138,13 +138,17 @@ type FsAutoCompleteWrapperHttp() =
     |> fun s -> printfn "%s" s; s
     |> crazyness
     |> List.map formatJson
-    |> List.tryItem atElement
 
   let allResp = ResizeArray<string> ()
 
   let recordRequest action atElement requestId r =
-    doRequest action atElement requestId r
+    doRequest action requestId r
+    |> List.tryItem atElement
     |> Option.iter allResp.Add
+
+  let recordAllRequest action requestId r =
+    doRequest action requestId r
+    |> List.iter allResp.Add
 
   let makeRequestId () = 12
 
@@ -167,13 +171,17 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "parse" 0 (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
-    fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d\n" fn lineStr line col
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { CompletionRequest.FileName = path; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
+    |> recordAllRequest "completion" (makeRequestId())
 
   member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
     fprintf p.StandardInput "methods \"%s\" \"%s\" %d %d\n" fn lineStr line col
 
   member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
-    fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d filter=%s\n" fn lineStr line col filter
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { CompletionRequest.FileName = path; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
+    |> recordAllRequest "completion" (makeRequestId())
 
   member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
     fprintf p.StandardInput "tooltip \"%s\" \"%s\" %d %d\n" fn lineStr line col
