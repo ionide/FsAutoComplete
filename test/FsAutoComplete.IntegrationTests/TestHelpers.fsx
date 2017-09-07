@@ -9,13 +9,13 @@ open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
-type FsAutoCompleteWrapper() =
+type FsAutoCompleteWrapperStdio() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapper.ExePath ()
+    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
     p.StartInfo.RedirectStandardOutput <- true
     p.StartInfo.RedirectStandardError  <- true
     p.StartInfo.RedirectStandardInput  <- true
@@ -89,6 +89,86 @@ let formatJson json =
       let parsedJson = JsonConvert.DeserializeObject(json)
       JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
     with _ -> json
+
+
+
+type FsAutoCompleteWrapperHttp() =
+
+  let p = new System.Diagnostics.Process()
+  let cachedOutput = new Text.StringBuilder()
+
+  do
+    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
+    p.StartInfo.RedirectStandardOutput <- true
+    p.StartInfo.RedirectStandardError  <- true
+    p.StartInfo.RedirectStandardInput  <- true
+    p.StartInfo.UseShellExecute <- false
+    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
+      p.StartInfo.Arguments <- "--wait-for-debugger"
+    p.Start () |> ignore
+
+  member x.project (s: string) : unit =
+    fprintf p.StandardInput "project \"%s\"\n" s
+
+  member x.parse (s: string) : unit =
+    let text = if IO.File.Exists s then IO.File.ReadAllText(s) else ""
+    fprintf p.StandardInput "parse \"%s\" sync\n%s\n<<EOF>>\n" s text
+
+  member x.parseContent (filename: string) (content: string) : unit =
+    fprintf p.StandardInput "parse \"%s\" sync\n%s\n<<EOF>>\n" filename content
+
+  member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
+    fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d\n" fn lineStr line col
+
+  member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
+    fprintf p.StandardInput "methods \"%s\" \"%s\" %d %d\n" fn lineStr line col
+
+  member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
+    fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d filter=%s\n" fn lineStr line col filter
+
+  member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "tooltip \"%s\" \"%s\" %d %d\n" fn lineStr line col
+
+  member x.typesig (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "typesig \"%s\" \"%s\" %d %d\n" fn lineStr line col
+
+  member x.finddeclaration (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "finddecl \"%s\" \"%s\" %d %d\n" fn lineStr line col
+
+  member x.symboluse (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    fprintf p.StandardInput "symboluse \"%s\" \"%s\" %d %d\n" fn lineStr line col
+
+  member x.declarations (fn: string) : unit =
+    fprintf p.StandardInput "declarations \"%s\"\n" fn
+
+  member x.lint (fn: string) : unit =
+    fprintf p.StandardInput "lint \"%s\"\n" fn
+
+  member x.send (s: string) : unit =
+    fprintf p.StandardInput "%s" s
+
+  member x.workspacepeek (dir: string) (deep: int): unit =
+    fprintf p.StandardInput "workspacepeek \"%s\" %i\n" dir deep
+
+  /// Wait for a single line to be output (one JSON message)
+  /// Note that this line will appear at the *start* of output.json,
+  /// so use carefully, and preferably only at the beginning.
+  member x.waitForLine () : unit =
+    cachedOutput.AppendLine(p.StandardOutput.ReadLine()) |> ignore
+
+  member x.finalOutput () : string =
+    let s = p.StandardOutput.ReadToEnd()
+    let t = p.StandardError.ReadToEnd()
+    p.WaitForExit()
+    cachedOutput.ToString() + s + t
+
+
+#if FSAC_TEST_HTTP
+type FsAutoCompleteWrapper = FsAutoCompleteWrapperHttp
+#else
+type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
+#endif
 
 let writeNormalizedOutput (fn: string) (s: string) =
   let lines = s.TrimEnd().Split('\n')
