@@ -141,12 +141,7 @@ type FsAutoCompleteWrapperHttp() =
 
   let allResp = ResizeArray<string> ()
 
-  let recordRequest action atElement requestId r =
-    doRequest action requestId r
-    |> List.tryItem atElement
-    |> Option.iter allResp.Add
-
-  let recordAllRequest action requestId r =
+  let recordRequest action requestId r =
     doRequest action requestId r
     |> List.iter allResp.Add
 
@@ -154,7 +149,7 @@ type FsAutoCompleteWrapperHttp() =
 
   member x.project (s: string) : unit =
     { ProjectRequest.FileName = (Path.Combine(Environment.CurrentDirectory, s)) }
-    |> recordRequest "project" 0 (makeRequestId())
+    |> recordRequest "project" (makeRequestId())
 
   member x.parse (s: string) : unit =
     let path = Path.Combine(Environment.CurrentDirectory, s)
@@ -162,44 +157,58 @@ type FsAutoCompleteWrapperHttp() =
       let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
       text.Split('\n')
     { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
-    |> recordRequest "parse" 0 (makeRequestId())
+    |> recordRequest "parse" (makeRequestId())
 
   member x.parseContent (filename: string) (content: string) : unit =
     let path = Path.Combine(Environment.CurrentDirectory, filename)
     let lines = content.Split('\n')
     { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
-    |> recordRequest "parse" 0 (makeRequestId())
+    |> recordRequest "parse" (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
     let path = Path.Combine(Environment.CurrentDirectory, fn)
     { CompletionRequest.FileName = path; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
-    |> recordAllRequest "completion" (makeRequestId())
+    |> recordRequest "completion" (makeRequestId())
 
   member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
-    fprintf p.StandardInput "methods \"%s\" \"%s\" %d %d\n" fn lineStr line col
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    |> recordRequest "methods" (makeRequestId())
 
   member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
     let path = Path.Combine(Environment.CurrentDirectory, fn)
     { CompletionRequest.FileName = path; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
-    |> recordAllRequest "completion" (makeRequestId())
+    |> recordRequest"completion" (makeRequestId())
 
   member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "tooltip \"%s\" \"%s\" %d %d\n" fn lineStr line col
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    |> recordRequest "tooltip" (makeRequestId())
 
   member x.typesig (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "typesig \"%s\" \"%s\" %d %d\n" fn lineStr line col
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    |> recordRequest "signature" (makeRequestId())
 
   member x.finddeclaration (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "finddecl \"%s\" \"%s\" %d %d\n" fn lineStr line col
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    |> recordRequest "finddeclaration" (makeRequestId())
 
   member x.symboluse (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    fprintf p.StandardInput "symboluse \"%s\" \"%s\" %d %d\n" fn lineStr line col
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    |> recordRequest "symboluse" (makeRequestId())
 
   member x.declarations (fn: string) : unit =
-    fprintf p.StandardInput "declarations \"%s\"\n" fn
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { LintRequest.FileName = path }
+    |> recordRequest "declarations" (makeRequestId())
 
   member x.lint (fn: string) : unit =
-    fprintf p.StandardInput "lint \"%s\"\n" fn
+    let path = Path.Combine(Environment.CurrentDirectory, fn)
+    { LintRequest.FileName = path }
+    |> recordRequest "lint" (makeRequestId())
 
   member x.send (s: string) : unit =
     ()
