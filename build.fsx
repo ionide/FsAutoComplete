@@ -114,7 +114,7 @@ let runall httpMode =
         failwithf "Integration tests failed:\n%s" err
     trace "Done Integration tests."
 
-Target "IntegrationTest" (fun _ ->
+Target "IntegrationTestStdioMode" (fun _ ->
   trace "== Integration tests (stdio) =="
   runall false
 )
@@ -199,6 +199,7 @@ Target "Clean" (fun _ ->
 
 Target "Build" id
 Target "Test" id
+Target "IntegrationTest" id
 Target "All" id
 
 "BuildDebug"
@@ -209,9 +210,11 @@ Target "All" id
   ==> "Build"
   ==> "UnitTest"
 
-"IntegrationTest" ==> "Test"
-"IntegrationTestHttpMode" ==> "Test"
 "UnitTest" ==> "Test"
+"IntegrationTest" ==> "Test"
+
+"IntegrationTestStdioMode" ==> "IntegrationTest"
+"IntegrationTestHttpMode" ==> "IntegrationTest"
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"
