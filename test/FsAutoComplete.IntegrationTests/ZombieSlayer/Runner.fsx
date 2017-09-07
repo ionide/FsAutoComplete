@@ -89,7 +89,7 @@ let run () =
             printfn "killing host (PID=%i)" hostProc.Id
             log "killing host"
             
-            manualResetEvent.Reset()
+            manualResetEvent.Reset() |> ignore
             
             hostProc.Kill()
             log "killed host"
@@ -101,7 +101,7 @@ let run () =
     let exited = p.WaitForExit(TimeSpan.FromSeconds(30.0).TotalMilliseconds |> int)
     
     //wait until log is written
-    manualResetEvent.WaitOne()
+    manualResetEvent.WaitOne() |> ignore
 
     // check fsac shouldnt be alive
     match exited, fsacProc with
