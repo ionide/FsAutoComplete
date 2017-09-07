@@ -134,6 +134,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Request.bodyString (r |> JsonConvert.SerializeObject)
     |> Request.responseAsString
     |> run
+    |> fun s -> printfn "%s" s; s
     |> crazyness
     |> List.map formatJson
     |> List.tryItem atElement
@@ -143,15 +144,16 @@ type FsAutoCompleteWrapperHttp() =
   let makeRequestId () = 12
 
   member x.project (s: string) : unit =
-    { TheProjectRequest.FileName = s }
+    { TheProjectRequest.FileName = (Path.Combine(Environment.CurrentDirectory, s)) }
     |> doRequest "project" 0 (makeRequestId())
     |> Option.iter allResp.Add
 
   member x.parse (s: string) : unit =
+    let path = Path.Combine(Environment.CurrentDirectory, s)
     let lines = 
-      let text = if IO.File.Exists s then IO.File.ReadAllText(s) else ""
+      let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
       text.Split('\n')
-    { TheParseRequest.FileName = s; IsAsync = false; Lines = lines; Version = 0 }
+    { TheParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
     |> doRequest "parse" 0 (makeRequestId())
     |> Option.iter allResp.Add
 
