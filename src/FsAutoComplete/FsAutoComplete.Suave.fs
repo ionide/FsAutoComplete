@@ -86,7 +86,14 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let app =
         choose [
             // path "/notify" >=> handShake echo
-            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
+            path "/parse" >=> handler (fun (data : ParseRequest) -> async {
+                let! res = commands.Parse data.FileName data.Lines data.Version
+                //Hack for tests
+                let r = match data.IsAsync with
+                        | false -> CommandResponse.info writeJson "Synchronous parsing started"
+                        | true -> CommandResponse.info writeJson "Background parsing started"
+                return r :: res
+                })
             path "/parseProjects" >=> handler (fun (data : ProjectRequest) -> commands.ParseProjectsForFile data.FileName)
             //TODO: Add filewatcher
             path "/parseProjectsInBackground" >=> handler (fun (data : ProjectRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
