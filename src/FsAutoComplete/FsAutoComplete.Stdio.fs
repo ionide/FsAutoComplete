@@ -10,9 +10,8 @@ open System.Collections.Concurrent
 module internal Stdio =
 
   module Response = CommandResponse
-  let commandQueue = new BlockingCollection<Command>(10)
 
-  let main (commands: Commands) : int =
+  let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
     while not quit do
@@ -79,11 +78,11 @@ module internal Stdio =
             |> Console.WriteLine
     0
 
-  open Argu
-
   let start (commands: Commands) =
       Console.InputEncoding <- Text.Encoding.UTF8
       Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
+
+      let commandQueue = new BlockingCollection<Command>(10)
 
       Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit))
       try
@@ -96,6 +95,6 @@ module internal Stdio =
         }
         |> Async.Start
 
-        main commands
+        main commands commandQueue
       finally
         (!Debug.output).Close()
