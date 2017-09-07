@@ -63,7 +63,7 @@ let isTestSkipped fn =
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
   | _ -> None
 
-let runIntegrationTest (fn: string) : bool =
+let runIntegrationTest httpMode (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
 
   match isTestSkipped fn with
@@ -75,11 +75,14 @@ let runIntegrationTest (fn: string) : bool =
     let testExecution =
       try
         let fsiExec = async {
-            return Some (FSIHelper.executeFSI dir fn [])
+            let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
+            FileUtils.pushd dir
+            return Some (FSIHelper.executeFSIWithScriptArgsAndReturnMessages fn [| mode |])
           }
         Async.RunSynchronously (fsiExec, TimeSpan.FromMinutes(10.0).TotalMilliseconds |> int)
       with :? TimeoutException ->
         None
+    FileUtils.popd ()
     match testExecution with
     | None -> //timeout
       false
@@ -90,26 +93,35 @@ let runIntegrationTest (fn: string) : bool =
           traceError msg.Message
       result
 
-Target "IntegrationTest" (fun _ ->
-  trace "Running Integration tests..."
-  let runOk =
-   integrationTests
-   |> Seq.map runIntegrationTest
-   |> Seq.forall id
+let runall httpMode =
+    trace "Running Integration tests..."
+    let runOk =
+     integrationTests
+     |> Seq.map (runIntegrationTest httpMode)
+     |> Seq.forall id
 
-  if not runOk then
-    trace "Integration tests did not run successfully"
-    failwith "Integration tests did not run successfully"
-  else
-    trace "checking tests results..."
-    let ok, out, err =
-      Git.CommandHelper.runGitCommand
-                        "."
-                        ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
-    if not ok then
-      trace (toLines out)
-      failwithf "Integration tests failed:\n%s" err
-  trace "Done Integration tests."
+    if not runOk then
+      trace "Integration tests did not run successfully"
+      failwith "Integration tests did not run successfully"
+    else
+      trace "checking tests results..."
+      let ok, out, err =
+        Git.CommandHelper.runGitCommand
+                          "."
+                          ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
+      if not ok then
+        trace (toLines out)
+        failwithf "Integration tests failed:\n%s" err
+    trace "Done Integration tests."
+
+Target "IntegrationTest" (fun _ ->
+  trace "== Integration tests (stdio) =="
+  runall false
+)
+
+Target "IntegrationTestHttpMode" (fun _ ->
+  trace "== Integration tests (http) =="
+  runall true
 )
 
 Target "UnitTest" (fun _ ->
@@ -198,6 +210,7 @@ Target "All" id
   ==> "UnitTest"
 
 "IntegrationTest" ==> "Test"
+"IntegrationTestHttpMode" ==> "Test"
 "UnitTest" ==> "Test"
 
 "BuildDebug" ==> "All"
