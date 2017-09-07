@@ -5,11 +5,10 @@ namespace FsAutoComplete
 
 module Debug =
 
-  let verbose = ref false
-  let categories : Ref<Option<Set<string>>> =
-    ref None
+  let mutable verbose = false
+  let mutable categories : Set<string> option = None
 
-  let output = ref stdout
+  let mutable output = stdout
 
   [<Sealed>]
   type Format<'T> private () =
@@ -26,26 +25,26 @@ module Debug =
     static member Instance = instance
 
   let inline print (fmt: Printf.TextWriterFormat<'a>) : 'a =
-    if !verbose then
-      fprintfn !output fmt
+    if verbose then
+      fprintfn output fmt
     else
       Format<_>.Instance
 
   let inline printc cat fmt =
-    if !verbose && (match !categories with
+    if verbose && (match categories with
                     | None -> true
                     | Some c -> Set.contains cat c) then
-      fprintf  !output "[%s] " cat
-      fprintfn !output fmt
+      fprintf  output "[%s] " cat
+      fprintfn output fmt
     else
       Format<_>.Instance
 
   let private startTime = System.DateTime.Now
 
   let printTiming (fmt: Printf.TextWriterFormat<'a>) : 'a =
-    if !verbose then
-      fprintf  !output "%f: " (System.DateTime.Now - startTime).TotalMilliseconds
-      fprintfn !output fmt
+    if verbose then
+      fprintf  output "%f: " (System.DateTime.Now - startTime).TotalMilliseconds
+      fprintfn output fmt
     else
       Format<_>.Instance
 
@@ -65,5 +64,5 @@ module Debug =
       quit ()
 
   let inline flush () =
-    if !verbose then
-      (!output).Flush()
+    if verbose then
+      (output).Flush()

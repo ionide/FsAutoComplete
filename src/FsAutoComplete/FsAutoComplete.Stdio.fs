@@ -85,7 +85,7 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
 
     try
         async {
-          if !Debug.verbose then
+          if Debug.verbose then
             commandQueue.Add(Command.Started)
 
           while true do
@@ -95,4 +95,4 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
 
         main commands commandQueue
     finally
-        (!Debug.output).Close()
+        (Debug.output).Close()

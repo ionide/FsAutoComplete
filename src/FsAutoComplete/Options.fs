@@ -85,16 +85,16 @@ module Options =
     let applyArg arg =
       match arg with
       | Verbose ->
-          Debug.verbose := true
+          Debug.verbose <- true
       | Logfile s ->
           try
-            Debug.output := (IO.File.CreateText(s) :> IO.TextWriter)
+            Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
           with
           | e ->
             printfn "Bad log file: %s" e.Message
             exit 1
       | VFilter v ->
-          Debug.categories := v.Split(',') |> set |> Some
+          Debug.categories <- v.Split(',') |> set |> Some
       | Commands
       | Version
       | WaitForDebugger
