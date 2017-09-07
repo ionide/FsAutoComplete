@@ -49,10 +49,6 @@ module Options =
       - prints the best guess for the location of fsc and fsi
         (or fsharpc and fsharpi on unix)
     "
-  let verbose = ref false
-  let timeout = ref 10
-
-  let verboseFilter : Ref<Option<Set<string>>> = ref None
 
   open Argu
 
