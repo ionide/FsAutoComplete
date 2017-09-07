@@ -1,17 +1,13 @@
-namespace FsAutoComplete
+module FsAutoComplete.Program
 
 open System
 open System.IO
 open Microsoft.FSharp.Compiler
-open JsonSerializer
-open FsAutoComplete
-open System.Collections.Concurrent
+open FsAutoComplete.JsonSerializer
 open Argu
 
-module internal Main =
-
-  [<EntryPoint>]
-  let entry args =
+[<EntryPoint>]
+let entry args =
     System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
 
     let commands = Commands(writeJson)
