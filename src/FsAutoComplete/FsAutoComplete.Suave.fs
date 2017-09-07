@@ -10,9 +10,6 @@ open Suave.WebSocket
 open Suave.Sockets.Control
 open Suave.Filters
 open Newtonsoft.Json
-open Microsoft.FSharp.Compiler
-
-open FsAutoComplete
 open FsAutoComplete.JsonSerializer
 
 [<AutoOpen>]

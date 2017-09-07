@@ -2,9 +2,7 @@ module FsAutoComplete.Stdio
 
 open System
 open System.IO
-open Microsoft.FSharp.Compiler
-open JsonSerializer
-open FsAutoComplete
+open FsAutoComplete.JsonSerializer
 open System.Collections.Concurrent
 module Response = CommandResponse
 
