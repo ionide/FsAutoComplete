@@ -11,17 +11,7 @@ open Suave.Sockets.Control
 open Suave.Filters
 open Newtonsoft.Json
 open FsAutoComplete.JsonSerializer
-
-[<AutoOpen>]
-module Contract =
-    type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
-    type ProjectRequest = { FileName : string;}
-    type DeclarationsRequest = {FileName : string; Version : int}
-    type HelptextRequest = {Symbol : string}
-    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
-    type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
-    type LintRequest = {FileName : string}
-    type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
+open FsAutoComplete.HttpApiContract
 
 [<AutoOpen>]
 module internal Utils =

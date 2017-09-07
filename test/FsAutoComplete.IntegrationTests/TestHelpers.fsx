@@ -96,8 +96,9 @@ let formatJson json =
 open Hopac
 open HttpFs.Client
 
-type TheParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
-type TheProjectRequest = { FileName : string;}
+#load "../../src/FsAutoComplete/FsAutoComplete.HttpApiContract.fs"
+
+open FsAutoComplete.HttpApiContract
 
 type FsAutoCompleteWrapperHttp() =
 
@@ -144,7 +145,7 @@ type FsAutoCompleteWrapperHttp() =
   let makeRequestId () = 12
 
   member x.project (s: string) : unit =
-    { TheProjectRequest.FileName = (Path.Combine(Environment.CurrentDirectory, s)) }
+    { ProjectRequest.FileName = (Path.Combine(Environment.CurrentDirectory, s)) }
     |> doRequest "project" 0 (makeRequestId())
     |> Option.iter allResp.Add
 
@@ -153,7 +154,7 @@ type FsAutoCompleteWrapperHttp() =
     let lines = 
       let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
       text.Split('\n')
-    { TheParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
+    { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
     |> doRequest "parse" 0 (makeRequestId())
     |> Option.iter allResp.Add
 
