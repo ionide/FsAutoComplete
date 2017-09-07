@@ -6,10 +6,9 @@ open Microsoft.FSharp.Compiler
 open JsonSerializer
 open FsAutoComplete
 open System.Collections.Concurrent
+module Response = CommandResponse
 
 module internal Stdio =
-
-  module Response = CommandResponse
 
   let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
@@ -18,7 +17,7 @@ module internal Stdio =
       async {
           match commandQueue.Take() with
           | Started ->
-              return [ Response.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id)) ]
+              return [ CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id)) ]
           | Parse (file, kind, lines) ->
               let! res = commands.Parse file lines 0
               //Hack for tests
