@@ -131,7 +131,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Seq.toList
 
   let doRequest action atElement requestId r =
-    Request.createUrl Post (urlWithId requestId action)
+    Request.createUrl Post (urlWithId requestId "%s" action)
     |> Request.bodyString (r |> JsonConvert.SerializeObject)
     |> Request.responseAsString
     |> run
@@ -142,12 +142,15 @@ type FsAutoCompleteWrapperHttp() =
 
   let allResp = ResizeArray<string> ()
 
+  let recordRequest action atElement requestId r =
+    doRequest action atElement requestId r
+    |> Option.iter allResp.Add
+
   let makeRequestId () = 12
 
   member x.project (s: string) : unit =
     { ProjectRequest.FileName = (Path.Combine(Environment.CurrentDirectory, s)) }
-    |> doRequest "project" 0 (makeRequestId())
-    |> Option.iter allResp.Add
+    |> recordRequest "project" 0 (makeRequestId())
 
   member x.parse (s: string) : unit =
     let path = Path.Combine(Environment.CurrentDirectory, s)
@@ -155,11 +158,13 @@ type FsAutoCompleteWrapperHttp() =
       let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
       text.Split('\n')
     { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
-    |> doRequest "parse" 0 (makeRequestId())
-    |> Option.iter allResp.Add
+    |> recordRequest "parse" 0 (makeRequestId())
 
   member x.parseContent (filename: string) (content: string) : unit =
-    fprintf p.StandardInput "parse \"%s\" sync\n%s\n<<EOF>>\n" filename content
+    let path = Path.Combine(Environment.CurrentDirectory, filename)
+    let lines = content.Split('\n')
+    { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
+    |> recordRequest "parse" 0 (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
     fprintf p.StandardInput "completion \"%s\" \"%s\" %d %d\n" fn lineStr line col
