@@ -103,7 +103,6 @@ open FsAutoComplete.HttpApiContract
 type FsAutoCompleteWrapperHttp() =
 
   let p = new System.Diagnostics.Process()
-  let cachedOutput = new Text.StringBuilder()
 
   let port = 8089
 
@@ -119,7 +118,6 @@ type FsAutoCompleteWrapperHttp() =
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     p.Start () |> ignore
 
-  let url format = Printf.ksprintf (sprintf "http://localhost:%i/%s" port) format
   let urlWithId (id: int) format = Printf.ksprintf (fun s -> sprintf "http://localhost:%i/%s?requestId=%i" port s id) format
 
   let crazyness jsonEncodedAsJson =
@@ -145,14 +143,16 @@ type FsAutoCompleteWrapperHttp() =
     doRequest action requestId r
     |> List.iter allResp.Add
 
+  let absPath path = Path.Combine(Environment.CurrentDirectory, path)
+
   let makeRequestId () = 12
 
   member x.project (s: string) : unit =
-    { ProjectRequest.FileName = (Path.Combine(Environment.CurrentDirectory, s)) }
+    { ProjectRequest.FileName = absPath s }
     |> recordRequest "project" (makeRequestId())
 
   member x.parse (s: string) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, s)
+    let path = absPath s
     let lines = 
       let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
       text.Split('\n')
@@ -160,67 +160,58 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "parse" (makeRequestId())
 
   member x.parseContent (filename: string) (content: string) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, filename)
     let lines = content.Split('\n')
-    { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
+    { ParseRequest.FileName = absPath filename; IsAsync = false; Lines = lines; Version = 0 }
     |> recordRequest "parse" (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { CompletionRequest.FileName = path; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
     |> recordRequest "completion" (makeRequestId())
 
   member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
     |> recordRequest "methods" (makeRequestId())
 
   member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { CompletionRequest.FileName = path; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
     |> recordRequest"completion" (makeRequestId())
 
   member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
     |> recordRequest "tooltip" (makeRequestId())
 
   member x.typesig (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
     |> recordRequest "signature" (makeRequestId())
 
   member x.finddeclaration (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
     |> recordRequest "finddeclaration" (makeRequestId())
 
   member x.symboluse (fn: string) (lineStr: string) (line: int) (col: int) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { PositionRequest.Line = line; FileName = path; Column = col; Filter = "" }
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
     |> recordRequest "symboluse" (makeRequestId())
 
   member x.declarations (fn: string) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { LintRequest.FileName = path }
+    { LintRequest.FileName = absPath fn }
     |> recordRequest "declarations" (makeRequestId())
 
   member x.lint (fn: string) : unit =
-    let path = Path.Combine(Environment.CurrentDirectory, fn)
-    { LintRequest.FileName = path }
+    { LintRequest.FileName = absPath fn }
     |> recordRequest "lint" (makeRequestId())
 
   member x.send (s: string) : unit =
     ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
-    fprintf p.StandardInput "workspacepeek \"%s\" %i\n" dir deep
+    { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
+    |> recordRequest "workspacePeek" (makeRequestId())
 
   /// Wait for a single line to be output (one JSON message)
   /// Note that this line will appear at the *start* of output.json,
   /// so use carefully, and preferably only at the beginning.
   member x.waitForLine () : unit =
-    cachedOutput.AppendLine(p.StandardOutput.ReadLine()) |> ignore
+    ()
 
   member x.finalOutput () : string =
     allResp
