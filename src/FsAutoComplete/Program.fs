@@ -8,15 +8,17 @@ open Argu
 
 [<EntryPoint>]
 let entry args =
-    System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
 
-    let commands = Commands(writeJson)
-    let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-    let fs = FileSystem(originalFs, commands.Files.TryFind)
-    AbstractIL.Internal.Library.Shim.FileSystem <- fs
-
-    let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete.exe")
     try
+      System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
+
+      let commands = Commands(writeJson)
+      let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
+      let fs = FileSystem(originalFs, commands.Files.TryFind)
+      AbstractIL.Internal.Library.Shim.FileSystem <- fs
+
+      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete.exe")
+
       let results = parser.Parse args
 
       Options.apply results
