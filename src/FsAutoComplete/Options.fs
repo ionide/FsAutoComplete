@@ -59,11 +59,11 @@ module Options =
   type CLIArguments =
       | Version
       | [<AltCommandLine("-v")>] Verbose
-      | [<AltCommandLine("-l")>] Logfile of path:string
+      | [<EqualsAssignment; AltCommandLine("-l")>] Logfile of path:string
       | VFilter of filter:string
       | Commands
       | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
-      | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
+      | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | Mode of TransportMode
       | Port of tcp_port:int
       with
