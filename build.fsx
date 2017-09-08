@@ -71,11 +71,11 @@ let runIntegrationTest httpMode (fn: string) : bool =
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
+    let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
+    tracefn "Running FSIHelper '%s', '%s', '%s' %s"  FSIHelper.fsiPath dir fn mode
     let testExecution =
       try
         let fsiExec = async {
-            let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
             FileUtils.pushd dir
             return Some (FSIHelper.executeFSIWithScriptArgsAndReturnMessages fn [| mode |])
           }
