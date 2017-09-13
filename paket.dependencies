@@ -7,7 +7,6 @@ nuget FSharp.Compiler.Service.ProjectCracker ~> 14
 nuget Dotnet.ProjInfo ~> 0.7
 nuget Sln ~> 0.2
 nuget Mono.Cecil
-nuget NDesk.Options
 nuget Newtonsoft.Json
 nuget FAKE
 nuget NUnit

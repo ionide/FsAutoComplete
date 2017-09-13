@@ -17,7 +17,6 @@ NUGET
       FSharp.Compiler.Service (>= 14.0.2)
       FSharp.Compiler.Service.ProjectCracker (>= 14.0.2)
     Mono.Cecil (0.9.6.4)
-    NDesk.Options (0.2.1)
     Newtonsoft.Json (10.0.3)
     NUnit (3.8.1)
     NUnit.ConsoleRunner (3.7)
