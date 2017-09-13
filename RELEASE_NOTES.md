@@ -1,3 +1,13 @@
+#### 0.34.0 - 13.09.2017
+
+* support mixed dotnet langs projects (#173)
+* add detailed errors info (#175)
+* add hostPID command line arg (#190)
+* add workspace peek command (#191)
+* fix ci, .net core 2.0 RTM, normalize fsprojs (#197)
+* fix linter crash (#206)
+* single console app (#212)
+
 #### 0.33.0 - 13.06.2017
 
 * add sdk 2.0 support (#166)
