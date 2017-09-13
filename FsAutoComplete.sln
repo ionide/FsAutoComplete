@@ -27,8 +27,6 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete", "src\FsAut
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Suave", "src\FsAutoComplete.Suave\FsAutoComplete.Suave.fsproj", "{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
 EndProject
 Global
@@ -45,10 +43,6 @@ Global
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A4793CEE-5FCB-4660-A6DE-A041C8F4F003}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.ActiveCfg = Release|Any CPU

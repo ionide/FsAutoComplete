@@ -44,3 +44,15 @@ GITHUB
   remote: fsharp/FAKE
     modules/Octokit/Octokit.fsx (2b028cb33738ed3d35a79730bd792c24d48a0f31)
       Octokit (>= 0.20)
+GROUP IntegrationTests
+GENERATE-LOAD-SCRIPTS: ON
+RESTRICTION: == net45
+NUGET
+  remote: https://www.nuget.org/api/v2
+    FSharp.Core (4.0.0.1)
+    Hopac (0.3.23)
+      FSharp.Core (>= 3.1.2.5)
+    Http.fs (4.1.2)
+      FSharp.Core (>= 3.1.2.5)
+      Hopac (>= 0.3.21)
+    Newtonsoft.Json (10.0.3)

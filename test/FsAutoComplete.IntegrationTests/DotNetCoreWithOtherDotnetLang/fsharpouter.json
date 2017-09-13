@@ -99,13 +99,8 @@
         "RestoreSuccess": true,
         "TargetFrameworks": [],
         "RunCmd": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Command": "dotnet",
-              "Arguments": "exec \"<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/c1/bin/Debug/netcoreapp1.0/c1.dll\""
-            }
-          ]
+          "Command": "dotnet",
+          "Arguments": "exec \"<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/c1/bin/Debug/netcoreapp1.0/c1.dll\""
         },
         "IsPublishable": null
       }

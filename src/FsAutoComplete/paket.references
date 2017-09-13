@@ -1,4 +1,6 @@
 FSharp.Compiler.Service
 FSharp.Compiler.Service.ProjectCracker
-NDesk.Options
+Argu
 Newtonsoft.Json
+Suave
+FSharp.Core

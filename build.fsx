@@ -28,12 +28,6 @@ let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "fsautocomplete.zip"
 
-let suaveSummary = "A Suave web server for interfacing with FSharp.Compiler.Service over a HTTP."
-let suaveProject = "FsAutoComplete.Suave"
-let suaveBuildDebugDir = "src" </> suaveProject </>  "bin" </> "Debug"
-let suaveBuildReleaseDir = "src" </> suaveProject </> "bin" </> "Release"
-let suaveReleaseArchive = "fsautocomplete.suave.zip"
-
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
@@ -69,7 +63,7 @@ let isTestSkipped fn =
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
   | _ -> None
 
-let runIntegrationTest (fn: string) : bool =
+let runIntegrationTest httpMode (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
 
   match isTestSkipped fn with
@@ -77,15 +71,18 @@ let runIntegrationTest (fn: string) : bool =
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    tracefn "Running FSIHelper '%s', '%s', '%s'"  FSIHelper.fsiPath dir fn
+    let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
+    tracefn "Running FSIHelper '%s', '%s', '%s' %s"  FSIHelper.fsiPath dir fn mode
     let testExecution =
       try
         let fsiExec = async {
-            return Some (FSIHelper.executeFSI dir fn [])
+            FileUtils.pushd dir
+            return Some (FSIHelper.executeFSIWithScriptArgsAndReturnMessages fn [| mode |])
           }
         Async.RunSynchronously (fsiExec, TimeSpan.FromMinutes(10.0).TotalMilliseconds |> int)
       with :? TimeoutException ->
         None
+    FileUtils.popd ()
     match testExecution with
     | None -> //timeout
       false
@@ -96,26 +93,35 @@ let runIntegrationTest (fn: string) : bool =
           traceError msg.Message
       result
 
-Target "IntegrationTest" (fun _ ->
-  trace "Running Integration tests..."
-  let runOk =
-   integrationTests
-   |> Seq.map runIntegrationTest
-   |> Seq.forall id
+let runall httpMode =
+    trace "Running Integration tests..."
+    let runOk =
+     integrationTests
+     |> Seq.map (runIntegrationTest httpMode)
+     |> Seq.forall id
 
-  if not runOk then
-    trace "Integration tests did not run successfully"
-    failwith "Integration tests did not run successfully"
-  else
-    trace "checking tests results..."
-    let ok, out, err =
-      Git.CommandHelper.runGitCommand
-                        "."
-                        ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
-    if not ok then
-      trace (toLines out)
-      failwithf "Integration tests failed:\n%s" err
-  trace "Done Integration tests."
+    if not runOk then
+      trace "Integration tests did not run successfully"
+      failwith "Integration tests did not run successfully"
+    else
+      trace "checking tests results..."
+      let ok, out, err =
+        Git.CommandHelper.runGitCommand
+                          "."
+                          ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
+      if not ok then
+        trace (toLines out)
+        failwithf "Integration tests failed:\n%s" err
+    trace "Done Integration tests."
+
+Target "IntegrationTestStdioMode" (fun _ ->
+  trace "== Integration tests (stdio) =="
+  runall false
+)
+
+Target "IntegrationTestHttpMode" (fun _ ->
+  trace "== Integration tests (http) =="
+  runall true
 )
 
 Target "UnitTest" (fun _ ->
@@ -141,16 +147,6 @@ Target "AssemblyInfo" (fun _ ->
       Attribute.FileVersion release.AssemblyVersion ]
 )
 
-Target "SuaveAssemblyInfo" (fun _ ->
-  let fileName = "src" </> suaveProject </> "AssemblyInfo.fs"
-  CreateFSharpAssemblyInfo fileName
-    [ Attribute.Title suaveProject
-      Attribute.Product suaveProject
-      Attribute.Description suaveSummary
-      Attribute.Version release.AssemblyVersion
-      Attribute.FileVersion release.AssemblyVersion ]
-)
-
 Target "ReleaseArchive" (fun _ ->
   Zip buildReleaseDir
       releaseArchive
@@ -159,23 +155,12 @@ Target "ReleaseArchive" (fun _ ->
         ++ (buildReleaseDir + "/*.exe.config"))
 )
 
-Target "SuaveReleaseArchive" (fun _ ->
-  Zip suaveBuildReleaseDir
-      suaveReleaseArchive
-      ( !! (suaveBuildReleaseDir + "/*.dll")
-        ++ (suaveBuildReleaseDir + "/*.exe")
-        ++ (suaveBuildReleaseDir + "/*.exe.config"))
-)
-
 Target "LocalRelease" (fun _ ->
     ensureDirectory "bin/release"
     CopyFiles "bin/release"(
         !! (buildReleaseDir      + "/*.dll")
         ++ (buildReleaseDir      + "/*.exe")
         ++ (buildReleaseDir      + "/*.exe.config")
-        ++ (suaveBuildReleaseDir + "/*.dll")
-        ++ (suaveBuildReleaseDir + "/*.exe")
-        ++ (suaveBuildReleaseDir + "/*.exe.config")
     )
 )
 
@@ -203,18 +188,18 @@ Target "Release" (fun _ ->
     createClient user pw
     |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
     |> uploadFile releaseArchive
-    |> uploadFile suaveReleaseArchive
     |> releaseDraft
     |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
-  CleanDirs [ buildDir; buildReleaseDir; suaveBuildDebugDir; suaveBuildReleaseDir ]
-  DeleteFiles [releaseArchive; suaveReleaseArchive ]
+  CleanDirs [ buildDir; buildReleaseDir ]
+  DeleteFiles [releaseArchive]
 )
 
 Target "Build" id
 Target "Test" id
+Target "IntegrationTest" id
 Target "All" id
 
 "BuildDebug"
@@ -225,8 +210,11 @@ Target "All" id
   ==> "Build"
   ==> "UnitTest"
 
-"IntegrationTest" ==> "Test"
 "UnitTest" ==> "Test"
+"IntegrationTest" ==> "Test"
+
+"IntegrationTestStdioMode" ==> "IntegrationTest"
+"IntegrationTestHttpMode" ==> "IntegrationTest"
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"
@@ -237,11 +225,6 @@ Target "All" id
 "AssemblyInfo"
   ==> "BuildRelease"
   ==> "ReleaseArchive"
-  ==> "Release"
-
-"SuaveAssemblyInfo"
-  ==> "BuildRelease"
-  ==> "SuaveReleaseArchive"
   ==> "Release"
 
 RunTargetOrDefault "BuildDebug"

@@ -49,47 +49,59 @@ module Options =
       - prints the best guess for the location of fsc and fsi
         (or fsharpc and fsharpi on unix)
     "
-  let verbose = ref false
-  let timeout = ref 10
 
-  let verboseFilter : Ref<Option<Set<string>>> = ref None
+  open Argu
 
-  let p = new NDesk.Options.OptionSet()
-  Seq.iter (fun (s:string,d:string,a:string -> unit) -> ignore (p.Add(s,d,a)))
-    [
-      "version", "display versioning information",
-        fun _ -> printfn "%s" Version.string;
-                 exit 0
+  type TransportMode =
+      | Stdio
+      | Http
 
-      "v|verbose", "enable verbose mode",
-        fun _ -> Debug.verbose := true
+  type CLIArguments =
+      | Version
+      | [<AltCommandLine("-v")>] Verbose
+      | [<EqualsAssignment; AltCommandLine("-l")>] Logfile of path:string
+      | VFilter of filter:string
+      | Commands
+      | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
+      | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
+      | Mode of TransportMode
+      | Port of tcp_port:int
+      with
+          interface IArgParserTemplate with
+              member s.Usage =
+                  match s with
+                  | Version -> "display versioning information"
+                  | Verbose -> "enable verbose mode"
+                  | Logfile _ -> "send verbose output to specified log file"
+                  | VFilter _ -> "apply a comma-separated {FILTER} to verbose output"
+                  | Commands -> "list the commands that this program understands"
+                  | WaitForDebugger _ -> "wait for a debugger to attach to the process"
+                  | HostPID _ -> "the Host process ID."
+                  | Port _ -> "the listening port."
+                  | Mode _ -> "the transport type."
 
-      "l|logfile=", "send verbose output to specified log file",
-        fun s -> try
-                   Debug.output := (IO.File.CreateText(s) :> IO.TextWriter)
-                 with
-                   | e -> printfn "Bad log file: %s" e.Message
-                          exit 1
+  let apply (args: ParseResults<CLIArguments>) =
 
-      "vfilter=", "apply a comma-separated {FILTER} to verbose output",
-        fun v -> Debug.categories := v.Split(',') |> set |> Some
+    let applyArg arg =
+      match arg with
+      | Verbose ->
+          Debug.verbose <- true
+      | Logfile s ->
+          try
+            Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
+          with
+          | e ->
+            printfn "Bad log file: %s" e.Message
+            exit 1
+      | VFilter v ->
+          Debug.categories <- v.Split(',') |> set |> Some
+      | Commands
+      | Version
+      | WaitForDebugger
+      | HostPID _
+      | Mode _
+      | Port _ ->
+          ()
 
-      "commands", "list the commands that this program understands",
-        fun _ -> printfn "%s" commandText
-                 exit 0
-
-      "h|?|help", "display this help!",
-        fun _ -> printfn "%s" Version.string;
-                 p.WriteOptionDescriptions(stdout);
-                 exit 0
-      "wait-for-debugger", "wait for a debugger to attach to the process",
-        fun _ -> Debug.waitForDebugger := true
-
-      "hostPID=", "Host process ID",
-        fun s -> try
-                   Debug.hostPID := Some (int s)
-                 with
-                   | e -> printfn "Bad Host process ID '%s' expected int: %s" s e.Message
-                          exit 1
-
-    ]
+    args.GetAllResults()
+    |> List.iter applyArg

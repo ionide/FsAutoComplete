@@ -102,13 +102,8 @@
           "netcoreapp1.1"
         ],
         "RunCmd": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Command": "dotnet",
-              "Arguments": "exec \"<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgen/sample1/c1/bin/Debug/netcoreapp1.0/c1.dll\""
-            }
-          ]
+          "Command": "dotnet",
+          "Arguments": "exec \"<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgen/sample1/c1/bin/Debug/netcoreapp1.0/c1.dll\""
         },
         "IsPublishable": null
       }

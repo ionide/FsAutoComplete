@@ -10,21 +10,8 @@ open Suave.WebSocket
 open Suave.Sockets.Control
 open Suave.Filters
 open Newtonsoft.Json
-open Microsoft.FSharp.Compiler
-
-open FsAutoComplete
-open FsAutoComplete.JsonSerializerSuave
-
-[<AutoOpen>]
-module Contract =
-    type ParseRequest = { FileName : string; IsAsync : bool; Lines : string[]; Version : int }
-    type ProjectRequest = { FileName : string;}
-    type DeclarationsRequest = {FileName : string; Version : int}
-    type HelptextRequest = {Symbol : string}
-    type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Column : int; Filter : string; IncludeKeywords : bool;}
-    type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
-    type LintRequest = {FileName : string}
-    type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
+open FsAutoComplete.JsonSerializer
+open FsAutoComplete.HttpApiContract
 
 [<AutoOpen>]
 module internal Utils =
@@ -36,49 +23,10 @@ module internal Utils =
             System.Text.Encoding.UTF8.GetString(rawForm)
         req.rawForm |> getString |> fromJson<'a>
 
-  let zombieCheckWithHostPID pid quit =
-    try
-      let hostProcess = System.Diagnostics.Process.GetProcessById(pid)
-      ProcessWatcher.watch hostProcess (fun _ -> quit ())
-    with
-    | e ->
-      printfn "Host process ID %i not found: %s" pid e.Message
-      // If the process dies before we get here then request shutdown
-      // immediately
-      quit ()
-
 open Argu
 
-type CLIArguments =
-    | [<MainCommand; Unique>] Port of tcp_port:int
-    | [<CustomCommandLine("--hostPID")>] HostPID of pid:int
-    with
-        interface IArgParserTemplate with
-            member s.Usage =
-                match s with
-                | Port _ -> "the listening port."
-                | HostPID _ -> "the Host process ID."
-
-
-[<EntryPoint>]
-let main argv =
+let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let mutable client : WebSocket option  = None
-
-    System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
-    let commands = Commands(writeJson)
-    let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-    let fs = FileSystem(originalFs, commands.Files.TryFind)
-    AbstractIL.Internal.Library.Shim.FileSystem <- fs
-
-    // commands.FileChecked
-    // |> Event.add (fun response ->
-    //     client |> Option.iter (fun socket ->
-    //         async {
-    //             let! res = response
-
-    //             let cnt = res |> List.toArray |> Json.toJson
-    //             return! socket.send Text cnt true
-    //         } |> Async.Ignore |> Async.Start ))
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -138,7 +86,14 @@ let main argv =
     let app =
         choose [
             // path "/notify" >=> handShake echo
-            path "/parse" >=> handler (fun (data : ParseRequest) -> commands.Parse data.FileName data.Lines data.Version)
+            path "/parse" >=> handler (fun (data : ParseRequest) -> async {
+                let! res = commands.Parse data.FileName data.Lines data.Version
+                //Hack for tests
+                let r = match data.IsAsync with
+                        | false -> CommandResponse.info writeJson "Synchronous parsing started"
+                        | true -> CommandResponse.info writeJson "Background parsing started"
+                return r :: res
+                })
             path "/parseProjects" >=> handler (fun (data : ProjectRequest) -> commands.ParseProjectsForFile data.FileName)
             //TODO: Add filewatcher
             path "/parseProjectsInBackground" >=> handler (fun (data : ProjectRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
@@ -187,35 +142,18 @@ let main argv =
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
         ]
 
-    let main (args: ParseResults<CLIArguments>) =
-        let port = args.GetResult (<@ Port @>, defaultValue = 8088)
+    let port = args.GetResult (<@ Options.CLIArguments.Port @>, defaultValue = 8088)
 
-        let defaultBinding = defaultConfig.bindings.[0]
-        let withPort = { defaultBinding.socketBinding with port = uint16 port }
-        let serverConfig =
-            { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
-        try
-            match args.TryGetResult (<@ HostPID @>) with
-            | Some pid ->
-                serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete.Suave" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
-                zombieCheckWithHostPID pid (fun () -> exit 0)
-            | None -> ()
+    let defaultBinding = defaultConfig.bindings.[0]
+    let withPort = { defaultBinding.socketBinding with port = uint16 port }
+    let serverConfig =
+        { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
 
-            startWebServer serverConfig app
-            0
-        with
-        | e ->
-            printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
-            1
+    match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
+    | Some pid ->
+        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+        Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
+    | None -> ()
 
-    let parser = ArgumentParser.Create<CLIArguments>(programName = "FsAutoComplete.Suave.exe")
-    try
-        let results = parser.Parse argv
-        main results
-    with
-        | :? ArguParseException as ex ->
-            printfn "%s" (parser.PrintUsage())
-            2
-        | e ->
-            printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
-            3
+    startWebServer serverConfig app
+    0

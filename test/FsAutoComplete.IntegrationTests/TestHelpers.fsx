@@ -3,19 +3,21 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#I "../../packages/Newtonsoft.Json/lib/net45/"
-#r "Newtonsoft.Json.dll"
+#load "../../.paket/load/net45/IntegrationTests/Hopac.fsx"
+#load "../../.paket/load/net45/IntegrationTests/Http.fs.fsx"
+#load "../../.paket/load/net45/IntegrationTests/Newtonsoft.Json.fsx"
+
 open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
-type FsAutoCompleteWrapper() =
+type FsAutoCompleteWrapperStdio() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapper.ExePath ()
+    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
     p.StartInfo.RedirectStandardOutput <- true
     p.StartInfo.RedirectStandardError  <- true
     p.StartInfo.RedirectStandardInput  <- true
@@ -89,6 +91,139 @@ let formatJson json =
       let parsedJson = JsonConvert.DeserializeObject(json)
       JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
     with _ -> json
+
+
+open Hopac
+open HttpFs.Client
+
+#load "../../src/FsAutoComplete/FsAutoComplete.HttpApiContract.fs"
+
+open FsAutoComplete.HttpApiContract
+
+type FsAutoCompleteWrapperHttp() =
+
+  let p = new System.Diagnostics.Process()
+
+  let port = 8089
+
+  do
+    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
+    p.StartInfo.RedirectStandardOutput <- true
+    p.StartInfo.RedirectStandardError  <- true
+    p.StartInfo.RedirectStandardInput  <- true
+    p.StartInfo.UseShellExecute <- false
+    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
+      p.StartInfo.Arguments <- "--wait-for-debugger"
+    p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
+    p.Start () |> ignore
+
+  let urlWithId (id: int) format = Printf.ksprintf (fun s -> sprintf "http://localhost:%i/%s?requestId=%i" port s id) format
+
+  let crazyness jsonEncodedAsJson =
+    jsonEncodedAsJson
+    |> JsonConvert.DeserializeObject
+    :?>  Newtonsoft.Json.Linq.JArray
+    |> Seq.cast<Newtonsoft.Json.Linq.JValue>
+    |> Seq.map (fun v -> v.Value :?> string)
+    |> Seq.toList
+
+  let doRequest action requestId r =
+    Request.createUrl Post (urlWithId requestId "%s" action)
+    |> Request.bodyString (r |> JsonConvert.SerializeObject)
+    |> Request.responseAsString
+    |> Hopac.run
+    |> fun s -> printfn "%s" s; s
+    |> crazyness
+    |> List.map formatJson
+
+  let allResp = ResizeArray<string> ()
+
+  let recordRequest action requestId r =
+    doRequest action requestId r
+    |> List.iter allResp.Add
+
+  let absPath path = Path.Combine(Environment.CurrentDirectory, path)
+
+  let makeRequestId () = 12
+
+  member x.project (s: string) : unit =
+    { ProjectRequest.FileName = absPath s }
+    |> recordRequest "project" (makeRequestId())
+
+  member x.parse (s: string) : unit =
+    let path = absPath s
+    let lines = 
+      let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
+      text.Split('\n')
+    { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
+    |> recordRequest "parse" (makeRequestId())
+
+  member x.parseContent (filename: string) (content: string) : unit =
+    let lines = content.Split('\n')
+    { ParseRequest.FileName = absPath filename; IsAsync = false; Lines = lines; Version = 0 }
+    |> recordRequest "parse" (makeRequestId())
+
+  member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
+    |> recordRequest "completion" (makeRequestId())
+
+  member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
+    |> recordRequest "methods" (makeRequestId())
+
+  member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
+    |> recordRequest"completion" (makeRequestId())
+
+  member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
+    |> recordRequest "tooltip" (makeRequestId())
+
+  member x.typesig (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
+    |> recordRequest "signature" (makeRequestId())
+
+  member x.finddeclaration (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
+    |> recordRequest "finddeclaration" (makeRequestId())
+
+  member x.symboluse (fn: string) (lineStr: string) (line: int) (col: int) : unit =
+    { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
+    |> recordRequest "symboluse" (makeRequestId())
+
+  member x.declarations (fn: string) : unit =
+    { LintRequest.FileName = absPath fn }
+    |> recordRequest "declarations" (makeRequestId())
+
+  member x.lint (fn: string) : unit =
+    { LintRequest.FileName = absPath fn }
+    |> recordRequest "lint" (makeRequestId())
+
+  member x.send (s: string) : unit =
+    if s.Contains("quit") then
+      p.Kill ()
+
+  member x.workspacepeek (dir: string) (deep: int): unit =
+    { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
+    |> recordRequest "workspacePeek" (makeRequestId())
+
+  /// Wait for a single line to be output (one JSON message)
+  /// Note that this line will appear at the *start* of output.json,
+  /// so use carefully, and preferably only at the beginning.
+  member x.waitForLine () : unit =
+    ()
+
+  member x.finalOutput () : string =
+    allResp
+    |> String.concat "\n"
+
+
+#if FSAC_TEST_HTTP
+type FsAutoCompleteWrapper = FsAutoCompleteWrapperHttp
+#else
+type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
+#endif
 
 let writeNormalizedOutput (fn: string) (s: string) =
   let lines = s.TrimEnd().Split('\n')
