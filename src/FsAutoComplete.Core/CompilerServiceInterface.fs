@@ -334,25 +334,15 @@ type FSharpCompilerServiceChecker() =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr))
 
-
-  member __.TryGetProjectOptions (file: SourceFilePath, verbose: bool) =
-    ProjectCrackerVerbose.load ensureCorrectFSharpCore file verbose
-
-  member __.TryGetProjectJsonProjectOptions (file : SourceFilePath) =
-    ProjectCrackerProjectJson.load file
-
-  member __.TryGetCoreProjectOptions (file : SourceFilePath) =
-    ProjectCrackerDotnetSdk.load file
-
   member x.GetProjectOptions verbose (projectFileName: SourceFilePath) =
     if not (File.Exists projectFileName) then
         Err (GenericError(sprintf "File '%s' does not exist" projectFileName))
     else
         match projectFileName with
-        | NetCoreProjectJson -> x.TryGetProjectJsonProjectOptions projectFileName
-        | NetCoreSdk -> x.TryGetCoreProjectOptions projectFileName
-        | Net45 -> x.TryGetProjectOptions (projectFileName, verbose)
-        | Unsupported -> x.TryGetProjectOptions (projectFileName, verbose)
+        | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
+        | NetCoreSdk -> ProjectCrackerDotnetSdk.load projectFileName
+        | Net45 -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
+        | Unsupported -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
 
   member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
     let projects = getDependingProjects file options
