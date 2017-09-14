@@ -71,13 +71,12 @@ module ProjectCrackerVerbose =
 
 
         let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
-        let outType = FscArguments.outType (po.OtherOptions |> List.ofArray)
 
         let rec setExtraInfo po =
             { po with
                  ExtraProjectInfo = Some (box {
                     ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
-                    ProjectOutputType = outType
+                    ProjectOutputType = po.OtherOptions |> List.ofArray |> FscArguments.outType
                  })
                  ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
 

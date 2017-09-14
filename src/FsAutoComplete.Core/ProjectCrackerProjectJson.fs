@@ -19,8 +19,6 @@ module ProjectCrackerProjectJson =
                              else s )
       |> Array.filter((<>) "--nocopyfsharpcore")
 
-    let outType = FscArguments.outType (rsp |> List.ofArray)
-
     {
       ProjectFileName = file
       SourceFiles = [||]
@@ -34,7 +32,7 @@ module ProjectCrackerProjectJson =
       OriginalLoadReferences = []
       ExtraProjectInfo = Some (box {
         ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.ProjectJson
-        ExtraProjectInfoData.ProjectOutputType = outType
+        ExtraProjectInfoData.ProjectOutputType = rsp |> List.ofArray |> FscArguments.outType
       })
     }
 
