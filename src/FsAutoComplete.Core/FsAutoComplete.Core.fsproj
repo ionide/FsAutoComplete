@@ -51,6 +51,7 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ProjectCrackerTypes.fs" />
+    <Compile Include="FscArguments.fs" />
     <Compile Include="ProjectCrackerProjectJson.fs" />
     <Compile Include="ProjectCrackerDotnetSdk.fs" />
     <Compile Include="ProjectCrackerVerbose.fs" />

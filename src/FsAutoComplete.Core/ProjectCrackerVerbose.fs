@@ -43,12 +43,8 @@ module ProjectCrackerVerbose =
         let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
         let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
         let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        let outType =
-            match Seq.tryPick (chooseByPrefix "--target:") po.OtherOptions with
-            | Some "library" -> ProjectOutputType.Library
-            | Some "exe" -> ProjectOutputType.Exe
-            | Some v -> ProjectOutputType.Custom v
-            | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
+        let outType = FscArguments.outType (po.OtherOptions |> List.ofArray)
+
         let rec setExtraInfo po =
             { po with
                  ExtraProjectInfo = Some (box {

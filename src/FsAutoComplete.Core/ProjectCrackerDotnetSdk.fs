@@ -206,11 +206,7 @@ module ProjectCrackerDotnetSdk =
                     ExtraProjectInfo =
                         Some (box {
                             ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
-                            ExtraProjectInfoData.ProjectOutputType =
-                                props
-                                |>  Map.tryFind "OutputType"
-                                |> Option.map msbuildPropProjectOutputType
-                                |> Option.getOrElse (ProjectOutputType.Library)
+                            ExtraProjectInfoData.ProjectOutputType = FscArguments.outType rsp
                         })
                 }
 
