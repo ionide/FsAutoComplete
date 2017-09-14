@@ -71,7 +71,7 @@ module ProjectCrackerVerbose =
 
 
         let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
-        let outputFile = FscArguments.outputFile (Path.GetDirectoryName(file)) (po.OtherOptions |> List.ofArray)
+        let outputFile = FscArguments.outputFile (Path.GetDirectoryName(po.ProjectFileName)) (po.OtherOptions |> List.ofArray)
         let references = FscArguments.references (po.OtherOptions |> List.ofArray)
         let outType = FscArguments.outType (po.OtherOptions |> List.ofArray)
 
