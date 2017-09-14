@@ -66,11 +66,9 @@ module ProjectCrackerVerbose =
 
                 { po with SourceFiles = fileNames ; OtherOptions = otherOptions }
 
-
-        let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
-
         let rec setExtraInfo po =
             { po with
+                 SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators
                  ExtraProjectInfo = Some (box {
                     ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
                     ProjectOutputType = po.OtherOptions |> List.ofArray |> FscArguments.outType
