@@ -6,6 +6,17 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 module ProjectCrackerVerbose =
+
+  // interesting things:
+  // 1 - if fsharp.core.dll is not referenced, add it from ensureCorrectFSharpCore
+  // 2 - fsi are compile files
+  // varie:
+  // - search delle cose e' fatto con EndsWith, doesnt check if is an argument like -r
+  // - riarrangia i files fsi per po.SourceFiles in modo che siano prima del proprio file .fs **e lo toglie da project options**
+  // - po.SourceFiles e' ritonato come snd, a questi files viene appicciata la po (FSharpProjectOptions), quindi importante 
+  //   di filtrarli corretamente altrimenti non sarebbero parsabili
+  // - let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
+
   let load ensureCorrectFSharpCore file verbose =
     if not (File.Exists file) then
       Err (GenericError(sprintf "File '%s' does not exist" file))
