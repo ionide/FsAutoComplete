@@ -44,7 +44,7 @@ module ProjectCrackerProjectJson =
     else
       try
         let po = getProjectOptionsFromResponseFile file
-        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
         let outputFile = FscArguments.outputFile (Path.GetDirectoryName(file)) (po.OtherOptions |> List.ofArray)
         let references = FscArguments.references (po.OtherOptions |> List.ofArray)
         Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))

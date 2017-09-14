@@ -20,8 +20,8 @@ module FscArguments =
       |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(projDir, f))
 
   let compileFiles =
-      //TODO wrong, need to check also fsi. best filter the one without initial -
-      List.filter (fun (s:string) -> s.EndsWith(".fs"))
+      //TODO filter the one without initial -
+      List.filter (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi"))
 
   let references =
       //TODO valid also --reference:
