@@ -1,6 +1,7 @@
 namespace FsAutoComplete
 
 open System
+open System.IO
 
 //TODO long term, refactor fsc source code to extract a type, and import here as source
 
@@ -13,9 +14,10 @@ module FscArguments =
       | Some v -> ProjectOutputType.Custom v
       | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
 
-  let outputFile =
-      // Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
-      List.tryPick (chooseByPrefix2 ["--out:"; "-o:"])
+  let outputFile projDir rsp =
+      rsp
+      |> List.tryPick (chooseByPrefix2 ["--out:"; "-o:"])
+      |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(projDir, f))
 
   let compileFiles =
       //TODO wrong, need to check also fsi. best filter the one without initial -
