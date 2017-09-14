@@ -142,11 +142,14 @@ type Commands (serialize : Serializer) =
                 [r]
             | None ->
                 let options =
-                    match projectFileName with
-                    | NetCoreProjectJson -> checker.TryGetProjectJsonProjectOptions projectFileName
-                    | NetCoreSdk -> checker.TryGetCoreProjectOptions projectFileName
-                    | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
-                    | Unsupported -> checker.TryGetProjectOptions (projectFileName, verbose)
+                    if not (File.Exists projectFileName) then
+                        Err (GenericError(sprintf "File '%s' does not exist" projectFileName))
+                    else
+                        match projectFileName with
+                        | NetCoreProjectJson -> checker.TryGetProjectJsonProjectOptions projectFileName
+                        | NetCoreSdk -> checker.TryGetCoreProjectOptions projectFileName
+                        | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
+                        | Unsupported -> checker.TryGetProjectOptions (projectFileName, verbose)
 
                 match options with
                 | Result.Err error ->

@@ -18,9 +18,6 @@ module ProjectCrackerVerbose =
   // - let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
 
   let load ensureCorrectFSharpCore file verbose =
-    if not (File.Exists file) then
-      Err (GenericError(sprintf "File '%s' does not exist" file))
-    else
       try
         let po, logMap =
           let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)

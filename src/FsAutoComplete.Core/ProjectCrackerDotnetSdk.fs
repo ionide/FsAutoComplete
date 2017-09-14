@@ -225,9 +225,6 @@ module ProjectCrackerDotnetSdk =
 
 
   let load file =
-    if not (File.Exists file) then
-      Err (GenericError(sprintf "File '%s' does not exist" file))
-    else
       try
         let po = getProjectOptionsFromProjectFile file
         Ok (po, Map<string,string>([||]))
