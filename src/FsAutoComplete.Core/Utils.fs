@@ -60,10 +60,8 @@ let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimS
 
 let inline (</>) path1 path2 = combinePaths path1 path2
 
-let private sepChar = Path.DirectorySeparatorChar
-
 let normalizeDirSeparators (path: string) =
-  match sepChar with
+  match Path.DirectorySeparatorChar with
   | '\\' -> path.Replace('/', '\\')
   | '/' -> path.Replace('\\', '/')
   | _ -> path
