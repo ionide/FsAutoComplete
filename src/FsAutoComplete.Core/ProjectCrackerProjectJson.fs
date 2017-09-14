@@ -21,7 +21,7 @@ module ProjectCrackerProjectJson =
 
     {
       ProjectFileName = file
-      SourceFiles = [||]
+      SourceFiles = rsp |> List.ofArray |> FscArguments.compileFiles |> List.toArray
       OtherOptions = rsp
       ReferencedProjects = [||]
       IsIncompleteTypeCheckEnvironment = false
@@ -42,7 +42,6 @@ module ProjectCrackerProjectJson =
     else
       try
         let po = getProjectOptionsFromResponseFile file
-        let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
-        Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
+        Ok (po, Map<string,string>([||]))
       with e ->
         Err (GenericError(e.Message))

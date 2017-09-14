@@ -80,7 +80,7 @@ module ProjectCrackerVerbose =
                  })
                  ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
 
-        Ok (setExtraInfo po, Array.toList po.SourceFiles, logMap)
+        Ok (setExtraInfo po, logMap)
       with e ->
         Err (GenericError(e.Message))
 

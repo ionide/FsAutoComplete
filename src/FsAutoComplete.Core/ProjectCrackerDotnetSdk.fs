@@ -202,7 +202,7 @@ module ProjectCrackerDotnetSdk =
             let po =
                 {
                     ProjectFileName = file
-                    SourceFiles = [||]
+                    SourceFiles = rsp |> List.map compileFilesToAbsolutePath |> FscArguments.compileFiles |> Array.ofList
                     OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
                     ReferencedProjects = p2pProjects |> Array.ofList
                     IsIncompleteTypeCheckEnvironment = false
@@ -230,8 +230,7 @@ module ProjectCrackerDotnetSdk =
     else
       try
         let po = getProjectOptionsFromProjectFile file
-        let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
-        Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
+        Ok (po, Map<string,string>([||]))
       with
         | ProjectInspectException d -> Err d
         | e -> Err (GenericError(e.Message))
