@@ -186,7 +186,7 @@ module ProjectCrackerDotnetSdk =
                 | None -> failwith "error, 'TargetPath' property not found"
 
             let compileFilesToAbsolutePath (f: string) =
-                if f.EndsWith(".fs") then
+                if f.EndsWith(".fs") || f.EndsWith (".fsi") then
                     if Path.IsPathRooted f then f else Path.Combine(projDir, f)
                 else
                     f
@@ -222,7 +222,7 @@ module ProjectCrackerDotnetSdk =
     else
       try
         let po = getProjectOptionsFromProjectFile file
-        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
+        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi")) po.OtherOptions
         let outputFile = FscArguments.outputFile (Path.GetDirectoryName(file)) (po.OtherOptions |> List.ofArray)
         let references = FscArguments.references (po.OtherOptions |> List.ofArray)
         Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
