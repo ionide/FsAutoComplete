@@ -13,6 +13,21 @@ module ProjectCrackerVerbose =
       try
         let po, logMap =
           let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
+
+          match p.SourceFiles, p.OtherOptions, logMap |> Map.isEmpty with
+          | [| |], [| |], false ->
+            //HACK project cracker has failed
+            //  ref https://github.com/fsharp/FSharp.Compiler.Service/issues/804
+            //  the ProjectCracker.GetProjectOptionsFromProjectFileLogged doesnt throw, just return an
+            //  uninitalized FSharpProjectOptions and some log, who contains the exception
+            let logs =
+                logMap
+                |> Map.toArray
+                |> Array.map (fun (k,v) -> sprintf "%s: %s" k v)
+                |> fun a -> String.Join(Environment.NewLine, a)
+            failwithf "Failed parsing project file: %s" logs
+          | _ -> ()
+
           let opts =
             if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
               ensureCorrectFSharpCore p.OtherOptions
