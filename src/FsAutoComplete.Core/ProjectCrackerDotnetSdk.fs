@@ -223,10 +223,7 @@ module ProjectCrackerDotnetSdk =
       try
         let po = getProjectOptionsFromProjectFile file
         let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
-        let outputFile =
-            Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
-            |> Option.orElseFun (fun () -> Seq.tryPick (chooseByPrefix "-o:") po.OtherOptions)
-            |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
+        let outputFile = FscArguments.outputFile (po.OtherOptions |> List.ofArray)
         let references = FscArguments.references (po.OtherOptions |> List.ofArray)
         Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
       with

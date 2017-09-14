@@ -41,7 +41,7 @@ module ProjectCrackerVerbose =
 
 
         let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
-        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
+        let outputFile = FscArguments.outputFile (po.OtherOptions |> List.ofArray)
         let references = FscArguments.references (po.OtherOptions |> List.ofArray)
         let outType = FscArguments.outType (po.OtherOptions |> List.ofArray)
 

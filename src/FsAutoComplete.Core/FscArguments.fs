@@ -15,6 +15,7 @@ module FscArguments =
 
   let outputFile =
       //TODO valid also -o
+      // Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
       List.tryPick (chooseByPrefix "--out:")
 
   let compileFiles =
