@@ -45,7 +45,6 @@ module ProjectCrackerProjectJson =
       try
         let po = getProjectOptionsFromResponseFile file
         let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
-        let references = FscArguments.references (po.OtherOptions |> List.ofArray)
-        Ok (po, Seq.toList compileFiles, Seq.toList references, Map<string,string>([||]))
+        Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
       with e ->
         Err (GenericError(e.Message))

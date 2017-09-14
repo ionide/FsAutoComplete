@@ -71,7 +71,6 @@ module ProjectCrackerVerbose =
 
 
         let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
-        let references = FscArguments.references (po.OtherOptions |> List.ofArray)
         let outType = FscArguments.outType (po.OtherOptions |> List.ofArray)
 
         let rec setExtraInfo po =
@@ -82,7 +81,7 @@ module ProjectCrackerVerbose =
                  })
                  ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
 
-        Ok (setExtraInfo po, Array.toList po.SourceFiles, Seq.toList references, logMap)
+        Ok (setExtraInfo po, Array.toList po.SourceFiles, logMap)
       with e ->
         Err (GenericError(e.Message))
 
