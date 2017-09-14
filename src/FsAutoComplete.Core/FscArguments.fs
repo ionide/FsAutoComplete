@@ -14,9 +14,8 @@ module FscArguments =
       | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
 
   let outputFile =
-      //TODO valid also -o
       // Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
-      List.tryPick (chooseByPrefix "--out:")
+      List.tryPick (chooseByPrefix2 ["--out:"; "-o:"])
 
   let compileFiles =
       //TODO wrong, need to check also fsi. best filter the one without initial -

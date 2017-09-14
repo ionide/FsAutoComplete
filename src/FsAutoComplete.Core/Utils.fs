@@ -365,3 +365,7 @@ let asyncMaybe = AsyncMaybeBuilder()
 let chooseByPrefix prefix (s: string) =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
+
+let chooseByPrefix2 prefixes (s: string) =
+    prefixes
+    |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
