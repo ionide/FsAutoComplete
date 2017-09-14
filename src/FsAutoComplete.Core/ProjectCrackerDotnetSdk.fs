@@ -16,7 +16,7 @@ and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP
 
 module ProjectCrackerDotnetSdk =
 
-  let runProcess (workingDir: string) (exePath: string) (args: string) =
+  let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
       let psi = System.Diagnostics.ProcessStartInfo()
       psi.FileName <- exePath
       psi.WorkingDirectory <- workingDir
@@ -29,11 +29,9 @@ module ProjectCrackerDotnetSdk =
       use p = new System.Diagnostics.Process()
       p.StartInfo <- psi
 
-      let sbOut = System.Text.StringBuilder()
-      p.OutputDataReceived.Add(fun ea -> sbOut.AppendLine(ea.Data) |> ignore)
+      p.OutputDataReceived.Add(fun ea -> log (ea.Data) |> ignore)
 
-      let sbErr = System.Text.StringBuilder()
-      p.ErrorDataReceived.Add(fun ea -> sbErr.AppendLine(ea.Data) |> ignore)
+      p.ErrorDataReceived.Add(fun ea -> log (ea.Data) |> ignore)
 
       p.Start() |> ignore
       p.BeginOutputReadLine()
@@ -41,6 +39,7 @@ module ProjectCrackerDotnetSdk =
       p.WaitForExit()
 
       let exitCode = p.ExitCode
+
       exitCode, (workingDir, exePath, args)
 
   let msbuildPropBool (s: string) =
@@ -120,16 +119,22 @@ module ProjectCrackerDotnetSdk =
             ]
         let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"] @ additionalInfo)
 
-        let results =
-            let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
+        let results, log =
+            let loggedMessages = ResizeArray<string>()
+
+            let log s = loggedMessages.Add(s)
+
+            let runCmd exePath args = runProcess log projDir exePath (args |> String.concat " ")
 
             let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
-            let log = ignore
 
             let additionalArgs = additionalMSBuildProps |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
 
-            file
-            |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+            let infoResult =
+                file
+                |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+
+            infoResult, (loggedMessages |> Seq.toList)
 
         let todo =
             match results with
@@ -157,12 +162,15 @@ module ProjectCrackerDotnetSdk =
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) ->
                     failwithf "Unexpected MSBuild result %s" r
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) ->
-                    [ sprintf "MSBuild failed with exitCode %i" exitCode
-                      sprintf "Working Directory: '%s'" workDir
-                      sprintf "Exe Path: '%s'" exePath
-                      sprintf "Args: '%s'" args ]
-                    |> String.concat " "
-                    |> failwith
+                    let logMsg = [ yield "Log: "; yield! log ] |> String.concat (Environment.NewLine)
+                    let msbuildErrorMsg =
+                        [ sprintf "MSBuild failed with exitCode %i" exitCode
+                          sprintf "Working Directory: '%s'" workDir
+                          sprintf "Exe Path: '%s'" exePath
+                          sprintf "Args: '%s'" args ]
+                        |> String.concat " "
+                    
+                    failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
 
         match todo with
         | CrossTargeting (tfm :: _) ->
