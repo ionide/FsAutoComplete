@@ -5,6 +5,7 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
 open System.Collections.Concurrent
+open FsAutoComplete.ProjectRecognizer
 
 type ParseAndCheckResults
     (
@@ -342,6 +343,16 @@ type FSharpCompilerServiceChecker() =
 
   member __.TryGetCoreProjectOptions (file : SourceFilePath) =
     ProjectCrackerDotnetSdk.load file
+
+  member x.GetProjectOptions verbose (projectFileName: SourceFilePath) =
+    if not (File.Exists projectFileName) then
+        Err (GenericError(sprintf "File '%s' does not exist" projectFileName))
+    else
+        match projectFileName with
+        | NetCoreProjectJson -> x.TryGetProjectJsonProjectOptions projectFileName
+        | NetCoreSdk -> x.TryGetCoreProjectOptions projectFileName
+        | Net45 -> x.TryGetProjectOptions (projectFileName, verbose)
+        | Unsupported -> x.TryGetProjectOptions (projectFileName, verbose)
 
   member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
     let projects = getDependingProjects file options
