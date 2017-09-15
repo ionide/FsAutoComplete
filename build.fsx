@@ -124,7 +124,7 @@ let runall httpMode =
     trace "Resetting output files in test dir (git reset)..."
     let clean =
       let ok, out, err =
-        Git.CommandHelper.runGitCommand "." (sprintf "git checkout --ignore-skip-worktree-bits -- %s" integrationTestDir)
+        Git.CommandHelper.runGitCommand "." (sprintf "git checkout -- %s" integrationTestDir)
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
