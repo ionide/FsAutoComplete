@@ -53,9 +53,7 @@ let isTestSkipped httpMode fn =
   match httpMode, dir, file with
   // stdio and http
   | _, "ProjectCache", "Runner.fsx" ->
-    match environVar "APPVEYOR" with
-    | "True" -> Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
-    | _ -> None
+    Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
   | _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
   | _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
