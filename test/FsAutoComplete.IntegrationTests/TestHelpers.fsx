@@ -249,10 +249,35 @@ let writeNormalizedOutput (fn: string) (s: string) =
                                sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))" driveLetterRegex,
                                "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
 
-    // replace quoted paths with <absolute path removed>
+    // replace paths ending with whitespace with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?)\\s" driveLetterRegex,
+                               "<absolute path removed>/FsAutoComplete.IntegrationTests/$1 ")
+
+    // replace paths ending with ( with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?)\\(" driveLetterRegex,
+                               "<absolute path removed>/FsAutoComplete.IntegrationTests/$1(")
+
+    // replace quoted paths "<path>" with <absolute path removed>
     lines.[i] <- Regex.Replace(lines.[i],
                                sprintf "\"%s/[^\"]*?/([^\"/]*?\.dll\")" driveLetterRegex,
                                "\"<absolute path removed>/$1")
+
+    // replace quoted paths '<path>' with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "'%s/[^']*?/([^'/]*?\.[a-zA-Z]*)'" driveLetterRegex,
+                               "'<absolute path removed>/$1'")
+
+    // replace temp directory with <tempdir path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               Path.GetTempPath().Replace('\\','/'),
+                               "<tempdir path removed>/")
+
+    // replace temp filename with <tempfile name removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               "tmp.*?\.tmp",
+                               "<tempfile name removed>")
 
     // normalize newline char
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
