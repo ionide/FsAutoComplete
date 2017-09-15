@@ -103,7 +103,11 @@ let runIntegrationTest httpMode (fn: string) : bool =
 
 let runall httpMode =
     trace "Cleanup (git clean)..."
-    Git.CommandHelper.runGitCommand integrationTestDir "clean -xdf" |> ignore
+    let clean =
+      let ok, out, err =
+        Git.CommandHelper.runGitCommand integrationTestDir "clean -xdf"
+      out |> Seq.iter (printfn "%s")
+      printfn "Done: %s" (ok.ToString())
 
     trace "Running Integration tests..."
     let runOk =
