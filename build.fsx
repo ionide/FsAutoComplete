@@ -72,22 +72,30 @@ let runIntegrationTest httpMode (fn: string) : bool =
     true
   | None ->
     let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
-    tracefn "Running FSIHelper '%s', '%s', '%s' %s"  FSIHelper.fsiPath dir fn mode
+    let fsiArgs = sprintf "%s %s" mode fn
+    tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
     let testExecution =
       try
-        let fsiExec = async {
-            FileUtils.pushd dir
-            return Some (FSIHelper.executeFSIWithScriptArgsAndReturnMessages fn [| mode |])
-          }
-        Async.RunSynchronously (fsiExec, TimeSpan.FromMinutes(10.0).TotalMilliseconds |> int)
-      with :? TimeoutException ->
+        FileUtils.pushd dir
+
+        let result, messages =
+            ExecProcessRedirected (fun info ->
+              info.FileName <- FSIHelper.fsiPath
+              info.Arguments <- fsiArgs
+              info.WorkingDirectory <- dir
+            ) (TimeSpan.FromMinutes(10.0))
+
+        System.Threading.Thread.Sleep (TimeSpan.FromSeconds(1.0))
+
+        Some (result, messages |> List.ofSeq)
+      with _ ->
         None
     FileUtils.popd ()
     match testExecution with
     | None -> //timeout
       false
     | Some (result, msgs) ->
-      let msgs = msgs |> Seq.filter (fun x -> x.IsError) |> Seq.toList
+      let msgs = msgs |> List.filter (fun x -> x.IsError)
       if not result then
         for msg in msgs do
           traceError msg.Message
