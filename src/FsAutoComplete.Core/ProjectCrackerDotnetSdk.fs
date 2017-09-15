@@ -193,17 +193,16 @@ module ProjectCrackerDotnetSdk =
                 | Some t -> t
                 | None -> failwith "error, 'TargetPath' property not found"
 
-            let compileFilesToAbsolutePath (f: string) =
-                if f.EndsWith(".fs") || f.EndsWith (".fsi") then
-                    if Path.IsPathRooted f then f else Path.Combine(projDir, f)
-                else
-                    f
+            let rspNormalized =
+                //workaround, arguments in rsp can use relative paths
+                rsp |> List.map (FscArguments.useFullPaths projDir)
+            
             let extraInfo = getExtraInfo props
             let po =
                 {
                     ProjectFileName = file
-                    SourceFiles = rsp |> List.map compileFilesToAbsolutePath |> FscArguments.compileFiles |> Array.ofList
-                    OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
+                    SourceFiles = rspNormalized |> FscArguments.compileFiles |> Array.ofList |> Array.map normalizeDirSeparators
+                    OtherOptions = rspNormalized |> Array.ofList
                     ReferencedProjects = p2pProjects |> Array.ofList
                     IsIncompleteTypeCheckEnvironment = false
                     UseScriptResolutionRules = false
@@ -214,7 +213,7 @@ module ProjectCrackerDotnetSdk =
                     ExtraProjectInfo =
                         Some (box {
                             ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
-                            ExtraProjectInfoData.ProjectOutputType = FscArguments.outType rsp
+                            ExtraProjectInfoData.ProjectOutputType = FscArguments.outType rspNormalized
                         })
                 }
 

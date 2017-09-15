@@ -47,7 +47,7 @@ module ProjectCrackerVerbose =
             match po.SourceFiles with
             | [||] ->
                 let compileFiles, otherOptions =
-                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi"))
+                    po.OtherOptions |> Array.partition (FscArguments.isCompileFile)
                 { po with SourceFiles = compileFiles; OtherOptions = otherOptions }
             | _ ->
                 //HACK ref https://github.com/fsharp/FSharp.Compiler.Service/issues/803
@@ -55,7 +55,7 @@ module ProjectCrackerVerbose =
                 //  the SourceFiles property, but are instead inside OtherOptions
                 //  this workaround moving these **before** the corrisponding .fs file (.fsi file must precede the .fs)
                 let fsiFiles, otherOptions =
-                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith (".fsi"))
+                    po.OtherOptions |> Array.partition (fun (s:string) -> FscArguments.isCompileFile s && s.EndsWith(".fsi"))
                 let fileNames =
                     po.SourceFiles
                     |> Array.fold (fun acc e ->
