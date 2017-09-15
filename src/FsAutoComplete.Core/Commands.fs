@@ -122,7 +122,7 @@ type Commands (serialize : Serializer) =
                 | Result.Err error ->
                     project.Response <- None
                     [Response.projectError serialize error]
-                | Result.Ok (opts, logMap) ->
+                | Result.Ok (opts, projectFiles, logMap) ->
                     match opts.ExtraProjectInfo with
                     | None ->
                         project.Response <- None
@@ -130,7 +130,6 @@ type Commands (serialize : Serializer) =
                     | Some x ->
                         match x with
                         | :? ExtraProjectInfoData as extraInfo ->
-                            let projectFiles = Array.toList opts.SourceFiles
                             let outFileOpt = FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
                             let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
