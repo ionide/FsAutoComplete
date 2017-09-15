@@ -91,7 +91,8 @@ let formatJson json =
     try
       let parsedJson = JsonConvert.DeserializeObject(json)
       JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
-    with _ -> json
+    with _ ->
+      json
 
 
 open Hopac
@@ -135,9 +136,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Request.bodyString (r |> JsonConvert.SerializeObject)
     |> Request.responseAsString
     |> Hopac.run
-    |> fun s -> printfn "%s" s; s
     |> crazyness
-    |> List.map formatJson
 
   let allResp = ResizeArray<string> ()
 
