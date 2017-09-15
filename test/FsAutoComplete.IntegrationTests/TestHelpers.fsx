@@ -149,6 +149,8 @@ type FsAutoCompleteWrapperHttp() =
 
   let makeRequestId () = 12
 
+  static member ExePath () = FsAutoCompleteWrapperStdio.ExePath ()
+
   member x.project (s: string) : unit =
     { ProjectRequest.FileName = absPath s }
     |> recordRequest "project" (makeRequestId())
