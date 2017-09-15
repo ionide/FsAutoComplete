@@ -102,10 +102,18 @@ let runIntegrationTest httpMode (fn: string) : bool =
       result
 
 let runall httpMode =
-    trace "Cleanup (git clean)..."
+
+    trace "Cleanup test dir (git clean)..."
     let clean =
       let ok, out, err =
-        Git.CommandHelper.runGitCommand integrationTestDir "clean -xdf"
+        Git.CommandHelper.runGitCommand (Path.Combine(__SOURCE_DIRECTORY__, integrationTestDir)) "clean -xdf"
+      out |> Seq.iter (printfn "%s")
+      printfn "Done: %s" (ok.ToString())
+
+    trace "Resetting output files in test dir (git reset)..."
+    let clean =
+      let ok, out, err =
+        Git.CommandHelper.runGitCommand "." (sprintf "git checkout --ignore-skip-worktree-bits -- %s" integrationTestDir)
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
