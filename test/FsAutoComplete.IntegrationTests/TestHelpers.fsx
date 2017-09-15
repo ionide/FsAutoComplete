@@ -25,6 +25,7 @@ type FsAutoCompleteWrapperStdio() =
     p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       p.StartInfo.Arguments <- "--wait-for-debugger"
+    printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
     p.Start () |> ignore
 
   static member ExePath () =
@@ -116,6 +117,7 @@ type FsAutoCompleteWrapperHttp() =
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       p.StartInfo.Arguments <- "--wait-for-debugger"
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
+    printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
     p.Start () |> ignore
 
   let urlWithId (id: int) format = Printf.ksprintf (fun s -> sprintf "http://localhost:%i/%s?requestId=%i" port s id) format
