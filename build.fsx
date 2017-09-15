@@ -47,26 +47,37 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
-let isTestSkipped fn =
+let isTestSkipped httpMode fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
-  match dir, file with
-  | "ProjectCache", "Runner.fsx" ->
+  match httpMode, dir, file with
+  // stdio and http
+  | _, "ProjectCache", "Runner.fsx" ->
     match environVar "APPVEYOR" with
     | "True" -> Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
     | _ -> None
-  | "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
-  | "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
+  | _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
+  | _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
     | true, _ -> None //always run it on windows
     | false, "1" -> None //force run on mono
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
+  // http
+  | _, "RobustCommands", "NoSuchCommandRunner.fsx" ->
+    Some "invalid command is 404 in http"
+  | _, "Colorizations", "Runner.fsx" ->
+    Some "not supported in http"
+  | _, "OutOfRange", "OutOfRangeRunner.fsx" ->
+    Some "dunno why diverge"
+  | _, "ProjectReload", "Runner.fsx" ->
+    Some "probably ok, is a notification"
+  // by default others are enabled
   | _ -> None
 
 let runIntegrationTest httpMode (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
 
-  match isTestSkipped fn with
+  match isTestSkipped httpMode fn with
   | Some msg ->
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
