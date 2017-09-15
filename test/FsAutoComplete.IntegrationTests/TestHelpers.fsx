@@ -226,32 +226,35 @@ type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
 #endif
 
 let writeNormalizedOutput (fn: string) (s: string) =
+
+  let driveLetterRegex = if Path.DirectorySeparatorChar  = '/' then "" else "[a-zA-Z]:"
+  let normalizeDirSeparators (s: string) =
+    if Path.DirectorySeparatorChar  = '/' then
+      s
+    else
+       if Path.GetExtension fn = ".json"
+       then s.Replace(@"\\", "/")
+       else s.Replace('\\','/')
+
   let lines = s.TrimEnd().Split('\n')
+
   for i in [ 0 .. lines.Length - 1 ] do
+
+    // re-serialize json so is indented
     if Path.GetExtension fn = ".json" then
       lines.[i] <- formatJson lines.[i]
 
-    if Path.DirectorySeparatorChar = '/' then
-      lines.[i] <- Regex.Replace(lines.[i],
-                                 "/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
-                                 "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
-      lines.[i] <- Regex.Replace(lines.[i],
-                                 "\"/[^\"]*?/([^\"/]*?\.dll\")",
-                                  "\"<absolute path removed>/$1")
-    else
-      if Path.GetExtension fn = ".json" then
-        lines.[i] <- Regex.Replace(lines.[i].Replace(@"\\", "/"),
-                                   "[a-zA-Z]:/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
-                                   "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
-        lines.[i] <- Regex.Replace(lines.[i],
-                                   "\"[a-zA-Z]:/[^\"]*?/([^\"/]*?\.dll\")",
-                                   "\"<absolute path removed>/$1")
-      else
-        lines.[i] <- Regex.Replace(lines.[i].Replace('\\','/'),
-                                   "[a-zA-Z]:/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
-                                   "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
+    // replace paths with <absolute path removed>
+    lines.[i] <- Regex.Replace(normalizeDirSeparators lines.[i],
+                               sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))" driveLetterRegex,
+                               "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
 
+    // replace quoted paths with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "\"%s/[^\"]*?/([^\"/]*?\.dll\")" driveLetterRegex,
+                               "\"<absolute path removed>/$1")
 
+    // normalize newline char
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
 
   //workaround for https://github.com/fsharp/fsharp/issues/774
