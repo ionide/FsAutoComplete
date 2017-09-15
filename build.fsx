@@ -60,6 +60,11 @@ let isTestSkipped httpMode fn =
     | true, _ -> None //always run it on windows
     | false, "1" -> None //force run on mono
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
+  | _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
+  | _, "OldSdk", "InvalidProjectFileRunner.fsx" ->
+    match isWindows with
+    | true -> None //always run it on windows
+    | false -> Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
   // http
   | _, "RobustCommands", "NoSuchCommandRunner.fsx" ->
     Some "invalid command is 404 in http"
