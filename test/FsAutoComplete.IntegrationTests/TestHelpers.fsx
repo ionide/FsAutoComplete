@@ -205,7 +205,8 @@ type FsAutoCompleteWrapperHttp() =
 
   member x.send (s: string) : unit =
     if s.Contains("quit") then
-      p.Kill ()
+      if not p.HasExited then
+        p.Kill ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
     { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
