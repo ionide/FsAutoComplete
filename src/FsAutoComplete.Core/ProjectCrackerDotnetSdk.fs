@@ -29,9 +29,9 @@ module ProjectCrackerDotnetSdk =
       use p = new System.Diagnostics.Process()
       p.StartInfo <- psi
 
-      p.OutputDataReceived.Add(fun ea -> log (ea.Data) |> ignore)
+      p.OutputDataReceived.Add(fun ea -> log (ea.Data))
 
-      p.ErrorDataReceived.Add(fun ea -> log (ea.Data) |> ignore)
+      p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
       p.Start() |> ignore
       p.BeginOutputReadLine()
@@ -120,11 +120,9 @@ module ProjectCrackerDotnetSdk =
         let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"] @ additionalInfo)
 
         let results, log =
-            let loggedMessages = ResizeArray<string>()
+            let loggedMessages = System.Collections.Concurrent.ConcurrentQueue<string>()
 
-            let log s = loggedMessages.Add(s)
-
-            let runCmd exePath args = runProcess log projDir exePath (args |> String.concat " ")
+            let runCmd exePath args = runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
 
             let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
 
@@ -132,9 +130,9 @@ module ProjectCrackerDotnetSdk =
 
             let infoResult =
                 file
-                |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+                |> Dotnet.ProjInfo.Inspect.getProjectInfos loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
 
-            infoResult, (loggedMessages |> Seq.toList)
+            infoResult, (loggedMessages.ToArray() |> Array.toList)
 
         let todo =
             match results with
