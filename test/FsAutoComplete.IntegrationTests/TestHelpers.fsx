@@ -119,7 +119,33 @@ type FsAutoCompleteWrapperHttp() =
       p.StartInfo.Arguments <- "--wait-for-debugger"
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
+
+    let initialized = new System.Threading.ManualResetEvent(false)
+
+    let fsacOutLines = System.Collections.Concurrent.ConcurrentQueue<string>()
+    p.ErrorDataReceived.Add(fun ea -> fsacOutLines.Enqueue(if isNull ea.Data then "" else ea.Data))
+    p.OutputDataReceived.Add(fun ea ->
+      let s = if isNull ea.Data then "" else ea.Data
+      fsacOutLines.Enqueue(s)
+      let isStartedMessage = s.Contains "listener started in"
+      if isStartedMessage then initialized.Set() |> ignore else ())
+
     p.Start () |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+
+    // Wait until FsAC sends the 'listener started' magic string until
+    // we inform the caller that it's ready to accept requests.
+    if initialized.WaitOne(TimeSpan.FromSeconds(10.0)) then
+      ()
+    else
+      fsacOutLines.ToArray() |> Array.iter (printfn "%s")
+      fsacOutLines.ToArray() |> Array.iter (eprintfn "%s")
+      if p.HasExited then
+        eprintfn "FSAC started and suddendly exited"
+      else
+        p.Kill()
+      failwithf "FSAC wait for initialization timed out"
 
   let urlWithId (id: int) format = Printf.ksprintf (fun s -> sprintf "http://localhost:%i/%s?requestId=%i" port s id) format
 
