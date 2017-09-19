@@ -24,12 +24,10 @@ type State =
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
     let file = Utils.normalizePath file
-
     x.FileCheckOptions.TryFind file
     |> Option.map (fun opts ->
         x.Files.[file] <- { Lines = lines; Touched = DateTime.Now }
-        x.FileCheckOptions.[file] <- opts
-        opts
+        x.FileCheckOptions.GetOrAdd(file, opts)
     )
 
   member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts) =

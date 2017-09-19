@@ -101,12 +101,8 @@ type Commands (serialize : Serializer) =
 
     member __.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
-        let project = state.Projects.TryFind projectFileName
-
-        let project = project |> Option.getOrElseFun (fun _ ->
-            let project = new Project(projectFileName, onChange)
-            state.Projects.[projectFileName] <- project
-            project)
+        let project = 
+            state.Projects.GetOrAdd(projectFileName, fun projectFileName -> new Project(projectFileName, onChange))
 
         let (|NetCoreProjectJson|NetCoreSdk|Net45|Unsupported|) file =
             //.NET Core Sdk preview3+ replace project.json with fsproj
