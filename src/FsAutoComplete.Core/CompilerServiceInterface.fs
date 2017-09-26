@@ -5,6 +5,7 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
 open System.Collections.Concurrent
+open FsAutoComplete.ProjectRecognizer
 
 type ParseAndCheckResults
     (
@@ -337,92 +338,15 @@ type FSharpCompilerServiceChecker() =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
-
-
-  member __.TryGetProjectOptions (file: SourceFilePath, verbose: bool) =
-    if not (File.Exists file) then
-      Err (GenericError(sprintf "File '%s' does not exist" file))
+  member x.GetProjectOptions verbose (projectFileName: SourceFilePath) =
+    if not (File.Exists projectFileName) then
+        Err (GenericError(sprintf "File '%s' does not exist" projectFileName))
     else
-      try
-        let po, logMap =
-          let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
-          let opts =
-            if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
-              ensureCorrectFSharpCore p.OtherOptions
-            else
-               p.OtherOptions
-          { p with OtherOptions = opts }, logMap
-
-        let po =
-            match po.SourceFiles with
-            | [||] ->
-                let compileFiles, otherOptions =
-                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith(".fs") || s.EndsWith (".fsi"))
-                { po with SourceFiles = compileFiles; OtherOptions = otherOptions }
-            | _ ->
-                let fsiFiles, otherOptions =
-                    po.OtherOptions |> Array.partition (fun (s:string) -> s.EndsWith (".fsi"))
-                let fileNames =
-                    po.SourceFiles
-                    |> Array.fold (fun acc e ->
-                        match fsiFiles |> Array.tryFind ((=) (e + "i")) with
-                        | Some fsi ->
-                            [| yield! acc; yield fsi; yield e  |]
-                        | None -> [| yield! acc; yield e |] ) [||]
-
-                { po with SourceFiles = fileNames ; OtherOptions = otherOptions }
-
-
-        let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
-        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
-        let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        let outType =
-            match Seq.tryPick (chooseByPrefix "--target:") po.OtherOptions with
-            | Some "library" -> ProjectOutputType.Library
-            | Some "exe" -> ProjectOutputType.Exe
-            | Some v -> ProjectOutputType.Custom v
-            | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
-        let rec setExtraInfo po =
-            { po with
-                 ExtraProjectInfo = Some (box {
-                    ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
-                    ProjectOutputType = outType
-                 })
-                 ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
-
-        Ok (setExtraInfo po, Array.toList po.SourceFiles, outputFile, Seq.toList references, logMap)
-      with e ->
-        Err (GenericError(e.Message))
-
-  member __.TryGetProjectJsonProjectOptions (file : SourceFilePath) =
-    if not (File.Exists file) then
-      Err (GenericError(sprintf "File '%s' does not exist" file))
-    else
-      try
-        let po = ProjectCoreCracker.GetProjectOptionsFromResponseFile file
-        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
-        let outputFile = Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
-        let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
-      with e ->
-        Err (GenericError(e.Message))
-
-  member __.TryGetCoreProjectOptions (file : SourceFilePath) =
-    if not (File.Exists file) then
-      Err (GenericError(sprintf "File '%s' does not exist" file))
-    else
-      try
-        let po = ProjectCoreCracker.GetProjectOptionsFromProjectFile file
-        let compileFiles = Seq.filter (fun (s:string) -> s.EndsWith(".fs")) po.OtherOptions
-        let outputFile =
-            Seq.tryPick (chooseByPrefix "--out:") po.OtherOptions
-            |> Option.orElseFun (fun () -> Seq.tryPick (chooseByPrefix "-o:") po.OtherOptions)
-            |> Option.map (fun f -> if Path.IsPathRooted f then f else Path.Combine(Path.GetDirectoryName(file), f))
-        let references = Seq.choose (chooseByPrefix "-r:") po.OtherOptions
-        Ok (po, Seq.toList compileFiles, outputFile, Seq.toList references, Map<string,string>([||]))
-      with
-        | ProjectInspectException d -> Err d
-        | e -> Err (GenericError(e.Message))
+        match projectFileName with
+        | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
+        | NetCoreSdk -> ProjectCrackerDotnetSdk.load projectFileName
+        | Net45 -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
+        | Unsupported -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
 
   member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
     let projects = getDependingProjects file options

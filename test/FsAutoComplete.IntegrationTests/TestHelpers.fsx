@@ -25,6 +25,7 @@ type FsAutoCompleteWrapperStdio() =
     p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       p.StartInfo.Arguments <- "--wait-for-debugger"
+    printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
     p.Start () |> ignore
 
   static member ExePath () =
@@ -90,7 +91,8 @@ let formatJson json =
     try
       let parsedJson = JsonConvert.DeserializeObject(json)
       JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
-    with _ -> json
+    with _ ->
+      json
 
 
 open Hopac
@@ -116,7 +118,34 @@ type FsAutoCompleteWrapperHttp() =
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       p.StartInfo.Arguments <- "--wait-for-debugger"
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
+    printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
+
+    let initialized = new System.Threading.ManualResetEvent(false)
+
+    let fsacOutLines = System.Collections.Concurrent.ConcurrentQueue<string>()
+    p.ErrorDataReceived.Add(fun ea -> fsacOutLines.Enqueue(if isNull ea.Data then "" else ea.Data))
+    p.OutputDataReceived.Add(fun ea ->
+      let s = if isNull ea.Data then "" else ea.Data
+      fsacOutLines.Enqueue(s)
+      let isStartedMessage = s.Contains "listener started in"
+      if isStartedMessage then initialized.Set() |> ignore else ())
+
     p.Start () |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+
+    // Wait until FsAC sends the 'listener started' magic string until
+    // we inform the caller that it's ready to accept requests.
+    if initialized.WaitOne(TimeSpan.FromSeconds(10.0)) then
+      ()
+    else
+      fsacOutLines.ToArray() |> Array.iter (printfn "%s")
+      fsacOutLines.ToArray() |> Array.iter (eprintfn "%s")
+      if p.HasExited then
+        eprintfn "FSAC started and suddendly exited"
+      else
+        p.Kill()
+      failwithf "FSAC wait for initialization timed out"
 
   let urlWithId (id: int) format = Printf.ksprintf (fun s -> sprintf "http://localhost:%i/%s?requestId=%i" port s id) format
 
@@ -133,9 +162,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Request.bodyString (r |> JsonConvert.SerializeObject)
     |> Request.responseAsString
     |> Hopac.run
-    |> fun s -> printfn "%s" s; s
     |> crazyness
-    |> List.map formatJson
 
   let allResp = ResizeArray<string> ()
 
@@ -146,6 +173,8 @@ type FsAutoCompleteWrapperHttp() =
   let absPath path = Path.Combine(Environment.CurrentDirectory, path)
 
   let makeRequestId () = 12
+
+  static member ExePath () = FsAutoCompleteWrapperStdio.ExePath ()
 
   member x.project (s: string) : unit =
     { ProjectRequest.FileName = absPath s }
@@ -202,7 +231,8 @@ type FsAutoCompleteWrapperHttp() =
 
   member x.send (s: string) : unit =
     if s.Contains("quit") then
-      p.Kill ()
+      if not p.HasExited then
+        p.Kill ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
     { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
@@ -226,32 +256,60 @@ type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
 #endif
 
 let writeNormalizedOutput (fn: string) (s: string) =
+
+  let driveLetterRegex = if Path.DirectorySeparatorChar  = '/' then "" else "[a-zA-Z]:"
+  let normalizeDirSeparators (s: string) =
+    if Path.DirectorySeparatorChar  = '/' then
+      s
+    else
+       if Path.GetExtension fn = ".json"
+       then s.Replace(@"\\", "/")
+       else s.Replace('\\','/')
+
   let lines = s.TrimEnd().Split('\n')
+
   for i in [ 0 .. lines.Length - 1 ] do
+
+    // re-serialize json so is indented
     if Path.GetExtension fn = ".json" then
       lines.[i] <- formatJson lines.[i]
 
-    if Path.DirectorySeparatorChar = '/' then
-      lines.[i] <- Regex.Replace(lines.[i],
-                                 "/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
-                                 "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
-      lines.[i] <- Regex.Replace(lines.[i],
-                                 "\"/[^\"]*?/([^\"/]*?\.dll\")",
-                                  "\"<absolute path removed>/$1")
-    else
-      if Path.GetExtension fn = ".json" then
-        lines.[i] <- Regex.Replace(lines.[i].Replace(@"\\", "/"),
-                                   "[a-zA-Z]:/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
-                                   "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
-        lines.[i] <- Regex.Replace(lines.[i],
-                                   "\"[a-zA-Z]:/[^\"]*?/([^\"/]*?\.dll\")",
-                                   "\"<absolute path removed>/$1")
-      else
-        lines.[i] <- Regex.Replace(lines.[i].Replace('\\','/'),
-                                   "[a-zA-Z]:/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))",
-                                   "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
+    // replace paths with <absolute path removed>
+    lines.[i] <- Regex.Replace(normalizeDirSeparators lines.[i],
+                               sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))" driveLetterRegex,
+                               "<absolute path removed>/FsAutoComplete.IntegrationTests/$1")
 
+    // replace paths ending with whitespace with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?)\\s" driveLetterRegex,
+                               "<absolute path removed>/FsAutoComplete.IntegrationTests/$1 ")
 
+    // replace paths ending with ( with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?)\\(" driveLetterRegex,
+                               "<absolute path removed>/FsAutoComplete.IntegrationTests/$1(")
+
+    // replace quoted paths "<path>" with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "\"%s/[^\"]*?/([^\"/]*?\.dll\")" driveLetterRegex,
+                               "\"<absolute path removed>/$1")
+
+    // replace quoted paths '<path>' with <absolute path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               sprintf "'%s/[^']*?/([^'/]*?\.[a-zA-Z]*)'" driveLetterRegex,
+                               "'<absolute path removed>/$1'")
+
+    // replace temp directory with <tempdir path removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               Path.GetTempPath().Replace('\\','/'),
+                               "<tempdir path removed>/")
+
+    // replace temp filename with <tempfile name removed>
+    lines.[i] <- Regex.Replace(lines.[i],
+                               "tmp.*?\.tmp",
+                               "<tempfile name removed>")
+
+    // normalize newline char
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
 
   //workaround for https://github.com/fsharp/fsharp/issues/774

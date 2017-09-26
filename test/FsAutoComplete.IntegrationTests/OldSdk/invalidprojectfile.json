@@ -1,0 +1,19 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Failed parsing project file: <absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj: Microsoft.Build.Exceptions.InvalidProjectFileException: The project file could not be loaded. '>' is an unexpected token. The expected token is '='. Line 7, position 21.\n   at Microsoft.Build.Shared.ProjectFileErrorUtilities.VerifyThrowInvalidProjectFile(Boolean condition, String errorSubCategoryResourceName, BuildEventFileInfo projectFile, Exception innerException, String resourceName, Object[] args)\n   at Microsoft.Build.Construction.ProjectRootElement.LoadDocument(XmlReader reader)\n   at Microsoft.Build.Construction.ProjectRootElement..ctor(XmlReader xmlReader, ProjectRootElementCache projectRootElementCache, Boolean isExplicitlyLoaded)\n   at Microsoft.Build.Construction.ProjectRootElement.Create(XmlReader xmlReader, ProjectCollection projectCollection)\n   at Microsoft.Build.Evaluation.Project..ctor(XmlReader xmlReader, IDictionary`2 globalProperties, String toolsVersion, String subToolsetVersion, ProjectCollection projectCollection, ProjectLoadSettings loadSettings)\n   at Microsoft.FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.projectInstanceFromFullPath@145(FSharpProjectFileInfo this, ProjectCollection engine, String fsprojFullPath)\n   at Microsoft.FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.FSharpProjectFileInfo.CrackProjectUsingNewBuildAPI(String fsprojFile)\n   at Microsoft.FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.FSharpProjectFileInfo..ctor(String fsprojFileName, FSharpOption`1 properties, FSharpOption`1 enableLogging)\n   at Microsoft.FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.getOptions@387(Boolean enableLogging, FSharpList`1 properties, String file)\n   at Microsoft.FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.getOptions(String file, Boolean enableLogging, FSharpList`1 properties)\n   at Microsoft.FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.crackOpen(String[] argv)",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Module1.fs",
+    "Errors": []
+  }
+}

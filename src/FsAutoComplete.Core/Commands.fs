@@ -108,31 +108,6 @@ type Commands (serialize : Serializer) =
             state.Projects.[projectFileName] <- project
             project)
 
-        let (|NetCoreProjectJson|NetCoreSdk|Net45|Unsupported|) file =
-            //.NET Core Sdk preview3+ replace project.json with fsproj
-            //Easy way to detect new fsproj is to check the msbuild version of .fsproj
-            //Post preview5 has (`Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk"`), use that
-            //  for checking .NET Core fsproj. NB: casing of FSharp may be inconsistent.
-            //The `dotnet-compile-fsc.rsp` are created also in `preview3+`, so we can
-            //  reuse the same behaviour of `preview2`
-            let rec getProjectType (sr:StreamReader) limit =
-                // post preview5 dropped this, check Sdk field
-                let isNetCore (line:string) = line.ToLower().Contains("sdk=")
-                if limit = 0 then
-                    Unsupported // unsupported project type
-                else
-                    let line = sr.ReadLine()
-                    if not <| line.Contains("ToolsVersion") && not <| line.Contains("Sdk=") then
-                        getProjectType sr (limit-1)
-                    else // both net45 and preview3-5 have 'ToolsVersion', > 5 has 'Sdk'
-                        if isNetCore line then NetCoreSdk else Net45
-            if not <| File.Exists(projectFileName) then Net45 // no such file is handled downstream
-            elif Path.GetExtension file = ".json" then NetCoreProjectJson // dotnet core preview 2 or earlier
-            else
-                use sr = File.OpenText(file)
-                getProjectType sr 3
-
-
         return
             match project.Response with
             | Some response ->
@@ -141,18 +116,13 @@ type Commands (serialize : Serializer) =
                 let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
                 [r]
             | None ->
-                let options =
-                    match projectFileName with
-                    | NetCoreProjectJson -> checker.TryGetProjectJsonProjectOptions projectFileName
-                    | NetCoreSdk -> checker.TryGetCoreProjectOptions projectFileName
-                    | Net45 -> checker.TryGetProjectOptions (projectFileName, verbose)
-                    | Unsupported -> checker.TryGetProjectOptions (projectFileName, verbose)
+                let options = checker.GetProjectOptions verbose projectFileName
 
                 match options with
                 | Result.Err error ->
                     project.Response <- None
                     [Response.projectError serialize error]
-                | Result.Ok (opts, projectFiles, outFileOpt, references, logMap) ->
+                | Result.Ok (opts, projectFiles, logMap) ->
                     match opts.ExtraProjectInfo with
                     | None ->
                         project.Response <- None
@@ -160,6 +130,8 @@ type Commands (serialize : Serializer) =
                     | Some x ->
                         match x with
                         | :? ExtraProjectInfoData as extraInfo ->
+                            let outFileOpt = FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
+                            let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                             let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
                             for file in projectFiles do

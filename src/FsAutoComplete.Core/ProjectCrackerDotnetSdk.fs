@@ -14,44 +14,9 @@ type NavigateProjectSM =
     | CrossTargeting of string list
 and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP2PRefsInfo list; Properties: Map<string,string> }
 
-module ProjectCoreCracker =
-  let GetProjectOptionsFromResponseFile (file : string)  =
-    let projDir = Path.GetDirectoryName file
-    let rsp =
-      Directory.GetFiles(projDir, "dotnet-compile-fsc.rsp", SearchOption.AllDirectories)
-      |> Seq.head
-      |> File.ReadAllLines
-      |> Array.map (fun s -> if s.EndsWith ".fs" then
-                                let p = Path.GetFullPath s
-                                (p.Chars 0).ToString().ToLower() + p.Substring(1)
-                             else s )
-      |> Array.filter((<>) "--nocopyfsharpcore")
+module ProjectCrackerDotnetSdk =
 
-    let outType =
-        match Seq.tryPick (chooseByPrefix "--target:") rsp with
-        | Some "library" -> ProjectOutputType.Library
-        | Some "exe" -> ProjectOutputType.Exe
-        | Some v -> ProjectOutputType.Custom v
-        | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
-
-    {
-      ProjectFileName = file
-      SourceFiles = [||]
-      OtherOptions = rsp
-      ReferencedProjects = [||]
-      IsIncompleteTypeCheckEnvironment = false
-      UseScriptResolutionRules = false
-      LoadTime = DateTime.Now
-      UnresolvedReferences = None;
-      Stamp = None
-      OriginalLoadReferences = []
-      ExtraProjectInfo = Some (box {
-        ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.ProjectJson
-        ExtraProjectInfoData.ProjectOutputType = outType
-      })
-    }
-
-  let runProcess (workingDir: string) (exePath: string) (args: string) =
+  let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
       let psi = System.Diagnostics.ProcessStartInfo()
       psi.FileName <- exePath
       psi.WorkingDirectory <- workingDir
@@ -64,11 +29,9 @@ module ProjectCoreCracker =
       use p = new System.Diagnostics.Process()
       p.StartInfo <- psi
 
-      let sbOut = System.Text.StringBuilder()
-      p.OutputDataReceived.Add(fun ea -> sbOut.AppendLine(ea.Data) |> ignore)
+      p.OutputDataReceived.Add(fun ea -> log (ea.Data))
 
-      let sbErr = System.Text.StringBuilder()
-      p.ErrorDataReceived.Add(fun ea -> sbErr.AppendLine(ea.Data) |> ignore)
+      p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
       p.Start() |> ignore
       p.BeginOutputReadLine()
@@ -76,6 +39,7 @@ module ProjectCoreCracker =
       p.WaitForExit()
 
       let exitCode = p.ExitCode
+
       exitCode, (workingDir, exePath, args)
 
   let msbuildPropBool (s: string) =
@@ -125,7 +89,7 @@ module ProjectCoreCracker =
 
       IsPublishable = msbuildPropBool "IsPublishable" }
 
-  let GetProjectOptionsFromProjectFile (file : string) =
+  let getProjectOptionsFromProjectFile (file : string) =
 
     let rec projInfo additionalMSBuildProps file =
         let projDir = Path.GetDirectoryName file
@@ -155,16 +119,20 @@ module ProjectCoreCracker =
             ]
         let gp () = Dotnet.ProjInfo.Inspect.getProperties (["TargetPath"; "IsCrossTargetingBuild"; "TargetFrameworks"] @ additionalInfo)
 
-        let results =
-            let runCmd exePath args = runProcess projDir exePath (args |> String.concat " ")
+        let results, log =
+            let loggedMessages = System.Collections.Concurrent.ConcurrentQueue<string>()
+
+            let runCmd exePath args = runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
 
             let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
-            let log = ignore
 
             let additionalArgs = additionalMSBuildProps |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
 
-            file
-            |> Dotnet.ProjInfo.Inspect.getProjectInfos log msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+            let infoResult =
+                file
+                |> Dotnet.ProjInfo.Inspect.getProjectInfos loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+
+            infoResult, (loggedMessages.ToArray() |> Array.toList)
 
         let todo =
             match results with
@@ -192,12 +160,15 @@ module ProjectCoreCracker =
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.UnexpectedMSBuildResult(r) ->
                     failwithf "Unexpected MSBuild result %s" r
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildFailed(exitCode, (workDir, exePath, args)) ->
-                    [ sprintf "MSBuild failed with exitCode %i" exitCode
-                      sprintf "Working Directory: '%s'" workDir
-                      sprintf "Exe Path: '%s'" exePath
-                      sprintf "Args: '%s'" args ]
-                    |> String.concat " "
-                    |> failwith
+                    let logMsg = [ yield "Log: "; yield! log ] |> String.concat (Environment.NewLine)
+                    let msbuildErrorMsg =
+                        [ sprintf "MSBuild failed with exitCode %i" exitCode
+                          sprintf "Working Directory: '%s'" workDir
+                          sprintf "Exe Path: '%s'" exePath
+                          sprintf "Args: '%s'" args ]
+                        |> String.concat " "
+                    
+                    failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
 
         match todo with
         | CrossTargeting (tfm :: _) ->
@@ -220,32 +191,27 @@ module ProjectCoreCracker =
                 | Some t -> t
                 | None -> failwith "error, 'TargetPath' property not found"
 
-            let compileFilesToAbsolutePath (f: string) =
-                if f.EndsWith(".fs") then
-                    if Path.IsPathRooted f then f else Path.Combine(projDir, f)
-                else
-                    f
+            let rspNormalized =
+                //workaround, arguments in rsp can use relative paths
+                rsp |> List.map (FscArguments.useFullPaths projDir)
+            
             let extraInfo = getExtraInfo props
             let po =
                 {
                     ProjectFileName = file
                     SourceFiles = [||]
-                    OtherOptions = rsp |> List.map compileFilesToAbsolutePath |> Array.ofList
+                    OtherOptions = rspNormalized |> Array.ofList
                     ReferencedProjects = p2pProjects |> Array.ofList
                     IsIncompleteTypeCheckEnvironment = false
                     UseScriptResolutionRules = false
                     LoadTime = DateTime.Now
-                    UnresolvedReferences = None;
+                    UnresolvedReferences = None
                     OriginalLoadReferences = []
                     Stamp = None
                     ExtraProjectInfo =
                         Some (box {
                             ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
-                            ExtraProjectInfoData.ProjectOutputType =
-                                props
-                                |>  Map.tryFind "OutputType"
-                                |> Option.map msbuildPropProjectOutputType
-                                |> Option.getOrElse (ProjectOutputType.Library)
+                            ExtraProjectInfoData.ProjectOutputType = FscArguments.outType rspNormalized
                         })
                 }
 
@@ -253,3 +219,14 @@ module ProjectCoreCracker =
 
     let _, po = projInfo [] file
     po
+
+
+  let load file =
+      try
+        let po = getProjectOptionsFromProjectFile file
+        let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
+        Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
+      with
+        | ProjectInspectException d -> Err d
+        | e -> Err (GenericError(e.Message))
+
