@@ -9,7 +9,8 @@ open System.Collections.Concurrent
 type ParseAndCheckResults
     (
         parseResults: FSharpParseFileResults,
-        checkResults: FSharpCheckFileResults
+        checkResults: FSharpCheckFileResults,
+        entityCache: EntityCache
     ) =
 
   member __.TryGetMethodOverrides (lines: LineStr[]) (pos: Pos) = async {
@@ -163,7 +164,8 @@ type ParseAndCheckResults
 
               for fileName, signatures in assembliesByFileName do
                 let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
-                yield! AssemblyContentProvider.getAssemblyContent (fun _ -> []) contentType fileName signatures
+                let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
+                yield! content
 
             ]
       with
@@ -258,6 +260,8 @@ type FSharpCompilerServiceChecker() =
         yield option
       ])
 
+  let entityCache = EntityCache()
+
   member __.GetProjectOptionsFromScript(file, source) = async {
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
     let opts =
@@ -331,7 +335,7 @@ type FSharpCompilerServiceChecker() =
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
-    |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr))
+    |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
 
 
