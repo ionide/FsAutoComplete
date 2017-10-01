@@ -152,12 +152,16 @@ type Commands (serialize : Serializer) =
                             [Response.projectError serialize (GenericError (sprintf "expected ExtraProjectInfo after project parsing, was %A" x))]
     }
 
-    member __.Declarations file version = async {
+    member __.Declarations file lines version = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithSource file with
         | Failure s -> return [Response.error serialize s]
         | Success (checkOptions, source) ->
-            let! decls = checker.GetDeclarations(file, source, checkOptions, version)
+            let text = 
+                match lines with
+                | Some l -> String.concat "\n" l
+                | None -> source
+            let! decls = checker.GetDeclarations(file, text, checkOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
     }

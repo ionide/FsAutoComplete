@@ -141,7 +141,7 @@ type ParseAndCheckResults
         | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
         | Some "Contains" -> [| for d in results.Items do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
         | _ -> results.Items
-        
+
       let decls = decls |> Array.sortBy (fun d -> d.Name)
       return Some (decls, residue)
     with :? TimeoutException -> return None
@@ -365,22 +365,7 @@ type FSharpCompilerServiceChecker() =
   }
 
   member __.GetDeclarations (fileName, source, options, version) = async {
-    let! parseResult =
-      match checker.TryGetRecentCheckResultsForFile(fileName, options,source), version with
-      | Some (pr, _, v), Some ver when v = ver ->  async {return pr}
-      | _, None -> checker.ParseFileInProject(fileName, source, options)
-      | _ ->
-        async {
-          let! chkd =
-            checker.FileParsed
-            |> Event.filter (fun (fn,_) -> fn = fileName)
-            |> Async.AwaitEvent
-
-          return!
-            match checker.TryGetRecentCheckResultsForFile(fileName,options,source) with
-            | None -> checker.ParseFileInProject(fileName, source, options)
-            | Some (pr,_,_) -> async {return pr}
-        }
+    let! parseResult = checker.ParseFileInProject(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
 

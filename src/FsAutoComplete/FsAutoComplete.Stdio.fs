@@ -24,7 +24,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
 
           | Project (file, verbose) ->
               return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose)))
-          | Declarations file -> return! commands.Declarations file None
+          | Declarations file -> return! commands.Declarations file None None
           | HelpText sym -> return commands.Helptext sym
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file

@@ -98,7 +98,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             //TODO: Add filewatcher
             path "/parseProjectsInBackground" >=> handler (fun (data : ProjectRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
-            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Version) )
+            path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {
                     let! errors = commands.DeclarationsInProjects ()
