@@ -13,6 +13,20 @@ nuget FSharpLint.Core ~> 0.8
 nuget FSharp.Core 4.0.0.1 redirects:on
 nuget System.Collections.Immutable < 1.4
 
+group Netcore
+  storage: none
+  source https://www.nuget.org/api/v2/
+
+  nuget Argu ~> 3.7
+  nuget FSharp.Compiler.Service ~> 14
+  nuget Dotnet.ProjInfo ~> 0.7
+  nuget Sln ~> 0.2
+  nuget Mono.Cecil
+  nuget Newtonsoft.Json
+  nuget Suave
+  nuget FSharpLint.Core ~> 0.8
+  nuget FSharp.Core
+  nuget System.Collections.Immutable
 
 group Build
   framework: net45

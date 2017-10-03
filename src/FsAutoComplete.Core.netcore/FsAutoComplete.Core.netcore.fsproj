@@ -5,32 +5,34 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\FsaAutoComplete.Core\Utils.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\ProcessWatcher.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\UntypedAstUtils.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\TypedAstUtils.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Extensions.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Lexer.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Environment.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\TipFormatter.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\FileSystem.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Parser.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\ProjectCrackerTypes.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\FscArguments.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\ProjectCrackerProjectJson.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\ProjectCrackerDotnetSdk.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\ProjectCrackerVerbose.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\KeywordList.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\AssemblyContentProvider.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\UnopenedNamespacesResolver.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\CompilerServiceInterface.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Workspace.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\CommandResponse.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Project.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\State.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\CodeGeneration.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\UnionPatternMatchCaseGenerator.fs" />
-    <Compile Include="..\FsaAutoComplete.Core\Commands.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Utils.fs" />
+    <Compile Include="..\FsAutoComplete.Core\ProcessWatcher.fs" />
+    <Compile Include="..\FsAutoComplete.Core\UntypedAstUtils.fs" />
+    <Compile Include="..\FsAutoComplete.Core\TypedAstUtils.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Extensions.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Lexer.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Environment.fs" />
+    <Compile Include="..\FsAutoComplete.Core\TipFormatter.fs" />
+    <Compile Include="..\FsAutoComplete.Core\FileSystem.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Parser.fs" />
+    <Compile Include="..\FsAutoComplete.Core\ProjectCrackerTypes.fs" />
+    <Compile Include="..\FsAutoComplete.Core\FscArguments.fs" />
+    <Compile Include="..\FsAutoComplete.Core\ProjectCrackerProjectJson.fs" />
+    <Compile Include="..\FsAutoComplete.Core\ProjectCrackerDotnetSdk.fs" />
+    <Compile Include="..\FsAutoComplete.Core\ProjectCrackerVerbose.fs" />
+    <Compile Include="..\FsAutoComplete.Core\KeywordList.fs" />
+    <Compile Include="..\FsAutoComplete.Core\AssemblyContentProvider.fs" />
+    <Compile Include="..\FsAutoComplete.Core\UnopenedNamespacesResolver.fs" />
+    <Compile Include="..\FsAutoComplete.Core\CompilerServiceInterface.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Workspace.fs" />
+    <Compile Include="..\FsAutoComplete.Core\CommandResponse.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Project.fs" />
+    <Compile Include="..\FsAutoComplete.Core\State.fs" />
+    <Compile Include="..\FsAutoComplete.Core\CodeGeneration.fs" />
+    <Compile Include="..\FsAutoComplete.Core\UnionPatternMatchCaseGenerator.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Commands.fs" />
   </ItemGroup>
+
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 
 </Project>

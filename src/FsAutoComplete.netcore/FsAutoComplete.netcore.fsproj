@@ -6,18 +6,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\FsaAutoComplete\Debug.fs" />
-    <Compile Include="..\FsaAutoComplete\Options.fs" />
-    <Compile Include="..\FsaAutoComplete\CommandInput.fs" />
-    <Compile Include="..\FsaAutoComplete\JsonSerializer.fs" />
-    <Compile Include="..\FsaAutoComplete\FsAutoComplete.Stdio.fs" />
-    <Compile Include="..\FsaAutoComplete\FsAutoComplete.HttpApiContract.fs" />
-    <Compile Include="..\FsaAutoComplete\FsAutoComplete.Suave.fs" />
-    <Compile Include="..\FsaAutoComplete\Program.fs" />
+    <Compile Include="..\FsAutoComplete\Debug.fs" />
+    <Compile Include="..\FsAutoComplete\Options.fs" />
+    <Compile Include="..\FsAutoComplete\CommandInput.fs" />
+    <Compile Include="..\FsAutoComplete\JsonSerializer.fs" />
+    <Compile Include="..\FsAutoComplete\FsAutoComplete.Stdio.fs" />
+    <Compile Include="..\FsAutoComplete\FsAutoComplete.HttpApiContract.fs" />
+    <Compile Include="..\FsAutoComplete\FsAutoComplete.Suave.fs" />
+    <Compile Include="..\FsAutoComplete\Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core.netcore\FsAutoComplete.Core.netcore.fsproj" />
   </ItemGroup>
+
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 
 </Project>

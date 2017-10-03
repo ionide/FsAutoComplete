@@ -51,6 +51,19 @@
     <Exec Command='$(PaketCommand) restore' Condition=" '$(PaketRestoreRequired)' == 'true' " ContinueOnError="false" />
 
     <!-- Step 2 Detect project specific changes -->
+    <PropertyGroup Condition="Exists('$(PaketRestoreCacheFile)') ">
+      <PaketRestoreCachedHash>$([System.IO.File]::ReadAllText('$(PaketRestoreCacheFile)'))</PaketRestoreCachedHash>
+      <PaketRestoreLockFileHash>$([System.IO.File]::ReadAllText('$(PaketLockFilePath)'))</PaketRestoreLockFileHash>
+      <PaketRestoreRequired>true</PaketRestoreRequired>
+      <PaketRestoreRequired Condition=" '$(PaketRestoreLockFileHash)' == '$(PaketRestoreCachedHash)' ">false</PaketRestoreRequired>
+      <PaketRestoreRequired Condition=" '$(PaketRestoreLockFileHash)' == '' ">true</PaketRestoreRequired>
+    </PropertyGroup>
+
+    <!-- Do a global restore if required -->
+    <Exec Command='$(PaketBootStrapperCommand)' Condition="Exists('$(PaketBootStrapperExePath)') AND !(Exists('$(PaketExePath)'))" ContinueOnError="false" />
+    <Exec Command='$(PaketCommand) restore' Condition=" '$(PaketRestoreRequired)' == 'true' " ContinueOnError="false" />
+
+    <!-- Step 2 Detect project specific changes -->
     <PropertyGroup>
       <PaketReferencesCachedFilePath>$(MSBuildProjectDirectory)\obj\$(MSBuildProjectFile).paket.references.cached</PaketReferencesCachedFilePath>
       <!-- MyProject.fsproj.paket.references has the highest precedence -->
