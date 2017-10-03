@@ -6,9 +6,13 @@ open System.Collections.Concurrent
 open System.Diagnostics
 open System
 
+#if NETSTANDARD2_0
+// F# 4.1 contains the Result type alredy
+#else
 type Result<'a,'b> =
   | Ok of 'a
   | Error of 'b
+#endif
 
 type ResultOrString<'a> = Result<'a, string>
 
