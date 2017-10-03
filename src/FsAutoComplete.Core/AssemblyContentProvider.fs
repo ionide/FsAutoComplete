@@ -150,7 +150,11 @@ module AssemblyContentProvider =
 
         seq {
               let shouldTraverse =
+#if NO_EXTENSIONTYPING
+                true
+#else
                 not entity.IsProvided
+#endif
               if shouldTraverse then
                 match contentType, entity.Accessibility.IsPublic with
                 | Full, _ | Public, true ->
