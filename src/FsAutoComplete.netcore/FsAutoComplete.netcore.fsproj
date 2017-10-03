@@ -6,7 +6,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Program.fs" />
+    <Compile Include="..\FsaAutoComplete\Debug.fs" />
+    <Compile Include="..\FsaAutoComplete\Options.fs" />
+    <Compile Include="..\FsaAutoComplete\CommandInput.fs" />
+    <Compile Include="..\FsaAutoComplete\JsonSerializer.fs" />
+    <Compile Include="..\FsaAutoComplete\FsAutoComplete.Stdio.fs" />
+    <Compile Include="..\FsaAutoComplete\FsAutoComplete.HttpApiContract.fs" />
+    <Compile Include="..\FsaAutoComplete\FsAutoComplete.Suave.fs" />
+    <Compile Include="..\FsaAutoComplete\Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
