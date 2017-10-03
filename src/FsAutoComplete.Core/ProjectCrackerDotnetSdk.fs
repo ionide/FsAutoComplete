@@ -134,11 +134,21 @@ module ProjectCrackerDotnetSdk =
 
             infoResult, (loggedMessages.ToArray() |> Array.toList)
 
+        let (|MsbuildOk|_|) x =
+            match x with
+            | Choice1Of2 x -> Some x
+            | Choice2Of2 _ -> None
+
+        let (|MsbuildError|_|) x =
+            match x with
+            | Choice1Of2 _ -> None
+            | Choice2Of2 x -> Some x
+
         let todo =
             match results with
-            | Choice1Of2 [getFscArgsResult; getP2PRefsResult; gpResult] ->
+            | MsbuildOk [getFscArgsResult; getP2PRefsResult; gpResult] ->
                 match getFscArgsResult, getP2PRefsResult, gpResult with
-                | Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice1Of2 (MSBuildPrj.GetResult.Properties props) ->
+                | MsbuildError(MSBuildPrj.MSBuildSkippedTarget), MsbuildError(MSBuildPrj.MSBuildSkippedTarget), MsbuildOk (MSBuildPrj.GetResult.Properties props) ->
                     // Projects with multiple target frameworks, fails if the target framework is not choosen
                     let prop key = props |> Map.ofList |> Map.tryFind key
 
@@ -147,13 +157,13 @@ module ProjectCrackerDotnetSdk =
                         CrossTargeting tfms
                     | _ ->
                         failwithf "error getting msbuild info: some targets skipped, found props: %A" props
-                | Choice1Of2 (MSBuildPrj.GetResult.FscArgs fa), Choice1Of2 (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), Choice1Of2 (MSBuildPrj.GetResult.Properties p) ->
+                | MsbuildOk (MSBuildPrj.GetResult.FscArgs fa), MsbuildOk (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), MsbuildOk (MSBuildPrj.GetResult.Properties p) ->
                     NoCrossTargeting { FscArgs = fa; P2PRefs = p2p; Properties = p |> Map.ofList }
                 | r ->
                     failwithf "error getting msbuild info: %A" r
-            | Choice1Of2 r ->
+            | MsbuildOk r ->
                 failwithf "error getting msbuild info: internal error, more info returned than expected %A" r
-            | Choice2Of2 r ->
+            | MsbuildError r ->
                 match r with
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget ->
                     failwithf "Unexpected MSBuild result, all targets skipped"
@@ -169,6 +179,8 @@ module ProjectCrackerDotnetSdk =
                         |> String.concat " "
                     
                     failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
+            | _ ->
+                failwithf "error getting msbuild info: internal error"
 
         match todo with
         | CrossTargeting (tfm :: _) ->
