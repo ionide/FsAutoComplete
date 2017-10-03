@@ -211,7 +211,11 @@ module AssemblyContentProvider =
     let getAssemblyContent (withCache: ((IAssemblyContentCache -> _) -> _) option)
                            contentType (fileName: string option) (assemblies: FSharpAssembly list) =
         let nonProviderGeneratedAssemblies =
+#if NO_EXTENSIONTYPING
+            assemblies
+#else
             assemblies |> List.filter (fun x -> not x.IsProviderGenerated)
+#endif
         match nonProviderGeneratedAssemblies, fileName with
         | [], _ -> []
         | assemblies, Some fileName ->
