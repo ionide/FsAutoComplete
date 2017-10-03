@@ -75,7 +75,11 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 while !loop do
                     let! msg = webSocket.read()
                     let emptyBs () =
+#if SUAVE_2
+                        Sockets.ByteSegment.Empty
+#else
                         [||]
+#endif
                     match msg with
                     | (Ping, _, _) -> do! webSocket.send Pong (emptyBs ()) true
                     | (Close, _, _) ->
@@ -151,9 +155,20 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let serverConfig =
         { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
 
+#if SUAVE_2
+    let logger = Logging.Log.create "FsAutoComplete"
+    let serverConfig = 
+        { serverConfig with logger = logger }
+#endif
+
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
+#if SUAVE_2
+        serverConfig.logger.log Logging.LogLevel.Info (fun _ -> Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid))
+        |> Async.RunSynchronously
+#else
         serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+#endif
         Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 
