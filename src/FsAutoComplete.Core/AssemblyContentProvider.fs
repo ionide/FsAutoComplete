@@ -210,7 +210,9 @@ module AssemblyContentProvider =
 
     let getAssemblyContent (withCache: ((IAssemblyContentCache -> _) -> _) option)
                            contentType (fileName: string option) (assemblies: FSharpAssembly list) =
-        match assemblies |> List.filter (fun x -> not x.IsProviderGenerated), fileName with
+        let nonProviderGeneratedAssemblies =
+            assemblies |> List.filter (fun x -> not x.IsProviderGenerated)
+        match nonProviderGeneratedAssemblies, fileName with
         | [], _ -> []
         | assemblies, Some fileName ->
             let fileWriteTime = FileInfo(fileName).LastWriteTime
