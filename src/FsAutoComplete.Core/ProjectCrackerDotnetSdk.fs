@@ -136,13 +136,23 @@ module ProjectCrackerDotnetSdk =
 
         let (|MsbuildOk|_|) x =
             match x with
+#if NETSTANDARD2_0
+            | Ok x -> Some x
+            | Error _ -> None
+#else
             | Choice1Of2 x -> Some x
             | Choice2Of2 _ -> None
+#endif
 
         let (|MsbuildError|_|) x =
             match x with
+#if NETSTANDARD2_0
+            | Ok _ -> None
+            | Error x -> Some x
+#else
             | Choice1Of2 _ -> None
             | Choice2Of2 x -> Some x
+#endif
 
         let todo =
             match results with
