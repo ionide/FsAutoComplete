@@ -182,7 +182,7 @@ type FsAutoCompleteWrapperHttp() =
 
   member x.parse (s: string) : unit =
     let path = absPath s
-    let lines = 
+    let lines =
       let text = if IO.File.Exists path then IO.File.ReadAllText(path) else ""
       text.Split('\n')
     { ParseRequest.FileName = path; IsAsync = false; Lines = lines; Version = 0 }
@@ -221,8 +221,10 @@ type FsAutoCompleteWrapperHttp() =
     { PositionRequest.Line = line; FileName = absPath fn; Column = col; Filter = "" }
     |> recordRequest "symboluse" (makeRequestId())
 
-  member x.declarations (fn: string) : unit =
-    { LintRequest.FileName = absPath fn }
+  member x.declarations (fn: string)  : unit =
+    let fn = absPath fn
+    let lines = File.ReadAllLines fn
+    { DeclarationsRequest.FileName = fn; Lines = lines; Version = 0 }
     |> recordRequest "declarations" (makeRequestId())
 
   member x.lint (fn: string) : unit =
@@ -325,7 +327,7 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
     let psi = System.Diagnostics.ProcessStartInfo()
     psi.FileName <- exePath
-    psi.WorkingDirectory <- workingDir 
+    psi.WorkingDirectory <- workingDir
     psi.RedirectStandardOutput <- false
     psi.RedirectStandardError <- false
     psi.Arguments <- args
@@ -336,7 +338,7 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     p.StartInfo <- psi
     p.Start() |> ignore
     p.WaitForExit()
-      
+
     let exitCode = p.ExitCode
     exitCode
 
@@ -386,7 +388,7 @@ let (|NonExitCodeResult|_|) processResult =
   | (0,_,_) -> None
   | data -> Some data
 
-let deleteDir d = 
+let deleteDir d =
   if Directory.Exists(d) then
     printfn "Deleting dir '%s'" d
     Directory.Delete(d, true)
@@ -396,7 +398,7 @@ let setEnvVar envVar f =
   let newValue = f oldValue
   System.Environment.SetEnvironmentVariable(envVar, newValue)
 
-  { new IDisposable with 
+  { new IDisposable with
     member x.Dispose() =
       System.Environment.SetEnvironmentVariable(envVar, oldValue) }
 
@@ -406,7 +408,7 @@ let withPath dir =
 module DotnetCli =
 
   // see https://github.com/dotnet/core/blob/master/release-notes/download-archive.md for released version
-  // the channel and version are passed to Channel and Version argument of install script, see that for 
+  // the channel and version are passed to Channel and Version argument of install script, see that for
   // more help
   let private dotnetSdkInstallScript channel version toDir =
     let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
@@ -421,7 +423,7 @@ module DotnetCli =
       printfn ".net core sdk not found in '%s'" sdkDir
 
       Directory.CreateDirectory(sdkDir) |> ignore
-    
+
       use client = new System.Net.WebClient()
       let installScriptPath = Path.Combine(sdkDir, file)
       let installScriptUrl = sprintf "https://dot.net/v1/%s" file
