@@ -365,7 +365,7 @@ type FSharpCompilerServiceChecker() =
   }
 
   member __.GetDeclarations (fileName, source, options, version) = async {
-    let! parseResult = checker.ParseFileInProject(fileName, source, options)
+    let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
 
