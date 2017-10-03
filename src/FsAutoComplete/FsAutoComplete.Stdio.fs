@@ -29,8 +29,8 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file
               match commands.TryGetFileCheckerOptionsWithLines file with
-              | Failure s -> return [Response.error writeJson s]
-              | Success options ->
+              | ResultOrString.Error s -> return [Response.error writeJson s]
+              | ResultOrString.Ok options ->
                   let projectOptions, lines = options
                   let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
                            pos.Col <= lineStr.Length + 1 && pos.Col >= 1

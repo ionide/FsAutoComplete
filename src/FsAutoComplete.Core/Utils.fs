@@ -6,13 +6,11 @@ open System.Collections.Concurrent
 open System.Diagnostics
 open System
 
-type Result<'a> =
-  | Success of 'a
-  | Failure of string
-
 type Result<'a,'b> =
   | Ok of 'a
-  | Err of 'b
+  | Error of 'b
+
+type ResultOrString<'a> = Result<'a, string>
 
 type Pos =
     { Line: int

@@ -46,8 +46,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             let file = Path.GetFullPath data.FileName
             let! res =
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, { Line = data.Line; Col = data.Column }) with
-                | Failure s -> async.Return ([CommandResponse.error writeJson s])
-                | Success (options, lines, lineStr) ->
+                | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
+                | ResultOrString.Ok (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
                   //       for completions e.g. `(some typed expr).$`
                   try
@@ -109,8 +109,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {
                 let file = Path.GetFullPath data.FileName
                 match commands.TryGetFileCheckerOptionsWithLines file with
-                | Failure s -> return [CommandResponse.error writeJson s]
-                | Success (options, lines) ->
+                | ResultOrString.Error s -> return [CommandResponse.error writeJson s]
+                | ResultOrString.Ok (options, lines) ->
                     let line = data.Line
                     let col = data.Column
                     let lineStr = data.SourceLine

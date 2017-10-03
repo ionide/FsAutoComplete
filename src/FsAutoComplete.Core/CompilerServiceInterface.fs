@@ -42,29 +42,29 @@ type ParseAndCheckResults
 
     let lineStr = lines.[line - 1]
     match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
-    | None -> return Failure "Could not find ident at this location"
+    | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some identIsland ->
 
     let! meth = checkResults.GetMethods(line, col, lineStr, Some identIsland)
 
-    return Success(meth, commas) }
+    return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: Pos) (lineStr: LineStr) = async {
     match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-    | None -> return Failure "Could not find ident at this location"
+    | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
 
       let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
 
       match declarations with
-      | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range -> return Success range
-      | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return Failure "External declaration" //TODO: Handle external declarations
+      | FSharpFindDeclResult.DeclNotFound _ -> return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range -> return Ok range
+      | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return ResultOrString.Error "External declaration" //TODO: Handle external declarations
     }
 
   member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) = async {
     match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-    | None -> return Failure "Cannot find ident for tooltip"
+    | None -> return ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -77,35 +77,35 @@ type ParseAndCheckResults
                KeywordList.tryGetKeywordDescription ident
                |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
                |> function
-               | Some tip -> Success tip
-               | None -> Failure "No tooltip information"
-            | _ -> Failure "No tooltip information"
-        | _ -> Success(tip)
+               | Some tip -> Ok tip
+               | None -> ResultOrString.Error "No tooltip information"
+            | _ -> ResultOrString.Error "No tooltip information"
+        | _ -> Ok(tip)
   }
 
   member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-        | None -> return (Failure "No ident at this location")
+        | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
-        | None -> return (Failure "No symbol information found")
+        | None -> return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
 
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
-        return Success (symboluse, symboluses) }
+        return Ok (symboluse, symboluses) }
 
   member __.TryGetSignatureData (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-        | None -> return (Failure "No ident at this location")
+        | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
-        | None -> return (Failure "No symbol information found")
+        | None -> return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
           let fsym = symboluse.Symbol
           match fsym with
@@ -115,21 +115,21 @@ type ParseAndCheckResults
               |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
               |> Seq.toList
             let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
-            return Success(typ, parms)
+            return Ok(typ, parms)
           | _ ->
-            return (Failure "Not a member, function or value" )
+            return (ResultOrString.Error "Not a member, function or value" )
     }
 
   member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-        | None -> return (Failure "No ident at this location")
+        | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
         match help with
-        | None -> return (Failure "No symbol information found")
-        | Some hlp -> return Success hlp}
+        | None -> return (ResultOrString.Error "No symbol information found")
+        | Some hlp -> return Ok hlp}
 
   member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
     let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
@@ -260,7 +260,7 @@ type FSharpCompilerServiceChecker() =
   member __.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
     match project with
-    | None -> async {return Failure "Project for current file not found"}
+    | None -> async {return ResultOrString.Error "Project for current file not found"}
     | Some (name, option) ->
       async {
         let projs = defaultArg (getDependingProjects file options) []
@@ -270,7 +270,7 @@ type FSharpCompilerServiceChecker() =
           |> Async.Parallel
         let! currentResult =  checker.ParseAndCheckProject option
         let res = [| yield currentResult; yield! results |]
-        return Success res
+        return Ok res
       }
 
   member __.GetBackgroundCheckResultsForFileInProject =
@@ -288,8 +288,8 @@ type FSharpCompilerServiceChecker() =
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null)) //TODO: Add cancelation again
       return
           match res with
-          | Choice1Of2 x -> Success x
-          | Choice2Of2 e -> Failure e.Message
+          | Choice1Of2 x -> Ok x
+          | Choice2Of2 e -> ResultOrString.Error e.Message
     }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
@@ -298,7 +298,7 @@ type FSharpCompilerServiceChecker() =
 
   member x.GetProjectOptions verbose (projectFileName: SourceFilePath) =
     if not (File.Exists projectFileName) then
-        Err (GenericError(sprintf "File '%s' does not exist" projectFileName))
+        Error (GenericError(sprintf "File '%s' does not exist" projectFileName))
     else
         match projectFileName with
         | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName

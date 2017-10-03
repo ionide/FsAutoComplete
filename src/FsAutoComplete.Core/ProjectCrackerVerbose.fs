@@ -77,5 +77,5 @@ module ProjectCrackerVerbose =
 
         Ok (setExtraInfo po, Array.toList po.SourceFiles, logMap)
       with e ->
-        Err (GenericError(e.Message))
+        Error (GenericError(e.Message))
 

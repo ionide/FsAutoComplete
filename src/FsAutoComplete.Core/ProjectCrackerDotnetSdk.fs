@@ -227,6 +227,6 @@ module ProjectCrackerDotnetSdk =
         let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
         Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
       with
-        | ProjectInspectException d -> Err d
-        | e -> Err (GenericError(e.Message))
+        | ProjectInspectException d -> Error d
+        | e -> Error (GenericError(e.Message))
 
