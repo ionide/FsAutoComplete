@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
