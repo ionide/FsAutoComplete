@@ -74,10 +74,12 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 let loop = ref true
                 while !loop do
                     let! msg = webSocket.read()
+                    let emptyBs () =
+                        [||]
                     match msg with
-                    | (Ping, _, _) -> do! webSocket.send Pong [||] true
+                    | (Ping, _, _) -> do! webSocket.send Pong (emptyBs ()) true
                     | (Close, _, _) ->
-                        do! webSocket.send Close [||] true
+                        do! webSocket.send Close (emptyBs ()) true
                         client <- None
                         loop := false
                     | _ -> ()
