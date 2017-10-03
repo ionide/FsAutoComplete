@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\FsAutoComplete\AssemblyInfo.fs" />
     <Compile Include="..\FsAutoComplete\Debug.fs" />
     <Compile Include="..\FsAutoComplete\Options.fs" />
     <Compile Include="..\FsAutoComplete\CommandInput.fs" />
