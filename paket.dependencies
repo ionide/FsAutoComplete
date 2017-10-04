@@ -16,15 +16,16 @@ nuget System.Collections.Immutable < 1.4
 group Netcore
   storage: none
   source https://www.nuget.org/api/v2/
+  source https://www.myget.org/F/fsac-netcore/api/v2/
 
   nuget Argu ~> 3.7
-  nuget FSharp.Compiler.Service ~> 14
+  nuget FSharp.Compiler.Service ~> 16
   nuget Dotnet.ProjInfo ~> 0.7
   nuget Sln ~> 0.3
   nuget Mono.Cecil
   nuget Newtonsoft.Json
   nuget Suave
-  #nuget FSharpLint.Core ~> 0.8
+  nuget FSharpLint.Core 0.8.1-local1
   nuget FSharp.Core
   nuget System.Collections.Immutable
 
