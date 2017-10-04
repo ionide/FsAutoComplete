@@ -20,7 +20,7 @@
     <Compile Include="..\FsAutoComplete.Core\FscArguments.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerProjectJson.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerDotnetSdk.fs" />
-    <Compile Include="..\FsAutoComplete.Core\ProjectCrackerVerbose.fs" />
+    <!-- <Compile Include="..\FsAutoComplete.Core\ProjectCrackerVerbose.fs" /> -->
     <Compile Include="..\FsAutoComplete.Core\KeywordList.fs" />
     <Compile Include="..\FsAutoComplete.Core\AssemblyContentProvider.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnopenedNamespacesResolver.fs" />
