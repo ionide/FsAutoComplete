@@ -156,7 +156,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
         { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
 
 #if SUAVE_2
-    let logger = Logging.Log.create "FsAutoComplete"
+    let logger = Suave.Logging.LiterateConsoleTarget([| "FsAutoComplete" |], Logging.Info)
     let serverConfig = 
         { serverConfig with logger = logger }
 #endif
