@@ -154,14 +154,29 @@ type Commands (serialize : Serializer) =
 
     member __.Declarations file lines version = async {
         let file = Path.GetFullPath file
-        match state.TryGetFileCheckerOptionsWithSource file with
-        | Failure s -> return [Response.error serialize s]
-        | Success (checkOptions, source) ->
-            let text = 
+        match state.TryGetFileCheckerOptionsWithSource file, lines with
+        | Failure s, None -> return [Response.error serialize s]
+        | Failure _, Some l ->
+            let text = String.concat "\n" l
+            let files = Array.singleton file
+            let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
+            let! decls = checker.GetDeclarations(file, text, parseOptions, version)
+            let decls = decls |> Array.map (fun a -> a,file)
+            return [Response.declarations serialize decls]
+        | Success (checkOptions, source), _ ->
+            let text =
                 match lines with
                 | Some l -> String.concat "\n" l
                 | None -> source
-            let! decls = checker.GetDeclarations(file, text, checkOptions, version)
+            
+            //TODO: Investigate why sometimes SourceFiles are not filled
+            let files = 
+                match checkOptions.SourceFiles with
+                | [||] -> checkOptions.OtherOptions |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
+                | x -> x
+
+            let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
+            let! decls = checker.GetDeclarations(file, text, parseOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
     }

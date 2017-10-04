@@ -4,13 +4,13 @@ NUGET
     Argu (3.7)
     Dotnet.ProjInfo (0.7.4)
       FSharp.Core (>= 4.0.0.1)
-    FAKE (4.63)
+    FAKE (4.63.2)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1)
-    FSharp.Compiler.Service (14.0.2)
-      System.Collections.Immutable (>= 1.2)
+    FSharp.Compiler.Service (16.0.1)
+      System.Collections.Immutable (>= 1.3.1)
       System.Reflection.Metadata (>= 1.4.2)
-    FSharp.Compiler.Service.ProjectCracker (14.0.2)
+    FSharp.Compiler.Service.ProjectCracker (16.0.1)
     FSharp.Core (4.0.0.1) - redirects: on
     FSharpLint.Core (0.8)
       FParsec (>= 1.0.3)
@@ -41,14 +41,14 @@ NUGET
       System.Collections.Immutable (>= 1.3.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (2b028cb33738ed3d35a79730bd792c24d48a0f31)
+    modules/Octokit/Octokit.fsx (e672bab0bef3a196e1c72a832b26521cf9428116)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FSharp.Core (4.0.0.1)
+    FSharp.Core (4.2.3)
     Hopac (0.3.23)
       FSharp.Core (>= 3.1.2.5)
     Http.fs (4.1.2)
