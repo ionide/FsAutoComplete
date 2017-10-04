@@ -24,7 +24,7 @@ group Netcore
   nuget Mono.Cecil
   nuget Newtonsoft.Json
   nuget Suave
-  nuget FSharpLint.Core ~> 0.8
+  #nuget FSharpLint.Core ~> 0.8
   nuget FSharp.Core
   nuget System.Collections.Immutable
 
