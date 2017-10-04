@@ -5,7 +5,10 @@ open System
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.UnopenedNamespacesResolver
+#if NO_LINTER
+#else
 open FSharpLint.Application
+#endif
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -502,11 +505,13 @@ module CommandResponse =
   let message (serialize : Serializer) (kind: string, data: 'a) =
     serialize { Kind = kind; Data = data }
 
+#if NO_LINTER
+#else
   let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
     let data = warnings |> List.toArray
 
     serialize { Kind = "lint"; Data = data }
-
+#endif
 
   let resolveNamespace (serialize : Serializer) (word: string, opens : (string * string * InsertContext * bool) list, qualfies : (string * string) list) =
     let ops =

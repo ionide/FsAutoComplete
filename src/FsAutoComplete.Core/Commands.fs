@@ -3,7 +3,10 @@ namespace FsAutoComplete
 open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
+#if NO_LINTER
+#else
 open FSharpLint.Application
+#endif
 open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open Microsoft.FSharp.Compiler
@@ -16,7 +19,10 @@ type Commands (serialize : Serializer) =
 
     let checker = FSharpCompilerServiceChecker()
     let state = FsAutoComplete.State.Initial
+#if NO_LINTER
+#else
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
+#endif
     let fileParsed = Event<FSharpParseFileResults>()
 
     do fileParsed.Publish.Add (fun parseRes ->
@@ -308,6 +314,12 @@ type Commands (serialize : Serializer) =
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Lint (file: SourceFilePath) =
+#if NO_LINTER
+        ignore file
+        async {
+            return [ Response.info serialize "Linter not supported"]
+        }
+#else
         let file = Path.GetFullPath file
         async {
             let res =
@@ -342,6 +354,7 @@ type Commands (serialize : Serializer) =
                                 [ Response.info serialize "Something went wrong during linter"]
             return res
         } |> x.AsCancellable file
+#endif
 
     member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) =
         async {

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;$(DefineConstants)</DefineConstants>
+    <DefineConstants>NO_EXTENSIONTYPING;NO_LINTER;NO_PROJECTCRACKER;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
