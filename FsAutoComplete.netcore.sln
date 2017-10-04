@@ -5,9 +5,9 @@ VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3BF56A5B-20D9-4A2B-94B6-C1C2A6AB444E}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.netcore", "src\FsAutoComplete.netcore\FsAutoComplete.netcore.fsproj", "{A1213D84-6BB1-4C92-99AC-53A6C8F2E0A7}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete", "src\FsAutoComplete.netcore\FsAutoComplete.fsproj", "{A1213D84-6BB1-4C92-99AC-53A6C8F2E0A7}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core.netcore", "src\FsAutoComplete.Core.netcore\FsAutoComplete.Core.netcore.fsproj", "{70D76F8C-2B0D-43B7-8A80-46EC355E68C8}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core.netcore\FsAutoComplete.Core.fsproj", "{70D76F8C-2B0D-43B7-8A80-46EC355E68C8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
