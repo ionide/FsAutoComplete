@@ -194,27 +194,7 @@ type FSharpCompilerServiceChecker() =
       keepAllBackgroundResolutions = false,
       keepAssemblyContents = true)
 
-  let files = ConcurrentDictionary<string, Version * FileState>()
   do checker.BeforeBackgroundFileCheck.Add ignore
-
-  let isResultObsolete fileName =
-      match files.TryGetValue fileName with
-      | true, (_, Cancelled) -> true
-      | _ -> false
-
-  let fileChanged filePath version =
-    files.AddOrUpdate (filePath, (version, NeedChecking), (fun _ (oldVersion, oldState) ->
-        if version <> oldVersion then
-           (version,
-            match oldState with
-            | BeingChecked -> Cancelled
-            | Cancelled -> Cancelled
-            | NeedChecking -> NeedChecking
-            | Checked -> NeedChecking)
-        else oldVersion, oldState))
-    |> debug "[LanguageService] %s changed: set status to %A" filePath
-
-
   let fixFileName path =
     if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
     else
@@ -301,33 +281,8 @@ type FSharpCompilerServiceChecker() =
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
-      debug "[LanguageService] ParseAndCheckFileInProject - enter"
-      fileChanged filePath version
       let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (async {
-          try
-               // wait until the previous checking completed
-               while files.ContainsKey filePath &&
-                     (match files.TryGetValue filePath with
-                      | true, (v, Checked)
-                      | true, (v, NeedChecking) ->
-                         files.[filePath] <- (v, BeingChecked)
-                         true
-                      | _ -> false) do
-                   do! Async.Sleep 20
-
-               debug "[LanguageService] Change state for %s to `BeingChecked`" filePath
-               debug "[LanguageService] Parse and typecheck source..."
-               return! checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null) //TODO: Add cancelation again
-          finally
-               match files.TryGetValue filePath with
-               | true, (v, BeingChecked)
-               | true, (v, Cancelled) -> files.[filePath] <- (v, Checked)
-               | _ -> ()
-      })
-
-      debug "[LanguageService]: Check completed"
-      // Construct new typed parse result if the task succeeded
+      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null)) //TODO: Add cancelation again
       return
           match res with
           | Choice1Of2 x -> Success x
