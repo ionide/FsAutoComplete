@@ -215,7 +215,7 @@ type Commands (serialize : Serializer) =
                             state.HelpText.[declName decl] <- decl.DescriptionText
                         res
                     | None -> [Response.error serialize "Timed out while fetching completions"]
-        }  |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        }
 
     member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetToolTip pos lineStr
