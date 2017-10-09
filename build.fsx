@@ -48,10 +48,14 @@ Target "BuildRelease" (fun _ ->
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
-let isTestSkipped httpMode fn =
+type Mode = HttpMode | StdioMode
+type FSACRuntime = NET | NETCoreSCD
+type IntegrationTestConfig = { Mode: Mode; Runtime: FSACRuntime }
+
+let isTestSkipped cfg fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
-  match httpMode, dir, file with
+  match cfg.Mode, dir, file with
   // stdio and http
   | _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
@@ -67,26 +71,29 @@ let isTestSkipped httpMode fn =
     | true -> None //always run it on windows
     | false -> Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
   // http
-  | _, "RobustCommands", "NoSuchCommandRunner.fsx" ->
+  | HttpMode, "RobustCommands", "NoSuchCommandRunner.fsx" ->
     Some "invalid command is 404 in http"
-  | _, "Colorizations", "Runner.fsx" ->
+  | HttpMode, "Colorizations", "Runner.fsx" ->
     Some "not supported in http"
-  | _, "OutOfRange", "OutOfRangeRunner.fsx" ->
+  | HttpMode, "OutOfRange", "OutOfRangeRunner.fsx" ->
     Some "dunno why diverge"
-  | _, "ProjectReload", "Runner.fsx" ->
+  | HttpMode, "ProjectReload", "Runner.fsx" ->
     Some "probably ok, is a notification"
   // by default others are enabled
   | _ -> None
 
-let runIntegrationTest httpMode (fn: string) : bool =
+let runIntegrationTest cfg (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
 
-  match isTestSkipped httpMode fn with
+  match isTestSkipped cfg fn with
   | Some msg ->
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
+    let mode =
+      match cfg.Mode with
+      | HttpMode -> "--define:FSAC_TEST_HTTP"
+      | StdioMode -> ""
     let fsiArgs = sprintf "%s %s" mode fn
     tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
     let testExecution =
@@ -122,7 +129,7 @@ let runIntegrationTest httpMode (fn: string) : bool =
       else
         true
 
-let runall httpMode =
+let runall cfg =
 
     trace "Cleanup test dir (git clean)..."
     let clean =
@@ -141,7 +148,7 @@ let runall httpMode =
     trace "Running Integration tests..."
     let runOk =
      integrationTests
-     |> Seq.map (runIntegrationTest httpMode)
+     |> Seq.map (runIntegrationTest cfg)
      |> Seq.forall id
 
     if not runOk then
@@ -160,12 +167,12 @@ let runall httpMode =
 
 Target "IntegrationTestStdioMode" (fun _ ->
   trace "== Integration tests (stdio) =="
-  runall false
+  runall { Mode = StdioMode; Runtime = NET }
 )
 
 Target "IntegrationTestHttpMode" (fun _ ->
   trace "== Integration tests (http) =="
-  runall true
+  runall { Mode = HttpMode; Runtime = NET }
 )
 
 Target "UnitTest" (fun _ ->
