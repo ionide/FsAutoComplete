@@ -16,8 +16,13 @@ let fsacExePath () =
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
 #else
+#if FSAC_TEST_EXE_NETCORE_SCD
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete.exe")
+#else
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+#endif
 #endif
 
 let configureFSACArgs (startInfo: ProcessStartInfo) =
