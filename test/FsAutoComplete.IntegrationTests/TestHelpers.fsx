@@ -11,26 +11,46 @@ open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
+let fsacExePath () =
+#if FSAC_TEST_EXE_NETCORE
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
+#else
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+#endif
+
+let configureFSACArgs (startInfo: ProcessStartInfo) =
+    startInfo.FileName <-
+#if FSAC_TEST_EXE_NETCORE
+      IO.Path.Combine(__SOURCE_DIRECTORY__,
+                      "../../.dotnetsdk/v2.0.0/dotnet.exe")
+#else
+      fsacExePath ()
+#endif
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError  <- true
+    startInfo.RedirectStandardInput  <- true
+    startInfo.UseShellExecute <- false
+    startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+#if FSAC_TEST_EXE_NETCORE
+    startInfo.Arguments <- fsacExePath ()
+#endif
+    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
+      startInfo.Arguments <- sprintf "%s --wait-for-debugger" startInfo.Arguments
+
 type FsAutoCompleteWrapperStdio() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
-    p.StartInfo.RedirectStandardOutput <- true
-    p.StartInfo.RedirectStandardError  <- true
-    p.StartInfo.RedirectStandardInput  <- true
-    p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
-      p.StartInfo.Arguments <- "--wait-for-debugger"
+    configureFSACArgs p.StartInfo
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
     p.Start () |> ignore
 
   static member ExePath () =
-      IO.Path.Combine(__SOURCE_DIRECTORY__,
-                      "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+    fsacExePath ()
 
   member x.project (s: string) : unit =
     fprintf p.StandardInput "project \"%s\"\n" s
@@ -109,14 +129,7 @@ type FsAutoCompleteWrapperHttp() =
   let port = 8089
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
-    p.StartInfo.RedirectStandardOutput <- true
-    p.StartInfo.RedirectStandardError  <- true
-    p.StartInfo.RedirectStandardInput  <- true
-    p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
-      p.StartInfo.Arguments <- "--wait-for-debugger"
+    configureFSACArgs p.StartInfo
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
 

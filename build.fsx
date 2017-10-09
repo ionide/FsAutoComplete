@@ -93,7 +93,7 @@ let runIntegrationTest cfg (fn: string) : bool =
     let mode =
       match cfg.Mode with
       | HttpMode -> "--define:FSAC_TEST_HTTP"
-      | StdioMode -> ""
+      | StdioMode -> "--define:FSAC_TEST_EXE_NETCORE"
     let fsiArgs = sprintf "%s %s" mode fn
     tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
     let testExecution =
