@@ -14,7 +14,7 @@ let (</>) a b = Path.Combine(a,b)
 let fsacExePath () =
 #if FSAC_TEST_EXE_NETCORE
     IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
 #else
 #if FSAC_TEST_EXE_NETCORE_SCD
     IO.Path.Combine(__SOURCE_DIRECTORY__,
