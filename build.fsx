@@ -191,12 +191,12 @@ Target "IntegrationTestHttpMode" (fun _ ->
 
 Target "IntegrationTestStdioModeNetCore" (fun _ ->
   trace "== Integration tests (stdio) =="
-  runall { Mode = StdioMode; Runtime = NETCoreSCD }
+  runall { Mode = StdioMode; Runtime = NETCoreFDD }
 )
 
 Target "IntegrationTestHttpModeNetCore" (fun _ ->
   trace "== Integration tests (http) =="
-  runall { Mode = HttpMode; Runtime = NETCoreSCD }
+  runall { Mode = HttpMode; Runtime = NETCoreFDD }
 )
 
 Target "UnitTest" (fun _ ->
