@@ -90,11 +90,15 @@ let runIntegrationTest cfg (fn: string) : bool =
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
+    let runtime =
+      match cfg.Runtime with
+      | FSACRuntime.NET -> ""
+      | FSACRuntime.NETCoreSCD -> "--define:FSAC_TEST_EXE_NETCORE_SCD"
     let mode =
       match cfg.Mode with
       | HttpMode -> "--define:FSAC_TEST_HTTP"
-      | StdioMode -> "--define:FSAC_TEST_EXE_NETCORE"
-    let fsiArgs = sprintf "%s %s" mode fn
+      | StdioMode -> ""
+    let fsiArgs = sprintf "%s %s %s" mode runtime fn
     tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
     let testExecution =
       try
@@ -173,6 +177,16 @@ Target "IntegrationTestStdioMode" (fun _ ->
 Target "IntegrationTestHttpMode" (fun _ ->
   trace "== Integration tests (http) =="
   runall { Mode = HttpMode; Runtime = NET }
+)
+
+Target "IntegrationTestStdioModeNetCore" (fun _ ->
+  trace "== Integration tests (stdio) =="
+  runall { Mode = StdioMode; Runtime = NETCoreSCD }
+)
+
+Target "IntegrationTestHttpModeNetCore" (fun _ ->
+  trace "== Integration tests (http) =="
+  runall { Mode = HttpMode; Runtime = NETCoreSCD }
 )
 
 Target "UnitTest" (fun _ ->
