@@ -127,6 +127,15 @@ module Async =
             return! binding x
         }
 
+    let StartCatchCancellation(work, cancellationToken) =
+        Async.FromContinuations(fun (cont, econt, _) ->
+          // When the child is cancelled, report OperationCancelled
+          // as an ordinary exception to "error continuation" rather
+          // than using "cancellation continuation"
+          let ccont e = econt e
+          // Start the workflow using a provided cancellation token
+          Async.StartWithContinuations( work, cont, econt, ccont, cancellationToken=cancellationToken) )
+
 [<Sealed>]
 type AsyncMaybeBuilder () =
     [<DebuggerStepThrough>]

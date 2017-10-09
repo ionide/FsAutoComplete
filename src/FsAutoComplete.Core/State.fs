@@ -3,6 +3,7 @@
 open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
+open System.Threading
 
 type DeclName = string
 
@@ -12,6 +13,7 @@ type State =
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
+    CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
     mutable ColorizationOutput: bool
   }
 
@@ -20,6 +22,7 @@ type State =
       FileCheckOptions = ConcurrentDictionary()
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
+      CancellationTokens = ConcurrentDictionary()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
@@ -37,6 +40,15 @@ type State =
     let fileState = { Lines = lines; Touched = DateTime.Now }
     x.Files.[file] <- fileState
     x.FileCheckOptions.[file] <- opts
+
+  member x.AddCancellationToken(file : SourceFilePath, token: CancellationTokenSource) =
+    x.CancellationTokens.AddOrUpdate(file, [token], fun _ lst -> token::lst)
+    |> ignore
+
+  member x.GetCancellationTokens(file : SourceFilePath) =
+    let lst = x.CancellationTokens.GetOrAdd(file, fun _ -> [])
+    x.CancellationTokens.TryRemove(file) |> ignore
+    lst
 
   static member private FileWithoutProjectOptions(file) =
     let opts=

@@ -7,6 +7,7 @@ open FSharpLint.Application
 open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open Microsoft.FSharp.Compiler
+open System.Threading
 
 
 module Response = CommandResponse
@@ -16,7 +17,7 @@ type Commands (serialize : Serializer) =
     let state = FsAutoComplete.State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
 
-    member private __.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
+    member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
             // A failure is only info here, as this command is expected to be
             // used 'on idle', and frequent errors are expected.
@@ -26,54 +27,66 @@ type Commands (serialize : Serializer) =
     member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) =
         x.SerializeResultAsync ((fun s x -> successToString s x |> async.Return), ?failureToString = failureToString)
 
-    member __.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
-    member __.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
-    member __.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
-    member __.Files = state.Files
+    member private x.AsCancellable (filename : SourceFilePath) (action : Async<string list>) =
+        let cts = new CancellationTokenSource()
+        state.AddCancellationToken(filename, cts)
+        Async.StartCatchCancellation(action, cts.Token)
+        |> Async.Catch
+        |> Async.map (function Choice1Of2 res -> res | Choice2Of2 _ -> [Response.info serialize "Request cancelled"])
 
-    member __.Parse file lines version = async {
-        let colorizations = state.ColorizationOutput
-        let parse' fileName text options =
-            async {
-                let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
-                return
-                    match result with
-                    | Failure e -> [Response.error serialize e]
-                    | Success (parseResult, checkResults) ->
-                        match checkResults with
-                        | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                        | FSharpCheckFileAnswer.Succeeded results ->
-                            let errors = Array.append results.Errors parseResult.Errors
-                            if colorizations then
-                                [ Response.errors serialize (errors, fileName)
-                                  Response.colorizations serialize (results.GetSemanticClassification None) ]
-                            else [ Response.errors serialize (errors, fileName) ]
-            }
+    member private x.CancelQueue (filename : SourceFilePath) =
+        state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
+
+    member x.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
+    member x.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
+    member x.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
+    member x.Files = state.Files
+
+    member x.Parse file lines version =
         let file = Path.GetFullPath file
-        let text = String.concat "\n" lines
-
-        if Utils.isAScript file then
-            let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-            state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
-            return! parse' file text checkOptions
-        else
-            let! checkOptions =
-                match state.GetCheckerOptions(file, lines) with
-                | Some c -> async.Return c
-                | None -> async {
-                    let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                    state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
-                    return checkOptions
+        do x.CancelQueue file
+        async {
+            let colorizations = state.ColorizationOutput
+            let parse' fileName text options =
+                async {
+                    let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
+                    return
+                        match result with
+                        | Failure e -> [Response.error serialize e]
+                        | Success (parseResult, checkResults) ->
+                            match checkResults with
+                            | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
+                            | FSharpCheckFileAnswer.Succeeded results ->
+                                let errors = Array.append results.Errors parseResult.Errors
+                                if colorizations then
+                                    [ Response.errors serialize (errors, fileName)
+                                      Response.colorizations serialize (results.GetSemanticClassification None) ]
+                                else [ Response.errors serialize (errors, fileName) ]
                 }
-            return! parse' file text checkOptions
-    }
+            let text = String.concat "\n" lines
 
-    member __.ParseAndCheckProjectsInBackgroundForFile file = async {
+            if Utils.isAScript file then
+                let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+                return! parse' file text checkOptions
+            else
+                let! checkOptions =
+                    match state.GetCheckerOptions(file, lines) with
+                    | Some c -> async.Return c
+                    | None -> async {
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                        state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+                        return checkOptions
+                    }
+                return! parse' file text checkOptions
+        } |> x.AsCancellable file
+
+    member x.ParseAndCheckProjectsInBackgroundForFile file = async {
         do checker.CheckProjectsInBackgroundForFile (file, state.FileCheckOptions.ToSeq() )
         return [Response.errors serialize ([||], "") ]
     }
 
-    member __.ParseProjectsForFile file = async {
+    member x.ParseProjectsForFile file = async {
         let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
         return
             match res with
@@ -83,23 +96,7 @@ type Commands (serialize : Serializer) =
                 [ Response.errors serialize (errors, file)]
     }
 
-    // member __.FileChecked =
-    //     checker.FileChecked
-    //     |> Event.map (fun fn ->
-    //         let file = Path.GetFullPath fn
-    //         let res = state.FileCheckOptions |> Seq.tryFind (fun kv -> Path.GetFullPath kv.Key = file)
-    //         match res with
-    //         | None  -> async { return [Response.info serialize ( sprintf "Project for file not found: %s" file) ]  }
-    //         | Some kv ->
-    //             async {
-    //                 let result= checker.TryGetRecentCheckResultsForFile(fn, kv.Value)
-    //                 return
-    //                     match result with
-    //                     | None -> [Response.info serialize "File not parsed"]
-    //                     | Some res -> [ Response.errors serialize (res.GetCheckResults.Errors, file) ]
-    //             })
-
-    member __.Project projectFileName verbose onChange = async {
+    member x.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
         let project = state.Projects.TryFind projectFileName
 
@@ -152,7 +149,7 @@ type Commands (serialize : Serializer) =
                             [Response.projectError serialize (GenericError (sprintf "expected ExtraProjectInfo after project parsing, was %A" x))]
     }
 
-    member __.Declarations file lines version = async {
+    member x.Declarations file lines version = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithSource file, lines with
         | Failure s, None -> return [Response.error serialize s]
@@ -168,9 +165,9 @@ type Commands (serialize : Serializer) =
                 match lines with
                 | Some l -> String.concat "\n" l
                 | None -> source
-            
+
             //TODO: Investigate why sometimes SourceFiles are not filled
-            let files = 
+            let files =
                 match checkOptions.SourceFiles with
                 | [||] -> checkOptions.OtherOptions |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
                 | x -> x
@@ -181,57 +178,68 @@ type Commands (serialize : Serializer) =
             return [Response.declarations serialize decls]
     }
 
-    member __.DeclarationsInProjects () = async {
+    member x.DeclarationsInProjects () = async {
         let! decls = checker.GetDeclarationsInProjects <| state.FileCheckOptions.ToSeq()
         return [Response.declarations serialize decls]
     }
 
-    member __.Helptext sym =
+    member x.Helptext sym =
         match state.HelpText.TryFind sym with
         | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
         | Some tip -> [Response.helpText serialize (sym, tip)]
 
-    member __.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
-    member __.Colorization enabled = state.ColorizationOutput <- enabled
-    member __.Error msg = [Response.error serialize msg]
+    member x.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
+    member x.Colorization enabled = state.ColorizationOutput <- enabled
+    member x.Error msg = [Response.error serialize msg]
 
-    member __.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords = async {
-        let! res = tyRes.TryGetCompletions pos lineStr filter
-        return match res with
-                | Some (decls, residue) ->
-                    let declName (d: FSharpDeclarationListItem) = d.Name
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords =
+        async {
+            let! res = tyRes.TryGetCompletions pos lineStr filter
+            return match res with
+                    | Some (decls, residue) ->
+                        let declName (d: FSharpDeclarationListItem) = d.Name
 
-                    // Send the first helptext without being requested.
-                    // This allows it to be displayed immediately in the editor.
-                    let firstMatchOpt =
-                      Array.sortBy declName decls
-                      |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-                    let res = match firstMatchOpt with
-                                | None -> [Response.completion serialize decls includeKeywords]
-                                | Some d ->
-                                    [Response.helpText serialize (d.Name, d.DescriptionText)
-                                     Response.completion serialize decls includeKeywords]
+                        // Send the first helptext without being requested.
+                        // This allows it to be displayed immediately in the editor.
+                        let firstMatchOpt =
+                          Array.sortBy declName decls
+                          |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+                        let res = match firstMatchOpt with
+                                    | None -> [Response.completion serialize decls includeKeywords]
+                                    | Some d ->
+                                        [Response.helpText serialize (d.Name, d.DescriptionText)
+                                         Response.completion serialize decls includeKeywords]
 
-                    for decl in decls do
-                        state.HelpText.[declName decl] <- decl.DescriptionText
-                    res
-                | None -> [Response.error serialize "Timed out while fetching completions"]
-    }
+                        for decl in decls do
+                            state.HelpText.[declName decl] <- decl.DescriptionText
+                        res
+                    | None -> [Response.error serialize "Timed out while fetching completions"]
+        }
 
     member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos lineStr |> x.SerializeResult Response.toolTip
+        tyRes.TryGetToolTip pos lineStr
+        |> x.SerializeResult Response.toolTip
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos lineStr |> x.SerializeResult Response.typeSig
+        tyRes.TryGetToolTip pos lineStr
+        |> x.SerializeResult Response.typeSig
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResult Response.symbolUse
+        tyRes.TryGetSymbolUse pos lineStr
+        |> x.SerializeResult Response.symbolUse
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.SignatureData (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetSignatureData pos lineStr |> x.SerializeResult Response.signatureData
+        tyRes.TryGetSignatureData pos lineStr
+        |> x.SerializeResult Response.signatureData
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Help (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetF1Help pos lineStr |> x.SerializeResult Response.help
+        tyRes.TryGetF1Help pos lineStr
+        |> x.SerializeResult Response.help
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         let fn = tyRes.FileName
@@ -248,150 +256,158 @@ type Commands (serialize : Serializer) =
                     let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToSeq(), sym.Symbol)
                     return Response.symbolUse serialize (sym, symbols)
             })
+        |> x.AsCancellable (Path.GetFullPath fn)
 
     member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryFindDeclaration pos lineStr |> x.SerializeResult (Response.findDeclaration, Response.error)
+        tyRes.TryFindDeclaration pos lineStr
+        |> x.SerializeResult (Response.findDeclaration, Response.error)
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
-        tyRes.TryGetMethodOverrides lines pos |> x.SerializeResult (Response.methods, Response.error)
+        tyRes.TryGetMethodOverrides lines pos
+        |> x.SerializeResult (Response.methods, Response.error)
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member __.Lint (file: SourceFilePath) = async {
+    member x.Lint (file: SourceFilePath) =
         let file = Path.GetFullPath file
-        let res =
-            match state.TryGetFileCheckerOptionsWithSource file with
-            | Failure s -> [Response.error serialize s]
-            | Success (options, source) ->
-                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
+        async {
+            let res =
+                match state.TryGetFileCheckerOptionsWithSource file with
+                | Failure s -> [Response.error serialize s]
+                | Success (options, source) ->
+                    let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
-                match tyResOpt with
-                | None -> [ Response.info serialize "Cached typecheck results not yet available"]
-                | Some tyRes ->
-                    match tyRes.GetAST with
-                    | None -> [ Response.info serialize "Something went wrong during parsing"]
-                    | Some tree ->
-                        try
-                            fsharpLintConfig.LoadConfigurationForProject file
-                            let opts = fsharpLintConfig.GetConfigurationForProject (file)
-                            let res =
-                                Lint.lintParsedSource
-                                    { Lint.OptionalLintParameters.Default with Configuration = Some opts}
-                                    { Ast = tree
-                                      Source = source
-                                      TypeCheckResults = Some tyRes.GetCheckResults
-                                      FSharpVersion = Version() }
-                            let res' =
-                                match res with
-                                | LintResult.Failure _ -> [ Response.info serialize "Something went wrong, linter failed"]
-                                | LintResult.Success warnings -> [ Response.lint serialize warnings ]
+                    match tyResOpt with
+                    | None -> [ Response.info serialize "Cached typecheck results not yet available"]
+                    | Some tyRes ->
+                        match tyRes.GetAST with
+                        | None -> [ Response.info serialize "Something went wrong during parsing"]
+                        | Some tree ->
+                            try
+                                fsharpLintConfig.LoadConfigurationForProject file
+                                let opts = fsharpLintConfig.GetConfigurationForProject (file)
+                                let res =
+                                    Lint.lintParsedSource
+                                        { Lint.OptionalLintParameters.Default with Configuration = Some opts}
+                                        { Ast = tree
+                                          Source = source
+                                          TypeCheckResults = Some tyRes.GetCheckResults
+                                          FSharpVersion = Version() }
+                                let res' =
+                                    match res with
+                                    | LintResult.Failure _ -> [ Response.info serialize "Something went wrong, linter failed"]
+                                    | LintResult.Success warnings -> [ Response.lint serialize warnings ]
 
-                            res'
-                        with _ex ->
-                            [ Response.info serialize "Something went wrong during linter"]
-        return res
-    }
+                                res'
+                            with _ex ->
+                                [ Response.info serialize "Something went wrong during linter"]
+            return res
+        } |> x.AsCancellable file
 
-    member __.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) = async {
-        match tyRes.GetAST with
-        | None -> return [Response.info serialize "Parsed Tree not avaliable"]
-        | Some parsedTree ->
-        match Parsing.findLongIdents(pos.Col, line) with
-        | None -> return [Response.info serialize "Ident not found"]
-        | Some (_,idents) ->
-        match ParsedInput.getEntityKind parsedTree pos with
-        | None -> return [Response.info serialize "EntityKind not found"]
-        | Some entityKind ->
+    member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) =
+        async {
+            match tyRes.GetAST with
+            | None -> return [Response.info serialize "Parsed Tree not avaliable"]
+            | Some parsedTree ->
+            match Parsing.findLongIdents(pos.Col, line) with
+            | None -> return [Response.info serialize "Ident not found"]
+            | Some (_,idents) ->
+            match ParsedInput.getEntityKind parsedTree pos with
+            | None -> return [Response.info serialize "EntityKind not found"]
+            | Some entityKind ->
 
-        let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
-        match symbol with
-        | None -> return [Response.info serialize "Symbol at position not found"]
-        | Some sym ->
+            let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+            match symbol with
+            | None -> return [Response.info serialize "Symbol at position not found"]
+            | Some sym ->
 
-        let! entitiesRes = tyRes.GetAllEntities ()
-        match entitiesRes with
-        | None -> return [Response.info serialize "Something went wrong"]
-        | Some entities ->
-            let isAttribute = entityKind = FsAutoComplete.EntityKind.Attribute
-            let entities =
-                entities |> List.filter (fun e ->
-                    match entityKind, (e.Kind LookupType.Fuzzy) with
-                    | FsAutoComplete.EntityKind.Attribute, EntityKind.Attribute
-                    | FsAutoComplete.EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
-                    | FsAutoComplete.EntityKind.FunctionOrValue _, _ -> true
-                    | FsAutoComplete.EntityKind.Attribute, _
-                    | _, EntityKind.Module _
-                    | FsAutoComplete.EntityKind.Module _, _
-                    | FsAutoComplete.EntityKind.Type, _ -> false)
+            let! entitiesRes = tyRes.GetAllEntities ()
+            match entitiesRes with
+            | None -> return [Response.info serialize "Something went wrong"]
+            | Some entities ->
+                let isAttribute = entityKind = FsAutoComplete.EntityKind.Attribute
+                let entities =
+                    entities |> List.filter (fun e ->
+                        match entityKind, (e.Kind LookupType.Fuzzy) with
+                        | FsAutoComplete.EntityKind.Attribute, EntityKind.Attribute
+                        | FsAutoComplete.EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
+                        | FsAutoComplete.EntityKind.FunctionOrValue _, _ -> true
+                        | FsAutoComplete.EntityKind.Attribute, _
+                        | _, EntityKind.Module _
+                        | FsAutoComplete.EntityKind.Module _, _
+                        | FsAutoComplete.EntityKind.Type, _ -> false)
 
-            let entities =
-                entities
-                |> List.collect (fun e ->
-                      [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
-                        if isAttribute then
-                            let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
-                            if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
-                                yield
-                                    e.TopRequireQualifiedAccessParent,
-                                    e.AutoOpenParent,
-                                    e.Namespace,
-                                    e.CleanedIdents
-                                    |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
-            let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree (idents |> List.toArray)
-            let word = sym.Text
-            let candidates = entities |> Seq.collect createEntity |> Seq.toList
+                let entities =
+                    entities
+                    |> List.collect (fun e ->
+                          [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
+                            if isAttribute then
+                                let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
+                                if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
+                                    yield
+                                        e.TopRequireQualifiedAccessParent,
+                                        e.AutoOpenParent,
+                                        e.Namespace,
+                                        e.CleanedIdents
+                                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
+                let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree (idents |> List.toArray)
+                let word = sym.Text
+                let candidates = entities |> Seq.collect createEntity |> Seq.toList
 
-            let openNamespace =
-                candidates
-                |> Seq.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
-                |> Seq.groupBy (fun (ns, _, _) -> ns)
-                |> Seq.map (fun (ns, xs) ->
-                    ns,
-                    xs
-                    |> Seq.map (fun (_, name, ctx) -> name, ctx)
-                    |> Seq.distinctBy (fun (name, _) -> name)
-                    |> Seq.sortBy fst
-                    |> Seq.toArray)
-                |> Seq.collect (fun (ns, names) ->
-                    let multipleNames = names |> Array.length > 1
-                    names |> Seq.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
-                |> Seq.toList
+                let openNamespace =
+                    candidates
+                    |> Seq.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
+                    |> Seq.groupBy (fun (ns, _, _) -> ns)
+                    |> Seq.map (fun (ns, xs) ->
+                        ns,
+                        xs
+                        |> Seq.map (fun (_, name, ctx) -> name, ctx)
+                        |> Seq.distinctBy (fun (name, _) -> name)
+                        |> Seq.sortBy fst
+                        |> Seq.toArray)
+                    |> Seq.collect (fun (ns, names) ->
+                        let multipleNames = names |> Array.length > 1
+                        names |> Seq.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
+                    |> Seq.toList
 
-            let qualifySymbolActions =
-                candidates
-                |> Seq.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
-                |> Seq.distinct
-                |> Seq.sort
-                |> Seq.toList
+                let qualifySymbolActions =
+                    candidates
+                    |> Seq.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
+                    |> Seq.distinct
+                    |> Seq.sort
+                    |> Seq.toList
 
-            return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
-    }
+                return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
+        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member __.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) = async {
-        let codeGenService = CodeGenerationService(checker, state)
-        let doc = {
-            Document.LineCount = lines.Length
-            FullName = tyRes.FileName
-            GetText = fun _ -> lines |> String.concat "\n"
-            GetLineText0 = fun i -> lines.[i]
-            GetLineText1 = fun i -> lines.[i - 1]
-        }
-
-        let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
-        match res with
-        | None -> return [Response.info serialize "Union at position not found"]
-        | Some (symbolRange, patMatchExpr, unionTypeDefinition, insertionPos) ->
-
-        if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
-            let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
-            let pos = {
-                Col = insertionPos.InsertionPos.Column
-                Line = insertionPos.InsertionPos.Line
+    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =
+        async {
+            let codeGenService = CodeGenerationService(checker, state)
+            let doc = {
+                Document.LineCount = lines.Length
+                FullName = tyRes.FileName
+                GetText = fun _ -> lines |> String.concat "\n"
+                GetLineText0 = fun i -> lines.[i]
+                GetLineText1 = fun i -> lines.[i - 1]
             }
-            return [Response.unionCase serialize result pos ]
-        else
-            return [Response.info serialize "Union at position not found"]
-    }
 
-    member __.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
+            let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
+            match res with
+            | None -> return [Response.info serialize "Union at position not found"]
+            | Some (symbolRange, patMatchExpr, unionTypeDefinition, insertionPos) ->
+
+            if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
+                let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
+                let pos = {
+                    Col = insertionPos.InsertionPos.Column
+                    Line = insertionPos.InsertionPos.Line
+                }
+                return [Response.unionCase serialize result pos ]
+            else
+                return [Response.info serialize "Union at position not found"]
+        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
+    member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
         let d = WorkspacePeek.peek dir deep excludedDirs
 
         return [Response.workspacePeek serialize d]
