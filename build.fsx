@@ -38,18 +38,27 @@ if Environment.OSVersion.Platform = PlatformID.Win32NT then
 Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
+
+  DotNetCli.Build (fun p ->
+     { p with
+         Configuration = "Debug"
+         Project = "FsAutoComplete.netcore.sln" })
 )
 
 Target "BuildRelease" (fun _ ->
   MSBuildRelease "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
+
+  DotNetCli.Build (fun p ->
+     { p with
+         Project = "FsAutoComplete.netcore.sln" })
 )
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
 type Mode = HttpMode | StdioMode
-type FSACRuntime = NET | NETCoreSCD
+type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
 type IntegrationTestConfig = { Mode: Mode; Runtime: FSACRuntime }
 
 let isTestSkipped cfg fn =
@@ -94,6 +103,7 @@ let runIntegrationTest cfg (fn: string) : bool =
       match cfg.Runtime with
       | FSACRuntime.NET -> ""
       | FSACRuntime.NETCoreSCD -> "--define:FSAC_TEST_EXE_NETCORE_SCD"
+      | FSACRuntime.NETCoreFDD -> "--define:FSAC_TEST_EXE_NETCORE"
     let mode =
       match cfg.Mode with
       | HttpMode -> "--define:FSAC_TEST_HTTP"
@@ -227,6 +237,14 @@ Target "LocalRelease" (fun _ ->
         ++ (buildReleaseDir      + "/*.exe")
         ++ (buildReleaseDir      + "/*.exe.config")
     )
+)
+
+Target "LocalReleaseNetCore" (fun _ ->
+    CleanDirs [ "bin/release_netcore" ]
+    DotNetCli.Publish (fun p ->
+       { p with
+           Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
+           Project = "src/FsAutoComplete.netcore" })
 )
 
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
