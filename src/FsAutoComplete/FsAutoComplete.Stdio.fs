@@ -56,6 +56,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | CompilerLocation -> return commands.CompilerLocation()
           | Colorization enabled -> commands.Colorization enabled; return []
           | Lint filename -> return! commands.Lint filename
+          | UnusedDeclarations filename -> return! commands.GetUnusedDeclarations filename
           | WorkspacePeek (dir, deep, excludeDir) -> return! commands.WorkspacePeek dir deep (excludeDir |> List.ofArray)
           | Error msg -> return commands.Error msg
           | Quit ->

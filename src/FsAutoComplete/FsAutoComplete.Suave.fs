@@ -142,7 +142,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     let res = commands.CompilerLocation() |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
-            path "/lint" >=> handler (fun (data: LintRequest) -> commands.Lint data.FileName)
+            path "/lint" >=> handler (fun (data: FileRequest) -> commands.Lint data.FileName)
+            path "/unusedDeclarations" >=> handler (fun (data: FileRequest) -> commands.GetUnusedDeclarations data.FileName)
             path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
