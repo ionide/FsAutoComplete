@@ -466,3 +466,20 @@ type Commands (serialize : Serializer) =
 
         return [Response.workspacePeek serialize d]
     }
+
+    member x.GetUnusedDeclarations file =
+        let file = Path.GetFullPath file
+        let isScript = file.EndsWith ".fsx"
+
+        async {
+            match state.TryGetFileCheckerOptionsWithSource file with
+            | Failure s ->  return [Response.error serialize s]
+            | Success (opts, source) ->
+                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+                match tyResOpt with
+                | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
+                | Some tyRes ->
+                    let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
+                    let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
+                    return [ Response.unusedDeclarations serialize unused ]
+        } |> x.AsCancellable (Path.GetFullPath file)

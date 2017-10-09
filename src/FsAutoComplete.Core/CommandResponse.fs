@@ -282,6 +282,10 @@ module CommandResponse =
     Parameters : Parameter list list
   }
 
+  type UnusedDeclarations = {
+    Declarations : Range.range []
+  }
+
   type WorkspacePeekResponse = {
     Found: WorkspacePeekFound list
   }
@@ -386,12 +390,12 @@ module CommandResponse =
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unsupported ->
                         None
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.MsbuildFormat msbuildProj ->
-                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat { 
-                            WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] 
+                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat {
+                            WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
                         })
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.Folder(children, files) ->
                         let c = children |> List.choose item
-                        Some (WorkspacePeekFoundSolutionItemKind.Folder { 
+                        Some (WorkspacePeekFoundSolutionItemKind.Folder {
                             WorkspacePeekFoundSolutionItemKindFolder.Items = c
                             Files = files
                         })
@@ -545,4 +549,8 @@ module CommandResponse =
       Position = position
     }
     serialize { Kind = "unionCase"; Data = data}
+
+  let unusedDeclarations (serialize : Serializer) data =
+    let data = {UnusedDeclarations.Declarations = data}
+    serialize { Kind = "unusedDeclarations"; Data = data}
 
