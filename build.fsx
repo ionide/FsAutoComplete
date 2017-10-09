@@ -298,6 +298,7 @@ Target "All" id
 
 "IntegrationTestStdioMode" ==> "IntegrationTest"
 "IntegrationTestHttpMode" ==> "IntegrationTest"
+"IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"
