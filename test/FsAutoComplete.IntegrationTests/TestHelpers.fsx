@@ -276,7 +276,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "declarations" (makeRequestId())
 
   member x.lint (fn: string) : unit =
-    { LintRequest.FileName = absPath fn }
+    { FileRequest.FileName = absPath fn }
     |> recordRequest "lint" (makeRequestId())
 
   member x.send (s: string) : unit =
