@@ -42,14 +42,13 @@ type State =
     x.FileCheckOptions.[file] <- opts
 
   member x.AddCancellationToken(file : SourceFilePath, token: CancellationTokenSource) =
+    x.CancellationTokens.AddOrUpdate(file, [token], fun _ lst -> token::lst)
+    |> ignore
+
+  member x.GetCancellationTokens(file : SourceFilePath) =
     let lst = x.CancellationTokens.GetOrAdd(file, fun _ -> [])
-    let lst' = token::lst
-    x.CancellationTokens.[file] <- lst'
-
-  member x.ClearCancellationTokens(file : SourceFilePath) =
-    x.CancellationTokens.[file] <- []
-
-  member x.GetCancellationTokens(file : SourceFilePath) = x.CancellationTokens.GetOrAdd(file, fun _ -> [])
+    x.CancellationTokens.TryRemove(file) |> ignore
+    lst
 
   static member private FileWithoutProjectOptions(file) =
     let opts=

@@ -36,7 +36,6 @@ type Commands (serialize : Serializer) =
 
     member private x.CancelQueue (filename : SourceFilePath) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
-        state.ClearCancellationTokens filename
 
     member x.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
     member x.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
