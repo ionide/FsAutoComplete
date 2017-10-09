@@ -49,6 +49,8 @@ There are [unit tests](test/FsAutoComplete.Tests) for FSharp.CompilerBinding, wh
 
 ### Project file loading issues
 
+#### Old sdk project (verbose fsproj)
+
 Try invoking the binary for project file cracking directly:
 
     mono FSharp.Compiler.Service.ProjectCrackerTool.exe --text <path to>/MyProject.fsproj true
