@@ -27,6 +27,7 @@ type Command =
   | Error of string
   | Lint of string
   | UnusedDeclarations of string
+  | SimplifiedNames of string
   | Project of string * bool
   | Colorization of bool
   | CompilerLocation
@@ -82,6 +83,13 @@ module CommandInput =
       let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
       return UnusedDeclarations(filename) }
+
+  let simplifiedNames = parser {
+    let! _ = string "simplifiedNames "
+    let! _ = char '"'
+    let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+    let! _ = char '"'
+    return SimplifiedNames(filename) }
 
   /// Read multi-line input as a list of strings
   let rec readInput input =
@@ -177,7 +185,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> unusedDeclarations <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> unusedDeclarations <|> simplifiedNames <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

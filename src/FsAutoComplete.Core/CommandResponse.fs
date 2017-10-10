@@ -286,6 +286,15 @@ module CommandResponse =
     Declarations : Range.range []
   }
 
+  type SimplifiedNameData = {
+    RelativeName : string
+    UnnecessaryRange: Range.range
+  }
+
+  type SimplifiedName = {
+    Names: SimplifiedNameData []
+  }
+
   type WorkspacePeekResponse = {
     Found: WorkspacePeekFound list
   }
@@ -553,4 +562,10 @@ module CommandResponse =
   let unusedDeclarations (serialize : Serializer) data =
     let data = {UnusedDeclarations.Declarations = data}
     serialize { Kind = "unusedDeclarations"; Data = data}
+
+  let simplifiedNames (serialize : Serializer) data =
+    let data = {
+      SimplifiedName.Names = data |> Seq.map (fun (r,n) -> { SimplifiedNameData.RelativeName = n; SimplifiedNameData.UnnecessaryRange =r }) |> Seq.toArray
+    }
+    serialize { Kind = " simpifiedNames"; Data = data}
 
