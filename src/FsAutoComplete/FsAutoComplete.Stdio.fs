@@ -89,7 +89,9 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
             commandQueue.Add(Command.Started)
 
           while true do
-            commandQueue.Add (CommandInput.parseCommand(Console.ReadLine()))
+            let inputLine = Console.ReadLine()
+            let cmd = CommandInput.parseCommand(inputLine)
+            commandQueue.Add(cmd)
         }
         |> Async.Start
 

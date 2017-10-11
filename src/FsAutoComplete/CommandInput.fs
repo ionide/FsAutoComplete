@@ -164,8 +164,8 @@ module CommandInput =
   let error = parser { return Error("Unknown command or wrong arguments") }
 
   // Parse any of the supported commands
-  let parseCommand =
-    function
+  let parseCommand inputString =
+    match inputString with
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
