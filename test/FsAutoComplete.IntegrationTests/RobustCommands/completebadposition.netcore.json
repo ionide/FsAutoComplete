@@ -1,0 +1,32 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/Project/Test1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Position is out of range",
+    "AdditionalData": {}
+  }
+}

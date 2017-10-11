@@ -1,0 +1,16 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}

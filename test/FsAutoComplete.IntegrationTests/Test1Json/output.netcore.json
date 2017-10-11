@@ -1,0 +1,559 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Test1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "Program_1_of_1",
+        "Name": "Program",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 1,
+          "EndLine": 16
+        },
+        "BodyRange": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 15
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "main",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 15
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "testval",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 38,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 38,
+            "EndLine": 4
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "val2",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 20,
+            "EndLine": 6
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 20,
+            "EndLine": 6
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "val3",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 8,
+            "EndColumn": 33,
+            "EndLine": 8
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 8,
+            "EndColumn": 33,
+            "EndLine": 8
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Program_1_of_1",
+          "Name": "val4",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 10,
+            "EndColumn": 43,
+            "EndLine": 10
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 10,
+            "EndColumn": 43,
+            "EndLine": 10
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "X_1_of_1",
+        "Name": "X",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
+        },
+        "BodyRange": {
+          "StartColumn": 9,
+          "StartLine": 1,
+          "EndColumn": 21,
+          "EndLine": 2
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "X_1_of_1",
+          "Name": "func",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
+          },
+          "BodyRange": {
+            "StartColumn": 7,
+            "StartLine": 2,
+            "EndColumn": 21,
+            "EndLine": 2
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        }
+      ]
+    }
+  ]
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "FileTwo_1_of_1",
+        "Name": "FileTwo",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "BodyRange": {
+          "StartColumn": 15,
+          "StartLine": 1,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "FileTwo_1_of_1",
+          "Name": "add",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 9,
+            "EndColumn": 20,
+            "EndLine": 9
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "FileTwo_1_of_1",
+          "Name": "addition",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 7,
+            "EndColumn": 25,
+            "EndLine": 7
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "Foo_1_of_1",
+        "Name": "Foo",
+        "Glyph": "Type",
+        "GlyphChar": "T",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 6,
+          "StartLine": 3,
+          "EndColumn": 8,
+          "EndLine": 5
+        },
+        "BodyRange": {
+          "StartColumn": 3,
+          "StartLine": 4,
+          "EndColumn": 8,
+          "EndLine": 5
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+        "EnclosingEntity": "D",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "Foo_1_of_1",
+          "Name": "Bar",
+          "Glyph": "Struct",
+          "GlyphChar": "S",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 4,
+            "EndColumn": 8,
+            "EndLine": 4
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "D",
+          "IsAbstract": false
+        },
+        {
+          "UniqueName": "Foo_1_of_1",
+          "Name": "Qux",
+          "Glyph": "Struct",
+          "GlyphChar": "S",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 5,
+            "EndColumn": 8,
+            "EndLine": 5
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "D",
+          "IsAbstract": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "NewObjectType_1_of_1",
+        "Name": "NewObjectType",
+        "Glyph": "Class",
+        "GlyphChar": "C",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 6,
+          "StartLine": 11,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "BodyRange": {
+          "StartColumn": 3,
+          "StartLine": 13,
+          "EndColumn": 6,
+          "EndLine": 14
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+        "EnclosingEntity": "C",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "NewObjectType_1_of_1",
+          "Name": "Terrific",
+          "Glyph": "Method",
+          "GlyphChar": "M",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
+          },
+          "BodyRange": {
+            "StartColumn": 12,
+            "StartLine": 13,
+            "EndColumn": 6,
+            "EndLine": 14
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+          "EnclosingEntity": "C",
+          "IsAbstract": false
+        }
+      ]
+    }
+  ]
+}
+{
+  "Kind": "declarations",
+  "Data": [
+    {
+      "Declaration": {
+        "UniqueName": "Script_1_of_1",
+        "Name": "Script",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": true,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 1,
+          "EndLine": 7
+        },
+        "BodyRange": {
+          "StartColumn": 1,
+          "StartLine": 1,
+          "EndColumn": 24,
+          "EndLine": 6
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "Script_1_of_1",
+          "Name": "val99",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 24,
+            "EndLine": 6
+          },
+          "BodyRange": {
+            "StartColumn": 5,
+            "StartLine": 6,
+            "EndColumn": 24,
+            "EndLine": 6
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        }
+      ]
+    },
+    {
+      "Declaration": {
+        "UniqueName": "XA_1_of_1",
+        "Name": "XA",
+        "Glyph": "Module",
+        "GlyphChar": "N",
+        "IsTopLevel": false,
+        "Range": {
+          "StartColumn": 1,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
+        },
+        "BodyRange": {
+          "StartColumn": 10,
+          "StartLine": 3,
+          "EndColumn": 22,
+          "EndLine": 4
+        },
+        "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+        "EnclosingEntity": "M",
+        "IsAbstract": false
+      },
+      "Nested": [
+        {
+          "UniqueName": "XA_1_of_1",
+          "Name": "funky",
+          "Glyph": "Field",
+          "GlyphChar": "F",
+          "IsTopLevel": false,
+          "Range": {
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
+          },
+          "BodyRange": {
+            "StartColumn": 7,
+            "StartLine": 4,
+            "EndColumn": 22,
+            "EndLine": 4
+          },
+          "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+          "EnclosingEntity": "M",
+          "IsAbstract": false
+        }
+      ]
+    }
+  ]
+}

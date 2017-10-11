@@ -1,0 +1,144 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Proj1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Proj2.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "info",
+  "Data": "Parse aborted"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}
+{
+  "Kind": "info",
+  "Data": "Cached typecheck results not yet available"
+}

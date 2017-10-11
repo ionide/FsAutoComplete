@@ -1,0 +1,8 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/NoFSharpCoreReference/Test1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
