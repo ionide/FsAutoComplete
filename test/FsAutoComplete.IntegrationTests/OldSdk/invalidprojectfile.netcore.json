@@ -11,6 +11,9 @@
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Module1.fs",
+    "Errors": []
+  }
 }

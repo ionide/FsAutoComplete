@@ -11,42 +11,102 @@
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+        "StartLine": 4,
+        "EndLine": 4,
+        "StartColumn": 15,
+        "EndColumn": 22,
+        "Severity": "Error",
+        "Message": "The value, namespace, type or module 'FileTwo' is not defined.",
+        "Subcategory": "typecheck"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+        "StartLine": 8,
+        "EndLine": 8,
+        "StartColumn": 12,
+        "EndColumn": 28,
+        "Severity": "Error",
+        "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
+        "Subcategory": "typecheck"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+        "StartLine": 10,
+        "EndLine": 10,
+        "StartColumn": 12,
+        "EndColumn": 19,
+        "Severity": "Error",
+        "Message": "The namespace or module 'FileTwo' is not defined.",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+    "Line": 2,
+    "Column": 7
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Could not find declaration",
+    "AdditionalData": {}
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+    "Line": 6,
+    "Column": 5
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Could not find declaration",
+    "AdditionalData": {}
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Script.fsx",
+    "Line": 4,
+    "Column": 7
+  }
 }

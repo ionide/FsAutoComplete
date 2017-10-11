@@ -1,0 +1,16 @@
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectReload/Test1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectReload/Test1.fsproj' (verbose sdk) not supported",
+    "AdditionalData": {}
+  }
+}

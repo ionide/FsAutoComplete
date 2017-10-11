@@ -11,68 +11,207 @@
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "StartLine": 4,
+        "EndLine": 4,
+        "StartColumn": 15,
+        "EndColumn": 22,
+        "Severity": "Error",
+        "Message": "The value, namespace, type or module 'FileTwo' is not defined.",
+        "Subcategory": "typecheck"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "StartLine": 8,
+        "EndLine": 8,
+        "StartColumn": 12,
+        "EndColumn": 28,
+        "Severity": "Error",
+        "Message": "Lookup on object of indeterminate type based on information prior to this program point. A type annotation may be needed prior to this program point to constrain the type of the object. This may allow the lookup to be resolved.",
+        "Subcategory": "typecheck"
+      },
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Program.fs",
+        "StartLine": 10,
+        "EndLine": 10,
+        "StartColumn": 12,
+        "EndColumn": 19,
+        "Severity": "Error",
+        "Message": "The namespace or module 'FileTwo' is not defined.",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "helptext",
+  "Data": {
+    "Name": "funky",
+    "Overloads": [
+      [
+        {
+          "Signature": "val funky : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "funky",
+      "ReplacementText": "funky",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "helptext",
+  "Data": {
+    "Name": "ToString",
+    "Overloads": [
+      [
+        {
+          "Signature": "System.Object.ToString() : string",
+          "Comment": "Returns a string that represents the current object.\n\n"
+        }
+      ]
+    ]
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "ToString",
+      "ReplacementText": "ToString",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "completion",
+  "Data": []
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "helptext",
+  "Data": {
+    "Name": "func",
+    "Overloads": [
+      [
+        {
+          "Signature": "val func : x:int -> int",
+          "Comment": ""
+        }
+      ]
+    ]
+  }
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "completion",
+  "Data": [
+    {
+      "Name": "func",
+      "ReplacementText": "func",
+      "Glyph": "Method",
+      "GlyphChar": "M"
+    }
+  ]
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "completion",
+  "Data": []
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val func : x:int -> int\n\nFull name: Program.X.func",
+        "Comment": ""
+      }
+    ]
+  ]
 }
 {
-  "Kind": "info",
-  "Data": "Cached typecheck results not yet available"
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val testval : obj\n\nFull name: Program.testval",
+        "Comment": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val funky : x:int -> int\n\nFull name: Script.XA.funky",
+        "Comment": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "error",
+  "Data": {
+    "Code": 1,
+    "Message": "Could not find declaration",
+    "AdditionalData": {}
+  }
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Test1Json/Script.fsx",
+    "Line": 4,
+    "Column": 7
+  }
 }
 {
   "Kind": "declarations",

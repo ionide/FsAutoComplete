@@ -11,30 +11,64 @@
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+        "StartLine": 1,
+        "EndLine": 1,
+        "StartColumn": 15,
+        "EndColumn": 22,
+        "Severity": "Error",
+        "Message": "The value, namespace, type or module 'FileTwo' is not defined.",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/FileTwo.fs",
+    "Errors": []
+  }
 }
 {
   "Kind": "info",
   "Data": "Synchronous parsing started"
 }
 {
-  "Kind": "info",
-  "Data": "Parse aborted"
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+    "Errors": [
+      {
+        "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultipleUnsavedFiles/Program.fs",
+        "StartLine": 1,
+        "EndLine": 1,
+        "StartColumn": 15,
+        "EndColumn": 22,
+        "Severity": "Error",
+        "Message": "The value, namespace, type or module 'FileTwo' is not defined.",
+        "Subcategory": "typecheck"
+      }
+    ]
+  }
 }
