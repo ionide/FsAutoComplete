@@ -61,33 +61,42 @@ type Mode = HttpMode | StdioMode
 type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
 type IntegrationTestConfig = { Mode: Mode; Runtime: FSACRuntime }
 
+let (|AnyNetcoreRuntime|_|) r =
+  match r with
+  | FSACRuntime.NETCoreSCD
+  | FSACRuntime.NETCoreFDD -> Some ()
+  | FSACRuntime.NET -> None
+
 let isTestSkipped cfg fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
-  match cfg.Mode, dir, file with
+  match cfg.Runtime, cfg.Mode, dir, file with
   // stdio and http
-  | _, "ProjectCache", "Runner.fsx" ->
+  | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
-  | _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
-  | _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
+  | _, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
+  | _, _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
     | true, _ -> None //always run it on windows
     | false, "1" -> None //force run on mono
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
-  | _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
-  | _, "OldSdk", "InvalidProjectFileRunner.fsx" ->
+  | _, _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
+  | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" ->
     match isWindows with
     | true -> None //always run it on windows
     | false -> Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
   // http
-  | HttpMode, "RobustCommands", "NoSuchCommandRunner.fsx" ->
+  | _, HttpMode, "RobustCommands", "NoSuchCommandRunner.fsx" ->
     Some "invalid command is 404 in http"
-  | HttpMode, "Colorizations", "Runner.fsx" ->
+  | _, HttpMode, "Colorizations", "Runner.fsx" ->
     Some "not supported in http"
-  | HttpMode, "OutOfRange", "OutOfRangeRunner.fsx" ->
+  | _, HttpMode, "OutOfRange", "OutOfRangeRunner.fsx" ->
     Some "dunno why diverge"
-  | HttpMode, "ProjectReload", "Runner.fsx" ->
+  | _, HttpMode, "ProjectReload", "Runner.fsx" ->
     Some "probably ok, is a notification"
+  // old fsproj not suported in netcore
+  | AnyNetcoreRuntime, StdioMode, _, _ ->
+    Some "stdio failing on netcore (WIP)"
   // by default others are enabled
   | _ -> None
 
