@@ -35,7 +35,8 @@ module ProjectCrackerScript =
 
       let outFile = Path.Combine(tempDir, "fsxScriptReferences.txt")
       let targetFramework = "v4.5"
-      let x, _ = ProjectCrackerDotnetSdk.runProcess (printfn "%s") tempDir "msbuild" (sprintf "EnvironmentInfo.proj /t:_GetFsxScriptReferences \"/p:_GetFsxScriptReferences_OutFile=%s\" /p:TargetFrameworkVersion=%s" outFile targetFramework)
+      //TODO log output for diagnostics
+      let x, _ = ProjectCrackerDotnetSdk.runProcess ignore tempDir "msbuild" (sprintf "EnvironmentInfo.proj /t:_GetFsxScriptReferences \"/p:_GetFsxScriptReferences_OutFile=%s\" /p:TargetFrameworkVersion=%s" outFile targetFramework)
       System.IO.File.ReadAllLines(outFile)
 
     [ yield "--simpleresolution"
