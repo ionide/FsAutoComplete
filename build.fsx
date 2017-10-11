@@ -94,9 +94,6 @@ let isTestSkipped cfg fn =
     Some "dunno why diverge"
   | _, HttpMode, "ProjectReload", "Runner.fsx" ->
     Some "probably ok, is a notification"
-  // old fsproj not suported in netcore
-  | AnyNetcoreRuntime, StdioMode, _, _ ->
-    Some "stdio failing on netcore (WIP)"
   // by default others are enabled
   | _ -> None
 
@@ -307,6 +304,7 @@ Target "All" id
 
 "IntegrationTestStdioMode" ==> "IntegrationTest"
 "IntegrationTestHttpMode" ==> "IntegrationTest"
+"IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
 "IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
 "BuildDebug" ==> "All"
