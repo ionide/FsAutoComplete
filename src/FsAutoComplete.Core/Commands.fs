@@ -96,6 +96,9 @@ type Commands (serialize : Serializer) =
 
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+            printfn "Script options"
+            printfn "%A" checkOptions
+            printfn "Script options - End"
                 state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
                 return! parse' file text checkOptions
             else
