@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Runtime.Remoting" />
+    <Reference Include="System.Runtime.Serialization.Formatters.Soap" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Core" />
+          <!-- // These are the Portable-profile and .NET Standard 1.6 dependencies of FSharp.Core.dll.  These are needed
+          // when an F# sript references an F# profile 7, 78, 259 or .NET Standard 1.6 component which in turn refers 
+          // to FSharp.Core for profile 7, 78, 259 or .NET Standard. -->
+    <Reference Include="System.Runtime" /> <!-- // lots of types -->
+    <Reference Include="System.Linq" /> <!-- // System.Linq.Expressions.Expression<T>  -->
+    <Reference Include="System.Reflection" /> <!--  // System.Reflection.ParameterInfo -->
+    <Reference Include="System.Linq.Expressions" /> <!--  // System.Linq.IQueryable<T> -->
+    <Reference Include="System.Threading.Tasks" /> <!--  // valuetype [System.Threading.Tasks]System.Threading.CancellationToken -->
+    <Reference Include="System.IO" />  <!--  //  System.IO.TextWriter -->
+          <!-- //yield "System.Console"  //  System.Console.Out etc. -->
+    <Reference Include="System.Net.Requests" />  <!--  //  System.Net.WebResponse etc. -->
+    <Reference Include="System.Collections" /> <!--  // System.Collections.Generic.List<T> -->
+    <Reference Include="System.Runtime.Numerics" /> <!--  // BigInteger -->
+    <Reference Include="System.Threading" />  <!--  // OperationCanceledException -->
+          <!-- // always include a default reference to System.ValueTuple.dll in scripts and out-of-project sources
+          match GetDefaultSystemValueTupleReference() with 
+          | None -> ()
+          | Some v -> yield v -->
+
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Numerics" />
+
+    <!-- "-r:C:\Windows\Microsoft.NET\assembly\GAC_MSIL\FSharp.Compiler.Interactive.Settings\v4.0_4.4.0.0__b03f5f7f11d50a3a\FSharp.Compiler.Interactive.Settings.dll"|]; -->
+
+    <Reference Include="FSharp.Core" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
+  <Target Name="_GetFsxScriptReferences" DependsOnTargets="ResolveAssemblyReferences">
+    <Message Text="V: %(ReferencePath.Identity)" />
+
+    <WriteLinesToFile
+            Condition=" '$(_GetFsxScriptReferences_OutFile)' != '' "
+            File="$(_GetFsxScriptReferences_OutFile)"
+            Lines="@(ReferencePath -> '%(Identity)')"
+            Overwrite="true" 
+            Encoding="UTF-8"/>
+    <!-- WriteLinesToFile doesnt create the file if @(ReferencePath) is empty -->
+    <Touch
+        Condition=" '$(_GetFsxScriptReferences_OutFile)' != '' "
+        Files="$(_GetFsxScriptReferences_OutFile)"
+        AlwaysCreate="True" />
+
+  </Target>
+
+</Project>

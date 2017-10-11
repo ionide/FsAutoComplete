@@ -33,6 +33,8 @@
     <Compile Include="..\FsAutoComplete.Core\CodeGeneration.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="..\FsAutoComplete.Core\Commands.fs" />
+
+    <EmbeddedResource Include="Resources\EnvironmentInfo.proj" />
   </ItemGroup>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
