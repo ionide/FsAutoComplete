@@ -245,14 +245,13 @@ type FSharpCompilerServiceChecker() =
 
   member __.GetProjectOptionsFromScript(file, source) = async {
 
-    let getCorlibAssemblies () =
-      let tempFile = System.IO.Path.GetTempFileName()
-      let x, _ = ProjectCrackerDotnetSdk.runProcess (printfn "%s") @"E:\temp\getass\" "msbuild" (sprintf "prova2.1.csproj /t:_GetFsxScriptReferences \"/p:_GetFsxScriptReferences_OutFile=%s\" /p:TargetFrameworkVersion=v4.5" tempFile)
-      System.IO.File.ReadAllLines(tempFile)
-
     let additionaRefs =
-      getCorlibAssemblies ()
-      |> Array.map (sprintf "-r:%s")
+#if NETSTANDARD2_0
+      ProjectCrackerScript.getAdditionalArguments ()
+      |> Array.ofList
+#else
+      Array.empty
+#endif
 
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs)
     let opts =
