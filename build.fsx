@@ -180,22 +180,22 @@ let runall cfg =
     trace "Done Integration tests."
 
 Target "IntegrationTestStdioMode" (fun _ ->
-  trace "== Integration tests (stdio) =="
+  trace "== Integration tests (stdio/net) =="
   runall { Mode = StdioMode; Runtime = NET }
 )
 
 Target "IntegrationTestHttpMode" (fun _ ->
-  trace "== Integration tests (http) =="
+  trace "== Integration tests (http/net) =="
   runall { Mode = HttpMode; Runtime = NET }
 )
 
 Target "IntegrationTestStdioModeNetCore" (fun _ ->
-  trace "== Integration tests (stdio) =="
+  trace "== Integration tests (stdio/netcore) =="
   runall { Mode = StdioMode; Runtime = NETCoreFDD }
 )
 
 Target "IntegrationTestHttpModeNetCore" (fun _ ->
-  trace "== Integration tests (http) =="
+  trace "== Integration tests (http/netcore) =="
   runall { Mode = HttpMode; Runtime = NETCoreFDD }
 )
 
