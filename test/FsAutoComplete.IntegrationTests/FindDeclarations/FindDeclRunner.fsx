@@ -8,8 +8,10 @@ open System
  * A few completions, files and script.
  *)
 
+let outputJson = outputJsonForRuntime "output.json"
+
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.json"
+File.Delete outputJson
 
 let p = new FsAutoCompleteWrapper()
 
@@ -24,4 +26,4 @@ p.finddeclaration "Program.fs" "let val4 : FileTwo.NewObjectType = testval" 10 2
 p.finddeclaration "Script.fsx" "let val99 = XA.funky 21" 6 17
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "output.json"
+|> writeNormalizedOutput outputJson

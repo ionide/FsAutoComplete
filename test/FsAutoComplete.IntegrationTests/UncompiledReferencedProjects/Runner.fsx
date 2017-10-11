@@ -3,8 +3,10 @@ open TestHelpers
 open System.IO
 open System
 
+let outputJson = outputJsonForRuntime "output.json"
+
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.json"
+File.Delete outputJson
 
 let p = new FsAutoCompleteWrapper()
  
@@ -15,5 +17,5 @@ p.tooltip "MultiProject1.fs" "let p = (Project1A.x1, Project1B.b)" 5 34
 
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "output.json"
+|> writeNormalizedOutput outputJson
 

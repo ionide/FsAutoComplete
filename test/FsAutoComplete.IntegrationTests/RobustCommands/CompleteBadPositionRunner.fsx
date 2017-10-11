@@ -3,8 +3,10 @@ open TestHelpers
 open System.IO
 open System
 
+let completebadpositionJson = outputJsonForRuntime "completebadposition.json"
+
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "completebadposition.json"
+File.Delete completebadpositionJson
 
 let p = new FsAutoCompleteWrapper()
 
@@ -14,5 +16,5 @@ p.completion "Project/Program.fs" "whatever" 50 1
 p.completion "Project/Program.fs" "module X =" 1 100
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput "completebadposition.json"
+|> writeNormalizedOutput completebadpositionJson
 
