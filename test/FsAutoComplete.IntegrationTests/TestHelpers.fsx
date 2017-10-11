@@ -11,6 +11,17 @@ open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
+let outputJsonForRuntime path =
+#if FSAC_TEST_EXE_NETCORE
+    System.IO.Path.ChangeExtension(path, ".netcore.json")
+#else
+#if FSAC_TEST_EXE_NETCORE_SCD
+    System.IO.Path.ChangeExtension(path, ".netcore.json")
+#else
+    path
+#endif
+#endif
+
 let fsacExePath () =
 #if FSAC_TEST_EXE_NETCORE
     IO.Path.Combine(__SOURCE_DIRECTORY__,
