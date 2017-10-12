@@ -245,21 +245,24 @@ type FSharpCompilerServiceChecker() =
 
   member __.GetProjectOptionsFromScript(file, source) = async {
 
-    let additionaRefs =
 #if NETSTANDARD2_0
+    let additionaRefs =
       ProjectCrackerScript.getAdditionalArguments ()
       |> Array.ofList
-#else
-      Array.empty
-#endif
 
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs)
+    return rawOptions
+#else
+
+    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
       |> ensureCorrectVersions
 
     return { rawOptions with OtherOptions = opts }
+#endif
+
   }
 
   member __.CheckProjectsInBackgroundForFile (file,options : seq<string * FSharpProjectOptions>) =
