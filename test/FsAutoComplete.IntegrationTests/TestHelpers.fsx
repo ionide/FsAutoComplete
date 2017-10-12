@@ -50,7 +50,7 @@ let configureFSACArgs (startInfo: ProcessStartInfo) =
       match testConfig.Runtime with
       | FSACRuntime.NETCoreFDD ->
           IO.Path.Combine(__SOURCE_DIRECTORY__,
-                          "../../.dotnetsdk/v2.0.0/dotnet.exe")
+                          "../../.dotnetsdk/v2.0.0/dotnet")
       | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
           fsacExePath ()
 
