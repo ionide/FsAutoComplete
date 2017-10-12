@@ -71,10 +71,13 @@ let (|AnyNetcoreRuntime|_|) r =
 let isTestSkipped cfg fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
+
   match cfg.Runtime, cfg.Mode, dir, file with
   // stdio and http
   | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
+  | AnyNetcoreRuntime, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx" ->
+    Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
   | _, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
   | _, _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
@@ -98,7 +101,6 @@ let isTestSkipped cfg fn =
   // .net core based fsac
   | AnyNetcoreRuntime, _, "DotNetCore", "AppAndLibRunner.fsx"
   | AnyNetcoreRuntime, _, "DotNetCoreCrossgen", "Runner.fsx"
-  | AnyNetcoreRuntime, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
   | AnyNetcoreRuntime, _, "DotNetCoreWithOtherDotnetLang", "FSharpOuterRunner.fsx" ->
     Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
   // by default others are enabled
