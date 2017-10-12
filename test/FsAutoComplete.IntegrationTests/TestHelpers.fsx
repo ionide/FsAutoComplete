@@ -11,47 +11,59 @@ open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
-let outputJsonForRuntime path =
+type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
+type IntegrationTestConfig = { Runtime: FSACRuntime }
+
+let testConfig =
 #if FSAC_TEST_EXE_NETCORE
-    System.IO.Path.ChangeExtension(path, ".netcore.json")
+    { Runtime = NETCoreFDD }
 #else
 #if FSAC_TEST_EXE_NETCORE_SCD
-    System.IO.Path.ChangeExtension(path, ".netcore.json")
+    { Runtime = NETCoreSCD }
 #else
+    { Runtime = NET }
+#endif
+#endif
+ 
+
+let outputJsonForRuntime path =
+  match testConfig.Runtime with
+  | FSACRuntime.NETCoreFDD | FSACRuntime.NETCoreSCD ->
+    System.IO.Path.ChangeExtension(path, ".netcore.json")
+  | FSACRuntime.NET ->
     path
-#endif
-#endif
 
 let fsacExePath () =
-#if FSAC_TEST_EXE_NETCORE
+  match testConfig.Runtime with
+  | FSACRuntime.NETCoreFDD ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
-#else
-#if FSAC_TEST_EXE_NETCORE_SCD
+  | FSACRuntime.NETCoreSCD ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete.exe")
-#else
+  | FSACRuntime.NET ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
-#endif
-#endif
 
 let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.FileName <-
-#if FSAC_TEST_EXE_NETCORE
-      IO.Path.Combine(__SOURCE_DIRECTORY__,
-                      "../../.dotnetsdk/v2.0.0/dotnet.exe")
-#else
-      fsacExePath ()
-#endif
+      match testConfig.Runtime with
+      | FSACRuntime.NETCoreFDD ->
+          IO.Path.Combine(__SOURCE_DIRECTORY__,
+                          "../../.dotnetsdk/v2.0.0/dotnet.exe")
+      | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
+          fsacExePath ()
+
     startInfo.RedirectStandardOutput <- true
     startInfo.RedirectStandardError  <- true
     startInfo.RedirectStandardInput  <- true
     startInfo.UseShellExecute <- false
     startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-#if FSAC_TEST_EXE_NETCORE
-    startInfo.Arguments <- fsacExePath ()
-#endif
+    match testConfig.Runtime with
+    | FSACRuntime.NETCoreFDD ->
+        startInfo.Arguments <- fsacExePath ()
+    | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
+        ()
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       startInfo.Arguments <- sprintf "%s --wait-for-debugger" startInfo.Arguments
 
