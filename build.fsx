@@ -27,7 +27,8 @@ let release = List.head releaseNotesData
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
-let releaseArchive = "fsautocomplete.zip"
+let releaseArchive = "bin" </> "pkgs" </> "fsautocomplete.zip"
+let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
 
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
@@ -229,11 +230,14 @@ Target "AssemblyInfo" (fun _ ->
 )
 
 Target "ReleaseArchive" (fun _ ->
-  Zip buildReleaseDir
-      releaseArchive
-      ( !! (buildReleaseDir + "/*.dll")
-        ++ (buildReleaseDir + "/*.exe")
-        ++ (buildReleaseDir + "/*.exe.config"))
+    CleanDirs [ "bin/pkgs" ]
+    ensureDirectory "bin/pkgs"
+
+    !! "bin/release/*.*"
+    |> Zip "bin/release" releaseArchive
+
+    !! "bin/release_netcore/*.*"
+    |> Zip "bin/release_netcore" releaseArchiveNetCore
 )
 
 Target "LocalRelease" (fun _ ->
@@ -243,9 +247,7 @@ Target "LocalRelease" (fun _ ->
         ++ (buildReleaseDir      + "/*.exe")
         ++ (buildReleaseDir      + "/*.exe.config")
     )
-)
 
-Target "LocalReleaseNetCore" (fun _ ->
     CleanDirs [ "bin/release_netcore" ]
     DotNetCli.Publish (fun p ->
        { p with
@@ -276,14 +278,14 @@ Target "Release" (fun _ ->
     // release on github
     createClient user pw
     |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
-    |> uploadFile releaseArchive
+    |> uploadFiles [ releaseArchive; releaseArchiveNetCore ]
     |> releaseDraft
     |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
   CleanDirs [ buildDir; buildReleaseDir ]
-  DeleteFiles [releaseArchive]
+  DeleteFiles [ releaseArchive; releaseArchiveNetCore ]
 )
 
 Target "Build" id
@@ -310,8 +312,8 @@ Target "All" id
 "BuildDebug" ==> "All"
 "Test" ==> "All"
 
-"BuildRelease"
-    ==> "LocalRelease"
+"BuildRelease" ==> "LocalRelease"
+"LocalRelease" ==> "ReleaseArchive"
 
 "AssemblyInfo"
   ==> "BuildRelease"
