@@ -489,7 +489,7 @@ module DotnetCli =
 
       sdkDir
 
-  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.0.4" "v1.0.4"
+  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.1.4" "v1.1.4"
   let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0" "v2.0.0"
 
   let useSdk sdkDir =
