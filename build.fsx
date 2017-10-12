@@ -314,8 +314,8 @@ Target "All" id
 "UnitTest" ==> "Test"
 "IntegrationTest" ==> "Test"
 
-"IntegrationTestStdioMode" ==> "IntegrationTest"
-"IntegrationTestHttpMode" ==> "IntegrationTest"
+// "IntegrationTestStdioMode" ==> "IntegrationTest"
+// "IntegrationTestHttpMode" ==> "IntegrationTest"
 "IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
 "IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
