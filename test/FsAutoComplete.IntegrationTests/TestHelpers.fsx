@@ -369,15 +369,22 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     let psi = System.Diagnostics.ProcessStartInfo()
     psi.FileName <- exePath
     psi.WorkingDirectory <- workingDir
-    psi.RedirectStandardOutput <- false
-    psi.RedirectStandardError <- false
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
     psi.Arguments <- args
     psi.CreateNoWindow <- true
     psi.UseShellExecute <- false
 
     use p = new System.Diagnostics.Process()
     p.StartInfo <- psi
+
+    p.OutputDataReceived.Add(fun ea -> printfn "%s" (ea.Data))
+
+    p.ErrorDataReceived.Add(fun ea -> printfn "%s" (ea.Data))
+
     p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
     p.WaitForExit()
 
     let exitCode = p.ExitCode
