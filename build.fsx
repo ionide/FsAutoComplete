@@ -293,6 +293,8 @@ Target "Test" id
 Target "IntegrationTest" id
 Target "All" id
 
+"AssemblyInfo" ==> "BuildDebug"
+
 "BuildDebug"
   ==> "Build"
   ==> "IntegrationTest"
@@ -319,5 +321,7 @@ Target "All" id
   ==> "BuildRelease"
   ==> "ReleaseArchive"
   ==> "Release"
+
+"ReleaseArchive" ==> "All"
 
 RunTargetOrDefault "BuildDebug"

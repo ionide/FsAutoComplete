@@ -4,7 +4,7 @@ dist: trusty
 sudo: false
 
 script:
-  - ./build.sh Test
+  - ./build.sh All
 
 matrix:
   include:
