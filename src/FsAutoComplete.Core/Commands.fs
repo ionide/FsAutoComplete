@@ -60,7 +60,7 @@ type Commands (serialize : Serializer) =
         state.AddCancellationToken(filename, cts)
         Async.StartCatchCancellation(action, cts.Token)
         |> Async.Catch
-        |> Async.map (function Choice1Of2 res -> res | Choice2Of2 _ -> [Response.info serialize "Request cancelled"])
+        |> Async.map (function Choice1Of2 res -> res | Choice2Of2 err -> [Response.info serialize (sprintf "Request cancelled (exn was %A)" err)])
 
     member private x.CancelQueue (filename : SourceFilePath) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
