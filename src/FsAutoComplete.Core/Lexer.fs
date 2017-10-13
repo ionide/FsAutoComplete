@@ -47,7 +47,7 @@ module Lexer =
         loop 0L []
 
     let inline private isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
-    let inline private isOperator t = t.ColorClass = FSharpTokenColorKind.Operator
+    let inline private isOperator t = t.CharClass = FSharpTokenCharKind.Operator
     let inline private isKeyword t = t.ColorClass = FSharpTokenColorKind.Keyword
 
     let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|) ((token: FSharpTokenInfo), (lineStr:string)) =
