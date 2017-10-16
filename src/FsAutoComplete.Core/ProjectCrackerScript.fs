@@ -20,7 +20,7 @@ module ProjectCrackerScript =
 
         reader.ReadToEnd()
 
-  let getAdditionalArguments () =
+  let getAdditionalArguments targetFramework =
 
     let getCorlibAssemblies () =
       let createTempDir () =
@@ -34,11 +34,20 @@ module ProjectCrackerScript =
       File.WriteAllText(proj, projContent)
 
       let outFile = Path.Combine(tempDir, "fsxScriptReferences.txt")
-      let targetFramework = "v4.5"
       //TODO log output for diagnostics
-      let x, _ = ProjectCrackerDotnetSdk.runProcess ignore tempDir "msbuild" (sprintf "EnvironmentInfo.proj /t:_GetFsxScriptReferences \"/p:_GetFsxScriptReferences_OutFile=%s\" /p:TargetFrameworkVersion=%s" outFile targetFramework)
+      let msbuildArgs =
+        [
+          yield "EnvironmentInfo.proj"
+          yield "/t:_GetFsxScriptReferences"
+          yield sprintf "\"/p:_GetFsxScriptReferences_OutFile=%s\"" outFile
+          match targetFramework with
+          | Some tfm -> yield sprintf "/p:TargetFrameworkVersion=%s" tfm
+          | None -> () ]
+        |> String.concat " "
+      let x, _ = ProjectCrackerDotnetSdk.runProcess ignore tempDir "msbuild" msbuildArgs
       System.IO.File.ReadAllLines(outFile)
 
     [ yield "--simpleresolution"
+      yield "--noframework"
       yield! getCorlibAssemblies ()
              |> Array.map (sprintf "-r:%s") ]
