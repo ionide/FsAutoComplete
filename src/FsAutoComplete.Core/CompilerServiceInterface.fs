@@ -254,11 +254,31 @@ type FSharpCompilerServiceChecker() =
       ProjectCrackerScript.getAdditionalArguments targetFramework
       |> Array.ofList
 
+    printfn "AI: started"
+    printfn "AI: %A" additionaRefs
+    printfn "AI: end"
+
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
+
+    printfn "PC: started"
+    printfn "PC: %A" rawOptions.OtherOptions
+    printfn "PC: end"
 
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
+
+    printfn "SF: started"
+    printfn "SF: %A" opts
+    printfn "SF: end"
+
+    let opts =
+      opts
+      |> ensureCorrectVersions
+
+    printfn "CV: started"
+    printfn "CV: %A" opts
+    printfn "CV: end"
 
     return { rawOptions with OtherOptions = opts }
 #else
