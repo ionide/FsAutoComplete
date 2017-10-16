@@ -218,18 +218,20 @@ type FSharpCompilerServiceChecker() =
   let ensureCorrectVersions (options: string[]) =
     if Utils.runningOnMono then options
     else
-      let version = Environment.dotNetVersions () |> Seq.head
-      let oldRef = Environment.referenceAssembliesPath </> "v4.0"
-      let newRef = Environment.referenceAssembliesPath </> version
+      match Environment.dotNetVersions () |> Array.tryHead with
+      | None -> options
+      | Some version ->
+        let oldRef = Environment.referenceAssembliesPath </> "v4.0"
+        let newRef = Environment.referenceAssembliesPath </> version
 
-      let fsharpCoreRef = options |> Seq.find isFSharpCore
+        let fsharpCoreRef = options |> Seq.find isFSharpCore
 
-      let newOptions =
-        options
-        |> Seq.filter (not << isFSharpCore)
-        |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
-      [| yield fsharpCoreRef
-         yield! newOptions |]
+        let newOptions =
+          options
+          |> Seq.filter (not << isFSharpCore)
+          |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
+        [| yield fsharpCoreRef
+           yield! newOptions |]
 
   let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
