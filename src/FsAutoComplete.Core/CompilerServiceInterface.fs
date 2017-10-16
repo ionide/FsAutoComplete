@@ -248,11 +248,13 @@ type FSharpCompilerServiceChecker() =
   member __.GetProjectOptionsFromScript(file, source) = async {
 
 #if NETSTANDARD2_0
-    let targetFramework = None; // Some "v4.5"
+    // let targetFramework = None; // Some "v4.5"
 
-    let additionaRefs =
-      ProjectCrackerScript.getAdditionalArguments targetFramework
-      |> Array.ofList
+    // let additionaRefs =
+    //   ProjectCrackerScript.getAdditionalArguments targetFramework
+    //   |> Array.ofList
+
+    let additionaRefs = [| |]
 
     printfn "AI: started"
     printfn "AI: %A" additionaRefs
