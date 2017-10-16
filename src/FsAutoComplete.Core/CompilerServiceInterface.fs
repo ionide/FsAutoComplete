@@ -251,7 +251,7 @@ type FSharpCompilerServiceChecker() =
     let targetFramework = None; // Some "v4.5"
 
     let additionaRefs =
-      ProjectCrackerScript.getAdditionalArguments ()
+      ProjectCrackerScript.getAdditionalArguments targetFramework
       |> Array.ofList
 
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
