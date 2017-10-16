@@ -248,15 +248,22 @@ type FSharpCompilerServiceChecker() =
   member __.GetProjectOptionsFromScript(file, source) = async {
 
 #if NETSTANDARD2_0
+    let targetFramework = None; // Some "v4.5"
+
     let additionaRefs =
       ProjectCrackerScript.getAdditionalArguments ()
       |> Array.ofList
 
-    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs)
-    return rawOptions
-#else
+    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
 
+    let opts =
+      rawOptions.OtherOptions
+      |> ensureCorrectFSharpCore
+
+    return { rawOptions with OtherOptions = opts }
+#else
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
+
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
