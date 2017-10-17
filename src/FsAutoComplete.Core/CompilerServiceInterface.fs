@@ -279,6 +279,9 @@ type FSharpCompilerServiceChecker() =
   member __.FileChecked =
     checker.FileChecked
 
+  member __.ParseFile =
+    checker.ParseFile
+
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       let fixedFilePath = fixFileName filePath
@@ -323,21 +326,3 @@ type FSharpCompilerServiceChecker() =
     let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
-
-  member __.GetDeclarationsInProjects (options : seq<string * string * FSharpParsingOptions * FSharpProjectOptions>) =
-      options
-      |> Seq.distinctBy(fun (_, _, _, v) -> v.ProjectFileName)
-      |> Seq.map (fun (_, _,_, opts) -> async {
-          return!
-            options
-            |> Seq.filter (fun (_, _,_, projectOpts) -> projectOpts = opts)
-            |> Seq.map (fun (file,source, parseOpts, _) -> async {
-                let! parseRes = checker.ParseFile(file, source, parseOpts)
-                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, file))
-              })
-            |> Async.Parallel
-         })
-      |> Async.Parallel
-      |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)
-
-  member __.ParseFile = checker.ParseFile
