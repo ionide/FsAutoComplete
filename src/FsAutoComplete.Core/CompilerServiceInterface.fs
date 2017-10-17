@@ -221,11 +221,11 @@ type FSharpCompilerServiceChecker() =
   let ensureCorrectVersions (options: string[]) =
     if Utils.runningOnMono then options
     else
-      match Environment.dotNetVersions () |> Array.tryHead with
-      | None -> options
-      | Some version ->
-        let oldRef = Environment.referenceAssembliesPath </> "v4.0"
-        let newRef = Environment.referenceAssembliesPath </> version
+      match Environment.referenceAssembliesPath (), Environment.netReferecesAssembliesTFM () |> Array.tryHead with
+      | _, None -> options
+      | Some referenceAssembliesPath, Some version ->
+        let oldRef = referenceAssembliesPath </> "v4.0"
+        let newRef = referenceAssembliesPath </> version
 
         let fsharpCoreRef = options |> Seq.find isFSharpCore
 

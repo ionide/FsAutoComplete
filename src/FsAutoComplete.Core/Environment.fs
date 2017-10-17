@@ -107,16 +107,16 @@ module Environment =
       let fsharpCoreVersions = ["4.4.1.0"; "4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
       tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
 
-  let dotNetVersions () =
-    let referenceAssembliesPath =
+  let referenceAssembliesPath () =
 #if SCRIPT_REFS_FROM_MSBUILD
-        NETFrameworkInfoFromMSBuild.getReferenceAssembliesPath ()
+    NETFrameworkInfoFromMSBuild.getReferenceAssembliesPath ()
 #else
-       Some (programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework")
+    Some (programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework")
 #endif
 
+  let dotNetVersions () =
     printfn "TFM: %A" referenceAssembliesPath
-    match referenceAssembliesPath |> Option.filter Directory.Exists with
+    match referenceAssembliesPath () |> Option.filter Directory.Exists with
     | Some path ->
       Directory.EnumerateDirectories path
       |> Seq.filter (fun s -> not(s.EndsWith(".X"))) //may contain only xml files, not assemblies
