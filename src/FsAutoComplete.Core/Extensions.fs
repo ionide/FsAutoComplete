@@ -23,3 +23,13 @@ type FSharpSymbol with
         | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
         | :? FSharpField as m -> not m.Accessibility.IsPublic
         | _ -> false
+
+module Utils =
+    let projectOptionsToParseOptions checkOptions =
+        //TODO: Investigate why sometimes SourceFiles are not filled
+        let files =
+            match checkOptions.SourceFiles with
+            | [||] -> checkOptions.OtherOptions |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
+            | x -> x
+
+        { FSharpParsingOptions.Default with SourceFiles = files}

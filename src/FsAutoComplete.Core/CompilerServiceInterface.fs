@@ -324,22 +324,18 @@ type FSharpCompilerServiceChecker() =
     return parseResult.GetNavigationItems().Declarations
   }
 
-  member __.GetDeclarationsInProjects (options : seq<string * FSharpProjectOptions>) =
+  member __.GetDeclarationsInProjects (options : seq<string * string * FSharpParsingOptions * FSharpProjectOptions>) =
       options
-      |> Seq.distinctBy(fun (_, v) -> v.ProjectFileName)
-      |> Seq.map (fun (_, opts) -> async {
-          let! _ = checker.ParseAndCheckProject opts
+      |> Seq.distinctBy(fun (_, _, _, v) -> v.ProjectFileName)
+      |> Seq.map (fun (_, _,_, opts) -> async {
           return!
             options
-            |> Seq.filter (fun (_, projectOpts) -> projectOpts = opts)
-            |> Seq.map (fun (projectFile,_) -> async {
-                let! parseRes, _ = checker.GetBackgroundCheckResultsForFileInProject(projectFile, opts)
-                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, projectFile))
+            |> Seq.filter (fun (_, _,_, projectOpts) -> projectOpts = opts)
+            |> Seq.map (fun (file,source, parseOpts, _) -> async {
+                let! parseRes = checker.ParseFile(file, source, parseOpts)
+                return (parseRes.GetNavigationItems().Declarations |> Array.map (fun decl -> decl, file))
               })
             |> Async.Parallel
          })
       |> Async.Parallel
       |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)
-
-
-
