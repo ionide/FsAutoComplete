@@ -115,6 +115,7 @@ module Environment =
        Some (programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework")
 #endif
 
+    printfn "TFM: %A" referenceAssembliesPath
     match referenceAssembliesPath |> Option.filter Directory.Exists with
     | Some path ->
       Directory.EnumerateDirectories path

@@ -253,7 +253,10 @@ type FSharpCompilerServiceChecker() =
 
 #if SCRIPT_REFS_FROM_MSBUILD
 
+    printfn "DV: %A" (Environment.dotNetVersions ())
+
     let targetFramework = Environment.netReferecesAssembliesTFM () |> Array.tryHead
+    printfn "TFM: %A" targetFramework
 
     let additionaRefs =
       NETFrameworkInfoFromMSBuild.getAdditionalArguments targetFramework
@@ -281,6 +284,9 @@ type FSharpCompilerServiceChecker() =
       opts
       |> Array.distinct
 
+    printfn "FIN: started"
+    printfn "FIN: %A" opts
+    printfn "FIN: end"
 
     return { rawOptions with OtherOptions = opts }
 #else
