@@ -51,11 +51,9 @@ module NETFrameworkInfoFromMSBuild =
     let x, _ = Utils.runProcess ignore tempDir "msbuild" msbuildArgs
     let lines = System.IO.File.ReadAllLines(outFile) |> List.ofArray
 
-    let prefix s = sprintf "%s%c" s IO.Path.PathSeparator
-
-    { TargetFrameworkRootPath = lines |> List.tryPick (chooseByPrefix(prefix "TargetFrameworkRootPath"))
-      FrameworkPathOverride = lines |> List.tryPick (chooseByPrefix(prefix "FrameworkPathOverride"))
-      ReferencePath = lines |> List.choose (chooseByPrefix(prefix "FrameworkPathOverride")) }
+    { TargetFrameworkRootPath = lines |> List.tryPick (chooseByPrefix "TargetFrameworkRootPath=")
+      FrameworkPathOverride = lines |> List.tryPick (chooseByPrefix "FrameworkPathOverride=")
+      ReferencePath = lines |> List.choose (chooseByPrefix "ReferencePath=") }
 
   let getAdditionalArguments targetFramework =
     [ yield "--simpleresolution"

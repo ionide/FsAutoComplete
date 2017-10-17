@@ -41,15 +41,34 @@
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 
+  <!--
+  Output is:
+  ReferencePath=<path to reference assembly>
+  TargetFrameworkRootPath=<value of property>
+  FrameworkPathOverride=<value of property>
+  -->
   <Target Name="_GetFsxScriptReferences" DependsOnTargets="ResolveAssemblyReferences">
-    <Message Text="V: %(ReferencePath.Identity)" />
+    <Message Text="TargetFrameworkRootPath=$(TargetFrameworkRootPath)" />
+    <Message Text="FrameworkPathOverride=$(FrameworkPathOverride)" />
+    <Message Text="ReferencePath=%(ReferencePath.Identity)" />
 
     <WriteLinesToFile
             Condition=" '$(_GetFsxScriptReferences_OutFile)' != '' "
             File="$(_GetFsxScriptReferences_OutFile)"
-            Lines="@(ReferencePath -> '%(Identity)')"
-            Overwrite="true" 
+            Lines="@(ReferencePath -> 'ReferencePath=%(Identity)')"
+            Overwrite="true"
             Encoding="UTF-8"/>
+    <WriteLinesToFile
+            Condition=" '$(_GetFsxScriptReferences_OutFile)' != '' "
+            File="$(_GetFsxScriptReferences_OutFile)"
+            Lines="TargetFrameworkRootPath=$(TargetFrameworkRootPath)"
+            Encoding="UTF-8"/>
+    <WriteLinesToFile
+            Condition=" '$(_GetFsxScriptReferences_OutFile)' != '' "
+            File="$(_GetFsxScriptReferences_OutFile)"
+            Lines="FrameworkPathOverride=$(FrameworkPathOverride)"
+            Encoding="UTF-8"/>
+            
     <!-- WriteLinesToFile doesnt create the file if @(ReferencePath) is empty -->
     <Touch
         Condition=" '$(_GetFsxScriptReferences_OutFile)' != '' "

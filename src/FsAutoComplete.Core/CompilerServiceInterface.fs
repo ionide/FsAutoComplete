@@ -206,15 +206,18 @@ type FSharpCompilerServiceChecker() =
 
   let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
 
-
   let ensureCorrectFSharpCore (options: string[]) =
-    Environment.fsharpCoreOpt
-    |> Option.map (fun path ->
-                   let fsharpCoreRef = sprintf "-r:%s" path
-                   [| yield fsharpCoreRef
-                      yield! options |> Seq.filter (not << isFSharpCore) |])
-    |> Option.getOrElse options
+    [| match Environment.fsharpCoreOpt with
+       | Some path -> yield (sprintf "-r:%s" path)
+       | None ->
+          match options |> Array.tryFind isFSharpCore with
+          | Some ref -> yield ref
+          | None -> ()
+       //ensure single FSharp.Core ref
+       yield! options |> Array.filter (not << isFSharpCore) |]
 
+#if SCRIPT_REFS_FROM_MSBUILD
+#else
   let ensureCorrectVersions (options: string[]) =
     if Utils.runningOnMono then options
     else
@@ -232,6 +235,7 @@ type FSharpCompilerServiceChecker() =
           |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
         [| yield fsharpCoreRef
            yield! newOptions |]
+#endif
 
   let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
@@ -247,14 +251,13 @@ type FSharpCompilerServiceChecker() =
 
   member __.GetProjectOptionsFromScript(file, source) = async {
 
-#if NETSTANDARD2_0
-    // let targetFramework = None; // Some "v4.5"
+#if SCRIPT_REFS_FROM_MSBUILD
 
-    // let additionaRefs =
-    //   ProjectCrackerScript.getAdditionalArguments targetFramework
-    //   |> Array.ofList
+    let targetFramework = Environment.netReferecesAssembliesTFM () |> Array.tryHead
 
-    let additionaRefs = [| |]
+    let additionaRefs =
+      NETFrameworkInfoFromMSBuild.getAdditionalArguments targetFramework
+      |> Array.ofList
 
     printfn "AI: started"
     printfn "AI: %A" additionaRefs
@@ -276,11 +279,8 @@ type FSharpCompilerServiceChecker() =
 
     let opts =
       opts
-      |> ensureCorrectVersions
+      |> Array.distinct
 
-    printfn "CV: started"
-    printfn "CV: %A" opts
-    printfn "CV: end"
 
     return { rawOptions with OtherOptions = opts }
 #else
