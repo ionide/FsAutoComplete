@@ -108,8 +108,14 @@ type Commands (serialize : Serializer) =
         return
             match project.Response with
             | Some response ->
-                for file in response.Files do
+                response.Files
+                |> List.toArray
+                |> Array.Parallel.iter (fun file ->
                     state.FileCheckOptions.[file] <- response.Options
+                    match state.Files.TryFind file with
+                    | Some f -> ()
+                    | None -> state.Files.[file] <- {Touched = DateTime.Now; Lines = File.ReadAllLines file }
+                )
                 let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
                 [r]
             | None ->
@@ -131,8 +137,14 @@ type Commands (serialize : Serializer) =
                             let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                             let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
-                            for file in projectFiles do
+                            projectFiles
+                            |> List.toArray
+                            |> Array.Parallel.iter (fun file ->
                                 state.FileCheckOptions.[file] <- opts
+                                match state.Files.TryFind file with
+                                | Some f -> ()
+                                | None -> state.Files.[file] <- {Touched = DateTime.Now; Lines = File.ReadAllLines file }
+                            )
                             let cached = {
                                 Options = opts
                                 Files = projectFiles
