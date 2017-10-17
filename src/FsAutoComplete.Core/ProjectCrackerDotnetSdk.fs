@@ -16,32 +16,6 @@ and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP
 
 module ProjectCrackerDotnetSdk =
 
-  let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
-      let psi = System.Diagnostics.ProcessStartInfo()
-      psi.FileName <- exePath
-      psi.WorkingDirectory <- workingDir
-      psi.RedirectStandardOutput <- true
-      psi.RedirectStandardError <- true
-      psi.Arguments <- args
-      psi.CreateNoWindow <- true
-      psi.UseShellExecute <- false
-
-      use p = new System.Diagnostics.Process()
-      p.StartInfo <- psi
-
-      p.OutputDataReceived.Add(fun ea -> log (ea.Data))
-
-      p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
-
-      p.Start() |> ignore
-      p.BeginOutputReadLine()
-      p.BeginErrorReadLine()
-      p.WaitForExit()
-
-      let exitCode = p.ExitCode
-
-      exitCode, (workingDir, exePath, args)
-
   let msbuildPropBool (s: string) =
     match s.Trim() with
     | "" -> None
@@ -122,7 +96,7 @@ module ProjectCrackerDotnetSdk =
         let results, log =
             let loggedMessages = System.Collections.Concurrent.ConcurrentQueue<string>()
 
-            let runCmd exePath args = runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
+            let runCmd exePath args = Utils.runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
 
             let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
 

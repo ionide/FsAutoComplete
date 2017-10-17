@@ -12,6 +12,7 @@
     <Compile Include="..\FsAutoComplete.Core\TypedAstUtils.fs" />
     <Compile Include="..\FsAutoComplete.Core\Extensions.fs" />
     <Compile Include="..\FsAutoComplete.Core\Lexer.fs" />
+    <Compile Include="..\FsAutoComplete.Core\NETFrameworkInfoFromMSBuild.fs" />
     <Compile Include="..\FsAutoComplete.Core\Environment.fs" />
     <Compile Include="..\FsAutoComplete.Core\TipFormatter.fs" />
     <Compile Include="..\FsAutoComplete.Core\FileSystem.fs" />
@@ -21,7 +22,6 @@
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerProjectJson.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerDotnetSdk.fs" />
     <!-- <Compile Include="..\FsAutoComplete.Core\ProjectCrackerVerbose.fs" /> -->
-    <Compile Include="..\FsAutoComplete.Core\ProjectCrackerScript.fs" />
     <Compile Include="..\FsAutoComplete.Core\KeywordList.fs" />
     <Compile Include="..\FsAutoComplete.Core\AssemblyContentProvider.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnopenedNamespacesResolver.fs" />
