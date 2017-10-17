@@ -172,14 +172,21 @@ type Commands (serialize : Serializer) =
                 | [||] -> checkOptions.OtherOptions |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
                 | x -> x
 
-            let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
+            let parseOptions = Utils.projectOptionsToParseOptions checkOptions
             let! decls = checker.GetDeclarations(file, text, parseOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
     }
 
     member x.DeclarationsInProjects () = async {
-        let! decls = checker.GetDeclarationsInProjects <| state.FileCheckOptions.ToSeq()
+
+        let input =
+            state.FileCheckOptions.ToSeq()
+            |> Seq.map (fun (p, opts) ->
+                let source = String.concat "\n" state.Files.[p].Lines
+                (p, source, Utils.projectOptionsToParseOptions opts, opts )
+            )
+        let! decls = checker.GetDeclarationsInProjects input
         return [Response.declarations serialize decls]
     }
 
