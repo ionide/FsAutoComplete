@@ -339,3 +339,5 @@ type FSharpCompilerServiceChecker() =
          })
       |> Async.Parallel
       |> Async.map (Seq.collect (Seq.collect id) >> Seq.toArray)
+
+  member __.ParseFile = checker.ParseFile
