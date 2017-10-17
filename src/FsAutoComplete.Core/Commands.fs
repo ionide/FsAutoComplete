@@ -17,6 +17,29 @@ type Commands (serialize : Serializer) =
     let checker = FSharpCompilerServiceChecker()
     let state = FsAutoComplete.State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
+    let fileParsed = Event<FSharpParseFileResults>()
+
+    do fileParsed.Publish.Add (fun parseRes ->
+       let decls = parseRes.GetNavigationItems().Declarations
+       state.NavigationDeclarations.[parseRes.FileName] <- decls
+    )
+
+    let parseFilesInTheBackground files =
+        async {
+            files
+            |> List.toArray
+            |> Array.Parallel.iter (fun file ->
+                let source =
+                    match state.Files.TryFind file with
+                    | Some f -> f.Lines
+                    | None ->
+                        let ctn = File.ReadAllLines file
+                        state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn }
+                        ctn
+                let opts = state.FileCheckOptions.[file] |> Utils.projectOptionsToParseOptions
+                let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
+                fileParsed.Trigger parseRes
+            ) }
 
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -55,6 +78,7 @@ type Commands (serialize : Serializer) =
                         match result with
                         | Failure e -> [Response.error serialize e]
                         | Success (parseResult, checkResults) ->
+                            do fileParsed.Trigger parseResult
                             match checkResults with
                             | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
                             | FSharpCheckFileAnswer.Succeeded results ->
@@ -111,14 +135,11 @@ type Commands (serialize : Serializer) =
             | Some response ->
                 for file in response.Files do
                     state.FileCheckOptions.[file] <- response.Options
-                async {
-                    response.Files
-                    |> List.toArray
-                    |> Array.Parallel.iter (fun file ->
-                        match state.Files.TryFind file with
-                        | Some f -> ()
-                        | None -> state.Files.[file] <- {Touched = DateTime.Now; Lines = File.ReadAllLines file }
-                    ) } |> Async.Start
+
+                response.Files
+                |> parseFilesInTheBackground
+                |> Async.Start
+
                 let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
                 [r]
             | None ->
@@ -142,14 +163,10 @@ type Commands (serialize : Serializer) =
                             let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
                             for file in projectFiles do
                                 state.FileCheckOptions.[file] <- opts
-                            async {
-                                projectFiles
-                                |> List.toArray
-                                |> Array.Parallel.iter (fun file ->
-                                    match state.Files.TryFind file with
-                                    | Some f -> ()
-                                    | None -> state.Files.[file] <- {Touched = DateTime.Now; Lines = File.ReadAllLines file }
-                                ) } |> Async.Start
+
+                            projectFiles
+                            |> parseFilesInTheBackground
+                            |> Async.Start
 
                             let cached = {
                                 Options = opts
@@ -184,27 +201,20 @@ type Commands (serialize : Serializer) =
                 | Some l -> String.concat "\n" l
                 | None -> source
 
-            //TODO: Investigate why sometimes SourceFiles are not filled
-            let files =
-                match checkOptions.SourceFiles with
-                | [||] -> checkOptions.OtherOptions |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
-                | x -> x
-
             let parseOptions = Utils.projectOptionsToParseOptions checkOptions
             let! decls = checker.GetDeclarations(file, text, parseOptions, version)
+
+            state.NavigationDeclarations.[file] <- decls
+
             let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
     }
 
     member x.DeclarationsInProjects () = async {
-
-        let input =
-            state.FileCheckOptions.ToSeq()
-            |> Seq.map (fun (p, opts) ->
-                let source = String.concat "\n" state.Files.[p].Lines
-                (p, source, Utils.projectOptionsToParseOptions opts, opts )
-            )
-        let! decls = checker.GetDeclarationsInProjects input
+        let decls =
+            state.NavigationDeclarations.ToSeq()
+            |> Seq.collect (fun (p, decls) -> decls |> Seq.map (fun d -> d,p))
+            |> Seq.toArray
         return [Response.declarations serialize decls]
     }
 
@@ -283,7 +293,7 @@ type Commands (serialize : Serializer) =
             })
         |> x.AsCancellable (Path.GetFullPath fn)
 
-    member x.FindDeclarations (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.SerializeResult (Response.findDeclaration, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)

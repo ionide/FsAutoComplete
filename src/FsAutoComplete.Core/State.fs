@@ -13,6 +13,7 @@ type State =
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
+    NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
     mutable ColorizationOutput: bool
   }
@@ -23,6 +24,7 @@ type State =
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
+      NavigationDeclarations = ConcurrentDictionary()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
