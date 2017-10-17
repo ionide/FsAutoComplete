@@ -119,10 +119,22 @@ module private JsonSerializerConverters =
             member x.CanRead = false
             member x.CanWrite = true }
 
-    let sameDU ty t = Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty
+    let memoizeTest f =
+      let cache = ref Map.empty
+      fun (x : Type) (y : Type) ->
+        let input = (x.GetHashCode(),y.GetHashCode())
+        match (!cache).TryFind(input) with
+        | Some res -> res
+        | None ->
+            let res = f x y
+            cache := (!cache).Add(input,res)
+            res
+
+    let sameDU = memoizeTest (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty)
+
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
-       new OptionConverter() :> JsonConverter
+       OptionConverter() :> JsonConverter
        writeOnlyConverter workspacePeekFoundWriter sameDU
        writeOnlyConverter workspacePeekFoundSolutionItemKindWriter sameDU
        writeOnlyConverter projectSdkTypeWriter sameDU
