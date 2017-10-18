@@ -39,7 +39,7 @@ module SimplifyNameDiagnosticAnalyzer =
                                 match rest with
                                 | [] -> return current
                                 | headIdent :: restPlid ->
-                                    let! res = checkResults.IsRelativeNameResolvableFromSymbol(posAtStartOfName, current, symbolUse.Symbol, userOpName=userOpName)
+                                    let! res = checkResults.IsRelativeNameResolvableFromSymbol(posAtStartOfName, current, symbolUse.Symbol)
                                     if res then return current
                                     else return! loop restPlid (headIdent :: current)
                             }
