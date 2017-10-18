@@ -286,6 +286,10 @@ module CommandResponse =
     Declarations : Range.range []
   }
 
+  type UnusedOpens = {
+    Declarations : Range.range []
+  }
+
   type SimplifiedNameData = {
     RelativeName : string
     UnnecessaryRange: Range.range
@@ -563,9 +567,13 @@ module CommandResponse =
     let data = {UnusedDeclarations.Declarations = data}
     serialize { Kind = "unusedDeclarations"; Data = data}
 
+  let unusedOpens (serialize : Serializer) data =
+    let data = {UnusedOpens.Declarations = data}
+    serialize { Kind = "unusedOpens"; Data = data}
+
   let simplifiedNames (serialize : Serializer) data =
     let data = {
       SimplifiedName.Names = data |> Seq.map (fun (r,n) -> { SimplifiedNameData.RelativeName = n; SimplifiedNameData.UnnecessaryRange =r }) |> Seq.toArray
     }
-    serialize { Kind = " simpifiedNames"; Data = data}
+    serialize { Kind = "simpifiedNames"; Data = data}
 

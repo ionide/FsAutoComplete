@@ -499,3 +499,21 @@ type Commands (serialize : Serializer) =
                     let! simplified = SimplifyNameDiagnosticAnalyzer.getSimplifyNameRanges tyRes.GetCheckResults source allUses
                     return [ Response.simplifiedNames serialize simplified ]
         } |> x.AsCancellable file
+
+    member x.GetUnusedOpens file =
+        let file = Path.GetFullPath file
+        async {
+            match state.TryGetFileCheckerOptionsWithLines file with
+            | Failure s ->  return [Response.error serialize s]
+            | Success (opts, source) ->
+                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+                match tyResOpt with
+                | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
+                | Some tyRes ->
+                    let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
+                    match tyRes.GetParseResults.ParseTree with
+                    | None -> return [Response.info serialize "Parse Tree not avaliable"]
+                    | Some parseInput ->
+                        let unused = UnusedOpensAnalyzer.getUnusedOpens source parseInput allUses |> List.toArray
+                        return [ Response.unusedOpens serialize unused ]
+        } |> x.AsCancellable file
