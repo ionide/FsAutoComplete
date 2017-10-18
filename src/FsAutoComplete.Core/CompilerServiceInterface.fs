@@ -132,9 +132,10 @@ type ParseAndCheckResults
         | Some hlp -> return Ok hlp}
 
   member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
-    let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
+    let ln, residue = Parsing.findLongIdentsAndResidue (pos.Col - 1, lineStr)
     try
-      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Col + 1)
+      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Col - 1)
+      let longName = {longName with QualifyingIdents = ln; PartialIdent = residue }
       let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, (fun () -> []))
 
       let decls =
