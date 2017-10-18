@@ -71,9 +71,10 @@ module UnusedOpensAnalyzer =
             |> Some
         with _ -> None
 
-    let symbolIsFullyQualified (sourceText: string[]) (sym: FSharpSymbolUse) (fullName: string) =
-        match getTextForRange sourceText sym.RangeAlternate with
-        | Some span -> span = fullName
+    let symbolIsFullyQualified (lines: string[]) (sym: FSharpSymbolUse) (fullName: string) =
+        let lineStr = lines.[max 0 (sym.RangeAlternate.StartLine - 1)]
+        match QuickParse.GetCompleteIdentifierIsland true lineStr sym.RangeAlternate.EndColumn with
+        | Some (island, _, _) -> island = fullName
         | None -> false
 
     let getUnusedOpens (sourceText: string[]) (parsedInput: ParsedInput) (symbolUses: FSharpSymbolUse[]) =
