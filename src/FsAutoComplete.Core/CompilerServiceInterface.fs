@@ -275,7 +275,7 @@ type FSharpCompilerServiceChecker() =
     return { rawOptions with OtherOptions = opts }
 #else
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
-    
+
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
