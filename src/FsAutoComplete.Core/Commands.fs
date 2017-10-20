@@ -448,7 +448,7 @@ type Commands (serialize : Serializer) =
             let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
             match res with
             | None -> return [Response.info serialize "Union at position not found"]
-            | Some (symbolRange, patMatchExpr, unionTypeDefinition, insertionPos) ->
+            | Some (_, patMatchExpr, unionTypeDefinition, insertionPos) ->
 
             if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
                 let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
@@ -474,7 +474,7 @@ type Commands (serialize : Serializer) =
         async {
             match state.TryGetFileCheckerOptionsWithSource file with
             | Failure s ->  return [Response.error serialize s]
-            | Success (opts, source) ->
+            | Success (opts, _) ->
                 let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
                 match tyResOpt with
                 | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
@@ -514,6 +514,6 @@ type Commands (serialize : Serializer) =
                     match tyRes.GetParseResults.ParseTree with
                     | None -> return [Response.info serialize "Parse Tree not avaliable"]
                     | Some parseInput ->
-                        let unused = UnusedOpensAnalyzer.getUnusedOpens source parseInput allUses |> List.toArray
+                        let unused = UnusedOpensAnalyzer.getUnusedOpens(allUses, parseInput, fun i -> source.[i - 1] ) |> List.toArray
                         return [ Response.unusedOpens serialize unused ]
         } |> x.AsCancellable file
