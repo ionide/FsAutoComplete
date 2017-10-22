@@ -235,6 +235,7 @@ type FSharpCompilerServiceChecker() =
           |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
         [| yield fsharpCoreRef
            yield! newOptions |]
+      | None, _ -> options
 #endif
 
   let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
