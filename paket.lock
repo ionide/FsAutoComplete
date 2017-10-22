@@ -10,6 +10,10 @@ NUGET
     FSharp.Compiler.Service.ProjectCracker (16.0.2)
       FSharp.Compiler.Service (>= 16.0.2)
     FSharp.Core (4.0.0.1) - redirects: on
+    FSharpLint.Core (0.9.0-beta)
+      FParsec (>= 1.0.3)
+      FSharp.Compiler.Service (>= 14.0.2)
+      FSharp.Compiler.Service.ProjectCracker (>= 14.0.2)
     Mono.Cecil (0.9.6.4)
     Newtonsoft.Json (10.0.3)
     Sln (0.2)
@@ -21,10 +25,6 @@ NUGET
   remote: https://www.myget.org/F/fsac-netcore/api/v2
     Dotnet.ProjInfo (0.8.0-PR9-00024)
       FSharp.Core (>= 4.0.0.1)
-    FSharpLint.Core (0.8.1-local2)
-      FParsec (>= 1.0.3)
-      FSharp.Compiler.Service (>= 14.0.2)
-      FSharp.Compiler.Service.ProjectCracker (>= 14.0.2)
 
 GROUP Build
 GENERATE-LOAD-SCRIPTS: ON
@@ -102,6 +102,11 @@ NUGET
       System.Threading.Thread (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
       System.Threading.ThreadPool (>= 4.0.10) - restriction: && (< net45) (>= netstandard1.6)
       System.Threading.Timer (>= 4.0.1) - restriction: && (< net45) (>= netstandard1.6)
+    FSharpLint.Core (0.9.0-beta)
+      FParsec (>= 1.0.3)
+      FSharp.Compiler.Service (>= 14.0.2) - restriction: < netstandard2.0
+      FSharp.Compiler.Service (>= 16.0.2) - restriction: >= netstandard2.0
+      FSharp.Compiler.Service.ProjectCracker (>= 14.0.2) - restriction: < netstandard2.0
     Microsoft.CSharp (4.4) - restriction: || (&& (< net20) (>= netstandard1.0) (< netstandard1.3)) (&& (< net20) (>= netstandard1.3))
       NETStandard.Library (>= 1.6.1) - restriction: || (&& (< monoandroid) (< net45) (>= netstandard1.0) (< netstandard1.3) (< win8) (< wp8) (< wpa81)) (&& (< monotouch) (< net45) (>= netstandard1.3) (< netstandard2.0) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
       System.Dynamic.Runtime (>= 4.3) - restriction: || (&& (< monoandroid) (< net45) (>= netstandard1.0) (< netstandard1.3) (< win8) (< wp8) (< wpa81)) (&& (< monotouch) (< net45) (>= netstandard1.3) (< netstandard2.0) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
@@ -895,11 +900,6 @@ NUGET
       FSharp.Core (>= 4.2.3) - restriction: && (< net45) (>= netstandard2.0)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
       System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
-    FSharpLint.Core (0.8.1-local2)
-      FParsec (>= 1.0.3)
-      FSharp.Compiler.Service (>= 14.0.2) - restriction: < netstandard2.0
-      FSharp.Compiler.Service (>= 16.0.2) - restriction: >= netstandard2.0
-      FSharp.Compiler.Service.ProjectCracker (>= 14.0.2) - restriction: < netstandard2.0
 
 GROUP Test
 RESTRICTION: == net45
