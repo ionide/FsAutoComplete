@@ -83,10 +83,14 @@ module ProjectCrackerDotnetSdk =
             | ProjectParsingSdk.DotnetSdk ->
                 Dotnet.ProjInfo.Inspect.getFscArgs
             | ProjectParsingSdk.VerboseSdk ->
+#if NO_PROJECTCRACKER
                 let asFscArgs props =
                     let fsc = Microsoft.FSharp.Build.Fsc()
                     Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
                 Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (fun _ -> Ok [])
+#else
+                failwithf "project parsing not supported on verbose sdk"
+#endif
 
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
         let additionalInfo = //needed for extra
