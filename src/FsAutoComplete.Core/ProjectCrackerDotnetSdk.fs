@@ -113,7 +113,14 @@ module ProjectCrackerDotnetSdk =
 
             let runCmd exePath args = Utils.runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
 
-            let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
+            let msbuildExec =
+                let msbuildPath =
+                    match parseAsSdk with
+                    | ProjectParsingSdk.DotnetSdk ->
+                        Dotnet.ProjInfo.Inspect.MSBuildExePath.DotnetMsbuild "dotnet"
+                    | ProjectParsingSdk.VerboseSdk ->
+                        Dotnet.ProjInfo.Inspect.MSBuildExePath.Path "msbuild"
+                Dotnet.ProjInfo.Inspect.msbuild msbuildPath runCmd
 
             let additionalArgs = additionalMSBuildProps |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
 
@@ -213,7 +220,14 @@ module ProjectCrackerDotnetSdk =
                 //workaround, arguments in rsp can use relative paths
                 rsp |> List.map (FscArguments.useFullPaths projDir)
             
-            let extraInfo = getExtraInfo props
+            let sdkTypeData =
+                match parseAsSdk with
+                | ProjectParsingSdk.DotnetSdk ->
+                    let extraInfo = getExtraInfo props
+                    ProjectSdkType.DotnetSdk(extraInfo)
+                | ProjectParsingSdk.VerboseSdk ->
+                    ProjectSdkType.Verbose
+
             let po =
                 {
                     ProjectFileName = file
@@ -228,7 +242,7 @@ module ProjectCrackerDotnetSdk =
                     Stamp = None
                     ExtraProjectInfo =
                         Some (box {
-                            ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
+                            ExtraProjectInfoData.ProjectSdkType = sdkTypeData
                             ExtraProjectInfoData.ProjectOutputType = FscArguments.outType rspNormalized
                         })
                 }
