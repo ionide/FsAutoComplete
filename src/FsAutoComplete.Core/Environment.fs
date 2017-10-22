@@ -115,7 +115,9 @@ module Environment =
 #endif
 
   let dotNetVersions () =
+#if SCRIPT_REFS_FROM_MSBUILD
     printfn "TFM: %A" referenceAssembliesPath
+#endif
     match referenceAssembliesPath () |> Option.filter Directory.Exists with
     | Some path ->
       Directory.EnumerateDirectories path
