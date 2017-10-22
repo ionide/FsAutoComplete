@@ -900,7 +900,9 @@ NUGET
       FSharp.Core (>= 4.2.3) - restriction: && (< net45) (>= netstandard2.0)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
       System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
-
+GITHUB
+  remote: Microsoft/visualfsharp
+    src/fsharp/FSharp.Build/Fsc.fs (cc1b137bc17f401a0cc669ff8fc598714d0fe652)
 GROUP Test
 RESTRICTION: == net45
 NUGET
