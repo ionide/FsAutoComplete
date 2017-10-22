@@ -20,9 +20,10 @@ let doIt () =
   | _ ->
     let p = new FsAutoCompleteWrapper()
 
+    p.project "sample4/l1/l1.fsproj"
+    p.parse "sample4/l1/Library.fs"
     p.project "sample4/c1/c1.fsproj"
     p.parse "sample4/c1/Program.fs"
-    p.parse "sample4/l1/Library.fs"
 
     p.send "quit\n"
     p.finalOutput ()
