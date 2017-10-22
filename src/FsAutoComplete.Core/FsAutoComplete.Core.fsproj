@@ -99,6 +99,11 @@
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
+        <Reference Include="Dotnet.ProjInfo.Helpers">
+          <HintPath>..\..\packages\Dotnet.ProjInfo\lib\net45\Dotnet.ProjInfo.Helpers.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
       </ItemGroup>
     </When>
   </Choose>

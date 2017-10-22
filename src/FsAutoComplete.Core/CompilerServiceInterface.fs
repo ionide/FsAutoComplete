@@ -354,7 +354,7 @@ type FSharpCompilerServiceChecker() =
         | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
         | NetCoreSdk -> ProjectCrackerDotnetSdk.load projectFileName
 #if NO_PROJECTCRACKER
-        | Net45 -> Error (GenericError(sprintf "Project file '%s' (verbose sdk) not supported" projectFileName))
+        | Net45 -> ProjectCrackerDotnetSdk.loadVerboseSdk projectFileName
         | Unsupported -> Error (GenericError(sprintf "Project file '%s' not supported" projectFileName))
 #else
         | Net45 -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose

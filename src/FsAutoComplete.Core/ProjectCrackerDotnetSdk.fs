@@ -63,16 +63,31 @@ module ProjectCrackerDotnetSdk =
 
       IsPublishable = msbuildPropBool "IsPublishable" }
 
-  let getProjectOptionsFromProjectFile (file : string) =
+  type private ProjectParsingSdk = DotnetSdk | VerboseSdk
+
+  let private getProjectOptionsFromProjectFile parseAsSdk (file : string) =
 
     let rec projInfo additionalMSBuildProps file =
         let projDir = Path.GetDirectoryName file
 
-        let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
-        if not(File.Exists(projectAssetsJsonPath)) then
-            raise (ProjectInspectException (ProjectNotRestored file))
+        match parseAsSdk with
+        | ProjectParsingSdk.DotnetSdk ->
+            let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
+            if not(File.Exists(projectAssetsJsonPath)) then
+                raise (ProjectInspectException (ProjectNotRestored file))
+        | ProjectParsingSdk.VerboseSdk ->
+            ()
 
-        let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
+        let getFscArgs =
+            match parseAsSdk with
+            | ProjectParsingSdk.DotnetSdk ->
+                Dotnet.ProjInfo.Inspect.getFscArgs
+            | ProjectParsingSdk.VerboseSdk ->
+                let asFscArgs props =
+                    let fsc = Microsoft.FSharp.Build.Fsc()
+                    Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
+                Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (fun _ -> Ok [])
+
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
         let additionalInfo = //needed for extra
             [ "OutputType"
@@ -102,9 +117,16 @@ module ProjectCrackerDotnetSdk =
 
             let additionalArgs = additionalMSBuildProps |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
 
+            let inspect =
+                match parseAsSdk with
+                | ProjectParsingSdk.DotnetSdk ->
+                    Dotnet.ProjInfo.Inspect.getProjectInfos
+                | ProjectParsingSdk.VerboseSdk ->
+                    Dotnet.ProjInfo.Inspect.getProjectInfosOldSdk
+
             let infoResult =
                 file
-                |> Dotnet.ProjInfo.Inspect.getProjectInfos loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+                |> inspect loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
 
             infoResult, (loggedMessages.ToArray() |> Array.toList)
 
@@ -217,12 +239,17 @@ module ProjectCrackerDotnetSdk =
     po
 
 
-  let load file =
+  let private loadBySdk parseAsSdk file =
       try
-        let po = getProjectOptionsFromProjectFile file
+        let po = getProjectOptionsFromProjectFile parseAsSdk file
         let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
         Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
       with
         | ProjectInspectException d -> Error d
         | e -> Error (GenericError(e.Message))
 
+  let load file =
+      loadBySdk ProjectParsingSdk.DotnetSdk file
+
+  let loadVerboseSdk file =
+      loadBySdk ProjectParsingSdk.VerboseSdk file
