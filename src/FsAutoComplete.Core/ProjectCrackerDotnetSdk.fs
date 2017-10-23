@@ -261,7 +261,23 @@ module ProjectCrackerDotnetSdk =
       try
         let po = getProjectOptionsFromProjectFile parseAsSdk file
         let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
-        Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
+
+        let log =
+            match po.ExtraProjectInfo with
+            | None -> Map.empty
+            | Some x ->
+                match x with
+                | :? ExtraProjectInfoData as extraInfo ->
+                    match extraInfo.ProjectSdkType with
+                    | ProjectSdkType.Verbose ->
+                        //compatibility with old log for verbose sdk, so test output is exactly the same
+                        Map.empty |> Map.add po.ProjectFileName ""
+                    | ProjectSdkType.ProjectJson
+                    | ProjectSdkType.DotnetSdk _ ->
+                        Map.empty
+                | _ -> Map.empty
+            
+        Ok (po, Seq.toList compileFiles, log)
       with
         | ProjectInspectException d -> Error d
         | e -> Error (GenericError(e.Message))
