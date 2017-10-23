@@ -230,7 +230,7 @@ module ProjectCrackerDotnetSdk =
                     let extraInfo = getExtraInfo props
                     ProjectSdkType.DotnetSdk(extraInfo)
                 | ProjectParsingSdk.VerboseSdk ->
-                    ProjectSdkType.Verbose
+                    ProjectSdkType.Verbose { TargetPath = tar }
 
             let po =
                 {
@@ -274,7 +274,7 @@ module ProjectCrackerDotnetSdk =
             match po with
             | ProjectExtraInfoBySdk extraInfo ->
                 match extraInfo.ProjectSdkType with
-                | ProjectSdkType.Verbose ->
+                | ProjectSdkType.Verbose _ ->
                     //compatibility with old behaviour (projectcracker), so test output is exactly the same
                     //the temp source files (like generated assemblyinfo.fs) are not added to sources
                     let isTempFile (name: string) =
@@ -292,7 +292,7 @@ module ProjectCrackerDotnetSdk =
             match po with
             | ProjectExtraInfoBySdk extraInfo ->
                 match extraInfo.ProjectSdkType with
-                | ProjectSdkType.Verbose ->
+                | ProjectSdkType.Verbose _ ->
                     //compatibility with old behaviour (projectcracker), so test output is exactly the same
                     Map.empty |> Map.add po.ProjectFileName ""
                 | ProjectSdkType.ProjectJson

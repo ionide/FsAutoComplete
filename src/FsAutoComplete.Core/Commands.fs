@@ -161,7 +161,13 @@ type Commands (serialize : Serializer) =
                     | Some x ->
                         match x with
                         | :? ExtraProjectInfoData as extraInfo ->
-                            let outFileOpt = FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
+                            let outFileOpt =
+                                match extraInfo.ProjectSdkType with
+                                | ProjectSdkType.Verbose v ->
+                                    Some (v.TargetPath)
+                                | ProjectSdkType.ProjectJson
+                                | ProjectSdkType.DotnetSdk _ ->
+                                    FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
                             let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                             let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)

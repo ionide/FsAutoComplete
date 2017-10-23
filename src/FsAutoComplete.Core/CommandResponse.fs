@@ -336,7 +336,7 @@ module CommandResponse =
   let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
-      | ProjectSdkType.Verbose ->
+      | ProjectSdkType.Verbose _ ->
         ProjectResponseInfo.Verbose
       | ProjectSdkType.ProjectJson ->
         ProjectResponseInfo.ProjectJson

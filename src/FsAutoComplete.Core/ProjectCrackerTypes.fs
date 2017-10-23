@@ -5,9 +5,13 @@ open System.IO
 
 [<RequireQualifiedAccess>]
 type ProjectSdkType =
-    | Verbose
+    | Verbose of ProjectSdkTypeVerbose
     | ProjectJson
     | DotnetSdk of ProjectSdkTypeDotnetSdk
+and ProjectSdkTypeVerbose =
+    {
+      TargetPath: string
+    }
 and ProjectSdkTypeDotnetSdk =
     {
       IsTestProject: bool
