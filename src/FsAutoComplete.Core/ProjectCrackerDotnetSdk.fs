@@ -256,6 +256,14 @@ module ProjectCrackerDotnetSdk =
     let _, po = projInfo [] file
     po
 
+  let private (|ProjectExtraInfoBySdk|_|) po =
+      match po.ExtraProjectInfo with
+      | None -> None
+      | Some x ->
+          match x with
+          | :? ExtraProjectInfoData as extraInfo ->
+              Some extraInfo
+          | _ -> None
 
   let private loadBySdk parseAsSdk file =
       try
@@ -263,19 +271,16 @@ module ProjectCrackerDotnetSdk =
         let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
 
         let log =
-            match po.ExtraProjectInfo with
-            | None -> Map.empty
-            | Some x ->
-                match x with
-                | :? ExtraProjectInfoData as extraInfo ->
-                    match extraInfo.ProjectSdkType with
-                    | ProjectSdkType.Verbose ->
-                        //compatibility with old log for verbose sdk, so test output is exactly the same
-                        Map.empty |> Map.add po.ProjectFileName ""
-                    | ProjectSdkType.ProjectJson
-                    | ProjectSdkType.DotnetSdk _ ->
-                        Map.empty
-                | _ -> Map.empty
+            match po with
+            | ProjectExtraInfoBySdk extraInfo ->
+                match extraInfo.ProjectSdkType with
+                | ProjectSdkType.Verbose ->
+                    //compatibility with old log for verbose sdk, so test output is exactly the same
+                    Map.empty |> Map.add po.ProjectFileName ""
+                | ProjectSdkType.ProjectJson
+                | ProjectSdkType.DotnetSdk _ ->
+                    Map.empty
+            | _ -> Map.empty
             
         Ok (po, Seq.toList compileFiles, log)
       with
