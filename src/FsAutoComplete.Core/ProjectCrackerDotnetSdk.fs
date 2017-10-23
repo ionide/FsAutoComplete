@@ -268,14 +268,32 @@ module ProjectCrackerDotnetSdk =
   let private loadBySdk parseAsSdk file =
       try
         let po = getProjectOptionsFromProjectFile parseAsSdk file
-        let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
+
+        let compileFiles =
+            let sources = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
+            match po with
+            | ProjectExtraInfoBySdk extraInfo ->
+                match extraInfo.ProjectSdkType with
+                | ProjectSdkType.Verbose ->
+                    //compatibility with old behaviour (projectcracker), so test output is exactly the same
+                    //the temp source files (like generated assemblyinfo.fs) are not added to sources
+                    let isTempFile (name: string) =
+                        let tempPath = Path.GetTempPath()
+                        let s = name.ToLower()
+                        s.StartsWith(tempPath.ToLower())
+                    sources
+                    |> List.filter (not << isTempFile)
+                | ProjectSdkType.ProjectJson
+                | ProjectSdkType.DotnetSdk _ ->
+                    sources
+            | _ -> sources
 
         let log =
             match po with
             | ProjectExtraInfoBySdk extraInfo ->
                 match extraInfo.ProjectSdkType with
                 | ProjectSdkType.Verbose ->
-                    //compatibility with old log for verbose sdk, so test output is exactly the same
+                    //compatibility with old behaviour (projectcracker), so test output is exactly the same
                     Map.empty |> Map.add po.ProjectFileName ""
                 | ProjectSdkType.ProjectJson
                 | ProjectSdkType.DotnetSdk _ ->
