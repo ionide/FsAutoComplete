@@ -344,8 +344,8 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     // replace temp directory with <tempdir path removed>
     lines.[i] <- Regex.Replace(lines.[i],
-                               Path.GetTempPath().Replace('\\','/'),
-                               "<tempdir path removed>/")
+                               Path.GetTempPath().Replace("\\","[/|\\\\]"),
+                               "<tempdir path removed>/", RegexOptions.IgnoreCase)
 
     // replace temp filename with <tempfile name removed>
     lines.[i] <- Regex.Replace(lines.[i],
