@@ -3,7 +3,7 @@ open TestHelpers
 open System.IO
 open System
 
-let outputJson = outputJsonForRuntime "output.json"
+let outputJson = "output.json"
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete outputJson

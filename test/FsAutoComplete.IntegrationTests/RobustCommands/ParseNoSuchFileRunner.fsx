@@ -3,7 +3,7 @@ open TestHelpers
 open System.IO
 open System
 
-let parsenosuchfileJson = outputJsonForRuntime "parsenosuchfile.json"
+let parsenosuchfileJson = "parsenosuchfile.json"
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete parsenosuchfileJson

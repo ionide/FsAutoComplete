@@ -9,7 +9,7 @@ open System
  * A few completions, files and script.
  *)
 
-let outputJson = outputJsonForRuntime "output.json"
+let outputJson = "output.json"
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete outputJson

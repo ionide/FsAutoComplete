@@ -3,7 +3,7 @@ open TestHelpers
 open System.IO
 open System
 
-let completebadpositionJson = outputJsonForRuntime "completebadposition.json"
+let completebadpositionJson = "completebadposition.json"
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete completebadpositionJson

@@ -3,7 +3,7 @@ open TestHelpers
 open System.IO
 open System
 
-let completenosuchfileJson = outputJsonForRuntime "completenosuchfile.json"
+let completenosuchfileJson = "completenosuchfile.json"
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete completenosuchfileJson
