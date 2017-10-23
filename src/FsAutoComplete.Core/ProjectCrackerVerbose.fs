@@ -67,10 +67,14 @@ module ProjectCrackerVerbose =
                 { po with SourceFiles = fileNames ; OtherOptions = otherOptions }
 
         let rec setExtraInfo po =
+            let outPath =
+                match FscArguments.outputFile (Path.GetDirectoryName(po.ProjectFileName)) (po.OtherOptions |> List.ofArray) with
+                | Some path -> path
+                | None -> failwithf "Cannot find output argument (-o, --out) in project '%s' with args %A" po.ProjectFileName po
             { po with
                  SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators
                  ExtraProjectInfo = Some (box {
-                    ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose
+                    ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.Verbose { TargetPath = outPath }
                     ProjectOutputType = po.OtherOptions |> List.ofArray |> FscArguments.outType
                  })
                  ReferencedProjects = po.ReferencedProjects |> Array.map (fun (path,p2p) -> path, (setExtraInfo p2p)) }
