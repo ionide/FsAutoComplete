@@ -23,7 +23,7 @@ NUGET
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
   remote: https://www.myget.org/F/fsac-netcore/api/v2
-    Dotnet.ProjInfo (0.8.0-PR9-00024)
+    Dotnet.ProjInfo (0.8.0-PR9-00034)
       FSharp.Core (>= 4.0.0.1)
 
 GROUP Build
@@ -35,7 +35,7 @@ NUGET
     Octokit (0.27) - generate_load_scripts: true
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (ddf45441759a2a7bc528b3b4c6f9a1edc7bd9f55)
+    modules/Octokit/Octokit.fsx (838f43e1e6ac18014b2515799fe7fa0e23186fbc)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
