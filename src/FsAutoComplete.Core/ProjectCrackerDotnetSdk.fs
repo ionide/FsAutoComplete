@@ -183,7 +183,12 @@ module ProjectCrackerDotnetSdk =
                 p2ps
                 // do not follow others lang project, is not supported by FCS anyway
                 |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
-                |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
+                |> List.map (fun p2p ->
+                    let followP2pArgs =
+                        p2p.TargetFramework
+                        |> Option.map (fun tfm -> "TargetFramework", tfm)
+                        |> Option.toList
+                    p2p.ProjectReferenceFullPath |> projInfo followP2pArgs )
 
             let tar =
                 match props |> Map.tryFind "TargetPath" with
