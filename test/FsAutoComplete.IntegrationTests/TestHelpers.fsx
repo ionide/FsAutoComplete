@@ -11,12 +11,15 @@ open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
-type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
+type FSACRuntime = NET | NETCoreSCD | NETCoreFDD of published: bool
 type IntegrationTestConfig = { Runtime: FSACRuntime }
 
 let testConfig =
 #if FSAC_TEST_EXE_NETCORE
-    { Runtime = NETCoreFDD }
+    { Runtime = NETCoreFDD false }
+#else
+#if FSAC_TEST_EXE_NETCORE_PUBLISHED
+    { Runtime = NETCoreFDD true }
 #else
 #if FSAC_TEST_EXE_NETCORE_SCD
     { Runtime = NETCoreSCD }
@@ -24,23 +27,27 @@ let testConfig =
     { Runtime = NET }
 #endif
 #endif
+#endif
  
 
 let outputJsonForRuntime path =
   match testConfig.Runtime with
-  | FSACRuntime.NETCoreFDD | FSACRuntime.NETCoreSCD ->
+  | FSACRuntime.NETCoreFDD _ | FSACRuntime.NETCoreSCD ->
     System.IO.Path.ChangeExtension(path, ".netcore.json")
   | FSACRuntime.NET ->
     path
 
 let fsacExePath () =
   match testConfig.Runtime with
-  | FSACRuntime.NETCoreFDD ->
+  | FSACRuntime.NETCoreFDD false ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
+  | FSACRuntime.NETCoreFDD true ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
   | FSACRuntime.NETCoreSCD ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete.exe")
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete")
   | FSACRuntime.NET ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
@@ -48,7 +55,7 @@ let fsacExePath () =
 let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.FileName <-
       match testConfig.Runtime with
-      | FSACRuntime.NETCoreFDD ->
+      | FSACRuntime.NETCoreFDD _ ->
           IO.Path.Combine(__SOURCE_DIRECTORY__,
                           "../../.dotnetsdk/v2.0.0/dotnet")
       | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
@@ -60,7 +67,7 @@ let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.UseShellExecute <- false
     startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     match testConfig.Runtime with
-    | FSACRuntime.NETCoreFDD ->
+    | FSACRuntime.NETCoreFDD _ ->
         startInfo.Arguments <- fsacExePath ()
     | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
         ()
