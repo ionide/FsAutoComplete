@@ -159,7 +159,7 @@ module NETFrameworkInfoProvider =
           yield "System.Numerics" 
     ]
 
-  let getAdditionalArgumentsBy targetFramework =
+  let private getAdditionalArgumentsBy targetFramework =
     let refs =
       let allRefs = defaultReferencesForNonProjectFiles ()
       let props = targetFramework |> Option.map (fun tfm -> "TargetFrameworkVersion", tfm) |> Option.toList
@@ -172,3 +172,13 @@ module NETFrameworkInfoProvider =
     [ yield "--simpleresolution"
       yield "--noframework"
       yield! refs ]
+
+  let private additionalArgsByTfm = System.Collections.Concurrent.ConcurrentDictionary<string, string list>()
+
+  let additionalArgumentsBy targetFramework =
+    //memoize because expensive
+    let f tfm = getAdditionalArgumentsBy (if String.IsNullOrEmpty(tfm) then None else Some tfm)
+    let key = targetFramework |> Option.getOrElse ""
+    additionalArgsByTfm.GetOrAdd(key, f)
+
+

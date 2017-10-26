@@ -262,7 +262,7 @@ type FSharpCompilerServiceChecker() =
     printfn "TFM: %A" targetFramework
 
     let additionaRefs =
-      NETFrameworkInfoProvider.getAdditionalArgumentsBy targetFramework
+      NETFrameworkInfoProvider.additionalArgumentsBy targetFramework
       |> Array.ofList
 
     printfn "AI: started"
