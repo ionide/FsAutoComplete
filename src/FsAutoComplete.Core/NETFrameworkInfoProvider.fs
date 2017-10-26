@@ -171,7 +171,7 @@ module NETFrameworkInfoProvider =
           failwithf "error getting msbuild info: unexpected %A" r
     [ yield "--simpleresolution"
       yield "--noframework"
-      yield! refs ]
+      yield! refs |> List.map (sprintf "-r:%s") ]
 
   let private additionalArgsByTfm = System.Collections.Concurrent.ConcurrentDictionary<string, string list>()
 
