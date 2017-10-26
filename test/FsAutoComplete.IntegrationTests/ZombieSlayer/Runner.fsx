@@ -67,7 +67,7 @@ let run () =
     let fsacExePath = FsAutoCompleteWrapper.ExePath ()
     let requireDotnetFlag =
       match testConfig.Runtime with
-      | FSACRuntime.NETCoreFDD -> true
+      | FSACRuntime.NETCoreFDD _ -> true
       | FSACRuntime.NET | FSACRuntime.NETCoreSCD -> false
 
     let start =
