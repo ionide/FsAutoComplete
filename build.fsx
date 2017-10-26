@@ -103,6 +103,8 @@ let isTestSkipped cfg fn =
   | AnyNetcoreRuntime, _, "DotNetCoreCrossgen", "Runner.fsx"
   | AnyNetcoreRuntime, _, "DotNetCoreWithOtherDotnetLang", "FSharpOuterRunner.fsx" ->
     Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
+  | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
+    Some "know failure, the FSharp.Core is not added if not in the fsc args list"
   // by default others are enabled
   | _ -> None
 
