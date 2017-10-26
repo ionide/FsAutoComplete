@@ -16,17 +16,7 @@ and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP
 
 module ProjectCrackerDotnetSdk =
 
-  let msbuildPropBool (s: string) =
-    match s.Trim() with
-    | "" -> None
-    | MSBuildPrj.MSBuild.ConditionEquals "True" -> Some true
-    | _ -> Some false
-
-  let msbuildPropStringList (s: string) =
-    match s.Trim() with
-    | "" -> []
-    | MSBuildPrj.MSBuild.StringList list  -> list
-    | _ -> []
+  open DotnetProjInfoInspectHelpers
 
   let msbuildPropProjectOutputType (s: string) =
     match s.Trim() with
@@ -140,26 +130,6 @@ module ProjectCrackerDotnetSdk =
                 |> inspect loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
 
             infoResult, (loggedMessages.ToArray() |> Array.toList)
-
-        let (|MsbuildOk|_|) x =
-            match x with
-#if NETSTANDARD2_0
-            | Ok x -> Some x
-            | Error _ -> None
-#else
-            | Choice1Of2 x -> Some x
-            | Choice2Of2 _ -> None
-#endif
-
-        let (|MsbuildError|_|) x =
-            match x with
-#if NETSTANDARD2_0
-            | Ok _ -> None
-            | Error x -> Some x
-#else
-            | Choice1Of2 _ -> None
-            | Choice2Of2 x -> Some x
-#endif
 
         let todo =
             match results with

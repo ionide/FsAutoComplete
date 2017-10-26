@@ -107,17 +107,12 @@ module Environment =
       let fsharpCoreVersions = ["4.4.1.0"; "4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
       tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
 
-  let referenceAssembliesPath () =
 #if SCRIPT_REFS_FROM_MSBUILD
-    NETFrameworkInfoFromMSBuild.getReferenceAssembliesPath ()
 #else
+  let referenceAssembliesPath () =
     Some (programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework")
-#endif
 
   let dotNetVersions () =
-#if SCRIPT_REFS_FROM_MSBUILD
-    printfn "TFM: %A" referenceAssembliesPath
-#endif
     match referenceAssembliesPath () |> Option.filter Directory.Exists with
     | Some path ->
       Directory.EnumerateDirectories path
@@ -127,7 +122,19 @@ module Environment =
       |> Array.rev
     | None ->
       Array.empty
+#endif
 
   let netReferecesAssembliesTFM () =
+#if SCRIPT_REFS_FROM_MSBUILD
+    NETFrameworkInfoProvider.installedNETVersions ()
+    |> Array.ofList
+#else
     dotNetVersions ()
     |> Array.map Path.GetFileName
+#endif
+
+  let netReferecesAssembliesTFMLatest () =
+    netReferecesAssembliesTFM ()
+    |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
+    |> Array.rev
+    |> Array.tryHead

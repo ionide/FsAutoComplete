@@ -221,7 +221,7 @@ type FSharpCompilerServiceChecker() =
   let ensureCorrectVersions (options: string[]) =
     if Utils.runningOnMono then options
     else
-      match Environment.referenceAssembliesPath (), Environment.netReferecesAssembliesTFM () |> Array.tryHead with
+      match Environment.referenceAssembliesPath (), Environment.netReferecesAssembliesTFMLatest () with
       | _, None -> options
       | Some referenceAssembliesPath, Some version ->
         let oldRef = referenceAssembliesPath </> "v4.0"
@@ -254,13 +254,15 @@ type FSharpCompilerServiceChecker() =
 
 #if SCRIPT_REFS_FROM_MSBUILD
 
-    printfn "DV: %A" (Environment.dotNetVersions ())
+    // printfn "DV: %A" (Environment.dotNetVersions ())
 
-    let targetFramework = Environment.netReferecesAssembliesTFM () |> Array.tryHead
+    printfn "installed: %A" (Environment.netReferecesAssembliesTFM ())
+
+    let targetFramework = Environment.netReferecesAssembliesTFMLatest ()
     printfn "TFM: %A" targetFramework
 
     let additionaRefs =
-      NETFrameworkInfoFromMSBuild.getAdditionalArguments targetFramework
+      NETFrameworkInfoProvider.getAdditionalArgumentsBy targetFramework
       |> Array.ofList
 
     printfn "AI: started"
