@@ -23,7 +23,7 @@ NUGET
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
   remote: https://www.myget.org/F/fsac-netcore/api/v2
-    Dotnet.ProjInfo (0.8.0-PR9-00034)
+    Dotnet.ProjInfo (0.9.0-PR11-00049)
       FSharp.Core (>= 4.0.0.1)
 
 GROUP Build
