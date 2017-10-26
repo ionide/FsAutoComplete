@@ -199,20 +199,24 @@ module ProjectCrackerDotnetSdk =
                 //workaround, arguments in rsp can use relative paths
                 rsp |> List.map (FscArguments.useFullPaths projDir)
             
-            let sdkTypeData =
+            let sdkTypeData, log =
                 match parseAsSdk with
                 | ProjectParsingSdk.DotnetSdk ->
                     let extraInfo = getExtraInfo props
-                    ProjectSdkType.DotnetSdk(extraInfo)
+                    ProjectSdkType.DotnetSdk(extraInfo), []
                 | ProjectParsingSdk.VerboseSdk ->
-                    ProjectSdkType.Verbose { TargetPath = tar }
+                    //compatibility with old behaviour, so output is exactly the same
+                    let mergedLog =
+                        [ yield (file, "")
+                          yield! p2pProjects |> List.collect (fun (_,_,x) -> x) ]
+                    ProjectSdkType.Verbose { TargetPath = tar }, mergedLog
 
             let po =
                 {
                     ProjectFileName = file
                     SourceFiles = [||]
                     OtherOptions = rspNormalized |> Array.ofList
-                    ReferencedProjects = p2pProjects |> Array.ofList
+                    ReferencedProjects = p2pProjects |> List.map (fun (x,y,_) -> (x,y)) |> Array.ofList
                     IsIncompleteTypeCheckEnvironment = false
                     UseScriptResolutionRules = false
                     LoadTime = DateTime.Now
@@ -226,10 +230,10 @@ module ProjectCrackerDotnetSdk =
                         })
                 }
 
-            tar, po
+            tar, po, log
 
-    let _, po = projInfo [] file
-    po
+    let _, po, log = projInfo [] file
+    po, log
 
   let private (|ProjectExtraInfoBySdk|_|) po =
       match po.ExtraProjectInfo with
@@ -242,7 +246,7 @@ module ProjectCrackerDotnetSdk =
 
   let private loadBySdk parseAsSdk file =
       try
-        let po = getProjectOptionsFromProjectFile parseAsSdk file
+        let po, log = getProjectOptionsFromProjectFile parseAsSdk file
 
         let compileFiles =
             let sources = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
@@ -262,20 +266,8 @@ module ProjectCrackerDotnetSdk =
                 | ProjectSdkType.DotnetSdk _ ->
                     sources
             | _ -> sources
-
-        let log =
-            match po with
-            | ProjectExtraInfoBySdk extraInfo ->
-                match extraInfo.ProjectSdkType with
-                | ProjectSdkType.Verbose _ ->
-                    //compatibility with old behaviour (projectcracker), so test output is exactly the same
-                    Map.empty |> Map.add po.ProjectFileName ""
-                | ProjectSdkType.ProjectJson
-                | ProjectSdkType.DotnetSdk _ ->
-                    Map.empty
-            | _ -> Map.empty
             
-        Ok (po, Seq.toList compileFiles, log)
+        Ok (po, Seq.toList compileFiles, (log |> Map.ofList))
       with
         | ProjectInspectException d -> Error d
         | e -> Error (GenericError(e.Message))
