@@ -256,49 +256,57 @@ type FSharpCompilerServiceChecker() =
 
     // printfn "DV: %A" (Environment.dotNetVersions ())
 
-    printfn "installed: %A" (Environment.netReferecesAssembliesTFM ())
+    // printfn "installed: %A" (Environment.netReferecesAssembliesTFM ())
 
     let targetFramework = Environment.netReferecesAssembliesTFMLatest ()
-    printfn "TFM: %A" targetFramework
+    // printfn "TFM: %A" targetFramework
 
     let additionaRefs =
       NETFrameworkInfoProvider.additionalArgumentsBy targetFramework
       |> Array.ofList
 
-    printfn "AI: started"
-    printfn "AI: %A" additionaRefs
-    printfn "AI: end"
+    // printfn "AI: started"
+    // printfn "AI: %A" additionaRefs
+    // printfn "AI: end"
 
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
 
-    printfn "PC: started"
-    printfn "PC: %A" rawOptions.OtherOptions
-    printfn "PC: end"
+    // printfn "PC: started"
+    // printfn "PC: %A" rawOptions
+    // printfn "PC: end"
 
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
 
-    printfn "SF: started"
-    printfn "SF: %A" opts
-    printfn "SF: end"
+    // printfn "SF: started"
+    // printfn "SF: %A" opts
+    // printfn "SF: end"
 
     let opts =
       opts
       |> Array.distinct
 
-    printfn "FIN: started"
-    printfn "FIN: %A" opts
-    printfn "FIN: end"
+    // printfn "FIN: started"
+    // printfn "FIN: %A" opts
+    // printfn "FIN: end"
 
     return { rawOptions with OtherOptions = opts }
 #else
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
 
+    // printfn "PC: started"
+    // printfn "PC: %A" rawOptions
+    // printfn "PC: end"
+    
     let opts =
       rawOptions.OtherOptions
       |> ensureCorrectFSharpCore
       |> ensureCorrectVersions
+
+    // printfn "SF: started"
+    // printfn "SF: %A" opts
+    // printfn "SF: end"
 
     return { rawOptions with OtherOptions = opts }
 #endif
