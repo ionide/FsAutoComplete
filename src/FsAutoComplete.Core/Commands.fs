@@ -24,6 +24,12 @@ type Commands (serialize : Serializer) =
        state.NavigationDeclarations.[parseRes.FileName] <- decls
     )
 
+    let normalizeOptions (opts : FSharpProjectOptions) = 
+        { opts with
+            SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
+            OtherOptions = opts.OtherOptions |> Array.map (fun n -> if n.StartsWith "-" then n else Path.GetFullPath n)
+        }
+
     let parseFilesInTheBackground files =
         async {
             files
@@ -96,7 +102,7 @@ type Commands (serialize : Serializer) =
 
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
                 return! parse' file text checkOptions
             else
                 let! checkOptions =
@@ -104,7 +110,7 @@ type Commands (serialize : Serializer) =
                     | Some c -> async.Return c
                     | None -> async {
                         let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                        state.AddFileTextAndCheckerOptions(file, lines, checkOptions)
+                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
                         return checkOptions
                     }
                 return! parse' file text checkOptions
@@ -138,7 +144,7 @@ type Commands (serialize : Serializer) =
             match project.Response with
             | Some response ->
                 for file in response.Files do
-                    state.FileCheckOptions.[file] <- response.Options
+                    state.FileCheckOptions.[file] <- normalizeOptions response.Options
 
                 response.Files
                 |> parseFilesInTheBackground
@@ -166,7 +172,7 @@ type Commands (serialize : Serializer) =
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                             let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
                             for file in projectFiles do
-                                state.FileCheckOptions.[file] <- opts
+                                state.FileCheckOptions.[file] <- normalizeOptions opts
 
                             projectFiles
                             |> parseFilesInTheBackground

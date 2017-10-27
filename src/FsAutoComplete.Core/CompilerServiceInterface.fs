@@ -191,7 +191,7 @@ type FSharpCompilerServiceChecker() =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = false,
+      keepAllBackgroundResolutions = true,
       keepAssemblyContents = true)
 
   do checker.BeforeBackgroundFileCheck.Add ignore
@@ -285,7 +285,7 @@ type FSharpCompilerServiceChecker() =
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null)) //TODO: Add cancelation again
+      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
       return
           match res with
           | Choice1Of2 x -> Success x
@@ -306,7 +306,7 @@ type FSharpCompilerServiceChecker() =
         | Net45 -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
         | Unsupported -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
 
-  member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
+  member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
     let projects = getDependingProjects file options
     return!
       match projects with
