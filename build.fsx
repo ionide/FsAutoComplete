@@ -176,6 +176,13 @@ let runall cfg =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
+    trace "debug log..."
+    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , @".paket\load\net45\IntegrationTests\Http.fs.fsx")
+    trace (sprintf "File '%s' content (begin)" includeFile)
+    File.ReadAllLines(includeFile)
+    |> Array.iter (trace)
+    trace "File content (end)"
+
     trace "Running Integration tests..."
     let runOk =
      integrationTests

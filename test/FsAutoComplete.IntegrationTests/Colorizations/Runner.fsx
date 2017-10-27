@@ -3,13 +3,6 @@ open TestHelpers
 open System.IO
 open System
 
-let includeFile = __SOURCE_DIRECTORY__ + @"..\..\..\..\.paket\load\net45\IntegrationTests\Http.fs.fsx"
-printfn "File '%s' content (begin)" includeFile
-File.ReadAllLines(includeFile)
-|> Array.iter (printfn "%s")
-printfn "File content (end)"
-
-
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 File.Delete "output.json"
 
