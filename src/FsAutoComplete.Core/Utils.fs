@@ -84,6 +84,12 @@ module Option =
     | Some x -> Some x
     | None -> v
 
+  let inline fill f o =
+    match o with
+    | Some v -> v
+    | _      -> f
+
+
 
   let orElseFun other option =
     match option with
@@ -303,6 +309,11 @@ module Array =
             array.[idx] <- t2
             array.[arrlen-idx] <- t1
 
+module List =
+
+    ///Returns the greatest of all elements in the list that is less than the threshold
+    let maxUnderThreshold nmax =
+        List.maxBy(fun n -> if n > nmax then 0 else n)
 
 
 

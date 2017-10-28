@@ -269,7 +269,7 @@ type Commands (serialize : Serializer) =
         }
 
     member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos lineStr
+        tyRes.TryGetToolTipEnhanced pos lineStr
         |> x.SerializeResult Response.toolTip
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 

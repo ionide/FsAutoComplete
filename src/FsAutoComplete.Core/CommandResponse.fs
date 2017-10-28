@@ -122,6 +122,13 @@ module CommandResponse =
       Comment: string
     }
 
+  type TooltipDescription =
+    {
+      Signature: string
+      Comment: string
+      Footer: string
+    }
+
   type OverloadParameter =
     {
       Name : string
@@ -347,7 +354,7 @@ module CommandResponse =
   let error (serialize : Serializer) (s: string) = errorG serialize ErrorData.GenericError s
 
   let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
-    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
 
   let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
@@ -464,7 +471,7 @@ module CommandResponse =
                              CurrentParameter = commas
                              Overloads =
                               [ for o in meth.Methods do
-                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
                                  yield {
                                    Tip = tip
                                    TypeText = o.ReturnTypeText
@@ -504,8 +511,8 @@ module CommandResponse =
         })
      serialize { Kind = "declarations"; Data = decls' }
 
-  let toolTip (serialize : Serializer) (tip) =
-    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+  let toolTip (serialize : Serializer) (tip, signature, footer) =
+    let data = TipFormatter.formatTipEnhanced tip signature footer |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
 
   let typeSig (serialize : Serializer) (tip) =
