@@ -370,15 +370,19 @@ module SignatureFormatter =
             prefix ++ field.DisplayName ++ ":" ++ retType
 
     let getAPCaseSignature displayContext (apc:FSharpActivePatternCase) =
-      let findVal =
-          apc.Group.EnclosingEntity
-          |> Option.bind (fun ent -> ent.MembersFunctionsAndValues
+        let findVal =
+            apc.Group.EnclosingEntity
+            |> Option.bind (fun ent -> ent.MembersFunctionsAndValues
                                     |> Seq.tryFind (fun func -> func.DisplayName.Contains apc.DisplayName)
                                     |> Option.map (getFuncSignature displayContext))
+            |> Option.bind (fun n ->
+                try
+                    Some (n.Split([|':' |], 2).[1])
+                with _ -> None )
+            |> Option.getOrElse ""
 
-      match findVal with
-      | Some v -> v
-      | None -> apc.Group.OverallType.Format displayContext
+
+        sprintf "active recognizer %s: %s" apc.Name findVal
 
     let footerForType (entity:FSharpSymbolUse) =
         try
