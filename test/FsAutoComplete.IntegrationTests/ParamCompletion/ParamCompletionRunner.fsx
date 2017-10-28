@@ -9,10 +9,8 @@ open System
  * A few completions, files and script.
  *)
 
-let outputJson = "output.json"
-
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete outputJson
+File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -28,4 +26,4 @@ p.methods "Program.fs" "let val4 = MyDateTime.Parse(\\\"hello\\\")" 15 34
 p.methods "Program.fs" "          \\\"hello\\\"" 19 3
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput outputJson
+|> writeNormalizedOutput "output.json"

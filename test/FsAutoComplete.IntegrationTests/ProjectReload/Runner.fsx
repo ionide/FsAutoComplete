@@ -8,10 +8,8 @@ open System
  * A few completions, files and script.
  *)
 
-let outputJson = "output.json"
-
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete outputJson
+File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -22,5 +20,5 @@ File.WriteAllBytes("Test1.fsproj", File.ReadAllBytes "Test1.fsproj")
 Threading.Thread.Sleep 2000
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput outputJson
+|> writeNormalizedOutput "output.json"
 

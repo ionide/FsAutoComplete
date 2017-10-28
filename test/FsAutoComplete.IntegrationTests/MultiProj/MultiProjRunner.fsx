@@ -3,10 +3,8 @@ open TestHelpers
 open System.IO
 open System
 
-let outputJson = "output.json"
-
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete outputJson
+File.Delete "output.json"
 
 let p = new FsAutoCompleteWrapper()
 
@@ -42,5 +40,5 @@ p.completion "Proj2/Program.fs" "let val4 : FileTwo.NewObjectType = testval" 10 
 
 p.send "quit\n"
 p.finalOutput ()
-|> writeNormalizedOutput outputJson
+|> writeNormalizedOutput "output.json"
 
