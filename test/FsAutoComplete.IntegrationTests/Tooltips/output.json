@@ -182,7 +182,7 @@
   "Data": [
     [
       {
-        "Signature": "val ( |Even|Odd| ) :\n   input: int \n       -> Choice<unit,unit>",
+        "Signature": "active recognizer Even: \n   input: int \n       -> Choice<unit,unit>",
         "Comment": "",
         "Footer": "Full name: Script.( |Even|Odd| ).Even\nAssembly: Script"
       }
