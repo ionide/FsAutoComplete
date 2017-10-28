@@ -1,0 +1,83 @@
+{
+  "Kind": "info",
+  "Data": "Synchronous parsing started"
+}
+{
+  "Kind": "errors",
+  "Data": {
+    "File": "<absolute path removed>/FsAutoComplete.IntegrationTests/Tooltips/Script.fsx",
+    "Errors": []
+  }
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val funky :\n   x: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.XA.funky\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "module CommandResponse",
+        "Comment": "",
+        "Footer": "Full name: Script.CommandResponse\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type ResponseMsg<'T>",
+        "Comment": "",
+        "Footer": "Full name: Script.CommandResponse.ResponseMsg`1\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val funky :\n   x: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.XA.funky\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val funct :\n   x: CommandResponse.ResponseMsg<'a> \n   -> unit",
+        "Comment": "\n\nsome random xml docs",
+        "Footer": "Full name: Script.funct\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "DateTime :\n   ticks: int64 \n       -> unit",
+        "Comment": "Initializes a new instance of the System.DateTime structure to a specified number of ticks.\n\nticks: A date and time expressed in the number of 100-nanosecond intervals that have elapsed since January 1, 0001 at 00:00:00.000 in the Gregorian calendar. \n\nExceptions:\n\tSystem.ArgumentOutOfRangeException: ticks is less than System.DateTime.MinValue or greater than System.DateTime.MaxValue. ",
+        "Footer": "Full name: System.DateTime\nAssembly: mscorlib"
+      }
+    ]
+  ]
+}
