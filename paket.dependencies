@@ -1,6 +1,5 @@
 framework: net45
 source https://www.nuget.org/api/v2/
-source https://www.myget.org/F/fsac-netcore/api/v2/
 
 nuget Argu ~> 3.7
 nuget FSharp.Compiler.Service ~> 16
@@ -17,7 +16,6 @@ nuget System.Collections.Immutable < 1.4
 group Netcore
   storage: none
   source https://www.nuget.org/api/v2/
-  source https://www.myget.org/F/fsac-netcore/api/v2/
 
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
