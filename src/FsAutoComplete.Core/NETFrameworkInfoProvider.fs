@@ -86,23 +86,6 @@ module NETFrameworkInfoProvider =
         failwithf "error getting msbuild info: internal error"
 
 
-  // let private lazyGetReferenceAssembliesPath =
-  //   lazy( getReferenceAssembliesPathFromMsbuild () )
-
-  // let getReferenceAssembliesPath () =
-  //   lazyGetReferenceAssembliesPath.Force()
-
-  // let private getAdditionalArgumentsBy targetFramework =
-  
-  //   [ yield "--simpleresolution"
-  //     yield "--noframework"
-  //     yield! Dotnet.ProjInfo.Inspect. getFrameworkInfo targetFramework
-  //            |> fun x -> x.ReferencePath
-  //            |> List.map (sprintf "-r:%s") ]
-
-  // let getAdditionalArguments targetFramework =
-  //   getAdditionalArgumentsBy targetFramework
-
   let private getInstalledNETVersions () =
     let result, _ = getInfoFromMsbuild (Dotnet.ProjInfo.NETFrameworkInfoFromMSBuild.installedNETFrameworks) []
     match result with
