@@ -253,8 +253,9 @@
   "Data": [
     [
       {
-        "Signature": "val add : x:int -> y:int -> int\n\nFull name: FileTwo.add",
-        "Comment": ""
+        "Signature": "val add :\n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: FileTwo.add\nAssembly: Test1"
       }
     ]
   ]
@@ -264,8 +265,9 @@
   "Data": [
     [
       {
-        "Signature": "val func : x:int -> int\n\nFull name: Program.X.func",
-        "Comment": ""
+        "Signature": "val func :\n   x: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Program.X.func\nAssembly: Test1"
       }
     ]
   ]
@@ -275,8 +277,9 @@
   "Data": [
     [
       {
-        "Signature": "val testval : FileTwo.NewObjectType\n\nFull name: Program.testval",
-        "Comment": ""
+        "Signature": "val testval : FileTwo.NewObjectType",
+        "Comment": "",
+        "Footer": "Full name: Program.testval\nAssembly: Test1"
       }
     ]
   ]
@@ -286,8 +289,9 @@
   "Data": [
     [
       {
-        "Signature": "val funky : x:int -> int\n\nFull name: Script.XA.funky",
-        "Comment": ""
+        "Signature": "val funky :\n   x: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.XA.funky\nAssembly: Script"
       }
     ]
   ]
