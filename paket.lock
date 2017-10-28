@@ -2,6 +2,8 @@ RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.7)
+    Dotnet.ProjInfo (0.9)
+      FSharp.Core (>= 4.0.0.1)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1)
     FSharp.Compiler.Service (16.0.2)
@@ -22,9 +24,6 @@ NUGET
     System.Collections.Immutable (1.3.1)
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
-  remote: https://www.myget.org/F/fsac-netcore/api/v2
-    Dotnet.ProjInfo (0.9.0)
-      FSharp.Core (>= 4.0.0.1)
 
 GROUP Build
 GENERATE-LOAD-SCRIPTS: ON
@@ -58,6 +57,12 @@ NUGET
       FSharp.Core (>= 4.0.1.7-alpha) - restriction: >= netstandard1.6
       NETStandard.Library (>= 1.6) - restriction: >= netstandard1.6
       System.Xml.XDocument (>= 4.0.11) - restriction: >= netstandard1.6
+    Dotnet.ProjInfo (0.9)
+      FSharp.Core (>= 4.0.0.1) - restriction: >= net45
+      FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
+      FSharp.Core (>= 4.2.3) - restriction: && (< net45) (>= netstandard2.0)
+      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
+      System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1) - restriction: >= net40
       FSharp.Core (>= 4.2.3) - restriction: && (< net40) (>= netstandard1.6)
@@ -893,13 +898,6 @@ NUGET
       System.Threading (>= 4.3) - restriction: || (&& (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
       System.Xml.ReaderWriter (>= 4.3) - restriction: || (&& (< monoandroid) (< net45) (>= netstandard1.0) (< netstandard1.3) (< win8) (< wp8) (< wpa81)) (&& (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
       System.Xml.XmlDocument (>= 4.3) - restriction: || (&& (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
-  remote: https://www.myget.org/F/fsac-netcore/api/v2
-    Dotnet.ProjInfo (0.9.0)
-      FSharp.Core (>= 4.0.0.1) - restriction: >= net45
-      FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
-      FSharp.Core (>= 4.2.3) - restriction: && (< net45) (>= netstandard2.0)
-      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
-      System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
 GITHUB
   remote: Microsoft/visualfsharp
     src/fsharp/FSharp.Build/Fsc.fs (cc1b137bc17f401a0cc669ff8fc598714d0fe652)
