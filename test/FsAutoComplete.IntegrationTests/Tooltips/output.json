@@ -81,3 +81,111 @@
     ]
   ]
 }
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type Abcd",
+        "Comment": "\n\nSample type",
+        "Footer": "Full name: Script.Abcd\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type Desf",
+        "Comment": "",
+        "Footer": "Full name: Script.Desf\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "member",
+        "Comment": "Used to declare a property or method in an object type.",
+        "Footer": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type Qwer =\n| A of Item : string\n| B of Item1 : int * Item2 : float\n| C",
+        "Comment": "",
+        "Footer": "Full name: Script.Qwer\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "enum Gjk =\n| Q = 1\n| W = 2\n| E = 3",
+        "Comment": "",
+        "Footer": "Full name: Script.Gjk\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type",
+        "Comment": "Used to declare a class, record, structure, discriminated union, enumeration type, unit of measure, or type abbreviation.",
+        "Footer": ""
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val ( >=> ) :\n   a: int ->\n   b: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( >=> )\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val ( |Even|Odd| ) :\n   input: int \n       -> Choice<unit,unit>",
+        "Comment": "",
+        "Footer": "Full name: Script.( |Even|Odd| )\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val ( |Even|Odd| ) :\n   input: int \n       -> Choice<unit,unit>",
+        "Comment": "",
+        "Footer": "Full name: Script.( |Even|Odd| ).Even\nAssembly: Script"
+      }
+    ]
+  ]
+}
