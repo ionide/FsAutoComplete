@@ -102,6 +102,14 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
+let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) : (string * string * string) list list =
+    tips
+    |> List.choose (function
+        | FSharpToolTipElement.Group items ->
+            Some (items |> List.map (fun (it) ->  (signature, buildFormatComment it.XmlDoc, footer)))
+        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
+        | _ -> None)
+
 let extractSignature (FSharpToolTipText tips) =
     let getSignature (str: string) =
         let nlpos = str.IndexOfAny([|'\r';'\n'|])
