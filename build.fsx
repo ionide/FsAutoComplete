@@ -72,6 +72,8 @@ let isTestSkipped cfg fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
+  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") <> "0"
+
   match cfg.Runtime, cfg.Mode, dir, file with
   // stdio and http
   | _, _, "ProjectCache", "Runner.fsx" ->
@@ -85,10 +87,8 @@ let isTestSkipped cfg fn =
     | false, "1" -> None //force run on mono
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
   | _, _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
-  | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" ->
-    match isWindows with
-    | true -> None //always run it on windows
-    | false -> Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
+  | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" when not(isWindows) ->
+    Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
   // http
   | _, HttpMode, "RobustCommands", "NoSuchCommandRunner.fsx" ->
     Some "invalid command is 404 in http"
@@ -105,6 +105,20 @@ let isTestSkipped cfg fn =
     Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
   | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
+  // fsproj in test suite use ToolsVersion 4 (VS2010) and is not always installed
+  | AnyNetcoreRuntime, _, "ErrorTestsJson", "ErrorsRunner.fsx"
+  | AnyNetcoreRuntime, _, "FindDeclarations", "FindDeclRunner.fsx"
+  | AnyNetcoreRuntime, _, "MultiProj", "MultiProjRunner.fsx"
+  | AnyNetcoreRuntime, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
+  | AnyNetcoreRuntime, _, "ParamCompletion", "ParamCompletionRunner.fsx"
+  | AnyNetcoreRuntime, _, "ProjectReload", "Runner.fsx"
+  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
+  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
+  | AnyNetcoreRuntime, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
+  | AnyNetcoreRuntime, _, "SymbolUse", "SymbolUseRunner.fsx"
+  | AnyNetcoreRuntime, _, "Test1Json", "Test1JsonRunner.fsx"
+  | AnyNetcoreRuntime, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
+    Some "The test use old fsproj, and msbuild tools version 4 is not installed"
   // by default others are enabled
   | _ -> None
 
