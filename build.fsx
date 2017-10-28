@@ -191,7 +191,7 @@ let runall cfg =
       printfn "Done: %s" (ok.ToString())
 
     trace "apply workaround for bug https://github.com/fsprojects/Paket/issues/2868"
-    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , @".paket\load\net45\IntegrationTests\Http.fs.fsx")
+    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , @".paket/load/net45/IntegrationTests/Http.fs.fsx")
     trace (sprintf "File '%s' contents:" includeFile)
     File.ReadAllLines(includeFile)
     |> Array.iter (trace)
