@@ -55,3 +55,4 @@ let TestNumber input =
    | Odd -> 0
 
 let tasd = System.String.IsNullOrEmpty
+let cbfdg = Array.append

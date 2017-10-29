@@ -248,14 +248,14 @@ module SignatureFormatter =
         | [] ->
             //When does this occur, val type within  module?
             if isDelegate then retType
-            else modifiers ++ functionName ++ ":" ++ retType
+            else modifiers ++ functionName + ":" ++ retType
 
         | [[]] ->
             if isDelegate then retType
-            elif func.IsConstructor then modifiers ++ ": unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
-            else modifiers ++ functionName ++ ":" ++ retType //Value members seems to be a list with an empty list
+            elif func.IsConstructor then modifiers + ": unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
+            else modifiers ++ functionName + ":" ++ retType //Value members seems to be a list with an empty list
         | [[p]] when  maybeGetter && formatParameter p = "unit" -> //Member or property with only getter
-            modifiers ++ functionName ++ ":" ++ retType
+            modifiers ++ functionName + ":" ++ retType
         | many ->
 
             let allParamsLengths =
@@ -270,14 +270,14 @@ module SignatureFormatter =
                 |> List.map(fun (paramTypes, length) ->
                                 paramTypes
                                 |> List.map(fun p -> formatName indent padLength p ++ (parameterTypeWithPadding p length))
-                                |> String.concat ("*" ++ "\n"))
+                                |> String.concat ("*" + "\n"))
                 |> String.concat ("->\n")
 
             let typeArguments =
                 allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
 
             if isDelegate then typeArguments
-            else modifiers ++ functionName ++ ": " + "\n" + typeArguments
+            else modifiers ++ functionName + ": " + "\n" + typeArguments
 
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
@@ -341,11 +341,8 @@ module SignatureFormatter =
                     else "Unknown"
                 with _ -> "Unknown"
 
-        let padLength = 1
-
-        let formatName padding (parameter:FSharpParameter) =
-            let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
-            name.PadRight padding + ":"
+        let formatName (parameter:FSharpParameter) =
+            match parameter.Name with Some name -> name | None -> parameter.DisplayName
 
         let isDelegate =
             match func.EnclosingEntitySafe with
@@ -358,12 +355,12 @@ module SignatureFormatter =
             | [] ->
                 //When does this occur, val type within  module?
                 if isDelegate then retType
-                else modifiers ++ functionName ++ ": " ++ retType
+                else modifiers ++ functionName + ": " ++ retType
 
             | [[]] ->
                 if isDelegate then retType
-                elif func.IsConstructor then modifiers ++ ": unit ->" ++ retType //A ctor with () parameters seems to be a list with an empty list
-                else modifiers ++ functionName ++ ": " ++ retType //Value members seems to be a list with an empty list
+                elif func.IsConstructor then modifiers + ": unit ->" ++ retType //A ctor with () parameters seems to be a list with an empty list
+                else modifiers ++ functionName + ": " ++ retType //Value members seems to be a list with an empty list
             | many ->
                 let formatParameter (p:FSharpParameter) =
                     try
@@ -371,32 +368,25 @@ module SignatureFormatter =
                     with
                     | :? InvalidOperationException -> p.DisplayName
 
-                let allParamsLengths =
-                    many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
-                let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
-
-                let parameterTypeWithPadding (p: FSharpParameter) length =
-                    (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
-
                 let allParams =
-                    List.zip many allParamsLengths
-                    |> List.map(fun (paramTypes, length) ->
-                                    paramTypes
-                                    |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
-                                    |> String.concat ("* "))
+                    many
+                    |> List.map(fun (paramTypes) ->
+                        paramTypes
+                        |> List.map(fun p -> formatName p + ":" ++ (formatParameter p))
+                        |> String.concat (" * "))
                     |> String.concat ("-> ")
 
                 let typeArguments =
-                    allParams + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
+                    allParams ++ "->" ++ retType
 
                 if isDelegate then typeArguments
-                else modifiers ++ functionName ++ ": " +  typeArguments
+                else modifiers ++ functionName + ": " +  typeArguments
 
         let res =
             if overloads = 1 then
                 res
             else
-                sprintf "%s + %d overloads" res (overloads - 1)
+                sprintf "%s (+ %d overloads)" res (overloads - 1)
 
         match getter, setter with
         | true, true -> res ++ "with get,set"
@@ -420,12 +410,12 @@ module SignatureFormatter =
     let getFieldSignature displayContext (field: FSharpField) =
         let retType = field.FieldType.Format displayContext
         match field.LiteralValue with
-        | Some lv -> field.DisplayName ++ ":" ++ retType ++ "=" ++ (string lv)
+        | Some lv -> field.DisplayName + ":" ++ retType ++ "=" ++ (string lv)
         | None ->
             let prefix =
                 if field.IsMutable then "val" ++ "mutable"
                 else "val"
-            prefix ++ field.DisplayName ++ ":" ++ retType
+            prefix ++ field.DisplayName + ":" ++ retType
 
     let getAPCaseSignature displayContext (apc:FSharpActivePatternCase) =
         let findVal =
