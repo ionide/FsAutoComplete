@@ -74,7 +74,7 @@
   "Data": [
     [
       {
-        "Signature": "type Abcd\n   new Abcd () : Abcd\n   member a () : int\n   member a () : int",
+        "Signature": "type Abcd\n   new Abcd () : Abcd\n   member a () : int",
         "Comment": "\n\nSample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
       }
@@ -86,7 +86,7 @@
   "Data": [
     [
       {
-        "Signature": "type Desf\n   member b () : int\n   member b () : int",
+        "Signature": "type Desf\n   member b () : int",
         "Comment": "",
         "Footer": "Full name: Script.Desf\nAssembly: Script"
       }
