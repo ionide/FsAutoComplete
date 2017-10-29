@@ -33,7 +33,7 @@ type Abcd () =
   member __.Add() = 1 + 1
 
 type Desf =
-  member __.b = 234
+  abstract member b : int
 
 type Qwer =
   | A of string
