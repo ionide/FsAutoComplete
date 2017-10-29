@@ -29,7 +29,11 @@ module SignatureFormatter =
         if unionCase.UnionCaseFields.Count > 0 then
             let typeList =
                 unionCase.UnionCaseFields
-                |> Seq.map (fun unionField -> unionField.Name ++ ":" ++ ((unionField.FieldType.Format displayContext)))
+                |> Seq.map (fun unionField ->
+                    if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
+                        unionField.FieldType.Format displayContext
+                    else
+                        unionField.Name ++ ":" ++ ((unionField.FieldType.Format displayContext)))
                 |> String.concat " * "
             unionCase.DisplayName ++ "of" ++ typeList
          else unionCase.DisplayName
@@ -158,20 +162,14 @@ module SignatureFormatter =
 
         sb.ToString()
 
-    type FormatOptions =
-      {Indent : int; Highlight :string option}
-        static member Default = {Indent=3;Highlight=None}
-
-    let getFuncSignatureWithFormat displayContext (func: FSharpMemberOrFunctionOrValue) (format:FormatOptions) =
-        let indent = String.replicate format.Indent " "
+    let getFuncSignatureWithFormat displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
+        let indent = String.replicate ident " "
         let functionName =
             let name =
                 if func.IsConstructor then
                     match func.EnclosingEntitySafe with
                     | Some ent -> ent.DisplayName
-                    | _ ->
-                        //LoggingService.LogWarning(sprintf "getFuncSignatureWithFormat: No enclosing entity found for: %s" func.DisplayName)
-                        func.DisplayName
+                    | _ -> func.DisplayName
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
                 else func.DisplayName
@@ -191,7 +189,6 @@ module SignatureFormatter =
                     | Some ent -> if ent.IsFSharp then "new" ++ accessibility
                                   else accessibility
                     | _ ->
-                      //LoggingService.LogWarning(sprintf "getFuncSignatureWithFormat: No enclosing entity found for: %s" func.DisplayName)
                       accessibility
                 elif func.IsMember then
                     if func.IsInstanceMember then
@@ -234,57 +231,51 @@ module SignatureFormatter =
 
         let formatName indent padding (parameter:FSharpParameter) =
             let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
-            match format.Highlight with
-            | Some paramName when paramName = name ->
-                match padding - name.Length with
-                | i when i > 0 -> indent + asUnderline name + String.replicate i " " + ":"
-                | _ -> indent + asUnderline name + ":"
-            | _ -> indent + name.PadRight padding + ":"
+            indent + name.PadRight padding + ":"
 
         let isDelegate =
             match func.EnclosingEntitySafe with
             | Some ent -> ent.IsDelegate
             | _ ->
-                //LoggingService.logWarning "getFuncSignatureWithFormat: No enclosing entity found for: %s" func.DisplayName
                 false
 
         match argInfos with
         | [] ->
             //When does this occur, val type within  module?
             if isDelegate then retType
-            else modifiers ++ functionName ++ ":" ++ retType
+            else modifiers ++ functionName ++ ": " ++ retType
 
         | [[]] ->
             //A ctor with () parameters seems to be a list with an empty list
             if isDelegate then retType
             else modifiers ++ functionName ++ "() :" ++ retType
         | many ->
-              let formatParameter (p:FSharpParameter) =
-                  try
-                      p.Type.Format displayContext
-                  with
-                  | :? InvalidOperationException -> p.DisplayName
+            let formatParameter (p:FSharpParameter) =
+                try
+                    p.Type.Format displayContext
+                with
+                | :? InvalidOperationException -> p.DisplayName
 
-              let allParamsLengths =
-                  many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
-              let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
+            let allParamsLengths =
+                many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
+            let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
-              let parameterTypeWithPadding (p: FSharpParameter) length =
-                  (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
+            let parameterTypeWithPadding (p: FSharpParameter) length =
+                (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
 
-              let allParams =
-                  List.zip many allParamsLengths
-                  |> List.map(fun (paramTypes, length) ->
-                                  paramTypes
-                                  |> List.map(fun p -> formatName indent padLength p ++ (parameterTypeWithPadding p length))
-                                  |> String.concat (" *" ++ "\n"))
-                  |> String.concat ("->\n")
+            let allParams =
+                List.zip many allParamsLengths
+                |> List.map(fun (paramTypes, length) ->
+                                paramTypes
+                                |> List.map(fun p -> formatName indent padLength p ++ (parameterTypeWithPadding p length))
+                                |> String.concat (" *" ++ "\n"))
+                |> String.concat ("->\n")
 
-              let typeArguments =
-                  allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
+            let typeArguments =
+                allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
 
-              if isDelegate then typeArguments
-              else modifiers ++ functionName ++ ":" + "\n" + typeArguments
+            if isDelegate then typeArguments
+            else modifiers ++ functionName ++ ":" + "\n" + typeArguments
 
     let getFuncSignatureWithoutFormat displayContext (func: FSharpMemberOrFunctionOrValue)  =
         let functionName =
@@ -312,7 +303,6 @@ module SignatureFormatter =
                     | Some ent -> if ent.IsFSharp then "new" ++ accessibility
                                   else accessibility
                     | _ ->
-                      //LoggingService.LogWarning(sprintf "getFuncSignatureWithFormat: No enclosing entity found for: %s" func.DisplayName)
                       accessibility
                 elif func.IsMember then
                     if func.IsInstanceMember then
@@ -365,41 +355,41 @@ module SignatureFormatter =
         | [] ->
             //When does this occur, val type within  module?
             if isDelegate then retType
-            else modifiers ++ functionName ++ ":" ++ retType
+            else modifiers ++ functionName ++ ": " ++ retType
 
         | [[]] ->
             //A ctor with () parameters seems to be a list with an empty list
             if isDelegate then retType
             else modifiers ++ functionName ++ "() :" ++ retType
         | many ->
-              let formatParameter (p:FSharpParameter) =
-                  try
-                      p.Type.Format displayContext
-                  with
-                  | :? InvalidOperationException -> p.DisplayName
+            let formatParameter (p:FSharpParameter) =
+                try
+                    p.Type.Format displayContext
+                with
+                | :? InvalidOperationException -> p.DisplayName
 
-              let allParamsLengths =
-                  many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
-              let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
+            let allParamsLengths =
+                many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
+            let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
-              let parameterTypeWithPadding (p: FSharpParameter) length =
-                  (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
+            let parameterTypeWithPadding (p: FSharpParameter) length =
+                (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
 
-              let allParams =
-                  List.zip many allParamsLengths
-                  |> List.map(fun (paramTypes, length) ->
-                                  paramTypes
-                                  |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
-                                  |> String.concat (" *"))
-                  |> String.concat ("-> ")
+            let allParams =
+                List.zip many allParamsLengths
+                |> List.map(fun (paramTypes, length) ->
+                                paramTypes
+                                |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
+                                |> String.concat (" *"))
+                |> String.concat ("-> ")
 
-              let typeArguments =
-                  allParams + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
+            let typeArguments =
+                allParams + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
 
-              if isDelegate then typeArguments
-              else modifiers ++ functionName ++ ":" +  typeArguments
+            if isDelegate then typeArguments
+            else modifiers ++ functionName ++ ": " +  typeArguments
 
-    let getFuncSignature f c = getFuncSignatureWithFormat f c FormatOptions.Default
+    let getFuncSignature f c = getFuncSignatureWithFormat f c 3
 
     let getEntitySignature displayContext (fse: FSharpEntity) =
         let modifier =
@@ -418,7 +408,7 @@ module SignatureFormatter =
 
         let enumtip () =
             " =\n" +
-            "|" ++
+            "  |" ++
             (fse.FSharpFields
             |> Seq.filter (fun f -> not f.IsCompilerGenerated)
             |> Seq.map (fun field -> match field.LiteralValue with
@@ -428,14 +418,14 @@ module SignatureFormatter =
 
         let uniontip () =
             " =" + "\n" +
-            "|" ++ (fse.UnionCases
+            "  |" ++ (fse.UnionCases
                                   |> Seq.map (getUnioncaseSignature displayContext)
                                   |> String.concat ("\n" + "| " ) )
 
         let delegateTip () =
             let invoker =
                 fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
-            let invokerSig = getFuncSignatureWithFormat displayContext invoker {Indent=6;Highlight=None}
+            let invokerSig = getFuncSignatureWithFormat displayContext invoker 6
             " =" + "\n" +
             "   " + "delegate" + " of\n" + invokerSig
 
@@ -444,8 +434,8 @@ module SignatureFormatter =
                 fse.MembersFunctionsAndValues
                 |> Seq.map (getFuncSignatureWithoutFormat displayContext)
                 |> Seq.distinct
-                |> String.concat "\n   "
-            if String.IsNullOrWhiteSpace funcs then "" else  "\n   " + funcs
+                |> String.concat "\n  "
+            if String.IsNullOrWhiteSpace funcs then "" else  "\n  " + funcs
 
         let typeDisplay =
             let name =

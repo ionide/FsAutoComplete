@@ -38,7 +38,7 @@
   "Data": [
     [
       {
-        "Signature": "type ResponseMsg<'T>\n   member f :y: 'a -> int",
+        "Signature": "type ResponseMsg<'T>\n  member f : y: 'a -> int",
         "Comment": "",
         "Footer": "Full name: Script.CommandResponse.ResponseMsg`1\nAssembly: Script"
       }
@@ -74,7 +74,7 @@
   "Data": [
     [
       {
-        "Signature": "type Abcd\n   new Abcd () : Abcd\n   member a () : int",
+        "Signature": "type Abcd\n  new Abcd () : Abcd\n  member a () : int",
         "Comment": "\n\nSample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
       }
@@ -86,7 +86,7 @@
   "Data": [
     [
       {
-        "Signature": "type Desf\n   member b () : int",
+        "Signature": "type Desf\n  member b () : int",
         "Comment": "",
         "Footer": "Full name: Script.Desf\nAssembly: Script"
       }
@@ -110,7 +110,7 @@
   "Data": [
     [
       {
-        "Signature": "type Qwer =\n| A of Item : string\n| B of Item1 : int * Item2 : float\n| C",
+        "Signature": "type Qwer =\n  | A of string\n| B of int * float\n| C",
         "Comment": "",
         "Footer": "Full name: Script.Qwer\nAssembly: Script"
       }
@@ -122,7 +122,7 @@
   "Data": [
     [
       {
-        "Signature": "enum Gjk =\n| Q = 1\n| W = 2\n| E = 3",
+        "Signature": "enum Gjk =\n  | Q = 1\n| W = 2\n| E = 3",
         "Comment": "",
         "Footer": "Full name: Script.Gjk\nAssembly: Script"
       }
