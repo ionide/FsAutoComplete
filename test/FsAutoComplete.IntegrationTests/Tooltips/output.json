@@ -14,7 +14,7 @@
   "Data": [
     [
       {
-        "Signature": "val funky :\n   x: int \n   -> int",
+        "Signature": "val funky : \n   x: int \n   -> int",
         "Comment": "",
         "Footer": "Full name: Script.XA.funky\nAssembly: Script"
       }
@@ -50,7 +50,7 @@
   "Data": [
     [
       {
-        "Signature": "val funky :\n   x: int \n   -> int",
+        "Signature": "val funky : \n   x: int \n   -> int",
         "Comment": "",
         "Footer": "Full name: Script.XA.funky\nAssembly: Script"
       }
@@ -62,7 +62,7 @@
   "Data": [
     [
       {
-        "Signature": "val funct :\n   x: CommandResponse.ResponseMsg<'a> \n   -> unit",
+        "Signature": "val funct : \n   x: CommandResponse.ResponseMsg<'a> \n   -> unit",
         "Comment": "\n\nsome random xml docs",
         "Footer": "Full name: Script.funct\nAssembly: Script"
       }
@@ -74,7 +74,7 @@
   "Data": [
     [
       {
-        "Signature": "type Abcd\n  new  new : unit ->  Abcd\n  member Add : a: int  *b: int -> int + 2 overloads\n  property asdfg :  int  with get\n  property bnm :  int  with get,set\n  property cvbnm :  int  with get,set",
+        "Signature": "type Abcd\n  new : unit -> Abcd\n  member Add : a: int * b: int -> int + 2 overloads\n  property asdfg :  int with get\n  property bnm :  int with get,set\n  property cvbnm :  int with get,set",
         "Comment": "\n\nSample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
       }
@@ -86,7 +86,7 @@
   "Data": [
     [
       {
-        "Signature": "member asdfg :\n   : unit \n   -> int",
+        "Signature": "member asdfg : int",
         "Comment": "",
         "Footer": "Full name: Script.Abcd.asdfg\nAssembly: Script"
       }
@@ -98,7 +98,7 @@
   "Data": [
     [
       {
-        "Signature": "member bnm :\n   : unit \n   -> int",
+        "Signature": "member bnm : int",
         "Comment": "",
         "Footer": "Full name: Script.Abcd.bnm\nAssembly: Script"
       }
@@ -110,7 +110,7 @@
   "Data": [
     [
       {
-        "Signature": "member cvbnm :\n   : unit \n   -> int",
+        "Signature": "member cvbnm : int",
         "Comment": "",
         "Footer": "Full name: Script.Abcd.cvbnm\nAssembly: Script"
       }
@@ -122,7 +122,7 @@
   "Data": [
     [
       {
-        "Signature": "type Desf\n  property b :  int  with get",
+        "Signature": "type Desf\n  property b :  int with get",
         "Comment": "",
         "Footer": "Full name: Script.Desf\nAssembly: Script"
       }
@@ -182,7 +182,7 @@
   "Data": [
     [
       {
-        "Signature": "val ( >=> ) :\n   a: int ->\n   b: int \n   -> int",
+        "Signature": "val ( >=> ) : \n   a: int ->\n   b: int \n   -> int",
         "Comment": "",
         "Footer": "Full name: Script.( >=> )\nAssembly: Script"
       }
@@ -194,7 +194,7 @@
   "Data": [
     [
       {
-        "Signature": "val ( |Even|Odd| ) :\n   input: int \n       -> Choice<unit,unit>",
+        "Signature": "val ( |Even|Odd| ) : \n   input: int \n       -> Choice<unit,unit>",
         "Comment": "",
         "Footer": "Full name: Script.( |Even|Odd| )\nAssembly: Script"
       }
@@ -206,7 +206,7 @@
   "Data": [
     [
       {
-        "Signature": "active recognizer Even: \n   input: int \n       -> Choice<unit,unit>",
+        "Signature": "active recognizer Even:  \n   input: int \n       -> Choice<unit,unit>",
         "Comment": "",
         "Footer": "Full name: Script.( |Even|Odd| ).Even\nAssembly: Script"
       }
