@@ -146,7 +146,7 @@
   "Data": [
     [
       {
-        "Signature": "union Qwer =\n  | A of string\n| B of int * float\n| C",
+        "Signature": "union Qwer =\n  | A of string\n  | B of int * float\n  | C",
         "Comment": "",
         "Footer": "Full name: Script.Qwer\nAssembly: Script"
       }
@@ -158,7 +158,7 @@
   "Data": [
     [
       {
-        "Signature": "enum Gjk =\n  | Q = 1\n| W = 2\n| E = 3",
+        "Signature": "enum Gjk =\n  | Q = 1\n  | W = 2\n  | E = 3",
         "Comment": "",
         "Footer": "Full name: Script.Gjk\nAssembly: Script"
       }

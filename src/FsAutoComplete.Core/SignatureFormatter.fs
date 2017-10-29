@@ -471,13 +471,13 @@ module SignatureFormatter =
             |> Seq.map (fun field -> match field.LiteralValue with
                                      | Some lv -> field.Name + " = " + (string lv)
                                      | None -> field.Name )
-            |> String.concat ("\n" + "| " ) )
+            |> String.concat ("\n" + "  | " ) )
 
         let uniontip () =
             " =" + "\n" +
             "  |" ++ (fse.UnionCases
                                   |> Seq.map (getUnioncaseSignature displayContext)
-                                  |> String.concat ("\n" + "| " ) )
+                                  |> String.concat ("\n" + "  | " ) )
 
         let delegateTip () =
             let invoker =
