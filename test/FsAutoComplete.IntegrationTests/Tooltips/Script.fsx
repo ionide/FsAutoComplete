@@ -53,3 +53,5 @@ let TestNumber input =
    match input with
    | Even -> 1
    | Odd -> 0
+
+let tasd = System.String.IsNullOrEmpty

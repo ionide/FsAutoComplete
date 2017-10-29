@@ -213,3 +213,15 @@
     ]
   ]
 }
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type String\n  static member Join : separator: string * value: string [] -> string + 4 overloads\n  abstract member Equals : obj: obj -> bool + 4 overloads\n  static member op_Equality : a: string * b: string -> bool\n  static member op_Inequality : a: string * b: string -> bool\n  member get_Chars : index: int -> char\n  member CopyTo : sourceIndex: int * destination: char [] * destinationIndex: int * count: int -> unit\n  member ToCharArray :  char [] + 1 overloads\n  static member IsNullOrEmpty : value: string -> bool\n  static member IsNullOrWhiteSpace : value: string -> bool\n  abstract member GetHashCode :  int\n  member get_Length :  int\n  member Split : separator: char [] -> string [] + 5 overloads\n  member Substring : startIndex: int -> string + 1 overloads\n  member Trim : trimChars: char [] -> string + 1 overloads\n  member TrimStart : trimChars: char [] -> string\n  member TrimEnd : trimChars: char [] -> string\n  String : value: nativeptr<char> -> unit + 7 overloads\n  member IsNormalized :  bool + 1 overloads\n  member Normalize :  string + 1 overloads\n  static member Compare : strA: string * strB: string -> int + 9 overloads\n  abstract member CompareTo : value: obj -> int + 1 overloads\n  static member CompareOrdinal : strA: string * strB: string -> int + 1 overloads\n  member Contains : value: string -> bool\n  member EndsWith : value: string -> bool + 2 overloads\n  member IndexOf : value: char -> int + 8 overloads\n  member IndexOfAny : anyOf: char [] -> int + 2 overloads\n  member LastIndexOf : value: char -> int + 8 overloads\n  member LastIndexOfAny : anyOf: char [] -> int + 2 overloads\n  member PadLeft : totalWidth: int -> string + 1 overloads\n  member PadRight : totalWidth: int -> string + 1 overloads\n  member StartsWith : value: string -> bool + 2 overloads\n  member ToLower :  string + 1 overloads\n  member ToLowerInvariant :  string\n  member ToUpper :  string + 1 overloads\n  member ToUpperInvariant :  string\n  abstract member ToString :  string + 1 overloads\n  abstract member Clone :  obj\n  member Insert : startIndex: int * value: string -> string\n  member Replace : oldChar: char * newChar: char -> string + 1 overloads\n  member Remove : startIndex: int * count: int -> string + 1 overloads\n  static member Format : format: string * arg0: obj -> string + 7 overloads\n  static member Copy : str: string -> string\n  static member Concat : arg0: obj -> string + 10 overloads\n  static member Intern : str: string -> string\n  static member IsInterned : str: string -> string\n  abstract member GetTypeCode :  System.TypeCode\n  member GetEnumerator :  System.CharEnumerator\n  property Chars :  : int -> char\n  property Length :  int",
+        "Comment": "Represents text as a sequence of UTF-16 code units.To browse the .NET Framework source code for this type, see the Reference Source.\n\n",
+        "Footer": "Full name: System.String\nAssembly: mscorlib"
+      }
+    ]
+  ]
+}
