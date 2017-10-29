@@ -9,13 +9,8 @@ module SignatureFormatter =
     open Microsoft.FSharp.Compiler.SourceCodeServices
     open System
     open System.Text
-    open System.Collections.Generic
 
     let maxPadding = 20
-    type NestedFunctionParams =
-    | GenericParam of FSharpGenericParameter
-    | TupleParam of IList<FSharpType>
-    | NamedType of FSharpType
 
     /// Concat two strings with a space between if both a and b are not IsNullOrWhiteSpace
     let internal (++) (a:string) (b:string) =
@@ -416,82 +411,6 @@ module SignatureFormatter =
 
     let getFuncSignature f c = getFuncSignatureWithIdent f c 3
 
-    let getEntitySignature displayContext (fse: FSharpEntity) =
-        let modifier =
-            match fse.Accessibility with
-            | a when a.IsInternal -> "internal "
-            | a when a.IsPrivate -> "private "
-            | _ -> ""
-
-        let typeName =
-            match fse with
-            | _ when fse.IsFSharpModule -> "module"
-            | _ when fse.IsEnum         -> "enum"
-            | _ when fse.IsValueType    -> "struct"
-            | _ when fse.IsNamespace    -> "namespace"
-            | _                         -> "type"
-
-        let enumtip () =
-            " =\n" +
-            "  |" ++
-            (fse.FSharpFields
-            |> Seq.filter (fun f -> not f.IsCompilerGenerated)
-            |> Seq.map (fun field -> match field.LiteralValue with
-                                     | Some lv -> field.Name + " = " + (string lv)
-                                     | None -> field.Name )
-            |> String.concat ("\n" + "| " ) )
-
-        let uniontip () =
-            " =" + "\n" +
-            "  |" ++ (fse.UnionCases
-                                  |> Seq.map (getUnioncaseSignature displayContext)
-                                  |> String.concat ("\n" + "| " ) )
-
-        let delegateTip () =
-            let invoker =
-                fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
-            let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
-            " =" + "\n" +
-            "   " + "delegate" + " of\n" + invokerSig
-
-        let typeTip () =
-            let funcs =
-                fse.MembersFunctionsAndValues
-                |> Seq.groupBy (fun n -> n.FullName)
-                |> Seq.map (fun (_,v) ->
-                    match v |> Seq.tryFind (fun f -> f.IsProperty) with
-                    | Some prop ->
-                        let getter = v |> Seq.exists (fun f -> f.IsPropertyGetterMethod)
-                        let setter = v |> Seq.exists (fun f -> f.IsPropertySetterMethod)
-                        getFuncSignatureForTypeSignature displayContext prop 1 getter setter //Ensure properties are displayed only once, properly report
-                    | None ->
-                        let f = Seq.head v
-                        let l = Seq.length v
-                        getFuncSignatureForTypeSignature displayContext f l false false )
-                |> Seq.distinct
-                |> String.concat "\n  "
-            if String.IsNullOrWhiteSpace funcs then "" else  "\n  " + funcs
-
-        let typeDisplay =
-            let name =
-                if fse.GenericParameters.Count > 0 then
-                    let p = fse.GenericParameters |> Seq.map (formatGenericParameter displayContext) |> String.concat ","
-                    fse.DisplayName + ("<") + p + (">")
-                else fse.DisplayName
-
-            let basicName = modifier + typeName ++ name
-
-            if fse.IsFSharpAbbreviation then
-                let unannotatedType = fse.UnAnnotate()
-                basicName ++ "=" ++ (unannotatedType.DisplayName)
-            else
-                basicName
-
-        if fse.IsFSharpUnion then typeDisplay + uniontip ()
-        elif fse.IsEnum then typeDisplay + enumtip ()
-        elif fse.IsDelegate then typeDisplay + delegateTip ()
-        else typeDisplay + typeTip ()
-
     let getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
         let retType = v.FullType.Format displayContext
         let prefix =
@@ -525,6 +444,95 @@ module SignatureFormatter =
                 with _ -> None )
             |> Option.getOrElse ""
         sprintf "active recognizer %s: %s" apc.Name findVal
+
+    let getEntitySignature displayContext (fse: FSharpEntity) =
+        let modifier =
+            match fse.Accessibility with
+            | a when a.IsInternal -> "internal "
+            | a when a.IsPrivate -> "private "
+            | _ -> ""
+
+        let typeName =
+            match fse with
+            | _ when fse.IsFSharpModule -> "module"
+            | _ when fse.IsEnum         -> "enum"
+            | _ when fse.IsValueType    -> "struct"
+            | _ when fse.IsNamespace    -> "namespace"
+            | _ when fse.IsFSharpRecord -> "record"
+            | _ when fse.IsFSharpUnion  -> "union"
+            | _ when fse.IsInterface    -> "interface"
+            | _                         -> "type"
+
+        let enumtip () =
+            " =\n" +
+            "  |" ++
+            (fse.FSharpFields
+            |> Seq.filter (fun f -> not f.IsCompilerGenerated)
+            |> Seq.map (fun field -> match field.LiteralValue with
+                                     | Some lv -> field.Name + " = " + (string lv)
+                                     | None -> field.Name )
+            |> String.concat ("\n" + "| " ) )
+
+        let uniontip () =
+            " =" + "\n" +
+            "  |" ++ (fse.UnionCases
+                                  |> Seq.map (getUnioncaseSignature displayContext)
+                                  |> String.concat ("\n" + "| " ) )
+
+        let delegateTip () =
+            let invoker =
+                fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
+            let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
+            " =" + "\n" +
+            "   " + "delegate" + " of\n" + invokerSig
+
+        let typeTip () =
+            let fields =
+                fse.FSharpFields
+                |> Seq.filter (fun n -> n.Accessibility.IsPublic ) //TODO: If defined in same project as current scope then show also internals
+                |> Seq.map (getFieldSignature displayContext)
+
+            let funcs =
+                fse.MembersFunctionsAndValues
+                |> Seq.groupBy (fun n -> n.FullName)
+                |> Seq.map (fun (_,v) ->
+                    match v |> Seq.tryFind (fun f -> f.IsProperty) with
+                    | Some prop ->
+                        let getter = v |> Seq.exists (fun f -> f.IsPropertyGetterMethod)
+                        let setter = v |> Seq.exists (fun f -> f.IsPropertySetterMethod)
+                        getFuncSignatureForTypeSignature displayContext prop 1 getter setter //Ensure properties are displayed only once, properly report
+                    | None ->
+                        let f = Seq.head v
+                        let l = Seq.length v
+                        getFuncSignatureForTypeSignature displayContext f l false false )
+            let res =
+                [yield! fields; yield! funcs]
+                |> Seq.distinct
+                |> String.concat "\n  "
+
+            if String.IsNullOrWhiteSpace res then "" else  "\n  " + res
+
+        let typeDisplay =
+            let name =
+                if fse.GenericParameters.Count > 0 then
+                    let p = fse.GenericParameters |> Seq.map (formatGenericParameter displayContext) |> String.concat ","
+                    fse.DisplayName + ("<") + p + (">")
+                else fse.DisplayName
+
+            let basicName = modifier + typeName ++ name
+
+            if fse.IsFSharpAbbreviation then
+                let unannotatedType = fse.UnAnnotate()
+                basicName ++ "=" ++ (unannotatedType.DisplayName)
+            else
+                basicName
+
+        if fse.IsFSharpUnion then typeDisplay + uniontip ()
+        elif fse.IsEnum then typeDisplay + enumtip ()
+        elif fse.IsDelegate then typeDisplay + delegateTip ()
+        else typeDisplay + typeTip ()
+
+
 
     let footerForType (entity:FSharpSymbolUse) =
         try
@@ -594,8 +602,6 @@ module SignatureFormatter =
             //val name : Type
             let signature = getValSignature symbol.DisplayContext func
             Some(signature,  footerForType symbol)
-
-
 
         | SymbolUse.Field fsf ->
             let signature = getFieldSignature symbol.DisplayContext fsf
