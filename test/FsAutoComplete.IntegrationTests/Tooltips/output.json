@@ -74,18 +74,6 @@
   "Data": [
     [
       {
-        "Signature": "DateTime :\n   ticks: int64 \n       -> unit",
-        "Comment": "Initializes a new instance of the System.DateTime structure to a specified number of ticks.\n\nticks: A date and time expressed in the number of 100-nanosecond intervals that have elapsed since January 1, 0001 at 00:00:00.000 in the Gregorian calendar. \n\nExceptions:\n\tSystem.ArgumentOutOfRangeException: ticks is less than System.DateTime.MinValue or greater than System.DateTime.MaxValue. ",
-        "Footer": "Full name: System.DateTime\nAssembly: mscorlib"
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
         "Signature": "type Abcd",
         "Comment": "\n\nSample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
