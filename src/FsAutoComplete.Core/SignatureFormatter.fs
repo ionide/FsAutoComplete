@@ -286,6 +286,119 @@ module SignatureFormatter =
               if isDelegate then typeArguments
               else modifiers ++ functionName ++ ":" + "\n" + typeArguments
 
+    let getFuncSignatureWithoutFormat displayContext (func: FSharpMemberOrFunctionOrValue)  =
+        let functionName =
+            let name =
+                if func.IsConstructor then
+                    match func.EnclosingEntitySafe with
+                    | Some ent -> ent.DisplayName
+                    | _ -> func.DisplayName
+                elif func.IsOperatorOrActivePattern then func.DisplayName
+                elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
+                else func.DisplayName
+            name
+
+        let modifiers =
+            let accessibility =
+                match func.Accessibility with
+                | a when a.IsInternal -> "internal"
+                | a when a.IsPrivate -> "private"
+                | _ -> ""
+
+            let modifier =
+                //F# types are prefixed with new, should non F# types be too for consistancy?
+                if func.IsConstructor then
+                    match func.EnclosingEntitySafe with
+                    | Some ent -> if ent.IsFSharp then "new" ++ accessibility
+                                  else accessibility
+                    | _ ->
+                      //LoggingService.LogWarning(sprintf "getFuncSignatureWithFormat: No enclosing entity found for: %s" func.DisplayName)
+                      accessibility
+                elif func.IsMember then
+                    if func.IsInstanceMember then
+                        if func.IsDispatchSlot then "abstract member" ++ accessibility
+                        else "member" ++ accessibility
+                    else "static member" ++ accessibility
+                else
+                    if func.InlineAnnotation = FSharpInlineAnnotation.AlwaysInline then "val" ++ accessibility ++ "inline"
+                    elif func.IsInstanceMember then "val" ++ accessibility
+                    else "val" ++ accessibility //does this need to be static prefixed?
+            modifier
+
+        let argInfos =
+            func.CurriedParameterGroups
+            |> Seq.map Seq.toList
+            |> Seq.toList
+
+        let retType =
+            //This try block will be removed when FCS updates
+            try
+                func.ReturnParameter.Type.Format displayContext
+            with _ex ->
+                try
+                    if func.FullType.GenericArguments.Count > 0 then
+                        let lastArg = func.FullType.GenericArguments |> Seq.last
+                        lastArg.Format displayContext
+                    else "Unknown"
+                with _ -> "Unknown"
+
+        let padLength =
+            let allLengths =
+                argInfos
+                |> List.concat
+                |> List.map (fun p -> match p.Name with Some name -> name.Length | None -> p.DisplayName.Length)
+            match allLengths with
+            | [] -> 0
+            | l -> l |> List.maxUnderThreshold maxPadding
+
+        let formatName padding (parameter:FSharpParameter) =
+            let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
+            name.PadRight padding + ":"
+
+        let isDelegate =
+            match func.EnclosingEntitySafe with
+            | Some ent -> ent.IsDelegate
+            | _ ->
+                false
+
+        match argInfos with
+        | [] ->
+            //When does this occur, val type within  module?
+            if isDelegate then retType
+            else modifiers ++ functionName ++ ":" ++ retType
+
+        | [[]] ->
+            //A ctor with () parameters seems to be a list with an empty list
+            if isDelegate then retType
+            else modifiers ++ functionName ++ "() :" ++ retType
+        | many ->
+              let formatParameter (p:FSharpParameter) =
+                  try
+                      p.Type.Format displayContext
+                  with
+                  | :? InvalidOperationException -> p.DisplayName
+
+              let allParamsLengths =
+                  many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
+              let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
+
+              let parameterTypeWithPadding (p: FSharpParameter) length =
+                  (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
+
+              let allParams =
+                  List.zip many allParamsLengths
+                  |> List.map(fun (paramTypes, length) ->
+                                  paramTypes
+                                  |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
+                                  |> String.concat (" *"))
+                  |> String.concat ("-> ")
+
+              let typeArguments =
+                  allParams + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
+
+              if isDelegate then typeArguments
+              else modifiers ++ functionName ++ ":" +  typeArguments
+
     let getFuncSignature f c = getFuncSignatureWithFormat f c FormatOptions.Default
 
     let getEntitySignature displayContext (fse: FSharpEntity) =
@@ -326,6 +439,13 @@ module SignatureFormatter =
             " =" + "\n" +
             "   " + "delegate" + " of\n" + invokerSig
 
+        let typeTip () =
+            let funcs =
+                fse.MembersFunctionsAndValues
+                |> Seq.map (getFuncSignatureWithoutFormat displayContext)
+                |> String.concat "\n   "
+            if String.IsNullOrWhiteSpace funcs then "" else  "\n   " + funcs
+
         let typeDisplay =
             let name =
                 if fse.GenericParameters.Count > 0 then
@@ -346,7 +466,7 @@ module SignatureFormatter =
         if fse.IsFSharpUnion then typeDisplay + uniontip ()
         elif fse.IsEnum then typeDisplay + enumtip ()
         elif fse.IsDelegate then typeDisplay + delegateTip ()
-        else typeDisplay
+        else typeDisplay + typeTip ()
 
     let getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
         let retType = v.FullType.Format displayContext
