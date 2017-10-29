@@ -19,7 +19,6 @@ p.tooltip "Script.fsx" "module CommandResponse =" 8 19
 p.tooltip "Script.fsx" "  type ResponseMsg<'T> =" 10 14
 p.tooltip "Script.fsx" "  let funky x = x + 1" 4 10
 p.tooltip "Script.fsx" "let funct (x : CommandResponse.ResponseMsg<_>) = ()" 19 6
-p.tooltip "Script.fsx" "let x = System.DateTime(123L)" 21 21
 p.tooltip "Script.fsx" "type Abcd () =" 24 8
 p.tooltip "Script.fsx" "type Desf =" 27 8
 p.tooltip "Script.fsx" "  member __.b = 234" 28 5
