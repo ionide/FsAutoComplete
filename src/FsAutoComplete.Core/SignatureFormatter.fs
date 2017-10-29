@@ -162,7 +162,8 @@ module SignatureFormatter =
 
         sb.ToString()
 
-    let getFuncSignatureWithFormat displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
+    let getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
+        let maybeGetter = func.LogicalName.StartsWith "get_"
         let indent = String.replicate ident " "
         let functionName =
             let name =
@@ -242,22 +243,25 @@ module SignatureFormatter =
             | _ ->
                 false
 
+        let formatParameter (p:FSharpParameter) =
+            try
+                p.Type.Format displayContext
+            with
+            | :? InvalidOperationException -> p.DisplayName
+
         match argInfos with
         | [] ->
             //When does this occur, val type within  module?
             if isDelegate then retType
-            else modifiers ++ functionName ++ ": " ++ retType
+            else modifiers ++ functionName ++ ":" ++ retType
 
         | [[]] ->
             if isDelegate then retType
-            elif func.IsConstructor then modifiers ++ " : unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
-            else modifiers ++ functionName ++ ": " ++ retType //Value members seems to be a list with an empty list
+            elif func.IsConstructor then modifiers ++ ": unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
+            else modifiers ++ functionName ++ ":" ++ retType //Value members seems to be a list with an empty list
+        | [[p]] when  maybeGetter && formatParameter p = "unit" -> //Member or property with only getter
+            modifiers ++ functionName ++ ":" ++ retType
         | many ->
-            let formatParameter (p:FSharpParameter) =
-                try
-                    p.Type.Format displayContext
-                with
-                | :? InvalidOperationException -> p.DisplayName
 
             let allParamsLengths =
                 many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
@@ -271,14 +275,14 @@ module SignatureFormatter =
                 |> List.map(fun (paramTypes, length) ->
                                 paramTypes
                                 |> List.map(fun p -> formatName indent padLength p ++ (parameterTypeWithPadding p length))
-                                |> String.concat (" *" ++ "\n"))
+                                |> String.concat ("*" ++ "\n"))
                 |> String.concat ("->\n")
 
             let typeArguments =
                 allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
 
             if isDelegate then typeArguments
-            else modifiers ++ functionName ++ ":" + "\n" + typeArguments
+            else modifiers ++ functionName ++ ": " + "\n" + typeArguments
 
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
@@ -368,7 +372,7 @@ module SignatureFormatter =
 
             | [[]] ->
                 if isDelegate then retType
-                elif func.IsConstructor then modifiers ++ " new : unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
+                elif func.IsConstructor then modifiers ++ ": unit ->" ++ retType //A ctor with () parameters seems to be a list with an empty list
                 else modifiers ++ functionName ++ ": " ++ retType //Value members seems to be a list with an empty list
             | many ->
                 let formatParameter (p:FSharpParameter) =
@@ -389,7 +393,7 @@ module SignatureFormatter =
                     |> List.map(fun (paramTypes, length) ->
                                     paramTypes
                                     |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
-                                    |> String.concat (" *"))
+                                    |> String.concat ("* "))
                     |> String.concat ("-> ")
 
                 let typeArguments =
@@ -405,13 +409,12 @@ module SignatureFormatter =
                 sprintf "%s + %d overloads" res (overloads - 1)
 
         match getter, setter with
-        | true, true -> res ++ " with get,set"
-        | true, false -> res ++ " with get"
-        | false, true -> res ++ " with set"
+        | true, true -> res ++ "with get,set"
+        | true, false -> res ++ "with get"
+        | false, true -> res ++ "with set"
         | false, false -> res
 
-
-    let getFuncSignature f c = getFuncSignatureWithFormat f c 3
+    let getFuncSignature f c = getFuncSignatureWithIdent f c 3
 
     let getEntitySignature displayContext (fse: FSharpEntity) =
         let modifier =
@@ -447,7 +450,7 @@ module SignatureFormatter =
         let delegateTip () =
             let invoker =
                 fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
-            let invokerSig = getFuncSignatureWithFormat displayContext invoker 6
+            let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
             " =" + "\n" +
             "   " + "delegate" + " of\n" + invokerSig
 
@@ -521,8 +524,6 @@ module SignatureFormatter =
                     Some (n.Split([|':' |], 2).[1])
                 with _ -> None )
             |> Option.getOrElse ""
-
-
         sprintf "active recognizer %s: %s" apc.Name findVal
 
     let footerForType (entity:FSharpSymbolUse) =
@@ -576,6 +577,10 @@ module SignatureFormatter =
             let signature = getFuncSignature symbol.DisplayContext func
             Some(signature,  footerForType symbol)
 
+        | SymbolUse.Property prop ->
+            let signature = getFuncSignature symbol.DisplayContext prop
+            Some(signature,  footerForType symbol)
+
         | SymbolUse.ClosureOrNestedFunction func ->
             //represents a closure or nested function
             let signature = getFuncSignature symbol.DisplayContext func
@@ -590,9 +595,7 @@ module SignatureFormatter =
             let signature = getValSignature symbol.DisplayContext func
             Some(signature,  footerForType symbol)
 
-        | SymbolUse.Property prop ->
-            let signature = getFuncSignature symbol.DisplayContext prop
-            Some(signature,  footerForType symbol)
+
 
         | SymbolUse.Field fsf ->
             let signature = getFieldSignature symbol.DisplayContext fsf
