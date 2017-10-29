@@ -22,7 +22,15 @@ let x = System.DateTime(123L)
 
 ///Sample type
 type Abcd () =
-  member __.a = 123
+  let mutable _c = 123
+  member __.asdfg = 123
+  member val bnm = 1 with get, set
+  member __.cvbnm
+    with get () = _c
+    and set (value) = _c <- value
+  member __.Add(a,b) = a + b
+  member __.Add(a) = a + 1
+  member __.Add() = 1 + 1
 
 type Desf =
   member __.b = 234
