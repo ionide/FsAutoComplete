@@ -2,7 +2,15 @@ image:
   - Visual Studio 2015
   - Visual Studio 2017
 
+before_build:
+  - ps: >-
+      $env:FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED = if ("$env:APPVEYOR_BUILD_WORKER_IMAGE" -eq "Visual Studio 2017") { "0" } else { "1" };
+
 build_script:
-  - cmd: build.cmd Test
+  - cmd: build.cmd All
 
 test: off
+
+artifacts:
+  - path: bin\pkgs\*.zip
+    name: pkgs

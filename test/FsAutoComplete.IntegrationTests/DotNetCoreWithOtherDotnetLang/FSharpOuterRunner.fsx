@@ -4,7 +4,7 @@ open System.IO
 open System
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "output.json"
+File.Delete "fsharpouter.json"
 
 let doIt () =
   let sdkDir = DotnetCli.sdk1Dir ()
@@ -15,11 +15,11 @@ let doIt () =
 
   match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "restore sampleo/c1" with
   | NonExitCodeResult data ->
-    data |> processResultLog "failed 'dotnet restore sampleo/c1'" |> writeNormalizedOutput "output.json"
+    data |> processResultLog "failed 'dotnet restore sampleo/c1'" |> writeNormalizedOutput "fsharpouter.json"
   | _ ->
     match runProcessCaptureOut __SOURCE_DIRECTORY__ "dotnet" "build sampleo/l1" with
     | NonExitCodeResult data ->
-        data |> processResultLog "failed 'dotnet build sampleo/l1'" |> writeNormalizedOutput "output.json"
+        data |> processResultLog "failed 'dotnet build sampleo/l1'" |> writeNormalizedOutput "fsharpouter.json"
     | _ ->
         let p = new FsAutoCompleteWrapper()
 

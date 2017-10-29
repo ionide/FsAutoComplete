@@ -148,7 +148,14 @@ module AssemblyContentProvider =
 
     let rec private traverseEntity contentType (parent: Parent) (entity: FSharpEntity) =
 
-        seq { if not entity.IsProvided then
+        seq {
+              let shouldTraverse =
+#if NO_EXTENSIONTYPING
+                true
+#else
+                not entity.IsProvided
+#endif
+              if shouldTraverse then
                 match contentType, entity.Accessibility.IsPublic with
                 | Full, _ | Public, true ->
                     let ns = entity.Namespace |> Option.map (fun x -> x.Split '.') |> Option.orElse parent.Namespace
@@ -203,7 +210,13 @@ module AssemblyContentProvider =
 
     let getAssemblyContent (withCache: ((IAssemblyContentCache -> _) -> _) option)
                            contentType (fileName: string option) (assemblies: FSharpAssembly list) =
-        match assemblies |> List.filter (fun x -> not x.IsProviderGenerated), fileName with
+        let nonProviderGeneratedAssemblies =
+#if NO_EXTENSIONTYPING
+            assemblies
+#else
+            assemblies |> List.filter (fun x -> not x.IsProviderGenerated)
+#endif
+        match nonProviderGeneratedAssemblies, fileName with
         | [], _ -> []
         | assemblies, Some fileName ->
             let fileWriteTime = FileInfo(fileName).LastWriteTime

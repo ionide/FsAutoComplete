@@ -6,13 +6,15 @@ open System.Collections.Concurrent
 open System.Diagnostics
 open System
 
-type Result<'a> =
-  | Success of 'a
-  | Failure of string
-
+#if NETSTANDARD2_0
+// F# 4.1 contains the Result type alredy
+#else
 type Result<'a,'b> =
   | Ok of 'a
-  | Err of 'b
+  | Error of 'b
+#endif
+
+type ResultOrString<'a> = Result<'a, string>
 
 type Pos =
     { Line: int
@@ -384,3 +386,32 @@ let splitByPrefix prefix (s: string) =
 let splitByPrefix2 prefixes (s: string) =
     prefixes
     |> List.tryPick (fun prefix -> splitByPrefix prefix s)
+
+
+let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
+    let psi = System.Diagnostics.ProcessStartInfo()
+    psi.FileName <- exePath
+    psi.WorkingDirectory <- workingDir
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    psi.Arguments <- args
+    psi.CreateNoWindow <- true
+    psi.UseShellExecute <- false
+
+    use p = new System.Diagnostics.Process()
+    p.StartInfo <- psi
+
+    p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+
+    p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+
+    // printfn "running: %s %s" psi.FileName psi.Arguments
+
+    p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+    p.WaitForExit()
+
+    let exitCode = p.ExitCode
+
+    exitCode, (workingDir, exePath, args)

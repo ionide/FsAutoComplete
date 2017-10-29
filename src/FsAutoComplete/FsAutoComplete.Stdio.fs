@@ -29,8 +29,8 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file
               match commands.TryGetFileCheckerOptionsWithLines file with
-              | Failure s -> return [Response.error writeJson s]
-              | Success options ->
+              | ResultOrString.Error s -> return [Response.error writeJson s]
+              | ResultOrString.Ok options ->
                   let projectOptions, lines = options
                   let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
                            pos.Col <= lineStr.Length + 1 && pos.Col >= 1
@@ -73,6 +73,12 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
             |> Console.WriteLine
     0
 
+let trimBOM (s: string) =
+    let bomUTF8 = Text.Encoding.UTF8.GetString(Text.Encoding.UTF8.GetPreamble())
+    if (s.StartsWith(bomUTF8, StringComparison.Ordinal)) then
+        s.Remove(0, bomUTF8.Length)
+    else
+        s
 
 let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     Console.InputEncoding <- Text.Encoding.UTF8
@@ -89,7 +95,15 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
             commandQueue.Add(Command.Started)
 
           while true do
-            commandQueue.Add (CommandInput.parseCommand(Console.ReadLine()))
+            let inputLine = Console.ReadLine()
+#if NETCOREAPP2_0
+            //on .net core, bom is not stripped.
+            //ref https://github.com/dotnet/standard/issues/260
+            //TODO tweak console.inputencoding to remove the BOM instead of this ugly hack
+            let inputLine = trimBOM inputLine
+#endif
+            let cmd = CommandInput.parseCommand(inputLine)
+            commandQueue.Add(cmd)
         }
         |> Async.Start
 

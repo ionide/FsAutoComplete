@@ -46,6 +46,7 @@
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Lexer.fs" />
+    <Compile Include="NETFrameworkInfoProvider.fs" />
     <Compile Include="Environment.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />
@@ -96,6 +97,11 @@
       <ItemGroup>
         <Reference Include="Dotnet.ProjInfo">
           <HintPath>..\..\packages\Dotnet.ProjInfo\lib\net45\Dotnet.ProjInfo.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Dotnet.ProjInfo.Helpers">
+          <HintPath>..\..\packages\Dotnet.ProjInfo\lib\net45\Dotnet.ProjInfo.Helpers.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

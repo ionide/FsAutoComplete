@@ -55,8 +55,8 @@ type Commands (serialize : Serializer) =
         Async.bind <| function
             // A failure is only info here, as this command is expected to be
             // used 'on idle', and frequent errors are expected.
-            | Result.Failure e -> async.Return [(defaultArg failureToString Response.info) serialize e]
-            | Result.Success r -> successToString serialize r |> Async.map List.singleton
+            | ResultOrString.Error e -> async.Return [(defaultArg failureToString Response.info) serialize e]
+            | ResultOrString.Ok r -> successToString serialize r |> Async.map List.singleton
 
     member private x.SerializeResult (successToString: Serializer -> 'a -> string, ?failureToString: Serializer -> string -> string) =
         x.SerializeResultAsync ((fun s x -> successToString s x |> async.Return), ?failureToString = failureToString)
@@ -66,7 +66,7 @@ type Commands (serialize : Serializer) =
         state.AddCancellationToken(filename, cts)
         Async.StartCatchCancellation(action, cts.Token)
         |> Async.Catch
-        |> Async.map (function Choice1Of2 res -> res | Choice2Of2 _ -> [Response.info serialize "Request cancelled"])
+        |> Async.map (function Choice1Of2 res -> res | Choice2Of2 err -> [Response.info serialize (sprintf "Request cancelled (exn was %A)" err)])
 
     member private x.CancelQueue (filename : SourceFilePath) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
@@ -86,8 +86,8 @@ type Commands (serialize : Serializer) =
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                     return
                         match result with
-                        | Failure e -> [Response.error serialize e]
-                        | Success (parseResult, checkResults) ->
+                        | ResultOrString.Error e -> [Response.error serialize e]
+                        | ResultOrString.Ok (parseResult, checkResults) ->
                             do fileParsed.Trigger parseResult
                             match checkResults with
                             | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
@@ -125,8 +125,8 @@ type Commands (serialize : Serializer) =
         let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
         return
             match res with
-            | Failure e -> [Response.error serialize e]
-            | Success results ->
+            | ResultOrString.Error e -> [Response.error serialize e]
+            | ResultOrString.Ok results ->
                 let errors = results |> Array.collect (fun r -> r.Errors)
                 [ Response.errors serialize (errors, file)]
     }
@@ -156,7 +156,7 @@ type Commands (serialize : Serializer) =
                 let options = checker.GetProjectOptions verbose projectFileName
 
                 match options with
-                | Result.Err error ->
+                | Result.Error error ->
                     project.Response <- None
                     [Response.projectError serialize error]
                 | Result.Ok (opts, projectFiles, logMap) ->
@@ -167,7 +167,13 @@ type Commands (serialize : Serializer) =
                     | Some x ->
                         match x with
                         | :? ExtraProjectInfoData as extraInfo ->
-                            let outFileOpt = FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
+                            let outFileOpt =
+                                match extraInfo.ProjectSdkType with
+                                | ProjectSdkType.Verbose v ->
+                                    Some (v.TargetPath)
+                                | ProjectSdkType.ProjectJson
+                                | ProjectSdkType.DotnetSdk _ ->
+                                    FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
                             let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
                             let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
                             let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
@@ -197,15 +203,15 @@ type Commands (serialize : Serializer) =
     member x.Declarations file lines version = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithSource file, lines with
-        | Failure s, None -> return [Response.error serialize s]
-        | Failure _, Some l ->
+        | ResultOrString.Error s, None -> return [Response.error serialize s]
+        | ResultOrString.Error _, Some l ->
             let text = String.concat "\n" l
             let files = Array.singleton file
             let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
             let! decls = checker.GetDeclarations(file, text, parseOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
             return [Response.declarations serialize decls]
-        | Success (checkOptions, source), _ ->
+        | ResultOrString.Ok (checkOptions, source), _ ->
             let text =
                 match lines with
                 | Some l -> String.concat "\n" l
@@ -314,12 +320,14 @@ type Commands (serialize : Serializer) =
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Lint (file: SourceFilePath) =
+
+
         let file = Path.GetFullPath file
         async {
             let res =
                 match state.TryGetFileCheckerOptionsWithSource file with
-                | Failure s -> [Response.error serialize s]
-                | Success (options, source) ->
+                | ResultOrString.Error s -> [Response.error serialize s]
+                | ResultOrString.Ok (options, source) ->
                     let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
                     match tyResOpt with

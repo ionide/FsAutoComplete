@@ -16,43 +16,7 @@ and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP
 
 module ProjectCrackerDotnetSdk =
 
-  let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
-      let psi = System.Diagnostics.ProcessStartInfo()
-      psi.FileName <- exePath
-      psi.WorkingDirectory <- workingDir
-      psi.RedirectStandardOutput <- true
-      psi.RedirectStandardError <- true
-      psi.Arguments <- args
-      psi.CreateNoWindow <- true
-      psi.UseShellExecute <- false
-
-      use p = new System.Diagnostics.Process()
-      p.StartInfo <- psi
-
-      p.OutputDataReceived.Add(fun ea -> log (ea.Data))
-
-      p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
-
-      p.Start() |> ignore
-      p.BeginOutputReadLine()
-      p.BeginErrorReadLine()
-      p.WaitForExit()
-
-      let exitCode = p.ExitCode
-
-      exitCode, (workingDir, exePath, args)
-
-  let msbuildPropBool (s: string) =
-    match s.Trim() with
-    | "" -> None
-    | MSBuildPrj.MSBuild.ConditionEquals "True" -> Some true
-    | _ -> Some false
-
-  let msbuildPropStringList (s: string) =
-    match s.Trim() with
-    | "" -> []
-    | MSBuildPrj.MSBuild.StringList list  -> list
-    | _ -> []
+  open DotnetProjInfoInspectHelpers
 
   let msbuildPropProjectOutputType (s: string) =
     match s.Trim() with
@@ -89,16 +53,35 @@ module ProjectCrackerDotnetSdk =
 
       IsPublishable = msbuildPropBool "IsPublishable" }
 
-  let getProjectOptionsFromProjectFile (file : string) =
+  type private ProjectParsingSdk = DotnetSdk | VerboseSdk
+
+  let private getProjectOptionsFromProjectFile parseAsSdk (file : string) =
 
     let rec projInfo additionalMSBuildProps file =
         let projDir = Path.GetDirectoryName file
 
-        let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
-        if not(File.Exists(projectAssetsJsonPath)) then
-            raise (ProjectInspectException (ProjectNotRestored file))
+        match parseAsSdk with
+        | ProjectParsingSdk.DotnetSdk ->
+            let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
+            if not(File.Exists(projectAssetsJsonPath)) then
+                raise (ProjectInspectException (ProjectNotRestored file))
+        | ProjectParsingSdk.VerboseSdk ->
+            ()
 
-        let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
+        let getFscArgs =
+            match parseAsSdk with
+            | ProjectParsingSdk.DotnetSdk ->
+                Dotnet.ProjInfo.Inspect.getFscArgs
+            | ProjectParsingSdk.VerboseSdk ->
+#if NO_PROJECTCRACKER
+                let asFscArgs props =
+                    let fsc = Microsoft.FSharp.Build.Fsc()
+                    Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
+                Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (asFscArgs >> Ok)
+#else
+                failwithf "project parsing not supported on verbose sdk"
+#endif
+
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
         let additionalInfo = //needed for extra
             [ "OutputType"
@@ -122,23 +105,37 @@ module ProjectCrackerDotnetSdk =
         let results, log =
             let loggedMessages = System.Collections.Concurrent.ConcurrentQueue<string>()
 
-            let runCmd exePath args = runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
+            let runCmd exePath args = Utils.runProcess loggedMessages.Enqueue projDir exePath (args |> String.concat " ")
 
-            let msbuildExec = Dotnet.ProjInfo.Inspect.dotnetMsbuild runCmd
+            let msbuildExec =
+                let msbuildPath =
+                    match parseAsSdk with
+                    | ProjectParsingSdk.DotnetSdk ->
+                        Dotnet.ProjInfo.Inspect.MSBuildExePath.DotnetMsbuild "dotnet"
+                    | ProjectParsingSdk.VerboseSdk ->
+                        Dotnet.ProjInfo.Inspect.MSBuildExePath.Path "msbuild"
+                Dotnet.ProjInfo.Inspect.msbuild msbuildPath runCmd
 
             let additionalArgs = additionalMSBuildProps |> List.map (Dotnet.ProjInfo.Inspect.MSBuild.MSbuildCli.Property)
 
+            let inspect =
+                match parseAsSdk with
+                | ProjectParsingSdk.DotnetSdk ->
+                    Dotnet.ProjInfo.Inspect.getProjectInfos
+                | ProjectParsingSdk.VerboseSdk ->
+                    Dotnet.ProjInfo.Inspect.getProjectInfosOldSdk
+
             let infoResult =
                 file
-                |> Dotnet.ProjInfo.Inspect.getProjectInfos loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
+                |> inspect loggedMessages.Enqueue msbuildExec [getFscArgs; getP2PRefs; gp] additionalArgs
 
             infoResult, (loggedMessages.ToArray() |> Array.toList)
 
         let todo =
             match results with
-            | Choice1Of2 [getFscArgsResult; getP2PRefsResult; gpResult] ->
+            | MsbuildOk [getFscArgsResult; getP2PRefsResult; gpResult] ->
                 match getFscArgsResult, getP2PRefsResult, gpResult with
-                | Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice2Of2(MSBuildPrj.MSBuildSkippedTarget), Choice1Of2 (MSBuildPrj.GetResult.Properties props) ->
+                | MsbuildError(MSBuildPrj.MSBuildSkippedTarget), MsbuildError(MSBuildPrj.MSBuildSkippedTarget), MsbuildOk (MSBuildPrj.GetResult.Properties props) ->
                     // Projects with multiple target frameworks, fails if the target framework is not choosen
                     let prop key = props |> Map.ofList |> Map.tryFind key
 
@@ -147,13 +144,13 @@ module ProjectCrackerDotnetSdk =
                         CrossTargeting tfms
                     | _ ->
                         failwithf "error getting msbuild info: some targets skipped, found props: %A" props
-                | Choice1Of2 (MSBuildPrj.GetResult.FscArgs fa), Choice1Of2 (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), Choice1Of2 (MSBuildPrj.GetResult.Properties p) ->
+                | MsbuildOk (MSBuildPrj.GetResult.FscArgs fa), MsbuildOk (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), MsbuildOk (MSBuildPrj.GetResult.Properties p) ->
                     NoCrossTargeting { FscArgs = fa; P2PRefs = p2p; Properties = p |> Map.ofList }
                 | r ->
                     failwithf "error getting msbuild info: %A" r
-            | Choice1Of2 r ->
+            | MsbuildOk r ->
                 failwithf "error getting msbuild info: internal error, more info returned than expected %A" r
-            | Choice2Of2 r ->
+            | MsbuildError r ->
                 match r with
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget ->
                     failwithf "Unexpected MSBuild result, all targets skipped"
@@ -169,6 +166,8 @@ module ProjectCrackerDotnetSdk =
                         |> String.concat " "
                     
                     failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
+            | _ ->
+                failwithf "error getting msbuild info: internal error"
 
         match todo with
         | CrossTargeting (tfm :: _) ->
@@ -184,7 +183,12 @@ module ProjectCrackerDotnetSdk =
                 p2ps
                 // do not follow others lang project, is not supported by FCS anyway
                 |> List.filter (fun p2p -> p2p.ProjectReferenceFullPath.ToLower().EndsWith(".fsproj"))
-                |> List.map (fun p2p -> p2p.ProjectReferenceFullPath |> projInfo ["TargetFramework", p2p.TargetFramework] )
+                |> List.map (fun p2p ->
+                    let followP2pArgs =
+                        p2p.TargetFramework
+                        |> Option.map (fun tfm -> "TargetFramework", tfm)
+                        |> Option.toList
+                    p2p.ProjectReferenceFullPath |> projInfo followP2pArgs )
 
             let tar =
                 match props |> Map.tryFind "TargetPath" with
@@ -195,13 +199,24 @@ module ProjectCrackerDotnetSdk =
                 //workaround, arguments in rsp can use relative paths
                 rsp |> List.map (FscArguments.useFullPaths projDir)
             
-            let extraInfo = getExtraInfo props
+            let sdkTypeData, log =
+                match parseAsSdk with
+                | ProjectParsingSdk.DotnetSdk ->
+                    let extraInfo = getExtraInfo props
+                    ProjectSdkType.DotnetSdk(extraInfo), []
+                | ProjectParsingSdk.VerboseSdk ->
+                    //compatibility with old behaviour, so output is exactly the same
+                    let mergedLog =
+                        [ yield (file, "")
+                          yield! p2pProjects |> List.collect (fun (_,_,x) -> x) ]
+                    ProjectSdkType.Verbose { TargetPath = tar }, mergedLog
+
             let po =
                 {
                     ProjectFileName = file
                     SourceFiles = [||]
                     OtherOptions = rspNormalized |> Array.ofList
-                    ReferencedProjects = p2pProjects |> Array.ofList
+                    ReferencedProjects = p2pProjects |> List.map (fun (x,y,_) -> (x,y)) |> Array.ofList
                     IsIncompleteTypeCheckEnvironment = false
                     UseScriptResolutionRules = false
                     LoadTime = DateTime.Now
@@ -210,23 +225,55 @@ module ProjectCrackerDotnetSdk =
                     Stamp = None
                     ExtraProjectInfo =
                         Some (box {
-                            ExtraProjectInfoData.ProjectSdkType = ProjectSdkType.DotnetSdk(extraInfo)
+                            ExtraProjectInfoData.ProjectSdkType = sdkTypeData
                             ExtraProjectInfoData.ProjectOutputType = FscArguments.outType rspNormalized
                         })
                 }
 
-            tar, po
+            tar, po, log
 
-    let _, po = projInfo [] file
-    po
+    let _, po, log = projInfo [] file
+    po, log
 
+  let private (|ProjectExtraInfoBySdk|_|) po =
+      match po.ExtraProjectInfo with
+      | None -> None
+      | Some x ->
+          match x with
+          | :? ExtraProjectInfoData as extraInfo ->
+              Some extraInfo
+          | _ -> None
+
+  let private loadBySdk parseAsSdk file =
+      try
+        let po, log = getProjectOptionsFromProjectFile parseAsSdk file
+
+        let compileFiles =
+            let sources = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
+            match po with
+            | ProjectExtraInfoBySdk extraInfo ->
+                match extraInfo.ProjectSdkType with
+                | ProjectSdkType.Verbose _ ->
+                    //compatibility with old behaviour (projectcracker), so test output is exactly the same
+                    //the temp source files (like generated assemblyinfo.fs) are not added to sources
+                    let isTempFile (name: string) =
+                        let tempPath = Path.GetTempPath()
+                        let s = name.ToLower()
+                        s.StartsWith(tempPath.ToLower())
+                    sources
+                    |> List.filter (not << isTempFile)
+                | ProjectSdkType.ProjectJson
+                | ProjectSdkType.DotnetSdk _ ->
+                    sources
+            | _ -> sources
+            
+        Ok (po, Seq.toList compileFiles, (log |> Map.ofList))
+      with
+        | ProjectInspectException d -> Error d
+        | e -> Error (GenericError(e.Message))
 
   let load file =
-      try
-        let po = getProjectOptionsFromProjectFile file
-        let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
-        Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
-      with
-        | ProjectInspectException d -> Err d
-        | e -> Err (GenericError(e.Message))
+      loadBySdk ProjectParsingSdk.DotnetSdk file
 
+  let loadVerboseSdk file =
+      loadBySdk ProjectParsingSdk.VerboseSdk file

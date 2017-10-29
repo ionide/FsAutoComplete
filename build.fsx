@@ -1,5 +1,6 @@
 // include Fake lib
-#r @"packages/FAKE/tools/FakeLib.dll"
+#r @"packages/build/FAKE/tools/FakeLib.dll"
+
 open Fake
 open Fake.Git
 open Fake.ReleaseNotesHelper
@@ -26,7 +27,8 @@ let release = List.head releaseNotesData
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
-let releaseArchive = "fsautocomplete.zip"
+let releaseArchive = "bin" </> "pkgs" </> "fsautocomplete.zip"
+let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
 
 // Pattern specifying assemblies to be tested using NUnit
 let testAssemblies = "**/bin/*/*Tests*.dll"
@@ -37,56 +39,107 @@ if Environment.OSVersion.Platform = PlatformID.Win32NT then
 Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
+
+  DotNetCli.Build (fun p ->
+     { p with
+         Configuration = "Debug"
+         Project = "FsAutoComplete.netcore.sln" })
 )
 
 Target "BuildRelease" (fun _ ->
   MSBuildRelease "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
+
+  DotNetCli.Build (fun p ->
+     { p with
+         Project = "FsAutoComplete.netcore.sln" })
 )
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
 
-let isTestSkipped httpMode fn =
+type Mode = HttpMode | StdioMode
+type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
+type IntegrationTestConfig = { Mode: Mode; Runtime: FSACRuntime }
+
+let (|AnyNetcoreRuntime|_|) r =
+  match r with
+  | FSACRuntime.NETCoreSCD
+  | FSACRuntime.NETCoreFDD -> Some ()
+  | FSACRuntime.NET -> None
+
+let isTestSkipped cfg fn =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
-  match httpMode, dir, file with
+
+  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") <> "0"
+
+  match cfg.Runtime, cfg.Mode, dir, file with
   // stdio and http
-  | _, "ProjectCache", "Runner.fsx" ->
+  | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
-  | _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
-  | _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
+  | AnyNetcoreRuntime, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx" ->
+    Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
+  | _, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
+  | _, _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
     | true, _ -> None //always run it on windows
     | false, "1" -> None //force run on mono
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
-  | _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
-  | _, "OldSdk", "InvalidProjectFileRunner.fsx" ->
-    match isWindows with
-    | true -> None //always run it on windows
-    | false -> Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
+  | _, _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
+  | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" when not(isWindows) ->
+    Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
   // http
-  | _, "RobustCommands", "NoSuchCommandRunner.fsx" ->
+  | _, HttpMode, "RobustCommands", "NoSuchCommandRunner.fsx" ->
     Some "invalid command is 404 in http"
-  | _, "Colorizations", "Runner.fsx" ->
+  | _, HttpMode, "Colorizations", "Runner.fsx" ->
     Some "not supported in http"
-  | _, "OutOfRange", "OutOfRangeRunner.fsx" ->
+  | _, HttpMode, "OutOfRange", "OutOfRangeRunner.fsx" ->
     Some "dunno why diverge"
-  | _, "ProjectReload", "Runner.fsx" ->
+  | _, HttpMode, "ProjectReload", "Runner.fsx" ->
     Some "probably ok, is a notification"
+  // .net core based fsac
+  | AnyNetcoreRuntime, _, "DotNetCore", "AppAndLibRunner.fsx"
+  | AnyNetcoreRuntime, _, "DotNetCoreCrossgen", "Runner.fsx"
+  | AnyNetcoreRuntime, _, "DotNetCoreWithOtherDotnetLang", "FSharpOuterRunner.fsx" ->
+    Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
+  | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
+    Some "know failure, the FSharp.Core is not added if not in the fsc args list"
+  // fsproj in test suite use ToolsVersion 4 (VS2010) and is not always installed
+  | AnyNetcoreRuntime, _, "ErrorTestsJson", "ErrorsRunner.fsx"
+  | AnyNetcoreRuntime, _, "FindDeclarations", "FindDeclRunner.fsx"
+  | AnyNetcoreRuntime, _, "MultiProj", "MultiProjRunner.fsx"
+  | AnyNetcoreRuntime, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
+  | AnyNetcoreRuntime, _, "ParamCompletion", "ParamCompletionRunner.fsx"
+  | AnyNetcoreRuntime, _, "ProjectReload", "Runner.fsx"
+  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
+  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
+  | AnyNetcoreRuntime, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
+  | AnyNetcoreRuntime, _, "SymbolUse", "SymbolUseRunner.fsx"
+  | AnyNetcoreRuntime, _, "Test1Json", "Test1JsonRunner.fsx"
+  | AnyNetcoreRuntime, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
+    Some "The test use old fsproj, and msbuild tools version 4 is not installed"
   // by default others are enabled
   | _ -> None
 
-let runIntegrationTest httpMode (fn: string) : bool =
+let runIntegrationTest cfg (fn: string) : bool =
   let dir = Path.GetDirectoryName fn
 
-  match isTestSkipped httpMode fn with
+  match isTestSkipped cfg fn with
   | Some msg ->
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    let mode = if httpMode then "--define:FSAC_TEST_HTTP" else ""
-    let fsiArgs = sprintf "%s %s" mode fn
+    let runtime =
+      match cfg.Runtime with
+      | FSACRuntime.NET -> ""
+      | FSACRuntime.NETCoreSCD -> "--define:FSAC_TEST_EXE_NETCORE_SCD"
+      | FSACRuntime.NETCoreFDD -> "--define:FSAC_TEST_EXE_NETCORE"
+    let mode =
+      match cfg.Mode with
+      | HttpMode -> "--define:FSAC_TEST_HTTP"
+      | StdioMode -> ""
+    let fsiArgs = sprintf "%s %s %s" mode runtime fn
     tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
     let testExecution =
       try
@@ -121,7 +174,7 @@ let runIntegrationTest httpMode (fn: string) : bool =
       else
         true
 
-let runall httpMode =
+let runall cfg =
 
     trace "Cleanup test dir (git clean)..."
     let clean =
@@ -137,10 +190,24 @@ let runall httpMode =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
+    trace "apply workaround for bug https://github.com/fsprojects/Paket/issues/2868"
+    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , @".paket/load/net45/IntegrationTests/Http.fs.fsx")
+    trace (sprintf "File '%s' contents:" includeFile)
+    File.ReadAllLines(includeFile)
+    |> Array.iter (trace)
+    trace "apply fix"
+    File.ReadAllLines(includeFile)
+    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper/.paket/load/net45/IntegrationTests/", ""))
+    |> fun lines -> File.WriteAllLines(includeFile, lines)
+    trace (sprintf "File '%s' contents:" includeFile)
+    File.ReadAllLines(includeFile)
+    |> Array.iter (trace)
+    trace "applied workaround"
+
     trace "Running Integration tests..."
     let runOk =
      integrationTests
-     |> Seq.map (runIntegrationTest httpMode)
+     |> Seq.map (runIntegrationTest cfg)
      |> Seq.forall id
 
     if not runOk then
@@ -158,13 +225,23 @@ let runall httpMode =
     trace "Done Integration tests."
 
 Target "IntegrationTestStdioMode" (fun _ ->
-  trace "== Integration tests (stdio) =="
-  runall false
+  trace "== Integration tests (stdio/net) =="
+  runall { Mode = StdioMode; Runtime = NET }
 )
 
 Target "IntegrationTestHttpMode" (fun _ ->
-  trace "== Integration tests (http) =="
-  runall true
+  trace "== Integration tests (http/net) =="
+  runall { Mode = HttpMode; Runtime = NET }
+)
+
+Target "IntegrationTestStdioModeNetCore" (fun _ ->
+  trace "== Integration tests (stdio/netcore) =="
+  runall { Mode = StdioMode; Runtime = NETCoreFDD }
+)
+
+Target "IntegrationTestHttpModeNetCore" (fun _ ->
+  trace "== Integration tests (http/netcore) =="
+  runall { Mode = HttpMode; Runtime = NETCoreFDD }
 )
 
 Target "UnitTest" (fun _ ->
@@ -191,11 +268,14 @@ Target "AssemblyInfo" (fun _ ->
 )
 
 Target "ReleaseArchive" (fun _ ->
-  Zip buildReleaseDir
-      releaseArchive
-      ( !! (buildReleaseDir + "/*.dll")
-        ++ (buildReleaseDir + "/*.exe")
-        ++ (buildReleaseDir + "/*.exe.config"))
+    CleanDirs [ "bin/pkgs" ]
+    ensureDirectory "bin/pkgs"
+
+    !! "bin/release/*.*"
+    |> Zip "bin/release" releaseArchive
+
+    !! "bin/release_netcore/*.*"
+    |> Zip "bin/release_netcore" releaseArchiveNetCore
 )
 
 Target "LocalRelease" (fun _ ->
@@ -205,9 +285,15 @@ Target "LocalRelease" (fun _ ->
         ++ (buildReleaseDir      + "/*.exe")
         ++ (buildReleaseDir      + "/*.exe.config")
     )
+
+    CleanDirs [ "bin/release_netcore" ]
+    DotNetCli.Publish (fun p ->
+       { p with
+           Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
+           Project = "src/FsAutoComplete.netcore" })
 )
 
-#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "Release" (fun _ ->
@@ -230,20 +316,22 @@ Target "Release" (fun _ ->
     // release on github
     createClient user pw
     |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
-    |> uploadFile releaseArchive
+    |> uploadFiles [ releaseArchive; releaseArchiveNetCore ]
     |> releaseDraft
     |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
   CleanDirs [ buildDir; buildReleaseDir ]
-  DeleteFiles [releaseArchive]
+  DeleteFiles [ releaseArchive; releaseArchiveNetCore ]
 )
 
 Target "Build" id
 Target "Test" id
 Target "IntegrationTest" id
 Target "All" id
+
+"AssemblyInfo" ==> "BuildDebug"
 
 "BuildDebug"
   ==> "Build"
@@ -258,16 +346,20 @@ Target "All" id
 
 "IntegrationTestStdioMode" ==> "IntegrationTest"
 "IntegrationTestHttpMode" ==> "IntegrationTest"
+"IntegrationTestStdioModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_STDIO") <> "0"))
+"IntegrationTestHttpModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_HTTP") <> "0"))
 
 "BuildDebug" ==> "All"
 "Test" ==> "All"
 
-"BuildRelease"
-    ==> "LocalRelease"
+"BuildRelease" ==> "LocalRelease"
+"LocalRelease" ==> "ReleaseArchive"
 
 "AssemblyInfo"
   ==> "BuildRelease"
   ==> "ReleaseArchive"
   ==> "Release"
+
+"ReleaseArchive" ==> "All"
 
 RunTargetOrDefault "BuildDebug"

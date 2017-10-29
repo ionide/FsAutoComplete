@@ -46,8 +46,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             let file = Path.GetFullPath data.FileName
             let! res =
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, { Line = data.Line; Col = data.Column }) with
-                | Failure s -> async.Return ([CommandResponse.error writeJson s])
-                | Success (options, lines, lineStr) ->
+                | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
+                | ResultOrString.Ok (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
                   //       for completions e.g. `(some typed expr).$`
                   try
@@ -74,10 +74,16 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 let loop = ref true
                 while !loop do
                     let! msg = webSocket.read()
+                    let emptyBs () =
+#if SUAVE_2
+                        Sockets.ByteSegment.Empty
+#else
+                        [||]
+#endif
                     match msg with
-                    | (Ping, _, _) -> do! webSocket.send Pong [||] true
+                    | (Ping, _, _) -> do! webSocket.send Pong (emptyBs ()) true
                     | (Close, _, _) ->
-                        do! webSocket.send Close [||] true
+                        do! webSocket.send Close (emptyBs ()) true
                         client <- None
                         loop := false
                     | _ -> ()
@@ -109,8 +115,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {
                 let file = Path.GetFullPath data.FileName
                 match commands.TryGetFileCheckerOptionsWithLines file with
-                | Failure s -> return [CommandResponse.error writeJson s]
-                | Success (options, lines) ->
+                | ResultOrString.Error s -> return [CommandResponse.error writeJson s]
+                | ResultOrString.Ok (options, lines) ->
                     let line = data.Line
                     let col = data.Column
                     let lineStr = data.SourceLine
@@ -149,9 +155,20 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let serverConfig =
         { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
 
+#if SUAVE_2
+    let logger = Suave.Logging.LiterateConsoleTarget([| "FsAutoComplete" |], Logging.Info)
+    let serverConfig = 
+        { serverConfig with logger = logger }
+#endif
+
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
+#if SUAVE_2
+        serverConfig.logger.log Logging.LogLevel.Info (fun _ -> Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid))
+        |> Async.RunSynchronously
+#else
         serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+#endif
         Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 

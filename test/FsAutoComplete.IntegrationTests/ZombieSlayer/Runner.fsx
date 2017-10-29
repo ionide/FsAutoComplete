@@ -65,12 +65,19 @@ let (|FSACStartedMsg|_|) (s: string) =
 
 let run () =
     let fsacExePath = FsAutoCompleteWrapper.ExePath ()
+    let requireDotnetFlag =
+      match testConfig.Runtime with
+      | FSACRuntime.NETCoreFDD _ -> true
+      | FSACRuntime.NET | FSACRuntime.NETCoreSCD -> false
+
     let start =
         let isWindows = Environment.OSVersion.Platform = PlatformID.Win32NT
         if isWindows then
-            startWrapper __SOURCE_DIRECTORY__ "powershell.exe" (sprintf """-NonInteractive -ExecutionPolicy Bypass -File runfsac.ps1 "%s" """ fsacExePath)
+            let useDotnetFlag = if requireDotnetFlag then "-UseDotnet" else ""
+            startWrapper __SOURCE_DIRECTORY__ "powershell.exe" (sprintf """-NonInteractive -ExecutionPolicy Bypass -File runfsac.ps1 "%s" %s """ fsacExePath useDotnetFlag)
         else
-            startWrapper __SOURCE_DIRECTORY__ "sh" (sprintf """./runfsac.sh "%s" """ fsacExePath)
+            let useDotnetFlag = if requireDotnetFlag then "--use-dotnet" else ""
+            startWrapper __SOURCE_DIRECTORY__ "sh" (sprintf """./runfsac.sh "%s" %s """ fsacExePath useDotnetFlag)
 
     let mutable fsacProc : Process option = None
 

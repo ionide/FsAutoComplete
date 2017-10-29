@@ -11,26 +11,81 @@ open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
+type FSACRuntime = NET | NETCoreSCD | NETCoreFDD of published: bool
+type IntegrationTestConfig = { Runtime: FSACRuntime }
+
+let testConfig =
+#if FSAC_TEST_EXE_NETCORE
+    { Runtime = NETCoreFDD false }
+#else
+#if FSAC_TEST_EXE_NETCORE_PUBLISHED
+    { Runtime = NETCoreFDD true }
+#else
+#if FSAC_TEST_EXE_NETCORE_SCD
+    { Runtime = NETCoreSCD }
+#else
+    { Runtime = NET }
+#endif
+#endif
+#endif
+ 
+
+let outputJsonForRuntime path =
+  match testConfig.Runtime with
+  | FSACRuntime.NETCoreFDD _ | FSACRuntime.NETCoreSCD ->
+    System.IO.Path.ChangeExtension(path, ".netcore.json")
+  | FSACRuntime.NET ->
+    path
+
+let fsacExePath () =
+  match testConfig.Runtime with
+  | FSACRuntime.NETCoreFDD false ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
+  | FSACRuntime.NETCoreFDD true ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
+  | FSACRuntime.NETCoreSCD ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete")
+  | FSACRuntime.NET ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+
+let configureFSACArgs (startInfo: ProcessStartInfo) =
+    startInfo.FileName <-
+      match testConfig.Runtime with
+      | FSACRuntime.NETCoreFDD _ ->
+          IO.Path.Combine(__SOURCE_DIRECTORY__,
+                          "../../.dotnetsdk/v2.0.0/dotnet")
+      | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
+          fsacExePath ()
+
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError  <- true
+    startInfo.RedirectStandardInput  <- true
+    startInfo.UseShellExecute <- false
+    startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+    match testConfig.Runtime with
+    | FSACRuntime.NETCoreFDD _ ->
+        startInfo.Arguments <- fsacExePath ()
+    | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
+        ()
+    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
+      startInfo.Arguments <- sprintf "%s --wait-for-debugger" startInfo.Arguments
+
 type FsAutoCompleteWrapperStdio() =
 
   let p = new System.Diagnostics.Process()
   let cachedOutput = new Text.StringBuilder()
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
-    p.StartInfo.RedirectStandardOutput <- true
-    p.StartInfo.RedirectStandardError  <- true
-    p.StartInfo.RedirectStandardInput  <- true
-    p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
-      p.StartInfo.Arguments <- "--wait-for-debugger"
+    configureFSACArgs p.StartInfo
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
     p.Start () |> ignore
 
   static member ExePath () =
-      IO.Path.Combine(__SOURCE_DIRECTORY__,
-                      "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+    fsacExePath ()
 
   member x.project (s: string) : unit =
     fprintf p.StandardInput "project \"%s\"\n" s
@@ -109,14 +164,7 @@ type FsAutoCompleteWrapperHttp() =
   let port = 8089
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
-    p.StartInfo.RedirectStandardOutput <- true
-    p.StartInfo.RedirectStandardError  <- true
-    p.StartInfo.RedirectStandardInput  <- true
-    p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
-      p.StartInfo.Arguments <- "--wait-for-debugger"
+    configureFSACArgs p.StartInfo
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
 
@@ -303,8 +351,8 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     // replace temp directory with <tempdir path removed>
     lines.[i] <- Regex.Replace(lines.[i],
-                               Path.GetTempPath().Replace('\\','/'),
-                               "<tempdir path removed>/")
+                               Path.GetTempPath().Replace("\\","[/|\\\\]"),
+                               "<tempdir path removed>/", RegexOptions.IgnoreCase)
 
     // replace temp filename with <tempfile name removed>
     lines.[i] <- Regex.Replace(lines.[i],
@@ -328,15 +376,22 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     let psi = System.Diagnostics.ProcessStartInfo()
     psi.FileName <- exePath
     psi.WorkingDirectory <- workingDir
-    psi.RedirectStandardOutput <- false
-    psi.RedirectStandardError <- false
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
     psi.Arguments <- args
     psi.CreateNoWindow <- true
     psi.UseShellExecute <- false
 
     use p = new System.Diagnostics.Process()
     p.StartInfo <- psi
+
+    p.OutputDataReceived.Add(fun ea -> printfn "%s" (ea.Data))
+
+    p.ErrorDataReceived.Add(fun ea -> printfn "%s" (ea.Data))
+
     p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
     p.WaitForExit()
 
     let exitCode = p.ExitCode
@@ -448,7 +503,7 @@ module DotnetCli =
 
       sdkDir
 
-  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.0.4" "v1.0.4"
+  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.1.4" "v1.1.4"
   let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0" "v2.0.0"
 
   let useSdk sdkDir =

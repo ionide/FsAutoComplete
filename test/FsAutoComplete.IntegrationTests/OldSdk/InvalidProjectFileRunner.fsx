@@ -3,8 +3,10 @@ open TestHelpers
 open System.IO
 open System
 
+let invalidprojectfileJson = outputJsonForRuntime "invalidprojectfile.json"
+
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-File.Delete "invalidprojectfile.json"
+File.Delete invalidprojectfileJson
 
 let doIt () =
   let p = new FsAutoCompleteWrapper()
@@ -14,6 +16,6 @@ let doIt () =
 
   p.send "quit\n"
   p.finalOutput ()
-  |> writeNormalizedOutput "invalidprojectfile.json"
+  |> writeNormalizedOutput invalidprojectfileJson
 
 doIt ()
