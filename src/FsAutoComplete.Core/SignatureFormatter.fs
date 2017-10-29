@@ -33,27 +33,31 @@ module SignatureFormatter =
             unionCase.DisplayName ++ "of" ++ typeList
          else unionCase.DisplayName
 
+    let chopStringTo (s:string) (c:char) =
+        // chopStringTo "abcdef" 'c' --> "def"
+        if s.IndexOf c <> -1 then
+            let i =  s.IndexOf c + 1
+            s.Substring(i, s.Length - i)
+        else
+            s
+
+    let tryChopPropertyName (s: string) =
+        // member names start with get_ or set_ when the member is a property
+        let s =
+            if s.StartsWith("get_", StringComparison.Ordinal) ||
+                s.StartsWith("set_", StringComparison.Ordinal)
+            then s
+            else chopStringTo s '.'
+
+        if s.Length <= 4 || (let s = s.Substring(0,4) in s <> "get_" && s <> "set_") then
+            None
+        else
+            Some(s.Substring(4,s.Length - 4))
+
     let formatGenericParameter displayContext (param:FSharpGenericParameter) =
-        let chopStringTo (s:string) (c:char) =
-            // chopStringTo "abcdef" 'c' --> "def"
-            if s.IndexOf c <> -1 then
-                let i =  s.IndexOf c + 1
-                s.Substring(i, s.Length - i)
-            else
-                s
 
-        let tryChopPropertyName (s: string) =
-            // member names start with get_ or set_ when the member is a property
-            let s =
-                if s.StartsWith("get_", StringComparison.Ordinal) ||
-                    s.StartsWith("set_", StringComparison.Ordinal)
-                then s
-                else chopStringTo s '.'
 
-            if s.Length <= 4 || (let s = s.Substring(0,4) in s <> "get_" && s <> "set_") then
-                None
-            else
-                Some(s.Substring(4,s.Length - 4))
+
 
         let asGenericParamName (param: FSharpGenericParameter) =
             (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
@@ -285,6 +289,7 @@ module SignatureFormatter =
                 if func.IsConstructor then "new"
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
+                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then tryChopPropertyName func.DisplayName |> Option.fill func.DisplayName
                 else func.DisplayName
             name
 
