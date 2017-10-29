@@ -443,6 +443,7 @@ module SignatureFormatter =
             let funcs =
                 fse.MembersFunctionsAndValues
                 |> Seq.map (getFuncSignatureWithoutFormat displayContext)
+                |> Seq.distinct
                 |> String.concat "\n   "
             if String.IsNullOrWhiteSpace funcs then "" else  "\n   " + funcs
 
