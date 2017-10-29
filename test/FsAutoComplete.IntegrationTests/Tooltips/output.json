@@ -74,7 +74,7 @@
   "Data": [
     [
       {
-        "Signature": "type Abcd\n  new Abcd () : Abcd\n  member a () : int",
+        "Signature": "type Abcd\n  new  new : unit ->  Abcd\n  member Add : a: int  *b: int -> int + 2 overloads\n  property asdfg :  int  with get\n  property bnm :  int  with get,set\n  property cvbnm :  int  with get,set",
         "Comment": "\n\nSample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
       }
@@ -86,7 +86,43 @@
   "Data": [
     [
       {
-        "Signature": "type Desf\n  member b () : int",
+        "Signature": "member asdfg :\n   : unit \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.Abcd.asdfg\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "member bnm :\n   : unit \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.Abcd.bnm\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "member cvbnm :\n   : unit \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.Abcd.cvbnm\nAssembly: Script"
+      }
+    ]
+  ]
+}
+{
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "type Desf\n  property b :  int  with get",
         "Comment": "",
         "Footer": "Full name: Script.Desf\nAssembly: Script"
       }

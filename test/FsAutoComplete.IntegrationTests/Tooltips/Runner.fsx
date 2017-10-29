@@ -20,19 +20,17 @@ p.tooltip "Script.fsx" "  type ResponseMsg<'T> =" 10 14
 p.tooltip "Script.fsx" "  let funky x = x + 1" 4 10
 p.tooltip "Script.fsx" "let funct (x : CommandResponse.ResponseMsg<_>) = ()" 19 6
 p.tooltip "Script.fsx" "type Abcd () =" 24 8
-p.tooltip "Script.fsx" "type Desf =" 27 8
-p.tooltip "Script.fsx" "  member __.b = 234" 28 5
-p.tooltip "Script.fsx" "type Qwer =" 30 8
-p.tooltip "Script.fsx" "type Gjk =" 35 8
-p.tooltip "Script.fsx" "type Gjk =" 35 2
-p.tooltip "Script.fsx" "let (>=>) a b = a + b" 40 7
-p.tooltip "Script.fsx" "let (|Even|Odd|) input = if input % 2 = 0 then Even else Odd" 42 7
-p.tooltip "Script.fsx" "   | Even -> 1" 46 8
-
-
-
-
-
+p.tooltip "Script.fsx" "  member __.asdfg = 123" 26 15
+p.tooltip "Script.fsx" "  member val bnm = 1 with get, set" 27 15
+p.tooltip "Script.fsx" "  member __.cvbnm" 28 15
+p.tooltip "Script.fsx" "type Desf =" 35 8
+p.tooltip "Script.fsx" "  member __.b = 234" 36 5
+p.tooltip "Script.fsx" "type Qwer =" 38 8
+p.tooltip "Script.fsx" "type Gjk =" 43 8
+p.tooltip "Script.fsx" "type Gjk =" 43 2
+p.tooltip "Script.fsx" "let (>=>) a b = a + b" 48 7
+p.tooltip "Script.fsx" "let (|Even|Odd|) input = if input % 2 = 0 then Even else Odd" 50 7
+p.tooltip "Script.fsx" "   | Even -> 1" 54 8
 
 p.send "quit\n"
 p.finalOutput ()

@@ -190,6 +190,11 @@ module SignatureFormatter =
                                   else accessibility
                     | _ ->
                       accessibility
+                elif func.IsProperty then
+                    if func.IsInstanceMember then
+                        if func.IsDispatchSlot then "abstract property" ++ accessibility
+                        else "property" ++ accessibility
+                    else "static property" ++ accessibility
                 elif func.IsMember then
                     if func.IsInstanceMember then
                         if func.IsDispatchSlot then "abstract member" ++ accessibility
@@ -227,8 +232,6 @@ module SignatureFormatter =
             | [] -> 0
             | l -> l |> List.maxUnderThreshold maxPadding
 
-        let asUnderline = sprintf "_STARTUNDERLINE_%s_ENDUNDERLINE_" // we replace with real markup after highlighting
-
         let formatName indent padding (parameter:FSharpParameter) =
             let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
             indent + name.PadRight padding + ":"
@@ -246,9 +249,9 @@ module SignatureFormatter =
             else modifiers ++ functionName ++ ": " ++ retType
 
         | [[]] ->
-            //A ctor with () parameters seems to be a list with an empty list
             if isDelegate then retType
-            else modifiers ++ functionName ++ "() :" ++ retType
+            elif func.IsConstructor then modifiers ++ " : unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
+            else modifiers ++ functionName ++ ": " ++ retType //Value members seems to be a list with an empty list
         | many ->
             let formatParameter (p:FSharpParameter) =
                 try
@@ -277,7 +280,7 @@ module SignatureFormatter =
             if isDelegate then typeArguments
             else modifiers ++ functionName ++ ":" + "\n" + typeArguments
 
-    let getFuncSignatureWithoutFormat displayContext (func: FSharpMemberOrFunctionOrValue)  =
+    let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
             let name =
                 if func.IsConstructor then
@@ -304,6 +307,11 @@ module SignatureFormatter =
                                   else accessibility
                     | _ ->
                       accessibility
+                elif func.IsProperty then
+                    if func.IsInstanceMember then
+                        if func.IsDispatchSlot then "abstract property" ++ accessibility
+                        else "property" ++ accessibility
+                    else "static property" ++ accessibility
                 elif func.IsMember then
                     if func.IsInstanceMember then
                         if func.IsDispatchSlot then "abstract member" ++ accessibility
@@ -351,43 +359,57 @@ module SignatureFormatter =
             | _ ->
                 false
 
-        match argInfos with
-        | [] ->
-            //When does this occur, val type within  module?
-            if isDelegate then retType
-            else modifiers ++ functionName ++ ": " ++ retType
+        let res =
+            match argInfos with
+            | [] ->
+                //When does this occur, val type within  module?
+                if isDelegate then retType
+                else modifiers ++ functionName ++ ": " ++ retType
 
-        | [[]] ->
-            //A ctor with () parameters seems to be a list with an empty list
-            if isDelegate then retType
-            else modifiers ++ functionName ++ "() :" ++ retType
-        | many ->
-            let formatParameter (p:FSharpParameter) =
-                try
-                    p.Type.Format displayContext
-                with
-                | :? InvalidOperationException -> p.DisplayName
+            | [[]] ->
+                if isDelegate then retType
+                elif func.IsConstructor then modifiers ++ " new : unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
+                else modifiers ++ functionName ++ ": " ++ retType //Value members seems to be a list with an empty list
+            | many ->
+                let formatParameter (p:FSharpParameter) =
+                    try
+                        p.Type.Format displayContext
+                    with
+                    | :? InvalidOperationException -> p.DisplayName
 
-            let allParamsLengths =
-                many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
-            let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
+                let allParamsLengths =
+                    many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
+                let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
-            let parameterTypeWithPadding (p: FSharpParameter) length =
-                (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
+                let parameterTypeWithPadding (p: FSharpParameter) length =
+                    (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
 
-            let allParams =
-                List.zip many allParamsLengths
-                |> List.map(fun (paramTypes, length) ->
-                                paramTypes
-                                |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
-                                |> String.concat (" *"))
-                |> String.concat ("-> ")
+                let allParams =
+                    List.zip many allParamsLengths
+                    |> List.map(fun (paramTypes, length) ->
+                                    paramTypes
+                                    |> List.map(fun p -> formatName padLength p ++ (parameterTypeWithPadding p length))
+                                    |> String.concat (" *"))
+                    |> String.concat ("-> ")
 
-            let typeArguments =
-                allParams + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
+                let typeArguments =
+                    allParams + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
 
-            if isDelegate then typeArguments
-            else modifiers ++ functionName ++ ": " +  typeArguments
+                if isDelegate then typeArguments
+                else modifiers ++ functionName ++ ": " +  typeArguments
+
+        let res =
+            if overloads = 1 then
+                res
+            else
+                sprintf "%s + %d overloads" res (overloads - 1)
+
+        match getter, setter with
+        | true, true -> res ++ " with get,set"
+        | true, false -> res ++ " with get"
+        | false, true -> res ++ " with set"
+        | false, false -> res
+
 
     let getFuncSignature f c = getFuncSignatureWithFormat f c 3
 
@@ -432,7 +454,17 @@ module SignatureFormatter =
         let typeTip () =
             let funcs =
                 fse.MembersFunctionsAndValues
-                |> Seq.map (getFuncSignatureWithoutFormat displayContext)
+                |> Seq.groupBy (fun n -> n.FullName)
+                |> Seq.map (fun (_,v) ->
+                    match v |> Seq.tryFind (fun f -> f.IsProperty) with
+                    | Some prop ->
+                        let getter = v |> Seq.exists (fun f -> f.IsPropertyGetterMethod)
+                        let setter = v |> Seq.exists (fun f -> f.IsPropertySetterMethod)
+                        getFuncSignatureForTypeSignature displayContext prop 1 getter setter //Ensure properties are displayed only once, properly report
+                    | None ->
+                        let f = Seq.head v
+                        let l = Seq.length v
+                        getFuncSignatureForTypeSignature displayContext f l false false )
                 |> Seq.distinct
                 |> String.concat "\n  "
             if String.IsNullOrWhiteSpace funcs then "" else  "\n  " + funcs
@@ -451,8 +483,6 @@ module SignatureFormatter =
                 basicName ++ "=" ++ (unannotatedType.DisplayName)
             else
                 basicName
-
-
 
         if fse.IsFSharpUnion then typeDisplay + uniontip ()
         elif fse.IsEnum then typeDisplay + enumtip ()
