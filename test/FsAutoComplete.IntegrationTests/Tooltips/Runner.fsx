@@ -32,6 +32,7 @@ p.tooltip "Script.fsx" "type Gjk =" 43 2
 p.tooltip "Script.fsx" "let (>=>) a b = a + b" 48 7
 p.tooltip "Script.fsx" "let (|Even|Odd|) input = if input % 2 = 0 then Even else Odd" 50 7
 p.tooltip "Script.fsx" "   | Even -> 1" 54 8
+p.tooltip "Script.fsx" "let tasd = System.String.IsNullOrEmpty" 57 23
 
 p.send "quit\n"
 p.finalOutput ()

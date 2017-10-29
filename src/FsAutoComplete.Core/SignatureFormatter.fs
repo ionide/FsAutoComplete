@@ -339,14 +339,7 @@ module SignatureFormatter =
                     else "Unknown"
                 with _ -> "Unknown"
 
-        let padLength =
-            let allLengths =
-                argInfos
-                |> List.concat
-                |> List.map (fun p -> match p.Name with Some name -> name.Length | None -> p.DisplayName.Length)
-            match allLengths with
-            | [] -> 0
-            | l -> l |> List.maxUnderThreshold maxPadding
+        let padLength = 1
 
         let formatName padding (parameter:FSharpParameter) =
             let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
