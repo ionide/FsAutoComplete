@@ -282,10 +282,7 @@ module SignatureFormatter =
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
             let name =
-                if func.IsConstructor then
-                    match func.EnclosingEntitySafe with
-                    | Some ent -> ent.DisplayName
-                    | _ -> func.DisplayName
+                if func.IsConstructor then "new"
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
                 else func.DisplayName
@@ -330,7 +327,12 @@ module SignatureFormatter =
         let retType =
             //This try block will be removed when FCS updates
             try
-                func.ReturnParameter.Type.Format displayContext
+                if func.IsConstructor then
+                    match func.EnclosingEntitySafe with
+                    | Some ent -> ent.DisplayName
+                    | _ -> func.DisplayName
+                else
+                    func.ReturnParameter.Type.Format displayContext
             with _ex ->
                 try
                     if func.FullType.GenericArguments.Count > 0 then
@@ -480,13 +482,28 @@ module SignatureFormatter =
             "   " + "delegate" + " of\n" + invokerSig
 
         let typeTip () =
+            let constrc =
+                fse.MembersFunctionsAndValues
+                |> Seq.filter (fun n -> n.IsConstructor)
+                |> fun v ->
+                    match Seq.tryHead v with
+                    | None -> ""
+                    | Some f ->
+                        let l = Seq.length v
+                        getFuncSignatureForTypeSignature displayContext f l false false
+
             let fields =
                 fse.FSharpFields
                 |> Seq.filter (fun n -> n.Accessibility.IsPublic ) //TODO: If defined in same project as current scope then show also internals
+                |> Seq.sortBy (fun n -> n.DisplayName )
                 |> Seq.map (getFieldSignature displayContext)
+
+            let fields = if Seq.length fields > 11 then seq {yield! Seq.take 11 fields; yield "..." } else fields
 
             let funcs =
                 fse.MembersFunctionsAndValues
+                |> Seq.filter (fun n -> n.Accessibility.IsPublic ) //TODO: If defined in same project as current scope then show also internals
+                |> Seq.filter (fun n -> not n.IsConstructor)
                 |> Seq.groupBy (fun n -> n.FullName)
                 |> Seq.map (fun (_,v) ->
                     match v |> Seq.tryFind (fun f -> f.IsProperty) with
@@ -498,8 +515,15 @@ module SignatureFormatter =
                         let f = Seq.head v
                         let l = Seq.length v
                         getFuncSignatureForTypeSignature displayContext f l false false )
+
+            let funcs = if Seq.length funcs > 11 then seq {yield! Seq.take 11 funcs; yield "..." } else funcs
+
+
             let res =
-                [yield! fields; yield! funcs]
+                [ yield constrc
+                  yield! fields
+                  if Seq.length fields > 0 then yield "\n"
+                  yield! funcs]
                 |> Seq.distinct
                 |> String.concat "\n  "
 
