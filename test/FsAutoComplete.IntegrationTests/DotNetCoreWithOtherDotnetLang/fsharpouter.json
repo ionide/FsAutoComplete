@@ -5,7 +5,7 @@
     "Files": [
       "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/c1/Program.fs"
     ],
-    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/c1/obj/Debug/netcoreapp1.0/c1.dll",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreWithOtherDotnetLang/sampleo/c1/bin/Debug/netcoreapp1.0/c1.dll",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/Microsoft.CSharp.dll",

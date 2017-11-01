@@ -5,7 +5,7 @@
     "Files": [
       "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/c1/Program.fs"
     ],
-    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/c1/obj/Debug/net461/c1.exe",
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetCoreCrossgenWithNetFx/sample1/c1/bin/Debug/net461/c1.exe",
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/Newtonsoft.Json.dll",
