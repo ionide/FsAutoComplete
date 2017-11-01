@@ -24,7 +24,7 @@ module ProjectCrackerDotnetSdk =
     | MSBuildPrj.MSBuild.ConditionEquals "Library" -> ProjectOutputType.Library
     | x -> ProjectOutputType.Custom x
 
-  let getExtraInfo props =
+  let getExtraInfo targetPath props =
     let msbuildPropBool prop =
         props |> Map.tryFind prop |> Option.bind msbuildPropBool
     let msbuildPropStringList prop =
@@ -38,6 +38,7 @@ module ProjectCrackerDotnetSdk =
       TargetFramework = msbuildPropString "TargetFramework" |> Option.getOrElse ""
       TargetFrameworkIdentifier = msbuildPropString "TargetFrameworkIdentifier" |> Option.getOrElse ""
       TargetFrameworkVersion = msbuildPropString "TargetFrameworkVersion" |> Option.getOrElse ""
+      TargetPath = targetPath
 
       MSBuildAllProjects = msbuildPropStringList "MSBuildAllProjects" |> Option.getOrElse []
       MSBuildToolsVersion = msbuildPropString "MSBuildToolsVersion" |> Option.getOrElse ""
@@ -202,7 +203,7 @@ module ProjectCrackerDotnetSdk =
             let sdkTypeData, log =
                 match parseAsSdk with
                 | ProjectParsingSdk.DotnetSdk ->
-                    let extraInfo = getExtraInfo props
+                    let extraInfo = getExtraInfo tar props
                     ProjectSdkType.DotnetSdk(extraInfo), []
                 | ProjectParsingSdk.VerboseSdk ->
                     //compatibility with old behaviour, so output is exactly the same
