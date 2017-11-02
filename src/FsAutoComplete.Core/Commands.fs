@@ -24,7 +24,7 @@ type Commands (serialize : Serializer) =
        state.NavigationDeclarations.[parseRes.FileName] <- decls
     )
 
-    let normalizeOptions (opts : FSharpProjectOptions) = 
+    let normalizeOptions (opts : FSharpProjectOptions) =
         { opts with
             SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
             OtherOptions = opts.OtherOptions |> Array.map (fun n -> if n.StartsWith "-" then n else Path.GetFullPath n)
@@ -473,8 +473,8 @@ type Commands (serialize : Serializer) =
 
         async {
             match state.TryGetFileCheckerOptionsWithSource file with
-            | Failure s ->  return [Response.error serialize s]
-            | Success (opts, _) ->
+            | Error s ->  return [Response.error serialize s]
+            | Ok (opts, _) ->
                 let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
                 match tyResOpt with
                 | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
@@ -489,8 +489,8 @@ type Commands (serialize : Serializer) =
 
         async {
             match state.TryGetFileCheckerOptionsWithLines file with
-            | Failure s ->  return [Response.error serialize s]
-            | Success (opts, source) ->
+            | Error s ->  return [Response.error serialize s]
+            | Ok (opts, source) ->
                 let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
                 match tyResOpt with
                 | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
@@ -504,8 +504,8 @@ type Commands (serialize : Serializer) =
         let file = Path.GetFullPath file
         async {
             match state.TryGetFileCheckerOptionsWithLines file with
-            | Failure s ->  return [Response.error serialize s]
-            | Success (opts, source) ->
+            | Error s ->  return [Response.error serialize s]
+            | Ok (opts, source) ->
                 let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
                 match tyResOpt with
                 | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
