@@ -14,6 +14,7 @@
     <Compile Include="..\FsAutoComplete.Core\Lexer.fs" />
     <Compile Include="..\FsAutoComplete.Core\NETFrameworkInfoProvider.fs" />
     <Compile Include="..\FsAutoComplete.Core\Environment.fs" />
+    <Compile Include="..\FsAutoComplete.Core\SignatureFormatter.fs" />
     <Compile Include="..\FsAutoComplete.Core\TipFormatter.fs" />
     <Compile Include="..\FsAutoComplete.Core\FileSystem.fs" />
     <Compile Include="..\FsAutoComplete.Core\Parser.fs" />

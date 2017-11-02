@@ -85,7 +85,7 @@ type ParseAndCheckResults
 
   member __.TryGetToolTipEnhanced (pos: Pos) (lineStr: LineStr) = async {
     match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-    | None -> return Failure "Cannot find ident for tooltip"
+    | None -> return Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -99,16 +99,16 @@ type ParseAndCheckResults
                KeywordList.tryGetKeywordDescription ident
                |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
                |> function
-               | Some tip -> Success (tip, ident, "")
-               | None -> Failure "No tooltip information"
-            | _ -> Failure "No tooltip information"
+               | Some tip -> Ok (tip, ident, "")
+               | None -> Error "No tooltip information"
+            | _ -> Error "No tooltip information"
         | _ ->
         match symbol with
-        | None -> Failure "No tooltip information"
+        | None -> Error "No tooltip information"
         | Some s ->
           match SignatureFormatter.getTooltipDetailsFromSymbolUse s with
-          | None -> Failure "No tooltip information"
-          | Some (s,f) -> Success (tip, s, f)
+          | None -> Error "No tooltip information"
+          | Some (s,f) -> Ok (tip, s, f)
   }
 
   member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr) =
