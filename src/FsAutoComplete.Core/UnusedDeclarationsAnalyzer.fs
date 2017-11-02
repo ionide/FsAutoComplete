@@ -18,6 +18,8 @@ module UnusedDeclarationsAnalyzer =
                 f.IsConstructor -> false
         // Usage of DU case parameters does not give any meaningful feedback; we never gray them out.
         | :? FSharpParameter -> false
+        // Same as DUs
+        | :? FSharpActivePatternCase -> false
         | _ -> true
 
     let getUnusedDeclarationRanges (symbolsUses: FSharpSymbolUse[]) (isScript: bool) =
@@ -42,7 +44,7 @@ module UnusedDeclarationsAnalyzer =
             |> Array.map (fun defSu -> defSu, usages.Contains defSu.Symbol.DeclarationLocation.Value)
             |> Array.groupBy (fun (defSu, _) -> defSu.RangeAlternate)
             |> Array.filter (fun (_, defSus) -> defSus |> Array.forall (fun (_, isUsed) -> not isUsed))
-            |> Array.map (fun (m, _) -> m)
+            |> Array.map (fst)
 
         unusedRanges
 
