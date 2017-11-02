@@ -122,9 +122,13 @@ module SymbolUse =
         | _ -> None
 
     let (|StaticParameter|_|) (symbol : FSharpSymbolUse) =
+        #if NO_EXTENSIONTYPING
+        Some
+        #else
         match symbol.Symbol with
         | :? FSharpStaticParameter as sp -> Some sp
         | _ -> None
+        #endif
 
     let (|UnionCase|_|) (symbol : FSharpSymbolUse) =
         match symbol.Symbol with
