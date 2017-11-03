@@ -25,7 +25,7 @@
     <Compile Include="..\FsAutoComplete.Core\AssemblyContentProvider.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnopenedNamespacesResolver.fs" />
     <Compile Include="..\FsAutoComplete.Core\CompilerServiceInterface.fs" />
-    <Compile Include="..\FsAutoComplete.Core\Workspace.fs" />
+    <Compile Include="..\FsAutoComplete.Core\WorkspacePeek.fs" />
     <Compile Include="..\FsAutoComplete.Core\CommandResponse.fs" />
     <Compile Include="..\FsAutoComplete.Core\Project.fs" />
     <Compile Include="..\FsAutoComplete.Core\State.fs" />
