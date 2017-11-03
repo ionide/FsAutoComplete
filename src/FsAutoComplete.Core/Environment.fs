@@ -54,7 +54,7 @@ module Environment =
       | Some file -> file
       | None -> tool
 
-  let msbuild =
+  let findMSBuild () =
 #if SCRIPT_REFS_FROM_MSBUILD
       if not(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) then
         //well, depends on mono version, but like this is mono >= 5.2 (msbuild on mono 5.0 sort of works)
@@ -73,6 +73,8 @@ module Environment =
         let ev = Environment.GetEnvironmentVariable "MSBuild"
         if not (String.IsNullOrEmpty ev) then ev
         else findPath MSBuildPath "MSBuild.exe"
+
+  let mutable msbuild : string = "msbuild"
 
   let private fsharpInstallationPath =
     ["4.1"; "4.0"; "3.1"; "3.0"]

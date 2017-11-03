@@ -66,6 +66,7 @@ module Options =
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | Mode of TransportMode
       | Port of tcp_port:int
+      | Msbuild of path:string
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -79,8 +80,14 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | Port _ -> "the listening port."
                   | Mode _ -> "the transport type."
+                  | Msbuild _ -> "the path to msbuild to use"
 
   let apply (args: ParseResults<CLIArguments>) =
+
+    Environment.msbuild <-
+      match args.TryGetResult(<@ Msbuild @>) with
+      | Some path -> path
+      | None -> Environment.findMSBuild ()
 
     let applyArg arg =
       match arg with
@@ -97,6 +104,7 @@ module Options =
           Debug.categories <- v.Split(',') |> set |> Some
       | Commands
       | Version
+      | Msbuild _
       | WaitForDebugger
       | HostPID _
       | Mode _
