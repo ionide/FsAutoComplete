@@ -42,7 +42,7 @@ let ``should find fsc on Windows`` () =
   if not Utils.runningOnMono then
     Assert.That(Environment.fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
 
-[<Test>]
+[<Test; Ignore("wip")>]
 let ``should find msbuild on Windows`` () =
   if not Utils.runningOnMono then
     Assert.That(Environment.msbuild.Length > "MSBuild.exe".Length, "MSBuild.exe resolution failed")
