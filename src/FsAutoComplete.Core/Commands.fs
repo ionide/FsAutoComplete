@@ -315,6 +315,11 @@ type Commands (serialize : Serializer) =
         |> x.SerializeResult (Response.findDeclaration, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
+    member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryFindTypeDeclaration pos lineStr
+        |> x.SerializeResult (Response.findDeclaration, Response.error)
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
     member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
         |> x.SerializeResult (Response.methods, Response.error)
