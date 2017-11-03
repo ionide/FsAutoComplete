@@ -50,6 +50,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                             | TypeSig -> commands.Typesig tyRes pos lineStr
                             | SymbolUse -> commands.SymbolUse tyRes pos lineStr
                             | FindDeclaration -> commands.FindDeclaration tyRes pos lineStr
+                            | FindTypeDeclaration -> commands.FindTypeDeclaration tyRes pos lineStr
                             | Methods -> commands.Methods tyRes pos lines
                             | SymbolUseProject -> commands.SymbolUseProject tyRes pos lineStr
                             | SignatureData -> commands.SignatureData tyRes pos lineStr

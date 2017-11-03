@@ -62,6 +62,30 @@ type ParseAndCheckResults
       | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return ResultOrString.Error "External declaration" //TODO: Handle external declarations
     }
 
+  member __.TryFindTypeDeclaration (pos: Pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+    | None -> return Error "Cannot find ident at this location"
+    | Some(col,identIsland) ->
+      let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+      match symbol with
+      | None -> return Error "Cannot find symbol at this locaion"
+      | Some s ->
+        let r =
+          match s with
+          | SymbolUse.Field f -> Some f.FieldType.TypeDefinition.DeclarationLocation
+          | SymbolUse.Val v -> v.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
+          | SymbolUse.Entity (e, _) -> Some e.DeclarationLocation
+          | SymbolUse.Parameter p -> Some p.Type.TypeDefinition.DeclarationLocation
+          | SymbolUse.TypeAbbreviation t -> Some t.DeclarationLocation
+          | SymbolUse.Property p -> p.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
+          | _ -> None
+        match r with
+        | None -> return Error "No type information for the symbol at this location"
+        | Some r ->
+          return (Ok r)
+
+  }
+
   member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) = async {
     match Parsing.findLongIdents(pos.Col - 1, lineStr) with
     | None -> return ResultOrString.Error "Cannot find ident for tooltip"
