@@ -80,9 +80,8 @@ type ParseAndCheckResults
           | SymbolUse.Property p -> p.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
           | _ -> None
         match r with
-        | None -> return Error "No type information for the symbol at this location"
-        | Some r ->
-          return (Ok r)
+        | Some r when File.Exists r.FileName -> return (Ok r)
+        | _ -> return Error "No type information for the symbol at this location"
 
   }
 
