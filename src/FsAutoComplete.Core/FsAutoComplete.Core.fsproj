@@ -60,7 +60,7 @@
     <Compile Include="AssemblyContentProvider.fs" />
     <Compile Include="UnopenedNamespacesResolver.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
-    <Compile Include="Workspace.fs" />
+    <Compile Include="WorkspacePeek.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
     <Compile Include="State.fs" />
