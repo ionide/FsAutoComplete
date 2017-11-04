@@ -15,7 +15,7 @@ module Response = CommandResponse
 type Commands (serialize : Serializer) =
 
     let checker = FSharpCompilerServiceChecker()
-    let state = FsAutoComplete.State.Initial
+    let state = State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
 
@@ -50,6 +50,14 @@ type Commands (serialize : Serializer) =
                     let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
                     fileParsed.Trigger parseRes
             ) }
+
+    let fillHelpTextInTheBackground decls =
+        let declName (d: FSharpDeclarationListItem) = d.Name
+
+        async {
+            for decl in decls do
+                state.HelpText.[declName decl] <- decl.DescriptionText
+        } |> Async.Start
 
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -251,6 +259,7 @@ type Commands (serialize : Serializer) =
                 match res with
                 | Some (decls, residue) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
+                    do fillHelpTextInTheBackground decls
 
                     // Send the first helptext without being requested.
                     // This allows it to be displayed immediately in the editor.
@@ -258,18 +267,12 @@ type Commands (serialize : Serializer) =
                       decls
                       |> Array.sortBy declName
                       |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-                    let res =
-                        match firstMatchOpt with
-                        | None -> [Response.completion serialize decls includeKeywords]
-                        | Some d ->
-                            [Response.helpText serialize (d.Name, d.DescriptionText)
-                             Response.completion serialize decls includeKeywords]
-                    async {
-                        for decl in decls do
-                        state.HelpText.[declName decl] <- decl.DescriptionText
-                    } |> Async.Start
+                    match firstMatchOpt with
+                    | None -> [Response.completion serialize decls includeKeywords]
+                    | Some d ->
+                        [Response.helpText serialize (d.Name, d.DescriptionText)
+                         Response.completion serialize decls includeKeywords]
 
-                    res
                 | None -> [Response.error serialize "Timed out while fetching completions"]
         }
 
@@ -337,8 +340,8 @@ type Commands (serialize : Serializer) =
         async {
             let res =
                 match state.TryGetFileCheckerOptionsWithSource file with
-                | ResultOrString.Error s -> [Response.error serialize s]
-                | ResultOrString.Ok (options, source) ->
+                | Error s -> [Response.error serialize s]
+                | Ok (options, source) ->
                     let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
                     match tyResOpt with
