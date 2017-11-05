@@ -47,7 +47,7 @@ Target "BuildDebug" (fun _ ->
 )
 
 Target "BuildRelease" (fun _ ->
-  MSBuildRelease "" "Build" ["./FsAutoComplete.sln"]
+  MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
   DotNetCli.Build (fun p ->
@@ -280,6 +280,8 @@ Target "ReleaseArchive" (fun _ ->
 
 Target "LocalRelease" (fun _ ->
     ensureDirectory "bin/release"
+    CleanDirs [ "bin/release"; "bin/release_netcore" ]
+
     CopyFiles "bin/release"(
         !! (buildReleaseDir      + "/*.dll")
         ++ (buildReleaseDir      + "/*.exe")
@@ -287,10 +289,10 @@ Target "LocalRelease" (fun _ ->
     )
 
     CleanDirs [ "bin/release_netcore" ]
-    DotNetCli.Publish (fun p ->
-       { p with
-           Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
-           Project = "src/FsAutoComplete.netcore" })
+    // DotNetCli.Publish (fun p ->
+    //    { p with
+    //        Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
+    //        Project = "src/FsAutoComplete.netcore" })
 )
 
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
