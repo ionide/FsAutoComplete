@@ -4,6 +4,7 @@ open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
+open Priority_Queue
 
 type DeclName = string
 
@@ -15,6 +16,7 @@ type State =
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
+    BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
     mutable ColorizationOutput: bool
   }
 
@@ -25,6 +27,7 @@ type State =
       HelpText = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
+      BackgroundProjects = SimplePriorityQueue<_, _>()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
@@ -93,3 +96,12 @@ type State =
                pos.Col <= lines.[pos.Line - 1].Length + 1 && pos.Col >= 1
       if not ok then ResultOrString.Error "Position is out of range"
       else Ok (opts, lines, lines.[pos.Line - 1])
+
+  member x.EnqueueProjectForBackgroundParsing(opts: FSharpProjectOptions, priority: int) =
+    if x.BackgroundProjects.Contains opts then
+      match x.BackgroundProjects.TryGetPriority opts with
+      | true, pr when pr > priority -> x.BackgroundProjects.TryUpdatePriority (opts, priority) |> ignore
+      | false, _ -> x.BackgroundProjects.Enqueue(opts, priority)
+      | _ -> ()
+    else
+      x.BackgroundProjects.Enqueue(opts, priority)
