@@ -46,13 +46,16 @@ type Commands (serialize : Serializer) =
 
     do checker.FileChecked.Add (fun (n,_) ->
         async {
-            let opts = state.FileCheckOptions.[n]
-            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-            let checkErrors = res.GetCheckResults.Errors
-            let parseErrors = res.GetParseResults.Errors
-            let errors = Array.append checkErrors parseErrors
+            try
+                let opts = state.FileCheckOptions.[n]
+                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                let checkErrors = res.GetCheckResults.Errors
+                let parseErrors = res.GetParseResults.Errors
+                let errors = Array.append checkErrors parseErrors
 
-            notify.Trigger (Response.errors serialize (errors, n))
+                notify.Trigger (Response.errors serialize (errors, n))
+            with
+            | _ -> ()
         } |> Async.Start
     )
 
