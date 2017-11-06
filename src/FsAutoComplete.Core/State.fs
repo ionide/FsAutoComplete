@@ -7,6 +7,7 @@ open System.Threading
 open Priority_Queue
 
 type DeclName = string
+type CompletionNamespaceInsert = string * int * int
 
 type State =
   {
@@ -14,6 +15,8 @@ type State =
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
+    CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
+
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
     BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
@@ -25,6 +28,7 @@ type State =
       FileCheckOptions = ConcurrentDictionary()
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
+      CompletionNamespaceInsert = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       BackgroundProjects = SimplePriorityQueue<_, _>()
