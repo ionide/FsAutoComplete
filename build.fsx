@@ -197,7 +197,7 @@ let runall cfg =
     |> Array.iter (trace)
     trace "apply fix"
     File.ReadAllLines(includeFile)
-    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper/.paket/load/net45/IntegrationTests/", ""))
+    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net45/IntegrationTests/", ""))
     |> fun lines -> File.WriteAllLines(includeFile, lines)
     trace (sprintf "File '%s' contents:" includeFile)
     File.ReadAllLines(includeFile)

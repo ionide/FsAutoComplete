@@ -13,7 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{A6B07596-9
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests.netcore\FsAutoComplete.Tests.fsproj", "{9C83F8C4-226C-4608-B942-DF9C5A5E3BC5}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core.VerboseSdkHelper", "src\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj", "{CBC5A8FC-9FCA-4B77-9654-EBF459CBE199}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core.VerboseSdkHelper", "src\FsAutoComplete.Core.VerboseSdkHelper.netcore\FsAutoComplete.Core.VerboseSdkHelper.fsproj", "{CBC5A8FC-9FCA-4B77-9654-EBF459CBE199}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
