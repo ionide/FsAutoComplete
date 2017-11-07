@@ -14,8 +14,11 @@ type State =
     Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
+
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
+    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * Pos>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
+    mutable CurrentAST: Microsoft.FSharp.Compiler.Ast.ParsedInput option
 
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
@@ -28,6 +31,8 @@ type State =
       FileCheckOptions = ConcurrentDictionary()
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
+      Declarations = ConcurrentDictionary()
+      CurrentAST = None
       CompletionNamespaceInsert = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()

@@ -7,6 +7,7 @@ open FSharpLint.Application
 open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Threading
+open Utils
 
 
 module Response = CommandResponse
@@ -91,20 +92,27 @@ type Commands (serialize : Serializer) =
                     fileParsed.Trigger parseRes
             ) }
 
-    let fillHelpTextInTheBackground decls ast (pos : Pos) =
+    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : Pos) =
+        let idents = decl.FullName.Split '.'
+        decl.NamespaceToOpen
+        |> Option.bind (fun n ->
+            state.CurrentAST
+            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel )
+            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Col))
+
+    let fillHelpTextInTheBackground decls (pos : Pos) =
         let declName (d: FSharpDeclarationListItem) = d.Name
 
+        //Fill list of declarations synchronously to know which declarations should be in cache.
+        for d in decls do
+            state.Declarations.[declName d] <- (d, pos)
+
+        //Fill helptext and namespace insertion cache asynchronously.
         async {
             for decl in decls do
                 let n = declName decl
                 state.HelpText.[n] <- decl.DescriptionText
-                let idents = decl.FullName.Split '.'
-                let insert =
-                    decl.NamespaceToOpen
-                    |> Option.bind (fun n ->
-                        ast
-                        |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel )
-                        |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Col))
+                let insert = calculateNamespaceInser decl pos
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
@@ -299,11 +307,19 @@ type Commands (serialize : Serializer) =
         return [Response.declarations serialize decls]
     }
 
-    member x.Helptext sym =
-        match state.HelpText.TryFind sym with
-        | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
-        | Some tip ->
-            let n = state.CompletionNamespaceInsert.TryFind sym
+    member __.Helptext sym =
+        match state.Declarations.TryFind sym with
+        | None -> //Isn't in sync filled cache, we don't have result
+            [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
+        | Some (decl, pos) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
+            let tip =
+                match state.HelpText.TryFind sym with
+                | None -> decl.DescriptionText
+                | Some tip -> tip
+            let n =
+                match state.CompletionNamespaceInsert.TryFind sym with
+                | None -> calculateNamespaceInser decl pos
+                | Some s -> Some s
             [Response.helpText serialize (sym, tip, n)]
 
     member x.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
@@ -319,7 +335,14 @@ type Commands (serialize : Serializer) =
                 match res with
                 | Some (decls, residue) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
-                    do fillHelpTextInTheBackground decls tyRes.GetAST pos
+
+                    //Init cache for current list
+                    state.Declarations.Clear()
+                    state.CompletionNamespaceInsert.Clear()
+                    state.CurrentAST <- tyRes.GetAST
+
+                    //Fill cache for current list
+                    do fillHelpTextInTheBackground decls pos
 
                     // Send the first helptext without being requested.
                     // This allows it to be displayed immediately in the editor.
@@ -330,13 +353,7 @@ type Commands (serialize : Serializer) =
                     match firstMatchOpt with
                     | None -> [Response.completion serialize decls includeKeywords]
                     | Some d ->
-                        let idents = d.FullName.Split '.'
-                        let insert =
-                            d.NamespaceToOpen
-                            |> Option.bind (fun n ->
-                                tyRes.GetAST
-                                |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel )
-                                |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Col))
+                        let insert = calculateNamespaceInser d pos
                         [Response.helpText serialize (d.Name, d.DescriptionText, insert)
                          Response.completion serialize decls includeKeywords]
 

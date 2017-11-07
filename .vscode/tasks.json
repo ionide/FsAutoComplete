@@ -6,7 +6,7 @@
         {
             "taskName": "build",
             "type": "shell",
-            "command": "./build.cmd BuildDebug",
+            "command": "./build.sh LocalRelease",
             "group": {
                 "kind": "build",
                 "isDefault": true
