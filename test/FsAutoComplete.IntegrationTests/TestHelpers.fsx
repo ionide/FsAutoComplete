@@ -305,7 +305,7 @@ type FsAutoCompleteWrapper = FsAutoCompleteWrapperHttp
 type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
 #endif
 
-let writeNormalizedOutput (fn: string) (s: string) =
+let writeNormalizedOutputWith additionalFn (fn: string) (s: string) =
 
   let driveLetterRegex = if Path.DirectorySeparatorChar  = '/' then "" else "[a-zA-Z]:"
   let normalizeDirSeparators (s: string) =
@@ -362,6 +362,8 @@ let writeNormalizedOutput (fn: string) (s: string) =
     // normalize newline char
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
 
+    lines.[i] <- additionalFn lines.[i]
+
   //workaround for https://github.com/fsharp/fsharp/issues/774
   let lines = lines |> Array.filter ((<>) "non-IL or abstract method with non-zero RVA")
 
@@ -370,6 +372,9 @@ let writeNormalizedOutput (fn: string) (s: string) =
   for line in lines do
     f.Write(line)
     f.Write('\n')
+
+let writeNormalizedOutput (fn: string) (s: string) =
+  writeNormalizedOutputWith id
 
 let runProcess (workingDir: string) (exePath: string) (args: string) =
     printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
