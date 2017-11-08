@@ -26,7 +26,7 @@ module internal Utils =
 open Argu
 
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
-    let mutable client : WebSocket option  = None
+    let mutable client : Suave.WebSocket.WebSocket option  = None
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -67,10 +67,19 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
         }
 
 
-    let echo (webSocket : WebSocket) =
+    let echo (webSocket : Suave.WebSocket.WebSocket) =
         fun cx ->
             client <- Some webSocket
             socket {
+                let sendText (text: string) =
+                    webSocket.send Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text)) true
+
+                let initial = CommandResponse.info writeJson (sprintf "Notification: Hello (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
+
+                do! sendText initial
+
+                //TODO loop on messages to send
+
                 let loop = ref true
                 while !loop do
                     let! msg = webSocket.read()
@@ -91,7 +100,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
     let app =
         choose [
-            // path "/notify" >=> handShake echo
+            path "/notify" >=> WebSocket.handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> async {
                 let! res = commands.Parse data.FileName data.Lines data.Version
                 //Hack for tests
