@@ -374,7 +374,7 @@ let writeNormalizedOutputWith additionalFn (fn: string) (s: string) =
     f.Write('\n')
 
 let writeNormalizedOutput (fn: string) (s: string) =
-  writeNormalizedOutputWith id
+  writeNormalizedOutputWith id fn s
 
 let runProcess (workingDir: string) (exePath: string) (args: string) =
     printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
