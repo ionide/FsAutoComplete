@@ -6,11 +6,11 @@ NUGET
       FSharp.Core (>= 4.0.0.1)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1)
-    FSharp.Compiler.Service (16.0.2)
+    FSharp.Compiler.Service (17.0.1)
       System.Collections.Immutable (>= 1.3.1)
       System.Reflection.Metadata (>= 1.4.2)
-    FSharp.Compiler.Service.ProjectCracker (16.0.2)
-      FSharp.Compiler.Service (>= 16.0.2)
+    FSharp.Compiler.Service.ProjectCracker (17.0.1)
+      FSharp.Compiler.Service (>= 17.0.1)
     FSharp.Core (4.0.0.1) - redirects: on
     FSharpLint.Core (0.9.0-beta)
       FParsec (>= 1.0.3)
@@ -31,10 +31,10 @@ RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.63.2)
-    Octokit (0.27) - generate_load_scripts: true
+    Octokit (0.28) - generate_load_scripts: true
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (838f43e1e6ac18014b2515799fe7fa0e23186fbc)
+    modules/Octokit/Octokit.fsx (0341a2e614eb2a7f34607cec914eb0ed83ce9add)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
@@ -67,7 +67,7 @@ NUGET
       FSharp.Core (>= 4.0.0.1) - restriction: >= net40
       FSharp.Core (>= 4.2.3) - restriction: && (< net40) (>= netstandard1.6)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net40) (>= netstandard1.6)
-    FSharp.Compiler.Service (16.0.2)
+    FSharp.Compiler.Service (17.0.1)
       FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
       System.Collections.Immutable (>= 1.3) - restriction: && (< net45) (>= netstandard1.6)
