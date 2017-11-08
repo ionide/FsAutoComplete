@@ -6,7 +6,6 @@ open Suave.Http
 open Suave.Operators
 open Suave.Web
 open Suave.WebPart
-open Suave.WebSocket
 open Suave.Sockets.Control
 open Suave.Filters
 open Newtonsoft.Json
@@ -26,23 +25,6 @@ module internal Utils =
 open Argu
 
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
-    let mutable client : WebSocket option  = None
-
-    commands.Notify.Add (fun msg ->
-        client
-        |> Option.iter (fun n ->
-            let bytes = System.Text.Encoding.UTF8.GetBytes msg
-            let msg =
-#if SUAVE_2
-                Sockets.ByteSegment bytes
-#else
-                bytes
-#endif
-
-
-            n.send Text msg true
-            |> Async.Ignore
-            |> Async.Start ))
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -82,32 +64,65 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             return! Response.response HttpCode.HTTP_200 res' r
         }
 
+    let echo (webSocket : Suave.WebSocket.WebSocket) =
 
-    let echo (webSocket : WebSocket) =
-        fun cx ->
-            client <- Some webSocket
-            socket {
-                let loop = ref true
-                while !loop do
-                    let! msg = webSocket.read()
-                    let emptyBs () =
+        let inline byteSegment array =
 #if SUAVE_2
-                        Sockets.ByteSegment.Empty
+            Sockets.ByteSegment(array)
 #else
-                        [||]
+            array
 #endif
+        let emptyBs =
+#if SUAVE_2
+            Sockets.ByteSegment.Empty
+#else
+            [||]
+#endif
+
+        fun _cx ->
+            let cts = new System.Threading.CancellationTokenSource()
+    
+            let sendText (text: string) =
+                webSocket.send WebSocket.Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text) |> byteSegment) true
+
+            // use a mailboxprocess to queue the send of notifications
+            let agent = MailboxProcessor.Start ((fun inbox ->
+                let rec messageLoop () = async {
+
+                    let! msg = inbox.Receive()
+
+                    let! _ = sendText msg
+
+                    return! messageLoop ()
+                    }
+
+                messageLoop ()
+                ), cts.Token)
+
+            let notifications =
+                commands.Notify
+                |> Observable.subscribe agent.Post
+
+            socket {
+
+                let initial = CommandResponse.info writeJson (sprintf "Notification: Hello (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
+
+                do! sendText initial
+
+                while not(cts.IsCancellationRequested) do
+                    let! msg = webSocket.read()
                     match msg with
-                    | (Ping, _, _) -> do! webSocket.send Pong (emptyBs ()) true
-                    | (Close, _, _) ->
-                        do! webSocket.send Close (emptyBs ()) true
-                        client <- None
-                        loop := false
+                    | (WebSocket.Opcode.Ping, _, _) -> do! webSocket.send WebSocket.Opcode.Pong emptyBs true
+                    | (WebSocket.Opcode.Close, _, _) ->
+                        notifications.Dispose()
+                        cts.Cancel()
+                        do! webSocket.send WebSocket.Opcode.Close emptyBs true
                     | _ -> ()
                 }
 
     let app =
         choose [
-            path "/notify" >=> handShake echo
+            path "/notify" >=> WebSocket.handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> async {
                 let! res = commands.Parse data.FileName data.Lines data.Version
                 //Hack for tests
