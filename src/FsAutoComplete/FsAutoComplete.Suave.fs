@@ -66,11 +66,25 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
         }
 
     let echo (webSocket : Suave.WebSocket.WebSocket) =
+
+        let inline byteSegment array =
+#if SUAVE_2
+            Sockets.ByteSegment(array)
+#else
+            array
+#endif
+        let emptyBs =
+#if SUAVE_2
+            Sockets.ByteSegment.Empty
+#else
+            [||]
+#endif
+
         fun cx ->
             let cts = new System.Threading.CancellationTokenSource()
     
             let sendText (text: string) =
-                webSocket.send Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text)) true
+                webSocket.send Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text) |> byteSegment) true
 
             // use a mailboxprocess to queue the send of notifications
             let agent = MailboxProcessor.Start ((fun inbox ->
@@ -98,18 +112,12 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
                 while not(cts.IsCancellationRequested) do
                     let! msg = webSocket.read()
-                    let emptyBs () =
-#if SUAVE_2
-                        Sockets.ByteSegment.Empty
-#else
-                        [||]
-#endif
                     match msg with
-                    | (Ping, _, _) -> do! webSocket.send Pong (emptyBs ()) true
+                    | (Ping, _, _) -> do! webSocket.send Pong emptyBs true
                     | (Close, _, _) ->
                         notifications.Dispose()
                         cts.Cancel()
-                        do! webSocket.send Close (emptyBs ()) true
+                        do! webSocket.send Close emptyBs true
                     | _ -> ()
                 }
 
