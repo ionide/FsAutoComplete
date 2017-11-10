@@ -26,7 +26,6 @@ module internal Utils =
 open Argu
 
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
-    let mutable client : Suave.WebSocket.WebSocket option  = None
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
@@ -66,22 +65,38 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             return! Response.response HttpCode.HTTP_200 res' r
         }
 
-
     let echo (webSocket : Suave.WebSocket.WebSocket) =
         fun cx ->
-            client <- Some webSocket
+            let cts = new System.Threading.CancellationTokenSource()
+    
+            let sendText (text: string) =
+                webSocket.send Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text)) true
+
+            // use a mailboxprocess to queue the send of notifications
+            let agent = MailboxProcessor.Start ((fun inbox ->
+                let rec messageLoop () = async {
+
+                    let! msg = inbox.Receive()
+
+                    let! _ = sendText msg
+
+                    return! messageLoop ()
+                    }
+
+                messageLoop ()
+                ), cts.Token)
+
+            let notifications =
+                commands.Notify
+                |> Observable.subscribe agent.Post
+
             socket {
-                let sendText (text: string) =
-                    webSocket.send Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text)) true
 
                 let initial = CommandResponse.info writeJson (sprintf "Notification: Hello (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
 
                 do! sendText initial
 
-                //TODO loop on messages to send
-
-                let loop = ref true
-                while !loop do
+                while not(cts.IsCancellationRequested) do
                     let! msg = webSocket.read()
                     let emptyBs () =
 #if SUAVE_2
@@ -92,9 +107,9 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     match msg with
                     | (Ping, _, _) -> do! webSocket.send Pong (emptyBs ()) true
                     | (Close, _, _) ->
+                        notifications.Dispose()
+                        cts.Cancel()
                         do! webSocket.send Close (emptyBs ()) true
-                        client <- None
-                        loop := false
                     | _ -> ()
                 }
 
