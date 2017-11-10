@@ -18,6 +18,7 @@ type Commands (serialize : Serializer) =
     let state = FsAutoComplete.State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
+    let notify = Event<string>()
 
     do fileParsed.Publish.Add (fun parseRes ->
        let decls = parseRes.GetNavigationItems().Declarations
@@ -50,6 +51,8 @@ type Commands (serialize : Serializer) =
                     let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
                     fileParsed.Trigger parseRes
             ) }
+
+    member __.Notify = notify.Publish
 
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
