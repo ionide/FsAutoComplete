@@ -605,10 +605,6 @@ type Commands (serialize : Serializer) =
                 match tyResOpt with
                 | None -> return [ Response.info serialize "Cached typecheck results not yet available"]
                 | Some tyRes ->
-                    let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
-                    match tyRes.GetParseResults.ParseTree with
-                    | None -> return [Response.info serialize "Parse Tree not avaliable"]
-                    | Some parseInput ->
-                        let unused = UnusedOpensAnalyzer.getUnusedOpens(allUses, parseInput, fun i -> source.[i - 1] ) |> List.toArray
-                        return [ Response.unusedOpens serialize unused ]
+                    let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
+                    return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
