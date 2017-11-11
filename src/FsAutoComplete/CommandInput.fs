@@ -12,6 +12,7 @@ type PosCommand =
   | ToolTip
   | TypeSig
   | FindDeclaration
+  | FindTypeDeclaration
   | SignatureData
 
 type ParseKind =
@@ -146,6 +147,7 @@ module CommandInput =
              (string "typesig " |> Parser.map (fun _ -> TypeSig)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration)) <|>
+             (string "findtypedecl " |> Parser.map (fun _ -> FindTypeDeclaration)) <|>
              (string "sigdata " |> Parser.map (fun _ -> SignatureData))
 
     let! _ = char '"'

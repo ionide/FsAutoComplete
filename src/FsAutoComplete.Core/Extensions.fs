@@ -2,6 +2,51 @@
 module FsAutoComplete.Extensions
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open System
+
+type FSharpEntity with
+    member x.TryGetFullName() =
+        Option.attempt (fun _ -> x.TryFullName)
+        |> Option.flatten
+        |> Option.orTry (fun _ -> Option.attempt (fun _ -> String.Join(".", x.AccessPath, x.DisplayName)))
+
+    member x.TryGetFullNameWithUnderScoreTypes() =
+        try
+            let name = String.Join(".", x.AccessPath, x.DisplayName)
+            if x.GenericParameters.Count > 0 then
+              Some (name + "<" + String.concat "," (x.GenericParameters |> Seq.map (fun gp -> gp.DisplayName)) + ">")
+            else Some name
+        with _ -> None
+
+    member x.UnAnnotate() =
+        let rec realEntity (s:FSharpEntity) =
+            if s.IsFSharpAbbreviation
+            then realEntity s.AbbreviatedType.TypeDefinition
+            else s
+        realEntity x
+
+    member x.InheritanceDepth() =
+        let rec loop (ent:FSharpEntity) l =
+            match ent.BaseType with
+            | Some bt -> loop (bt.TypeDefinition.UnAnnotate()) l + 1
+            | None -> l
+        loop x 0
+
+    //TODO: Do we need to unannotate like above?
+    member x.AllBaseTypes =
+        let rec allBaseTypes (entity:FSharpEntity) =
+            [
+                match entity.TryFullName with
+                | Some _ ->
+                    match entity.BaseType with
+                    | Some bt ->
+                        yield bt
+                        if bt.HasTypeDefinition then
+                            yield! allBaseTypes bt.TypeDefinition
+                    | _ -> ()
+                | _ -> ()
+            ]
+        allBaseTypes x
 
 
 type FSharpSymbol with
@@ -23,6 +68,16 @@ type FSharpSymbol with
         | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
         | :? FSharpField as m -> not m.Accessibility.IsPublic
         | _ -> false
+
+    member x.XmlDocSig =
+        match x with
+        | :? FSharpMemberOrFunctionOrValue as func -> func.XmlDocSig
+        | :? FSharpEntity as fse -> fse.XmlDocSig
+        | :? FSharpField as fsf -> fsf.XmlDocSig
+        | :? FSharpUnionCase as fsu -> fsu.XmlDocSig
+        | :? FSharpActivePatternCase as apc -> apc.XmlDocSig
+        | :? FSharpGenericParameter -> ""
+        | _ -> ""
 
 type FSharpSymbolUse with
     member this.IsPrivateToFile =
@@ -60,6 +115,20 @@ type FSharpMemberOrFunctionOrValue with
         if name.StartsWith "( " && name.EndsWith " )" && name.Length > 4
         then name.Substring (2, name.Length - 4) |> String.forall (fun c -> c <> ' ')
         else false
+
+    member x.FullTypeSafe = Option.attempt (fun _ -> x.FullType)
+
+    member x.EnclosingEntitySafe =
+        try
+            x.EnclosingEntity
+        with :? InvalidOperationException -> None
+
+type FSharpGenericParameterMemberConstraint with
+    member x.IsProperty =
+        (x.MemberIsStatic && x.MemberArgumentTypes.Count = 0) ||
+        (not x.MemberIsStatic && x.MemberArgumentTypes.Count = 1)
+
+
 
 /// Active patterns over `FSharpSymbolUse`.
 module SymbolUse =
@@ -135,9 +204,10 @@ module SymbolUse =
         | :? FSharpUnionCase as uc-> Some uc
         | _ -> None
 
-    //let (|Constructor|_|) = function
-    //    | MemberFunctionOrValue func when func.IsConstructor || func.IsImplicitConstructor -> Some func
-    //    | _ -> None
+    let (|Constructor|_|) = function
+        | MemberFunctionOrValue func when func.IsConstructor || func.IsImplicitConstructor -> Some func
+        | _ -> None
+
 
     let (|TypeAbbreviation|_|) = function
         | Entity (entity, _) when entity.IsFSharpAbbreviation -> Some entity

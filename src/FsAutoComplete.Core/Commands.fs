@@ -14,7 +14,7 @@ module Response = CommandResponse
 type Commands (serialize : Serializer) =
 
     let checker = FSharpCompilerServiceChecker()
-    let state = FsAutoComplete.State.Initial
+    let state = State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
     let fileInProjectChecked = Event<SourceFilePath>()
@@ -299,29 +299,29 @@ type Commands (serialize : Serializer) =
     member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords =
         async {
             let! res = tyRes.TryGetCompletions pos lineStr filter
-            return match res with
-                    | Some (decls, residue) ->
-                        let declName (d: FSharpDeclarationListItem) = d.Name
+            return
+                match res with
+                | Some (decls, residue) ->
+                    let declName (d: FSharpDeclarationListItem) = d.Name
+                    do fillHelpTextInTheBackground decls
 
-                        // Send the first helptext without being requested.
-                        // This allows it to be displayed immediately in the editor.
-                        let firstMatchOpt =
-                          Array.sortBy declName decls
-                          |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-                        let res = match firstMatchOpt with
-                                    | None -> [Response.completion serialize decls includeKeywords]
-                                    | Some d ->
-                                        [Response.helpText serialize (d.Name, d.DescriptionText)
-                                         Response.completion serialize decls includeKeywords]
+                    // Send the first helptext without being requested.
+                    // This allows it to be displayed immediately in the editor.
+                    let firstMatchOpt =
+                      decls
+                      |> Array.sortBy declName
+                      |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+                    match firstMatchOpt with
+                    | None -> [Response.completion serialize decls includeKeywords]
+                    | Some d ->
+                        [Response.helpText serialize (d.Name, d.DescriptionText)
+                         Response.completion serialize decls includeKeywords]
 
-                        for decl in decls do
-                            state.HelpText.[declName decl] <- decl.DescriptionText
-                        res
-                    | None -> [Response.error serialize "Timed out while fetching completions"]
+                | None -> [Response.error serialize "Timed out while fetching completions"]
         }
 
     member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        tyRes.TryGetToolTip pos lineStr
+        tyRes.TryGetToolTipEnhanced pos lineStr
         |> x.SerializeResult Response.toolTip
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
@@ -367,6 +367,11 @@ type Commands (serialize : Serializer) =
         |> x.SerializeResult (Response.findDeclaration, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
+    member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        tyRes.TryFindTypeDeclaration pos lineStr
+        |> x.SerializeResult (Response.findDeclaration, Response.error)
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
     member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
         |> x.SerializeResult (Response.methods, Response.error)
@@ -379,8 +384,8 @@ type Commands (serialize : Serializer) =
         async {
             let res =
                 match state.TryGetFileCheckerOptionsWithSource file with
-                | ResultOrString.Error s -> [Response.error serialize s]
-                | ResultOrString.Ok (options, source) ->
+                | Error s -> [Response.error serialize s]
+                | Ok (options, source) ->
                     let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
                     match tyResOpt with

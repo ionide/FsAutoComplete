@@ -43,8 +43,9 @@
   "Data": [
     [
       {
-        "Signature": "val x1 : int\n\nFull name: Project1A.x1",
-        "Comment": ""
+        "Signature": "val x1 : int",
+        "Comment": "",
+        "Footer": "Full name: Project1A.x1\nAssembly: Project1A"
       }
     ]
   ]
@@ -54,8 +55,9 @@
   "Data": [
     [
       {
-        "Signature": "val b : A\n\nFull name: Project1B.b",
-        "Comment": ""
+        "Signature": "val b : A",
+        "Comment": "",
+        "Footer": "Full name: Project1B.b\nAssembly: Project1B"
       }
     ]
   ]

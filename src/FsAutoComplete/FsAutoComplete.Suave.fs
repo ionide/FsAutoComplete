@@ -134,6 +134,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/signatureData" >=> positionHandler (fun data tyRes lineStr _ -> commands.SignatureData tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclaration tyRes { Line = data.Line; Col = data.Column } lineStr)
+            path "/findtypedeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindTypeDeclaration tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes { Line = data.Line; Col = data.Column } lines)
             path "/help" >=> positionHandler (fun data tyRes line _   -> commands.Help tyRes { Line = data.Line; Col = data.Column } line)
             path "/compilerlocation" >=> fun httpCtx ->
@@ -159,7 +160,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
 #if SUAVE_2
     let logger = Suave.Logging.LiterateConsoleTarget([| "FsAutoComplete" |], Logging.Info)
-    let serverConfig = 
+    let serverConfig =
         { serverConfig with logger = logger }
 #endif
 
