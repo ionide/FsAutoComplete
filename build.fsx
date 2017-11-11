@@ -40,14 +40,14 @@ Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
-  DotNetCli.Build (fun p ->
-     { p with
-         Configuration = "Debug"
-         Project = "FsAutoComplete.netcore.sln" })
+  // DotNetCli.Build (fun p ->
+  //    { p with
+  //        Configuration = "Debug"
+  //        Project = "FsAutoComplete.netcore.sln" })
 )
 
 Target "BuildRelease" (fun _ ->
-  MSBuildRelease "" "Build" ["./FsAutoComplete.sln"]
+  MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
   // DotNetCli.Build (fun p ->
@@ -280,6 +280,8 @@ Target "ReleaseArchive" (fun _ ->
 
 Target "LocalRelease" (fun _ ->
     ensureDirectory "bin/release"
+    CleanDirs [ "bin/release"; "bin/release_netcore" ]
+
     CopyFiles "bin/release"(
         !! (buildReleaseDir      + "/*.dll")
         ++ (buildReleaseDir      + "/*.exe")

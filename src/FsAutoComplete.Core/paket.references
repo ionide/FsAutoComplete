@@ -4,3 +4,4 @@ FSharpLint.Core
 Sln
 Dotnet.ProjInfo
 Newtonsoft.Json
+OptimizedPriorityQueue

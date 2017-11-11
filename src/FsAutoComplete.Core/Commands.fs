@@ -6,7 +6,6 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
-open Microsoft.FSharp.Compiler
 open System.Threading
 
 
@@ -18,11 +17,49 @@ type Commands (serialize : Serializer) =
     let state = State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
+    let fileInProjectChecked = Event<SourceFilePath>()
+
+    let notify = Event<string>()
+    let rec backgroundChecker () =
+        async {
+            match state.BackgroundProjects.TryDequeue() with
+            | true, opt ->
+                // printfn "BACKGROUND CHECKER - DEQUEUED: %s" (opt.ProjectFileName)
+                checker.CheckProjectInBackground opt
+            | _ ->
+                // printfn "BACKGROUND CHECKER - NO PROJECTS"
+                ()
+        } |> Async.Start
 
     do fileParsed.Publish.Add (fun parseRes ->
        let decls = parseRes.GetNavigationItems().Declarations
        state.NavigationDeclarations.[parseRes.FileName] <- decls
     )
+
+    do fileInProjectChecked.Publish.Add (fun fn ->
+        match checker.GetDependingProjects fn (state.FileCheckOptions.ToSeq()) with
+        | Some (p, projs) ->
+            state.EnqueueProjectForBackgroundParsing(p, 0)
+            projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
+            backgroundChecker ()
+        | None -> ())
+
+    do checker.FileChecked.Add (fun (n,_) ->
+        async {
+            let opts = state.FileCheckOptions.[n]
+            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+            let checkErrors = res.GetCheckResults.Errors
+            let parseErrors = res.GetParseResults.Errors
+            let errors = Array.append checkErrors parseErrors
+
+            notify.Trigger (Response.errors serialize (errors, n))
+        } |> Async.Start
+    )
+
+
+    do checker.ProjectChecked.Add(fun (o, _) ->
+        // printfn "BACKGROUND CHECKER - PROJECT PARSED: %s" o
+        backgroundChecker () ) //When one project finished, start new one
 
     let normalizeOptions (opts : FSharpProjectOptions) =
         { opts with
@@ -58,6 +95,8 @@ type Commands (serialize : Serializer) =
             for decl in decls do
                 state.HelpText.[declName decl] <- decl.DescriptionText
         } |> Async.Start
+
+    member __.Notify = notify.Publish
 
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -97,6 +136,7 @@ type Commands (serialize : Serializer) =
                         | ResultOrString.Error e -> [Response.error serialize e]
                         | ResultOrString.Ok (parseResult, checkResults) ->
                             do fileParsed.Trigger parseResult
+                            do fileInProjectChecked.Trigger file
                             match checkResults with
                             | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
                             | FSharpCheckFileAnswer.Succeeded results ->
@@ -125,7 +165,11 @@ type Commands (serialize : Serializer) =
         } |> x.AsCancellable file
 
     member x.ParseAndCheckProjectsInBackgroundForFile file = async {
-        do checker.CheckProjectsInBackgroundForFile (file, state.FileCheckOptions.ToSeq() )
+        match checker.GetDependingProjects file (state.FileCheckOptions.ToSeq()) with
+        | Some (p, projs) ->
+            state.EnqueueProjectForBackgroundParsing(p, 0)
+            projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
+        | None -> ()
         return [Response.errors serialize ([||], "") ]
     }
 

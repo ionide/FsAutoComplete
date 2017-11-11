@@ -28,6 +28,8 @@ open Argu
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let mutable client : WebSocket option  = None
 
+    commands.Notify.Add (fun msg -> client |> Option.iter (fun n -> n.send Text (System.Text.Encoding.UTF8.GetBytes msg) true |> Async.Ignore |> Async.Start ))
+
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
           let! res = Async.Catch (f data)
@@ -91,7 +93,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
     let app =
         choose [
-            // path "/notify" >=> handShake echo
+            path "/notify" >=> handShake echo
             path "/parse" >=> handler (fun (data : ParseRequest) -> async {
                 let! res = commands.Parse data.FileName data.Lines data.Version
                 //Hack for tests
@@ -100,9 +102,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         | true -> CommandResponse.info writeJson "Background parsing started"
                 return r :: res
                 })
-            path "/parseProjects" >=> handler (fun (data : ProjectRequest) -> commands.ParseProjectsForFile data.FileName)
-            //TODO: Add filewatcher
-            path "/parseProjectsInBackground" >=> handler (fun (data : ProjectRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
