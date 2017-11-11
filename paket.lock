@@ -82,8 +82,8 @@ NUGET
       System.Runtime.Loader (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
       System.Security.Cryptography.Algorithms (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
       System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6)
-    FSharp.Compiler.Service.ProjectCracker (16.0.2) - restriction: < netstandard2.0
-      FSharp.Compiler.Service (>= 16.0.2) - restriction: >= net45
+    FSharp.Compiler.Service.ProjectCracker (17.0.1) - restriction: < netstandard2.0
+      FSharp.Compiler.Service (>= 17.0.1) - restriction: >= net45
     FSharp.Core (4.2.3)
       System.Collections (>= 4.0.11) - restriction: && (< net45) (>= netstandard1.6)
       System.Console (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
@@ -905,18 +905,8 @@ GITHUB
 GROUP Test
 RESTRICTION: == net45
 NUGET
-  remote: ./lib
-    FSharp.Compiler.Service (16.0.3)
-      System.Collections.Immutable (>= 1.3.1)
-      System.Reflection.Metadata (>= 1.4.2)
-    FSharp.Compiler.Service.ProjectCracker (16.0.3)
-      FSharp.Compiler.Service (>= 16.0.3)
   remote: https://www.nuget.org/api/v2
-    Microsoft.NETCore.Platforms (2.0)
-    NETStandard.Library (2.0.1)
-      Microsoft.NETCore.Platforms (>= 1.1)
-      System.Runtime.InteropServices.RuntimeInformation (>= 4.3)
-    NUnit (3.8.1)
+    NUnit (3.9)
     NUnit.ConsoleRunner (3.7)
     NUnit.Extension.NUnitProjectLoader (3.6)
     NUnit.Extension.NUnitV2Driver (3.7)
@@ -930,9 +920,3 @@ NUGET
       NUnit.Extension.NUnitV2ResultWriter (>= 3.5)
       NUnit.Extension.TeamCityEventListener (>= 1.0.2)
       NUnit.Extension.VSProjectLoader (>= 3.5)
-    System.Collections.Immutable (1.4)
-      NETStandard.Library (>= 1.6.1)
-    System.Reflection.Metadata (1.5)
-      NETStandard.Library (>= 1.6.1)
-      System.Collections.Immutable (>= 1.4)
-    System.Runtime.InteropServices.RuntimeInformation (4.3)
