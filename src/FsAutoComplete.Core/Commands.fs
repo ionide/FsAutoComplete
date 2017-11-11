@@ -7,6 +7,7 @@ open FSharpLint.Application
 open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Threading
+open Utils
 
 
 module Response = CommandResponse
@@ -46,13 +47,16 @@ type Commands (serialize : Serializer) =
 
     do checker.FileChecked.Add (fun (n,_) ->
         async {
-            let opts = state.FileCheckOptions.[n]
-            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-            let checkErrors = res.GetCheckResults.Errors
-            let parseErrors = res.GetParseResults.Errors
-            let errors = Array.append checkErrors parseErrors
+            try
+                let opts = state.FileCheckOptions.[n]
+                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                let checkErrors = res.GetCheckResults.Errors
+                let parseErrors = res.GetParseResults.Errors
+                let errors = Array.append checkErrors parseErrors
 
-            notify.Trigger (Response.errors serialize (errors, n))
+                notify.Trigger (Response.errors serialize (errors, n))
+            with
+            | _ -> ()
         } |> Async.Start
     )
 
@@ -88,12 +92,28 @@ type Commands (serialize : Serializer) =
                     fileParsed.Trigger parseRes
             ) }
 
-    let fillHelpTextInTheBackground decls =
+    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : Pos) =
+        let idents = decl.FullName.Split '.'
+        decl.NamespaceToOpen
+        |> Option.bind (fun n ->
+            state.CurrentAST
+            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel )
+            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Col))
+
+    let fillHelpTextInTheBackground decls (pos : Pos) =
         let declName (d: FSharpDeclarationListItem) = d.Name
 
+        //Fill list of declarations synchronously to know which declarations should be in cache.
+        for d in decls do
+            state.Declarations.[declName d] <- (d, pos)
+
+        //Fill helptext and namespace insertion cache asynchronously.
         async {
             for decl in decls do
-                state.HelpText.[declName decl] <- decl.DescriptionText
+                let n = declName decl
+                state.HelpText.[n] <- decl.DescriptionText
+                let insert = calculateNamespaceInser decl pos
+                if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
     member __.Notify = notify.Publish
@@ -287,23 +307,42 @@ type Commands (serialize : Serializer) =
         return [Response.declarations serialize decls]
     }
 
-    member x.Helptext sym =
-        match state.HelpText.TryFind sym with
-        | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
-        | Some tip -> [Response.helpText serialize (sym, tip)]
+    member __.Helptext sym =
+        match state.Declarations.TryFind sym with
+        | None -> //Isn't in sync filled cache, we don't have result
+            [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
+        | Some (decl, pos) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
+            let tip =
+                match state.HelpText.TryFind sym with
+                | None -> decl.DescriptionText
+                | Some tip -> tip
+            let n =
+                match state.CompletionNamespaceInsert.TryFind sym with
+                | None -> calculateNamespaceInser decl pos
+                | Some s -> Some s
+            [Response.helpText serialize (sym, tip, n)]
 
     member x.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [Response.error serialize msg]
 
-    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords =
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords includeExternal =
         async {
-            let! res = tyRes.TryGetCompletions pos lineStr filter
+            let getAllSymbols () =
+                if includeExternal then tyRes.GetAllEntities() else []
+            let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
             return
                 match res with
                 | Some (decls, residue) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
-                    do fillHelpTextInTheBackground decls
+
+                    //Init cache for current list
+                    state.Declarations.Clear()
+                    state.CompletionNamespaceInsert.Clear()
+                    state.CurrentAST <- tyRes.GetAST
+
+                    //Fill cache for current list
+                    do fillHelpTextInTheBackground decls pos
 
                     // Send the first helptext without being requested.
                     // This allows it to be displayed immediately in the editor.
@@ -314,7 +353,8 @@ type Commands (serialize : Serializer) =
                     match firstMatchOpt with
                     | None -> [Response.completion serialize decls includeKeywords]
                     | Some d ->
-                        [Response.helpText serialize (d.Name, d.DescriptionText)
+                        let insert = calculateNamespaceInser d pos
+                        [Response.helpText serialize (d.Name, d.DescriptionText, insert)
                          Response.completion serialize decls includeKeywords]
 
                 | None -> [Response.error serialize "Timed out while fetching completions"]
@@ -432,63 +472,61 @@ type Commands (serialize : Serializer) =
             | None -> return [Response.info serialize "Symbol at position not found"]
             | Some sym ->
 
-            let! entitiesRes = tyRes.GetAllEntities ()
-            match entitiesRes with
-            | None -> return [Response.info serialize "Something went wrong"]
-            | Some entities ->
-                let isAttribute = entityKind = FsAutoComplete.EntityKind.Attribute
-                let entities =
-                    entities |> List.filter (fun e ->
-                        match entityKind, (e.Kind LookupType.Fuzzy) with
-                        | FsAutoComplete.EntityKind.Attribute, EntityKind.Attribute
-                        | FsAutoComplete.EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
-                        | FsAutoComplete.EntityKind.FunctionOrValue _, _ -> true
-                        | FsAutoComplete.EntityKind.Attribute, _
-                        | _, EntityKind.Module _
-                        | FsAutoComplete.EntityKind.Module _, _
-                        | FsAutoComplete.EntityKind.Type, _ -> false)
+            let entities = tyRes.GetAllEntities ()
 
-                let entities =
-                    entities
-                    |> List.collect (fun e ->
-                          [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
-                            if isAttribute then
-                                let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
-                                if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
-                                    yield
-                                        e.TopRequireQualifiedAccessParent,
-                                        e.AutoOpenParent,
-                                        e.Namespace,
-                                        e.CleanedIdents
-                                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
-                let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree (idents |> List.toArray)
-                let word = sym.Text
-                let candidates = entities |> Seq.collect createEntity |> Seq.toList
+            let isAttribute = entityKind = FsAutoComplete.EntityKind.Attribute
+            let entities =
+                entities |> List.filter (fun e ->
+                    match entityKind, (e.Kind LookupType.Fuzzy) with
+                    | FsAutoComplete.EntityKind.Attribute, EntityKind.Attribute
+                    | FsAutoComplete.EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
+                    | FsAutoComplete.EntityKind.FunctionOrValue _, _ -> true
+                    | FsAutoComplete.EntityKind.Attribute, _
+                    | _, EntityKind.Module _
+                    | FsAutoComplete.EntityKind.Module _, _
+                    | FsAutoComplete.EntityKind.Type, _ -> false)
 
-                let openNamespace =
-                    candidates
-                    |> Seq.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
-                    |> Seq.groupBy (fun (ns, _, _) -> ns)
-                    |> Seq.map (fun (ns, xs) ->
-                        ns,
-                        xs
-                        |> Seq.map (fun (_, name, ctx) -> name, ctx)
-                        |> Seq.distinctBy (fun (name, _) -> name)
-                        |> Seq.sortBy fst
-                        |> Seq.toArray)
-                    |> Seq.collect (fun (ns, names) ->
-                        let multipleNames = names |> Array.length > 1
-                        names |> Seq.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
-                    |> Seq.toList
+            let entities =
+                entities
+                |> List.collect (fun e ->
+                      [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
+                        if isAttribute then
+                            let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
+                            if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute && lastIdent.EndsWith "Attribute" then
+                                yield
+                                    e.TopRequireQualifiedAccessParent,
+                                    e.AutoOpenParent,
+                                    e.Namespace,
+                                    e.CleanedIdents
+                                    |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
+            let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree (idents |> List.toArray)
+            let word = sym.Text
+            let candidates = entities |> Seq.collect createEntity |> Seq.toList
 
-                let qualifySymbolActions =
-                    candidates
-                    |> Seq.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
-                    |> Seq.distinct
-                    |> Seq.sort
-                    |> Seq.toList
+            let openNamespace =
+                candidates
+                |> Seq.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
+                |> Seq.groupBy (fun (ns, _, _) -> ns)
+                |> Seq.map (fun (ns, xs) ->
+                    ns,
+                    xs
+                    |> Seq.map (fun (_, name, ctx) -> name, ctx)
+                    |> Seq.distinctBy (fun (name, _) -> name)
+                    |> Seq.sortBy fst
+                    |> Seq.toArray)
+                |> Seq.collect (fun (ns, names) ->
+                    let multipleNames = names |> Array.length > 1
+                    names |> Seq.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
+                |> Seq.toList
 
-                return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
+            let qualifySymbolActions =
+                candidates
+                |> Seq.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
+                |> Seq.distinct
+                |> Seq.sort
+                |> Seq.toList
+
+            return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =

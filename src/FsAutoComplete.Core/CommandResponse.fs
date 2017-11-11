@@ -64,6 +64,7 @@ module CommandResponse =
       ReplacementText: string
       Glyph: string
       GlyphChar: string
+      NamespaceToOpen: string option
     }
 
   type ResponseError<'T> =
@@ -171,12 +172,19 @@ module CommandResponse =
       Uses: SymbolUseRange list
     }
 
+  type AdditionalEdit =
+    {
+      Text: string
+      Line: int
+      Column: int
+    }
 
 
   type HelpTextResponse =
     {
       Name: string
       Overloads: OverloadDescription list list
+      AdditionalEdit: AdditionalEdit option
     }
 
   type CompilerLocationResponse =
@@ -353,9 +361,10 @@ module CommandResponse =
 
   let error (serialize : Serializer) (s: string) = errorG serialize ErrorData.GenericError s
 
-  let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
+  let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText, additionalEdit ) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
-    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
+    let additionalEdit = additionalEdit |> Option.map (fun (n, l, c) -> {AdditionalEdit.Text = n; Line = l; Column = c})
+    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = additionalEdit  } }
 
   let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
     let projectInfo =
@@ -430,12 +439,12 @@ module CommandResponse =
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
-                               let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                               let code = PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar }
+                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
                             if includeKeywords then
                               for k in KeywordList.allKeywords do
-                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
+                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"; NamespaceToOpen = None}
                           ] }
 
   let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =

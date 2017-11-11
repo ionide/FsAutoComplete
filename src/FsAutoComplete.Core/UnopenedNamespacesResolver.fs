@@ -97,9 +97,20 @@ type InsertContext =
     { ScopeKind: ScopeKind
       Pos: Pos }
 
+open Microsoft.FSharp.Compiler
+open Microsoft.FSharp.Compiler.Ast
+
+type Module =
+    { Idents: Idents
+      Range: Range.range }
+
+
+type OpenStatementInsertionPoint =
+    | TopLevel
+    | Nearest
+
 module ParsedInput =
-    open Microsoft.FSharp.Compiler
-    open Microsoft.FSharp.Compiler.Ast
+
 
     type private EndLine = int
 
@@ -505,3 +516,136 @@ module ParsedInput =
                             | TopModule -> NestedModule
                             | x -> x
                         { ScopeKind = scopeKind; Pos = Pos.make (endLine + 1) startCol })
+
+
+    let tryFindNearestPointAndModules (currentLine: int) (ast: ParsedInput) (insertionPoint: OpenStatementInsertionPoint) =
+        // We ignore all diagnostics during this operation
+        //
+
+        let result: (Scope * Pos * (* finished *) bool) option ref = ref None
+        let ns: string[] option ref = ref None
+        let modules = ResizeArray<Module>()
+
+        let inline longIdentToIdents ident = ident |> Seq.map (fun x -> string x) |> Seq.toArray
+
+        let addModule (longIdent: LongIdent, range: Range.range) =
+            modules.Add
+                { Idents = longIdent |> List.map string |> List.toArray
+                  Range = range }
+
+        let doRange kind (scope: LongIdent) line col =
+            if line <= currentLine then
+                match !result, insertionPoint with
+                | None, _ ->
+                    result := Some ({ Idents = longIdentToIdents scope; Kind = kind }, Pos.make line col, false)
+                | Some (_, _, true), _ -> ()
+                | Some (oldScope, oldPos, false), OpenStatementInsertionPoint.TopLevel when kind <> OpenDeclaration ->
+                    result := Some (oldScope, oldPos, true)
+                | Some (oldScope, oldPos, _), _ ->
+                    match kind, oldScope.Kind with
+                    | (Namespace | NestedModule | TopModule), OpenDeclaration
+                    | _ when oldPos.Line <= line ->
+                        result :=
+                            Some ({ Idents =
+                                        match scope with
+                                        | [] -> oldScope.Idents
+                                        | _ -> longIdentToIdents scope
+                                    Kind = kind },
+                                  Pos.make line col,
+                                  false)
+                    | _ -> ()
+
+        let getMinColumn (decls: SynModuleDecls) =
+            match decls with
+            | [] -> None
+            | firstDecl :: _ ->
+                match firstDecl with
+                | SynModuleDecl.NestedModule (_, _, _, _, r)
+                | SynModuleDecl.Let (_, _, r)
+                | SynModuleDecl.DoExpr (_, _, r)
+                | SynModuleDecl.Types (_, r)
+                | SynModuleDecl.Exception (_, r)
+                | SynModuleDecl.Open (_, r)
+                | SynModuleDecl.HashDirective (_, r) -> Some r
+                | _ -> None
+                |> Option.map (fun r -> r.StartColumn)
+
+
+        let rec walkImplFileInput (ParsedImplFileInput(modules = moduleOrNamespaceList)) =
+            List.iter (walkSynModuleOrNamespace []) moduleOrNamespaceList
+
+        and walkSynModuleOrNamespace (parent: LongIdent) (SynModuleOrNamespace(ident, _, isModule, decls, _, _, _, range)) =
+            if range.EndLine >= currentLine then
+                match isModule, parent, ident with
+                | false, _, _ -> ns := Some (longIdentToIdents ident)
+                // top level module with "inlined" namespace like Ns1.Ns2.TopModule
+                | true, [], _f :: _s :: _ ->
+                    let ident = longIdentToIdents ident
+                    ns := Some (ident.[0..ident.Length - 2])
+                | _ -> ()
+
+                let fullIdent = parent @ ident
+
+                let startLine =
+                    if isModule then range.StartLine
+                    else range.StartLine - 1
+
+                let scopeKind =
+                    match isModule, parent with
+                    | true, [] -> TopModule
+                    | true, _ -> NestedModule
+                    | _ -> Namespace
+
+                doRange scopeKind fullIdent startLine range.StartColumn
+                addModule (fullIdent, range)
+                List.iter (walkSynModuleDecl fullIdent) decls
+
+        and walkSynModuleDecl (parent: LongIdent) (decl: SynModuleDecl) =
+            match decl with
+            | SynModuleDecl.NamespaceFragment fragment -> walkSynModuleOrNamespace parent fragment
+            | SynModuleDecl.NestedModule(ComponentInfo(_, _, _, ident, _, _, _, _), _, decls, _, range) ->
+                let fullIdent = parent @ ident
+                addModule (fullIdent, range)
+                if range.EndLine >= currentLine then
+                    let moduleBodyIdentation = getMinColumn decls |> Option.getOrElse (range.StartColumn + 4)
+                    doRange NestedModule fullIdent range.StartLine moduleBodyIdentation
+                    List.iter (walkSynModuleDecl fullIdent) decls
+            | SynModuleDecl.Open (_, range) -> doRange OpenDeclaration [] range.EndLine (range.StartColumn - 5)
+            | SynModuleDecl.HashDirective (_, range) -> doRange HashDirective [] range.EndLine range.StartColumn
+            | _ -> ()
+
+        match ast with
+        | ParsedInput.SigFile _ -> ()
+        | ParsedInput.ImplFile input -> walkImplFileInput input
+
+        let res =
+            !result
+            |> Option.map (fun (scope, pos, _) ->
+                let ns = !ns |> Option.map longIdentToIdents
+                scope, ns, Pos.make (pos.Line + 1) pos.Col)
+
+        let modules =
+            modules
+            |> Seq.filter (fun x -> x.Range.EndLine < currentLine)
+            |> Seq.sortBy (fun x -> -x.Idents.Length)
+            |> Seq.toList
+
+        res, modules
+
+    let findBestPositionToInsertOpenDeclaration (modules: Module list) scope pos (entity: Idents) =
+        match modules |> List.filter (fun x -> entity |> Array.startsWith x.Idents) with
+        | [] -> { ScopeKind = scope.Kind; Pos = pos }
+        | m :: _ ->
+            //printfn "All modules: %A, Win module: %A" modules m
+            let scopeKind =
+                match scope.Kind with
+                | TopModule -> NestedModule
+                | x -> x
+            { ScopeKind = scopeKind
+              Pos = Pos.make (m.Range.EndLine - 1) m.Range.StartColumn }
+
+    let tryFindNearestPointToInsertOpenDeclaration (currentLine: int) (ast: ParsedInput) (entity: Idents) (insertionPoint: OpenStatementInsertionPoint) =
+        match tryFindNearestPointAndModules currentLine ast insertionPoint with
+        | Some (scope, _, point), modules ->
+            Some (findBestPositionToInsertOpenDeclaration modules scope point entity)
+        | _ -> None

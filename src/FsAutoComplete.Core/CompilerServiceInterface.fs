@@ -181,49 +181,70 @@ type ParseAndCheckResults
         | None -> return (ResultOrString.Error "No symbol information found")
         | Some hlp -> return Ok hlp}
 
-  member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
+  member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
     let ln, residue = Parsing.findLongIdentsAndResidue (pos.Col - 1, lineStr)
     try
       let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Col - 1)
       let longName = {longName with QualifyingIdents = ln; PartialIdent = residue }
-      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, (fun () -> []))
 
+      let getAllSymbols() =
+        getAllSymbols()
+        |> List.filter (fun entity -> entity.FullName.Contains "." && not (PrettyNaming.IsOperatorName entity.Symbol.DisplayName))
+
+      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
+
+      let getKindPriority = function
+        | CompletionItemKind.Property -> 0
+        | CompletionItemKind.Field -> 1
+        | CompletionItemKind.Method (isExtension = false) -> 2
+        | CompletionItemKind.Event -> 3
+        | CompletionItemKind.Argument -> 4
+        | CompletionItemKind.Other -> 5
+                | CompletionItemKind.Method (isExtension = true) -> 6
+
+      let sortedDeclItems =
+          results.Items
+          |> Array.sortWith (fun x y ->
+              let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
+              if n <> 0 then n else
+                  n <- (getKindPriority x.Kind).CompareTo(getKindPriority y.Kind)
+                  if n <> 0 then n else
+                      n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
+                      if n <> 0 then n else
+                          n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
+                          if n <> 0 then n else
+                            x.MinorPriority.CompareTo(y.MinorPriority))
       let decls =
         match filter with
-        | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
-        | Some "Contains" -> [| for d in results.Items do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
-        | _ -> results.Items
+        | Some "StartsWith" -> [| for d in sortedDeclItems do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
+        | Some "Contains" -> [| for d in sortedDeclItems do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
+        | _ -> sortedDeclItems
 
-      let decls = decls |> Array.sortBy (fun d -> d.Name)
       return Some (decls, residue)
     with :? TimeoutException -> return None
   }
 
   member __.GetAllEntities () =
-    async {
       try
-        return
-          Some
-            [
-              yield! AssemblyContentProvider.getAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
-              let ctx = checkResults.ProjectContext
-              let assembliesByFileName =
-                ctx.GetReferencedAssemblies()
-                |> Seq.groupBy (fun asm -> asm.FileName)
-                |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
-                |> Seq.toList
-                |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
-                            // get Content.Entities from it.
+        [
+          yield! AssemblyContentProvider.getAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
+          let ctx = checkResults.ProjectContext
+          let assembliesByFileName =
+            ctx.GetReferencedAssemblies()
+            |> Seq.groupBy (fun asm -> asm.FileName)
+            |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
+            |> Seq.toList
+            |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
+                        // get Content.Entities from it.
 
-              for fileName, signatures in assembliesByFileName do
-                let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
-                let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
-                yield! content
-
-            ]
+          for fileName, signatures in assembliesByFileName do
+            let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
+            let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
+            yield! content
+        ]
       with
-      | _ -> return None
-  }
+      | _ -> []
+
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
   member __.GetAST = parseResults.ParseTree
