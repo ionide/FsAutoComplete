@@ -28,7 +28,7 @@ let testConfig =
 #endif
 #endif
 #endif
- 
+
 
 let outputJsonForRuntime path =
   match testConfig.Runtime with
@@ -242,7 +242,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "parse" (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
-    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false; IncludeExternal = false }
     |> recordRequest "completion" (makeRequestId())
 
   member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
@@ -250,7 +250,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "methods" (makeRequestId())
 
   member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
-    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false; IncludeExternal = false }
     |> recordRequest"completion" (makeRequestId())
 
   member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
