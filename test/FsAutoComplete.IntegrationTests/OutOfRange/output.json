@@ -59,7 +59,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -69,7 +70,8 @@
       "Name": "funky",
       "ReplacementText": "funky",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -78,8 +80,9 @@
   "Data": [
     [
       {
-        "Signature": "module XA\n\nfrom Script",
-        "Comment": ""
+        "Signature": "module XA\n  \n  val funky: x: int -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.XA\nAssembly: Script"
       }
     ]
   ]
@@ -89,8 +92,9 @@
   "Data": [
     [
       {
-        "Signature": "module XA\n\nfrom Script",
-        "Comment": ""
+        "Signature": "module XA\n  \n  val funky: x: int -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.XA\nAssembly: Script"
       }
     ]
   ]

@@ -99,7 +99,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -109,7 +110,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -124,7 +126,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -134,7 +137,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }

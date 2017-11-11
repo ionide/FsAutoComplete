@@ -57,7 +57,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -67,13 +68,15 @@
       "Name": "Terrific",
       "ReplacementText": "Terrific",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -88,47 +91,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -143,7 +153,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -153,7 +164,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -168,47 +180,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -271,7 +290,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -281,13 +301,15 @@
       "Name": "Terrifying",
       "ReplacementText": "Terrifying",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -302,47 +324,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -357,7 +386,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -367,7 +397,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -382,47 +413,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -459,7 +497,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -469,13 +508,15 @@
       "Name": "Terrific",
       "ReplacementText": "Terrific",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -490,47 +531,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -545,7 +593,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -555,7 +604,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -570,47 +620,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -647,7 +704,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -657,13 +715,15 @@
       "Name": "Terrifying",
       "ReplacementText": "Terrifying",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToString",
       "ReplacementText": "ToString",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -678,47 +738,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -733,7 +800,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -743,7 +811,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -758,47 +827,54 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
   "Kind": "completion",
   "Data": [
     {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
-      "Name": "Foo",
-      "ReplacementText": "Foo",
-      "Glyph": "Type",
-      "GlyphChar": "T"
-    },
-    {
-      "Name": "NewObjectType",
-      "ReplacementText": "NewObjectType",
-      "Glyph": "Class",
-      "GlyphChar": "C"
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P"
-    },
-    {
       "Name": "add",
       "ReplacementText": "add",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "addition",
       "ReplacementText": "addition",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Bar",
+      "ReplacementText": "Bar",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Foo",
+      "ReplacementText": "Foo",
+      "Glyph": "Type",
+      "GlyphChar": "T",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "NewObjectType",
+      "ReplacementText": "NewObjectType",
+      "Glyph": "Class",
+      "GlyphChar": "C",
+      "NamespaceToOpen": null
+    },
+    {
+      "Name": "Qux",
+      "ReplacementText": "Qux",
+      "Glyph": "Property",
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
 }

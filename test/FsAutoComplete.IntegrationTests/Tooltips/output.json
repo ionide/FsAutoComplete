@@ -213,27 +213,3 @@
     ]
   ]
 }
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "type String\n  new: value: nativeptr<char> -> String (+ 7 overloads)\n  static member Join: separator: string * value: string [] -> string (+ 4 overloads)\n  abstract member Equals: obj: obj -> bool (+ 4 overloads)\n  static member op_Equality: a: string * b: string -> bool\n  static member op_Inequality: a: string * b: string -> bool\n  member Chars: index: int -> char\n  member CopyTo: sourceIndex: int * destination: char [] * destinationIndex: int * count: int -> unit\n  member ToCharArray:  char [] (+ 1 overloads)\n  static member IsNullOrEmpty: value: string -> bool\n  static member IsNullOrWhiteSpace: value: string -> bool\n  abstract member GetHashCode:  int\n  member Length:  int\n  ...",
-        "Comment": "Represents text as a series of Unicode characters.To browse the .NET Framework source code for this type, see the Reference Source.\n\n",
-        "Footer": "Full name: System.String\nAssembly: mscorlib"
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
-        "Signature": "module Array\n  \n  val append: array1: 'T []-> array2: 'T [] -> 'T []\n  val average: array:  ^T [] ->  ^T\n  val averageBy: projection: 'T ->  ^U-> array: 'T [] ->  ^U\n  val blit: source: 'T []-> sourceIndex: int-> target: 'T []-> targetIndex: int-> count: int -> unit\n  val collect: mapping: 'T -> 'U []-> array: 'T [] -> 'U []\n  val compareWith: comparer: 'T -> 'T -> int-> array1: 'T []-> array2: 'T [] -> int\n  val concat: arrays: seq<'T []> -> 'T []\n  val contains: value: 'T-> array: 'T [] -> bool\n  val copy: array: 'T [] -> 'T []\n  val countBy: projection: 'T -> 'Key-> array: 'T [] -> ('Key * int) []\n  val create: count: int-> value: 'T -> 'T []\n  ...",
-        "Comment": "Basic operations on arrays.\n\n",
-        "Footer": "Full name: Microsoft.FSharp.Collections.ArrayModule\nAssembly: FSharp.Core"
-      }
-    ]
-  ]
-}

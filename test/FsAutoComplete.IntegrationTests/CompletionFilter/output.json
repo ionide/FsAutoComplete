@@ -31,7 +31,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -41,25 +42,29 @@
       "Name": "Convert",
       "ReplacementText": "Convert",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "GoodTime",
       "ReplacementText": "GoodTime",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToDate",
       "ReplacementText": "ToDate",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToTime",
       "ReplacementText": "ToTime",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -74,7 +79,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -84,13 +90,15 @@
       "Name": "ToDate",
       "ReplacementText": "ToDate",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToTime",
       "ReplacementText": "ToTime",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -105,7 +113,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -115,25 +124,29 @@
       "Name": "Convert",
       "ReplacementText": "Convert",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "GoodTime",
       "ReplacementText": "GoodTime",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToDate",
       "ReplacementText": "ToDate",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     },
     {
       "Name": "ToTime",
       "ReplacementText": "ToTime",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
