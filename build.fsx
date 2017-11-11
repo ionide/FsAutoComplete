@@ -40,19 +40,19 @@ Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
-  DotNetCli.Build (fun p ->
-     { p with
-         Configuration = "Debug"
-         Project = "FsAutoComplete.netcore.sln" })
+  // DotNetCli.Build (fun p ->
+  //    { p with
+  //        Configuration = "Debug"
+  //        Project = "FsAutoComplete.netcore.sln" })
 )
 
 Target "BuildRelease" (fun _ ->
   MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.netcore.sln" })
+  // DotNetCli.Build (fun p ->
+  //    { p with
+  //        Project = "FsAutoComplete.netcore.sln" })
 )
 
 let integrationTests =
