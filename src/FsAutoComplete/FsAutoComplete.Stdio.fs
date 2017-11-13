@@ -9,6 +9,24 @@ module Response = CommandResponse
 let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
+    // use a mailboxprocess to queue the send of notifications
+    use agent = MailboxProcessor.Start ((fun inbox ->
+        let rec messageLoop () = async {
+
+            let! (msg : string) = inbox.Receive()
+
+            Console.WriteLine(msg)
+
+            return! messageLoop ()
+            }
+
+        messageLoop ()
+        ))
+
+    let _notifications =
+        commands.Notify
+        |> Observable.subscribe agent.Post
+
     while not quit do
       async {
           match commandQueue.Take() with
