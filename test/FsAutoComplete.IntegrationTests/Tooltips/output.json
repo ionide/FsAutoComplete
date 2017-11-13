@@ -134,18 +134,6 @@
   "Data": [
     [
       {
-        "Signature": "member",
-        "Comment": "Used to declare a property or method in an object type.",
-        "Footer": ""
-      }
-    ]
-  ]
-}
-{
-  "Kind": "tooltip",
-  "Data": [
-    [
-      {
         "Signature": "union Qwer =\n  | A of string\n  | B of int * float\n  | C",
         "Comment": "",
         "Footer": "Full name: Script.Qwer\nAssembly: Script"

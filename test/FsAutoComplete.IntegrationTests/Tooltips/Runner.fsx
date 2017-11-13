@@ -25,7 +25,7 @@ p.tooltip "Script.fsx" "  member __.asdfg = 123" 26 15
 p.tooltip "Script.fsx" "  member val bnm = 1 with get, set" 27 15
 p.tooltip "Script.fsx" "  member __.cvbnm" 28 15
 p.tooltip "Script.fsx" "type Desf =" 35 8
-p.tooltip "Script.fsx" "  member __.b = 234" 36 5
+// p.tooltip "Script.fsx" "  member __.b = 234" 36 5
 p.tooltip "Script.fsx" "type Qwer =" 38 8
 p.tooltip "Script.fsx" "type Gjk =" 43 8
 p.tooltip "Script.fsx" "type Gjk =" 43 2
