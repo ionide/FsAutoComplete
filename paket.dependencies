@@ -30,6 +30,8 @@ group Netcore
   nuget FSharpLint.Core 0.9.0-beta
   nuget FSharp.Core
   nuget System.Collections.Immutable
+  nuget OptimizedPriorityQueue
+
 
 group Build
   framework: net45

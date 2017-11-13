@@ -40,19 +40,19 @@ Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
-  // DotNetCli.Build (fun p ->
-  //    { p with
-  //        Configuration = "Debug"
-  //        Project = "FsAutoComplete.netcore.sln" })
+  DotNetCli.Build (fun p ->
+     { p with
+         Configuration = "Debug"
+         Project = "FsAutoComplete.netcore.sln" })
 )
 
 Target "BuildRelease" (fun _ ->
   MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
 
-  // DotNetCli.Build (fun p ->
-  //    { p with
-  //        Project = "FsAutoComplete.netcore.sln" })
+  DotNetCli.Build (fun p ->
+     { p with
+         Project = "FsAutoComplete.netcore.sln" })
 )
 
 let integrationTests =
@@ -289,10 +289,10 @@ Target "LocalRelease" (fun _ ->
     )
 
     CleanDirs [ "bin/release_netcore" ]
-    // DotNetCli.Publish (fun p ->
-    //    { p with
-    //        Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
-    //        Project = "src/FsAutoComplete.netcore" })
+    DotNetCli.Publish (fun p ->
+       { p with
+           Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
+           Project = "src/FsAutoComplete.netcore" })
 )
 
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"

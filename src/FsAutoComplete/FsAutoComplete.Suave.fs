@@ -28,7 +28,21 @@ open Argu
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let mutable client : WebSocket option  = None
 
-    commands.Notify.Add (fun msg -> client |> Option.iter (fun n -> n.send Text (System.Text.Encoding.UTF8.GetBytes msg) true |> Async.Ignore |> Async.Start ))
+    commands.Notify.Add (fun msg ->
+        client
+        |> Option.iter (fun n ->
+            let bytes = System.Text.Encoding.UTF8.GetBytes msg
+            let msg =
+#if SUAVE_2
+                Sockets.ByteSegment bytes
+#else
+                bytes
+#endif
+
+
+            n.send Text msg true
+            |> Async.Ignore
+            |> Async.Start ))
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq

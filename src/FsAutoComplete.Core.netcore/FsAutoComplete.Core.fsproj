@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;$(DefineConstants)</DefineConstants>
+    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;SUAVE_2;$(DefineConstants)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
