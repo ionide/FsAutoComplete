@@ -3,9 +3,10 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#load "../../.paket/load/net45/IntegrationTests/Hopac.fsx"
-#load "../../.paket/load/net45/IntegrationTests/Http.fs.fsx"
-#load "../../.paket/load/net45/IntegrationTests/Newtonsoft.Json.fsx"
+#load "../../.paket/load/net46/IntegrationTests/Hopac.fsx"
+#load "../../.paket/load/net46/IntegrationTests/Http.fs.fsx"
+#load "../../.paket/load/net46/IntegrationTests/Newtonsoft.Json.fsx"
+#load "../../.paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
 
 open Newtonsoft.Json
 
@@ -130,6 +131,12 @@ type FsAutoCompleteWrapperStdio() =
   member x.workspacepeek (dir: string) (deep: int): unit =
     fprintf p.StandardInput "workspacepeek \"%s\" %i\n" dir deep
 
+  member x.workspaceload (projects: string list): unit =
+    fprintf p.StandardInput "workspaceload %s\n" (projects |> List.map (sprintf "\"%s\"") |> String.concat " ")
+
+  member x.notify () : unit =
+    ()
+
   /// Wait for a single line to be output (one JSON message)
   /// Note that this line will appear at the *start* of output.json,
   /// so use carefully, and preferably only at the beginning.
@@ -141,6 +148,23 @@ type FsAutoCompleteWrapperStdio() =
     let t = p.StandardError.ReadToEnd()
     p.WaitForExit()
     cachedOutput.ToString() + s + t
+
+  member x.awaitNotification f times =
+    let fiveSec = TimeSpan.FromSeconds(5.0)
+    let rec waitOut times =
+      printfn "waiting next notification"
+      let s = p.StandardOutput.ReadLine()
+      printfn "got: %s" s
+      cachedOutput.AppendLine(s) |> ignore
+      if f s then
+        ()
+      else
+        if times > 0 then
+          waitOut (times - 1)
+        else
+          ()
+    waitOut times
+
 
 let formatJson json =
     try
@@ -155,6 +179,31 @@ open HttpFs.Client
 
 #load "../../src/FsAutoComplete/FsAutoComplete.HttpApiContract.fs"
 
+open System.Net.WebSockets
+open System.Threading
+
+let listenWs onMessage port action ct = async {
+  let address = sprintf "ws://localhost:%i/%s" port action
+
+  use ws = new ClientWebSocket()
+
+  //set big buffer, otherwise messages are split
+  ws.Options.SetBuffer(65535,65535)
+
+  do! ws.ConnectAsync(System.Uri(address), ct) |> Async.AwaitTask
+
+  let receivedBytes = ArraySegment(Array.init 10000000 (fun _ -> 0uy))
+
+  let rec receive () = async {
+      let! result = ws.ReceiveAsync(receivedBytes, ct) |> Async.AwaitTask
+      let message = System.Text.Encoding.UTF8.GetString(receivedBytes.Array, 0, result.Count)
+      onMessage message
+      return! receive ()
+      }
+
+  return! receive ()
+  }
+
 open FsAutoComplete.HttpApiContract
 
 type FsAutoCompleteWrapperHttp() =
@@ -162,6 +211,8 @@ type FsAutoCompleteWrapperHttp() =
   let p = new System.Diagnostics.Process()
 
   let port = 8089
+
+  let notifyCts = CancellationTokenSource()
 
   do
     configureFSACArgs p.StartInfo
@@ -212,7 +263,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Hopac.run
     |> crazyness
 
-  let allResp = ResizeArray<string> ()
+  let allResp = System.Collections.Concurrent.BlockingCollection<string> ()
 
   let recordRequest action requestId r =
     doRequest action requestId r
@@ -282,11 +333,20 @@ type FsAutoCompleteWrapperHttp() =
   member x.send (s: string) : unit =
     if s.Contains("quit") then
       if not p.HasExited then
+        notifyCts.Dispose()
         p.Kill ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
     { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
     |> recordRequest "workspacePeek" (makeRequestId())
+
+  member x.workspaceload (projects: string list): unit =
+    { WorkspaceLoadRequest.Files = projects |> Array.ofList }
+    |> recordRequest "workspaceLoad" (makeRequestId())
+
+  member x.notify () : unit =
+    listenWs (fun s -> allResp.Add(s)) port "notifyWorkspace" (notifyCts.Token)
+    |> Async.Start
 
   /// Wait for a single line to be output (one JSON message)
   /// Note that this line will appear at the *start* of output.json,
@@ -295,8 +355,27 @@ type FsAutoCompleteWrapperHttp() =
     ()
 
   member x.finalOutput () : string =
-    allResp
+    allResp.ToArray()
     |> String.concat "\n"
+
+  member x.awaitNotification (f: string -> bool) (times: int) =
+    let upTo = allResp.Count + times
+    let rec check () = async {
+      if allResp.ToArray() |> Array.rev |> Array.exists f then
+        printfn "found, max %i" upTo
+        return ()
+      else
+        let count = allResp.Count
+        if count >= upTo then
+          printfn "timeout %i vs %i" count upTo
+          return ()
+        else
+          printfn "not yet %i vs %i" count upTo
+          do! Async.Sleep(TimeSpan.FromMilliseconds(500.0).TotalMilliseconds |> int)
+          return! check ()
+    }
+    check ()
+    |> Async.RunSynchronously
 
 
 #if FSAC_TEST_HTTP

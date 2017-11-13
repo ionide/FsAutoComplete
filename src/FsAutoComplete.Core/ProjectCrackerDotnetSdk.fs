@@ -2,6 +2,7 @@ namespace FsAutoComplete
 
 open System
 open System.IO
+open System.Collections.Generic
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -13,6 +14,9 @@ type NavigateProjectSM =
     | NoCrossTargeting of NoCrossTargetingData
     | CrossTargeting of string list
 and NoCrossTargetingData = { FscArgs: string list; P2PRefs: MSBuildPrj.ResolvedP2PRefsInfo list; Properties: Map<string,string> }
+
+module MSBuildKnownProperties =
+    let TargetFramework = "TargetFramework"
 
 module ProjectCrackerDotnetSdk =
 
@@ -35,7 +39,7 @@ module ProjectCrackerDotnetSdk =
     { ProjectSdkTypeDotnetSdk.IsTestProject = msbuildPropBool "IsTestProject" |> Option.getOrElse false
       Configuration = msbuildPropString "Configuration" |> Option.getOrElse ""
       IsPackable = msbuildPropBool "IsPackable" |> Option.getOrElse false
-      TargetFramework = msbuildPropString "TargetFramework" |> Option.getOrElse ""
+      TargetFramework = msbuildPropString MSBuildKnownProperties.TargetFramework |> Option.getOrElse ""
       TargetFrameworkIdentifier = msbuildPropString "TargetFrameworkIdentifier" |> Option.getOrElse ""
       TargetFrameworkVersion = msbuildPropString "TargetFrameworkVersion" |> Option.getOrElse ""
       TargetPath = targetPath
@@ -56,10 +60,15 @@ module ProjectCrackerDotnetSdk =
 
   type private ProjectParsingSdk = DotnetSdk | VerboseSdk
 
-  let private getProjectOptionsFromProjectFile parseAsSdk (file : string) =
+  type ParsedProject = string * FSharpProjectOptions * ((string * string) list)
+  type ParsedProjectCache = Dictionary<string, ParsedProject>
 
-    let rec projInfo additionalMSBuildProps file =
+  let private getProjectOptionsFromProjectFile notifyState (cache: ParsedProjectCache) parseAsSdk (file : string) =
+
+    let rec projInfoOf additionalMSBuildProps file : ParsedProject =
         let projDir = Path.GetDirectoryName file
+
+        notifyState (WorkspaceProjectState.Loading file)
 
         match parseAsSdk with
         | ProjectParsingSdk.DotnetSdk ->
@@ -74,14 +83,16 @@ module ProjectCrackerDotnetSdk =
             | ProjectParsingSdk.DotnetSdk ->
                 Dotnet.ProjInfo.Inspect.getFscArgs
             | ProjectParsingSdk.VerboseSdk ->
-#if NO_PROJECTCRACKER
                 let asFscArgs props =
                     let fsc = Microsoft.FSharp.Build.Fsc()
                     Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
-                Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (asFscArgs >> Ok)
+                let ok =
+#if NETSTANDARD2_0
+                    Ok
 #else
-                failwithf "project parsing not supported on verbose sdk"
+                    Choice1Of2
 #endif
+                Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (asFscArgs >> ok)
 
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
         let additionalInfo = //needed for extra
@@ -89,7 +100,7 @@ module ProjectCrackerDotnetSdk =
               "IsTestProject"
               "Configuration"
               "IsPackable"
-              "TargetFramework"
+              MSBuildKnownProperties.TargetFramework
               "TargetFrameworkIdentifier"
               "TargetFrameworkVersion"
               "MSBuildAllProjects"
@@ -174,7 +185,7 @@ module ProjectCrackerDotnetSdk =
         | CrossTargeting (tfm :: _) ->
             // Atm setting a preferenece is not supported in FSAC
             // As workaround, lets choose the first of the target frameworks and use that
-            file |> projInfo ["TargetFramework", tfm]
+            file |> projInfo [MSBuildKnownProperties.TargetFramework, tfm]
         | CrossTargeting [] ->
             failwithf "Unexpected, found cross targeting but empty target frameworks list"
         | NoCrossTargeting { FscArgs = rsp; P2PRefs = p2ps; Properties = props } ->
@@ -187,7 +198,7 @@ module ProjectCrackerDotnetSdk =
                 |> List.map (fun p2p ->
                     let followP2pArgs =
                         p2p.TargetFramework
-                        |> Option.map (fun tfm -> "TargetFramework", tfm)
+                        |> Option.map (fun tfm -> MSBuildKnownProperties.TargetFramework, tfm)
                         |> Option.toList
                     p2p.ProjectReferenceFullPath |> projInfo followP2pArgs )
 
@@ -233,6 +244,16 @@ module ProjectCrackerDotnetSdk =
 
             tar, po, log
 
+    and projInfo additionalMSBuildProps file : ParsedProject =
+        let key = sprintf "%s;%A" file additionalMSBuildProps
+        match cache.TryGetValue(key) with
+        | true, alreadyParsed ->
+            alreadyParsed
+        | false, _ ->
+            let p = file |> projInfoOf additionalMSBuildProps
+            cache.Add(key, p)
+            p
+
     let _, po, log = projInfo [] file
     po, log
 
@@ -245,9 +266,9 @@ module ProjectCrackerDotnetSdk =
               Some extraInfo
           | _ -> None
 
-  let private loadBySdk parseAsSdk file =
+  let private loadBySdk notifyState (cache: ParsedProjectCache) parseAsSdk file =
       try
-        let po, log = getProjectOptionsFromProjectFile parseAsSdk file
+        let po, log = getProjectOptionsFromProjectFile notifyState cache parseAsSdk file
 
         let compileFiles =
             let sources = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
@@ -271,10 +292,10 @@ module ProjectCrackerDotnetSdk =
         Ok (po, Seq.toList compileFiles, (log |> Map.ofList))
       with
         | ProjectInspectException d -> Error d
-        | e -> Error (GenericError(e.Message))
+        | e -> Error (GenericError(file, e.Message))
 
-  let load file =
-      loadBySdk ProjectParsingSdk.DotnetSdk file
+  let load notifyState (cache: ParsedProjectCache) file =
+      loadBySdk notifyState cache ProjectParsingSdk.DotnetSdk file
 
-  let loadVerboseSdk file =
-      loadBySdk ProjectParsingSdk.VerboseSdk file
+  let loadVerboseSdk notifyState (cache: ParsedProjectCache) file =
+      loadBySdk notifyState cache ProjectParsingSdk.VerboseSdk file

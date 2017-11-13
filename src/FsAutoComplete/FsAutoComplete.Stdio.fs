@@ -9,13 +9,20 @@ module Response = CommandResponse
 let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
+    commands.NotifyErrorsInBackground <- false
+
     // use a mailboxprocess to queue the send of notifications
     use agent = MailboxProcessor.Start ((fun inbox ->
         let rec messageLoop () = async {
 
-            let! (msg : string) = inbox.Receive()
+            let! msg = inbox.Receive()
 
-            Console.WriteLine(msg)
+            let msgText =
+                match msg with
+                | NotificationEvent.ParseError x -> x
+                | NotificationEvent.Workspace x -> x
+
+            Console.WriteLine(msgText)
 
             return! messageLoop ()
             }
@@ -79,6 +86,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | SimplifiedNames filename -> return! commands.GetSimplifiedNames filename
           | UnusedOpens filename -> return! commands.GetUnusedOpens filename
           | WorkspacePeek (dir, deep, excludeDir) -> return! commands.WorkspacePeek dir deep (excludeDir |> List.ofArray)
+          | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray)
           | Error msg -> return commands.Error msg
           | Quit ->
               quit <- true

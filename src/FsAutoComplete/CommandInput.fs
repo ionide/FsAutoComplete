@@ -34,6 +34,7 @@ type Command =
   | Colorization of bool
   | CompilerLocation
   | WorkspacePeek of string * int * string[]
+  | WorkspaceLoad of string[]
   | Started
   | Quit
 
@@ -126,7 +127,7 @@ module CommandInput =
     return '"'
   }
 
-  // Parse 'parse "<filename>" [sync]' command
+  // Parse 'workspacepeek "<directory>" <deepLevel>' command
   let workspacePeek =
     parser {
       let! _ = string "workspacepeek "
@@ -137,6 +138,21 @@ module CommandInput =
       let! deep = some digit |> Parser.map (String.OfSeq >> int)
       let excludeDir = [| |]
       return WorkspacePeek (dir, deep, excludeDir) }
+
+  // Parse 'workspaceload "<filename>" "<filename>" .. "<filename>"' command
+  let workspaceLoad =
+    parser {
+      let! _ = string "workspaceload "
+      let parseFilename =
+        parser {
+          let! _ = char '"'
+          let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+          let! _ = char '"'
+          let! _ = many (string " ")
+          return filename
+        }
+      let! files = many parseFilename
+      return WorkspaceLoad (files |> Array.ofList) }
 
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
@@ -195,7 +211,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

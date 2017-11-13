@@ -67,10 +67,18 @@
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
     <Compile Include="State.fs" />
+    <Compile Include="Workspace.fs" />
     <Compile Include="CodeGeneration.fs" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="Commands.fs" />
     <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj">
+      <Name>FsAutoComplete.Core.VerboseSdkHelper</Name>
+      <Project>{385ecb13-18aa-4ec6-bb10-494a7f450a75}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

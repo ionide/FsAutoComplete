@@ -1,8 +1,10 @@
 {
   "Kind": "error",
   "Data": {
-    "Code": 1,
+    "Code": 101,
     "Message": "File '<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchProject.fsproj' does not exist",
-    "AdditionalData": {}
+    "AdditionalData": {
+      "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/RobustCommands/NoSuchProject.fsproj"
+    }
   }
 }

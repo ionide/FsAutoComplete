@@ -78,12 +78,15 @@ module CommandResponse =
   type ErrorCodes =
     | GenericError = 1
     | ProjectNotRestored = 100
+    | ProjectParsingFailed = 101
 
   [<RequireQualifiedAccess>]
   type ErrorData =
     | GenericError
     | ProjectNotRestored of ProjectNotRestoredData
+    | ProjectParsingFailed of ProjectParsingFailedData
   and ProjectNotRestoredData = { Project: ProjectFilePath }
+  and ProjectParsingFailedData = { Project: ProjectFilePath }
 
   [<RequireQualifiedAccess>]
   type ProjectResponseInfo =
@@ -104,6 +107,11 @@ module CommandResponse =
       IsPublishable: bool option
     }
   and [<RequireQualifiedAccess>] RunCmd = { Command: string; Arguments: string }
+
+  type ProjectLoadingResponse =
+    {
+      Project: ProjectFilePath
+    }
 
   type ProjectResponse =
     {
@@ -355,6 +363,10 @@ module CommandResponse =
     PlatformName: string
   }
 
+  type WorkspaceLoadResponse = {
+    Status: string
+    }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -363,6 +375,7 @@ module CommandResponse =
     match errorData with
     | ErrorData.GenericError -> ser (ErrorCodes.GenericError) (obj())
     | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d
+    | ErrorData.ProjectParsingFailed d -> ser (ErrorCodes.ProjectParsingFailed) d
 
   let error (serialize : Serializer) (s: string) = errorG serialize ErrorData.GenericError s
 
@@ -408,8 +421,11 @@ module CommandResponse =
 
   let projectError (serialize : Serializer) errorDetails =
     match errorDetails with
-    | GenericError errorMessage -> error serialize errorMessage //compatibility with old api
+    | GenericError (project, errorMessage) -> errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) errorMessage
     | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored"
+
+  let projectLoading (serialize : Serializer) projectFileName =
+    serialize { Kind = "projectLoading"; Data = { ProjectLoadingResponse.Project = projectFileName } }
 
   let workspacePeek (serialize : Serializer) (found: FsAutoComplete.WorkspacePeek.Interesting list) =
     let mapInt i =
@@ -440,6 +456,11 @@ module CommandResponse =
 
     let data = { WorkspacePeekResponse.Found = found |> List.map mapInt }
     serialize { Kind = "workspacePeek"; Data = data }
+
+  let workspaceLoad (serialize : Serializer) finished =
+    let data =
+        if finished then "finished" else "started"
+    serialize { Kind = "workspaceLoad"; Data = { WorkspaceLoadResponse.Status = data } }
 
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"

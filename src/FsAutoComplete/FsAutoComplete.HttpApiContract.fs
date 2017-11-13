@@ -8,3 +8,4 @@ type CompletionRequest = {FileName : string; SourceLine : string; Line : int; Co
 type PositionRequest = {FileName : string; Line : int; Column : int; Filter : string}
 type FileRequest = {FileName : string}
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
+type WorkspaceLoadRequest = {Files : string array}

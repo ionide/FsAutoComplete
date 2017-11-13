@@ -254,24 +254,7 @@ type ParseAndCheckResults
 
 type Version = int
 
-type FSharpCompilerServiceChecker() =
-  let checker =
-    FSharpChecker.Create(
-      projectCacheSize = 200,
-      keepAllBackgroundResolutions = true,
-      keepAssemblyContents = true)
-
-  do checker.ImplicitlyStartBackgroundWork <- false
-
-  do checker.BeforeBackgroundFileCheck.Add ignore
-  let fixFileName path =
-    if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
-    else
-        match Environment.OSVersion.Platform with
-        | PlatformID.Unix
-        | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
-        | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
-        </> Path.GetFileName path
+module FSharpCompilerServiceCheckerHelper =
 
   let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
 
@@ -306,6 +289,26 @@ type FSharpCompilerServiceChecker() =
            yield! newOptions |]
       | None, _ -> options
 #endif
+
+type FSharpCompilerServiceChecker() =
+  let checker =
+    FSharpChecker.Create(
+      projectCacheSize = 200,
+      keepAllBackgroundResolutions = true,
+      keepAssemblyContents = true)
+
+  do checker.ImplicitlyStartBackgroundWork <- false
+
+  do checker.BeforeBackgroundFileCheck.Add ignore
+  let fixFileName path =
+    if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
+    else
+        match Environment.OSVersion.Platform with
+        | PlatformID.Unix
+        | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
+        | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
+        </> Path.GetFileName path
+
   let entityCache = EntityCache()
 
   member __.GetDependingProjects file (options : seq<string * FSharpProjectOptions>) =
@@ -317,7 +320,6 @@ type FSharpCompilerServiceChecker() =
                |> Seq.distinctBy (fun o -> o.ProjectFileName)
                |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
       ])
-
 
   member __.GetProjectOptionsFromScript(file, source) = async {
 
@@ -333,7 +335,7 @@ type FSharpCompilerServiceChecker() =
 
     let opts =
       rawOptions.OtherOptions
-      |> ensureCorrectFSharpCore
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
 
     let opts =
       opts
@@ -345,8 +347,8 @@ type FSharpCompilerServiceChecker() =
 
     let opts =
       rawOptions.OtherOptions
-      |> ensureCorrectFSharpCore
-      |> ensureCorrectVersions
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectVersions
 
     return { rawOptions with OtherOptions = opts }
 #endif
@@ -400,21 +402,6 @@ type FSharpCompilerServiceChecker() =
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
-
-  member x.GetProjectOptions verbose (projectFileName: SourceFilePath) =
-    if not (File.Exists projectFileName) then
-        Error (GenericError(sprintf "File '%s' does not exist" projectFileName))
-    else
-        match projectFileName with
-        | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
-        | NetCoreSdk -> ProjectCrackerDotnetSdk.load projectFileName
-#if NO_PROJECTCRACKER
-        | Net45 -> ProjectCrackerDotnetSdk.loadVerboseSdk projectFileName
-        | Unsupported -> Error (GenericError(sprintf "Project file '%s' not supported" projectFileName))
-#else
-        | Net45 -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
-        | Unsupported -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
-#endif
 
   member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
     let projects = x.GetDependingProjects file options

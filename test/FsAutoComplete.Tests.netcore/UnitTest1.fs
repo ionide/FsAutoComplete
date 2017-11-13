@@ -24,3 +24,9 @@ type TestClass () =
         let input = "project \"sample2/c2/c2.fsproj\""
         let cmd = CommandInput.parseCommand input
         Assert.IsTrue((cmd = Project("sample2/c2/c2.fsproj", false)), sprintf "but was %A" cmd)
+
+    [<Test>]
+    member this.``stdio parser workspaceload `` () =
+        let input = "workspaceload \"sample2/c2/c2.fsproj\" \"c:\\sample2\\c2\\c2.fsproj\""
+        let cmd = CommandInput.parseCommand input
+        Assert.IsTrue((cmd = WorkspaceLoad([| @"sample2/c2/c2.fsproj"; @"c:\sample2\c2\c2.fsproj" |])), sprintf "but was %A" cmd)
