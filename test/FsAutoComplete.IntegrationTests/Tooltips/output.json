@@ -134,8 +134,8 @@
   "Data": [
     [
       {
-        "Signature": "abstract",
-        "Comment": "Indicates a method that either has no implementation in the type in which it is declared or that is virtual and has a default implementation.",
+        "Signature": "member",
+        "Comment": "Used to declare a property or method in an object type.",
         "Footer": ""
       }
     ]
