@@ -12,6 +12,11 @@ open System
 type Result<'a,'b> =
   | Ok of 'a
   | Error of 'b
+
+module Result =
+  let map mapping result = match result with Error e -> Error e | Ok x -> Ok (mapping x)
+  let mapError mapping result = match result with Error e -> Error (mapping e) | Ok x -> Ok x
+  let bind binder result = match result with Error e -> Error e | Ok x -> binder x
 #endif
 
 type ResultOrString<'a> = Result<'a, string>

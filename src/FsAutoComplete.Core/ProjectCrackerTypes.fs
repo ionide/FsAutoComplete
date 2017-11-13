@@ -54,8 +54,13 @@ and ProjectOutputType =
 
 type GetProjectOptionsErrors =
      | ProjectNotRestored of string
-     | GenericError of string
+     | GenericError of string * string
 
+
+type [<RequireQualifiedAccess>] WorkspaceProjectState =
+    | Loading of string
+    | Loaded of Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * ExtraProjectInfoData * string list * Map<string,string>
+    | Failed of string * GetProjectOptionsErrors
 
 module ProjectRecognizer =
 

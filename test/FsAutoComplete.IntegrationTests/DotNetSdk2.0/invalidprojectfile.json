@@ -1,8 +1,10 @@
 {
   "Kind": "error",
   "Data": {
-    "Code": 1,
+    "Code": 101,
     "Message": "MSBuild failed with exitCode 1 Working Directory: '<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample3/l1' Exe Path: 'dotnet' Args: 'msbuild <absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample3/l1/l1.fsproj /p:SkipCompilerExecution=true /p:ProvideCommandLineArgs=true /p:CopyBuildOutputToOutputDirectory=false /p:UseCommonOutputDirectory=true /t:_Inspect_FscArgs /p:_Inspect_FscArgs_OutFile=<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample3/l1/obj/l1.fsproj.proj-info.targets'\n<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample3/l1/l1.fsproj(3,21): error MSB4025: The project file could not be loaded. '>' is an unexpected token. The expected token is '='. Line 3, position 21.\n\n",
-    "AdditionalData": {}
+    "AdditionalData": {
+      "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample3/l1/l1.fsproj"
+    }
   }
 }

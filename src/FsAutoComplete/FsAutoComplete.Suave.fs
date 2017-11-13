@@ -64,7 +64,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             return! Response.response HttpCode.HTTP_200 res' r
         }
 
-    let echo (webSocket : Suave.WebSocket.WebSocket) =
+    let echo notificationEvent (webSocket : Suave.WebSocket.WebSocket) =
 
         let inline byteSegment array =
 #if SUAVE_2
@@ -100,14 +100,10 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 ), cts.Token)
 
             let notifications =
-                commands.Notify
+                notificationEvent
                 |> Observable.subscribe agent.Post
 
             socket {
-
-                let initial = CommandResponse.info writeJson (sprintf "Notification: Hello (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
-
-                do! sendText initial
 
                 while not(cts.IsCancellationRequested) do
                     let! msg = webSocket.read()
@@ -120,9 +116,15 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     | _ -> ()
                 }
 
+    let notificationFor eventSelector =
+        commands.Notify |> Observable.choose eventSelector
+
     let app =
         choose [
-            path "/notify" >=> WebSocket.handShake echo
+            path "/notify" >=>
+                WebSocket.handShake (echo (notificationFor (function NotificationEvent.ParseError n -> Some n | _ -> None)))
+            path "/notifyWorkspace" >=>
+                WebSocket.handShake (echo (notificationFor (function NotificationEvent.Workspace n -> Some n | _ -> None)))
             path "/parse" >=> handler (fun (data : ParseRequest) -> async {
                 let! res = commands.Parse data.FileName data.Lines data.Version
                 //Hack for tests
@@ -178,6 +180,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes { Line = data.Line; Col = data.Column } lineStr)
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
+            path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray))
         ]
 
     let port = args.GetResult (<@ Options.CLIArguments.Port @>, defaultValue = 8088)

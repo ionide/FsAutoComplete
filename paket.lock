@@ -39,7 +39,7 @@ GITHUB
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
-RESTRICTION: == net45
+RESTRICTION: == net46
 NUGET
   remote: https://www.nuget.org/api/v2
     FSharp.Core (4.2.3)
@@ -49,6 +49,17 @@ NUGET
       FSharp.Core (>= 3.1.2.5)
       Hopac (>= 0.3.21)
     Newtonsoft.Json (10.0.3)
+    System.Net.WebSockets (4.3)
+    System.Net.WebSockets.Client (4.3.1)
+      System.Net.WebSockets (>= 4.3)
+      System.Security.Cryptography.X509Certificates (>= 4.3)
+    System.Security.Cryptography.Algorithms (4.3.1)
+      System.Security.Cryptography.Primitives (>= 4.3)
+    System.Security.Cryptography.Encoding (4.3)
+    System.Security.Cryptography.Primitives (4.3)
+    System.Security.Cryptography.X509Certificates (4.3.2)
+      System.Security.Cryptography.Algorithms (>= 4.3)
+      System.Security.Cryptography.Encoding (>= 4.3)
 
 GROUP Netcore
 STORAGE: NONE

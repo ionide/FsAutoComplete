@@ -17,8 +17,10 @@ module ProjectCrackerVerbose =
   //   di filtrarli corretamente altrimenti non sarebbero parsabili
   // - let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
 
-  let load ensureCorrectFSharpCore file verbose =
+  let load notifyState ensureCorrectFSharpCore file verbose =
       try
+        notifyState (WorkspaceProjectState.Loading file)
+
         let po, logMap =
           let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
 
@@ -81,5 +83,5 @@ module ProjectCrackerVerbose =
 
         Ok (setExtraInfo po, Array.toList po.SourceFiles, logMap)
       with e ->
-        Error (GenericError(e.Message))
+        Error (GenericError(file, e.Message))
 

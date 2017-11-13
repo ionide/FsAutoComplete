@@ -174,6 +174,21 @@ let runIntegrationTest cfg (fn: string) : bool =
       else
         true
 
+let applyPaketLoadScriptWorkaround paketLoadScript =
+    trace "apply workaround for bug https://github.com/fsprojects/Paket/issues/2868"
+    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , paketLoadScript)
+    trace (sprintf "File '%s' contents:" includeFile)
+    File.ReadAllLines(includeFile)
+    |> Array.iter (trace)
+    trace "apply fix"
+    File.ReadAllLines(includeFile)
+    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net46/IntegrationTests/", ""))
+    |> fun lines -> File.WriteAllLines(includeFile, lines)
+    trace (sprintf "File '%s' contents:" includeFile)
+    File.ReadAllLines(includeFile)
+    |> Array.iter (trace)
+    trace "applied workaround"
+
 let runall cfg =
 
     trace "Cleanup test dir (git clean)..."
@@ -190,19 +205,13 @@ let runall cfg =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
-    trace "apply workaround for bug https://github.com/fsprojects/Paket/issues/2868"
-    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , @".paket/load/net45/IntegrationTests/Http.fs.fsx")
-    trace (sprintf "File '%s' contents:" includeFile)
-    File.ReadAllLines(includeFile)
-    |> Array.iter (trace)
-    trace "apply fix"
-    File.ReadAllLines(includeFile)
-    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net45/IntegrationTests/", ""))
-    |> fun lines -> File.WriteAllLines(includeFile, lines)
-    trace (sprintf "File '%s' contents:" includeFile)
-    File.ReadAllLines(includeFile)
-    |> Array.iter (trace)
-    trace "applied workaround"
+    [ @".paket/load/net46/IntegrationTests/Http.fs.fsx"
+      @".paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
+      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
+      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
+      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
+      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Primitives.fsx" ]
+    |> List.iter applyPaketLoadScriptWorkaround
 
     trace "Running Integration tests..."
     let runOk =

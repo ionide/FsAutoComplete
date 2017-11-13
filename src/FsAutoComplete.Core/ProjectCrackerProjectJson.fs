@@ -39,4 +39,4 @@ module ProjectCrackerProjectJson =
         let compileFiles = FscArguments.compileFiles (po.OtherOptions |> List.ofArray)
         Ok (po, Seq.toList compileFiles, Map<string,string>([||]))
       with e ->
-        Error (GenericError(e.Message))
+        Error (GenericError(file, e.Message))

@@ -12,6 +12,11 @@ open Utils
 
 module Response = CommandResponse
 
+[<RequireQualifiedAccess>]
+type NotificationEvent =
+    | ParseError of string
+    | Workspace of string
+
 type Commands (serialize : Serializer) =
 
     let checker = FSharpCompilerServiceChecker()
@@ -19,8 +24,10 @@ type Commands (serialize : Serializer) =
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
     let fileInProjectChecked = Event<SourceFilePath>()
+    let mutable notifyErrorsInBackground = true
 
-    let notify = Event<string>()
+    let notify = Event<NotificationEvent>()
+
     let rec backgroundChecker () =
         async {
             match state.BackgroundProjects.TryDequeue() with
@@ -54,10 +61,13 @@ type Commands (serialize : Serializer) =
                 let parseErrors = res.GetParseResults.Errors
                 let errors = Array.append checkErrors parseErrors
 
-                notify.Trigger (Response.errors serialize (errors, n))
+                Response.errors serialize (errors, n)
+                |> NotificationEvent.ParseError
+                |> notify.Trigger
             with
             | _ -> ()
-        } |> Async.Start
+        }
+        |> if notifyErrorsInBackground then Async.Start else ignore
     )
 
 
@@ -68,7 +78,7 @@ type Commands (serialize : Serializer) =
     let normalizeOptions (opts : FSharpProjectOptions) =
         { opts with
             SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
-            OtherOptions = opts.OtherOptions |> Array.map (fun n -> if n.StartsWith "-" then n else Path.GetFullPath n)
+            OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
         }
 
     let parseFilesInTheBackground files =
@@ -117,6 +127,10 @@ type Commands (serialize : Serializer) =
         } |> Async.Start
 
     member __.Notify = notify.Publish
+
+    member __.NotifyErrorsInBackground
+        with get() = notifyErrorsInBackground
+        and set(value) = notifyErrorsInBackground <- value
 
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -203,18 +217,56 @@ type Commands (serialize : Serializer) =
                 [ Response.errors serialize (errors, file)]
     }
 
+    member private __.ToProjectCache (opts, extraInfo, projectFiles, logMap) =
+        let outFileOpt =
+            match extraInfo.ProjectSdkType with
+            | ProjectSdkType.Verbose v ->
+                Some (v.TargetPath)
+            | ProjectSdkType.ProjectJson ->
+                FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
+            | ProjectSdkType.DotnetSdk v ->
+                Some (v.TargetPath)
+        let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
+        let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
+
+        let cached = {
+            ProjectCrackerCache.Options = opts
+            Files = projectFiles
+            OutFile = outFileOpt
+            References = references
+            Log = logMap
+            ExtraInfo = extraInfo
+        }
+
+        (opts.ProjectFileName, cached)
+
     member x.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
-        let project = state.Projects.TryFind projectFileName
 
-        let project = project |> Option.getOrElseFun (fun _ ->
-            let project = new Project(projectFileName, onChange)
-            state.Projects.[projectFileName] <- project
-            project)
+        let project =
+            match state.Projects.TryFind projectFileName with
+            | Some prj -> prj
+            | None ->
+                let proj = new Project(projectFileName, onChange)
+                state.Projects.[projectFileName] <- proj
+                proj
 
-        return
+        let projResponse =
             match project.Response with
             | Some response ->
+                Result.Ok (projectFileName, response)
+            | None ->
+                match projectFileName |> Workspace.parseProject verbose |> Result.map (x.ToProjectCache) with
+                | Result.Ok (projectFileName, response) ->
+                    project.Response <- Some response
+                    Result.Ok (projectFileName, response)
+                | Result.Error error ->
+                    project.Response <- None
+                    Result.Error error
+
+        return
+            match projResponse with
+            | Result.Ok (projectFileName, response) ->
                 for file in response.Files do
                     state.FileCheckOptions.[file] <- normalizeOptions response.Options
 
@@ -222,55 +274,9 @@ type Commands (serialize : Serializer) =
                 |> parseFilesInTheBackground
                 |> Async.Start
 
-                let r = Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
-                [r]
-            | None ->
-                let options = checker.GetProjectOptions verbose projectFileName
-
-                match options with
-                | Result.Error error ->
-                    project.Response <- None
-                    [Response.projectError serialize error]
-                | Result.Ok (opts, projectFiles, logMap) ->
-                    match opts.ExtraProjectInfo with
-                    | None ->
-                        project.Response <- None
-                        [Response.projectError serialize (GenericError "expected ExtraProjectInfo after project parsing, was None")]
-                    | Some x ->
-                        match x with
-                        | :? ExtraProjectInfoData as extraInfo ->
-                            let outFileOpt =
-                                match extraInfo.ProjectSdkType with
-                                | ProjectSdkType.Verbose v ->
-                                    Some (v.TargetPath)
-                                | ProjectSdkType.ProjectJson ->
-                                    FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
-                                | ProjectSdkType.DotnetSdk v ->
-                                    Some (v.TargetPath)
-                            let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
-                            let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
-                            let response = Response.project serialize (projectFileName, projectFiles, outFileOpt, references, logMap, extraInfo, Map.empty)
-                            for file in projectFiles do
-                                state.FileCheckOptions.[file] <- normalizeOptions opts
-
-                            projectFiles
-                            |> parseFilesInTheBackground
-                            |> Async.Start
-
-                            let cached = {
-                                Options = opts
-                                Files = projectFiles
-                                OutFile = outFileOpt
-                                References = references
-                                Log = logMap
-                                ExtraInfo = extraInfo
-                            }
-
-                            project.Response <- Some cached
-                            [response]
-                        | x ->
-                            project.Response <- None
-                            [Response.projectError serialize (GenericError (sprintf "expected ExtraProjectInfo after project parsing, was %A" x))]
+                [ Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty) ]
+            | Result.Error error ->
+                [ Response.projectError serialize error ]
     }
 
     member x.Declarations file lines version = async {
@@ -571,6 +577,65 @@ type Commands (serialize : Serializer) =
         let d = WorkspacePeek.peek dir deep excludedDirs
 
         return [Response.workspacePeek serialize d]
+    }
+
+    member x.WorkspaceLoad onChange (files: string list) = async {
+
+        //TODO check full path
+        let projectFileNames = files |> List.map Path.GetFullPath
+
+        let projects =
+            projectFileNames
+            |> List.map (fun projectFileName -> projectFileName, new Project(projectFileName, onChange))
+
+        for projectFileName, proj in projects do
+            state.Projects.[projectFileName] <- proj
+        
+        async {
+            let projectLoadedSuccessfully projectFileName response =
+                let project =
+                    match state.Projects.TryFind projectFileName with
+                    | Some prj -> prj
+                    | None ->
+                        let proj = new Project(projectFileName, onChange)
+                        state.Projects.[projectFileName] <- proj
+                        proj
+
+                // set in cache
+                project.Response <- Some response
+            
+            let rec onLoaded p =
+                match p with
+                | WorkspaceProjectState.Loading projectFileName ->
+                    Response.projectLoading serialize projectFileName
+                    |> NotificationEvent.Workspace
+                    |> notify.Trigger
+                | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
+                    let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
+                    projectLoadedSuccessfully projectFileName response
+                    Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
+                    |> NotificationEvent.Workspace
+                    |> notify.Trigger
+                | WorkspaceProjectState.Failed (projectFileName, error) ->
+                    Response.projectError serialize error
+                    |> NotificationEvent.Workspace
+                    |> notify.Trigger
+
+            // HACK really ugly
+            // this is to delay the project loading notification (of this thread)
+            // after the workspaceload started response returned below in outer async
+            // Make test output repeteable, and notification in correct order
+            do! Async.Sleep(TimeSpan.FromMilliseconds(250.0).TotalMilliseconds |> int)
+
+            do! Workspace.loadInBackground onLoaded false files
+
+            Response.workspaceLoad serialize true
+            |> NotificationEvent.Workspace
+            |> notify.Trigger
+
+        } |> Async.Start
+
+        return [Response.workspaceLoad serialize false]
     }
 
     member x.GetUnusedDeclarations file =
