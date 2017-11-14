@@ -87,10 +87,9 @@ completion "Program.fs" 4 13
 
 Each response is exactly one line, which simplifies the application of a JSON parser. For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.json` files, which contain the output.
 
-Maintainers
------------
+## Maintainers
 
-Tha maintainers of this repository appointed by the F# Core Engineering Group are:
+The maintainers of this repository are:
 
- - [Robin Neatherway](https://github.com/rneatherway), [Steffen Forkmann](http://github.com/forki), [Karl Nilsson](http://github.com/kjnilsson), [Dave Thomas](http://github.com/7sharp9) and [Guillermo López-Anglada](http://github.com/guillermooo)
+ - [Robin Neatherway](https://github.com/rneatherway), [Steffen Forkmann](http://github.com/forki), [Karl Nilsson](http://github.com/kjnilsson), [Enrico Sada](http://github.com/enricosada) and [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
  - The primary maintainer for this repository is [Robin Neatherway](https://github.com/rneatherway)
