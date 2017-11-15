@@ -16,7 +16,7 @@ type State =
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
 
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
-    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * Pos>
+    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * Pos * SourceFilePath>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
     mutable CurrentAST: Microsoft.FSharp.Compiler.Ast.ParsedInput option
 

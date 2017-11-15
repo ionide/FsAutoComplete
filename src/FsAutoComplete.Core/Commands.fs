@@ -92,27 +92,27 @@ type Commands (serialize : Serializer) =
                     fileParsed.Trigger parseRes
             ) }
 
-    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : Pos) =
+    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : Pos) getLine =
         let idents = decl.FullName.Split '.'
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
             state.CurrentAST
-            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel )
-            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Col))
+            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel getLine )
+            |> Option.map (fun ic -> n, ic.Line, ic.Col))
 
-    let fillHelpTextInTheBackground decls (pos : Pos) =
+    let fillHelpTextInTheBackground decls (pos : Pos) fn getLine =
         let declName (d: FSharpDeclarationListItem) = d.Name
 
         //Fill list of declarations synchronously to know which declarations should be in cache.
         for d in decls do
-            state.Declarations.[declName d] <- (d, pos)
+            state.Declarations.[declName d] <- (d, pos, fn)
 
         //Fill helptext and namespace insertion cache asynchronously.
         async {
             for decl in decls do
                 let n = declName decl
                 state.HelpText.[n] <- decl.DescriptionText
-                let insert = calculateNamespaceInser decl pos
+                let insert = calculateNamespaceInser decl pos getLine
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
@@ -311,22 +311,32 @@ type Commands (serialize : Serializer) =
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
             [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
-        | Some (decl, pos) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
-            let tip =
-                match state.HelpText.TryFind sym with
-                | None -> decl.DescriptionText
-                | Some tip -> tip
-            let n =
-                match state.CompletionNamespaceInsert.TryFind sym with
-                | None -> calculateNamespaceInser decl pos
-                | Some s -> Some s
-            [Response.helpText serialize (sym, tip, n)]
+        | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
+            let source =
+                state.Files.TryFind fn
+                |> Option.map (fun n -> n.Lines)
+            match source with
+            | None -> [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]
+            | Some source ->
+                let getSource = fun i -> source.[i - 1]
+
+                let tip =
+                    match state.HelpText.TryFind sym with
+                    | None -> decl.DescriptionText
+                    | Some tip -> tip
+
+
+                let n =
+                    match state.CompletionNamespaceInsert.TryFind sym with
+                    | None -> calculateNamespaceInser decl pos getSource
+                    | Some s -> Some s
+                [Response.helpText serialize (sym, tip, n)]
 
     member x.CompilerLocation () = [Response.compilerLocation serialize Environment.fsc Environment.fsi Environment.msbuild]
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [Response.error serialize msg]
 
-    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr filter includeKeywords includeExternal =
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
         async {
             let getAllSymbols () =
                 if includeExternal then tyRes.GetAllEntities() else []
@@ -335,6 +345,7 @@ type Commands (serialize : Serializer) =
                 match res with
                 | Some (decls, residue) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
+                    let getLine = fun i -> lines.[i - 1]
 
                     //Init cache for current list
                     state.Declarations.Clear()
@@ -342,7 +353,7 @@ type Commands (serialize : Serializer) =
                     state.CurrentAST <- tyRes.GetAST
 
                     //Fill cache for current list
-                    do fillHelpTextInTheBackground decls pos
+                    do fillHelpTextInTheBackground decls pos fileName getLine
 
                     // Send the first helptext without being requested.
                     // This allows it to be displayed immediately in the editor.
@@ -353,7 +364,7 @@ type Commands (serialize : Serializer) =
                     match firstMatchOpt with
                     | None -> [Response.completion serialize decls includeKeywords]
                     | Some d ->
-                        let insert = calculateNamespaceInser d pos
+                        let insert = calculateNamespaceInser d pos getLine
                         [Response.helpText serialize (d.Name, d.DescriptionText, insert)
                          Response.completion serialize decls includeKeywords]
 

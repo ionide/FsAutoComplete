@@ -644,8 +644,38 @@ module ParsedInput =
             { ScopeKind = scopeKind
               Pos = Pos.make (m.Range.EndLine - 1) m.Range.StartColumn }
 
-    let tryFindNearestPointToInsertOpenDeclaration (currentLine: int) (ast: ParsedInput) (entity: Idents) (insertionPoint: OpenStatementInsertionPoint) =
+    /// Corrects insertion line number based on kind of scope and text surrounding the insertion point.
+    let adjustInsertionPoint (getLineStr: int -> string) ctx  =
+        let line =
+            match ctx.ScopeKind with
+            | ScopeKind.TopModule ->
+                if ctx.Pos.Line > 1 then
+                    // it's an implicit module without any open declarations
+                    let line = getLineStr (ctx.Pos.Line - 2)
+                    let isImpliciteTopLevelModule = not (line.StartsWith "module" && not (line.EndsWith "="))
+                    if isImpliciteTopLevelModule then 1 else ctx.Pos.Line
+                else 1
+            | ScopeKind.Namespace ->
+                // for namespaces the start line is start line of the first nested entity
+                if ctx.Pos.Line > 1 then
+                    [0..ctx.Pos.Line - 1]
+                    |> List.mapi (fun i line -> i, getLineStr line)
+                    |> List.tryPick (fun (i, lineStr) ->
+                        if lineStr.StartsWith "namespace" then Some i
+                        else None)
+                    |> function
+                        // move to the next line below "namespace" and convert it to F# 1-based line number
+                        | Some line -> line + 2
+                        | None -> ctx.Pos.Line
+                else 1
+            | _ -> ctx.Pos.Line
+
+        Pos.make line ctx.Pos.Col
+
+    let tryFindNearestPointToInsertOpenDeclaration (currentLine: int) (ast: ParsedInput) (entity: Idents) (insertionPoint: OpenStatementInsertionPoint) getLine =
         match tryFindNearestPointAndModules currentLine ast insertionPoint with
         | Some (scope, _, point), modules ->
-            Some (findBestPositionToInsertOpenDeclaration modules scope point entity)
+            findBestPositionToInsertOpenDeclaration modules scope point entity
+            |> adjustInsertionPoint getLine
+            |> Some
         | _ -> None

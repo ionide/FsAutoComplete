@@ -45,7 +45,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                     | Some tyRes ->
                         return!
                             match cmd with
-                            | Completion -> commands.Completion tyRes pos lineStr filter false false
+                            | Completion -> commands.Completion tyRes pos lineStr lines file filter false false
                             | ToolTip -> commands.ToolTip tyRes pos lineStr
                             | TypeSig -> commands.Typesig tyRes pos lineStr
                             | SymbolUse -> commands.SymbolUse tyRes pos lineStr
