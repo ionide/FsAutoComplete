@@ -297,8 +297,13 @@ module CommandResponse =
     Parameters : Parameter list list
   }
 
+  type UnusedDeclaration = {
+    Range: Range.range
+    IsThisMember: bool
+  }
+
   type UnusedDeclarations = {
-    Declarations : Range.range []
+    Declarations : UnusedDeclaration []
   }
 
   type UnusedOpens = {
@@ -580,6 +585,12 @@ module CommandResponse =
     serialize { Kind = "unionCase"; Data = data}
 
   let unusedDeclarations (serialize : Serializer) data =
+    let data =
+      data |> Array.map (fun (r, t) ->
+        {
+          UnusedDeclaration.Range = r
+          IsThisMember = t
+        })
     let data = {UnusedDeclarations.Declarations = data}
     serialize { Kind = "unusedDeclarations"; Data = data}
 

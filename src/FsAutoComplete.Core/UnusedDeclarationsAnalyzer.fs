@@ -44,7 +44,17 @@ module UnusedDeclarationsAnalyzer =
             |> Array.map (fun defSu -> defSu, usages.Contains defSu.Symbol.DeclarationLocation.Value)
             |> Array.groupBy (fun (defSu, _) -> defSu.RangeAlternate)
             |> Array.filter (fun (_, defSus) -> defSus |> Array.forall (fun (_, isUsed) -> not isUsed))
-            |> Array.map (fst)
+            |> Array.map (fun (range, defSus) ->
+                let isThisMember =
+                    try
+                        let (symbol, _) = defSus.[0]
+                        match symbol.Symbol with
+                        | :? FSharpMemberOrFunctionOrValue as func when func.IsMemberThisValue -> true
+                        | _ -> false
+                    with
+                    | _ -> false
+
+                range, isThisMember)
 
         unusedRanges
 
