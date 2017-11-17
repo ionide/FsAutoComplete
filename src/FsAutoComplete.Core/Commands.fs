@@ -117,11 +117,10 @@ type Commands (serialize : Serializer) =
         for d in decls do
             state.Declarations.[declName d] <- (d, pos, fn)
 
-        //Fill helptext and namespace insertion cache asynchronously.
+        //Fill namespace insertion cache asynchronously.
         async {
             for decl in decls do
                 let n = declName decl
-                state.HelpText.[n] <- decl.DescriptionText
                 let insert = calculateNamespaceInser decl pos getLine
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
@@ -330,7 +329,7 @@ type Commands (serialize : Serializer) =
                     match state.HelpText.TryFind sym with
                     | None -> decl.DescriptionText
                     | Some tip -> tip
-
+                state.HelpText.[sym] <- tip
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
@@ -590,7 +589,7 @@ type Commands (serialize : Serializer) =
 
         for projectFileName, proj in projects do
             state.Projects.[projectFileName] <- proj
-        
+
         async {
             let projectLoadedSuccessfully projectFileName response =
                 let project =
@@ -603,7 +602,7 @@ type Commands (serialize : Serializer) =
 
                 // set in cache
                 project.Response <- Some response
-            
+
             let rec onLoaded p =
                 match p with
                 | WorkspaceProjectState.Loading projectFileName ->
