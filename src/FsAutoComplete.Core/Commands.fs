@@ -103,6 +103,11 @@ type Commands (serialize : Serializer) =
             ) }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : Pos) getLine =
+        let getLine i =
+            try
+                getLine i
+            with
+            | _ -> ""
         let idents = decl.FullName.Split '.'
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
