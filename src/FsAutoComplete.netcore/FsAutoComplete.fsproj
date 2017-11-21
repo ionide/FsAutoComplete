@@ -5,6 +5,8 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <DefineConstants>SUAVE_2;$(DefineConstants)</DefineConstants>
     <AssemblyName>fsautocomplete</AssemblyName>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
