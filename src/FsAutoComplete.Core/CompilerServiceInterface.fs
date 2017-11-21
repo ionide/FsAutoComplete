@@ -297,7 +297,7 @@ type FSharpCompilerServiceChecker() =
       keepAllBackgroundResolutions = true,
       keepAssemblyContents = true)
 
-  do checker.ImplicitlyStartBackgroundWork <- false
+  do checker.ImplicitlyStartBackgroundWork <- true
 
   do checker.BeforeBackgroundFileCheck.Add ignore
   let fixFileName path =

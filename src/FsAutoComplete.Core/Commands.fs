@@ -30,10 +30,12 @@ type Commands (serialize : Serializer) =
 
     let rec backgroundChecker () =
         async {
-            match state.BackgroundProjects.TryDequeue() with
-            | true, opt ->
-                // printfn "BACKGROUND CHECKER - DEQUEUED: %s" (opt.ProjectFileName)
+            try
+                let opt = state.BackgroundProjects.First
+                // printfn "1. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
+                // printfn "BACKGROUND CHECKER - PARSING STARTED: %s" (opt.ProjectFileName)
                 checker.CheckProjectInBackground opt
+            with
             | _ ->
                 // printfn "BACKGROUND CHECKER - NO PROJECTS"
                 ()
@@ -44,19 +46,13 @@ type Commands (serialize : Serializer) =
        state.NavigationDeclarations.[parseRes.FileName] <- decls
     )
 
-    do fileInProjectChecked.Publish.Add (fun fn ->
-        match checker.GetDependingProjects fn (state.FileCheckOptions.ToSeq()) with
-        | Some (p, projs) ->
-            state.EnqueueProjectForBackgroundParsing(p, 0)
-            projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
-            backgroundChecker ()
-        | None -> ())
-
     do checker.FileChecked.Add (fun (n,_) ->
         async {
             try
                 let opts = state.FileCheckOptions.[n]
-                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                match checker.TryGetRecentCheckResultsForFile(n, opts) with
+                | None -> ()
+                | Some res ->
                 let checkErrors = res.GetCheckResults.Errors
                 let parseErrors = res.GetParseResults.Errors
                 let errors = Array.append checkErrors parseErrors
@@ -72,7 +68,14 @@ type Commands (serialize : Serializer) =
 
 
     do checker.ProjectChecked.Add(fun (o, _) ->
-        // printfn "BACKGROUND CHECKER - PROJECT PARSED: %s" o
+        state.FileCheckOptions.ToSeq()
+        |> Seq.tryPick(fun (k,v) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
+        |> Option.iter (fun p ->
+            state.BackgroundProjects.TryRemove(p) |> ignore
+            // printfn "BACKGROUND CHECKER - PARSED: %s" o
+            // printfn "2. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
+
+        )
         backgroundChecker () ) //When one project finished, start new one
 
     let normalizeOptions (opts : FSharpProjectOptions) =
@@ -207,6 +210,7 @@ type Commands (serialize : Serializer) =
         | Some (p, projs) ->
             state.EnqueueProjectForBackgroundParsing(p, 0)
             projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
+            // printfn "3. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
         | None -> ()
         return [Response.errors serialize ([||], "") ]
     }

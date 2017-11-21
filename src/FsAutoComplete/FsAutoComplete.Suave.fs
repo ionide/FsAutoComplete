@@ -81,7 +81,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
         fun _cx ->
             let cts = new System.Threading.CancellationTokenSource()
-    
+
             let sendText (text: string) =
                 webSocket.send WebSocket.Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text) |> byteSegment) true
 
@@ -134,6 +134,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 return r :: res
                 })
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
+            path "/projectsInBackground" >=> handler (fun (data : FileRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {
