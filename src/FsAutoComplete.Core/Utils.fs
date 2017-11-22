@@ -368,9 +368,6 @@ type ConcurrentDictionary<'key, 'value> with
         | true, value -> Some value
         | _ -> None
 
-    member x.ToSeq() =
-        x |> Seq.map (fun (KeyValue(k, v)) -> k, v)
-
 type Path with
     static member GetFullPathSafe path =
         try Path.GetFullPath path
