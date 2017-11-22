@@ -68,8 +68,8 @@ type Commands (serialize : Serializer) =
 
 
     do checker.ProjectChecked.Add(fun (o, _) ->
-        state.FileCheckOptions.ToSeq()
-        |> Seq.tryPick(fun (k,v) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
+        state.FileCheckOptions.ToArray()
+        |> Array.tryPick(fun (KeyValue(k, v)) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
         |> Option.iter (fun p ->
             state.BackgroundProjects.TryRemove(p) |> ignore
             // printfn "BACKGROUND CHECKER - PARSED: %s" o
@@ -206,7 +206,7 @@ type Commands (serialize : Serializer) =
         } |> x.AsCancellable file
 
     member x.ParseAndCheckProjectsInBackgroundForFile file = async {
-        match checker.GetDependingProjects file (state.FileCheckOptions.ToSeq()) with
+        match checker.GetDependingProjects file (state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray) with
         | Some (p, projs) ->
             state.EnqueueProjectForBackgroundParsing(p, 0)
             projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
@@ -216,7 +216,7 @@ type Commands (serialize : Serializer) =
     }
 
     member x.ParseProjectsForFile file = async {
-        let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToSeq())
+        let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray)
         return
             match res with
             | ResultOrString.Error e -> [Response.error serialize e]
@@ -315,9 +315,8 @@ type Commands (serialize : Serializer) =
 
     member x.DeclarationsInProjects () = async {
         let decls =
-            state.NavigationDeclarations.ToSeq()
-            |> Seq.collect (fun (p, decls) -> decls |> Seq.map (fun d -> d,p))
-            |> Seq.toArray
+            state.NavigationDeclarations.ToArray()
+            |> Array.collect (fun (KeyValue(p, decls)) -> decls |> Array.map (fun d -> d,p))
         return [Response.declarations serialize decls]
     }
 
@@ -422,7 +421,7 @@ type Commands (serialize : Serializer) =
                     let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
                     return Response.symbolUse serialize (sym, symbols)
                 else
-                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToSeq(), sym.Symbol)
+                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
                     return Response.symbolUse serialize (sym, symbols)
             })
         |> x.AsCancellable (Path.GetFullPath fn)
