@@ -133,6 +133,14 @@ type Commands (serialize : Serializer) =
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
+    let onProjectLoaded projectFileName (response: ProjectCrackerCache) =
+        for file in response.Files do
+            state.FileCheckOptions.[file] <- normalizeOptions response.Options
+
+        response.Files
+        |> parseFilesInTheBackground
+        |> Async.Start
+
     member __.Notify = notify.Publish
 
     member __.NotifyErrorsInBackground
@@ -275,13 +283,7 @@ type Commands (serialize : Serializer) =
         return
             match projResponse with
             | Result.Ok (projectFileName, response) ->
-                for file in response.Files do
-                    state.FileCheckOptions.[file] <- normalizeOptions response.Options
-
-                response.Files
-                |> parseFilesInTheBackground
-                |> Async.Start
-
+                onProjectLoaded projectFileName response
                 [ Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty) ]
             | Result.Error error ->
                 [ Response.projectError serialize error ]
@@ -608,8 +610,9 @@ type Commands (serialize : Serializer) =
                         state.Projects.[projectFileName] <- proj
                         proj
 
-                // set in cache
                 project.Response <- Some response
+
+                onProjectLoaded projectFileName response
 
             let rec onLoaded p =
                 match p with
