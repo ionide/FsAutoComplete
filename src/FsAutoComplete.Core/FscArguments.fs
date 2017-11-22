@@ -41,7 +41,7 @@ module FscArguments =
         prefix + (v |> makeAbs projDir)
     | None ->
         if isCompileFile s then
-            s |> makeAbs projDir
+            s |> makeAbs projDir |> Path.GetFullPath
         else
             s
 
