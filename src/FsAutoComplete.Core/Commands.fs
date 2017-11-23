@@ -50,9 +50,7 @@ type Commands (serialize : Serializer) =
         async {
             try
                 let opts = state.FileCheckOptions.[n]
-                match checker.TryGetRecentCheckResultsForFile(n, opts) with
-                | None -> ()
-                | Some res ->
+                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
                 let checkErrors = res.GetCheckResults.Errors
                 let parseErrors = res.GetParseResults.Errors
                 let errors = Array.append checkErrors parseErrors
