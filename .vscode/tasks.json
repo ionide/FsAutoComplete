@@ -11,6 +11,12 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "taskName": "build_debug_netcore",
+            "type": "shell",
+            "command": "dotnet build src/FsAutoComplete.netcore",
+            "group": "build"
         }
     ]
 }
