@@ -138,3 +138,11 @@ module Environment =
     |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
     |> Array.rev
     |> Array.tryHead
+
+  let workspaceLoadDelay () =
+    match System.Environment.GetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY") with
+    | delayMs when not (String.IsNullOrWhiteSpace(delayMs)) ->
+        match System.Int32.TryParse(delayMs) with
+        | true, x -> TimeSpan.FromMilliseconds(float x)
+        | false, _ -> TimeSpan.Zero
+    | _ -> TimeSpan.Zero
