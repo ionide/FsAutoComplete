@@ -5,6 +5,12 @@
   }
 }
 {
+  "Kind": "workspaceLoad",
+  "Data": {
+    "Status": "started"
+  }
+}
+{
   "Kind": "projectLoading",
   "Data": {
     "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/DotNetSdk2.0/sample1/c1/c1.fsproj"
