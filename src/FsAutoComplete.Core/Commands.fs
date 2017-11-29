@@ -629,7 +629,10 @@ type Commands (serialize : Serializer) =
                     |> NotificationEvent.Workspace
                     |> notify.Trigger
 
-            // HACK really ugly
+            Response.workspaceLoad serialize false
+            |> NotificationEvent.Workspace
+            |> notify.Trigger
+
             // this is to delay the project loading notification (of this thread)
             // after the workspaceload started response returned below in outer async
             // Make test output repeteable, and notification in correct order
