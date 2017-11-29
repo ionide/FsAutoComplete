@@ -67,6 +67,7 @@ let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.RedirectStandardInput  <- true
     startInfo.UseShellExecute <- false
     startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+    startInfo.EnvironmentVariables.Add("FSAC_WORKSPACELOAD_DELAY", "1000")
     match testConfig.Runtime with
     | FSACRuntime.NETCoreFDD _ ->
         startInfo.Arguments <- fsacExePath ()
