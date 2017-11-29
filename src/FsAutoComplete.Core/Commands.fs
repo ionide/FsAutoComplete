@@ -636,7 +636,10 @@ type Commands (serialize : Serializer) =
             // this is to delay the project loading notification (of this thread)
             // after the workspaceload started response returned below in outer async
             // Make test output repeteable, and notification in correct order
-            do! Async.Sleep(TimeSpan.FromMilliseconds(250.0).TotalMilliseconds |> int)
+            match Environment.workspaceLoadDelay() with
+            | delay when delay > TimeSpan.Zero ->
+                do! Async.Sleep(Environment.workspaceLoadDelay().TotalMilliseconds |> int)
+            | _ -> ()
 
             do! Workspace.loadInBackground onLoaded false files
 
