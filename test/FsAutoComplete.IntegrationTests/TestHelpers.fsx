@@ -183,6 +183,11 @@ open HttpFs.Client
 open System.Net.WebSockets
 open System.Threading
 
+let private moveBuffer (buffer: ArraySegment<'T>) count =
+  ArraySegment(buffer.Array, buffer.Offset + count, buffer.Count - count)
+
+let private resetBuffer (buffer: ArraySegment<'T>) = ArraySegment(buffer.Array)
+
 let listenWs onMessage port action ct = async {
   let address = sprintf "ws://localhost:%i/%s" port action
 
@@ -193,16 +198,20 @@ let listenWs onMessage port action ct = async {
 
   do! ws.ConnectAsync(System.Uri(address), ct) |> Async.AwaitTask
 
-  let receivedBytes = ArraySegment(Array.init 10000000 (fun _ -> 0uy))
-
-  let rec receive () = async {
+  let rec receive receivedBytes = async {
       let! result = ws.ReceiveAsync(receivedBytes, ct) |> Async.AwaitTask
-      let message = System.Text.Encoding.UTF8.GetString(receivedBytes.Array, 0, result.Count)
-      onMessage message
-      return! receive ()
+      let currentBuffer = moveBuffer receivedBytes result.Count
+      if result.EndOfMessage then
+          let message = System.Text.Encoding.UTF8.GetString(currentBuffer.Array, 0, currentBuffer.Offset)
+          onMessage message
+          return! receive (resetBuffer currentBuffer)
+      else
+          return! receive currentBuffer
       }
 
-  return! receive ()
+  let receivedBytesBuffer = Array.init 10000000 (fun _ -> 0uy)
+
+  return! receive (ArraySegment(receivedBytesBuffer))
   }
 
 open FsAutoComplete.HttpApiContract
