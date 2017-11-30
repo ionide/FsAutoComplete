@@ -24,6 +24,16 @@ module internal Utils =
 
 open Argu
 
+[<RequireQualifiedAccess>]
+type private WebSocketMessage =
+#if SUAVE_2
+    | Send of WebSocket.Opcode * Sockets.ByteSegment * bool
+    | SendAndWait of WebSocket.Opcode * Sockets.ByteSegment * bool * AsyncReplyChannel<unit>
+#else
+    | Send of WebSocket.Opcode * (byte array) * bool
+    | SendAndWait of WebSocket.Opcode * (byte array) * bool * AsyncReplyChannel<unit>
+#endif
+
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
     let handler f : WebPart = fun (r : HttpContext) -> async {
@@ -80,10 +90,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 #endif
 
         fun _cx ->
-            let cts = new System.Threading.CancellationTokenSource()
-
-            let sendText (text: string) =
-                webSocket.send WebSocket.Opcode.Text (System.Text.Encoding.UTF8.GetBytes(text) |> byteSegment) true
 
             // use a mailboxprocess to queue the send of notifications
             let agent = MailboxProcessor.Start ((fun inbox ->
@@ -91,28 +97,38 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
                     let! msg = inbox.Receive()
 
-                    let! _ = sendText msg
-
-                    return! messageLoop ()
+                    match msg with
+                    | WebSocketMessage.Send (op,payload,fin) ->
+                        let! _ =  webSocket.send op payload fin
+                        return! messageLoop ()
+                    | WebSocketMessage.SendAndWait (op,payload,fin,repl) ->
+                        let! _ =  webSocket.send op payload fin
+                        repl.Reply ()
+                        return ()
                     }
 
                 messageLoop ()
-                ), cts.Token)
+                ))
 
             let notifications =
                 notificationEvent
+                |> Observable.map (fun (text: string) -> WebSocket.Opcode.Text, (System.Text.Encoding.UTF8.GetBytes(text) |> byteSegment), true )
+                |> Observable.map WebSocketMessage.Send
                 |> Observable.subscribe agent.Post
 
             socket {
 
-                while not(cts.IsCancellationRequested) do
+                let mutable loop = true
+                while loop do
                     let! msg = webSocket.read()
                     match msg with
-                    | (WebSocket.Opcode.Ping, _, _) -> do! webSocket.send WebSocket.Opcode.Pong emptyBs true
+                    | (WebSocket.Opcode.Ping, _, _) ->
+                        WebSocketMessage.Send (WebSocket.Opcode.Pong, emptyBs, true)
+                        |> agent.Post
                     | (WebSocket.Opcode.Close, _, _) ->
                         notifications.Dispose()
-                        cts.Cancel()
-                        do! webSocket.send WebSocket.Opcode.Close emptyBs true
+                        agent.PostAndReply (fun reply -> WebSocketMessage.SendAndWait (WebSocket.Opcode.Close, emptyBs, true, reply))
+                        loop <- false
                     | _ -> ()
                 }
 
