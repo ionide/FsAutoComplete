@@ -24,7 +24,8 @@ let doIt () =
 
     p.workspaceload [ (Path.Combine(__SOURCE_DIRECTORY__, "sample1/c1/c1.fsproj")); (Path.Combine(__SOURCE_DIRECTORY__, "sample1/l1/l1.fsproj")) ]
 
-    p.awaitNotification (fun (o) -> o.Contains("""{"Status":"finished"}""")) 6
+    let expectedNotificationCount = 7
+    p.awaitNotification (fun (o) -> o.Contains("""{"Status":"finished"}""")) expectedNotificationCount
 
     p.send "quit\n"
     p.finalOutput ()
