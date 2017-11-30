@@ -377,7 +377,9 @@ type FsAutoCompleteWrapperHttp() =
       else
         let count = allResp.Count
         if count >= upTo then
-          printfn "timeout %i vs %i" count upTo
+          let msg = sprintf "timeout %i vs %i" count upTo
+          printfn "%s" msg
+          allResp.Add(msg)
           return ()
         else
           printfn "not yet %i vs %i" count upTo
