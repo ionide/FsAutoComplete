@@ -213,7 +213,7 @@ type FsAutoCompleteWrapperHttp() =
 
   let port = 8089
 
-  let notifyCts = CancellationTokenSource()
+  let notifyCts = new CancellationTokenSource()
 
   do
     configureFSACArgs p.StartInfo
@@ -264,7 +264,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Hopac.run
     |> crazyness
 
-  let allResp = System.Collections.Concurrent.BlockingCollection<string> ()
+  let allResp = new System.Collections.Concurrent.BlockingCollection<string> ()
 
   let recordRequest action requestId r =
     doRequest action requestId r
