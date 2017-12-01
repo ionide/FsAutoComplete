@@ -26,7 +26,7 @@ p.symboluse "Program.fs" "let shadowed = " 12 13 //shadowed end
 p.symboluse "Script.fsx" "    console.undefinedsymbol 3" 6 17 // no uses due to compile error
 
 Threading.Thread.Sleep(1000)
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

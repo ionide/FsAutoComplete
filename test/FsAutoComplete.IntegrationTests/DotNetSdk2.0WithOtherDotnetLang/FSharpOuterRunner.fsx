@@ -26,7 +26,7 @@ let doIt () =
       p.project "sampleo/c1/c1.fsproj"
       p.parse "sampleo/c1/Program.fs"
 
-      p.send "quit\n"
+      p.quit()
       p.finalOutput ()
       |> writeNormalizedOutput "fsharpouter.json"
 

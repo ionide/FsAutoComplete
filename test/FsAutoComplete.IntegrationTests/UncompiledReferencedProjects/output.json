@@ -62,3 +62,7 @@
     ]
   ]
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

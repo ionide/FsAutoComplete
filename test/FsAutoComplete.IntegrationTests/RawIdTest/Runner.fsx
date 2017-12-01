@@ -23,7 +23,7 @@ p.completion "Test-Module.fsx" "X." 9 3
 p.completion "Test-Class.fsx" "Y." 9 3
 // p.completion "Test-Class.fsx" "Y.``Column T" 11 13
 // p.completion "Test-Class.fsx" "Y.``Another`C" 13 14
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

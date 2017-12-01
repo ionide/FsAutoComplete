@@ -300,3 +300,7 @@
     "Status": "finished"
   }
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

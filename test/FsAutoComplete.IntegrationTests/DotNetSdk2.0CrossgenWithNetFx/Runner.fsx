@@ -24,7 +24,7 @@ let doIt () =
     p.project "sample1/c1/c1.fsproj"
     p.parse "sample1/c1/Program.fs"
 
-    p.send "quit\n"
+    p.quit()
     p.finalOutput ()
     |> writeNormalizedOutput "output.json"
 

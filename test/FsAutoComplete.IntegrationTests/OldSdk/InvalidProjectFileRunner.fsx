@@ -23,7 +23,7 @@ let doIt () =
   p.project "sample3/l1/Test1.fsproj"
   p.parse "sample3/l1/Module1.fs"
 
-  p.send "quit\n"
+  p.quit()
   p.finalOutput ()
   |> writeNormalizedOutputWith normalizedOutputRemoveToolsList invalidprojectfileJson
 

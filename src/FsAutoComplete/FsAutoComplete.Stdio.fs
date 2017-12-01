@@ -90,7 +90,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | Error msg -> return commands.Error msg
           | Quit ->
               quit <- true
-              return []
+              return! commands.Quit()
       }
       |> Async.Catch
       |> Async.RunSynchronously

@@ -27,7 +27,7 @@ let doIt () =
     let expectedNotificationCount = 7
     p.awaitNotification (fun (o) -> o.Contains("""{"Status":"finished"}""")) expectedNotificationCount
 
-    p.send "quit\n"
+    p.quit()
     p.finalOutput ()
     |> writeNormalizedOutput outputJson
 

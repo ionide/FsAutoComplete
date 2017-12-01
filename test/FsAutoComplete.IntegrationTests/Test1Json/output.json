@@ -816,3 +816,7 @@
     }
   ]
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

@@ -135,6 +135,9 @@ type FsAutoCompleteWrapperStdio() =
   member x.workspaceload (projects: string list): unit =
     fprintf p.StandardInput "workspaceload %s\n" (projects |> List.map (sprintf "\"%s\"") |> String.concat " ")
 
+  member x.quit (): unit =
+    x.send "quit\n"
+
   member x.notify () : unit =
     ()
 
@@ -353,6 +356,10 @@ type FsAutoCompleteWrapperHttp() =
   member x.workspaceload (projects: string list): unit =
     { WorkspaceLoadRequest.Files = projects |> Array.ofList }
     |> recordRequest "workspaceLoad" (makeRequestId())
+
+  member x.quit (): unit =
+    new QuitRequest()
+    |> recordRequest "quit" (makeRequestId())
 
   member x.notify () : unit =
     listenWs (fun s -> allResp.Add(s)) port "notifyWorkspace" (notifyCts.Token)

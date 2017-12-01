@@ -18,6 +18,6 @@ p.parse "Script.fsx"
 p.completion "Script.fsx" "X.T" 8 4
 p.completionFilter "Script.fsx" "X.T" 8 4 "StartsWith"
 p.completionFilter "Script.fsx" "X.T" 8 4 "Contains"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

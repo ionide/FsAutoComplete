@@ -25,3 +25,7 @@
   "Kind": "typesig",
   "Data": "val funky : x:int -> int"
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

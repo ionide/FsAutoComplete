@@ -36,7 +36,7 @@ p.tooltip "Script.fsx" "   | Even -> 1" 54 8
 // p.tooltip "Script.fsx" "let cbfdg = Array.append" 58 15
 
 
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

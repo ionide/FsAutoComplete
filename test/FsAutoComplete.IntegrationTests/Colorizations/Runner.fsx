@@ -13,7 +13,7 @@ p.send "colorizations true\n"
 p.parse "Script.fsx"
 p.send "colorizations false\n"
 p.parse "Script.fsx"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 
