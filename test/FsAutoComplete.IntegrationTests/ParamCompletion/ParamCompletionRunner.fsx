@@ -24,6 +24,6 @@ p.methods "Program.fs" "let val3 = testval.Terrific(val2, 'c')" 13 30
 p.methods "Program.fs" "let val3 = testval.Terrific(val2, 'c')" 13 35
 p.methods "Program.fs" "let val4 = MyDateTime.Parse(\\\"hello\\\")" 15 34
 p.methods "Program.fs" "          \\\"hello\\\"" 19 3
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

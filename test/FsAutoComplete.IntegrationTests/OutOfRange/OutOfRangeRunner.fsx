@@ -25,7 +25,7 @@ p.finddeclaration "Script.fsx" "let val99 = XA." 6 15
 p.finddeclaration "Script.fsx" "let val99 = XA." 6 16
 p.finddeclaration "Script.fsx" "let val99 = XA." 6 17
 
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

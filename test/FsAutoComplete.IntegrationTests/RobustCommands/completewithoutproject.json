@@ -72,3 +72,7 @@
   "Kind": "completion",
   "Data": []
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

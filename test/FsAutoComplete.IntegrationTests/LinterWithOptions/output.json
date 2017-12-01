@@ -13,3 +13,7 @@
   "Kind": "lint",
   "Data": []
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

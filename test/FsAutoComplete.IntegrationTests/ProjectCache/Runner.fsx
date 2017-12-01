@@ -27,7 +27,7 @@ Threading.Thread.Sleep 2000
 let time2 = if File.Exists cacheFile then File.GetLastWriteTimeUtc cacheFile else DateTime.MinValue
 let msg2 = if time1 < time2 then "cache updated" else "cache not updated"
 
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 File.AppendAllText("output.json", msg1)

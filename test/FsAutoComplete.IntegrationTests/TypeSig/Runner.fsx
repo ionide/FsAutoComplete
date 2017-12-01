@@ -18,7 +18,7 @@ p.typesig "Script.fsx" "  let funky x = x + 1" 4 10
 p.typesig "Script.fsx" "module CommandResponse =" 8 19
 p.typesig "Script.fsx" "  type ResponseMsg<'T> =" 10 14
 p.typesig "Script.fsx" "  let funky x = x + 1" 4 10
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

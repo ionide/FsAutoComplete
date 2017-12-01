@@ -878,3 +878,7 @@
     }
   ]
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

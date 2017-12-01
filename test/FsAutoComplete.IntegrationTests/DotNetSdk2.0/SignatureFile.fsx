@@ -23,7 +23,7 @@ let doIt () =
     p.parse "sample2/l1/Module1.fsi"
     p.parse "sample2/l1/Module1.fs"
 
-    p.send "quit\n"
+    p.quit()
     p.finalOutput ()
     |> writeNormalizedOutput "signfile.json"
 

@@ -31,7 +31,7 @@ p.tooltip "Script.fsx" "let val99 = 1 |<>| 1 |..| 1" 6 27
 p.tooltip "Script.fsx" "let (|Zero|Succ|) n = if n = 0 then Zero else Succ(n-1)" 8 7
 p.tooltip "Script.fsx" "let (|Zero|Succ|) n = if n = 0 then Zero else Succ(n-1)" 8 11
 p.tooltip "Script.fsx" "let (|Zero|Succ|) n = if n = 0 then Zero else Succ(n-1)" 8 16
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

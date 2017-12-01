@@ -150,3 +150,7 @@
     }
   ]
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

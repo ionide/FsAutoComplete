@@ -22,6 +22,6 @@ module FileTwo
 let addTwo2 x y = x + y
 """
 p.parse "Program.fs"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

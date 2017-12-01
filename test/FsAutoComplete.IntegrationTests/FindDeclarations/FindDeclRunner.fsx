@@ -22,6 +22,6 @@ p.finddeclaration "Program.fs" "let val3 = testval.Terrific val2" 8 20
 p.finddeclaration "Program.fs" "    printfn \\\"Hello %d\\\" val2" 14 26
 p.finddeclaration "Program.fs" "let val4 : FileTwo.NewObjectType = testval" 10 20
 p.finddeclaration "Script.fsx" "let val99 = XA.funky 21" 6 17
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

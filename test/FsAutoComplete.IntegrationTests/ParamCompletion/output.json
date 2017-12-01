@@ -426,3 +426,7 @@
     ]
   }
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

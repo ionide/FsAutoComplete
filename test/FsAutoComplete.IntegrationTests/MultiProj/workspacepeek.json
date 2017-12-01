@@ -70,3 +70,7 @@
     ]
   }
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

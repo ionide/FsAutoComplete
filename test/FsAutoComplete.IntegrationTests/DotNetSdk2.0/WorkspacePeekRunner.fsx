@@ -22,7 +22,7 @@ let doIt () =
 
     p.workspacepeek (Path.Combine(__SOURCE_DIRECTORY__, "sample1")) 1
 
-    p.send "quit\n"
+    p.quit()
     p.finalOutput ()
     |> writeNormalizedOutput outputJson
 

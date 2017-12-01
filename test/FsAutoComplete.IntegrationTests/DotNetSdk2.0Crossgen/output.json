@@ -190,3 +190,7 @@
     "Errors": []
   }
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

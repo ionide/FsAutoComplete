@@ -15,7 +15,7 @@ let p = new FsAutoCompleteWrapper()
 
 
 p.project "Test1.fsproj"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 
