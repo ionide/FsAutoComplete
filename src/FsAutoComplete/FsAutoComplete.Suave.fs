@@ -135,6 +135,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let notificationFor eventSelector =
         commands.Notify |> Observable.choose eventSelector
 
+    let cts = new System.Threading.CancellationTokenSource()
+
     let app =
         choose [
             path "/notify" >=>
@@ -198,6 +200,11 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
             path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray))
+            path "/quit" >=> handler (fun (_data: QuitRequest) ->
+                async {
+                    cts.CancelAfter(System.TimeSpan.FromSeconds(1.0))
+                    return! commands.Quit()
+                })
         ]
 
     let port = args.GetResult (<@ Options.CLIArguments.Port @>, defaultValue = 8088)
@@ -205,7 +212,9 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let defaultBinding = defaultConfig.bindings.[0]
     let withPort = { defaultBinding.socketBinding with port = uint16 port }
     let serverConfig =
-        { defaultConfig with bindings = [{ defaultBinding with socketBinding = withPort }]}
+        { defaultConfig with 
+            cancellationToken = cts.Token
+            bindings = [{ defaultBinding with socketBinding = withPort }] }
 
 #if SUAVE_2
     let logger = Suave.Logging.LiterateConsoleTarget([| "FsAutoComplete" |], Logging.Info)

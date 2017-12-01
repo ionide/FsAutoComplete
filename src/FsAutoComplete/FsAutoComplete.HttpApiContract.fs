@@ -9,3 +9,4 @@ type PositionRequest = {FileName : string; Line : int; Column : int; Filter : st
 type FileRequest = {FileName : string}
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
 type WorkspaceLoadRequest = {Files : string array}
+type QuitRequest() = class end

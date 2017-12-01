@@ -698,3 +698,8 @@ type Commands (serialize : Serializer) =
                     let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
                     return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
+
+    member __.Quit () =
+        async {
+            return [ Response.info serialize "quitting..." ]
+        }
