@@ -17,6 +17,17 @@
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
+            "name": ".NET mode http (debug)",
+            "type": "clr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/fsautocomplete.exe",
+            "args": ["--mode", "http"],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach",
