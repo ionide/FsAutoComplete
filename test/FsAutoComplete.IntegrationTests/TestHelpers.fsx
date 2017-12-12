@@ -58,7 +58,7 @@ let configureFSACArgs (startInfo: ProcessStartInfo) =
       match testConfig.Runtime with
       | FSACRuntime.NETCoreFDD _ ->
           IO.Path.Combine(__SOURCE_DIRECTORY__,
-                          "../../.dotnetsdk/v2.0.0/dotnet")
+                          "../../.dotnetsdk/v2.0.3/dotnet")
       | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
           fsacExePath ()
 
@@ -607,7 +607,7 @@ module DotnetCli =
       sdkDir
 
   let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.1.4" "v1.1.4"
-  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0" "v2.0.0"
+  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.3" "v2.0.3"
 
   let useSdk sdkDir =
     let p = withPath sdkDir
