@@ -202,6 +202,18 @@
   ]
 }
 {
+  "Kind": "tooltip",
+  "Data": [
+    [
+      {
+        "Signature": "val map: \n   mapping: 'T -> 'U ->\n   list   : 'T list  \n         -> 'U list",
+        "Comment": "Builds a new collection whose elements are the results of applying the given function\n to each of the elements of the collection.\n\n`list`: The input list.\n`mapping`: The function to transform elements from the input list.\nGeneric parameters:\n   'T is int\n   'U is int",
+        "Footer": "Full name: Microsoft.FSharp.Collections.List.map\nAssembly: FSharp.Core"
+      }
+    ]
+  ]
+}
+{
   "Kind": "info",
   "Data": "quitting..."
 }
