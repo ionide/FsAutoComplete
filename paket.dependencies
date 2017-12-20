@@ -20,7 +20,6 @@ group Netcore
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
   nuget Argu ~> 3.7
-  nuget FSharp.Compiler.Service ~> 17.0
   nuget Dotnet.ProjInfo ~> 0.9.0
   nuget Sln ~> 0.3.0
   nuget Mono.Cecil
@@ -30,6 +29,9 @@ group Netcore
   nuget FSharp.Core
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
+
+  source ./lib
+  nuget FSharp.Compiler.Service 16.0.3
 
 
 group Build

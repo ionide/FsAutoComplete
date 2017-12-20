@@ -78,22 +78,8 @@ NUGET
       FSharp.Core (>= 4.0.0.1) - restriction: >= net40
       FSharp.Core (>= 4.2.3) - restriction: && (< net40) (>= netstandard1.6)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net40) (>= netstandard1.6)
-    FSharp.Compiler.Service (17.0.1)
-      FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6)
-      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
-      System.Collections.Immutable (>= 1.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.Collections.Immutable (>= 1.3.1) - restriction: >= net45
-      System.Diagnostics.Process (>= 4.1) - restriction: && (< net45) (>= netstandard1.6)
-      System.Diagnostics.TraceSource (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
-      System.Reflection.Emit (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.Reflection.Metadata (>= 1.4.1) - restriction: && (< net45) (>= netstandard1.6)
-      System.Reflection.Metadata (>= 1.4.2) - restriction: >= net45
-      System.Reflection.TypeExtensions (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.Runtime.Loader (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
-      System.Security.Cryptography.Algorithms (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
-      System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6)
-    FSharp.Compiler.Service.ProjectCracker (17.0.1) - restriction: < netstandard2.0
-      FSharp.Compiler.Service (>= 17.0.1) - restriction: >= net45
+    FSharp.Compiler.Service.ProjectCracker (16.0.2) - restriction: < netstandard2.0
+      FSharp.Compiler.Service (>= 16.0.2) - restriction: >= net45
     FSharp.Core (4.2.3)
       System.Collections (>= 4.0.11) - restriction: && (< net45) (>= netstandard1.6)
       System.Console (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
@@ -910,6 +896,20 @@ NUGET
       System.Threading (>= 4.3) - restriction: || (&& (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
       System.Xml.ReaderWriter (>= 4.3) - restriction: || (&& (< monoandroid) (< net45) (>= netstandard1.0) (< netstandard1.3) (< win8) (< wp8) (< wpa81)) (&& (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
       System.Xml.XmlDocument (>= 4.3) - restriction: || (&& (< monotouch) (< net45) (>= netstandard1.3) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (< portable-net45+win8+wp8+wpa81)
+  remote: ./lib
+    FSharp.Compiler.Service (16.0.3)
+      FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6)
+      NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
+      System.Collections.Immutable (>= 1.3.1) - restriction: || (>= net45) (>= netstandard1.6)
+      System.Diagnostics.Process (>= 4.1) - restriction: && (< net45) (>= netstandard1.6)
+      System.Diagnostics.TraceSource (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
+      System.Reflection.Emit (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.Reflection.Metadata (>= 1.4.1) - restriction: && (< net45) (>= netstandard1.6)
+      System.Reflection.Metadata (>= 1.4.2) - restriction: >= net45
+      System.Reflection.TypeExtensions (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.Runtime.Loader (>= 4.0) - restriction: && (< net45) (>= netstandard1.6)
+      System.Security.Cryptography.Algorithms (>= 4.3) - restriction: && (< net45) (>= netstandard1.6)
+      System.ValueTuple (>= 4.4) - restriction: && (< net45) (>= netstandard1.6)
 GITHUB
   remote: Microsoft/visualfsharp
     src/fsharp/FSharp.Build/Fsc.fs (cc1b137bc17f401a0cc669ff8fc598714d0fe652)

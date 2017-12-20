@@ -1,3 +1,2 @@
 nuget FSharp.Compiler.Service -> source ./lib version 16.0.3
 nuget FSharp.Compiler.Service.ProjectCracker -> source ./lib version 16.0.3
-nuget FSharp.Compiler.Service group Netcore -> source ./lib version 16.0.3
