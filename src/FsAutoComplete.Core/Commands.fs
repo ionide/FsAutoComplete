@@ -4,11 +4,12 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
-open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Threading
 open Utils
 open System.Reflection
+open Microsoft.FSharp.Compiler.Range
+
 
 
 module Response = CommandResponse
@@ -104,7 +105,7 @@ type Commands (serialize : Serializer) =
                     fileParsed.Trigger parseRes
             ) }
 
-    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : Pos) getLine =
+    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
         let getLine i =
             try
                 getLine i
@@ -114,10 +115,10 @@ type Commands (serialize : Serializer) =
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
             state.CurrentAST
-            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.TopLevel getLine )
-            |> Option.map (fun ic -> n, ic.Line, ic.Col))
+            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents TopLevel )
+            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Column))
 
-    let fillHelpTextInTheBackground decls (pos : Pos) fn getLine =
+    let fillHelpTextInTheBackground decls (pos : pos) fn getLine =
         let declName (d: FSharpDeclarationListItem) = d.Name
 
         //Fill list of declarations synchronously to know which declarations should be in cache.
@@ -356,7 +357,7 @@ type Commands (serialize : Serializer) =
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [Response.error serialize msg]
 
-    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
         async {
             let getAllSymbols () =
                 if includeExternal then tyRes.GetAllEntities() else []
@@ -391,32 +392,32 @@ type Commands (serialize : Serializer) =
                 | None -> [Response.error serialize "Timed out while fetching completions"]
         }
 
-    member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.ToolTip (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetToolTipEnhanced pos lineStr
         |> x.SerializeResult Response.toolTip
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.Typesig (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetToolTip pos lineStr
         |> x.SerializeResult Response.typeSig
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetSymbolUse pos lineStr
         |> x.SerializeResult Response.symbolUse
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.SignatureData (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.SignatureData (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetSignatureData pos lineStr
         |> x.SerializeResult Response.signatureData
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.Help (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.Help (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetF1Help pos lineStr
         |> x.SerializeResult Response.help
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         let fn = tyRes.FileName
         tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
             async {
@@ -433,17 +434,17 @@ type Commands (serialize : Serializer) =
             })
         |> x.AsCancellable (Path.GetFullPath fn)
 
-    member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.SerializeResult (Response.findDeclaration, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindTypeDeclaration pos lineStr
         |> x.SerializeResult (Response.findDeclaration, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
+    member x.Methods (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
         |> x.SerializeResult (Response.methods, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
@@ -486,36 +487,42 @@ type Commands (serialize : Serializer) =
             return res
         } |> x.AsCancellable file
 
-    member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) =
+    member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: pos) (line: LineStr) =
         async {
             match tyRes.GetAST with
             | None -> return [Response.info serialize "Parsed Tree not avaliable"]
             | Some parsedTree ->
-            match Parsing.findLongIdents(pos.Col, line) with
+            match Parsing.findLongIdents(pos.Column, line) with
             | None -> return [Response.info serialize "Ident not found"]
             | Some (_,idents) ->
-            match ParsedInput.getEntityKind parsedTree pos with
+            match UntypedParseImpl.GetEntityKind(pos, parsedTree)  with
             | None -> return [Response.info serialize "EntityKind not found"]
             | Some entityKind ->
 
-            let symbol = Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+            let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
             match symbol with
             | None -> return [Response.info serialize "Symbol at position not found"]
             | Some sym ->
 
+
             let entities = tyRes.GetAllEntities ()
 
-            let isAttribute = entityKind = FsAutoComplete.EntityKind.Attribute
+            let isAttribute = entityKind = EntityKind.Attribute
             let entities =
                 entities |> List.filter (fun e ->
                     match entityKind, (e.Kind LookupType.Fuzzy) with
-                    | FsAutoComplete.EntityKind.Attribute, EntityKind.Attribute
-                    | FsAutoComplete.EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
-                    | FsAutoComplete.EntityKind.FunctionOrValue _, _ -> true
-                    | FsAutoComplete.EntityKind.Attribute, _
+                    | EntityKind.Attribute, EntityKind.Attribute
+                    | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
+                    | EntityKind.FunctionOrValue _, _ -> true
+                    | EntityKind.Attribute, _
                     | _, EntityKind.Module _
-                    | FsAutoComplete.EntityKind.Module _, _
-                    | FsAutoComplete.EntityKind.Type, _ -> false)
+                    | EntityKind.Module _, _
+                    | EntityKind.Type, _ -> false)
+
+            let maybeUnresolvedIdents =
+                idents
+                |> List.map (fun ident -> { Ident = ident; Resolved = false})
+                |> List.toArray
 
             let entities =
                 entities
@@ -530,7 +537,7 @@ type Commands (serialize : Serializer) =
                                     e.Namespace,
                                     e.CleanedIdents
                                     |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
-            let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree (idents |> List.toArray)
+            let createEntity = ParsedInput.tryFindInsertionContext pos.Line parsedTree maybeUnresolvedIdents TopLevel
             let word = sym.Text
             let candidates = entities |> Seq.collect createEntity |> Seq.toList
 
@@ -560,7 +567,7 @@ type Commands (serialize : Serializer) =
             return [ Response.resolveNamespace serialize (word, openNamespace, qualifySymbolActions) ]
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =
+    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
         async {
             let codeGenService = CodeGenerationService(checker, state)
             let doc = {
@@ -574,14 +581,12 @@ type Commands (serialize : Serializer) =
             let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
             match res with
             | None -> return [Response.info serialize "Union at position not found"]
-            | Some (_, patMatchExpr, unionTypeDefinition, insertionPos) ->
+            | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
 
             if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
                 let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
-                let pos = {
-                    Col = insertionPos.InsertionPos.Column
-                    Line = insertionPos.InsertionPos.Line
-                }
+                let pos = mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
+
                 return [Response.unionCase serialize result pos ]
             else
                 return [Response.info serialize "Union at position not found"]

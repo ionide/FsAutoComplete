@@ -27,7 +27,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
         | ResultOrString.Error _ -> None
         | ResultOrString.Ok (opts, lines, line) ->
             try
-                Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
+                Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
             with
             | _ -> None
 
@@ -60,8 +60,6 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             with
             | _ -> None
 
-    member x.ExtractFSharpPos (p : Pos) =
-        mkPos p.Line p.Col
 
 [<AutoOpen>]
 module internal CodeGenerationUtils =

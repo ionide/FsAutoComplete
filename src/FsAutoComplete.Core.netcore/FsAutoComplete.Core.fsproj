@@ -23,8 +23,6 @@
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerProjectJson.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerDotnetSdk.fs" />
     <Compile Include="..\FsAutoComplete.Core\KeywordList.fs" />
-    <Compile Include="..\FsAutoComplete.Core\AssemblyContentProvider.fs" />
-    <Compile Include="..\FsAutoComplete.Core\UnopenedNamespacesResolver.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="..\FsAutoComplete.Core\SimplifyNameAnalyzer.fs" />
     <Compile Include="..\FsAutoComplete.Core\CompilerServiceInterface.fs" />

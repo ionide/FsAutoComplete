@@ -23,6 +23,7 @@ module internal Utils =
         req.rawForm |> getString |> fromJson<'a>
 
 open Argu
+open Microsoft.FSharp.Compiler.Range
 
 [<RequireQualifiedAccess>]
 type private WebSocketMessage =
@@ -53,7 +54,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             let data = r.request |> getResourceFromReq<PositionRequest>
             let file = Path.GetFullPath data.FileName
             let! res =
-                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, { Line = data.Line; Col = data.Column }) with
+                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, mkPos data.Line data.Column ) with
                 | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
                 | ResultOrString.Ok (options, lines, lineStr) ->
                   // TODO: Should sometimes pass options.Source in here to force a reparse
@@ -176,17 +177,17 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
-                        | Some tyRes -> return! commands.Completion tyRes { Line = data.Line; Col = data.Column } lineStr lines file (Some data.Filter) data.IncludeKeywords data.IncludeExternal
+                        | Some tyRes -> return! commands.Completion tyRes (mkPos data.Line data.Column) lineStr lines file (Some data.Filter) data.IncludeKeywords data.IncludeExternal
                 })
-            path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/signature" >=> positionHandler (fun data tyRes lineStr _ -> commands.Typesig tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/signatureData" >=> positionHandler (fun data tyRes lineStr _ -> commands.SignatureData tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclaration tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/findtypedeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindTypeDeclaration tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes { Line = data.Line; Col = data.Column } lines)
-            path "/help" >=> positionHandler (fun data tyRes line _   -> commands.Help tyRes { Line = data.Line; Col = data.Column } line)
+            path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes (mkPos data.Line data.Column) lineStr)
+            path "/signature" >=> positionHandler (fun data tyRes lineStr _ -> commands.Typesig tyRes (mkPos data.Line data.Column) lineStr)
+            path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes (mkPos data.Line data.Column) lineStr)
+            path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes (mkPos data.Line data.Column) lineStr)
+            path "/signatureData" >=> positionHandler (fun data tyRes lineStr _ -> commands.SignatureData tyRes (mkPos data.Line data.Column) lineStr)
+            path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclaration tyRes (mkPos data.Line data.Column) lineStr)
+            path "/findtypedeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindTypeDeclaration tyRes (mkPos data.Line data.Column) lineStr)
+            path "/methods" >=> positionHandler (fun data tyRes _ lines   -> commands.Methods tyRes (mkPos data.Line data.Column) lines)
+            path "/help" >=> positionHandler (fun data tyRes line _   -> commands.Help tyRes (mkPos data.Line data.Column) line)
             path "/compilerlocation" >=> fun httpCtx ->
                 async {
                     let res = commands.CompilerLocation() |> List.toArray |> Json.toJson
@@ -196,8 +197,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/unusedDeclarations" >=> handler (fun (data: FileRequest) -> commands.GetUnusedDeclarations data.FileName)
             path "/simplifiedNames" >=> handler (fun (data: FileRequest) -> commands.GetSimplifiedNames data.FileName)
             path "/unusedOpens" >=> handler (fun (data: FileRequest) -> commands.GetUnusedOpens data.FileName)
-            path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes { Line = data.Line; Col = data.Column } lineStr)
-            path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes { Line = data.Line; Col = data.Column } lines lineStr)
+            path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes (mkPos data.Line data.Column) lineStr)
+            path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes (mkPos data.Line data.Column) lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
             path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray))
             path "/quit" >=> handler (fun (_data: QuitRequest) ->
@@ -212,7 +213,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let defaultBinding = defaultConfig.bindings.[0]
     let withPort = { defaultBinding.socketBinding with port = uint16 port }
     let serverConfig =
-        { defaultConfig with 
+        { defaultConfig with
             cancellationToken = cts.Token
             bindings = [{ defaultBinding with socketBinding = withPort }] }
 
