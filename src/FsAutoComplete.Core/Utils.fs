@@ -21,15 +21,6 @@ module Result =
 
 type ResultOrString<'a> = Result<'a, string>
 
-type Pos =
-    { Line: int
-      Col: int }
-
-type Range =
-    { StartLine : int
-      StartColumn : int
-      EndLine : int
-      EndColumn: int}
 
 type Document =
     { FullName : string
@@ -37,10 +28,6 @@ type Document =
       GetText : unit -> string
       GetLineText0 : int -> string
       GetLineText1 : int -> string}
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Pos =
-    let make line column = { Line = line; Col = column }
 
 
 type Serializer = obj -> string

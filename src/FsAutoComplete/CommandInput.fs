@@ -2,6 +2,7 @@ namespace FsAutoComplete
 
 open Parser
 open System
+open Microsoft.FSharp.Compiler.Range
 
 // The types of commands that need position information
 type PosCommand =
@@ -21,7 +22,7 @@ type ParseKind =
 
 // Command that can be entered on the command-line
 type Command =
-  | PosCommand of PosCommand * string * string * Pos * int option * string option
+  | PosCommand of PosCommand * string * string * pos * int option * string option
   | HelpText of string
   | Declarations of string
   | Parse of string * ParseKind * string[]
@@ -188,7 +189,7 @@ module CommandInput =
                          |> Parser.map String.OfSeq
                 return Some b }) <|>
       (parser { return None })
-    return PosCommand(f, filename, lineStr, { Line = line; Col = col }, timeout, filter) }
+    return PosCommand(f, filename, lineStr, mkPos line col, timeout, filter) }
 
   let helptext = parser {
       let! _ = string "helptext"
