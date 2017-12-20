@@ -15,7 +15,6 @@ nuget System.Collections.Immutable < 1.4
 nuget OptimizedPriorityQueue
 
 group Netcore
-  storage: none
   source https://www.nuget.org/api/v2/
 
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
