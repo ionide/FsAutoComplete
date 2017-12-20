@@ -94,6 +94,14 @@ let private buildFormatComment cmt =
        | _ -> ""
     | _ -> ""
 
+let private formatGenericParamInfo cmt =
+  let m = Regex.Match(cmt, """(.*) is (.*)""")
+  if m.Success then
+    sprintf "`%s` is `%s`" m.Groups.[1].Value m.Groups.[2].Value
+  else
+    cmt
+
+
 let formatTip (FSharpToolTipText tips) : (string * string) list list =
     tips
     |> List.choose (function
@@ -114,7 +122,7 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
                 else
                   buildFormatComment i.XmlDoc
                   + "\nGeneric parameters:\n"
-                  + (i.TypeMapping |> List.map (fun str -> "   " + str) |> String.concat "\n")
+                  + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
               (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
