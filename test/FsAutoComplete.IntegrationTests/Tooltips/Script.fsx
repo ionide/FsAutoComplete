@@ -56,3 +56,5 @@ let TestNumber input =
 
 let tasd = System.String.IsNullOrEmpty
 let cbfdg = Array.append
+
+let _  = [1..3] |> List.map ((+) 1)

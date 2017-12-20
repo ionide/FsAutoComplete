@@ -107,7 +107,16 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
-            Some (items |> List.map (fun (it) ->  (signature, buildFormatComment it.XmlDoc, footer)))
+            Some (items |> List.map (fun i ->
+              let comment =
+                if i.TypeMapping.IsEmpty then
+                  buildFormatComment i.XmlDoc
+                else
+                  buildFormatComment i.XmlDoc
+                  + "\nGeneric parameters:\n"
+                  + (i.TypeMapping |> List.map (fun str -> "   " + str) |> String.concat "\n")
+
+              (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
 
