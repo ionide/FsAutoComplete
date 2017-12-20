@@ -4,7 +4,6 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
-open FsAutoComplete.UnopenedNamespacesResolver
 open FSharpLint.Application
 
 module internal CompletionUtils =
@@ -44,6 +43,7 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.DU -> "D"
 
 module CommandResponse =
+  open Microsoft.FSharp.Compiler.Range
 
   type ResponseMsg<'T> =
     {
@@ -292,7 +292,7 @@ module CommandResponse =
 
   type UnionCaseResponse = {
     Text : string
-    Position : Pos
+    Position : pos
   }
 
   type Parameter = {
@@ -576,7 +576,7 @@ module CommandResponse =
           Name = name
           Type = ctx.ScopeKind.ToString()
           Line = ctx.Pos.Line
-          Column = ctx.Pos.Col
+          Column = ctx.Pos.Column
           MultipleNames = multiple
         })
       |> List.toArray

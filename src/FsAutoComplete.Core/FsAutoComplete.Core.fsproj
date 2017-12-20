@@ -58,8 +58,6 @@
     <Compile Include="ProjectCrackerDotnetSdk.fs" />
     <Compile Include="ProjectCrackerVerbose.fs" />
     <Compile Include="KeywordList.fs" />
-    <Compile Include="AssemblyContentProvider.fs" />
-    <Compile Include="UnopenedNamespacesResolver.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />
     <Compile Include="CompilerServiceInterface.fs" />

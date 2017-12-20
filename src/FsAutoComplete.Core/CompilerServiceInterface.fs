@@ -5,6 +5,7 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
 open FsAutoComplete.ProjectRecognizer
+open Microsoft.FSharp.Compiler.Range
 
 type ParseAndCheckResults
     (
@@ -13,7 +14,7 @@ type ParseAndCheckResults
         entityCache: EntityCache
     ) =
 
-  member __.TryGetMethodOverrides (lines: LineStr[]) (pos: Pos) = async {
+  member __.TryGetMethodOverrides (lines: LineStr[]) (pos: pos) = async {
     // Find the starting point, ideally right after the first '('
     let lineCutoff = pos.Line - 6
     let commas, line, col =
@@ -35,8 +36,8 @@ type ParseAndCheckResults
         elif ch = ')' || ch = '}' || ch = ']' then loop commas (depth + 1) (prevPos (line,col))
         elif ch = '(' || ch = '<' then commas, line, col
         else loop commas depth (prevPos (line,col))
-      match loop 0 0 (prevPos(pos.Line, pos.Col)) with
-      | _, 1, 1 -> 0, pos.Line, pos.Col
+      match loop 0 0 (prevPos(pos.Line, pos.Column)) with
+      | _, 1, 1 -> 0, pos.Line, pos.Column
       | newPos -> newPos
 
     let lineStr = lines.[line - 1]
@@ -48,8 +49,8 @@ type ParseAndCheckResults
 
     return Ok(meth, commas) }
 
-  member __.TryFindDeclaration (pos: Pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+  member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
 
@@ -61,8 +62,8 @@ type ParseAndCheckResults
       | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return ResultOrString.Error "External declaration" //TODO: Handle external declarations
     }
 
-  member __.TryFindTypeDeclaration (pos: Pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+  member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident at this location"
     | Some(col,identIsland) ->
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
@@ -84,8 +85,8 @@ type ParseAndCheckResults
 
   }
 
-  member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+  member __.TryGetToolTip (pos: pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
@@ -105,8 +106,8 @@ type ParseAndCheckResults
         | _ -> Ok(tip)
   }
 
-  member __.TryGetToolTipEnhanced (pos: Pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+  member __.TryGetToolTipEnhanced (pos: pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
@@ -133,9 +134,9 @@ type ParseAndCheckResults
           | Some (s,f) -> Ok (tip, s, f)
   }
 
-  member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
@@ -147,9 +148,9 @@ type ParseAndCheckResults
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         return Ok (symboluse, symboluses) }
 
-  member __.TryGetSignatureData (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetSignatureData (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
@@ -170,9 +171,9 @@ type ParseAndCheckResults
             return (ResultOrString.Error "Not a member, function or value" )
     }
 
-  member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetF1Help (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
@@ -181,10 +182,10 @@ type ParseAndCheckResults
         | None -> return (ResultOrString.Error "No symbol information found")
         | Some hlp -> return Ok hlp}
 
-  member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
-    let ln, residue = Parsing.findLongIdentsAndResidue (pos.Col - 1, lineStr)
+  member __.TryGetCompletions (pos: pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
+    let ln, residue = Parsing.findLongIdentsAndResidue (pos.Column - 1, lineStr)
     try
-      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Col - 1)
+      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
       let longName = {longName with QualifyingIdents = ln; PartialIdent = residue }
 
       let getAllSymbols() =
