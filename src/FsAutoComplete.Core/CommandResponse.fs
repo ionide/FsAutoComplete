@@ -5,6 +5,7 @@ open System
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
+open System.Text.RegularExpressions
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -465,9 +466,11 @@ module CommandResponse =
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
-                               let code = PrettyNaming.QuoteIdentifierIfNeeded d.Name
-                               let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
+                              let code =
+                                if Regex.IsMatch(d.Name, """[a-zA-Z][a-zA-Z0-9\.']+""") then d.Name else
+                                PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                              let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
+                              yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
                             if includeKeywords then
                               for k in KeywordList.allKeywords do
                                 yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"; NamespaceToOpen = None}
