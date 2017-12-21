@@ -221,7 +221,16 @@ type ParseAndCheckResults
         | Some "Contains" -> [| for d in sortedDeclItems do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
         | _ -> sortedDeclItems
 
-      return Some (decls, residue)
+      let shouldKeywords =
+        if decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents then
+          parseResults.ParseTree
+          |> Option.bind (fun parseTree ->
+            UntypedParseImpl.TryGetCompletionContext(pos, parseTree, lineStr))
+          |> Option.isSome
+        else
+          false
+
+      return Some (decls, residue, shouldKeywords)
     with :? TimeoutException -> return None
   }
 
