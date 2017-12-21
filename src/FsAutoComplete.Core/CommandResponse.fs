@@ -467,7 +467,7 @@ module CommandResponse =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
                               let code =
-                                if Regex.IsMatch(d.Name, """[a-zA-Z][a-zA-Z0-9\.']+""") then d.Name else
+                                if Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9\.']+$""") then d.Name else
                                 PrettyNaming.QuoteIdentifierIfNeeded d.Name
                               let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
