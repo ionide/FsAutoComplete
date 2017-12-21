@@ -207,7 +207,7 @@ type ParseAndCheckResults
         | CompletionItemKind.Event -> 3
         | CompletionItemKind.Argument -> 4
         | CompletionItemKind.Other -> 5
-                | CompletionItemKind.Method (isExtension = true) -> 6
+        | CompletionItemKind.Method (isExtension = true) -> 6
 
       let sortedDeclItems =
           results.Items
@@ -227,15 +227,9 @@ type ParseAndCheckResults
         | Some "Contains" -> [| for d in sortedDeclItems do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
         | _ -> sortedDeclItems
 
-      let shouldKeywords =
-        if decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents then
-          parseResults.ParseTree
-          |> Option.bind (fun parseTree ->
-            UntypedParseImpl.TryGetCompletionContext(pos, parseTree, lineStr))
-          |> Option.isSome
-        else
-          false
 
+
+      let shouldKeywords = decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
       return Some (decls, residue, shouldKeywords)
     with :? TimeoutException -> return None
   }
