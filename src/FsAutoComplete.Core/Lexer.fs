@@ -9,6 +9,7 @@ type SymbolKind =
     | StaticallyResolvedTypeParameter
     | ActivePattern
     | Keyword
+    | Dot
     | Other
 
 type LexerSymbol =
@@ -49,6 +50,7 @@ module Lexer =
     let inline private isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
     let inline private isOperator t = t.CharClass = FSharpTokenCharKind.Operator
     let inline private isKeyword t = t.ColorClass = FSharpTokenColorKind.Keyword
+    let inline private isPunctuation t = t.ColorClass = FSharpTokenColorKind.Punctuation
 
     let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|) ((token: FSharpTokenInfo), (lineStr:string)) =
         if token.Tag = FSharpTokenTag.QUOTE then GenericTypeParameterPrefix
@@ -105,6 +107,7 @@ module Lexer =
                                 if isOperator token then Operator
                                 elif isIdentifier token then Ident
                                 elif isKeyword token then Keyword
+                                elif isPunctuation token then Dot
                                 else Other
                             DraftToken.Create kind token
                     draftToken :: acc, Some draftToken
