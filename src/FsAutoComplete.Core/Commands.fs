@@ -364,7 +364,7 @@ type Commands (serialize : Serializer) =
             let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
             return
                 match res with
-                | Some (decls, residue) ->
+                | Some (decls, residue, shouldKeywords) ->
                     let declName (d: FSharpDeclarationListItem) = d.Name
                     let getLine = fun i -> lines.[i - 1]
 
@@ -382,6 +382,9 @@ type Commands (serialize : Serializer) =
                       decls
                       |> Array.sortBy declName
                       |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+
+                    let includeKeywords = includeKeywords && shouldKeywords
+
                     match firstMatchOpt with
                     | None -> [Response.completion serialize decls includeKeywords]
                     | Some d ->
