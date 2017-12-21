@@ -192,6 +192,11 @@ type ParseAndCheckResults
         getAllSymbols()
         |> List.filter (fun entity -> entity.FullName.Contains "." && not (PrettyNaming.IsOperatorName entity.Symbol.DisplayName))
 
+      let token = Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Simple [||]
+      match token with
+      | Some k when k.Kind = Other -> return None
+      | _ ->
+
       let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
 
       let getKindPriority = function
