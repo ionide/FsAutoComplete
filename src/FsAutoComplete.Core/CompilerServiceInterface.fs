@@ -183,18 +183,19 @@ type ParseAndCheckResults
         | Some hlp -> return Ok hlp}
 
   member __.TryGetCompletions (pos: pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
-    let ln, residue = Parsing.findLongIdentsAndResidue (pos.Column - 1, lineStr)
     try
-      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
-      let longName = {longName with QualifyingIdents = ln; PartialIdent = residue }
+      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 2)
+      let residue = longName.PartialIdent
 
       let getAllSymbols() =
         getAllSymbols()
         |> List.filter (fun entity -> entity.FullName.Contains "." && not (PrettyNaming.IsOperatorName entity.Symbol.DisplayName))
 
-      let token = Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Simple [||]
+      let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.Simple [||]
       match token with
       | Some k when k.Kind = Other -> return None
+      | Some k when k.Kind = Operator  -> return None
+      | Some k when k.Kind = Keyword  -> return None
       | _ ->
 
       let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
