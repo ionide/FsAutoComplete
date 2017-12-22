@@ -10,7 +10,7 @@ nuget Mono.Cecil
 nuget Newtonsoft.Json
 nuget Suave < 2.0
 nuget FSharpLint.Core 0.9.0-beta
-nuget FSharp.Core 4.0.0.1 redirects:on
+nuget FSharp.Core redirects:force
 nuget System.Collections.Immutable < 1.4
 nuget OptimizedPriorityQueue
 
