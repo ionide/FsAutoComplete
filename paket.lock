@@ -11,7 +11,7 @@ NUGET
       System.Reflection.Metadata (>= 1.4.2)
     FSharp.Compiler.Service.ProjectCracker (17.0.1)
       FSharp.Compiler.Service (>= 17.0.1)
-    FSharp.Core (4.0.0.1) - redirects: on
+    FSharp.Core (4.2.3) - redirects: force
     FSharpLint.Core (0.9.0-beta)
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 14.0.2)
