@@ -13,6 +13,7 @@ nuget FSharpLint.Core 0.9.0-beta
 nuget FSharp.Core redirects:force
 nuget System.Collections.Immutable < 1.4
 nuget OptimizedPriorityQueue
+nuget System.ValueTuple redirects:force // workaround for older version of net framework.
 
 group Netcore
   source https://www.nuget.org/api/v2/

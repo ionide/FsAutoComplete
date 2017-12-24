@@ -16,7 +16,11 @@ NUGET
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 14.0.2)
       FSharp.Compiler.Service.ProjectCracker (>= 14.0.2)
+    Microsoft.NETCore.Platforms (2.0.1) - redirects: force
     Mono.Cecil (0.9.6.4)
+    NETStandard.Library (2.0.1) - redirects: force
+      Microsoft.NETCore.Platforms (>= 1.1)
+      System.Runtime.InteropServices.RuntimeInformation (>= 4.3)
     Newtonsoft.Json (10.0.3)
     OptimizedPriorityQueue (4.1.1)
     Sln (0.3)
@@ -25,6 +29,9 @@ NUGET
     System.Collections.Immutable (1.3.1)
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
+    System.Runtime.InteropServices.RuntimeInformation (4.3) - redirects: force
+    System.ValueTuple (4.4) - redirects: force
+      NETStandard.Library (>= 1.6.1)
 
 GROUP Build
 GENERATE-LOAD-SCRIPTS: ON
