@@ -52,7 +52,8 @@ Target "BuildRelease" (fun _ ->
 
   DotNetCli.Build (fun p ->
      { p with
-         Project = "FsAutoComplete.netcore.sln" })
+         Project = "FsAutoComplete.netcore.sln"
+         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
 )
 
 let integrationTests =
