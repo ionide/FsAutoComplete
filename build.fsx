@@ -39,7 +39,7 @@ if Environment.OSVersion.Platform = PlatformID.Win32NT then
 Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
-  DotNetCli.Restore(fun p -> { p with Project = "FsAutoComplete.netcore.sln" })
+
   DotNetCli.Build (fun p ->
      { p with
          Configuration = "Debug"
@@ -49,7 +49,7 @@ Target "BuildDebug" (fun _ ->
 Target "BuildRelease" (fun _ ->
   MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
   |> Log "Build-Output: "
-  DotNetCli.Restore(fun p -> { p with Project = "FsAutoComplete.netcore.sln" })
+
   DotNetCli.Build (fun p ->
      { p with
          Project = "FsAutoComplete.netcore.sln"
