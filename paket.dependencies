@@ -62,3 +62,4 @@ group SourceLink
   source https://www.nuget.org/api/v2/
   nuget SourceLink.Create.CommandLine 2.6.1
   nuget SourceLink.Embed.PaketFiles 2.6.1
+  
