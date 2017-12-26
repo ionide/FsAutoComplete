@@ -32,7 +32,6 @@ group Netcore
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
 
-
 group Build
   framework: net45
   source https://www.nuget.org/api/v2/
@@ -57,3 +56,9 @@ group IntegrationTests
   nuget Http.fs
   nuget Newtonsoft.Json
   nuget System.Net.WebSockets.Client
+
+group SourceLink
+  storage: none
+  source https://www.nuget.org/api/v2/
+  nuget SourceLink.Create.CommandLine 2.6.0
+  nuget SourceLink.Embed.PaketFiles 2.6.0
