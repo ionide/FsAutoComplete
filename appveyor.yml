@@ -3,6 +3,8 @@ image:
   - Visual Studio 2017
 
 before_build:
+  - dotnet --version
+  - dotnet --info
   - ps: >-
       $env:FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED = if ("$env:APPVEYOR_BUILD_WORKER_IMAGE" -eq "Visual Studio 2017") { "0" } else { "1" };
 
