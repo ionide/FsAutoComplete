@@ -23,8 +23,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core.netcore\FsAutoComplete.Core.fsproj" />
+    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.6.0" PrivateAssets="All" />
   </ItemGroup>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
-
+  
 </Project>
