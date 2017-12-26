@@ -3,7 +3,9 @@ image:
   - Visual Studio 2017
 
 before_build:
-  - dotnet --version
+  - Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+  - ps: ./dotnet-install.ps1 -Channel Current
+  # - set PATH=%LocalAppData%\Microsoft\dotnet;%PATH%
   - dotnet --info
   - ps: >-
       $env:FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED = if ("$env:APPVEYOR_BUILD_WORKER_IMAGE" -eq "Visual Studio 2017") { "0" } else { "1" };
