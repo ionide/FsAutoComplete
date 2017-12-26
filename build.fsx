@@ -47,13 +47,13 @@ Target "BuildDebug" (fun _ ->
 )
 
 Target "BuildRelease" (fun _ ->
-  MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
-  |> Log "Build-Output: "
-
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.netcore.sln"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
+  printfn "dotnet version %s" (DotNetCli.getVersion())
+  // MSBuildRelease "" "Rebuild" ["./FsAutoComplete.sln"]
+  // |> Log "Build-Output: "
+  // DotNetCli.Build (fun p ->
+  //    { p with
+  //        Project = "FsAutoComplete.netcore.sln"
+  //        AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
 )
 
 let integrationTests =
