@@ -37,13 +37,14 @@ if Environment.OSVersion.Platform = PlatformID.Win32NT then
   MSBuildDefaults <- {MSBuildDefaults with ToolsVersion = Some "14.0"}
 
 Target "BuildDebug" (fun _ ->
-  MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
-  |> Log "Build-Output: "
+  printfn "dotnet version %s" (DotNetCli.getVersion())
+  // MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
+  // |> Log "Build-Output: "
 
-  DotNetCli.Build (fun p ->
-     { p with
-         Configuration = "Debug"
-         Project = "FsAutoComplete.netcore.sln" })
+  // DotNetCli.Build (fun p ->
+  //    { p with
+  //        Configuration = "Debug"
+  //        Project = "FsAutoComplete.netcore.sln" })
 )
 
 Target "BuildRelease" (fun _ ->

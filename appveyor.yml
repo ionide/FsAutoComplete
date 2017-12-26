@@ -3,6 +3,7 @@ image:
   - Visual Studio 2017
 
 before_build:
+  - set DOTNET_CLI_TELEMETRY_OPTOUT=1
   - ps: Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
   - ps: ./dotnet-install.ps1 -Channel Current
   # - set PATH=%LocalAppData%\Microsoft\dotnet;%PATH%
