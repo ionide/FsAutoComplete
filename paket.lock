@@ -914,6 +914,13 @@ NUGET
 GITHUB
   remote: Microsoft/visualfsharp
     src/fsharp/FSharp.Build/Fsc.fs (cc1b137bc17f401a0cc669ff8fc598714d0fe652)
+GROUP SourceLink
+STORAGE: NONE
+NUGET
+  remote: https://www.nuget.org/api/v2
+    SourceLink.Create.CommandLine (2.7.0)
+    SourceLink.Embed.PaketFiles (2.7.0)
+
 GROUP Test
 RESTRICTION: == net45
 NUGET
