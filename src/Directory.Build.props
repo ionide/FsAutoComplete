@@ -1,6 +1,5 @@
 <Project>
   <ItemGroup>
-    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.7.0" PrivateAssets="All" />
-    <PackageReference Include="SourceLink.Embed.PaketFiles" Version="2.7.0" PrivateAssets="All" />
+    <PackageReference Include="SourceLink.Create.GitHub" Version="2.7.0" PrivateAssets="All" />
   </ItemGroup>
 </Project>
