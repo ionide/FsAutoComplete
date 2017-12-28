@@ -60,5 +60,6 @@ group IntegrationTests
 group SourceLink
   storage: none
   source https://www.nuget.org/api/v2/
-  nuget SourceLink.Create.GitHub 2.7.1
-  clitool dotnet-sourcelink-git 2.7.1 framework: netcoreapp2.0
+  source https://ci.appveyor.com/nuget/sourcelink/
+  nuget SourceLink.Create.CommandLine 2.7.2-b652
+  nuget SourceLink.Embed.PaketFiles 2.7.2-b652
