@@ -60,5 +60,5 @@ group IntegrationTests
 group SourceLink
   storage: none
   source https://nuget.org/api/v2
-  nuget SourceLink.Create.CommandLine 2.7.2
-  nuget SourceLink.Embed.PaketFiles 2.7.2
+  nuget SourceLink.Create.CommandLine 2.7.4
+  nuget SourceLink.Embed.PaketFiles 2.7.4
