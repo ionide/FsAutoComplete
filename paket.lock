@@ -918,8 +918,8 @@ GROUP SourceLink
 STORAGE: NONE
 NUGET
   remote: https://www.nuget.org/api/v2
-    SourceLink.Create.CommandLine (2.7.2)
-    SourceLink.Embed.PaketFiles (2.7.2)
+    SourceLink.Create.CommandLine (2.7.4)
+    SourceLink.Embed.PaketFiles (2.7.4)
 
 GROUP Test
 RESTRICTION: == net45
