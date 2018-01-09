@@ -8,6 +8,7 @@ open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Threading
 open Utils
+open System.Reflection
 
 
 module Response = CommandResponse
