@@ -23,7 +23,6 @@ module internal Utils =
         req.rawForm |> getString |> fromJson<'a>
 
 open Argu
-open System.Reflection
 
 [<RequireQualifiedAccess>]
 type private WebSocketMessage =
@@ -218,7 +217,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             bindings = [{ defaultBinding with socketBinding = withPort }] }
 
    
-    serverConfig.logger.log Logging.LogLevel.Info (fun _ -> Logging.Message.event Logging.LogLevel.Info ( sprintf commands.getGitHash() ) )
+    serverConfig.logger.log Logging.LogLevel.Info (fun _ -> Logging.Message.event Logging.LogLevel.Info ( sprintf "git commit sha: %s" (commands.getGitHash()) ) )
     |> Async.RunSynchronously
 
 #if SUAVE_2
