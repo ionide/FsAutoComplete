@@ -138,7 +138,13 @@ type Commands (serialize : Serializer) =
         response.Files
         |> parseFilesInTheBackground
         |> Async.Start
-
+    
+    let getGitHash () =
+        Assembly.GetExecutingAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
+        |> Seq.cast<AssemblyMetadataAttribute>
+        |> Seq.map (fun (m) -> m.Key,m.Value)
+        |> Seq.tryPick (fun (x,y) -> if x = "githash" && String.IsNullOrWhiteSpace(y) <> true then Some y else None )
+    
     member __.Notify = notify.Publish
 
     member __.NotifyErrorsInBackground

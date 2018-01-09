@@ -268,12 +268,15 @@ Target "UnitTest" (fun _ ->
 
 Target "AssemblyInfo" (fun _ ->
   let fileName = "src" </> project </> "AssemblyInfo.fs"
+  let githash = Information.getCurrentSHA1 ""
+
   CreateFSharpAssemblyInfo fileName
     [ Attribute.Title project
       Attribute.Product project
       Attribute.Description summary
       Attribute.Version release.AssemblyVersion
-      Attribute.FileVersion release.AssemblyVersion ]
+      Attribute.FileVersion release.AssemblyVersion
+      Attribute.Metadata("githash", githash) ]
 )
 
 Target "ReleaseArchive" (fun _ ->
