@@ -144,7 +144,7 @@ type Commands (serialize : Serializer) =
         Assembly.GetExecutingAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
         |> Seq.cast<AssemblyMetadataAttribute>
         |> Seq.map (fun (m) -> m.Key,m.Value)
-        |> Seq.tryPick (fun (x,y) -> if x = "githash" && String.IsNullOrWhiteSpace(y) <> true then Some y else None )
+        |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
     
     member __.Notify = notify.Publish
 
@@ -705,6 +705,8 @@ type Commands (serialize : Serializer) =
                     let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
                     return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
+
+    member x.GetGitHash = getGitHash
 
     member __.Quit () =
         async {

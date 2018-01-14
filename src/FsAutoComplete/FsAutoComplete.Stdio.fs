@@ -38,8 +38,10 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
       async {
           match commandQueue.Take() with
           | Started ->
-              return [ CommandResponse.info writeJson (sprintf "git commit sha: %s" (commands.getGitHash()) )
-              CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id)) ]
+              return [ 
+                  CommandResponse.info writeJson (sprintf "git commit sha: %s" (commands.GetGitHash.ToString()));
+                  CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
+               ]
           | Parse (file, kind, lines) ->
               let! res = commands.Parse file lines 0
               //Hack for tests

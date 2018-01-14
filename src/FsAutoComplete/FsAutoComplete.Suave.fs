@@ -216,10 +216,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             cancellationToken = cts.Token
             bindings = [{ defaultBinding with socketBinding = withPort }] }
 
-   
-    serverConfig.logger.log Logging.LogLevel.Info (fun _ -> Logging.Message.event Logging.LogLevel.Info ( sprintf "git commit sha: %s" (commands.getGitHash()) ) )
-    |> Async.RunSynchronously
-
 #if SUAVE_2
     let logger = Suave.Logging.LiterateConsoleTarget([| "FsAutoComplete" |], Logging.Info)
     let serverConfig =
