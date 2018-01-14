@@ -225,10 +225,16 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
 #if SUAVE_2
-        serverConfig.logger.log Logging.LogLevel.Info (fun _ -> Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid))
+        serverConfig.logger.log Logging.LogLevel.Info (fun _ -> 
+            Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
+            Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
+        )
         |> Async.RunSynchronously
 #else
-        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid))
+        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> 
+            Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
+            Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid)
+        )
 #endif
         Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()

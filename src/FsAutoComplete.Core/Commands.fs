@@ -141,7 +141,7 @@ type Commands (serialize : Serializer) =
         |> Async.Start
     
     let getGitHash () =
-        Assembly.GetExecutingAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
+        Assembly.GetEntryAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
         |> Seq.cast<AssemblyMetadataAttribute>
         |> Seq.map (fun (m) -> m.Key,m.Value)
         |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
@@ -706,7 +706,11 @@ type Commands (serialize : Serializer) =
                     return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
 
-    member x.GetGitHash = getGitHash
+    member x.GetGitHash =
+        let hash = getGitHash()
+        match hash with 
+        | Some hash -> hash
+        | None -> ""
 
     member __.Quit () =
         async {
