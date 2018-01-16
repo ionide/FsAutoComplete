@@ -17,30 +17,35 @@ let private tryGetValue key (dict:IReadOnlyDictionary<_,_>) =
     | true, x -> Some x
     | false, _ -> None
 
-type OutputPositions = 
+type OutputPositions =
     OutputPositions of
         methodsPosition:IReadOnlyDictionary<MethodDef, Position> *
         fieldsPosition:IReadOnlyDictionary<FieldDef, Position> *
         propertiesPosition:IReadOnlyDictionary<PropertyDef, Position> *
         eventsPosition:IReadOnlyDictionary<EventDef, Position> *
-        typesPosition:IReadOnlyDictionary<TypeDef, Position> 
-        
-module OutputPositions =
-    let tryFindMethod def (OutputPositions (methodsPosition=methodsPosition)) =
+        typesPosition:IReadOnlyDictionary<TypeDef, Position>
+
+type OutputPositions with
+    member this.TryFindMethod def =
+        let (OutputPositions (methodsPosition=methodsPosition)) = this
         methodsPosition |> tryGetValue def
-   
-    let tryFindField def (OutputPositions (fieldsPosition=fieldsPosition)) =
+
+    member this.TryFindField def =
+        let (OutputPositions (fieldsPosition=fieldsPosition)) = this
         fieldsPosition |> tryGetValue def
 
-    let tryFindProperty def (OutputPositions (propertiesPosition=propertiesPosition)) =
+    member this.TryFindProperty def =
+        let (OutputPositions (propertiesPosition=propertiesPosition)) = this
         propertiesPosition |> tryGetValue def
-    
-    let tryFindEvent def (OutputPositions (eventsPosition=eventsPosition)) =
+
+    member this.TryFindEvent def =
+        let (OutputPositions (eventsPosition=eventsPosition)) = this
         eventsPosition |> tryGetValue def
 
-    let tryFindType def (OutputPositions (typesPosition=typesPosition)) =
+    member this.TryFindType def =
+        let (OutputPositions (typesPosition=typesPosition)) = this
         typesPosition |> tryGetValue def
-        
+
 
 type TextWriterWithPositions(writer: TextWriter) =
     inherit TextWriterDecompilerOutput(writer)
@@ -70,22 +75,22 @@ type TextWriterWithPositions(writer: TextWriter) =
 
     override this.Write(text:string, reference:obj, flags:DecompilerReferenceFlags, color:obj ) =
         storeDefinitionIfNeeded this.NextPosition reference
-        
+
         base.Write(text, reference, flags, color)
 
     override this.Write(text:string, index, length, reference:obj, flags:DecompilerReferenceFlags, color:obj ) =
         storeDefinitionIfNeeded this.NextPosition reference
-        
+
         base.Write(text, index, length, reference, flags, color)
 
-    member __.Positions 
+    member __.Positions
         with get () = OutputPositions (  methodsPosition :> IReadOnlyDictionary<MethodDef, Position>,
                                          fieldsPosition :> IReadOnlyDictionary<FieldDef, Position>,
                                          propertiesPosition :> IReadOnlyDictionary<PropertyDef, Position>,
                                          eventsPosition :> IReadOnlyDictionary<EventDef, Position>,
                                          typesPosition :> IReadOnlyDictionary<TypeDef, Position> )
 
-    
+
 
 
 let decompileType (typeDef:TypeDef) =
@@ -95,23 +100,23 @@ let decompileType (typeDef:TypeDef) =
     let csDecompiler =
         DecompilerFactory.CreateCSharpVBDecompilerSettings()
         |> DecompilerFactory.CreateCSharpDecompiler
-          
+
     let decompilationContext = new DecompilationContext();
-    csDecompiler.Decompile(typeDef, output, decompilationContext) 
+    csDecompiler.Decompile(typeDef, output, decompilationContext)
     sw.GetStringBuilder() |> string, output.Positions
 
 let tryResolveType (assemblyPath:string) typeName =
     let moduleContext = ModuleDef.CreateModuleContext(false)
     let moduleDef = ModuleDefMD.Load(assemblyPath, moduleContext)
     moduleDef.GetTypes()
-    |> Seq.tryFind(fun x -> 
+    |> Seq.tryFind(fun x ->
         let fullName = FullNameCreator.FullName(x, false)
         fullName = typeName )
 
 let tryDecompileType (assemblyPath:string) typeName =
     tryResolveType assemblyPath typeName
     |> Option.map decompileType
-    
+
 let rec formatExtTypeFullName externalType =
     match externalType with
     | ExternalType.Type (name, genericArgs) ->
@@ -135,9 +140,9 @@ let areSameTypes ((mParam,paramSym):Parameter*ParamTypeSymbol) =
 
     match paramSym with
     | ParamTypeSymbol.Param extType -> compareToExternalType extType
-    | ParamTypeSymbol.Byref extType -> 
+    | ParamTypeSymbol.Byref extType ->
         mParam.Type.IsByRef && compareToExternalType extType
-        
+
 
 let getDeclaringTypeName = function
     | ExternalSymbol.Type (fullName) -> fullName
@@ -151,10 +156,10 @@ let findMethodFromArgs (args:ParamTypeSymbol list) (methods:MethodDef seq) =
     methods
     |> Seq.tryFind (fun m ->
         let mParams = m.Parameters|> Seq.where (fun mp -> mp.IsNormalMethodParameter) |> Seq.toArray
-        
-        mParams.Length = args.Length 
+
+        mParams.Length = args.Length
         && (Seq.zip mParams args) |> Seq.forall areSameTypes )
-    
+
 type ExternalContentPosition =
   { File: string
     Column: int
@@ -171,44 +176,44 @@ let decompile (externalSym:ExternalSymbol) assemblyPath =
     getDeclaringTypeName externalSym
     |> tryResolveType assemblyPath
     |> Option.map (fun typeDef ->
-        
+
         let (contents, positions) = decompileType typeDef
         let fileName = sprintf "%s.cs" (contents |> md5)
-        let tempFile = 
+        let tempFile =
             System.IO.Path.GetTempPath() </> fileName
 
         System.IO.File.WriteAllText(tempFile, contents)
-        
+
 
         let defPosition =
             match externalSym with
-            | ExternalSymbol.Type _ -> positions |> OutputPositions.tryFindType typeDef
-            | ExternalSymbol.Constructor (_typeName, args) -> 
-                typeDef.FindConstructors() 
+            | ExternalSymbol.Type _ -> positions.TryFindType typeDef
+            | ExternalSymbol.Constructor (_typeName, args) ->
+                typeDef.FindConstructors()
                 |> findMethodFromArgs args
-                |> Option.bind (fun def -> positions |> OutputPositions.tryFindMethod def)
+                |> Option.bind (fun def -> positions.TryFindMethod def)
 
-            | ExternalSymbol.Method (_typeName, name, args, genericArity) -> 
+            | ExternalSymbol.Method (_typeName, name, args, genericArity) ->
                 typeDef.FindMethods( UTF8String name)
                 |> Seq.where (fun (m:MethodDef) -> m.GenericParameters.Count = genericArity)
                 |> findMethodFromArgs args
-                |> Option.bind (fun def -> positions |> OutputPositions.tryFindMethod def)
-                
-            | ExternalSymbol.Field (_typeName, name) -> 
+                |> Option.bind (fun def -> positions.TryFindMethod def)
+
+            | ExternalSymbol.Field (_typeName, name) ->
                 typeDef.FindField(UTF8String name)
                 |> Option.ofObj
-                |> Option.bind (fun def -> positions |> OutputPositions.tryFindField def)
-                
+                |> Option.bind (fun def -> positions.TryFindField def)
+
             | ExternalSymbol.Event (_typeName, name) ->
                 typeDef.FindEvent(UTF8String name)
                 |> Option.ofObj
-                |> Option.bind (fun def -> positions |> OutputPositions.tryFindEvent def)
-                
-            | ExternalSymbol.Property (_typeName, name) -> 
+                |> Option.bind (fun def -> positions.TryFindEvent def)
+
+            | ExternalSymbol.Property (_typeName, name) ->
                 typeDef.FindProperty(UTF8String name)
                 |> Option.ofObj
-                |> Option.bind (fun def -> positions |> OutputPositions.tryFindProperty def)
-        
+                |> Option.bind (fun def -> positions.TryFindProperty def)
+
         match defPosition with
         | Some (Position (line, column)) ->
             { File = tempFile
