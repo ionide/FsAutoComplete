@@ -8,6 +8,7 @@ open FsAutoComplete.UnopenedNamespacesResolver
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Threading
 open Utils
+open System.Reflection
 
 
 module Response = CommandResponse
@@ -138,7 +139,13 @@ type Commands (serialize : Serializer) =
         response.Files
         |> parseFilesInTheBackground
         |> Async.Start
-
+    
+    let getGitHash () =
+        Assembly.GetEntryAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
+        |> Seq.cast<AssemblyMetadataAttribute>
+        |> Seq.map (fun (m) -> m.Key,m.Value)
+        |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
+    
     member __.Notify = notify.Publish
 
     member __.NotifyErrorsInBackground
@@ -698,6 +705,12 @@ type Commands (serialize : Serializer) =
                     let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
                     return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
+
+    member x.GetGitHash =
+        let hash = getGitHash()
+        match hash with 
+        | Some hash -> hash
+        | None -> ""
 
     member __.Quit () =
         async {
