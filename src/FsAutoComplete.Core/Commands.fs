@@ -480,7 +480,7 @@ type Commands (serialize : Serializer) =
 
     member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindTypeDeclaration pos lineStr
-        |> x.SerializeResult (Response.findDeclaration, Response.error)
+        |> x.SerializeResult (Response.findTypeDeclaration, Response.error)
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Methods (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) =
