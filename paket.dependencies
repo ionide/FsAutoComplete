@@ -13,6 +13,7 @@ nuget FSharpLint.Core 0.9.0-beta
 nuget FSharp.Core 4.0.0.1 redirects:on
 nuget System.Collections.Immutable < 1.4
 nuget OptimizedPriorityQueue
+nuget dnSpyLibs
 
 group Netcore
   storage: none
@@ -31,6 +32,7 @@ group Netcore
   nuget FSharp.Core
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
+  nuget dnSpyLibs
 
 group Build
   framework: net45

@@ -6,6 +6,11 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
 open FsAutoComplete.ProjectRecognizer
 
+[<RequireQualifiedAccess>]
+type FindDeclarationResult =
+    | ExternalDeclaration of Decompiler.ExternalContentPosition
+    | Range of Microsoft.FSharp.Compiler.Range.range
+
 type ParseAndCheckResults
     (
         parseResults: FSharpParseFileResults,
@@ -57,8 +62,11 @@ type ParseAndCheckResults
 
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ -> return ResultOrString.Error "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range -> return Ok range
-      | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return ResultOrString.Error "External declaration" //TODO: Handle external declarations
+      | FSharpFindDeclResult.DeclFound range -> return Ok (FindDeclarationResult.Range range)
+      | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) -> 
+            return Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym)
+                    |> Option.map (fun extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec))
+                    |> Option.getOrElse (ResultOrString.Error "External declaration not resolved")
     }
 
   member __.TryFindTypeDeclaration (pos: Pos) (lineStr: LineStr) = async {

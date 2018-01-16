@@ -2,6 +2,7 @@ RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.7)
+    dnSpyLibs (0.0.1)
     Dotnet.ProjInfo (0.9)
       FSharp.Core (>= 4.0.0.1)
     FParsec (1.0.3)
@@ -69,6 +70,8 @@ NUGET
       FSharp.Core (>= 4.0.1.7-alpha) - restriction: >= netstandard1.6
       NETStandard.Library (>= 1.6) - restriction: >= netstandard1.6
       System.Xml.XDocument (>= 4.0.11) - restriction: >= netstandard1.6
+    dnSpyLibs (0.0.1)
+      NETStandard.Library (>= 2.0) - restriction: >= netstandard2.0
     Dotnet.ProjInfo (0.9)
       FSharp.Core (>= 4.0.0.1) - restriction: >= net45
       FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)

@@ -62,6 +62,7 @@
     <Compile Include="UnopenedNamespacesResolver.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />
+    <Compile Include="Decompiler.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="WorkspacePeek.fs" />
     <Compile Include="CommandResponse.fs" />
@@ -101,6 +102,52 @@
       <PropertyGroup>
         <__paket__FSharp_Compiler_Service_ProjectCracker_targets>net45\FSharp.Compiler.Service.ProjectCracker</__paket__FSharp_Compiler_Service_ProjectCracker_targets>
       </PropertyGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="ICSharpCode.Decompiler">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\ICSharpCode.Decompiler.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="ICSharpCode.NRefactory">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\ICSharpCode.NRefactory.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="ICSharpCode.NRefactory.CSharp">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\ICSharpCode.NRefactory.CSharp.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="System.ValueTuple">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\System.ValueTuple.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="dnSpy.Contracts.Logic">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\dnSpy.Contracts.Logic.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="dnSpy.Decompiler">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\dnSpy.Decompiler.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="dnSpy.Decompiler.ILSpy.Core">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\dnSpy.Decompiler.ILSpy.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="dnlib">
+          <HintPath>..\..\packages\dnSpyLibs\lib\net45\dnlib.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
     </When>
   </Choose>
   <Choose>

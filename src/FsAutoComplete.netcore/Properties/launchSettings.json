@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FsAutoComplete": {
+      "commandName": "Project",
+      "commandLineArgs": "--mode http"
+    }
+  }
+}
