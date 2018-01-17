@@ -9,6 +9,7 @@ open dnlib.DotNet
 open dnSpy.Contracts.Decompiler
 open dnSpy.Decompiler.ILSpy.Core
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 type Position = Position of line:int * column:int
 
@@ -165,12 +166,10 @@ type ExternalContentPosition =
     Column: int
     Line: int }
 
-let md5 (content:string) =
-    use algo = System.Security.Cryptography.MD5.Create()
-    content
-    |> System.Text.Encoding.UTF8.GetBytes
-    |> algo.ComputeHash
-    |> System.Convert.ToBase64String
+let toSafeFileNameRegex = 
+    System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
+let toSafeFileName str =
+    toSafeFileNameRegex.Replace(str, "_")
 
 let decompile (externalSym:ExternalSymbol) assemblyPath =
     getDeclaringTypeName externalSym
@@ -178,7 +177,7 @@ let decompile (externalSym:ExternalSymbol) assemblyPath =
     |> Option.map (fun typeDef ->
 
         let (contents, positions) = decompileType typeDef
-        let fileName = sprintf "%s.cs" (contents |> md5)
+        let fileName = sprintf "%s.cs" (toSafeFileName typeDef.AssemblyQualifiedName)
         let tempFile =
             System.IO.Path.GetTempPath() </> fileName
 
