@@ -93,41 +93,41 @@
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<tempdir path removed>/ClassLib.ExternalType_ ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
+    "File": "<tempdir path removed>/ClassLib.ExternalType ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
+    "Line": 5,
+    "Column": 2
+  }
+}
+{
+  "Kind": "finddecl",
+  "Data": {
+    "File": "<tempdir path removed>/ClassLib.ExternalType ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
     "Line": 7,
-    "Column": 15
+    "Column": 3
   }
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<tempdir path removed>/ClassLib.ExternalType_ ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
-    "Line": 10,
-    "Column": 24
+    "File": "<tempdir path removed>/ClassLib.ExternalType ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
+    "Line": 12,
+    "Column": 3
   }
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<tempdir path removed>/ClassLib.ExternalType_ ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
-    "Line": 16,
-    "Column": 24
+    "File": "<tempdir path removed>/ClassLib.ExternalType ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
+    "Line": 17,
+    "Column": 3
   }
 }
 {
   "Kind": "finddecl",
   "Data": {
-    "File": "<tempdir path removed>/ClassLib.ExternalType_ ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
-    "Line": 22,
-    "Column": 24
-  }
-}
-{
-  "Kind": "finddecl",
-  "Data": {
-    "File": "<tempdir path removed>/ClassLib.ExternalType_ ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
-    "Line": 29,
-    "Column": 24
+    "File": "<tempdir path removed>/ClassLib.ExternalType ClassLib_ Version_0.0.0.0_ Culture_neutral_ PublicKeyToken_null.cs",
+    "Line": 23,
+    "Column": 3
   }
 }
 {

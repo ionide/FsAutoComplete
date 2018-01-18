@@ -4,119 +4,81 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
-open dnlib
-open dnlib.DotNet
-open dnSpy.Contracts.Decompiler
-open dnSpy.Decompiler.ILSpy.Core
-open System.Collections.Generic
 open System.Text.RegularExpressions
+open Mono.Cecil
+open ICSharpCode.Decompiler.CSharp
+open ICSharpCode.Decompiler.CSharp.OutputVisitor
+open ICSharpCode.Decompiler
+open ICSharpCode.Decompiler.TypeSystem
+open ICSharpCode.Decompiler.CSharp.Syntax
+open ICSharpCode.Decompiler.CSharp.Transforms
+open System.Collections.Generic
 
-type Position = Position of line:int * column:int
+type TextWriterWithLocationFinder(tokenWriter:TextWriterTokenWriter, formattingPolicy, symbol:ISymbol option) =
+    inherit CSharpOutputVisitor(tokenWriter, formattingPolicy)
 
-let private tryGetValue key (dict:IReadOnlyDictionary<_,_>) =
-    match dict.TryGetValue(key) with
-    | true, x -> Some x
-    | false, _ -> None
+    let tokenWriter = tokenWriter
 
-type OutputPositions =
-    OutputPositions of
-        methodsPosition:IReadOnlyDictionary<MethodDef, Position> *
-        fieldsPosition:IReadOnlyDictionary<FieldDef, Position> *
-        propertiesPosition:IReadOnlyDictionary<PropertyDef, Position> *
-        eventsPosition:IReadOnlyDictionary<EventDef, Position> *
-        typesPosition:IReadOnlyDictionary<TypeDef, Position>
+    let mutable matchingLocation = None
 
-type OutputPositions with
-    member this.TryFindMethod def =
-        let (OutputPositions (methodsPosition=methodsPosition)) = this
-        methodsPosition |> tryGetValue def
-
-    member this.TryFindField def =
-        let (OutputPositions (fieldsPosition=fieldsPosition)) = this
-        fieldsPosition |> tryGetValue def
-
-    member this.TryFindProperty def =
-        let (OutputPositions (propertiesPosition=propertiesPosition)) = this
-        propertiesPosition |> tryGetValue def
-
-    member this.TryFindEvent def =
-        let (OutputPositions (eventsPosition=eventsPosition)) = this
-        eventsPosition |> tryGetValue def
-
-    member this.TryFindType def =
-        let (OutputPositions (typesPosition=typesPosition)) = this
-        typesPosition |> tryGetValue def
-
-
-type TextWriterWithPositions(writer: TextWriter) =
-    inherit TextWriterDecompilerOutput(writer)
-
-    let mutable line = 1
-    let mutable lineStartAtPosition = 0
-    let methodsPosition = System.Collections.Generic.Dictionary<MethodDef, Position>()
-    let fieldsPosition = System.Collections.Generic.Dictionary<FieldDef, Position>()
-    let propertiesPosition = System.Collections.Generic.Dictionary<PropertyDef, Position>()
-    let eventsPosition = System.Collections.Generic.Dictionary<EventDef, Position>()
-    let typesPosition = System.Collections.Generic.Dictionary<TypeDef, Position>()
-
-    let storeDefinitionIfNeeded nextPosition (reference:obj) =
-        let position = Position(line, nextPosition - lineStartAtPosition)
-        match reference with
-        | :? MethodDef as def -> methodsPosition.[def] <- position
-        | :? FieldDef as def -> fieldsPosition.[def] <- position
-        | :? PropertyDef as def -> propertiesPosition.[def] <- position
-        | :? EventDef as def -> eventsPosition.[def] <- position
-        | :? TypeDef as def -> typesPosition.[def] <- position
+    let saveMatchingSymbol (node:#AstNode) =
+        let result = node.GetResolveResult()
+        match symbol with
+        | Some s when result.GetSymbol() = s -> 
+            matchingLocation <- Some tokenWriter.Location
         | _ -> ()
 
-    override this.WriteLine() =
-        base.WriteLine()
-        line <- line + 1
-        lineStartAtPosition <- this.Length
+    override this.VisitConstructorDeclaration(declaration:ConstructorDeclaration) =
+        saveMatchingSymbol declaration
+        base.VisitConstructorDeclaration(declaration)
+        
+    override this.VisitMethodDeclaration(declaration:MethodDeclaration) =
+        saveMatchingSymbol declaration
+        base.VisitMethodDeclaration(declaration)
 
-    override this.Write(text:string, reference:obj, flags:DecompilerReferenceFlags, color:obj ) =
-        storeDefinitionIfNeeded this.NextPosition reference
+    override this.VisitPropertyDeclaration(declaration:PropertyDeclaration) =
+        saveMatchingSymbol declaration
+        base.VisitPropertyDeclaration(declaration)
 
-        base.Write(text, reference, flags, color)
+    override this.VisitFieldDeclaration(declaration:FieldDeclaration) =
+        saveMatchingSymbol declaration
+        base.VisitFieldDeclaration(declaration)
 
-    override this.Write(text:string, index, length, reference:obj, flags:DecompilerReferenceFlags, color:obj ) =
-        storeDefinitionIfNeeded this.NextPosition reference
+    override this.VisitEventDeclaration(declaration:EventDeclaration) =
+        saveMatchingSymbol declaration
+        base.VisitEventDeclaration(declaration)
 
-        base.Write(text, index, length, reference, flags, color)
+    override this.VisitTypeDeclaration(declaration:TypeDeclaration) =
+        saveMatchingSymbol declaration
+        base.VisitTypeDeclaration(declaration)
 
-    member __.Positions
-        with get () = OutputPositions (  methodsPosition :> IReadOnlyDictionary<MethodDef, Position>,
-                                         fieldsPosition :> IReadOnlyDictionary<FieldDef, Position>,
-                                         propertiesPosition :> IReadOnlyDictionary<PropertyDef, Position>,
-                                         eventsPosition :> IReadOnlyDictionary<EventDef, Position>,
-                                         typesPosition :> IReadOnlyDictionary<TypeDef, Position> )
+    member __.MatchingLocation with get() = matchingLocation
 
-
-
-
-let decompileType (typeDef:TypeDef) =
+let decompileTypeAndFindLocation (typeSystem:DecompilerTypeSystem) (typeDefinition:ITypeDefinition) (symbol:ISymbol option) =
     let sw = new StringWriter()
-    let output = new TextWriterWithPositions(sw :> TextWriter)
+    let writerVisitor = 
+        TextWriterWithLocationFinder(TextWriterTokenWriter(sw), FormattingOptionsFactory.CreateSharpDevelop(), symbol)
 
-    let csDecompiler =
-        DecompilerFactory.CreateCSharpVBDecompilerSettings()
-        |> DecompilerFactory.CreateCSharpDecompiler
+    let decompiler = 
+        new CSharpDecompiler(typeSystem, new DecompilerSettings())
+        
+    decompiler.AstTransforms.Add(new EscapeInvalidIdentifiers())
+    
+    let syntaxTree = 
+        typeDefinition.FullTypeName
+        |> decompiler.DecompileType
 
-    let decompilationContext = new DecompilationContext();
-    csDecompiler.Decompile(typeDef, output, decompilationContext)
-    sw.GetStringBuilder() |> string, output.Positions
+    syntaxTree.AcceptVisitor(writerVisitor)
+    sw.GetStringBuilder() |> string, writerVisitor.MatchingLocation
 
-let tryResolveType (assemblyPath:string) typeName =
-    let moduleContext = ModuleDef.CreateModuleContext(false)
-    let moduleDef = ModuleDefMD.Load(assemblyPath, moduleContext)
-    moduleDef.GetTypes()
-    |> Seq.tryFind(fun x ->
-        let fullName = FullNameCreator.FullName(x, false)
-        fullName = typeName )
+let loadTypeSystem (assemblyPath:string) =
+    ModuleDefinition.ReadModule(assemblyPath)
+    |> DecompilerTypeSystem
 
-let tryDecompileType (assemblyPath:string) typeName =
-    tryResolveType assemblyPath typeName
-    |> Option.map decompileType
+let resolveType (typeSystem:DecompilerTypeSystem) (typeName:string) =
+    typeName
+    |> FullTypeName
+    |> typeSystem.MainAssembly.GetTypeDefinition
 
 let rec formatExtTypeFullName externalType =
     match externalType with
@@ -125,24 +87,29 @@ let rec formatExtTypeFullName externalType =
         | [] -> ""
         | args ->
             args
-            |> List.map formatExtTypeFullName
+            |> List.map (formatExtTypeFullName >> sprintf "[%s]")
             |> String.concat ","
-            |> sprintf "<%s>"
+            |> sprintf "[%s]"
         |> sprintf "%s%s" name
     | ExternalType.Array inner -> sprintf "%s[]" (formatExtTypeFullName inner)
     | ExternalType.Pointer inner -> sprintf "&%s" (formatExtTypeFullName inner)
     | ExternalType.TypeVar name -> sprintf "%s" name
 
-let areSameTypes ((mParam,paramSym):Parameter*ParamTypeSymbol) =
+let areSameTypes (typeArguments:IList<IType>) ((mParam,paramSym):IParameter*ParamTypeSymbol) =
     let compareToExternalType (extType:ExternalType) =
-        let parameterTypeFullName = mParam.Type.FullName.Trim([| '&'; ' '|])
+        let parameterTypeFullName = 
+            typeArguments
+            |> Seq.fold 
+                (fun (str:string) t -> str.Replace(t.ReflectionName, t.Name) ) 
+                (mParam.Type.ReflectionName.Trim([| '&'; ' '|]))
+
         let extTypeFullName = formatExtTypeFullName extType
         parameterTypeFullName = extTypeFullName
 
     match paramSym with
     | ParamTypeSymbol.Param extType -> compareToExternalType extType
     | ParamTypeSymbol.Byref extType ->
-        mParam.Type.IsByRef && compareToExternalType extType
+        mParam.IsRef && compareToExternalType extType
 
 
 let getDeclaringTypeName = function
@@ -153,13 +120,13 @@ let getDeclaringTypeName = function
     | ExternalSymbol.Event (typeName, _name) -> typeName
     | ExternalSymbol.Property (typeName, _name) -> typeName
 
-let findMethodFromArgs (args:ParamTypeSymbol list) (methods:MethodDef seq) =
+let findMethodFromArgs (args:ParamTypeSymbol list) (methods:IMethod seq) =
     methods
     |> Seq.tryFind (fun m ->
-        let mParams = m.Parameters|> Seq.where (fun mp -> mp.IsNormalMethodParameter) |> Seq.toArray
+        let mParams = m.Parameters
 
-        mParams.Length = args.Length
-        && (Seq.zip mParams args) |> Seq.forall areSameTypes )
+        mParams.Count = args.Length
+        && (Seq.zip mParams args) |> Seq.forall (areSameTypes m.TypeArguments) )
 
 type ExternalContentPosition =
   { File: string
@@ -168,62 +135,70 @@ type ExternalContentPosition =
 
 let toSafeFileNameRegex = 
     System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
-let toSafeFileName str =
+
+let toSafeFileName (typeDef:ITypeDefinition) =
+    let str = sprintf "%s %s.cs" typeDef.FullName typeDef.ParentAssembly.FullAssemblyName
     toSafeFileNameRegex.Replace(str, "_")
 
 let decompile (externalSym:ExternalSymbol) assemblyPath =
-    getDeclaringTypeName externalSym
-    |> tryResolveType assemblyPath
-    |> Option.map (fun typeDef ->
+    try
+        let typeSystem = 
+            loadTypeSystem assemblyPath
 
-        let (contents, positions) = decompileType typeDef
-        let fileName = sprintf "%s.cs" (toSafeFileName typeDef.AssemblyQualifiedName)
+        let typeDef =
+            getDeclaringTypeName externalSym
+            |> resolveType typeSystem
+
+        let symbol =
+            match externalSym with
+            | ExternalSymbol.Type _ -> Some (typeDef :> ISymbol)
+            | ExternalSymbol.Constructor (_typeName, args) ->
+                typeDef.GetConstructors()
+                |> findMethodFromArgs args
+                |> Option.map (fun x -> x :> ISymbol)
+            
+            | ExternalSymbol.Method (_typeName, name, args, genericArity) ->
+                typeDef.GetMethods(filter = Predicate (fun m -> m.Name = name))
+                |> Seq.where (fun m -> m.TypeParameters.Count = genericArity)
+                |> findMethodFromArgs args
+                |> Option.map (fun x -> x :> ISymbol)
+            
+            | ExternalSymbol.Field (_typeName, name) ->
+                typeDef.GetFields(filter = Predicate (fun m -> m.Name = name))
+                |> Seq.tryHead
+                |> Option.map (fun x -> x :> ISymbol)
+            
+            | ExternalSymbol.Event (_typeName, name) ->
+                typeDef.GetEvents(filter = Predicate (fun m -> m.Name = name))
+                |> Seq.tryHead
+                |> Option.map (fun x -> x :> ISymbol)
+            
+            | ExternalSymbol.Property (_typeName, name) ->
+                typeDef.GetProperties(filter = Predicate (fun m -> m.Name = name))
+                |> Seq.tryHead
+                |> Option.map (fun x -> x :> ISymbol)
+        
+    
+        let (contents, location) = 
+            decompileTypeAndFindLocation typeSystem typeDef symbol
+
+        let fileName = typeDef |> toSafeFileName
         let tempFile =
             System.IO.Path.GetTempPath() </> fileName
 
         System.IO.File.WriteAllText(tempFile, contents)
-
-
-        let defPosition =
-            match externalSym with
-            | ExternalSymbol.Type _ -> positions.TryFindType typeDef
-            | ExternalSymbol.Constructor (_typeName, args) ->
-                typeDef.FindConstructors()
-                |> findMethodFromArgs args
-                |> Option.bind (fun def -> positions.TryFindMethod def)
-
-            | ExternalSymbol.Method (_typeName, name, args, genericArity) ->
-                typeDef.FindMethods( UTF8String name)
-                |> Seq.where (fun (m:MethodDef) -> m.GenericParameters.Count = genericArity)
-                |> findMethodFromArgs args
-                |> Option.bind (fun def -> positions.TryFindMethod def)
-
-            | ExternalSymbol.Field (_typeName, name) ->
-                typeDef.FindField(UTF8String name)
-                |> Option.ofObj
-                |> Option.bind (fun def -> positions.TryFindField def)
-
-            | ExternalSymbol.Event (_typeName, name) ->
-                typeDef.FindEvent(UTF8String name)
-                |> Option.ofObj
-                |> Option.bind (fun def -> positions.TryFindEvent def)
-
-            | ExternalSymbol.Property (_typeName, name) ->
-                typeDef.FindProperty(UTF8String name)
-                |> Option.ofObj
-                |> Option.bind (fun def -> positions.TryFindProperty def)
-
-        match defPosition with
-        | Some (Position (line, column)) ->
-            { File = tempFile
-              Column = column
-              Line = line }
+    
+        match location with
+        | Some l ->
+            Some { File = tempFile
+                   Column = l.Column - 1
+                   Line = l.Line }
         | None ->
-            { File = tempFile
-              Column = 0
-              Line = 0 })
-
-
+            Some { File = tempFile
+                   Column = 1
+                   Line = 1 }
+    with
+    | _ -> None
 
 let tryFindExternalDeclaration (checkResults:FSharpCheckFileResults) (assembly, externalSym) =
     checkResults.ProjectContext.GetReferencedAssemblies()

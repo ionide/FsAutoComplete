@@ -25,7 +25,7 @@ p.finddeclaration "Program.fs" "let val5 = ClassLib.ExternalType.SimpleMethod()"
 p.finddeclaration "Program.fs" "let val5 = ClassLib.ExternalType.SimpleMethod()" 12 36
 p.finddeclaration "Program.fs" "let val6 = ClassLib.ExternalType.SimpleMethod(\\\"a\\\", \\\"b\\\")" 14 38
 p.finddeclaration "Program.fs" "let val7 = ClassLib.ExternalType.RefParameter(ref lst)" 18 38
-p.finddeclaration "Program.fs" "let val8 = ClassLib.ExternalType.Generic(System.Collections.Generic.Dictionary<string, string>())" 20 38
+p.finddeclaration "Program.fs" "let val8 = ClassLib.ExternalType.Generic(System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>())" 20 38
 
 p.finddeclaration "Script.fsx" "let val99 = XA.funky 21" 6 17
 p.quit()

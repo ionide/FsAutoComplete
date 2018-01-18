@@ -17,7 +17,7 @@ let mutable lst : System.Collections.Generic.IList<string> = null
 
 let val7 = ClassLib.ExternalType.RefParameter(ref lst)
 
-let val8 = ClassLib.ExternalType.Generic(System.Collections.Generic.Dictionary<string, string>())
+let val8 = ClassLib.ExternalType.Generic(System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>())
 
 [<EntryPoint>]
 let main args =
