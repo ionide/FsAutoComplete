@@ -43,7 +43,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="ClassLib">
-      <HintPath>ClassLib\bin\Debug\ClassLib.dll</HintPath>
+      <HintPath>ClassLib.dll</HintPath>
     </Reference>
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
