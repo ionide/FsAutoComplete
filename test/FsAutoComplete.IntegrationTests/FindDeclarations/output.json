@@ -8,7 +8,7 @@
     ],
     "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/bin/Debug/Test1.exe",
     "References": [
-      "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/ClassLib/bin/Debug/ClassLib.dll",
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/ClassLib.dll",
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
       "<absolute path removed>/System.dll",
