@@ -208,7 +208,7 @@ module Parsing =
     findIdents col lineStr SymbolLookupKind.Fuzzy
 
   let findLongIdentsAndResidue (col, lineStr:string) =
-      let lineStr = lineStr.Substring(0, col)
+      let lineStr = lineStr.Substring(0, Math.Max(0,col))
 
       match Lexer.getSymbol 0 col lineStr SymbolLookupKind.ByLongIdent [||] with
       | Some sym ->
