@@ -72,7 +72,7 @@ let decompileTypeAndFindLocation (typeSystem:DecompilerTypeSystem) (typeDefiniti
     sw.GetStringBuilder() |> string, writerVisitor.MatchingLocation
 
 let loadTypeSystem (assemblyPath:string) =
-    ModuleDefinition.ReadModule(assemblyPath)
+    UniversalAssemblyResolver.LoadMainModule(assemblyPath,false, true)
     |> DecompilerTypeSystem
 
 let resolveType (typeSystem:DecompilerTypeSystem) (typeName:string) =
