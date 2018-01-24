@@ -1,14 +1,13 @@
 framework: net45
 source https://www.nuget.org/api/v2/
-source https://ci.appveyor.com/nuget/ilspy-masterfeed
 
 nuget Argu ~> 3.7
 nuget FSharp.Compiler.Service ~> 17.0
 nuget FSharp.Compiler.Service.ProjectCracker ~> 17.0
 nuget Dotnet.ProjInfo ~> 0.9.0
-nuget ICSharpCode.Decompiler 3.1.0.3472-alpha1
+nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
-nuget Mono.Cecil 0.10.0-beta7
+nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Suave < 2.0
 nuget FSharpLint.Core 0.9.0-beta
@@ -19,7 +18,6 @@ nuget OptimizedPriorityQueue
 group Netcore
   storage: none
   source https://www.nuget.org/api/v2/
-  source https://ci.appveyor.com/nuget/ilspy-masterfeed
 
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
@@ -27,14 +25,14 @@ group Netcore
   nuget FSharp.Compiler.Service ~> 17.0
   nuget Dotnet.ProjInfo ~> 0.9.0
   nuget Sln ~> 0.3.0
-  nuget Mono.Cecil 0.10.0-beta7
+  nuget Mono.Cecil >= 0.10.0-beta7
   nuget Newtonsoft.Json
   nuget Suave
   nuget FSharpLint.Core 0.9.0-beta
   nuget FSharp.Core
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
-  nuget ICSharpCode.Decompiler 3.1.0.3472-alpha1
+  nuget ICSharpCode.Decompiler
 
 group Build
   framework: net45
