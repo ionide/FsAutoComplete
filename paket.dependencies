@@ -14,6 +14,8 @@ nuget FSharp.Core 4.0.0.1 redirects:on
 nuget System.Collections.Immutable < 1.4
 nuget OptimizedPriorityQueue
 nuget OmniSharp.Extensions.LanguageServer
+nuget Microsoft.Extensions.Logging 1.0.2 redirects:on
+github rspeele/TaskBuilder.fs TaskBuilder.fs
 
 group Netcore
   storage: none
@@ -33,6 +35,8 @@ group Netcore
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
   nuget OmniSharp.Extensions.LanguageServer
+  nuget Microsoft.Extensions.Logging.Abstractions 1.0.2
+  nuget TaskBuilder.fs
 
 group Build
   framework: net45
