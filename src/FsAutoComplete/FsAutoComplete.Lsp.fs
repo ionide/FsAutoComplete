@@ -1,5 +1,7 @@
 module FsAutoComplete.Lsp
 
+let dbgf format = Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine(s)) format
+
 module JsonConverters =
     open Newtonsoft.Json
     open Newtonsoft.Json.Serialization
@@ -275,11 +277,11 @@ module JsonRpc =
         Params: JToken option
     }
     with
-        static member Create(id: int, method: string, rpcParams: JToken) =
-            { Version = "2.0"; Id = Some id; Method = method; Params = Some rpcParams }
+        static member Create(id: int, method': string, rpcParams: JToken) =
+            { Version = "2.0"; Id = Some id; Method = method'; Params = Some rpcParams }
 
-        static member Create(method: string, rpcParams: JToken) =
-            { Version = "2.0"; Id = None; Method = method; Params = Some rpcParams }
+        static member Create(method': string, rpcParams: JToken) =
+            { Version = "2.0"; Id = None; Method = method'; Params = Some rpcParams }
 
     type Error = {
         Code: int
@@ -317,19 +319,25 @@ module LanguageServerProtocol =
         let private readLine (stream: Stream) =
             let buffer = Array.zeroCreate<byte> headerBufferSize
             let mutable count = stream.Read(buffer, 0, 2)
-            // TODO: exit when count = 0, end of stream
+            if count < 2 then
+                None
+            else
+                // TODO: Check that we don't over-fill headerBufferSize
+                while count < headerBufferSize && (buffer.[count-2] <> cr && buffer.[count-1] <> lf) do
+                     let additionalBytesRead  = stream.Read(buffer, count, 1)
+                     // TODO: exit when additionalBytesRead = 0, end of stream
+                     count <- count + additionalBytesRead
 
-            // TODO: Check that we don't over-fill headerBufferSize
-            while (buffer.[count-2] <> cr && buffer.[count-1] <> lf) do
-                 let additionalBytesRead  = stream.Read(buffer, count, 1)
-                 // TODO: exit when additionalBytesRead = 0, end of stream
-                 count <- count + additionalBytesRead
-
-            headerEncoding.GetString(buffer, 0, count - 2)
+                if count >= headerBufferSize then
+                    None
+                else
+                    Some (headerEncoding.GetString(buffer, 0, count - 2))
 
         let rec private readHeaders (stream: Stream) =
             let line = readLine stream
-            if line <> "" then
+            match line with
+            | Some "" ->  []
+            | Some line ->
                 let separatorPos = line.IndexOf(": ")
                 if separatorPos = -1 then
                     failwithf "Separator not found in header '%s'" line
@@ -337,14 +345,14 @@ module LanguageServerProtocol =
                     let name = line.Substring(0, separatorPos)
                     let value = line.Substring(separatorPos + 2)
                     (name,value) :: (readHeaders stream)
-            else
-                []
+            | None ->
+                raise (EndOfStreamException())
 
         let read (stream: Stream) =
-            eprintfn "Starting READ"
+            dbgf "Starting READ"
             let headers = readHeaders stream
 
-            eprintfn "Headers = %A" headers
+            dbgf "Headers = %A" headers
             let contentLength =
                 headers
                 |> List.tryFind(fun (name, _) -> name = "Content-Length")
@@ -352,15 +360,15 @@ module LanguageServerProtocol =
                 |> Option.bind (fun s -> match Int32.TryParse(s) with | true, x -> Some x | _ -> None)
 
             if contentLength = None then
-                eprintfn "Content-Length header not found"
+                dbgf "Content-Length header not found"
                 failwithf "Content-Length header not found"
             else
-                eprintfn "Reading %d bytes of data" contentLength.Value
+                dbgf "Reading %d bytes of data" contentLength.Value
                 let result = Array.zeroCreate<byte> contentLength.Value
                 let readCount = stream.Read(result, 0, contentLength.Value)
-                eprintfn "Read %d bytes" readCount
+                dbgf "Read %d bytes" readCount
                 let str = Encoding.UTF8.GetString(result, 0, readCount)
-                eprintfn "Read '%s'" str
+                dbgf "Read '%s'" str
                 headers, str
 
         let write (stream: Stream) (data: string) =
@@ -418,8 +426,11 @@ module LanguageServerProtocol =
 
         type Request =
             | Initialize of InitializeParams
+            | Shutdown
+            | Exit
 
         type Response =
+            | NoResponse
             | InvalidRequest of string
             | UnhandledRequest
             | InitializeResponse of InitializeResult
@@ -455,55 +466,84 @@ module FSharpLanguageServer =
         |> Option.map (fun paramsToken ->
             paramsToken.ToObject<'a>(jsonSerializer) |> f)
 
+    let private parseEmpty (req: Request) (_params: JToken option) =
+        Some req
+
     let requestParser = function
     | "initialize" -> parseRequest<InitializeParams> Initialize
+    | "shutdown" -> parseEmpty Shutdown
+    | "exit" -> parseEmpty Exit
     | _ -> fun _ -> None
 
     let start (input: Stream) (output: Stream) (handler: Request -> Response) =
-        eprintfn "Starting up !"
+        dbgf "Starting up !"
         let jsonSettings = JsonConverters.getSettings()
         jsonSettings.ContractResolver <- CamelCasePropertyNamesContractResolver()
+
         while true do
             try
                 let _, rpcRequestString = LowLevel.read input
-                eprintfn "Received: %s" rpcRequestString
+                dbgf "Received: %s" rpcRequestString
 
                 let rpcRequest = JsonConvert.DeserializeObject<JsonRpc.Request>(rpcRequestString, jsonSettings)
                 let request = requestParser rpcRequest.Method rpcRequest.Params
-                eprintfn "Parsed as: %A" request
+                dbgf "Parsed as: %A" request
 
                 match request with
                 | Some request ->
                     let response = handler request
-                    eprintfn "Will answer: %A" response
+                    dbgf "Will answer: %A" response
                     let rpcResponse =
                         match response with
+                        | NoResponse -> None
                         | InvalidRequest message ->
-                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32602, message))
+                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32602, message)) |> Some
                         | UnhandledRequest ->
-                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32601, "Method not found"))
+                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
                         | response ->
                             let serializedResponse = JToken.FromObject(response.AsJsonSerializable, jsonSerializer)
-                            JsonRpc.Response.Success(rpcRequest.Id.Value, serializedResponse)
-                    let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
-                    eprintfn "Response: %s" rpcResponseString
-                    LowLevel.write output rpcResponseString
+                            JsonRpc.Response.Success(rpcRequest.Id.Value, serializedResponse) |> Some
+                    match rpcResponse with
+                    | Some rpcResponse ->
+                        let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
+                        dbgf "Response: %s" rpcResponseString
+                        LowLevel.write output rpcResponseString
+                    | _ -> ()
                 | _ ->
-                    eprintfn "Unable to parse request: %s" rpcRequestString
+                    dbgf "Unable to parse request: %s" rpcRequestString
             with
-            | ex -> eprintfn "%O" ex
+            | :? EndOfStreamException ->
+                dbgf "Client closed the input stream"
+                System.Environment.Exit(0)
+            | ex -> dbgf "%O" ex
         ()
 
 open Argu
 open System
 open LanguageServerProtocol.Server
+open System.Diagnostics
 
-let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
+let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
+    Trace.Listeners.Clear()
+
+    System.IO.File.WriteAllText(@"C:\temp\fsac.txt", "")
+    let twtl = new TextWriterTraceListener(@"C:\temp\fsac.txt")
+    twtl.Name <- "TextLogger";
+    twtl.TraceOutputOptions <- TraceOptions.ThreadId ||| TraceOptions.DateTime;
+
+    Trace.Listeners.Add(twtl);
+    Trace.AutoFlush <- true;
+
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
     let requestHandler = function
     | Initialize _p -> InitializeResponse InitializeResult.Default
+    | Shutdown ->
+        NoResponse
+    | Exit ->
+        Environment.Exit(0)
+        NoResponse
     | _ -> UnhandledRequest
 
     FSharpLanguageServer.start input output requestHandler

@@ -4,6 +4,4 @@ Argu
 Newtonsoft.Json
 Suave
 FSharp.Core
-OmniSharp.Extensions.LanguageServer
-Microsoft.Extensions.Logging
 File: TaskBuilder.fs

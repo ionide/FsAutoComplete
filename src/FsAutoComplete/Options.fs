@@ -102,7 +102,8 @@ module Options =
       | WaitForDebugger
       | HostPID _
       | Mode _
-      | Port _ ->
+      | Port _
+      | Language_Server ->
           ()
 
     args.GetAllResults()
