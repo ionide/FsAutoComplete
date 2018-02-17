@@ -1,4 +1,4 @@
-RESTRICTION: == net45
+RESTRICTION: == net46
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.7)

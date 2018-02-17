@@ -1,4 +1,4 @@
-framework: net45
+framework: net46
 source https://www.nuget.org/api/v2/
 
 nuget Argu ~> 3.7
