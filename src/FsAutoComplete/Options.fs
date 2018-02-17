@@ -66,6 +66,7 @@ module Options =
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | Mode of TransportMode
       | Port of tcp_port:int
+      | [<CustomCommandLine("--lsp")>] Language_Server
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -79,6 +80,7 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | Port _ -> "the listening port."
                   | Mode _ -> "the transport type."
+                  | Language_Server -> "start in Language Server Protocol mode"
 
   let apply (args: ParseResults<CLIArguments>) =
 

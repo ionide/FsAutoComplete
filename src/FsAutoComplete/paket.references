@@ -4,3 +4,4 @@ Argu
 Newtonsoft.Json
 Suave
 FSharp.Core
+OmniSharp.Extensions.LanguageServer

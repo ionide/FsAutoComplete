@@ -8,7 +8,6 @@ open Argu
 
 [<EntryPoint>]
 let entry args =
-
     try
       System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
 
@@ -34,7 +33,10 @@ let entry args =
           printfn "%s" Options.commandText
           exit 0 )
 
-      Options.apply results
+      results.TryGetResult(<@ Options.CLIArguments.Language_Server @>)
+      |> Option.iter (fun _ ->
+          FsAutoComplete.Lsp.start commands results
+          exit 0 )
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
