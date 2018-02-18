@@ -1,6 +1,47 @@
 module LanguageServerProtocol
 
+
 let private dbgf format = Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine(s)) format
+
+[<AutoOpen>]
+module LspJsonConverters =
+    open Microsoft.FSharp.Reflection
+    open Newtonsoft.Json
+    open System
+    open System.Collections.Generic
+
+    let inline memorise f =
+        let d = Dictionary<_, _>()
+        fun key ->
+            match d.TryGetValue(key) with
+            | (true, v) -> v
+            | (false, _) ->
+                let result = f key
+                d.[key] <- result
+                result
+
+    type ErasedUnionAttribute() =
+        inherit Attribute()
+
+    type ErasedUnionConverter() =
+        inherit JsonConverter()
+
+        let canConvert =
+            memorise (fun t ->
+                if not (FSharpType.IsUnion t) then
+                    false
+                else
+                    t.BaseType.GetCustomAttributes(typedefof<ErasedUnionAttribute>, false).Length > 0)
+
+        override __.CanConvert(t) = canConvert t
+
+        override __.WriteJson(writer, value, serializer) =
+            let _, fields = FSharpValue.GetUnionFields(value, value.GetType())
+            let unionField = fields.[0]
+            serializer.Serialize(writer, unionField)
+
+        override __.ReadJson(reader, t, existingValue, serializer) =
+            failwith "Not implemented"
 
 module Protocol =
     open Newtonsoft.Json
@@ -592,13 +633,29 @@ module Protocol =
         Value: string
     }
 
+    type MarkedStringData = {
+        Language: string
+        Value: string
+    }
+
+    [<ErasedUnion>]
+    type MarkedString =
+    | JustString of string
+    | StringAndLanguage of MarkedStringData
+
     let plaintext s = { Kind = MarkupKind.PlainText; Value = s }
     let markdown s = { Kind = MarkupKind.Markdown; Value = s }
+
+    [<ErasedUnion>]
+    type HoverContent =
+    | MarkedString of MarkedString
+    | MarkedStrings of MarkedString []
+    | MarkupContent of MarkupContent
 
     /// The result of a hover request.
     type Hover = {
         /// The hover's content
-        Contents: MarkupContent
+        Contents: HoverContent
 
         /// An optional range is a range inside a text document
         /// that is used to visualize a hover, e.g. by changing the background color.
@@ -682,6 +739,8 @@ module LowLevel =
     open System
     open System.IO
     open System.Text
+    open System.Threading.Tasks
+    open FSharp.Control.Tasks.ContextInsensitive
 
     let headerBufferSize = 300
     let minimumHeaderLength = 21
@@ -691,7 +750,8 @@ module LowLevel =
 
     let private readLine (stream: Stream) =
         let buffer = Array.zeroCreate<byte> headerBufferSize
-        let mutable count = stream.Read(buffer, 0, 2)
+        let readCount = stream.Read(buffer, 0, 2)
+        let mutable count = readCount
         if count < 2 then
             None
         else
@@ -709,23 +769,22 @@ module LowLevel =
     let rec private readHeaders (stream: Stream) =
         let line = readLine stream
         match line with
-        | Some "" ->  []
+        | Some "" -> []
         | Some line ->
             let separatorPos = line.IndexOf(": ")
             if separatorPos = -1 then
-                failwithf "Separator not found in header '%s'" line
+                raise (Exception(sprintf "Separator not found in header '%s'" line))
             else
                 let name = line.Substring(0, separatorPos)
                 let value = line.Substring(separatorPos + 2)
-                (name,value) :: (readHeaders stream)
+                let otherHeaders = readHeaders stream
+                (name,value) :: otherHeaders
         | None ->
             raise (EndOfStreamException())
 
     let read (stream: Stream) =
-        dbgf "Starting READ"
         let headers = readHeaders stream
 
-        dbgf "Headers = %A" headers
         let contentLength =
             headers
             |> List.tryFind(fun (name, _) -> name = "Content-Length")
@@ -733,15 +792,11 @@ module LowLevel =
             |> Option.bind (fun s -> match Int32.TryParse(s) with | true, x -> Some x | _ -> None)
 
         if contentLength = None then
-            dbgf "Content-Length header not found"
             failwithf "Content-Length header not found"
         else
-            dbgf "Reading %d bytes of data" contentLength.Value
             let result = Array.zeroCreate<byte> contentLength.Value
             let readCount = stream.Read(result, 0, contentLength.Value)
-            dbgf "Read %d bytes" readCount
             let str = Encoding.UTF8.GetString(result, 0, readCount)
-            dbgf "Read '%s'" str
             headers, str
 
     let write (stream: Stream) (data: string) =
@@ -750,7 +805,8 @@ module LowLevel =
         asciiWriter.Write("Content-Length: ")
         asciiWriter.WriteLine(string bytes.Length)
         asciiWriter.WriteLine("Content-Type: utf-8")
-        asciiWriter.WriteLine();
+        asciiWriter.WriteLine()
+        asciiWriter.Flush()
         asciiWriter.Dispose()
 
         stream.Write(bytes, 0, bytes.Length)
@@ -804,6 +860,7 @@ module Server =
     let jsonSettings =
         let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
         result.Converters.Add(FsAutoComplete.OptionConverter())
+        result.Converters.Add(ErasedUnionConverter())
         result.ContractResolver <- CamelCasePropertyNamesContractResolver()
         result
 
@@ -828,7 +885,7 @@ module Server =
 
     type RequestSender = ServerRequest -> unit
 
-    let start (input: Stream) (output: Stream) (handler: RequestSender -> ClientRequest -> ServerResponse) =
+    let start (input: Stream) (output: Stream) (handleRequest: RequestSender -> ClientRequest -> Async<ServerResponse>) =
         dbgf "Starting up !"
 
         let sender = MailboxProcessor<string>.Start(fun inbox ->
@@ -840,11 +897,34 @@ module Server =
             }
             loop ())
 
-        let requestHandler = handler (fun r ->
-            let serializedResponse = JToken.FromObject(r.AsJsonSerializable, jsonSerializer)
-            let req = JsonRpc.Request.Create(r.Method, serializedResponse)
+        /// When the server wants to send a request/notification to the client
+        let sendServerRequest (serverRequest: ServerRequest) =
+            let serializedResponse = JToken.FromObject(serverRequest.AsJsonSerializable, jsonSerializer)
+            let req = JsonRpc.Request.Create(serverRequest.Method, serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
-            sender.Post(reqString))
+            sender.Post(reqString)
+
+        let handleRequest = handleRequest sendServerRequest
+
+        let handleClientRequest (requestId: int option) (clientRequest: ClientRequest) = async {
+            let! response = handleRequest clientRequest
+            dbgf "Will answer: %A" response
+            let rpcResponse =
+                match response with
+                | NoResponse -> None
+                | InvalidRequest message ->
+                    JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32602, message)) |> Some
+                | UnhandledRequest ->
+                    JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
+                | response ->
+                    let serializedResponse = JToken.FromObject(response.AsJsonSerializable, jsonSerializer)
+                    JsonRpc.Response.Success(requestId.Value, serializedResponse) |> Some
+            match rpcResponse with
+            | Some rpcResponse ->
+                let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
+                sender.Post(rpcResponseString)
+            | _ -> ()
+        }
 
         while true do
             try
@@ -857,23 +937,7 @@ module Server =
 
                 match request with
                 | Some request ->
-                    let response = requestHandler request
-                    dbgf "Will answer: %A" response
-                    let rpcResponse =
-                        match response with
-                        | NoResponse -> None
-                        | InvalidRequest message ->
-                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32602, message)) |> Some
-                        | UnhandledRequest ->
-                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
-                        | response ->
-                            let serializedResponse = JToken.FromObject(response.AsJsonSerializable, jsonSerializer)
-                            JsonRpc.Response.Success(rpcRequest.Id.Value, serializedResponse) |> Some
-                    match rpcResponse with
-                    | Some rpcResponse ->
-                        let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
-                        sender.Post(rpcResponseString)
-                    | _ -> ()
+                    handleClientRequest rpcRequest.Id request |> Async.StartAsTask |> ignore
                 | _ ->
                     dbgf "Unable to parse request: %s" rpcRequestString
             with
@@ -881,4 +945,3 @@ module Server =
                 dbgf "Client closed the input stream"
                 System.Environment.Exit(0)
             | ex -> dbgf "%O" ex
-        ()

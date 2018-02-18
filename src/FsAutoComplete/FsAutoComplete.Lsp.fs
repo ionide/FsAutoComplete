@@ -22,7 +22,7 @@ let traceConfig () =
     Trace.Listeners.Add(twtl) |> ignore
     Trace.AutoFlush <- true
 
-let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos = { Line = pos.Line + 1; Col = pos.Character }
+let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos = { Line = pos.Line + 1; Col = pos.Character + 1 }
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     traceConfig()
@@ -45,8 +45,8 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
         let elementsLines = elements |> List.map tooltipElementToMarkdown
         System.String.Join("\n", elementsLines)
 
-    let f (sendToClient: RequestSender) =
-        function
+    let handleClientRequest (sendToClient: RequestSender) (request: ClientRequest) = async {
+        match request with
         | Initialize p ->
             sendToClient (ShowMessage { Type = MessageType.Info; Message = "Hello world" })
 
@@ -55,12 +55,12 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
             | Some rootPath ->
                 let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
                 dbgf "Loading projects: %A" projects
-                let response = commands.WorkspaceLoad ignore (List.ofSeq projects) |> Async.RunSynchronously
+                let! response = commands.WorkspaceLoad ignore (List.ofSeq projects)
                 dbgf "WorkspaceLoad result = %A" response
                 ()
             ()
 
-            InitializeResponse
+            return InitializeResponse
                 { InitializeResult.Default with
                     Capabilities =
                         { ServerCapabilities.Default with
@@ -79,7 +79,7 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                     let! resp = commands.Parse filePath (doc.Text.Split('\n')) doc.Version
                     dbgf "Parse finished with %A" resp
                 } |> Async.StartAsTask |> ignore
-            NoResponse
+            return NoResponse
         | Hover posParams ->
             let uri = Uri(posParams.TextDocument.Uri)
             let pos = protocolPosToPos posParams.Position
@@ -90,7 +90,7 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
             match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(filePath, pos) with
             | ResultOrString.Error s ->
                 dbgf "TypeCheck error: %s" s
-                HoverResponse None
+                return HoverResponse None
             | ResultOrString.Ok (options, lines, lineStr) ->
                 // TODO: Should sometimes pass options.Source in here to force a reparse
                 //       for completions e.g. `(some typed expr).$`
@@ -98,21 +98,24 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                 match tyResOpt with
                 | None ->
                     dbgf "No recent typecheck"
-                    HoverResponse None
+                    return HoverResponse None
                 | Some tyRes ->
-                    match tyRes.TryGetToolTipEnhanced pos lineStr |> Async.RunSynchronously with
+                    let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
+                    match tipResult with
                     | Result.Error err ->
                         dbgf "Tooltip error: %s" err
-                        HoverResponse None
+                        return HoverResponse None
                     | Result.Ok (tipText, y, z) ->
+                        dbgf "Tootlip: %A" tipText
                         let s = tooltipToMarkdown tipText
                         dbgf "Tootlip: %A" s
-                        HoverResponse (Some { Contents = markdown s; Range = None})
+                        return HoverResponse (Some { Contents = MarkedString (StringAndLanguage { Language = "fsharp"; Value = s }); Range = None })
         | Exit ->
             Environment.Exit(0)
-            NoResponse
-        | x when x.IsNotification -> NoResponse
-        | _ -> UnhandledRequest
+            return NoResponse
+        | x when x.IsNotification -> return NoResponse
+        | _ -> return UnhandledRequest
+    }
 
-    LanguageServerProtocol.Server.start input output f
+    LanguageServerProtocol.Server.start input output handleClientRequest
     ()
