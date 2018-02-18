@@ -987,10 +987,32 @@ module LanguageServerProtocol =
             Range: Range option
         }
 
+        /// An item to transfer a text document from the client to the server.
+        type TextDocumentItem = {
+            /// The text document's URI.
+            Uri: DocumentUri
+
+            /// The text document's language identifier.
+            LanguageId: string
+
+            /// The version number of this document (it will increase after each
+            /// change, including undo/redo).
+            Version: int
+
+            /// The content of the opened text document.
+            Text: string
+        }
+
+        type DidOpenTextDocumentParams = {
+            /// The document that was opened.
+            TextDocument: TextDocumentItem
+        }
+
         [<AutoOpen>]
         module Messages =
             type ClientRequest =
                 | Initialize of InitializeParams
+                | DidOpenTextDocument of DidOpenTextDocumentParams
                 | Hover of TextDocumentPositionParams
                 | Initialized
                 | Shutdown
@@ -999,7 +1021,9 @@ module LanguageServerProtocol =
                 member this.IsNotification
                     with get() =
                         match this with
-                        | Initialize _ -> false
+                        | Initialize _
+                        | Hover _ -> false
+                        | DidOpenTextDocument _
                         | Initialized
                         | Shutdown
                         | Exit -> true
@@ -1043,7 +1067,6 @@ module LanguageServerProtocol =
 
         open Protocol
 
-
         let jsonSettings =
             let result = JsonConverters.getSettings()
             result.ContractResolver <- CamelCasePropertyNamesContractResolver()
@@ -1063,6 +1086,7 @@ module LanguageServerProtocol =
         | "initialize" -> parseRequest<InitializeParams> Initialize
         | "initialized" -> parseEmpty Initialized
         | "textDocument/hover" -> parseRequest<TextDocumentPositionParams> Hover
+        | "textDocument/didOpen" -> parseRequest<DidOpenTextDocumentParams> DidOpenTextDocument
         | "shutdown" -> parseEmpty Shutdown
         | "exit" -> parseEmpty Exit
         | _ -> fun _ -> None
@@ -1132,6 +1156,8 @@ open System.IO
 open LanguageServerProtocol.Server
 open LanguageServerProtocol.Protocol
 open System.Diagnostics
+open FsAutoComplete.Utils
+open Microsoft.FSharp.Compiler.SourceCodeServices
 
 let traceConfig () =
     Trace.Listeners.Clear()
@@ -1143,6 +1169,8 @@ let traceConfig () =
 
     Trace.Listeners.Add(twtl) |> ignore
     Trace.AutoFlush <- true
+
+let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos = { Line = pos.Line + 1; Col = pos.Character }
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     traceConfig()
@@ -1176,6 +1204,21 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
             return! Response.response HttpCode.HTTP_200 res' r
         }
 *)
+    let tooltipElementToMarkdown (tip: FSharpToolTipElement<string>) =
+        match tip with
+        | FSharpToolTipElement.None -> ""
+        | FSharpToolTipElement.Group lst ->
+            match lst with
+            | data :: _ ->
+                data.MainDescription
+            | [] -> ""
+        | FSharpToolTipElement.CompositionError err -> "ERR " + err
+
+    let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
+        let (FSharpToolTipText elements) = tip
+        let elementsLines = elements |> List.map tooltipElementToMarkdown
+        System.String.Join("\n", elementsLines)
+
     let f (sendToClient: RequestSender) =
         function
         | Initialize p ->
@@ -1185,7 +1228,9 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
             | None -> ()
             | Some rootPath ->
                 let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
-                let _ = commands.WorkspaceLoad ignore (List.ofSeq projects) |> Async.RunSynchronously
+                dbgf "Loading projects: %A" projects
+                let response = commands.WorkspaceLoad ignore (List.ofSeq projects) |> Async.RunSynchronously
+                dbgf "WorkspaceLoad result = %A" response
                 ()
             ()
 
@@ -1199,11 +1244,44 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                                          OpenClose = Some true
                                          Change = Some TextDocumentSyncKind.Incremental
                                          Save = Some { IncludeText = Some true } } } }
+        | DidOpenTextDocument documentParams ->
+            let doc = documentParams.TextDocument
+            let filePath = Uri(doc.Uri).LocalPath
+            async
+                {
+                    dbgf "Parse started"
+                    let! resp = commands.Parse filePath (doc.Text.Split('\n')) doc.Version
+                    dbgf "Parse finished with %A" resp
+                } |> Async.StartAsTask |> ignore
+            NoResponse
         | Hover posParams ->
-            let uri = posParams.TextDocument.Uri
-            let pos = posParams.Position
-            dbgf "Hovering %s at %A" uri pos
-            HoverResponse (Some { Contents = markdown "Hello **world** !"; Range = None})
+            let uri = Uri(posParams.TextDocument.Uri)
+            let pos = protocolPosToPos posParams.Position
+            let filePath = uri.LocalPath
+
+            dbgf "Hovering %s at %A" filePath pos
+
+            match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(filePath, pos) with
+            | ResultOrString.Error s ->
+                dbgf "TypeCheck error: %s" s
+                HoverResponse None
+            | ResultOrString.Ok (options, lines, lineStr) ->
+                // TODO: Should sometimes pass options.Source in here to force a reparse
+                //       for completions e.g. `(some typed expr).$`
+                let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(filePath, options)
+                match tyResOpt with
+                | None ->
+                    dbgf "No recent typecheck"
+                    HoverResponse None
+                | Some tyRes ->
+                    match tyRes.TryGetToolTipEnhanced pos lineStr |> Async.RunSynchronously with
+                    | Result.Error err ->
+                        dbgf "Tooltip error: %s" err
+                        HoverResponse None
+                    | Result.Ok (tipText, y, z) ->
+                        let s = tooltipToMarkdown tipText
+                        dbgf "Tootlip: %A" s
+                        HoverResponse (Some { Contents = markdown s; Range = None})
         | Exit ->
             Environment.Exit(0)
             NoResponse
