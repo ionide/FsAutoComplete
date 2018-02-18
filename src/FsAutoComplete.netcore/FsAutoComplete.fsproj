@@ -18,6 +18,7 @@
     <Compile Include="..\FsAutoComplete\FsAutoComplete.Stdio.fs" />
     <Compile Include="..\FsAutoComplete\FsAutoComplete.HttpApiContract.fs" />
     <Compile Include="..\FsAutoComplete\FsAutoComplete.Suave.fs" />
+    <Compile Include="..\FsAutoComplete\LanguageServerProtocol.fs" />
     <Compile Include="..\FsAutoComplete\FsAutoComplete.Lsp.fs" />
     <Compile Include="..\FsAutoComplete\Program.fs" />
   </ItemGroup>
