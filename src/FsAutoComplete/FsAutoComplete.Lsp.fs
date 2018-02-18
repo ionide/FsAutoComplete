@@ -903,10 +903,95 @@ module LanguageServerProtocol =
                 Message: string
             }
 
+        /// Position in a text document expressed as zero-based line and zero-based character offset.
+        /// A position is between two characters like an ‘insert’ cursor in a editor.
+        type Position = {
+            /// Line position in a document (zero-based).
+            Line: int
+
+            /// Character offset on a line in a document (zero-based). Assuming that the line is
+            /// represented as a string, the `character` value represents the gap between the
+            /// `character` and `character + 1`.
+            ///
+            /// If the character value is greater than the line length it defaults back to the
+            /// line length.
+            Character: int
+        }
+
+        /// A range in a text document expressed as (zero-based) start and end positions.
+        /// A range is comparable to a selection in an editor. Therefore the end position is exclusive.
+        /// If you want to specify a range that contains a line including the line ending character(s)
+        /// then use an end position denoting the start of the next line. For example:
+        type Range = {
+            /// The range's start position.
+            Start: Position
+
+            /// The range's end position.
+            End: Position
+        }
+
+        type DocumentUri = string
+
+        type TextDocumentIdentifier = {
+            /// The text document's URI.
+            Uri: DocumentUri
+        }
+
+        type TextDocumentPositionParams = {
+            /// The text document.
+            TextDocument: TextDocumentIdentifier
+            /// The position inside the text document.
+            Position: Position
+        }
+
+        /// A `MarkupContent` literal represents a string value which content is interpreted base on its
+        /// kind flag. Currently the protocol supports `plaintext` and `markdown` as markup kinds.
+        ///
+        /// If the kind is `markdown` then the value can contain fenced code blocks like in GitHub issues.
+        /// See https://help.github.com/articles/creating-and-highlighting-code-blocks/#syntax-highlighting
+        ///
+        /// Here is an example how such a string can be constructed using JavaScript / TypeScript:
+        /// ```ts
+        /// let markdown: MarkdownContent = {
+        ///     kind: MarkupKind.Markdown,
+        ///     value: [
+        ///         '# Header',
+        ///         'Some text',
+        ///         '```typescript',
+        ///         'someCode();',
+        ///         '```'
+        ///     ].join('\n')
+        /// };
+        /// ```
+        ///
+        /// *Please Note* that clients might sanitize the return markdown. A client could decide to
+        /// remove HTML from the markdown to avoid script execution.
+        type MarkupContent = {
+            /// The type of the Markup
+            Kind: string
+
+            // The content itself
+            Value: string
+        }
+
+        let plaintext s = { Kind = MarkupKind.PlainText; Value = s }
+        let markdown s = { Kind = MarkupKind.Markdown; Value = s }
+
+        /// The result of a hover request.
+        type Hover = {
+            /// The hover's content
+            Contents: MarkupContent
+
+            /// An optional range is a range inside a text document
+            /// that is used to visualize a hover, e.g. by changing the background color.
+            Range: Range option
+        }
+
         [<AutoOpen>]
         module Messages =
             type ClientRequest =
                 | Initialize of InitializeParams
+                | Hover of TextDocumentPositionParams
                 | Initialized
                 | Shutdown
                 | Exit
@@ -939,11 +1024,13 @@ module LanguageServerProtocol =
                 | InvalidRequest of string
                 | UnhandledRequest
                 | InitializeResponse of InitializeResult
+                | HoverResponse of Hover option
             with
                 member this.AsJsonSerializable
                     with get() =
                         match this with
                         | InitializeResponse x -> box x
+                        | HoverResponse x -> box x
                         | NoResponse
                         | InvalidRequest _
                         | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
@@ -975,6 +1062,7 @@ module LanguageServerProtocol =
         let requestParser = function
         | "initialize" -> parseRequest<InitializeParams> Initialize
         | "initialized" -> parseEmpty Initialized
+        | "textDocument/hover" -> parseRequest<TextDocumentPositionParams> Hover
         | "shutdown" -> parseEmpty Shutdown
         | "exit" -> parseEmpty Exit
         | _ -> fun _ -> None
@@ -989,6 +1077,7 @@ module LanguageServerProtocol =
             let sender = MailboxProcessor<string>.Start(fun inbox ->
                 let rec loop () = async {
                     let! str = inbox.Receive()
+                    dbgf "Writing to client: %s" str
                     LowLevel.write output str
                     return! loop ()
                 }
@@ -1039,6 +1128,7 @@ module LanguageServerProtocol =
 
 open Argu
 open System
+open System.IO
 open LanguageServerProtocol.Server
 open LanguageServerProtocol.Protocol
 open System.Diagnostics
@@ -1059,20 +1149,61 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
 
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
-
+(*
+    let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) ->
+        async {
+            let data = r.request |> getResourceFromReq<PositionRequest>
+            let file = Path.GetFullPath data.FileName
+            let! res =
+                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, { Line = data.Line; Col = data.Column }) with
+                | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
+                | ResultOrString.Ok (options, lines, lineStr) ->
+                  // TODO: Should sometimes pass options.Source in here to force a reparse
+                  //       for completions e.g. `(some typed expr).$`
+                  try
+                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                    match tyResOpt with
+                    | None -> async.Return [CommandResponse.info writeJson "Cached typecheck results not yet available"]
+                    | Some tyRes ->
+                        async {
+                            let! r = Async.Catch (f data tyRes lineStr lines)
+                            match r with
+                            | Choice1Of2 r -> return r
+                            | Choice2Of2 e -> return [CommandResponse.error writeJson e.Message]
+                        }
+                  with e -> async.Return [CommandResponse.error writeJson e.Message]
+            let res' = res |> List.toArray |> Json.toJson
+            return! Response.response HttpCode.HTTP_200 res' r
+        }
+*)
     let f (sendToClient: RequestSender) =
         function
-        | Initialize _p ->
+        | Initialize p ->
             sendToClient (ShowMessage { Type = MessageType.Info; Message = "Hello world" })
+
+            match p.RootPath with
+            | None -> ()
+            | Some rootPath ->
+                let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
+                let _ = commands.WorkspaceLoad ignore (List.ofSeq projects) |> Async.RunSynchronously
+                ()
+            ()
+
             InitializeResponse
                 { InitializeResult.Default with
                     Capabilities =
                         { ServerCapabilities.Default with
+                            HoverProvider = Some true
                             TextDocumentSync =
                                 Some { TextDocumentSyncOptions.Default with
                                          OpenClose = Some true
                                          Change = Some TextDocumentSyncKind.Incremental
                                          Save = Some { IncludeText = Some true } } } }
+        | Hover posParams ->
+            let uri = posParams.TextDocument.Uri
+            let pos = posParams.Position
+            dbgf "Hovering %s at %A" uri pos
+            HoverResponse (Some { Contents = markdown "Hello **world** !"; Range = None})
         | Exit ->
             Environment.Exit(0)
             NoResponse
