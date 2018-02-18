@@ -401,10 +401,107 @@ module LanguageServerProtocol =
                 | Messages = 1
                 | Verbose = 2
 
+            /// Capabilities for methods that support dynamic registration.
+            type DynamicCapabilities = {
+                /// Method supports dynamic registration.
+                DynamicRegistration: bool option
+            }
+
+            /// Capabilities specific to `WorkspaceEdit`s
+            type WorkspaceEditCapabilities = {
+                /// The client supports versioned document changes in `WorkspaceEdit`s
+                DocumentChanges: bool option
+            }
+
+            type SymbolKind =
+            | File = 1
+            | Module = 2
+            | Namespace = 3
+            | Package = 4
+            | Class = 5
+            | Method = 6
+            | Property = 7
+            | Field = 8
+            | Constructor = 9
+            | Enum = 10
+            | Interface = 11
+            | Function = 12
+            | Variable = 13
+            | Constant = 14
+            | String = 15
+            | Number = 16
+            | Boolean = 17
+            | Array = 18
+            | Object = 19
+            | Key = 20
+            | Null = 21
+            | EnumMember = 22
+            | Struct = 23
+            | Event = 24
+            | Operator = 25
+            | TypeParameter = 26
+
+            /// Specific capabilities for the `SymbolKind` in the `workspace/symbol` request.
+            type SymbolKindCapabilities = {
+                /// The symbol kind values the client supports. When this
+                /// property exists the client also guarantees that it will
+                /// handle values outside its set gracefully and falls back
+                /// to a default value when unknown.
+                ///
+                /// If this property is not present the client only supports
+                /// the symbol kinds from `File` to `Array` as defined in
+                /// the initial version of the protocol.
+                ValueSet: SymbolKind[] option
+            }
+            with
+                static member DefaultValueSet =
+                    [
+                        SymbolKind.File
+                        SymbolKind.Module
+                        SymbolKind.Namespace
+                        SymbolKind.Package
+                        SymbolKind.Class
+                        SymbolKind.Method
+                        SymbolKind.Property
+                        SymbolKind.Field
+                        SymbolKind.Constructor
+                        SymbolKind.Enum
+                        SymbolKind.Interface
+                        SymbolKind.Function
+                        SymbolKind.Variable
+                        SymbolKind.Constant
+                        SymbolKind.String
+                        SymbolKind.Number
+                        SymbolKind.Boolean
+                        SymbolKind.Array
+                    ]
+
+            /// Capabilities specific to the `workspace/symbol` request.
+            type SymbolCapabilities = {
+                /// Symbol request supports dynamic registration.
+                DynamicRegistration: bool option
+
+                /// Specific capabilities for the `SymbolKind` in the `workspace/symbol` request.
+                SymbolKind: SymbolKindCapabilities option
+            }
+
+            /// Workspace specific client capabilities.
             type WorkspaceClientCapabilities = {
                 /// The client supports applying batch edits to the workspace by supporting
                 /// the request 'workspace/applyEdit'
-                ApplyEdit: bool
+                ApplyEdit: bool option
+
+                /// Capabilities specific to `WorkspaceEdit`s
+                WorkspaceEdit: WorkspaceEditCapabilities option
+
+                /// Capabilities specific to the `workspace/didChangeConfiguration` notification.
+                DidChangeConfiguration: DynamicCapabilities option
+
+                /// Capabilities specific to the `workspace/didChangeWatchedFiles` notification.
+                DidChangeWatchedFiles: DynamicCapabilities option
+
+                /// Capabilities specific to the `workspace/symbol` request.
+                Symbol: SymbolCapabilities option
             }
 
             type SynchronizationCapabilities = {
@@ -431,19 +528,188 @@ module LanguageServerProtocol =
                 /// Whether hover synchronization supports dynamic registration.
                 DynamicRegistration: bool option
 
-                // Client supports the follow content formats for the content
-                // property. The order describes the preferred format of the client.
+                /// Client supports the follow content formats for the content
+                /// property. The order describes the preferred format of the client.
+                /// See `MarkupKind` for common values
                 ContentFormat: string[] option
             }
 
+            type CompletionItemCapabilities = {
+                /// Client supports snippets as insert text.
+                ///
+                /// A snippet can define tab stops and placeholders with `$1`, `$2`
+                /// and `${3:foo}`. `$0` defines the final tab stop, it defaults to
+                /// the end of the snippet. Placeholders with equal identifiers are linked,
+                /// that is typing in one will update others too.
+                SnippetSupport: bool option
+
+                /// Client supports commit characters on a completion item.
+                CommitCharactersSupport: bool option
+
+                /// Client supports the follow content formats for the documentation
+                /// property. The order describes the preferred format of the client.
+                /// See `MarkupKind` for common values
+                DocumentationFormat: string[] option
+            }
+
+            type CompletionItemKind =
+            | Text = 1
+            | Method = 2
+            | Function = 3
+            | Constructor = 4
+            | Field = 5
+            | Variable = 6
+            | Class = 7
+            | Interface = 8
+            | Module = 9
+            | Property = 10
+            | Unit = 11
+            | Value = 12
+            | Enum = 13
+            | Keyword = 14
+            | Snippet = 15
+            | Color = 16
+            | File = 17
+            | Reference = 18
+            | Folder = 19
+            | EnumMember = 20
+            | Constant = 21
+            | Struct = 22
+            | Event = 23
+            | Operator = 24
+            | TypeParameter = 25
+
+            type CompletionItemKindCapabilities = {
+                /// The completion item kind values the client supports. When this
+                /// property exists the client also guarantees that it will
+                /// handle values outside its set gracefully and falls back
+                /// to a default value when unknown.
+                ///
+                /// If this property is not present the client only supports
+                /// the completion items kinds from `Text` to `Reference` as defined in
+                /// the initial version of the protocol.
+                ValueSet: CompletionItemKind[] option
+            }
+            with
+                static member DefaultValueSet =
+                    [
+                        CompletionItemKind.Text
+                        CompletionItemKind.Method
+                        CompletionItemKind.Function
+                        CompletionItemKind.Constructor
+                        CompletionItemKind.Field
+                        CompletionItemKind.Variable
+                        CompletionItemKind.Class
+                        CompletionItemKind.Interface
+                        CompletionItemKind.Module
+                        CompletionItemKind.Property
+                        CompletionItemKind.Unit
+                        CompletionItemKind.Value
+                        CompletionItemKind.Enum
+                        CompletionItemKind.Keyword
+                        CompletionItemKind.Snippet
+                        CompletionItemKind.Color
+                        CompletionItemKind.File
+                        CompletionItemKind.Reference
+                    ]
+
+            /// Capabilities specific to the `textDocument/completion`
+            type CompletionCapabilities = {
+                /// Whether completion supports dynamic registration.
+                DynamicRegistration: bool option
+
+                /// The client supports the following `CompletionItem` specific
+                /// capabilities.
+                CompletionItem: CompletionItemCapabilities option
+
+                CompletionItemKind: CompletionItemKindCapabilities option
+
+                /// The client supports to send additional context information for a
+                /// `textDocument/completion` request.
+                ContextSupport: bool option
+            }
+
+            type SignatureInformationCapabilities = {
+                /// Client supports the follow content formats for the documentation
+                /// property. The order describes the preferred format of the client.
+                /// See `MarkupKind` for common values
+                DocumentationFormat: string[] option
+            }
+
+            type SignatureHelpCapabilities = {
+                /// Whether signature help supports dynamic registration.
+                DynamicRegistration: bool option
+
+                /// The client supports the following `SignatureInformation`
+                /// specific properties.
+                SignatureInformation: SignatureInformationCapabilities option
+            }
+
+            /// apabilities specific to the `textDocument/documentSymbol`
+            type DocumentSymbolCapabilities = {
+                /// Whether document symbol supports dynamic registration.
+                DynamicRegistration: bool option
+
+                /// Specific capabilities for the `SymbolKind`.
+                SymbolKind: SymbolKindCapabilities option
+            }
+
+            /// Text document specific client capabilities.
             type TextDocumentClientCapabilities = {
                 Synchronization: SynchronizationCapabilities option
+
+                /// Capabilities specific to the `textDocument/completion`
+                Completion: CompletionCapabilities option
+
+                /// Capabilities specific to the `textDocument/hover`
+                Hover: HoverCapabilities option
+
+                /// Capabilities specific to the `textDocument/signatureHelp`
+                SignatureHelp: SignatureHelpCapabilities option
+
+                /// Capabilities specific to the `textDocument/references`
+                References: DynamicCapabilities option
+
+                /// Whether document highlight supports dynamic registration.
+                DocumentHighlight: DynamicCapabilities option
+
+                /// apabilities specific to the `textDocument/documentSymbol`
+                DocumentSymbol: DocumentSymbolCapabilities option
+
+                /// Capabilities specific to the `textDocument/formatting`
+                Formatting: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/rangeFormatting`
+                RangeFormatting: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/onTypeFormatting`
+                OnTypeFormatting: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/definition`
+                Definition: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/codeAction`
+                CodeAction: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/codeLens`
+                CodeLens: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/documentLink`
+                DocumentLink: DynamicCapabilities option
+
+                /// Capabilities specific to the `textDocument/rename`
+                Rename: DynamicCapabilities option
             }
 
             type ClientCapabilities = {
-                workspace: WorkspaceClientCapabilities option
-                textDocument: TextDocumentClientCapabilities option
-                experimental: JToken option
+                /// Workspace specific client capabilities.
+                Workspace: WorkspaceClientCapabilities option
+
+                /// Text document specific client capabilities.
+                TextDocument: TextDocumentClientCapabilities option
+
+                /// Experimental client capabilities.
+                Experimental: JToken option
             }
 
             type InitializeParams = {
@@ -456,15 +722,158 @@ module LanguageServerProtocol =
                 trace: string option
             }
 
+            /// Completion options.
+            type CompletionOptions = {
+                /// The server provides support to resolve additional information for a completion item.
+                ResolveProvider: bool option
+
+                /// The characters that trigger completion automatically.
+                TriggerCharacters: string[] option
+            }
+
+            /// Signature help options.
+            type SignatureHelpOptions = {
+                /// The characters that trigger signature help automatically.
+                TriggerCharacters: string[] option
+            }
+
+            /// Code Lens options.
+            type CodeLensOptions = {
+                /// Code lens has a resolve provider as well.
+                ResolveProvider: bool option;
+            }
+
+            /// Format document on type options
+            type DocumentOnTypeFormattingOptions = {
+                /// A character on which formatting should be triggered, like `}`.
+                FirstTriggerCharacter: string
+
+                /// More trigger characters.
+                MoreTriggerCharacter: string[] option
+            }
+
+            /// Document link options
+            type DocumentLinkOptions = {
+                /// Document links have a resolve provider as well.
+                ResolveProvider: bool option
+            }
+
+            /// Execute command options.
+            type ExecuteCommandOptions = {
+                /// The commands to be executed on the server
+                commands: string[] option
+            }
+
+            /// Save options.
+            type SaveOptions = {
+                /// The client is supposed to include the content on save.
+                IncludeText: bool option
+            }
+
+            type TextDocumentSyncOptions = {
+                /// Open and close notifications are sent to the server.
+                OpenClose: bool option
+
+                /// Change notifications are sent to the server. See TextDocumentSyncKind.None, TextDocumentSyncKind.Full
+                /// and TextDocumentSyncKindIncremental.
+                Change: TextDocumentSyncKind option
+
+                /// Will save notifications are sent to the server.
+                WillSave: bool option
+
+                /// Will save wait until requests are sent to the server.
+                WillSaveWaitUntil: bool option
+
+                /// Save notifications are sent to the server.
+                Save: SaveOptions option
+            }
+            with
+                static member Default =
+                    {
+                        OpenClose = None
+                        Change = None
+                        WillSave = None
+                        WillSaveWaitUntil = None
+                        Save = None
+                    }
+
             type ServerCapabilities = {
+                /// Defines how text documents are synced. Is either a detailed structure defining each notification or
+                /// for backwards compatibility the TextDocumentSyncKind number.
+                TextDocumentSync: TextDocumentSyncOptions option
+
+                /// The server provides hover support.
                 HoverProvider: bool option
-                TextDocumentSync: TextDocumentSyncKind option
+
+                /// The server provides completion support.
+                CompletionProvider: CompletionOptions option
+
+                /// The server provides signature help support.
+                SignatureHelpProvider: SignatureHelpOptions option
+
+                /// The server provides goto definition support.
+                DefinitionProvider: bool option
+
+                /// The server provides find references support.
+                ReferencesProvider: bool option
+
+                /// The server provides document highlight support.
+                DocumentHighlightProvider: bool option
+
+                /// The server provides document symbol support.
+                DocumentSymbolProvider: bool option
+
+                /// The server provides workspace symbol support.
+                WorkspaceSymbolProvider: bool option
+
+                /// The server provides code actions.
+                CodeActionProvider: bool option
+
+                /// The server provides code lens.
+                CodeLensProvider: CodeLensOptions option
+
+                /// The server provides document formatting.
+                DocumentFormattingProvider: bool option
+
+                /// The server provides document range formatting.
+                DocumentRangeFormattingProvider: bool option
+
+                /// The server provides document formatting on typing.
+                DocumentOnTypeFormattingProvider: DocumentOnTypeFormattingOptions option
+
+                /// The server provides rename support.
+                RenameProvider: bool option
+
+                /// The server provides document link support.
+                DocumentLinkProvider: DocumentLinkOptions option
+
+                /// The server provides execute command support.
+                ExecuteCommandProvider: ExecuteCommandOptions option
+
+                /// Experimental server capabilities.
+                Experimental: JToken option
             }
             with
                 static member Default =
                     {
                         HoverProvider = None
                         TextDocumentSync = None
+                        CompletionProvider = None
+                        SignatureHelpProvider = None
+                        DefinitionProvider = None
+                        ReferencesProvider = None
+                        DocumentHighlightProvider = None
+                        DocumentSymbolProvider = None
+                        WorkspaceSymbolProvider = None
+                        CodeActionProvider = None
+                        CodeLensProvider = None
+                        DocumentFormattingProvider = None
+                        DocumentRangeFormattingProvider = None
+                        DocumentOnTypeFormattingProvider = None
+                        RenameProvider = None
+                        DocumentLinkProvider = None
+                        ExecuteCommandProvider = None
+                        Experimental = None
                     }
 
             type InitializeResult = {
@@ -654,8 +1063,16 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     let f (sendToClient: RequestSender) =
         function
         | Initialize _p ->
-            sendToClient (LogMessage { Type = MessageType.Info; Message = "Hello world" })
-            InitializeResponse InitializeResult.Default
+            sendToClient (ShowMessage { Type = MessageType.Info; Message = "Hello world" })
+            InitializeResponse
+                { InitializeResult.Default with
+                    Capabilities =
+                        { ServerCapabilities.Default with
+                            TextDocumentSync =
+                                Some { TextDocumentSyncOptions.Default with
+                                         OpenClose = Some true
+                                         Change = Some TextDocumentSyncKind.Incremental
+                                         Save = Some { IncludeText = Some true } } } }
         | Exit ->
             Environment.Exit(0)
             NoResponse
