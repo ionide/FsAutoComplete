@@ -382,9 +382,11 @@ module LanguageServerProtocol =
 
             stream.Write(bytes, 0, bytes.Length)
 
-    module Server =
+
+    module Protocol =
         open System.IO
         open Newtonsoft.Json
+        open Newtonsoft.Json.Linq
         open Newtonsoft.Json.Converters
 
         type TextDocumentSyncKind =
@@ -392,159 +394,273 @@ module LanguageServerProtocol =
             | Full = 1
             | Incremental = 2
 
-        type TraceSetting =
-            | Off = 0
-            | Messages = 1
-            | Verbose = 2
+        [<AutoOpen>]
+        module General =
+            type TraceSetting =
+                | Off = 0
+                | Messages = 1
+                | Verbose = 2
 
-        type InitializeParams = {
-            ProcessId: int option
-            RootPath: string option
-            [<JsonConverter(typeof<StringEnumConverter>, true)>]
-            trace: string option
-        }
+            type WorkspaceClientCapabilities = {
+                /// The client supports applying batch edits to the workspace by supporting
+                /// the request 'workspace/applyEdit'
+                ApplyEdit: bool
+            }
 
-        type ServerCapabilities = {
-            HoverProvider: bool option
-            TextDocumentSync: TextDocumentSyncKind option
-        }
-        with
-            static member Default =
-                {
-                    HoverProvider = None
-                    TextDocumentSync = None
-                }
+            type SynchronizationCapabilities = {
+                /// Whether text document synchronization supports dynamic registration.
+                DynamicRegistration: bool option
 
-        type InitializeResult = {
-            Capabilities: ServerCapabilities
-        }
-        with
-            static member Default =
-                {
-                    Capabilities = ServerCapabilities.Default
-                }
+                /// The client supports sending will save notifications.
+                WillSave: bool option
 
-        type Request =
-            | Initialize of InitializeParams
-            | Shutdown
-            | Exit
+                /// The client supports sending a will save request and
+                /// waits for a response providing text edits which will
+                /// be applied to the document before it is saved.
+                WillSaveWaitUntil: bool option
 
-        type Response =
-            | NoResponse
-            | InvalidRequest of string
-            | UnhandledRequest
-            | InitializeResponse of InitializeResult
+                /// The client supports did save notifications.
+                DidSave: bool option
+            }
 
-        with
-            member this.AsJsonSerializable
-                with get() =
-                    match this with
-                    | InitializeResponse x -> box x
-                    | InvalidRequest _
-                    | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
-(*
-        let start (input: Stream) (output: Stream)
-            ()*)
+            module MarkupKind =
+                let PlainText = "plaintext"
+                let Markdown = "markdown"
 
-module FSharpLanguageServer =
-    open System.IO
-    open Newtonsoft.Json
-    open Newtonsoft.Json.Linq
-    open Newtonsoft.Json.Serialization
-    open LanguageServerProtocol
-    open LanguageServerProtocol.Server
+            type HoverCapabilities = {
+                /// Whether hover synchronization supports dynamic registration.
+                DynamicRegistration: bool option
 
-    let jsonSettings =
-        let result = JsonConverters.getSettings()
-        result.ContractResolver <- CamelCasePropertyNamesContractResolver()
-        result
+                // Client supports the follow content formats for the content
+                // property. The order describes the preferred format of the client.
+                ContentFormat: string[] option
+            }
 
-    let jsonSerializer = JsonSerializer.Create(jsonSettings)
+            type TextDocumentClientCapabilities = {
+                Synchronization: SynchronizationCapabilities option
+            }
 
-    let private parseRequest<'a> (f: 'a -> Request) (paramsToken: JToken option) =
-        paramsToken
-        |> Option.map (fun paramsToken ->
-            paramsToken.ToObject<'a>(jsonSerializer) |> f)
+            type ClientCapabilities = {
+                workspace: WorkspaceClientCapabilities option
+                textDocument: TextDocumentClientCapabilities option
+                experimental: JToken option
+            }
 
-    let private parseEmpty (req: Request) (_params: JToken option) =
-        Some req
+            type InitializeParams = {
+                ProcessId: int option
+                RootPath: string option
+                RootUri: string option
+                InitializationOptions: JToken option
+                Capabilities: ClientCapabilities option
+                [<JsonConverter(typeof<StringEnumConverter>, true)>]
+                trace: string option
+            }
 
-    let requestParser = function
-    | "initialize" -> parseRequest<InitializeParams> Initialize
-    | "shutdown" -> parseEmpty Shutdown
-    | "exit" -> parseEmpty Exit
-    | _ -> fun _ -> None
-
-    let start (input: Stream) (output: Stream) (handler: Request -> Response) =
-        dbgf "Starting up !"
-        let jsonSettings = JsonConverters.getSettings()
-        jsonSettings.ContractResolver <- CamelCasePropertyNamesContractResolver()
-
-        while true do
-            try
-                let _, rpcRequestString = LowLevel.read input
-                dbgf "Received: %s" rpcRequestString
-
-                let rpcRequest = JsonConvert.DeserializeObject<JsonRpc.Request>(rpcRequestString, jsonSettings)
-                let request = requestParser rpcRequest.Method rpcRequest.Params
-                dbgf "Parsed as: %A" request
-
-                match request with
-                | Some request ->
-                    let response = handler request
-                    dbgf "Will answer: %A" response
-                    let rpcResponse =
-                        match response with
-                        | NoResponse -> None
-                        | InvalidRequest message ->
-                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32602, message)) |> Some
-                        | UnhandledRequest ->
-                            JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
-                        | response ->
-                            let serializedResponse = JToken.FromObject(response.AsJsonSerializable, jsonSerializer)
-                            JsonRpc.Response.Success(rpcRequest.Id.Value, serializedResponse) |> Some
-                    match rpcResponse with
-                    | Some rpcResponse ->
-                        let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
-                        dbgf "Response: %s" rpcResponseString
-                        LowLevel.write output rpcResponseString
-                    | _ -> ()
-                | _ ->
-                    dbgf "Unable to parse request: %s" rpcRequestString
+            type ServerCapabilities = {
+                HoverProvider: bool option
+                TextDocumentSync: TextDocumentSyncKind option
+            }
             with
-            | :? EndOfStreamException ->
-                dbgf "Client closed the input stream"
-                System.Environment.Exit(0)
-            | ex -> dbgf "%O" ex
-        ()
+                static member Default =
+                    {
+                        HoverProvider = None
+                        TextDocumentSync = None
+                    }
+
+            type InitializeResult = {
+                Capabilities: ServerCapabilities
+            }
+            with
+                static member Default =
+                    {
+                        Capabilities = ServerCapabilities.Default
+                    }
+
+        [<AutoOpen>]
+        module Window =
+            type MessageType =
+            | Error = 1
+            | Warning = 2
+            | Info = 3
+            | Log = 4
+
+            type LogMessageParams = {
+                Type: MessageType
+                Message: string
+            }
+
+            type ShowMessageParams = {
+                Type: MessageType
+                Message: string
+            }
+
+        [<AutoOpen>]
+        module Messages =
+            type ClientRequest =
+                | Initialize of InitializeParams
+                | Initialized
+                | Shutdown
+                | Exit
+            with
+                member this.IsNotification
+                    with get() =
+                        match this with
+                        | Initialize _ -> false
+                        | Initialized
+                        | Shutdown
+                        | Exit -> true
+
+            type ServerRequest =
+                | LogMessage of LogMessageParams
+                | ShowMessage of ShowMessageParams
+            with
+                member this.AsJsonSerializable
+                    with get() =
+                        match this with
+                        | LogMessage x -> box x
+                        | ShowMessage x -> box x
+                member this.Method
+                    with get() =
+                        match this with
+                        | LogMessage _ -> "window/showMessage"
+                        | ShowMessage _ -> "window/showMessage"
+
+            type ServerResponse =
+                | NoResponse
+                | InvalidRequest of string
+                | UnhandledRequest
+                | InitializeResponse of InitializeResult
+            with
+                member this.AsJsonSerializable
+                    with get() =
+                        match this with
+                        | InitializeResponse x -> box x
+                        | NoResponse
+                        | InvalidRequest _
+                        | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
+
+    module Server =
+        open System.IO
+        open Newtonsoft.Json
+        open Newtonsoft.Json.Linq
+        open Newtonsoft.Json.Serialization
+
+        open Protocol
+
+
+        let jsonSettings =
+            let result = JsonConverters.getSettings()
+            result.ContractResolver <- CamelCasePropertyNamesContractResolver()
+            result
+
+        let jsonSerializer = JsonSerializer.Create(jsonSettings)
+
+        let private parseRequest<'a> (f: 'a -> ClientRequest) (paramsToken: JToken option) =
+            paramsToken
+            |> Option.map (fun paramsToken ->
+                paramsToken.ToObject<'a>(jsonSerializer) |> f)
+
+        let private parseEmpty (req: ClientRequest) (_params: JToken option) =
+            Some req
+
+        let requestParser = function
+        | "initialize" -> parseRequest<InitializeParams> Initialize
+        | "initialized" -> parseEmpty Initialized
+        | "shutdown" -> parseEmpty Shutdown
+        | "exit" -> parseEmpty Exit
+        | _ -> fun _ -> None
+
+        type RequestSender = ServerRequest -> unit
+
+        let start (input: Stream) (output: Stream) (handler: RequestSender -> ClientRequest -> ServerResponse) =
+            dbgf "Starting up !"
+            let jsonSettings = JsonConverters.getSettings()
+            jsonSettings.ContractResolver <- CamelCasePropertyNamesContractResolver()
+
+            let sender = MailboxProcessor<string>.Start(fun inbox ->
+                let rec loop () = async {
+                    let! str = inbox.Receive()
+                    LowLevel.write output str
+                    return! loop ()
+                }
+                loop ())
+
+            let requestHandler = handler (fun r ->
+                let serializedResponse = JToken.FromObject(r.AsJsonSerializable, jsonSerializer)
+                let req = JsonRpc.Request.Create(r.Method, serializedResponse)
+                let reqString = JsonConvert.SerializeObject(req, jsonSettings)
+                sender.Post(reqString))
+
+            while true do
+                try
+                    let _, rpcRequestString = LowLevel.read input
+                    dbgf "Received: %s" rpcRequestString
+
+                    let rpcRequest = JsonConvert.DeserializeObject<JsonRpc.Request>(rpcRequestString, jsonSettings)
+                    let request = requestParser rpcRequest.Method rpcRequest.Params
+                    dbgf "Parsed as: %A" request
+
+                    match request with
+                    | Some request ->
+                        let response = requestHandler request
+                        dbgf "Will answer: %A" response
+                        let rpcResponse =
+                            match response with
+                            | NoResponse -> None
+                            | InvalidRequest message ->
+                                JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32602, message)) |> Some
+                            | UnhandledRequest ->
+                                JsonRpc.Response.Failure(rpcRequest.Id, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
+                            | response ->
+                                let serializedResponse = JToken.FromObject(response.AsJsonSerializable, jsonSerializer)
+                                JsonRpc.Response.Success(rpcRequest.Id.Value, serializedResponse) |> Some
+                        match rpcResponse with
+                        | Some rpcResponse ->
+                            let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
+                            sender.Post(rpcResponseString)
+                        | _ -> ()
+                    | _ ->
+                        dbgf "Unable to parse request: %s" rpcRequestString
+                with
+                | :? EndOfStreamException ->
+                    dbgf "Client closed the input stream"
+                    System.Environment.Exit(0)
+                | ex -> dbgf "%O" ex
+            ()
 
 open Argu
 open System
 open LanguageServerProtocol.Server
+open LanguageServerProtocol.Protocol
 open System.Diagnostics
 
-let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
+let traceConfig () =
     Trace.Listeners.Clear()
 
     System.IO.File.WriteAllText(@"C:\temp\fsac.txt", "")
     let twtl = new TextWriterTraceListener(@"C:\temp\fsac.txt")
-    twtl.Name <- "TextLogger";
-    twtl.TraceOutputOptions <- TraceOptions.ThreadId ||| TraceOptions.DateTime;
+    twtl.Name <- "TextLogger"
+    twtl.TraceOutputOptions <- TraceOptions.ThreadId ||| TraceOptions.DateTime
 
-    Trace.Listeners.Add(twtl);
-    Trace.AutoFlush <- true;
+    Trace.Listeners.Add(twtl) |> ignore
+    Trace.AutoFlush <- true
+
+let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
+    traceConfig()
 
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
-    let requestHandler = function
-    | Initialize _p -> InitializeResponse InitializeResult.Default
-    | Shutdown ->
-        NoResponse
-    | Exit ->
-        Environment.Exit(0)
-        NoResponse
-    | _ -> UnhandledRequest
+    let f (sendToClient: RequestSender) =
+        function
+        | Initialize _p ->
+            sendToClient (LogMessage { Type = MessageType.Info; Message = "Hello world" })
+            InitializeResponse InitializeResult.Default
+        | Exit ->
+            Environment.Exit(0)
+            NoResponse
+        | x when x.IsNotification -> NoResponse
+        | _ -> UnhandledRequest
 
-    FSharpLanguageServer.start input output requestHandler
+    LanguageServerProtocol.Server.start input output f
     ()
