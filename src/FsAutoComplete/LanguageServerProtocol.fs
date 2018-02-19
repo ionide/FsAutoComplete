@@ -867,7 +867,7 @@ module Protocol =
 
         /// The kind of this completion item. Based of the kind
         /// an icon is chosen by the editor.
-        Kind: int option
+        Kind: CompletionItemKind option
 
         /// A human-readable string with additional information
         /// about this item, like type or symbol information.
@@ -927,6 +927,23 @@ module Protocol =
         /// a completion and a completion resolve request.
         Data: JToken option
     }
+    with
+        static member Create(label:string) =
+            {
+                Label = label
+                Kind = None
+                Detail = None
+                Documentation = None
+                SortText = None
+                FilterText = None
+                InsertText = None
+                InsertTextFormat = None
+                TextEdit = None
+                AdditionalTextEdits = None
+                CommitCharacters = None
+                Command = None
+                Data = None
+            }
 
     type CompletionList = {
         /// This list it not complete. Further typing should result in recomputing

@@ -22,7 +22,36 @@ let traceConfig () =
     Trace.Listeners.Add(twtl) |> ignore
     Trace.AutoFlush <- true
 
-let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos = { Line = pos.Line + 1; Col = pos.Character + 1 }
+let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos =
+    { Line = pos.Line + 1; Col = pos.Character + 1 }
+
+type FSharpCompletionItemKind = Microsoft.FSharp.Compiler.SourceCodeServices.CompletionItemKind
+type CompletionItemKind = LanguageServerProtocol.Protocol.General.CompletionItemKind
+
+let glyphToCompletionKind code =
+    match code with
+    | FSharpGlyph.Class -> Some CompletionItemKind.Class
+    | FSharpGlyph.Constant -> Some CompletionItemKind.Constant
+    | FSharpGlyph.Delegate -> Some CompletionItemKind.Function
+    | FSharpGlyph.Enum -> Some CompletionItemKind.Enum
+    | FSharpGlyph.EnumMember -> Some CompletionItemKind.EnumMember
+    | FSharpGlyph.Event -> Some CompletionItemKind.Event
+    | FSharpGlyph.Exception -> Some CompletionItemKind.Class
+    | FSharpGlyph.Field -> Some CompletionItemKind.Field
+    | FSharpGlyph.Interface -> Some CompletionItemKind.Interface
+    | FSharpGlyph.Method -> Some CompletionItemKind.Method
+    | FSharpGlyph.OverridenMethod-> Some CompletionItemKind.Method
+    | FSharpGlyph.Module -> Some CompletionItemKind.Module
+    | FSharpGlyph.NameSpace -> Some CompletionItemKind.Module
+    | FSharpGlyph.Property -> Some CompletionItemKind.Property
+    | FSharpGlyph.Struct -> Some CompletionItemKind.Struct
+    | FSharpGlyph.Typedef -> Some CompletionItemKind.Class
+    | FSharpGlyph.Type -> Some CompletionItemKind.Class
+    | FSharpGlyph.Union -> Some CompletionItemKind.Class
+    | FSharpGlyph.Variable -> Some CompletionItemKind.Variable
+    | FSharpGlyph.ExtensionMethod -> Some CompletionItemKind.Method
+    | FSharpGlyph.Error
+    | _ -> None
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     traceConfig()
@@ -69,7 +98,15 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                                 Some { TextDocumentSyncOptions.Default with
                                          OpenClose = Some true
                                          Change = Some TextDocumentSyncKind.Full
-                                         Save = Some { IncludeText = Some true } } } }
+                                         Save = Some { IncludeText = Some true }
+                                     }
+                            CompletionProvider =
+                                Some {
+                                    ResolveProvider = Some false
+                                    TriggerCharacters = Some ([| "."; "'"; "," |])
+                                }
+                        }
+                }
         | DidOpenTextDocument documentParams ->
             let doc = documentParams.TextDocument
             let filePath = Uri(doc.Uri).LocalPath
@@ -96,7 +133,45 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                 ()
             return NoResponse
         | Completion completionParams ->
-            return NoResponse
+            // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
+            let noCompletion = CompletionResponse (Some { IsIncomplete = true; Items = [||] })
+            let doc = completionParams.TextDocument
+            let file = Uri(doc.Uri).LocalPath
+            match commands.TryGetFileCheckerOptionsWithLines file with
+            | ResultOrString.Error s ->
+                dbgf "Can't get filecheck options with lines: %s" s
+                return noCompletion
+            | ResultOrString.Ok (options, lines) ->
+                let pos = protocolPosToPos completionParams.Position
+                let line = pos.Line
+                let col = pos.Col
+                let lineStr = lines.[line]
+                let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
+                if not ok then
+                    dbgf "Out of range"
+                    return noCompletion
+                else
+                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                    match tyResOpt with
+                    | None ->
+                        dbgf "Cached typecheck results not yet available"
+                        return noCompletion
+                    | Some tyRes ->
+                        let getAllSymbols () = tyRes.GetAllEntities()
+                        let! res = tyRes.TryGetCompletions pos lineStr (Some "StartsWith") getAllSymbols
+                        match res with
+                        | Some (decls, _residue) ->
+                            let items =
+                                decls
+                                |> Array.map (fun d ->
+                                    { CompletionItem.Create(d.Name) with
+                                        Kind = glyphToCompletionKind d.Glyph
+                                    }
+                                )
+                            let x = { IsIncomplete = false; Items = items}
+                            return CompletionResponse (Some x)
+                        | None ->
+                            return noCompletion
         | Hover posParams ->
             let uri = Uri(posParams.TextDocument.Uri)
             let pos = protocolPosToPos posParams.Position
