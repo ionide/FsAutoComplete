@@ -40,13 +40,14 @@ module LspJsonConverters =
             let unionField = fields.[0]
             serializer.Serialize(writer, unionField)
 
-        override __.ReadJson(reader, t, existingValue, serializer) =
+        override __.ReadJson(_reader, _t, _existingValue, _serializer) =
             failwith "Not implemented"
 
 module Protocol =
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Converters
+    open System
 
     type TextDocumentSyncKind =
         | None = 0
@@ -591,10 +592,31 @@ module Protocol =
 
     type DocumentUri = string
 
-    type TextDocumentIdentifier = {
-        /// The text document's URI.
-        Uri: DocumentUri
-    }
+    type ITextDocumentIdentifier =
+        abstract member Uri : DocumentUri with get
+
+    type TextDocumentIdentifier =
+        {
+            /// The text document's URI.
+            Uri: DocumentUri
+        }
+        interface ITextDocumentIdentifier with
+            member this.Uri with get() = this.Uri
+
+    type VersionedTextDocumentIdentifier =
+        {
+            /// The text document's URI.
+            Uri: DocumentUri
+
+            /// The version number of this document. If a versioned text document identifier
+            /// is sent from the server to the client and the file is not open in the editor
+            /// (the server has not received an open notification before) the server can send
+            /// `null` to indicate that the version is known and the content on disk is the
+            /// truth (as speced with document content ownership)
+            Version: int option;
+        }
+        interface ITextDocumentIdentifier with
+            member this.Uri with get() = this.Uri
 
     type TextDocumentPositionParams = {
         /// The text document.
@@ -683,11 +705,79 @@ module Protocol =
         TextDocument: TextDocumentItem
     }
 
+    /// An event describing a change to a text document. If range and rangeLength are omitted
+    /// the new text is considered to be the full content of the document.
+    type TextDocumentContentChangeEvent = {
+        /// The range of the document that changed.
+        Range: Range option
+
+        /// The length of the range that got replaced.
+        RangeLength: int option
+
+        /// The new text of the range/document.
+        Text: string
+    }
+
+    type DidChangeTextDocumentParams = {
+        /// The document that did change. The version number points
+        /// to the version after all provided content changes have
+        /// been applied.
+        TextDocument: VersionedTextDocumentIdentifier;
+
+        /// The actual content changes. The content changes describe single state changes
+        /// to the document. So if there are two content changes c1 and c2 for a document
+        /// in state S10 then c1 move the document to S11 and c2 to S12.
+        ContentChanges: TextDocumentContentChangeEvent[];
+    }
+
+    type FileChangeType =
+    | Created = 1
+    | Changed = 2
+    | Deleted = 3
+
+    /// An event describing a file change.
+    type FileEvent ={
+        /// The file's URI.
+        Uri: DocumentUri
+
+        /// The change type.
+        Type: FileChangeType
+    }
+
+    type DidChangeWatchedFilesParams = {
+        /// The actual file events.
+        Changes: FileEvent[]
+    }
+
+    [<Flags>]
+    type WatchKind =
+    | Create = 1
+    | Change = 2
+    | Delete = 4
+
+    type FileSystemWatcher = {
+        /// The  glob pattern to watch
+        GlobPattern: string
+
+        /// The kind of events of interest. If omitted it defaults
+        /// to WatchKind.Create | WatchKind.Change | WatchKind.Delete
+        /// which is 7.
+        Kind: WatchKind option
+    }
+
+    /// Describe options to be used when registered for text document change events.
+    type DidChangeWatchedFilesRegistrationOptions = {
+        /// The watchers to register.
+        Watchers: FileSystemWatcher[]
+    }
+
     [<AutoOpen>]
     module Messages =
         type ClientRequest =
             | Initialize of InitializeParams
             | DidOpenTextDocument of DidOpenTextDocumentParams
+            | DidChangeTextDocument of DidChangeTextDocumentParams
+            | DidChangeWatchedFiles of DidChangeWatchedFilesParams
             | Hover of TextDocumentPositionParams
             | Initialized
             | Shutdown
@@ -698,7 +788,9 @@ module Protocol =
                     match this with
                     | Initialize _
                     | Hover _ -> false
+                    | DidChangeTextDocument _
                     | DidOpenTextDocument _
+                    | DidChangeWatchedFiles _
                     | Initialized
                     | Shutdown
                     | Exit -> true
@@ -879,6 +971,8 @@ module Server =
     | "initialized" -> parseEmpty Initialized
     | "textDocument/hover" -> parseRequest<TextDocumentPositionParams> Hover
     | "textDocument/didOpen" -> parseRequest<DidOpenTextDocumentParams> DidOpenTextDocument
+    | "textDocument/didChange" -> parseRequest<DidChangeTextDocumentParams> DidChangeTextDocument
+    | "workspace/didChangeWatchedFiles" -> parseRequest<DidChangeWatchedFilesParams> DidChangeWatchedFiles
     | "shutdown" -> parseEmpty Shutdown
     | "exit" -> parseEmpty Exit
     | _ -> fun _ -> None

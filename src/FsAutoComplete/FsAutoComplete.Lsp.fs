@@ -68,17 +68,32 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                             TextDocumentSync =
                                 Some { TextDocumentSyncOptions.Default with
                                          OpenClose = Some true
-                                         Change = Some TextDocumentSyncKind.Incremental
+                                         Change = Some TextDocumentSyncKind.Full
                                          Save = Some { IncludeText = Some true } } } }
         | DidOpenTextDocument documentParams ->
             let doc = documentParams.TextDocument
             let filePath = Uri(doc.Uri).LocalPath
-            async
-                {
-                    dbgf "Parse started"
-                    let! resp = commands.Parse filePath (doc.Text.Split('\n')) doc.Version
+
+            dbgf "Parse started for %s" filePath
+            let! resp = commands.Parse filePath (doc.Text.Split('\n')) doc.Version
+            dbgf "Parse finished with %A" resp
+
+            return NoResponse
+        | DidChangeTextDocument changeParams ->
+            let doc = changeParams.TextDocument
+            let filePath = Uri(doc.Uri).LocalPath
+            let contentChange = changeParams.ContentChanges |> Seq.tryLast
+            match contentChange, doc.Version with
+            | Some contentChange, Some version ->
+                if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
+                    dbgf "Parse started for %s" filePath
+                    let! resp = commands.Parse filePath (contentChange.Text.Split('\n')) version
                     dbgf "Parse finished with %A" resp
-                } |> Async.StartAsTask |> ignore
+                else
+                    dbgf "Parse started"
+            | _ ->
+                dbgf "Found no change for %s" filePath
+                ()
             return NoResponse
         | Hover posParams ->
             let uri = Uri(posParams.TextDocument.Uri)
@@ -91,7 +106,7 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
             | ResultOrString.Error s ->
                 dbgf "TypeCheck error: %s" s
                 return HoverResponse None
-            | ResultOrString.Ok (options, lines, lineStr) ->
+            | ResultOrString.Ok (options, _lines, lineStr) ->
                 // TODO: Should sometimes pass options.Source in here to force a reparse
                 //       for completions e.g. `(some typed expr).$`
                 let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(filePath, options)
@@ -105,7 +120,7 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                     | Result.Error err ->
                         dbgf "Tooltip error: %s" err
                         return HoverResponse None
-                    | Result.Ok (tipText, y, z) ->
+                    | Result.Ok (tipText, _y, _z) ->
                         dbgf "Tootlip: %A" tipText
                         let s = tooltipToMarkdown tipText
                         dbgf "Tootlip: %A" s
