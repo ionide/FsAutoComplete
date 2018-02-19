@@ -548,10 +548,10 @@ module Protocol =
     [<AutoOpen>]
     module Window =
         type MessageType =
-        | Error = 1
-        | Warning = 2
-        | Info = 3
-        | Log = 4
+            | Error = 1
+            | Warning = 2
+            | Info = 3
+            | Log = 4
 
         type LogMessageParams = {
             Type: MessageType
@@ -618,12 +618,22 @@ module Protocol =
         interface ITextDocumentIdentifier with
             member this.Uri with get() = this.Uri
 
-    type TextDocumentPositionParams = {
+    type ITextDocumentPositionParams =
         /// The text document.
-        TextDocument: TextDocumentIdentifier
+        abstract member TextDocument : TextDocumentIdentifier with get
         /// The position inside the text document.
-        Position: Position
-    }
+        abstract member Position : Position with get
+
+    type TextDocumentPositionParams =
+        {
+            /// The text document.
+            TextDocument: TextDocumentIdentifier
+            /// The position inside the text document.
+            Position: Position
+        }
+        interface ITextDocumentPositionParams with
+            member this.TextDocument with get() = this.TextDocument
+            member this.Position with get() = this.Position
 
     /// A `MarkupContent` literal represents a string value which content is interpreted base on its
     /// kind flag. Currently the protocol supports `plaintext` and `markdown` as markup kinds.
@@ -670,9 +680,9 @@ module Protocol =
 
     [<ErasedUnion>]
     type HoverContent =
-    | MarkedString of MarkedString
-    | MarkedStrings of MarkedString []
-    | MarkupContent of MarkupContent
+        | MarkedString of MarkedString
+        | MarkedStrings of MarkedString []
+        | MarkupContent of MarkupContent
 
     /// The result of a hover request.
     type Hover = {
@@ -731,9 +741,9 @@ module Protocol =
     }
 
     type FileChangeType =
-    | Created = 1
-    | Changed = 2
-    | Deleted = 3
+        | Created = 1
+        | Changed = 2
+        | Deleted = 3
 
     /// An event describing a file change.
     type FileEvent ={
@@ -751,9 +761,9 @@ module Protocol =
 
     [<Flags>]
     type WatchKind =
-    | Create = 1
-    | Change = 2
-    | Delete = 4
+        | Create = 1
+        | Change = 2
+        | Delete = 4
 
     type FileSystemWatcher = {
         /// The  glob pattern to watch
@@ -771,6 +781,162 @@ module Protocol =
         Watchers: FileSystemWatcher[]
     }
 
+    /// How a completion was triggered
+    type CompletionTriggerKind =
+        /// Completion was triggered by typing an identifier (24x7 code
+        /// complete), manual invocation (e.g Ctrl+Space) or via API.
+        | Invoked = 1
+        /// Completion was triggered by a trigger character specified by
+        /// the `triggerCharacters` properties of the `CompletionRegistrationOptions`.
+        | TriggerCharacter = 2
+
+    type CompletionContext = {
+        ///  How the completion was triggered.
+        triggerKind: CompletionTriggerKind
+
+        /// The trigger character (a single character) that has trigger code complete.
+        /// Is undefined if `triggerKind !== CompletionTriggerKind.TriggerCharacter`
+        triggerCharacter: string option
+    }
+
+    type CompletionParams =
+        {
+            /// The text document.
+            TextDocument: TextDocumentIdentifier
+
+            /// The position inside the text document.
+            Position: Position
+
+            /// The completion context. This is only available it the client specifies
+            /// to send this using `ClientCapabilities.textDocument.completion.contextSupport === true`
+            Context: CompletionContext option
+        }
+        interface ITextDocumentPositionParams with
+            member this.TextDocument with get() = this.TextDocument
+            member this.Position with get() = this.Position
+
+    /// A textual edit applicable to a text document.
+    type TextEdit = {
+        /// The range of the text document to be manipulated. To insert
+        /// text into a document create a range where start === end.
+        Range: Range
+
+        /// The string to be inserted. For delete operations use an
+        /// empty string.
+        NewText: string
+    }
+
+    /// Represents a reference to a command. Provides a title which will be used to represent a command in the UI.
+    /// Commands are identified by a string identifier. The protocol currently doesn’t specify a set of well-known
+    /// commands. So executing a command requires some tool extension code.
+    type Command = {
+        /// Title of the command, like `save`.
+        Title: string
+
+        /// The identifier of the actual command handler.
+        Command: string
+
+        /// Arguments that the command handler should be
+        /// invoked with.
+        Arguments: JToken[] option
+    }
+
+    /// Defines whether the insert text in a completion item should be interpreted as
+    /// plain text or a snippet.
+    type InsertTextFormat =
+        /// The primary text to be inserted is treated as a plain string.
+        | PlainText = 1
+        /// The primary text to be inserted is treated as a snippet.
+        ///
+        /// A snippet can define tab stops and placeholders with `$1`, `$2`
+        /// and `${3:foo}`. `$0` defines the final tab stop, it defaults to
+        /// the end of the snippet. Placeholders with equal identifiers are linked,
+        /// that is typing in one will update others too.
+        | Snippet = 2
+
+    [<ErasedUnion>]
+    type CompletionItemDocumentation =
+    | StringDocumentation of string
+    | MarkupDocumentation of MarkupContent
+
+    type CompletionItem = {
+        /// The label of this completion item. By default
+        /// also the text that is inserted when selecting
+        /// this completion.
+        Label: string
+
+        /// The kind of this completion item. Based of the kind
+        /// an icon is chosen by the editor.
+        Kind: int option
+
+        /// A human-readable string with additional information
+        /// about this item, like type or symbol information.
+        Detail: string option
+
+        /// A human-readable string that represents a doc-comment.
+        Documentation: CompletionItemDocumentation option
+
+        /// A string that should be used when comparing this item
+        /// with other items. When `falsy` the label is used.
+        SortText: string option
+
+        /// A string that should be used when filtering a set of
+        /// completion items. When `falsy` the label is used.
+        FilterText: string option
+
+        /// A string that should be inserted into a document when selecting
+        /// this completion. When `falsy` the label is used.
+        ///
+        /// The `insertText` is subject to interpretation by the client side.
+        /// Some tools might not take the string literally. For example
+        /// VS Code when code complete is requested in this example `con<cursor position>`
+        /// and a completion item with an `insertText` of `console` is provided it
+        /// will only insert `sole`. Therefore it is recommended to use `textEdit` instead
+        /// since it avoids additional client side interpretation.
+        ///
+        /// @deprecated Use textEdit instead.
+        InsertText: string option
+
+        /// The format of the insert text. The format applies to both the `insertText` property
+        /// and the `newText` property of a provided `textEdit`.
+        InsertTextFormat: InsertTextFormat option
+
+        /// An edit which is applied to a document when selecting this completion. When an edit is provided the value of
+        /// `insertText` is ignored.
+        ///
+        /// *Note:* The range of the edit must be a single line range and it must contain the position at which completion
+        /// has been requested.
+        TextEdit: TextEdit option
+
+        /// An optional array of additional text edits that are applied when
+        /// selecting this completion. Edits must not overlap with the main edit
+        /// nor with themselves.
+        AdditionalTextEdits: TextEdit[] option
+
+        /// An optional set of characters that when pressed while this completion is active will accept it first and
+        /// then type that character. *Note* that all commit characters should have `length=1` and that superfluous
+        /// characters will be ignored.
+        CommitCharacters: string[] option
+
+        /// An optional command that is executed *after* inserting this completion. *Note* that
+        /// additional modifications to the current document should be described with the
+        /// additionalTextEdits-property.
+        Command: Command option
+
+        /// An data entry field that is preserved on a completion item between
+        /// a completion and a completion resolve request.
+        Data: JToken option
+    }
+
+    type CompletionList = {
+        /// This list it not complete. Further typing should result in recomputing
+        /// this list.
+        IsIncomplete: bool
+
+        /// The completion items.
+        Items: CompletionItem[]
+    }
+
     [<AutoOpen>]
     module Messages =
         type ClientRequest =
@@ -778,6 +944,7 @@ module Protocol =
             | DidOpenTextDocument of DidOpenTextDocumentParams
             | DidChangeTextDocument of DidChangeTextDocumentParams
             | DidChangeWatchedFiles of DidChangeWatchedFilesParams
+            | Completion of CompletionParams
             | Hover of TextDocumentPositionParams
             | Initialized
             | Shutdown
@@ -787,7 +954,8 @@ module Protocol =
                 with get() =
                     match this with
                     | Initialize _
-                    | Hover _ -> false
+                    | Hover _
+                    | Completion _ -> false
                     | DidChangeTextDocument _
                     | DidOpenTextDocument _
                     | DidChangeWatchedFiles _
@@ -815,6 +983,7 @@ module Protocol =
             | InvalidRequest of string
             | UnhandledRequest
             | InitializeResponse of InitializeResult
+            | CompletionResponse of CompletionList option
             | HoverResponse of Hover option
         with
             member this.AsJsonSerializable
@@ -822,6 +991,7 @@ module Protocol =
                     match this with
                     | InitializeResponse x -> box x
                     | HoverResponse x -> box x
+                    | CompletionResponse x -> box x
                     | NoResponse
                     | InvalidRequest _
                     | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
@@ -972,6 +1142,7 @@ module Server =
     | "textDocument/hover" -> parseRequest<TextDocumentPositionParams> Hover
     | "textDocument/didOpen" -> parseRequest<DidOpenTextDocumentParams> DidOpenTextDocument
     | "textDocument/didChange" -> parseRequest<DidChangeTextDocumentParams> DidChangeTextDocument
+    | "textDocument/completion" -> parseRequest<CompletionParams> Completion
     | "workspace/didChangeWatchedFiles" -> parseRequest<DidChangeWatchedFilesParams> DidChangeWatchedFiles
     | "shutdown" -> parseEmpty Shutdown
     | "exit" -> parseEmpty Exit
@@ -1011,7 +1182,8 @@ module Server =
                 | UnhandledRequest ->
                     JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
                 | response ->
-                    let serializedResponse = JToken.FromObject(response.AsJsonSerializable, jsonSerializer)
+                    let boxed = response.AsJsonSerializable
+                    let serializedResponse = if isNull boxed then null else JToken.FromObject(boxed, jsonSerializer)
                     JsonRpc.Response.Success(requestId.Value, serializedResponse) |> Some
             match rpcResponse with
             | Some rpcResponse ->

@@ -95,6 +95,8 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
                 dbgf "Found no change for %s" filePath
                 ()
             return NoResponse
+        | Completion completionParams ->
+            return NoResponse
         | Hover posParams ->
             let uri = Uri(posParams.TextDocument.Uri)
             let pos = protocolPosToPos posParams.Position
