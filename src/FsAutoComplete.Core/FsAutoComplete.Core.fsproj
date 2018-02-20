@@ -46,7 +46,9 @@
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Lexer.fs" />
+    <Compile Include="NETFrameworkInfoProvider.fs" />
     <Compile Include="Environment.fs" />
+    <Compile Include="SignatureFormatter.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="FileSystem.fs" />
     <Compile Include="Parser.fs" />
@@ -58,15 +60,25 @@
     <Compile Include="KeywordList.fs" />
     <Compile Include="AssemblyContentProvider.fs" />
     <Compile Include="UnopenedNamespacesResolver.fs" />
+    <Compile Include="UnusedDeclarationsAnalyzer.fs" />
+    <Compile Include="SimplifyNameAnalyzer.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
-    <Compile Include="Workspace.fs" />
+    <Compile Include="WorkspacePeek.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
     <Compile Include="State.fs" />
+    <Compile Include="Workspace.fs" />
     <Compile Include="CodeGeneration.fs" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="Commands.fs" />
     <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj">
+      <Name>FsAutoComplete.Core.VerboseSdkHelper</Name>
+      <Project>{385ecb13-18aa-4ec6-bb10-494a7f450a75}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -96,6 +108,11 @@
       <ItemGroup>
         <Reference Include="Dotnet.ProjInfo">
           <HintPath>..\..\packages\Dotnet.ProjInfo\lib\net45\Dotnet.ProjInfo.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Dotnet.ProjInfo.Helpers">
+          <HintPath>..\..\packages\Dotnet.ProjInfo\lib\net45\Dotnet.ProjInfo.Helpers.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -167,6 +184,17 @@
       <ItemGroup>
         <Reference Include="Newtonsoft.Json">
           <HintPath>..\..\packages\Newtonsoft.Json\lib\net45\Newtonsoft.Json.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="Priority Queue">
+          <HintPath>..\..\packages\OptimizedPriorityQueue\lib\net45\Priority Queue.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

@@ -9,7 +9,7 @@ File.Delete "nosuchproject.json"
 let p = new FsAutoCompleteWrapper()
 
 p.project "NoSuchProject.fsproj"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "nosuchproject.json"
 

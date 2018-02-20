@@ -13,7 +13,7 @@ let doIt () =
   p.project "sample4/l1/Test1.fsproj"
   p.parse "sample4/l1/Module1.fs"
 
-  p.send "quit\n"
+  p.quit()
   p.finalOutput ()
   |> writeNormalizedOutput outputJson
 

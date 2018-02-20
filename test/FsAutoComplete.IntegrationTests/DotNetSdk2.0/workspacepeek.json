@@ -44,3 +44,7 @@
     ]
   }
 }
+{
+  "Kind": "info",
+  "Data": "quitting..."
+}

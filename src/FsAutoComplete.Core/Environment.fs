@@ -3,6 +3,9 @@ namespace FsAutoComplete
 open System
 open System.IO
 open Utils
+#if NETSTANDARD2_0
+open System.Runtime.InteropServices
+#endif
 
 module Environment =
   let private environVar v = Environment.GetEnvironmentVariable v
@@ -52,7 +55,13 @@ module Environment =
       | None -> tool
 
   let msbuild =
-      if Utils.runningOnMono then "xbuild"
+#if SCRIPT_REFS_FROM_MSBUILD
+      if not(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) then
+        //well, depends on mono version, but like this is mono >= 5.2 (msbuild on mono 5.0 sort of works)
+        "msbuild"
+#else
+      if Utils.runningOnMono then "xbuild" // mono <= 5.0
+#endif
       else
         let MSBuildPath =
             (programFilesX86 </> @"\MSBuild\14.0\Bin") + ";" +
@@ -81,27 +90,59 @@ module Environment =
       Option.getOrElse "" fsharpInstallationPath </> "fsc.exe"
 
   let fsharpCoreOpt =
+#if SCRIPT_REFS_FROM_MSBUILD
+    if not(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) then
+      None
+#else
     if Utils.runningOnMono then
       let mscorlibDir = Path.GetDirectoryName typeof<obj>.Assembly.Location
       if List.forall File.Exists (List.map (combinePaths mscorlibDir) ["FSharp.Core.dll"; "FSharp.Core.optdata"; "FSharp.Core.sigdata"]) then
         Some (mscorlibDir </> "FSharp.Core.dll")
       else
         None
+#endif
     else
       let referenceAssembliesPath =
         programFilesX86 </> @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\"
       let fsharpCoreVersions = ["4.4.1.0"; "4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
       tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
 
-  let referenceAssembliesPath =
-     programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework"
+#if SCRIPT_REFS_FROM_MSBUILD
+#else
+  let referenceAssembliesPath () =
+    Some (programFilesX86 </> @"Reference Assemblies\Microsoft\Framework\.NETFramework")
 
   let dotNetVersions () =
-    if Directory.Exists referenceAssembliesPath then
-      Directory.EnumerateDirectories referenceAssembliesPath
+    match referenceAssembliesPath () |> Option.filter Directory.Exists with
+    | Some path ->
+      Directory.EnumerateDirectories path
+      |> Seq.filter (fun s -> not(s.EndsWith(".X"))) //may contain only xml files, not assemblies
       |> Seq.sort
       |> Seq.toArray
       |> Array.rev
-    else
+    | None ->
       Array.empty
+#endif
 
+  let netReferecesAssembliesTFM () =
+#if SCRIPT_REFS_FROM_MSBUILD
+    NETFrameworkInfoProvider.installedNETVersions ()
+    |> Array.ofList
+#else
+    dotNetVersions ()
+    |> Array.map Path.GetFileName
+#endif
+
+  let netReferecesAssembliesTFMLatest () =
+    netReferecesAssembliesTFM ()
+    |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
+    |> Array.rev
+    |> Array.tryHead
+
+  let workspaceLoadDelay () =
+    match System.Environment.GetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY") with
+    | delayMs when not (String.IsNullOrWhiteSpace(delayMs)) ->
+        match System.Int32.TryParse(delayMs) with
+        | true, x -> TimeSpan.FromMilliseconds(float x)
+        | false, _ -> TimeSpan.Zero
+    | _ -> TimeSpan.Zero

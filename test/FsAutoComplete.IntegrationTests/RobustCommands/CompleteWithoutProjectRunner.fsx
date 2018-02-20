@@ -12,7 +12,7 @@ p.parse "Project/Script.fsx"
 p.completion "Project/Script.fsx" "let val2 = X.func 2" 6 14
 p.parse "Project/Program.fs"
 p.completion "Project/Program.fs" "let testval = FileTwo.NewObjectType()" 4 23
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "completewithoutproject.json"
 

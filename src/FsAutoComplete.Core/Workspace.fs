@@ -1,166 +1,51 @@
-module FsAutoComplete.WorkspacePeek
+module FsAutoComplete.Workspace
 
-open System
+open ProjectRecognizer
 open System.IO
 
-type SolutionData = {
-    Items: SolutionItem list
-    Configurations: SolutionConfiguration list
+let getProjectOptions notifyState (cache: ProjectCrackerDotnetSdk.ParsedProjectCache) verbose (projectFileName: SourceFilePath) =
+    if not (File.Exists projectFileName) then
+        Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
+    else
+        match projectFileName with
+        | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
+        | NetCoreSdk -> ProjectCrackerDotnetSdk.load notifyState cache projectFileName
+#if NO_PROJECTCRACKER
+        | Net45 -> ProjectCrackerDotnetSdk.loadVerboseSdk notifyState cache projectFileName
+        | Unsupported -> Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
+#else
+        | Net45 -> ProjectCrackerVerbose.load notifyState FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore projectFileName verbose
+        | Unsupported -> ProjectCrackerVerbose.load notifyState FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore projectFileName verbose
+#endif
+
+let private bindExtraOptions (opts: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
+    match opts.ExtraProjectInfo with
+    | None ->
+        Error (GenericError(opts.ProjectFileName, "expected ExtraProjectInfo after project parsing, was None"))
+    | Some x ->
+        match x with
+        | :? ExtraProjectInfoData as extraInfo ->
+            Ok (opts, extraInfo, projectFiles, logMap)
+        | x ->
+            Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
+
+let parseProject verbose projectFileName =
+    let projsCache = new ProjectCrackerDotnetSdk.ParsedProjectCache()
+    projectFileName
+    |> getProjectOptions ignore projsCache verbose
+    |> Result.bind bindExtraOptions
+
+let loadInBackground onLoaded verbose (files: string list) = async {
+    let projsCache = new ProjectCrackerDotnetSdk.ParsedProjectCache()
+
+    for projectFileName in files do
+        projectFileName
+        |> getProjectOptions onLoaded projsCache verbose
+        |> Result.bind bindExtraOptions
+        |> function
+           | Ok (opts, extraInfo, projectFiles, logMap) ->
+                onLoaded (WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap))
+           | Error error ->
+                onLoaded (WorkspaceProjectState.Failed (projectFileName, error))
+
     }
-and SolutionConfiguration = {
-    Id: string
-    ConfigurationName: string
-    PlatformName: string
-    IncludeInBuild: bool
-    }
-and SolutionItem = {
-    Guid: Guid
-    Name: string
-    Kind: SolutionItemKind
-    }
-and SolutionItemKind =
-    | MsbuildFormat of SolutionItemMsbuildConfiguration list
-    | Folder of (SolutionItem list) * (string list)
-    | Unsupported
-    | Unknown
-and SolutionItemMsbuildConfiguration = {
-    Id: string
-    ConfigurationName: string
-    PlatformName: string
-    }
-
-[<RequireQualifiedAccess>]
-type Interesting =
-| Solution of string * SolutionData
-| Directory of string * string list
-
-let tryParseSln slnFilePath = 
-    let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
-        let slnDir = Path.GetDirectoryName slnFilePath
-        let makeAbsoluteFromSlnDir =
-            let makeAbs path =
-                if Path.IsPathRooted path then
-                    path
-                else
-                    Path.Combine(slnDir, path)
-                    |> Path.GetFullPath
-            Utils.normalizeDirSeparators >> makeAbs
-        let rec parseItem (item: Microsoft.Build.Construction.ProjectInSolution) =
-            let parseKind (item: Microsoft.Build.Construction.ProjectInSolution) =
-                match item.ProjectType with
-                | Microsoft.Build.Construction.SolutionProjectType.KnownToBeMSBuildFormat ->
-                    (item.RelativePath |> makeAbsoluteFromSlnDir), SolutionItemKind.MsbuildFormat []
-                | Microsoft.Build.Construction.SolutionProjectType.SolutionFolder ->
-                    let children =
-                        sln.ProjectsInOrder
-                        |> Seq.filter (fun x -> x.ParentProjectGuid = item.ProjectGuid)
-                        |> Seq.map parseItem
-                        |> List.ofSeq
-                    let files =
-                        item.FolderFiles
-                        |> Seq.map makeAbsoluteFromSlnDir
-                        |> List.ofSeq
-                    item.ProjectName, SolutionItemKind.Folder (children, files)
-                | Microsoft.Build.Construction.SolutionProjectType.EtpSubProject
-                | Microsoft.Build.Construction.SolutionProjectType.WebDeploymentProject
-                | Microsoft.Build.Construction.SolutionProjectType.WebProject ->
-                    (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unsupported
-                | Microsoft.Build.Construction.SolutionProjectType.Unknown
-                | _ ->
-                    (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unknown
-
-            let name, itemKind = parseKind item 
-            { Guid = item.ProjectGuid |> Guid.Parse
-              Name = name
-              Kind = itemKind }
-
-        let items =
-            sln.ProjectsInOrder
-            |> Seq.filter (fun x -> isNull x.ParentProjectGuid)
-            |> Seq.map parseItem
-        let data = {
-            Items = items |> List.ofSeq
-            Configurations = []
-        }
-        (slnFilePath, data)
-
-    let slnFile =
-        try
-            Microsoft.Build.Construction.SolutionFile.Parse(slnFilePath)
-            |> Some
-        with _ ->
-            None
-
-    slnFile
-    |> Option.map parseSln
-
-open System.IO
-
-type private UsefulFile =
-    | FsProj
-    | Sln
-    | Fsx
-
-let private partitionByChoice3 =
-    let foldBy (a, b, c) t =
-        match t with
-        | Choice1Of3 x -> (x :: a, b, c)
-        | Choice2Of3 x -> (a, x :: b, c)
-        | Choice3Of3 x -> (a, b, x :: c)
-    Array.fold foldBy ([],[],[])
-
-let peek (rootDir: string) deep (excludedDirs: string list) =
-    let dirInfo = DirectoryInfo(rootDir)
-
-    //TODO accept glob list to ignore
-    let ignored =
-        let normalizedDirs = excludedDirs |> List.map (fun s -> s.ToUpperInvariant()) |> Array.ofList
-        (fun (s: string) -> normalizedDirs |> Array.contains (s.ToUpperInvariant()))
-
-    let scanDir (dirInfo: DirectoryInfo) =
-        let hasExt ext (s: FileInfo) = s.FullName.EndsWith(ext)
-        dirInfo.EnumerateFiles("*.*", SearchOption.TopDirectoryOnly)
-        |> Seq.choose (fun s ->
-            match s with
-            | x when x |> hasExt ".sln" -> Some (UsefulFile.Sln, x)
-            | x when x |> hasExt ".fsx" -> Some (UsefulFile.Fsx, x)
-            | x when x |> hasExt ".fsproj" -> Some (UsefulFile.FsProj, x)
-            | _ -> None)
-        |> Seq.toArray
-
-    let dirs =
-        let rec scanDirs (dirInfo: DirectoryInfo) lvl =
-            seq {
-                if lvl <= deep then
-                    yield dirInfo
-                    for s in dirInfo.GetDirectories() do
-                        if not(ignored s.Name) then
-                            yield! scanDirs s (lvl + 1)
-            }
-
-        scanDirs dirInfo 0
-        |> Array.ofSeq
-
-    let getInfo (t, (f: FileInfo)) =
-        match t with
-        | UsefulFile.Sln ->
-            tryParseSln f.FullName
-            |> Option.map Choice1Of3
-        | UsefulFile.Fsx ->
-            Some (Choice2Of3 (f.FullName))
-        | UsefulFile.FsProj ->
-            Some (Choice3Of3 (f.FullName))
-
-    let found =
-        dirs
-        |> Array.Parallel.collect scanDir
-        |> Array.Parallel.choose getInfo
-
-    let slns, _fsxs, fsprojs =
-        found |> partitionByChoice3
-
-    //TODO weight order of fsprojs from sln
-    let dir = rootDir, (fsprojs |> List.sort)
-
-    [ yield! slns |> List.map Interesting.Solution
-      yield dir |> Interesting.Directory ]

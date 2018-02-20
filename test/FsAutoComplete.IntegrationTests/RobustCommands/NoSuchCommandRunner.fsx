@@ -9,7 +9,7 @@ File.Delete "nosuchcommand.json"
 let p = new FsAutoCompleteWrapper()
 
 p.send "BadCommand\n"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "nosuchcommand.json"
 

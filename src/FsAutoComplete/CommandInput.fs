@@ -12,6 +12,7 @@ type PosCommand =
   | ToolTip
   | TypeSig
   | FindDeclaration
+  | FindTypeDeclaration
   | SignatureData
 
 type ParseKind =
@@ -26,10 +27,14 @@ type Command =
   | Parse of string * ParseKind * string[]
   | Error of string
   | Lint of string
+  | UnusedDeclarations of string
+  | SimplifiedNames of string
+  | UnusedOpens of string
   | Project of string * bool
   | Colorization of bool
   | CompilerLocation
   | WorkspacePeek of string * int * string[]
+  | WorkspaceLoad of string[]
   | Started
   | Quit
 
@@ -75,6 +80,27 @@ module CommandInput =
       let! _ = char '"'
       return Lint(filename) }
 
+  let unusedDeclarations = parser {
+      let! _ = string "unusedDeclarations "
+      let! _ = char '"'
+      let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      return UnusedDeclarations(filename) }
+
+  let simplifiedNames = parser {
+    let! _ = string "simplifiedNames "
+    let! _ = char '"'
+    let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+    let! _ = char '"'
+    return SimplifiedNames(filename) }
+
+  let unusedOpens = parser {
+      let! _ = string "unusedOpens "
+      let! _ = char '"'
+      let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      return UnusedOpens(filename) }
+
   /// Read multi-line input as a list of strings
   let rec readInput input =
     match Console.ReadLine() with
@@ -101,7 +127,7 @@ module CommandInput =
     return '"'
   }
 
-  // Parse 'parse "<filename>" [sync]' command
+  // Parse 'workspacepeek "<directory>" <deepLevel>' command
   let workspacePeek =
     parser {
       let! _ = string "workspacepeek "
@@ -113,6 +139,21 @@ module CommandInput =
       let excludeDir = [| |]
       return WorkspacePeek (dir, deep, excludeDir) }
 
+  // Parse 'workspaceload "<filename>" "<filename>" .. "<filename>"' command
+  let workspaceLoad =
+    parser {
+      let! _ = string "workspaceload "
+      let parseFilename =
+        parser {
+          let! _ = char '"'
+          let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+          let! _ = char '"'
+          let! _ = many (string " ")
+          return filename
+        }
+      let! files = many parseFilename
+      return WorkspaceLoad (files |> Array.ofList) }
+
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
@@ -122,6 +163,7 @@ module CommandInput =
              (string "typesig " |> Parser.map (fun _ -> TypeSig)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
              (string "finddecl " |> Parser.map (fun _ -> FindDeclaration)) <|>
+             (string "findtypedecl " |> Parser.map (fun _ -> FindTypeDeclaration)) <|>
              (string "sigdata " |> Parser.map (fun _ -> SignatureData))
 
     let! _ = char '"'
@@ -164,12 +206,12 @@ module CommandInput =
   let error = parser { return Error("Unknown command or wrong arguments") }
 
   // Parse any of the supported commands
-  let parseCommand =
-    function
+  let parseCommand inputString =
+    match inputString with
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

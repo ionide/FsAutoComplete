@@ -64,6 +64,7 @@ module CommandResponse =
       ReplacementText: string
       Glyph: string
       GlyphChar: string
+      NamespaceToOpen: string option
     }
 
   type ResponseError<'T> =
@@ -77,12 +78,15 @@ module CommandResponse =
   type ErrorCodes =
     | GenericError = 1
     | ProjectNotRestored = 100
+    | ProjectParsingFailed = 101
 
   [<RequireQualifiedAccess>]
   type ErrorData =
     | GenericError
     | ProjectNotRestored of ProjectNotRestoredData
+    | ProjectParsingFailed of ProjectParsingFailedData
   and ProjectNotRestoredData = { Project: ProjectFilePath }
+  and ProjectParsingFailedData = { Project: ProjectFilePath }
 
   [<RequireQualifiedAccess>]
   type ProjectResponseInfo =
@@ -104,6 +108,11 @@ module CommandResponse =
     }
   and [<RequireQualifiedAccess>] RunCmd = { Command: string; Arguments: string }
 
+  type ProjectLoadingResponse =
+    {
+      Project: ProjectFilePath
+    }
+
   type ProjectResponse =
     {
       Project: ProjectFilePath
@@ -120,6 +129,13 @@ module CommandResponse =
     {
       Signature: string
       Comment: string
+    }
+
+  type TooltipDescription =
+    {
+      Signature: string
+      Comment: string
+      Footer: string
     }
 
   type OverloadParameter =
@@ -164,12 +180,19 @@ module CommandResponse =
       Uses: SymbolUseRange list
     }
 
+  type AdditionalEdit =
+    {
+      Text: string
+      Line: int
+      Column: int
+    }
 
 
   type HelpTextResponse =
     {
       Name: string
       Overloads: OverloadDescription list list
+      AdditionalEdit: AdditionalEdit option
     }
 
   type CompilerLocationResponse =
@@ -282,6 +305,28 @@ module CommandResponse =
     Parameters : Parameter list list
   }
 
+  type UnusedDeclaration = {
+    Range: Range.range
+    IsThisMember: bool
+  }
+
+  type UnusedDeclarations = {
+    Declarations : UnusedDeclaration []
+  }
+
+  type UnusedOpens = {
+    Declarations : Range.range []
+  }
+
+  type SimplifiedNameData = {
+    RelativeName : string
+    UnnecessaryRange: Range.range
+  }
+
+  type SimplifiedName = {
+    Names: SimplifiedNameData []
+  }
+
   type WorkspacePeekResponse = {
     Found: WorkspacePeekFound list
   }
@@ -318,6 +363,10 @@ module CommandResponse =
     PlatformName: string
   }
 
+  type WorkspaceLoadResponse = {
+    Status: string
+    }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -326,17 +375,19 @@ module CommandResponse =
     match errorData with
     | ErrorData.GenericError -> ser (ErrorCodes.GenericError) (obj())
     | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d
+    | ErrorData.ProjectParsingFailed d -> ser (ErrorCodes.ProjectParsingFailed) d
 
   let error (serialize : Serializer) (s: string) = errorG serialize ErrorData.GenericError s
 
-  let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText) =
-    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
-    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data } }
+  let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText, additionalEdit ) =
+    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
+    let additionalEdit = additionalEdit |> Option.map (fun (n, l, c) -> {AdditionalEdit.Text = n; Line = l; Column = c})
+    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = additionalEdit  } }
 
   let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
-      | ProjectSdkType.Verbose ->
+      | ProjectSdkType.Verbose _ ->
         ProjectResponseInfo.Verbose
       | ProjectSdkType.ProjectJson ->
         ProjectResponseInfo.ProjectJson
@@ -370,8 +421,11 @@ module CommandResponse =
 
   let projectError (serialize : Serializer) errorDetails =
     match errorDetails with
-    | GenericError errorMessage -> error serialize errorMessage //compatibility with old api
+    | GenericError (project, errorMessage) -> errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) errorMessage
     | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored"
+
+  let projectLoading (serialize : Serializer) projectFileName =
+    serialize { Kind = "projectLoading"; Data = { ProjectLoadingResponse.Project = projectFileName } }
 
   let workspacePeek (serialize : Serializer) (found: FsAutoComplete.WorkspacePeek.Interesting list) =
     let mapInt i =
@@ -386,12 +440,12 @@ module CommandResponse =
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unsupported ->
                         None
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.MsbuildFormat msbuildProj ->
-                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat { 
-                            WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] 
+                        Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat {
+                            WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
                         })
                     | FsAutoComplete.WorkspacePeek.SolutionItemKind.Folder(children, files) ->
                         let c = children |> List.choose item
-                        Some (WorkspacePeekFoundSolutionItemKind.Folder { 
+                        Some (WorkspacePeekFoundSolutionItemKind.Folder {
                             WorkspacePeekFoundSolutionItemKindFolder.Items = c
                             Files = files
                         })
@@ -403,15 +457,20 @@ module CommandResponse =
     let data = { WorkspacePeekResponse.Found = found |> List.map mapInt }
     serialize { Kind = "workspacePeek"; Data = data }
 
+  let workspaceLoad (serialize : Serializer) finished =
+    let data =
+        if finished then "finished" else "started"
+    serialize { Kind = "workspaceLoad"; Data = { WorkspaceLoadResponse.Status = data } }
+
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
-                               let code = Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                               let code = PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar }
+                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
                             if includeKeywords then
                               for k in KeywordList.allKeywords do
-                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"}
+                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"; NamespaceToOpen = None}
                           ] }
 
   let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
@@ -447,7 +506,7 @@ module CommandResponse =
                              CurrentParameter = commas
                              Overloads =
                               [ for o in meth.Methods do
-                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
                                  yield {
                                    Tip = tip
                                    TypeText = o.ReturnTypeText
@@ -487,8 +546,8 @@ module CommandResponse =
         })
      serialize { Kind = "declarations"; Data = decls' }
 
-  let toolTip (serialize : Serializer) (tip) =
-    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {Signature = n; Comment = m} ))
+  let toolTip (serialize : Serializer) (tip, signature, footer) =
+    let data = TipFormatter.formatTipEnhanced tip signature footer |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
 
   let typeSig (serialize : Serializer) (tip) =
@@ -545,4 +604,24 @@ module CommandResponse =
       Position = position
     }
     serialize { Kind = "unionCase"; Data = data}
+
+  let unusedDeclarations (serialize : Serializer) data =
+    let data =
+      data |> Array.map (fun (r, t) ->
+        {
+          UnusedDeclaration.Range = r
+          IsThisMember = t
+        })
+    let data = {UnusedDeclarations.Declarations = data}
+    serialize { Kind = "unusedDeclarations"; Data = data}
+
+  let unusedOpens (serialize : Serializer) data =
+    let data = {UnusedOpens.Declarations = data}
+    serialize { Kind = "unusedOpens"; Data = data}
+
+  let simplifiedNames (serialize : Serializer) data =
+    let data = {
+      SimplifiedName.Names = data |> Seq.map (fun (r,n) -> { SimplifiedNameData.RelativeName = n; SimplifiedNameData.UnnecessaryRange =r }) |> Seq.toArray
+    }
+    serialize { Kind = "simpifiedNames"; Data = data}
 

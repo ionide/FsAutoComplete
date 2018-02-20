@@ -13,7 +13,7 @@ p.parse "MultiProject1.fs"
 p.tooltip "MultiProject1.fs" "let p = (Project1A.x1, Project1B.b)" 5 20
 p.tooltip "MultiProject1.fs" "let p = (Project1A.x1, Project1B.b)" 5 34
 
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

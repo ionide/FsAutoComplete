@@ -5,9 +5,13 @@ open System.IO
 
 [<RequireQualifiedAccess>]
 type ProjectSdkType =
-    | Verbose
+    | Verbose of ProjectSdkTypeVerbose
     | ProjectJson
     | DotnetSdk of ProjectSdkTypeDotnetSdk
+and ProjectSdkTypeVerbose =
+    {
+      TargetPath: string
+    }
 and ProjectSdkTypeDotnetSdk =
     {
       IsTestProject: bool
@@ -25,6 +29,8 @@ and ProjectSdkTypeDotnetSdk =
 
       Configurations: string list // Debug;Release
       TargetFrameworks: string list // netcoreapp1.0;netstandard1.6
+
+      TargetPath: string
 
       //may not exists
       RunArguments: string option // exec "e:\github\DotnetNewFsprojTestingSamples\sdk1.0\sample1\c1\bin\Debug\netcoreapp1.0\c1.dll"
@@ -48,8 +54,13 @@ and ProjectOutputType =
 
 type GetProjectOptionsErrors =
      | ProjectNotRestored of string
-     | GenericError of string
+     | GenericError of string * string
 
+
+type [<RequireQualifiedAccess>] WorkspaceProjectState =
+    | Loading of string
+    | Loaded of Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * ExtraProjectInfoData * string list * Map<string,string>
+    | Failed of string * GetProjectOptionsErrors
 
 module ProjectRecognizer =
 

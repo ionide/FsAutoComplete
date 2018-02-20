@@ -133,6 +133,35 @@ module TypedAstExtensionHelpers =
 
 [<AutoOpen>]
 module TypedAstPatterns =
+
+    let private attributeSuffixLength = "Attribute".Length
+
+    let (|Entity|_|) (symbol : FSharpSymbolUse) : (FSharpEntity * (* cleanFullNames *) string list) option =
+        match symbol.Symbol with
+        | :? FSharpEntity as ent ->
+            // strip generic parameters count suffix (List`1 => List)
+            let cleanFullName =
+                // `TryFullName` for type aliases is always `None`, so we have to make one by our own
+                if ent.IsFSharpAbbreviation then
+                    [ent.AccessPath + "." + ent.DisplayName]
+                else
+                    ent.TryFullName
+                    |> Option.toList
+                    |> List.map (fun fullName ->
+                        if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
+                            fullName.[0..fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
+                        else fullName)
+
+            let cleanFullNames =
+                cleanFullName
+                |> List.collect (fun cleanFullName ->
+                    if ent.IsAttributeType then
+                        [cleanFullName; cleanFullName.[0..cleanFullName.Length - attributeSuffixLength - 1]] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+                    else [cleanFullName]
+                    )
+            Some (ent, cleanFullNames)
+        | _ -> None
+
     let (|AbbreviatedType|_|) (entity: FSharpEntity) =
         if entity.IsFSharpAbbreviation then Some entity.AbbreviatedType
         else None
@@ -179,7 +208,11 @@ module TypedAstPatterns =
 
     let (|Class|_|) (original: FSharpEntity, abbreviated: FSharpEntity, _) =
         if abbreviated.IsClass
+#if NO_EXTENSIONTYPING
+           && original.IsFSharpAbbreviation then Some()
+#else
            && (not abbreviated.IsStaticInstantiation || original.IsFSharpAbbreviation) then Some()
+#endif
         else None
 
     let (|Record|_|) (e: FSharpEntity) = if e.IsFSharpRecord then Some() else None
@@ -197,16 +230,26 @@ module TypedAstPatterns =
         else None
 
     let (|ProvidedType|_|) (e: FSharpEntity) =
+#if NO_EXTENSIONTYPING
+        None
+#else
         if (e.IsProvided || e.IsProvidedAndErased || e.IsProvidedAndGenerated) && e.CompiledName = e.DisplayName then
             Some()
         else None
+#endif
 
     let (|ByRef|_|) (e: FSharpEntity) = if e.IsByRef then Some() else None
     let (|Array|_|) (e: FSharpEntity) = if e.IsArrayType then Some() else None
     let (|FSharpModule|_|) (entity: FSharpEntity) = if entity.IsFSharpModule then Some() else None
 
     let (|Namespace|_|) (entity: FSharpEntity) = if entity.IsNamespace then Some() else None
-    let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) = if entity.IsProvidedAndErased then Some() else None
+    let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) =
+#if NO_EXTENSIONTYPING
+        None
+#else
+        if entity.IsProvidedAndErased then Some() else None
+#endif
+
     let (|Enum|_|) (entity: FSharpEntity) = if entity.IsEnum then Some() else None
 
     let (|Tuple|_|) (ty: FSharpType option) =

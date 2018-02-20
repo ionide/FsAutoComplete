@@ -4,17 +4,25 @@ open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
+open Priority_Queue
 
 type DeclName = string
+type CompletionNamespaceInsert = string * int * int
 
 type State =
   {
     Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
+
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
+    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * Pos * SourceFilePath>
+    CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
+    mutable CurrentAST: Microsoft.FSharp.Compiler.Ast.ParsedInput option
+
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
+    BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
     mutable ColorizationOutput: bool
   }
 
@@ -23,8 +31,12 @@ type State =
       FileCheckOptions = ConcurrentDictionary()
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
+      Declarations = ConcurrentDictionary()
+      CurrentAST = None
+      CompletionNamespaceInsert = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
+      BackgroundProjects = SimplePriorityQueue<_, _>()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
@@ -68,28 +80,37 @@ type State =
       ExtraProjectInfo = None
       Stamp = None}
 
-  member x.TryGetFileCheckerOptionsWithLines(file: SourceFilePath) : Result<FSharpProjectOptions * LineStr[]> =
+  member x.TryGetFileCheckerOptionsWithLines(file: SourceFilePath) : ResultOrString<FSharpProjectOptions * LineStr[]> =
     let file = Utils.normalizePath file
     match x.Files.TryFind(file) with
-    | None -> Failure (sprintf "File '%s' not parsed" file)
+    | None -> ResultOrString.Error (sprintf "File '%s' not parsed" file)
     | Some (volFile) ->
 
       match x.FileCheckOptions.TryFind(file) with
-      | None -> Success (State.FileWithoutProjectOptions(file), volFile.Lines)
-      | Some opts -> Success (opts, volFile.Lines)
+      | None -> Ok (State.FileWithoutProjectOptions(file), volFile.Lines)
+      | Some opts -> Ok (opts, volFile.Lines)
 
-  member x.TryGetFileCheckerOptionsWithSource(file: SourceFilePath) : Result<FSharpProjectOptions * string> =
+  member x.TryGetFileCheckerOptionsWithSource(file: SourceFilePath) : ResultOrString<FSharpProjectOptions * string> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
-    | Failure x -> Failure x
-    | Success (opts, lines) -> Success (opts, String.concat "\n" lines)
+    | ResultOrString.Error x -> ResultOrString.Error x
+    | Ok (opts, lines) -> Ok (opts, String.concat "\n" lines)
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos : Pos) : Result<FSharpProjectOptions * LineStr[] * LineStr> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos : Pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
-    | Failure x -> Failure x
-    | Success (opts, lines) ->
+    | ResultOrString.Error x -> ResultOrString.Error x
+    | Ok (opts, lines) ->
       let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
                pos.Col <= lines.[pos.Line - 1].Length + 1 && pos.Col >= 1
-      if not ok then Failure "Position is out of range"
-      else Success (opts, lines, lines.[pos.Line - 1])
+      if not ok then ResultOrString.Error "Position is out of range"
+      else Ok (opts, lines, lines.[pos.Line - 1])
+
+  member x.EnqueueProjectForBackgroundParsing(opts: FSharpProjectOptions, priority: int) =
+    if x.BackgroundProjects.Contains opts then
+      match x.BackgroundProjects.TryGetPriority opts with
+      | true, pr when pr > priority -> x.BackgroundProjects.TryUpdatePriority (opts, priority) |> ignore
+      | false, _ -> x.BackgroundProjects.Enqueue(opts, priority)
+      | _ -> ()
+    else
+      x.BackgroundProjects.Enqueue(opts, priority)

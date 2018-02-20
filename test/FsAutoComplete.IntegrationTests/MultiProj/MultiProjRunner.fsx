@@ -38,7 +38,7 @@ p.completion "Proj2/Program.fs" "let testval = FileTwo.NewObjectType()" 4 23
 p.completion "Proj2/Program.fs" "let val2 = X.func 2" 6 14
 p.completion "Proj2/Program.fs" "let val4 : FileTwo.NewObjectType = testval" 10 20
 
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

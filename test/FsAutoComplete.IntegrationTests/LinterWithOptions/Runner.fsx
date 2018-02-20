@@ -10,6 +10,6 @@ let p = new FsAutoCompleteWrapper()
 
 p.parse "Script.fsx"
 p.lint "Script.fsx"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"

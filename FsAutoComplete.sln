@@ -29,6 +29,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "src\
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core.VerboseSdkHelper", "src\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj", "{385ECB13-18AA-4EC6-BB10-494A7F450A75}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,10 @@ Global
 		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.Build.0 = Release|Any CPU
+		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

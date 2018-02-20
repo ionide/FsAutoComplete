@@ -14,8 +14,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State) =
     member x.TokenizeLine(fileName, i) =
         match state.TryGetFileCheckerOptionsWithLines fileName with
-        | Failure _ -> None
-        | Success (opts, lines) ->
+        | ResultOrString.Error _ -> None
+        | ResultOrString.Ok (opts, lines) ->
             try
                 let line = lines.[ i - 1 ]
                 Lexer.tokenizeLine [||] line |> Some
@@ -24,8 +24,8 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
 
     member x.GetSymbolAtPosition(fileName, pos) =
         match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-        | Failure _ -> None
-        | Success (opts, lines, line) ->
+        | ResultOrString.Error _ -> None
+        | ResultOrString.Ok (opts, lines, line) ->
             try
                 Lexer.getSymbol pos.Line pos.Col line SymbolLookupKind.Fuzzy [||]
             with
@@ -36,15 +36,15 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             let! symbol = x.GetSymbolAtPosition(fileName,pos)
             if symbol.Kind = kind then
                 match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-                | Failure _ -> return! None
-                | Success (opts, _, line) ->
+                | ResultOrString.Error _ -> return! None
+                | ResultOrString.Ok (opts, _, line) ->
                     let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts)
                     let! symbolUse =
                         async {
                             let! r = result.TryGetSymbolUse pos line
                             match r with
-                            | Failure _ -> return None
-                            | Success (suse, _) -> return Some suse
+                            | ResultOrString.Error _ -> return None
+                            | ResultOrString.Ok (suse, _) -> return Some suse
                     }
                     return! Some (symbol, symbolUse)
             else
@@ -53,8 +53,8 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
 
     member x.ParseFileInProject(fileName) =
         match state.TryGetFileCheckerOptionsWithLines fileName with
-        | Failure _ -> None
-        | Success (opts, lines) ->
+        | ResultOrString.Error _ -> None
+        | ResultOrString.Ok (opts, lines) ->
             try
                 checker.TryGetRecentCheckResultsForFile(fileName, opts) |> Option.map (fun n -> n.GetParseResults)
             with

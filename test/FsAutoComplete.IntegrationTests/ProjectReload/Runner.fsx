@@ -18,7 +18,7 @@ p.waitForLine()
 Threading.Thread.Sleep 2000
 File.WriteAllBytes("Test1.fsproj", File.ReadAllBytes "Test1.fsproj")
 Threading.Thread.Sleep 2000
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

@@ -10,7 +10,7 @@ let p = new FsAutoCompleteWrapper()
 
 p.project "Project/Test1.fsproj"
 p.completion "NoSuchFile.fs" "whatever" 1 1
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "completenosuchfile.json"
 

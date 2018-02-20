@@ -11,14 +11,15 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 
 // TODO: Improve this parser. Is there any other XmlDoc parser available?
 type private XmlDocMember(doc: XmlDocument) =
-  let nl = System.Environment.NewLine
+  let nl = Environment.NewLine
   let readContent (node: XmlNode) =
     match node with
     | null -> null
     | _ ->
         // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
-    // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
-        Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "$1")
+        // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
+        // Put content in single quotes for possible formatting improvements on editor side.
+        Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
   let readChildren name (doc: XmlDocument) =
     doc.DocumentElement.GetElementsByTagName name
     |> Seq.cast<XmlNode>
@@ -29,10 +30,10 @@ type private XmlDocMember(doc: XmlDocument) =
   let exceptions = readChildren "exception" doc
   override x.ToString() =
     summary + nl + nl +
-    (pars |> Seq.map (fun kv -> kv.Key + ": " + kv.Value) |> String.concat nl) +
+    (pars |> Seq.map (fun kv -> "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl) +
     (if exceptions.Count = 0 then ""
      else nl + nl + "Exceptions:" + nl +
-          (exceptions |> Seq.map (fun kv -> "\t" + kv.Key + ": " + kv.Value) |> String.concat nl))
+          (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
 
 let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
   let acc' =
@@ -53,7 +54,7 @@ let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
   | Some acc' -> readXmlDoc reader acc'
 
 let private getXmlDoc =
-  let xmlDocCache = System.Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
+  let xmlDocCache = Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
   fun dllFile ->
     let xmlFile = Path.ChangeExtension(dllFile, ".xml")
     if xmlDocCache.ContainsKey xmlFile then
@@ -100,6 +101,14 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
             let getRemarks (it : FSharpToolTipElementData<string>) = defaultArg (it.Remarks |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)) ""
             Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
+        | _ -> None)
+
+let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) : (string * string * string) list list =
+    tips
+    |> List.choose (function
+        | FSharpToolTipElement.Group items ->
+            Some (items |> List.map (fun (it) ->  (signature, buildFormatComment it.XmlDoc, footer)))
+        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
 
 let extractSignature (FSharpToolTipText tips) =

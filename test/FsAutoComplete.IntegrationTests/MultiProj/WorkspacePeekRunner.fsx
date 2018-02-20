@@ -10,7 +10,7 @@ let p = new FsAutoCompleteWrapper()
 
 p.workspacepeek __SOURCE_DIRECTORY__ 2
 
-p.send "quit\n"
+p.quit()
 
 p.finalOutput ()
 |> writeNormalizedOutput "workspacepeek.json"

@@ -9,11 +9,39 @@ module Response = CommandResponse
 let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
+    commands.NotifyErrorsInBackground <- false
+
+    // use a mailboxprocess to queue the send of notifications
+    use agent = MailboxProcessor.Start ((fun inbox ->
+        let rec messageLoop () = async {
+
+            let! msg = inbox.Receive()
+
+            let msgText =
+                match msg with
+                | NotificationEvent.ParseError x -> x
+                | NotificationEvent.Workspace x -> x
+
+            Console.WriteLine(msgText)
+
+            return! messageLoop ()
+            }
+
+        messageLoop ()
+        ))
+
+    let _notifications =
+        commands.Notify
+        |> Observable.subscribe agent.Post
+
     while not quit do
       async {
           match commandQueue.Take() with
           | Started ->
-              return [ CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id)) ]
+              return [ 
+                  CommandResponse.info writeJson (sprintf "git commit sha: %s" <| commands.GetGitHash);
+                  CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
+               ]
           | Parse (file, kind, lines) ->
               let! res = commands.Parse file lines 0
               //Hack for tests
@@ -29,8 +57,8 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file
               match commands.TryGetFileCheckerOptionsWithLines file with
-              | Failure s -> return [Response.error writeJson s]
-              | Success options ->
+              | ResultOrString.Error s -> return [Response.error writeJson s]
+              | ResultOrString.Ok options ->
                   let projectOptions, lines = options
                   let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
                            pos.Col <= lineStr.Length + 1 && pos.Col >= 1
@@ -45,22 +73,27 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                     | Some tyRes ->
                         return!
                             match cmd with
-                            | Completion -> commands.Completion tyRes pos lineStr filter false
+                            | Completion -> commands.Completion tyRes pos lineStr lines file filter false false
                             | ToolTip -> commands.ToolTip tyRes pos lineStr
                             | TypeSig -> commands.Typesig tyRes pos lineStr
                             | SymbolUse -> commands.SymbolUse tyRes pos lineStr
                             | FindDeclaration -> commands.FindDeclaration tyRes pos lineStr
+                            | FindTypeDeclaration -> commands.FindTypeDeclaration tyRes pos lineStr
                             | Methods -> commands.Methods tyRes pos lines
                             | SymbolUseProject -> commands.SymbolUseProject tyRes pos lineStr
                             | SignatureData -> commands.SignatureData tyRes pos lineStr
           | CompilerLocation -> return commands.CompilerLocation()
           | Colorization enabled -> commands.Colorization enabled; return []
           | Lint filename -> return! commands.Lint filename
+          | UnusedDeclarations filename -> return! commands.GetUnusedDeclarations filename
+          | SimplifiedNames filename -> return! commands.GetSimplifiedNames filename
+          | UnusedOpens filename -> return! commands.GetUnusedOpens filename
           | WorkspacePeek (dir, deep, excludeDir) -> return! commands.WorkspacePeek dir deep (excludeDir |> List.ofArray)
+          | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray)
           | Error msg -> return commands.Error msg
           | Quit ->
               quit <- true
-              return []
+              return! commands.Quit()
       }
       |> Async.Catch
       |> Async.RunSynchronously
@@ -73,6 +106,12 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
             |> Console.WriteLine
     0
 
+let trimBOM (s: string) =
+    let bomUTF8 = Text.Encoding.UTF8.GetString(Text.Encoding.UTF8.GetPreamble())
+    if (s.StartsWith(bomUTF8, StringComparison.Ordinal)) then
+        s.Remove(0, bomUTF8.Length)
+    else
+        s
 
 let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     Console.InputEncoding <- Text.Encoding.UTF8
@@ -89,7 +128,15 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
             commandQueue.Add(Command.Started)
 
           while true do
-            commandQueue.Add (CommandInput.parseCommand(Console.ReadLine()))
+            let inputLine = Console.ReadLine()
+#if NETCOREAPP2_0
+            //on .net core, bom is not stripped.
+            //ref https://github.com/dotnet/standard/issues/260
+            //TODO tweak console.inputencoding to remove the BOM instead of this ugly hack
+            let inputLine = trimBOM inputLine
+#endif
+            let cmd = CommandInput.parseCommand(inputLine)
+            commandQueue.Add(cmd)
         }
         |> Async.Start
 

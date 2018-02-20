@@ -20,7 +20,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -30,7 +31,8 @@
       "Name": "func",
       "ReplacementText": "func",
       "Glyph": "Method",
-      "GlyphChar": "M"
+      "GlyphChar": "M",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -69,4 +71,8 @@
 {
   "Kind": "completion",
   "Data": []
+}
+{
+  "Kind": "info",
+  "Data": "quitting..."
 }

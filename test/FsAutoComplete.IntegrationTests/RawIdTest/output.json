@@ -193,7 +193,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -203,19 +204,22 @@
       "Name": "Another`Column",
       "ReplacementText": "``Another`Column``",
       "Glyph": "Variable",
-      "GlyphChar": "V"
+      "GlyphChar": "V",
+      "NamespaceToOpen": null
     },
     {
       "Name": "Column Two",
       "ReplacementText": "``Column Two``",
       "Glyph": "Variable",
-      "GlyphChar": "V"
+      "GlyphChar": "V",
+      "NamespaceToOpen": null
     },
     {
       "Name": "Column1",
       "ReplacementText": "Column1",
       "Glyph": "Variable",
-      "GlyphChar": "V"
+      "GlyphChar": "V",
+      "NamespaceToOpen": null
     }
   ]
 }
@@ -230,7 +234,8 @@
           "Comment": ""
         }
       ]
-    ]
+    ],
+    "AdditionalEdit": null
   }
 }
 {
@@ -240,19 +245,26 @@
       "Name": "Another`Column",
       "ReplacementText": "``Another`Column``",
       "Glyph": "Property",
-      "GlyphChar": "P"
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     },
     {
       "Name": "Column Two",
       "ReplacementText": "``Column Two``",
       "Glyph": "Property",
-      "GlyphChar": "P"
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     },
     {
       "Name": "Column1",
       "ReplacementText": "Column1",
       "Glyph": "Property",
-      "GlyphChar": "P"
+      "GlyphChar": "P",
+      "NamespaceToOpen": null
     }
   ]
+}
+{
+  "Kind": "info",
+  "Data": "quitting..."
 }

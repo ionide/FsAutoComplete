@@ -3,13 +3,78 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#load "../../.paket/load/net45/IntegrationTests/Hopac.fsx"
-#load "../../.paket/load/net45/IntegrationTests/Http.fs.fsx"
-#load "../../.paket/load/net45/IntegrationTests/Newtonsoft.Json.fsx"
+#load "../../.paket/load/net46/IntegrationTests/Hopac.fsx"
+#load "../../.paket/load/net46/IntegrationTests/Http.fs.fsx"
+#load "../../.paket/load/net46/IntegrationTests/Newtonsoft.Json.fsx"
+#load "../../.paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
 
 open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
+
+type FSACRuntime = NET | NETCoreSCD | NETCoreFDD of published: bool
+type IntegrationTestConfig = { Runtime: FSACRuntime }
+
+let testConfig =
+#if FSAC_TEST_EXE_NETCORE
+    { Runtime = NETCoreFDD false }
+#else
+#if FSAC_TEST_EXE_NETCORE_PUBLISHED
+    { Runtime = NETCoreFDD true }
+#else
+#if FSAC_TEST_EXE_NETCORE_SCD
+    { Runtime = NETCoreSCD }
+#else
+    { Runtime = NET }
+#endif
+#endif
+#endif
+
+
+let outputJsonForRuntime path =
+  match testConfig.Runtime with
+  | FSACRuntime.NETCoreFDD _ | FSACRuntime.NETCoreSCD ->
+    System.IO.Path.ChangeExtension(path, ".netcore.json")
+  | FSACRuntime.NET ->
+    path
+
+let fsacExePath () =
+  match testConfig.Runtime with
+  | FSACRuntime.NETCoreFDD false ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
+  | FSACRuntime.NETCoreFDD true ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
+  | FSACRuntime.NETCoreSCD ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete")
+  | FSACRuntime.NET ->
+    IO.Path.Combine(__SOURCE_DIRECTORY__,
+                    "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+
+let configureFSACArgs (startInfo: ProcessStartInfo) =
+    startInfo.FileName <-
+      match testConfig.Runtime with
+      | FSACRuntime.NETCoreFDD _ ->
+          IO.Path.Combine(__SOURCE_DIRECTORY__,
+                          "../../.dotnetsdk/v2.0.3/dotnet")
+      | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
+          fsacExePath ()
+
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError  <- true
+    startInfo.RedirectStandardInput  <- true
+    startInfo.UseShellExecute <- false
+    startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
+    startInfo.EnvironmentVariables.Add("FSAC_WORKSPACELOAD_DELAY", "2000")
+    match testConfig.Runtime with
+    | FSACRuntime.NETCoreFDD _ ->
+        startInfo.Arguments <- fsacExePath ()
+    | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
+        ()
+    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
+      startInfo.Arguments <- sprintf "%s --wait-for-debugger" startInfo.Arguments
 
 type FsAutoCompleteWrapperStdio() =
 
@@ -17,20 +82,12 @@ type FsAutoCompleteWrapperStdio() =
   let cachedOutput = new Text.StringBuilder()
 
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
-    p.StartInfo.RedirectStandardOutput <- true
-    p.StartInfo.RedirectStandardError  <- true
-    p.StartInfo.RedirectStandardInput  <- true
-    p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
-      p.StartInfo.Arguments <- "--wait-for-debugger"
+    configureFSACArgs p.StartInfo
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
     p.Start () |> ignore
 
   static member ExePath () =
-      IO.Path.Combine(__SOURCE_DIRECTORY__,
-                      "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+    fsacExePath ()
 
   member x.project (s: string) : unit =
     fprintf p.StandardInput "project \"%s\"\n" s
@@ -75,6 +132,15 @@ type FsAutoCompleteWrapperStdio() =
   member x.workspacepeek (dir: string) (deep: int): unit =
     fprintf p.StandardInput "workspacepeek \"%s\" %i\n" dir deep
 
+  member x.workspaceload (projects: string list): unit =
+    fprintf p.StandardInput "workspaceload %s\n" (projects |> List.map (sprintf "\"%s\"") |> String.concat " ")
+
+  member x.quit (): unit =
+    x.send "quit\n"
+
+  member x.notify () : unit =
+    ()
+
   /// Wait for a single line to be output (one JSON message)
   /// Note that this line will appear at the *start* of output.json,
   /// so use carefully, and preferably only at the beginning.
@@ -86,6 +152,23 @@ type FsAutoCompleteWrapperStdio() =
     let t = p.StandardError.ReadToEnd()
     p.WaitForExit()
     cachedOutput.ToString() + s + t
+
+  member x.awaitNotification f times =
+    let fiveSec = TimeSpan.FromSeconds(5.0)
+    let rec waitOut times =
+      printfn "waiting next notification"
+      let s = p.StandardOutput.ReadLine()
+      printfn "got: %s" s
+      cachedOutput.AppendLine(s) |> ignore
+      if f s then
+        ()
+      else
+        if times > 0 then
+          waitOut (times - 1)
+        else
+          ()
+    waitOut times
+
 
 let formatJson json =
     try
@@ -100,6 +183,40 @@ open HttpFs.Client
 
 #load "../../src/FsAutoComplete/FsAutoComplete.HttpApiContract.fs"
 
+open System.Net.WebSockets
+open System.Threading
+
+let private moveBuffer (buffer: ArraySegment<'T>) count =
+  ArraySegment(buffer.Array, buffer.Offset + count, buffer.Count - count)
+
+let private resetBuffer (buffer: ArraySegment<'T>) = ArraySegment(buffer.Array)
+
+let listenWs onMessage port action ct = async {
+  let address = sprintf "ws://localhost:%i/%s" port action
+
+  use ws = new ClientWebSocket()
+
+  //set big buffer, otherwise messages are split
+  ws.Options.SetBuffer(65535,65535)
+
+  do! ws.ConnectAsync(System.Uri(address), ct) |> Async.AwaitTask
+
+  let rec receive receivedBytes = async {
+      let! result = ws.ReceiveAsync(receivedBytes, ct) |> Async.AwaitTask
+      let currentBuffer = moveBuffer receivedBytes result.Count
+      if result.EndOfMessage then
+          let message = System.Text.Encoding.UTF8.GetString(currentBuffer.Array, 0, currentBuffer.Offset)
+          onMessage message
+          return! receive (resetBuffer currentBuffer)
+      else
+          return! receive currentBuffer
+      }
+
+  let receivedBytesBuffer = Array.init 10000000 (fun _ -> 0uy)
+
+  return! receive (ArraySegment(receivedBytesBuffer))
+  }
+
 open FsAutoComplete.HttpApiContract
 
 type FsAutoCompleteWrapperHttp() =
@@ -108,15 +225,10 @@ type FsAutoCompleteWrapperHttp() =
 
   let port = 8089
 
+  let notifyCts = new CancellationTokenSource()
+
   do
-    p.StartInfo.FileName <- FsAutoCompleteWrapperStdio.ExePath ()
-    p.StartInfo.RedirectStandardOutput <- true
-    p.StartInfo.RedirectStandardError  <- true
-    p.StartInfo.RedirectStandardInput  <- true
-    p.StartInfo.UseShellExecute <- false
-    p.StartInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
-    if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
-      p.StartInfo.Arguments <- "--wait-for-debugger"
+    configureFSACArgs p.StartInfo
     p.StartInfo.Arguments <- sprintf "%s --mode http --port %i" p.StartInfo.Arguments port
     printfn "Starting %s %s" p.StartInfo.FileName p.StartInfo.Arguments
 
@@ -164,7 +276,7 @@ type FsAutoCompleteWrapperHttp() =
     |> Hopac.run
     |> crazyness
 
-  let allResp = ResizeArray<string> ()
+  let allResp = new System.Collections.Concurrent.BlockingCollection<string> ()
 
   let recordRequest action requestId r =
     doRequest action requestId r
@@ -194,7 +306,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "parse" (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
-    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false; IncludeExternal = false }
     |> recordRequest "completion" (makeRequestId())
 
   member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
@@ -202,7 +314,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "methods" (makeRequestId())
 
   member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
-    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false; IncludeExternal = false }
     |> recordRequest"completion" (makeRequestId())
 
   member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
@@ -228,17 +340,30 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "declarations" (makeRequestId())
 
   member x.lint (fn: string) : unit =
-    { LintRequest.FileName = absPath fn }
+    { FileRequest.FileName = absPath fn }
     |> recordRequest "lint" (makeRequestId())
 
   member x.send (s: string) : unit =
     if s.Contains("quit") then
       if not p.HasExited then
+        notifyCts.Dispose()
         p.Kill ()
 
   member x.workspacepeek (dir: string) (deep: int): unit =
     { WorkspacePeekRequest.Directory = absPath dir; Deep = deep; ExcludedDirs = [| |] }
     |> recordRequest "workspacePeek" (makeRequestId())
+
+  member x.workspaceload (projects: string list): unit =
+    { WorkspaceLoadRequest.Files = projects |> Array.ofList }
+    |> recordRequest "workspaceLoad" (makeRequestId())
+
+  member x.quit (): unit =
+    new QuitRequest()
+    |> recordRequest "quit" (makeRequestId())
+
+  member x.notify () : unit =
+    listenWs (fun s -> allResp.Add(s)) port "notifyWorkspace" (notifyCts.Token)
+    |> Async.Start
 
   /// Wait for a single line to be output (one JSON message)
   /// Note that this line will appear at the *start* of output.json,
@@ -247,8 +372,29 @@ type FsAutoCompleteWrapperHttp() =
     ()
 
   member x.finalOutput () : string =
-    allResp
+    allResp.ToArray()
     |> String.concat "\n"
+
+  member x.awaitNotification (f: string -> bool) (times: int) =
+    let upTo = allResp.Count + times
+    let rec check () = async {
+      if allResp.ToArray() |> Array.rev |> Array.exists f then
+        printfn "found, max %i" upTo
+        return ()
+      else
+        let count = allResp.Count
+        if count >= upTo then
+          let msg = sprintf "timeout %i vs %i" count upTo
+          printfn "%s" msg
+          allResp.Add(msg)
+          return ()
+        else
+          printfn "not yet %i vs %i" count upTo
+          do! Async.Sleep(TimeSpan.FromMilliseconds(500.0).TotalMilliseconds |> int)
+          return! check ()
+    }
+    check ()
+    |> Async.RunSynchronously
 
 
 #if FSAC_TEST_HTTP
@@ -257,7 +403,7 @@ type FsAutoCompleteWrapper = FsAutoCompleteWrapperHttp
 type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
 #endif
 
-let writeNormalizedOutput (fn: string) (s: string) =
+let writeNormalizedOutputWith additionalFn (fn: string) (s: string) =
 
   let driveLetterRegex = if Path.DirectorySeparatorChar  = '/' then "" else "[a-zA-Z]:"
   let normalizeDirSeparators (s: string) =
@@ -303,8 +449,8 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     // replace temp directory with <tempdir path removed>
     lines.[i] <- Regex.Replace(lines.[i],
-                               Path.GetTempPath().Replace('\\','/'),
-                               "<tempdir path removed>/")
+                               Path.GetTempPath().Replace("\\","[/|\\\\]"),
+                               "<tempdir path removed>/", RegexOptions.IgnoreCase)
 
     // replace temp filename with <tempfile name removed>
     lines.[i] <- Regex.Replace(lines.[i],
@@ -313,6 +459,8 @@ let writeNormalizedOutput (fn: string) (s: string) =
 
     // normalize newline char
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
+
+    lines.[i] <- additionalFn lines.[i]
 
   //workaround for https://github.com/fsharp/fsharp/issues/774
   let lines = lines |> Array.filter ((<>) "non-IL or abstract method with non-zero RVA")
@@ -323,20 +471,30 @@ let writeNormalizedOutput (fn: string) (s: string) =
     f.Write(line)
     f.Write('\n')
 
+let writeNormalizedOutput (fn: string) (s: string) =
+  writeNormalizedOutputWith id fn s
+
 let runProcess (workingDir: string) (exePath: string) (args: string) =
     printfn "Running '%s %s' in working dir '%s'" exePath args workingDir
     let psi = System.Diagnostics.ProcessStartInfo()
     psi.FileName <- exePath
     psi.WorkingDirectory <- workingDir
-    psi.RedirectStandardOutput <- false
-    psi.RedirectStandardError <- false
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
     psi.Arguments <- args
     psi.CreateNoWindow <- true
     psi.UseShellExecute <- false
 
     use p = new System.Diagnostics.Process()
     p.StartInfo <- psi
+
+    p.OutputDataReceived.Add(fun ea -> printfn "%s" (ea.Data))
+
+    p.ErrorDataReceived.Add(fun ea -> printfn "%s" (ea.Data))
+
     p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
     p.WaitForExit()
 
     let exitCode = p.ExitCode
@@ -448,8 +606,8 @@ module DotnetCli =
 
       sdkDir
 
-  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.0.4" "v1.0.4"
-  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.0" "v2.0.0"
+  let sdk1Dir () = dotnetSdkInstallScript "1.0" "1.1.4" "v1.1.4"
+  let sdk2Dir () = dotnetSdkInstallScript "2.0" "2.0.3" "v2.0.3"
 
   let useSdk sdkDir =
     let p = withPath sdkDir

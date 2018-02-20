@@ -32,7 +32,7 @@ p.finddeclaration "Script.fsx" "let val99 = XA.funky 21" 6 16
 p.declarations "Program.fs"
 p.declarations "FileTwo.fs"
 p.declarations "Script.fsx"
-p.send "quit\n"
+p.quit()
 p.finalOutput ()
 |> writeNormalizedOutput "output.json"
 

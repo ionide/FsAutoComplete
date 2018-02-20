@@ -1,3 +1,6 @@
+[![AppVeyor build status](https://ci.appveyor.com/api/projects/status/0ld2sp0cl25ktiuq/branch/master?svg=true)](https://ci.appveyor.com/project/rneatherway/fsautocomplete)
+[![Build Status](https://travis-ci.org/fsharp/FsAutoComplete.svg?branch=master)](https://travis-ci.org/fsharp/FsAutoComplete)
+
 # FsAutoComplete
 
 This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by:
@@ -10,19 +13,9 @@ This project provides a command-line interface to the [FSharp.Compiler.Service](
 
 This README is targeted at developers.
 
-## Build Status
-
-### Travis [![Travis build status](https://travis-ci.org/fsharp/FsAutoComplete.png)](https://travis-ci.org/fsharp/FsAutoComplete)
-
-The configuration is contained in [.travis.yml](.travis.yml).
-
-### AppVeyor [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/0ld2sp0cl25ktiuq?svg=true)](https://ci.appveyor.com/project/rneatherway/fsautocomplete)
-
-The configuration is contained in [appveyor.yml](appveyor.yml).
-
 ## Required software
 
-* F# 3.1 or newer
+* F# 4.0 or newer
 * MSBuild 12 or newer
 
 ### Windows
@@ -34,8 +27,8 @@ This can be obtained by installing Visual Studio 2013 or downloading:
 
 ### Mono
 
-* Required: Mono >= 3.10
-* Recommended: Mono >= 4.0.2
+* Required: Mono >= 4.8
+* Recommended: Mono >= 5.2
 
 ## Building and testing
 
@@ -48,6 +41,8 @@ There are [unit tests](test/FsAutoComplete.Tests) for FSharp.CompilerBinding, wh
 ## Troubleshooting
 
 ### Project file loading issues
+
+#### Old sdk project (verbose fsproj)
 
 Try invoking the binary for project file cracking directly:
 
@@ -67,24 +62,34 @@ The available commands can be listed by running `fsautocomplete.exe --commands`.
 
 Data is returned as JSON. An example of a simple session is:
 
-    project "Test1.fsproj"
-    {"Kind":"project","Data":{"Files":["<absolute path removed>/Program.fs"],"Output":"<absolute path removed>/bin/Debug/Test1.exe"}}
-    parse "Program.fs"
-    module X =
-      let func x = x + 1
+```
+project "Test1.fsproj"
+```
+
+```json
+{"Kind":"project","Data":{"Files":["<absolute path removed>/Program.fs"],"Output":"<absolute path removed>/bin/Debug/Test1.exe"}}
+```
+
+```
+parse "Program.fs"
+module X =
+    let func x = x + 1
 
     let val2 = X.func 2
     <<EOF>>
-    {"Kind":"INFO","Data":"Background parsing started"}
-    completion "Program.fs" 4 13
-    {"Kind":"completion","Data":["func"]}
+```
+
+```json
+{"Kind":"INFO","Data":"Background parsing started"}
+completion "Program.fs" 4 13
+{"Kind":"completion","Data":["func"]}
+```
 
 Each response is exactly one line, which simplifies the application of a JSON parser. For further insight into the communication protocol, have a look over the integration tests, which have examples of all the features. Each folder contains one or more `*Runner.fsx` files which specify a sequence of commands to send, and `*.json` files, which contain the output.
 
-Maintainers
------------
+## Maintainers
 
-Tha maintainers of this repository appointed by the F# Core Engineering Group are:
+The maintainers of this repository are:
 
- - [Robin Neatherway](https://github.com/rneatherway), [Steffen Forkmann](http://github.com/forki), [Karl Nilsson](http://github.com/kjnilsson), [Dave Thomas](http://github.com/7sharp9) and [Guillermo López-Anglada](http://github.com/guillermooo)
+ - [Robin Neatherway](https://github.com/rneatherway), [Steffen Forkmann](http://github.com/forki), [Karl Nilsson](http://github.com/kjnilsson), [Enrico Sada](http://github.com/enricosada) and [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
  - The primary maintainer for this repository is [Robin Neatherway](https://github.com/rneatherway)

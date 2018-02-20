@@ -117,10 +117,12 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
     let afsw =
         new FileSystemWatcher(
             Path = Path.GetDirectoryName projectAsset,
-            Filter = Path.GetFileName projectAsset,
-            NotifyFilter = NotifyFilters.LastWrite)
+            Filter = Path.GetFileName projectAsset)
 
     do afsw.Changed.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAsset)))
+    do afsw.Created.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAsset)))
+    do afsw.Deleted.Add (fun _ -> agent.Post (Changed (DateTime.UtcNow)))
+
     do afsw.EnableRaisingEvents <- true
 
     member __.Response with get() = agent.PostAndReply GetResponse

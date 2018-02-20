@@ -10,8 +10,10 @@ think carefully and then commit them.
 For absolute paths, there is some ad-hoc regex trickery to strip off
 the beginning of the path.
 
-At the moment tests in JSON mode need to have a sleep command entered
-after parsing if completion data is going to be requested. This is
-because the AppVeyor virtual machines are pretty slow and the
-resulting `helptext` data field ends up sometimes containing "(loading
-description)" otherwise. This is pretty hackish, but works for now.
+## Dev guide
+
+### How to attach to running fsautocomplete under test.
+
+fsautocomplete has a `--wait-debugger` argument for wait at start, so is possibile to attach to process
+
+In test suite, setting env var `FSAC_TESTSUITE_WAITDEBUGGER` to `1` **before** running the test enable that flag

@@ -23,7 +23,7 @@ let doIt () =
 
   p.project "sample1/c1/c1.fsproj"
 
-  p.send "quit\n"
+  p.quit()
   p.finalOutput ()
   |> writeNormalizedOutput outputJson
 

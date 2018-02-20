@@ -18,8 +18,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
+        "Signature": "val ( |<>| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |<>| )\nAssembly: Script"
       }
     ]
   ]
@@ -29,8 +30,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
+        "Signature": "val ( |<>| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |<>| )\nAssembly: Script"
       }
     ]
   ]
@@ -40,8 +42,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
+        "Signature": "val ( |<>| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |<>| )\nAssembly: Script"
       }
     ]
   ]
@@ -51,8 +54,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
+        "Signature": "val ( |<>| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |<>| )\nAssembly: Script"
       }
     ]
   ]
@@ -62,8 +66,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |<>| ) : x:int -> y:int -> int\n\nFull name: Script.( |<>| )",
-        "Comment": ""
+        "Signature": "val ( |<>| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |<>| )\nAssembly: Script"
       }
     ]
   ]
@@ -81,8 +86,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
+        "Signature": "val ( |..| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |..| )\nAssembly: Script"
       }
     ]
   ]
@@ -92,8 +98,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
+        "Signature": "val ( |..| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |..| )\nAssembly: Script"
       }
     ]
   ]
@@ -103,8 +110,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
+        "Signature": "val ( |..| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |..| )\nAssembly: Script"
       }
     ]
   ]
@@ -114,8 +122,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
+        "Signature": "val ( |..| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |..| )\nAssembly: Script"
       }
     ]
   ]
@@ -125,8 +134,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |..| ) : x:int -> y:int -> int\n\nFull name: Script.( |..| )",
-        "Comment": ""
+        "Signature": "val ( |..| ): \n   x: int ->\n   y: int \n   -> int",
+        "Comment": "",
+        "Footer": "Full name: Script.( |..| )\nAssembly: Script"
       }
     ]
   ]
@@ -140,8 +150,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )",
-        "Comment": ""
+        "Signature": "val ( |Zero|Succ| ): \n   n: int \n   -> Choice<unit,int>",
+        "Comment": "",
+        "Footer": "Full name: Script.( |Zero|Succ| )\nAssembly: Script"
       }
     ]
   ]
@@ -151,8 +162,9 @@
   "Data": [
     [
       {
-        "Signature": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )",
-        "Comment": ""
+        "Signature": "val ( |Zero|Succ| ): \n   n: int \n   -> Choice<unit,int>",
+        "Comment": "",
+        "Footer": "Full name: Script.( |Zero|Succ| )\nAssembly: Script"
       }
     ]
   ]
@@ -162,9 +174,14 @@
   "Data": [
     [
       {
-        "Signature": "val ( |Zero|Succ| ) : n:int -> Choice<unit,int>\n\nFull name: Script.( |Zero|Succ| )",
-        "Comment": ""
+        "Signature": "val ( |Zero|Succ| ): \n   n: int \n   -> Choice<unit,int>",
+        "Comment": "",
+        "Footer": "Full name: Script.( |Zero|Succ| )\nAssembly: Script"
       }
     ]
   ]
+}
+{
+  "Kind": "info",
+  "Data": "quitting..."
 }

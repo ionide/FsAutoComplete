@@ -4,7 +4,6 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
-open System.Collections.Concurrent
 open FsAutoComplete.ProjectRecognizer
 
 type ParseAndCheckResults
@@ -42,29 +41,52 @@ type ParseAndCheckResults
 
     let lineStr = lines.[line - 1]
     match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
-    | None -> return Failure "Could not find ident at this location"
+    | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some identIsland ->
 
     let! meth = checkResults.GetMethods(line, col, lineStr, Some identIsland)
 
-    return Success(meth, commas) }
+    return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: Pos) (lineStr: LineStr) = async {
     match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-    | None -> return Failure "Could not find ident at this location"
+    | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
 
       let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
 
       match declarations with
-      | FSharpFindDeclResult.DeclNotFound _ -> return Failure "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range -> return Success range
-      | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return Failure "External declaration" //TODO: Handle external declarations
+      | FSharpFindDeclResult.DeclNotFound _ -> return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range -> return Ok range
+      | FSharpFindDeclResult.ExternalDecl(assembly, externalSym) -> return ResultOrString.Error "External declaration" //TODO: Handle external declarations
     }
+
+  member __.TryFindTypeDeclaration (pos: Pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+    | None -> return Error "Cannot find ident at this location"
+    | Some(col,identIsland) ->
+      let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+      match symbol with
+      | None -> return Error "Cannot find symbol at this locaion"
+      | Some s ->
+        let r =
+          match s with
+          | SymbolUse.Field f -> Some f.FieldType.TypeDefinition.DeclarationLocation
+          | SymbolUse.Val v -> v.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
+          | SymbolUse.Entity (e, _) -> Some e.DeclarationLocation
+          | SymbolUse.Parameter p -> Some p.Type.TypeDefinition.DeclarationLocation
+          | SymbolUse.TypeAbbreviation t -> Some t.DeclarationLocation
+          | SymbolUse.Property p -> p.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
+          | _ -> None
+        match r with
+        | Some r when File.Exists r.FileName -> return (Ok r)
+        | _ -> return Error "No type information for the symbol at this location"
+
+  }
 
   member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) = async {
     match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-    | None -> return Failure "Cannot find ident for tooltip"
+    | None -> return ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -77,35 +99,63 @@ type ParseAndCheckResults
                KeywordList.tryGetKeywordDescription ident
                |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
                |> function
-               | Some tip -> Success tip
-               | None -> Failure "No tooltip information"
-            | _ -> Failure "No tooltip information"
-        | _ -> Success(tip)
+               | Some tip -> Ok tip
+               | None -> ResultOrString.Error "No tooltip information"
+            | _ -> ResultOrString.Error "No tooltip information"
+        | _ -> Ok(tip)
+  }
+
+  member __.TryGetToolTipEnhanced (pos: Pos) (lineStr: LineStr) = async {
+    match Parsing.findLongIdents(pos.Col - 1, lineStr) with
+    | None -> return Error "Cannot find ident for tooltip"
+    | Some(col,identIsland) ->
+
+      // TODO: Display other tooltip types, for example for strings or comments where appropriate
+      let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+      return
+        match tip with
+        | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) ->
+            match identIsland with
+            | [ident] ->
+               KeywordList.tryGetKeywordDescription ident
+               |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
+               |> function
+               | Some tip -> Ok (tip, ident, "")
+               | None -> Error "No tooltip information"
+            | _ -> Error "No tooltip information"
+        | _ ->
+        match symbol with
+        | None -> Error "No tooltip information"
+        | Some s ->
+          match SignatureFormatter.getTooltipDetailsFromSymbolUse s with
+          | None -> Error "No tooltip information"
+          | Some (s,f) -> Ok (tip, s, f)
   }
 
   member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-        | None -> return (Failure "No ident at this location")
+        | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
-        | None -> return (Failure "No symbol information found")
+        | None -> return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
 
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
-        return Success (symboluse, symboluses) }
+        return Ok (symboluse, symboluses) }
 
   member __.TryGetSignatureData (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-        | None -> return (Failure "No ident at this location")
+        | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
-        | None -> return (Failure "No symbol information found")
+        | None -> return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
           let fsym = symboluse.Symbol
           match fsym with
@@ -115,63 +165,86 @@ type ParseAndCheckResults
               |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
               |> Seq.toList
             let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
-            return Success(typ, parms)
+            return Ok(typ, parms)
           | _ ->
-            return (Failure "Not a member, function or value" )
+            return (ResultOrString.Error "Not a member, function or value" )
     }
 
   member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
     async {
         match Parsing.findLongIdents(pos.Col - 1, lineStr) with
-        | None -> return (Failure "No ident at this location")
+        | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
         match help with
-        | None -> return (Failure "No symbol information found")
-        | Some hlp -> return Success hlp}
+        | None -> return (ResultOrString.Error "No symbol information found")
+        | Some hlp -> return Ok hlp}
 
-  member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter = async {
-    let longName, residue = Parsing.findLongIdentsAndResidue(pos.Col - 1, lineStr)
+  member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
+    let ln, residue = Parsing.findLongIdentsAndResidue (pos.Col - 1, lineStr)
     try
-      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, pos.Col, lineStr, longName, residue, (fun () -> []))
+      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Col - 1)
+      let longName = {longName with QualifyingIdents = ln; PartialIdent = residue }
 
+      let getAllSymbols() =
+        getAllSymbols()
+        |> List.filter (fun entity -> entity.FullName.Contains "." && not (PrettyNaming.IsOperatorName entity.Symbol.DisplayName))
+
+      let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
+
+      let getKindPriority = function
+        | CompletionItemKind.Property -> 0
+        | CompletionItemKind.Field -> 1
+        | CompletionItemKind.Method (isExtension = false) -> 2
+        | CompletionItemKind.Event -> 3
+        | CompletionItemKind.Argument -> 4
+        | CompletionItemKind.Other -> 5
+                | CompletionItemKind.Method (isExtension = true) -> 6
+
+      let sortedDeclItems =
+          results.Items
+          |> Array.sortWith (fun x y ->
+              let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
+              if n <> 0 then n else
+                  n <- (getKindPriority x.Kind).CompareTo(getKindPriority y.Kind)
+                  if n <> 0 then n else
+                      n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
+                      if n <> 0 then n else
+                          n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
+                          if n <> 0 then n else
+                            x.MinorPriority.CompareTo(y.MinorPriority))
       let decls =
         match filter with
-        | Some "StartsWith" -> [| for d in results.Items do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
-        | Some "Contains" -> [| for d in results.Items do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
-        | _ -> results.Items
+        | Some "StartsWith" -> [| for d in sortedDeclItems do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
+        | Some "Contains" -> [| for d in sortedDeclItems do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
+        | _ -> sortedDeclItems
 
-      let decls = decls |> Array.sortBy (fun d -> d.Name)
       return Some (decls, residue)
     with :? TimeoutException -> return None
   }
 
   member __.GetAllEntities () =
-    async {
       try
-        return
-          Some
-            [
-              yield! AssemblyContentProvider.getAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
-              let ctx = checkResults.ProjectContext
-              let assembliesByFileName =
-                ctx.GetReferencedAssemblies()
-                |> Seq.groupBy (fun asm -> asm.FileName)
-                |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
-                |> Seq.toList
-                |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
-                            // get Content.Entities from it.
+        [
+          yield! AssemblyContentProvider.getAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
+          let ctx = checkResults.ProjectContext
+          let assembliesByFileName =
+            ctx.GetReferencedAssemblies()
+            |> Seq.groupBy (fun asm -> asm.FileName)
+            |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
+            |> Seq.toList
+            |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
+                        // get Content.Entities from it.
 
-              for fileName, signatures in assembliesByFileName do
-                let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
-                let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
-                yield! content
-
-            ]
+          for fileName, signatures in assembliesByFileName do
+            let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
+            let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
+            yield! content
+        ]
       with
-      | _ -> return None
-  }
+      | _ -> []
+
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
   member __.GetAST = parseResults.ParseTree
@@ -179,20 +252,52 @@ type ParseAndCheckResults
   member __.GetParseResults = parseResults
   member __.FileName = parseResults.FileName
 
-type private FileState =
-    | Checked
-    | NeedChecking
-    | BeingChecked
-    | Cancelled
-
 type Version = int
+
+module FSharpCompilerServiceCheckerHelper =
+
+  let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
+
+  let ensureCorrectFSharpCore (options: string[]) =
+    [| match Environment.fsharpCoreOpt with
+       | Some path -> yield (sprintf "-r:%s" path)
+       | None ->
+          match options |> Array.tryFind isFSharpCore with
+          | Some ref -> yield ref
+          | None -> ()
+       //ensure single FSharp.Core ref
+       yield! options |> Array.filter (not << isFSharpCore) |]
+
+#if SCRIPT_REFS_FROM_MSBUILD
+#else
+  let ensureCorrectVersions (options: string[]) =
+    if Utils.runningOnMono then options
+    else
+      match Environment.referenceAssembliesPath (), Environment.netReferecesAssembliesTFMLatest () with
+      | _, None -> options
+      | Some referenceAssembliesPath, Some version ->
+        let oldRef = referenceAssembliesPath </> "v4.0"
+        let newRef = referenceAssembliesPath </> version
+
+        let fsharpCoreRef = options |> Seq.find isFSharpCore
+
+        let newOptions =
+          options
+          |> Seq.filter (not << isFSharpCore)
+          |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
+        [| yield fsharpCoreRef
+           yield! newOptions |]
+      | None, _ -> options
+#endif
 
 type FSharpCompilerServiceChecker() =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = false,
+      keepAllBackgroundResolutions = true,
       keepAssemblyContents = true)
+
+  do checker.ImplicitlyStartBackgroundWork <- true
 
   do checker.BeforeBackgroundFileCheck.Add ignore
   let fixFileName path =
@@ -204,80 +309,82 @@ type FSharpCompilerServiceChecker() =
         | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
         </> Path.GetFileName path
 
-  let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
-
-
-  let ensureCorrectFSharpCore (options: string[]) =
-    Environment.fsharpCoreOpt
-    |> Option.map (fun path ->
-                   let fsharpCoreRef = sprintf "-r:%s" path
-                   [| yield fsharpCoreRef
-                      yield! options |> Seq.filter (not << isFSharpCore) |])
-    |> Option.getOrElse options
-
-  let ensureCorrectVersions (options: string[]) =
-    if Utils.runningOnMono then options
-    else
-      let version = Environment.dotNetVersions () |> Seq.head
-      let oldRef = Environment.referenceAssembliesPath </> "v4.0"
-      let newRef = Environment.referenceAssembliesPath </> version
-
-      let fsharpCoreRef = options |> Seq.find isFSharpCore
-
-      let newOptions =
-        options
-        |> Seq.filter (not << isFSharpCore)
-        |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
-      [| yield fsharpCoreRef
-         yield! newOptions |]
-
-  let getDependingProjects file (options : seq<string * FSharpProjectOptions>) =
-    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
-    project |> Option.map (fun (name, option) ->
-      [
-        yield! options
-               |> Seq.map snd
-               |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (k,v) -> v.ProjectFileName) |> Array.contains option.ProjectFileName )
-        yield option
-      ])
-
   let entityCache = EntityCache()
 
+  member __.GetDependingProjects file (options : seq<string * FSharpProjectOptions>) =
+    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
+    project |> Option.map (fun (_, option) ->
+      option, [
+        yield! options
+               |> Seq.map snd
+               |> Seq.distinctBy (fun o -> o.ProjectFileName)
+               |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
+      ])
+
   member __.GetProjectOptionsFromScript(file, source) = async {
-    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
+
+#if SCRIPT_REFS_FROM_MSBUILD
+
+    let targetFramework = Environment.netReferecesAssembliesTFMLatest ()
+
+    let additionaRefs =
+      NETFrameworkInfoProvider.additionalArgumentsBy targetFramework
+      |> Array.ofList
+
+    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
+
     let opts =
       rawOptions.OtherOptions
-      |> ensureCorrectFSharpCore
-      |> ensureCorrectVersions
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
+
+    let opts =
+      opts
+      |> Array.distinct
 
     return { rawOptions with OtherOptions = opts }
+#else
+    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
+
+    let opts =
+      rawOptions.OtherOptions
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
+      |> FSharpCompilerServiceCheckerHelper.ensureCorrectVersions
+
+    return { rawOptions with OtherOptions = opts }
+#endif
+
   }
 
-  member __.CheckProjectsInBackgroundForFile (file,options : seq<string * FSharpProjectOptions>) =
-    defaultArg (getDependingProjects file options) []
-    |> List.iter (checker.CheckProjectInBackground)
 
-  member __.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
+  member __.CheckProjectInBackground = checker.CheckProjectInBackground
+
+  member x.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
     match project with
-    | None -> async {return Failure "Project for current file not found"}
+    | None -> async {return ResultOrString.Error "Project for current file not found"}
     | Some (name, option) ->
       async {
-        let projs = defaultArg (getDependingProjects file options) []
+        match x.GetDependingProjects file options with
+        | None -> return ResultOrString.Error "Project for current file not found"
+        | Some (p, projs) ->
         let! results =
-          projs
+          [ yield p; yield! projs]
           |> Seq.map checker.ParseAndCheckProject
           |> Async.Parallel
         let! currentResult =  checker.ParseAndCheckProject option
         let res = [| yield currentResult; yield! results |]
-        return Success res
+        return Ok res
       }
 
-  member __.GetBackgroundCheckResultsForFileInProject =
-    checker.GetBackgroundCheckResultsForFileInProject
+  member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
+    checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
+    |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
   member __.FileChecked =
     checker.FileChecked
+
+  member __.ProjectChecked =
+    checker.ProjectChecked
 
   member __.ParseFile =
     checker.ParseFile
@@ -285,35 +392,25 @@ type FSharpCompilerServiceChecker() =
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null)) //TODO: Add cancelation again
+      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
       return
           match res with
-          | Choice1Of2 x -> Success x
-          | Choice2Of2 e -> Failure e.Message
+          | Choice1Of2 x -> Ok x
+          | Choice2Of2 e -> ResultOrString.Error e.Message
     }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
-  member x.GetProjectOptions verbose (projectFileName: SourceFilePath) =
-    if not (File.Exists projectFileName) then
-        Err (GenericError(sprintf "File '%s' does not exist" projectFileName))
-    else
-        match projectFileName with
-        | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
-        | NetCoreSdk -> ProjectCrackerDotnetSdk.load projectFileName
-        | Net45 -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
-        | Unsupported -> ProjectCrackerVerbose.load ensureCorrectFSharpCore projectFileName verbose
-
-  member __.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol) = async {
-    let projects = getDependingProjects file options
+  member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
+    let projects = x.GetDependingProjects file options
     return!
       match projects with
       | None -> async {return [||]}
-      | Some projects -> async {
+      | Some (p, projects) -> async {
         let! res =
-          projects
+          [yield p; yield! projects ]
           |> Seq.map (fun (opts) -> async {
               let! res = checker.ParseAndCheckProject opts
               return! res.GetUsesOfSymbol symbol
