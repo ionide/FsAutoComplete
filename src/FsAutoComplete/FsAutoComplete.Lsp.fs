@@ -10,6 +10,8 @@ open LanguageServerProtocol.Protocol
 open System.Diagnostics
 open FsAutoComplete.Utils
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open Microsoft.FSharp.Reflection
+open System.Collections.Generic
 
 let traceConfig () =
     Trace.Listeners.Clear()
@@ -28,56 +30,89 @@ let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos =
 type FSharpCompletionItemKind = Microsoft.FSharp.Compiler.SourceCodeServices.CompletionItemKind
 type CompletionItemKind = LanguageServerProtocol.Protocol.General.CompletionItemKind
 
-let glyphToCompletionKind code =
-    match code with
-    | FSharpGlyph.Class -> Some CompletionItemKind.Class
-    | FSharpGlyph.Constant -> Some CompletionItemKind.Constant
-    | FSharpGlyph.Delegate -> Some CompletionItemKind.Function
-    | FSharpGlyph.Enum -> Some CompletionItemKind.Enum
-    | FSharpGlyph.EnumMember -> Some CompletionItemKind.EnumMember
-    | FSharpGlyph.Event -> Some CompletionItemKind.Event
-    | FSharpGlyph.Exception -> Some CompletionItemKind.Class
-    | FSharpGlyph.Field -> Some CompletionItemKind.Field
-    | FSharpGlyph.Interface -> Some CompletionItemKind.Interface
-    | FSharpGlyph.Method -> Some CompletionItemKind.Method
-    | FSharpGlyph.OverridenMethod-> Some CompletionItemKind.Method
-    | FSharpGlyph.Module -> Some CompletionItemKind.Module
-    | FSharpGlyph.NameSpace -> Some CompletionItemKind.Module
-    | FSharpGlyph.Property -> Some CompletionItemKind.Property
-    | FSharpGlyph.Struct -> Some CompletionItemKind.Struct
-    | FSharpGlyph.Typedef -> Some CompletionItemKind.Class
-    | FSharpGlyph.Type -> Some CompletionItemKind.Class
-    | FSharpGlyph.Union -> Some CompletionItemKind.Class
-    | FSharpGlyph.Variable -> Some CompletionItemKind.Variable
-    | FSharpGlyph.ExtensionMethod -> Some CompletionItemKind.Method
-    | FSharpGlyph.Error
-    | _ -> None
+/// Compute the best possible CompletionItemKind for each FSharpGlyph according
+// to the client capabilities
+let glyphToCompletionKindGenerator (clientCapabilities: ClientCapabilities option) =
+    let completionItemSet =
+        clientCapabilities
+        |> Option.bind(fun x -> x.TextDocument)
+        |> Option.bind(fun x -> x.Completion)
+        |> Option.bind(fun x -> x.CompletionItemKind)
+        |> Option.bind(fun x -> x.ValueSet)
+    let completionItemSet = defaultArg completionItemSet CompletionItemKindCapabilities.DefaultValueSet
 
-let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
-    traceConfig()
+    let bestAvailable (possible: CompletionItemKind[]) =
+        let mutable found: CompletionItemKind option = None
+        let mutable i = 0
+        let possibleCount = possible.Length
+        while found.IsNone && i < possibleCount do
+            if Array.contains possible.[i] completionItemSet then
+                found <- Some possible.[i]
+            i <- i + 1
+        found
 
+    let getUncached code =
+        match code with
+        | FSharpGlyph.Class -> bestAvailable [| CompletionItemKind.Class |]
+        | FSharpGlyph.Constant -> bestAvailable [| CompletionItemKind.Constant |]
+        | FSharpGlyph.Delegate -> bestAvailable [| CompletionItemKind.Function |]
+        | FSharpGlyph.Enum -> bestAvailable [| CompletionItemKind.Enum |]
+        | FSharpGlyph.EnumMember -> bestAvailable [| CompletionItemKind.EnumMember; CompletionItemKind.Enum |]
+        | FSharpGlyph.Event -> bestAvailable [| CompletionItemKind.Event |]
+        | FSharpGlyph.Exception -> bestAvailable [| CompletionItemKind.Class |]
+        | FSharpGlyph.Field -> bestAvailable [| CompletionItemKind.Field |]
+        | FSharpGlyph.Interface -> bestAvailable [| CompletionItemKind.Interface; CompletionItemKind.Class |]
+        | FSharpGlyph.Method -> bestAvailable [| CompletionItemKind.Method |]
+        | FSharpGlyph.OverridenMethod-> bestAvailable [| CompletionItemKind.Method |]
+        | FSharpGlyph.Module -> bestAvailable [| CompletionItemKind.Module; CompletionItemKind.Class |]
+        | FSharpGlyph.NameSpace -> bestAvailable [| CompletionItemKind.Module |]
+        | FSharpGlyph.Property -> bestAvailable [| CompletionItemKind.Property |]
+        | FSharpGlyph.Struct -> bestAvailable [| CompletionItemKind.Struct; CompletionItemKind.Class |]
+        | FSharpGlyph.Typedef -> bestAvailable [| CompletionItemKind.Class |]
+        | FSharpGlyph.Type -> bestAvailable [| CompletionItemKind.Class |]
+        | FSharpGlyph.Union -> bestAvailable [| CompletionItemKind.Class |]
+        | FSharpGlyph.Variable -> bestAvailable [| CompletionItemKind.Variable |]
+        | FSharpGlyph.ExtensionMethod -> bestAvailable [| CompletionItemKind.Method |]
+        | FSharpGlyph.Error
+        | _ -> None
+
+    let unionCases = FSharpType.GetUnionCases(typeof<FSharpGlyph>)
+    let cache = Dictionary<FSharpGlyph, CompletionItemKind option>(unionCases.Length)
+    for info in unionCases do
+        let glyph = FSharpValue.MakeUnion(info, [||]) :?> FSharpGlyph
+        let completionItem = getUncached glyph
+        cache.Add(glyph, completionItem)
+
+    fun glyph ->
+        cache.[glyph]
+
+let tooltipElementToMarkdown (tip: FSharpToolTipElement<string>) =
+    match tip with
+    | FSharpToolTipElement.None -> ""
+    | FSharpToolTipElement.Group lst ->
+        match lst with
+        | data :: _ ->
+            data.MainDescription
+        | [] -> ""
+    | FSharpToolTipElement.CompositionError err -> "ERR " + err
+
+let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
+    let (FSharpToolTipText elements) = tip
+    let elementsLines = elements |> List.map tooltipElementToMarkdown
+    System.String.Join("\n", elementsLines)
+
+let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
-    let tooltipElementToMarkdown (tip: FSharpToolTipElement<string>) =
-        match tip with
-        | FSharpToolTipElement.None -> ""
-        | FSharpToolTipElement.Group lst ->
-            match lst with
-            | data :: _ ->
-                data.MainDescription
-            | [] -> ""
-        | FSharpToolTipElement.CompositionError err -> "ERR " + err
+    let mutable clientCapabilities: ClientCapabilities option = None
+    let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
 
-    let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
-        let (FSharpToolTipText elements) = tip
-        let elementsLines = elements |> List.map tooltipElementToMarkdown
-        System.String.Join("\n", elementsLines)
-
-    let handleClientRequest (sendToClient: RequestSender) (request: ClientRequest) = async {
+    let handleClientRequest (_sendToClient: RequestSender) (request: ClientRequest) = async {
         match request with
         | Initialize p ->
-            sendToClient (ShowMessage { Type = MessageType.Info; Message = "Hello world" })
+            clientCapabilities <- p.Capabilities
+            glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
 
             match p.RootPath with
             | None -> ()
@@ -210,4 +245,14 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     }
 
     LanguageServerProtocol.Server.start input output handleClientRequest
+    ()
+
+let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
+    traceConfig()
+    dbgf "Starting"
+
+    try
+        startCore commands
+    with
+    | ex -> dbgf "LSP failed with %A" ex
     ()

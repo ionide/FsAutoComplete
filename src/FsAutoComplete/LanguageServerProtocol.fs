@@ -252,7 +252,7 @@ module Protocol =
         }
         with
             static member DefaultValueSet =
-                [
+                [|
                     CompletionItemKind.Text
                     CompletionItemKind.Method
                     CompletionItemKind.Function
@@ -271,7 +271,7 @@ module Protocol =
                     CompletionItemKind.Color
                     CompletionItemKind.File
                     CompletionItemKind.Reference
-                ]
+                |]
 
         /// Capabilities specific to the `textDocument/completion`
         type CompletionCapabilities = {
@@ -1189,24 +1189,28 @@ module Server =
         let handleRequest = handleRequest sendServerRequest
 
         let handleClientRequest (requestId: int option) (clientRequest: ClientRequest) = async {
-            let! response = handleRequest clientRequest
-            dbgf "Will answer: %A" response
-            let rpcResponse =
-                match response with
-                | NoResponse -> None
-                | InvalidRequest message ->
-                    JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32602, message)) |> Some
-                | UnhandledRequest ->
-                    JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
-                | response ->
-                    let boxed = response.AsJsonSerializable
-                    let serializedResponse = if isNull boxed then null else JToken.FromObject(boxed, jsonSerializer)
-                    JsonRpc.Response.Success(requestId.Value, serializedResponse) |> Some
-            match rpcResponse with
-            | Some rpcResponse ->
-                let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
-                sender.Post(rpcResponseString)
-            | _ -> ()
+
+            try
+                let! response = handleRequest clientRequest
+                dbgf "Will answer: %A" response
+                let rpcResponse =
+                    match response with
+                    | NoResponse -> None
+                    | InvalidRequest message ->
+                        JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32602, message)) |> Some
+                    | UnhandledRequest ->
+                        JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
+                    | response ->
+                        let boxed = response.AsJsonSerializable
+                        let serializedResponse = if isNull boxed then null else JToken.FromObject(boxed, jsonSerializer)
+                        JsonRpc.Response.Success(requestId.Value, serializedResponse) |> Some
+                match rpcResponse with
+                | Some rpcResponse ->
+                    let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
+                    sender.Post(rpcResponseString)
+                | _ -> ()
+            with
+            | ex -> dbgf "Failed to handle request: %A" ex
         }
 
         while true do
