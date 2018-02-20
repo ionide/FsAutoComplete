@@ -12,6 +12,7 @@ open FsAutoComplete.Utils
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Reflection
 open System.Collections.Generic
+open System.Text
 
 let traceConfig () =
     Trace.Listeners.Clear()
@@ -101,6 +102,37 @@ let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
     let elementsLines = elements |> List.map tooltipElementToMarkdown
     System.String.Join("\n", elementsLines)
 
+let errorToDiagnostic (error: FSharpErrorInfo) =
+    {
+        Range =
+            {
+                Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
+                End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
+            }
+        Severity = Some (match error.Severity with | FSharpErrorSeverity.Error  -> DiagnosticSeverity.Error | FSharpErrorSeverity.Warning -> DiagnosticSeverity.Warning)
+        Source = Some (error.Subcategory)
+        Message = error.Message
+        Code = Some (DiagnosticCode.Number error.ErrorNumber)
+    }
+
+let filePathToUri (filePath: string) =
+    let uri = StringBuilder(filePath.Length)
+    for c in filePath do
+        if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+            c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
+            c > '\xFF' then
+            uri.Append(c) |> ignore
+        else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
+            uri.Append('/') |> ignore
+        else
+            uri.Append('%') |> ignore
+            uri.Append((int c).ToString("X2")) |> ignore
+
+    if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
+        "file:" + uri.ToString()
+    else
+        "file:///" + uri.ToString()
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -108,7 +140,20 @@ let startCore (commands: Commands) =
     let mutable clientCapabilities: ClientCapabilities option = None
     let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
 
-    let handleClientRequest (_sendToClient: RequestSender) (request: ClientRequest) = async {
+    let handleClientRequest (sendToClient: RequestSender) (request: ClientRequest) = async {
+
+        let parseAsync filePath (text: string) version = async {
+            dbgf "[%s] Parse started" filePath
+            let! resp = commands.ParseNoSerialize filePath (text.Split('\n')) version
+
+            match resp with
+            | ResultOrString.Error msg -> dbgf "[%s] Parse failed with %s" filePath msg
+            | ResultOrString.Ok errors ->
+                dbgf "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
+                let diagnostics = errors |> Array.map errorToDiagnostic
+                sendToClient (PublishDiagnostics { Uri = filePathToUri filePath; Diagnostics = diagnostics })
+        }
+
         match request with
         | Initialize p ->
             clientCapabilities <- p.Capabilities
@@ -123,7 +168,52 @@ let startCore (commands: Commands) =
                 dbgf "WorkspaceLoad result = %A" response
                 ()
             ()
+            // TODO
+(*
+            commands.Checker.FileChecked.Add (fun (filePath, _) ->
+                dbgf "File checked A %s" filePath
+                dbgf "KEYS = %A" (commands.FileCheckOptions.Keys |> List.ofSeq)
+                let filePath = filePath.Replace("G:\\", "g:\\")
+                async {
+                    try
+                        let opts = commands.GetFileCheckOptions(filePath)
+                        let! res = commands.Checker.GetBackgroundCheckResultsForFileInProject(filePath, opts)
+                        let checkErrors = res.GetCheckResults.Errors
+                        let parseErrors = res.GetParseResults.Errors
+                        let errors = Array.append checkErrors parseErrors
 
+                        let diagnostics = errors |> Array.map errorToDiagnostic
+                        sendToClient (PublishDiagnostics { Uri = filePathToUri filePath; Diagnostics = diagnostics })
+                    with
+                    | ex ->
+                        dbgf "Error: %A" ex
+                        ()
+                }
+                |> Async.Start
+            )
+            *)
+            (*
+            commands.FileInProjectChecked
+                |> Observable.add(fun filePath ->
+                    dbgf "File checked B %s" filePath
+                    async {
+                        try
+                            let opts = commands.GetFileCheckOptions(filePath)
+                            let! res = commands.Checker.GetBackgroundCheckResultsForFileInProject(filePath, opts)
+                            let checkErrors = res.GetCheckResults.Errors
+                            let parseErrors = res.GetParseResults.Errors
+                            let errors = Array.append checkErrors parseErrors
+
+                            let diagnostics = errors |> Array.map errorToDiagnostic
+                            sendToClient (PublishDiagnostics { Uri = filePathToUri filePath; Diagnostics = diagnostics })
+                        with
+                        | ex ->
+                            dbgf "Error: %A" ex
+                            ()
+                    }
+                    |> Async.Start
+                )
+*)
             return InitializeResponse
                 { InitializeResult.Default with
                     Capabilities =
@@ -146,9 +236,7 @@ let startCore (commands: Commands) =
             let doc = documentParams.TextDocument
             let filePath = Uri(doc.Uri).LocalPath
 
-            dbgf "Parse started for %s" filePath
-            let! resp = commands.Parse filePath (doc.Text.Split('\n')) doc.Version
-            dbgf "Parse finished with %A" resp
+            do! parseAsync filePath doc.Text doc.Version
 
             return NoResponse
         | DidChangeTextDocument changeParams ->
@@ -158,11 +246,9 @@ let startCore (commands: Commands) =
             match contentChange, doc.Version with
             | Some contentChange, Some version ->
                 if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                    dbgf "Parse started for %s" filePath
-                    let! resp = commands.Parse filePath (contentChange.Text.Split('\n')) version
-                    dbgf "Parse finished with %A" resp
+                    do! parseAsync filePath contentChange.Text doc.Version.Value
                 else
-                    dbgf "Parse started"
+                    dbgf "Parse not started, received partial change"
             | _ ->
                 dbgf "Found no change for %s" filePath
                 ()

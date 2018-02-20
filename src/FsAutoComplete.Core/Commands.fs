@@ -65,7 +65,6 @@ type Commands (serialize : Serializer) =
         |> if notifyErrorsInBackground then Async.Start else ignore
     )
 
-
     do checker.ProjectChecked.Add(fun (o, _) ->
         state.FileCheckOptions.ToArray()
         |> Array.tryPick(fun (KeyValue(k, v)) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
@@ -139,13 +138,18 @@ type Commands (serialize : Serializer) =
         response.Files
         |> parseFilesInTheBackground
         |> Async.Start
-    
+
     let getGitHash () =
         Assembly.GetEntryAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
         |> Seq.cast<AssemblyMetadataAttribute>
         |> Seq.map (fun (m) -> m.Key,m.Value)
         |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
-    
+
+    member __.FileInProjectChecked = fileInProjectChecked.Publish
+    member __.Checker = checker
+    member __.GetFileCheckOptions(file) = state.FileCheckOptions.[file]
+    member __.FileCheckOptions = state.FileCheckOptions
+
     member __.Notify = notify.Publish
 
     member __.NotifyErrorsInBackground
@@ -176,6 +180,48 @@ type Commands (serialize : Serializer) =
     member x.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
     member x.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member x.Files = state.Files
+
+    member x.ParseNoSerialize file lines version =
+        let file = Path.GetFullPath file
+
+        async {
+            // let colorizations = state.ColorizationOutput
+            let parse' fileName text options =
+                async {
+                    let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
+                    return
+                        match result with
+                        | ResultOrString.Error e -> ResultOrString.Error e
+                        | ResultOrString.Ok (parseResult, checkResults) ->
+                            do fileParsed.Trigger parseResult
+                            do fileInProjectChecked.Trigger file
+                            match checkResults with
+                            | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error "Parse aborted"
+                            | FSharpCheckFileAnswer.Succeeded results ->
+                                let errors = Array.append results.Errors parseResult.Errors
+                                ResultOrString.Ok errors
+                                (*if colorizations then
+                                    [ Response.errors serialize (errors, fileName)
+                                      Response.colorizations serialize (results.GetSemanticClassification None) ]
+                                else [ Response.errors serialize (errors, fileName) ]*)
+                }
+            let text = String.concat "\n" lines
+
+            if Utils.isAScript file then
+                let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
+                return! parse' file text checkOptions
+            else
+                let! checkOptions =
+                    match state.GetCheckerOptions(file, lines) with
+                    | Some c -> async.Return c
+                    | None -> async {
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
+                        return checkOptions
+                    }
+                return! parse' file text checkOptions
+        }
 
     member x.Parse file lines version =
         let file = Path.GetFullPath file
@@ -708,7 +754,7 @@ type Commands (serialize : Serializer) =
 
     member x.GetGitHash =
         let hash = getGitHash()
-        match hash with 
+        match hash with
         | Some hash -> hash
         | None -> ""
 

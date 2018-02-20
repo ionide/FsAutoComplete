@@ -954,6 +954,52 @@ module Protocol =
         Items: CompletionItem[]
     }
 
+    [<ErasedUnion>]
+    [<RequireQualifiedAccess>]
+    type DiagnosticCode =
+    | Number of int
+    | String of string
+
+    [<RequireQualifiedAccess>]
+    type DiagnosticSeverity =
+        ///  Reports an error.
+        | Error = 1
+        ///  Reports a warning.
+        | Warning = 2
+        ///  Reports an information.
+        | Information = 3
+        ///  Reports a hint.
+        | Hint = 4
+
+    /// Represents a diagnostic, such as a compiler error or warning. Diagnostic objects are only valid in the
+    /// scope of a resource.
+    type Diagnostic = {
+        /// The range at which the message applies.
+        Range: Range
+
+        /// The diagnostic's severity. Can be omitted. If omitted it is up to the
+        /// client to interpret diagnostics as error, warning, info or hint.
+        Severity: DiagnosticSeverity option
+
+        /// The diagnostic's code. Can be omitted.
+        Code: DiagnosticCode option
+
+        /// A human-readable string describing the source of this
+        /// diagnostic, e.g. 'typescript' or 'super lint'.
+        Source: string option
+
+        /// The diagnostic's message.
+        Message: string
+    }
+
+    type PublishDiagnosticsParams = {
+        /// The URI for which diagnostic information is reported.
+        Uri: DocumentUri;
+
+        /// An array of diagnostic information items.
+        Diagnostics: Diagnostic[]
+    }
+
     [<AutoOpen>]
     module Messages =
         type ClientRequest =
@@ -983,17 +1029,20 @@ module Protocol =
         type ServerRequest =
             | LogMessage of LogMessageParams
             | ShowMessage of ShowMessageParams
+            | PublishDiagnostics of PublishDiagnosticsParams
         with
             member this.AsJsonSerializable
                 with get() =
                     match this with
                     | LogMessage x -> box x
                     | ShowMessage x -> box x
+                    | PublishDiagnostics x -> box x
             member this.Method
                 with get() =
                     match this with
                     | LogMessage _ -> "window/showMessage"
                     | ShowMessage _ -> "window/showMessage"
+                    | PublishDiagnostics _ -> "textDocument/publishDiagnostics"
 
         type ServerResponse =
             | NoResponse
@@ -1189,7 +1238,6 @@ module Server =
         let handleRequest = handleRequest sendServerRequest
 
         let handleClientRequest (requestId: int option) (clientRequest: ClientRequest) = async {
-
             try
                 let! response = handleRequest clientRequest
                 dbgf "Will answer: %A" response
