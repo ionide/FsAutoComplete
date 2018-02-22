@@ -120,8 +120,8 @@ type FSharpMemberOrFunctionOrValue with
 
     member x.EnclosingEntitySafe =
         try
-            x.EnclosingEntity
-        with :? InvalidOperationException -> None
+            x.DeclaringEntity 
+        with :? InvalidOperationException -> None 
 
 type FSharpGenericParameterMemberConstraint with
     member x.IsProperty =

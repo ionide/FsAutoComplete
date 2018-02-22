@@ -2,8 +2,8 @@ framework: net45
 source https://www.nuget.org/api/v2/
 
 nuget Argu ~> 3.7
-nuget FSharp.Compiler.Service ~> 17.0
-nuget FSharp.Compiler.Service.ProjectCracker ~> 17.0
+nuget FSharp.Compiler.Service ~> 20.0
+nuget FSharp.Compiler.Service.ProjectCracker ~> 20.0
 nuget Dotnet.ProjInfo ~> 0.9.0
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil
@@ -21,7 +21,6 @@ group Netcore
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
   nuget Argu ~> 3.7
-  nuget FSharp.Compiler.Service ~> 17.0
   nuget Dotnet.ProjInfo ~> 0.9.0
   nuget Sln ~> 0.3.0
   nuget Mono.Cecil
@@ -31,6 +30,8 @@ group Netcore
   nuget FSharp.Core
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
+  nuget FSharp.Compiler.Service ~> 20.0
+
 
 group Build
   framework: net45
