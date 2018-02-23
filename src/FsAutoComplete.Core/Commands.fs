@@ -479,6 +479,31 @@ type Commands (serialize : Serializer) =
             })
         |> x.AsCancellable (Path.GetFullPath fn)
 
+    member x.SymbolUseProjectNotSerialized (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        let fn = tyRes.FileName
+        async {
+            let! result = tyRes.TryGetSymbolUse pos lineStr
+            match result with
+            | Ok (sym, usages) ->
+                let fsym = sym.Symbol
+                if fsym.IsPrivateToFile then
+                    return Ok (sym, usages)
+                elif fsym.IsInternalToProject then
+                    let options = state.FileCheckOptions.[tyRes.FileName]
+                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, options] , sym.Symbol)
+                    return Ok (sym, symbols)
+                else
+                    let! symbols =
+                        let options =
+                            state.FileCheckOptions.ToArray()
+                            |> Array.map (fun (KeyValue(k, v)) -> k,v)
+                            |> Seq.ofArray
+                        checker.GetUsesOfSymbol (fn, options, sym.Symbol)
+                    return Ok (sym, symbols)
+            | Error err ->
+                return Error err
+        }
+
     member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.SerializeResult (Response.findDeclaration, Response.error)

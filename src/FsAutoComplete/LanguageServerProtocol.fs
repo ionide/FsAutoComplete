@@ -1000,6 +1000,70 @@ module Protocol =
         Diagnostics: Diagnostic[]
     }
 
+    type RenameParams = {
+        /// The document to rename.
+        TextDocument: TextDocumentIdentifier
+
+        /// The position at which this request was sent.
+        Position: Position
+
+        /// The new name of the symbol. If the given name is not valid the
+        /// request must return a **ResponseError** with an
+        /// appropriate message set.
+        NewName: string
+    }
+
+    /// Describes textual changes on a single text document. The text document is referred to as a
+    /// `VersionedTextDocumentIdentifier` to allow clients to check the text document version before an edit is
+    /// applied. A `TextDocumentEdit` describes all changes on a version Si and after they are applied move the
+    /// document to version Si+1. So the creator of a `TextDocumentEdit `doesn’t need to sort the array or do any
+    /// kind of ordering. However the edits must be non overlapping.
+    type TextDocumentEdit = {
+        /// The text document to change.
+        TextDocument: VersionedTextDocumentIdentifier
+
+        /// The edits to be applied.
+        Edits: TextEdit[]
+    }
+
+    /// A workspace edit represents changes to many resources managed in the workspace.
+    /// The edit should either provide `changes` or `documentChanges`. If the client can handle versioned document
+    /// edits and if `documentChanges` are present, the latter are preferred over `changes`.
+    type WorkspaceEdit = {
+        /// Holds changes to existing resources.
+        Changes: Map<string, TextEdit[]> option
+
+        /// An array of `TextDocumentEdit`s to express changes to n different text documents
+        /// where each text document edit addresses a specific version of a text document.
+        /// Whether a client supports versioned document edits is expressed via
+        /// `WorkspaceClientCapabilities.workspaceEdit.documentChanges`.
+        DocumentChanges: TextDocumentEdit[] option
+    }
+    with
+        static member DocumentChangesToChanges(edits: TextDocumentEdit[]) =
+            edits
+            |> Array.map (fun edit -> edit.TextDocument.Uri.ToString(), edit.Edits)
+            |> Map.ofArray
+
+        static member CanUseDocumentChanges(capabilities: ClientCapabilities) =
+            (capabilities.Workspace
+            |> Option.bind(fun x -> x.WorkspaceEdit)
+            |> Option.bind (fun x -> x.DocumentChanges))
+                = Some true
+
+        static member Create(edits: TextDocumentEdit[], capabilities: ClientCapabilities ) =
+            if WorkspaceEdit.CanUseDocumentChanges(capabilities) then
+                {
+                    Changes = None
+                    DocumentChanges = Some edits
+                }
+            else
+                {
+                    Changes = Some (WorkspaceEdit.DocumentChangesToChanges edits)
+                    DocumentChanges = None
+                }
+
+
     [<AutoOpen>]
     module Messages =
         type ClientRequest =
@@ -1009,6 +1073,7 @@ module Protocol =
             | DidChangeWatchedFiles of DidChangeWatchedFilesParams
             | Completion of CompletionParams
             | Hover of TextDocumentPositionParams
+            | Rename of RenameParams
             | Initialized
             | Shutdown
             | Exit
@@ -1018,7 +1083,8 @@ module Protocol =
                     match this with
                     | Initialize _
                     | Hover _
-                    | Completion _ -> false
+                    | Completion _
+                    | Rename _ -> false
                     | DidChangeTextDocument _
                     | DidOpenTextDocument _
                     | DidChangeWatchedFiles _
@@ -1051,6 +1117,7 @@ module Protocol =
             | InitializeResponse of InitializeResult
             | CompletionResponse of CompletionList option
             | HoverResponse of Hover option
+            | RenameResponse of WorkspaceEdit option
         with
             member this.AsJsonSerializable
                 with get() =
@@ -1058,6 +1125,7 @@ module Protocol =
                     | InitializeResponse x -> box x
                     | HoverResponse x -> box x
                     | CompletionResponse x -> box x
+                    | RenameResponse x -> box x
                     | NoResponse
                     | InvalidRequest _
                     | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
@@ -1209,6 +1277,7 @@ module Server =
     | "textDocument/didOpen" -> parseRequest<DidOpenTextDocumentParams> DidOpenTextDocument
     | "textDocument/didChange" -> parseRequest<DidChangeTextDocumentParams> DidChangeTextDocument
     | "textDocument/completion" -> parseRequest<CompletionParams> Completion
+    | "textDocument/rename" -> parseRequest<RenameParams> Rename
     | "workspace/didChangeWatchedFiles" -> parseRequest<DidChangeWatchedFilesParams> DidChangeWatchedFiles
     | "shutdown" -> parseEmpty Shutdown
     | "exit" -> parseEmpty Exit

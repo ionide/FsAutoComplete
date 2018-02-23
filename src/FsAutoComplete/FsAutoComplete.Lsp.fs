@@ -28,6 +28,19 @@ let traceConfig () =
 let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos =
     { Line = pos.Line + 1; Col = pos.Character + 1 }
 
+let posToProtocolPos (pos: Pos): LanguageServerProtocol.Protocol.Position =
+    { Line = pos.Line - 1; Character = pos.Col - 1 }
+
+let fcsPosToLsp (pos: Microsoft.FSharp.Compiler.Range.pos): LanguageServerProtocol.Protocol.Position =
+    { Line = pos.Line - 1; Character = pos.Column }
+
+let fcsRangeToLsp(range: Microsoft.FSharp.Compiler.Range.range): LanguageServerProtocol.Protocol.Range =
+    {
+        Start = fcsPosToLsp range.Start
+        End = fcsPosToLsp range.End
+    }
+
+
 type FSharpCompletionItemKind = Microsoft.FSharp.Compiler.SourceCodeServices.CompletionItemKind
 type CompletionItemKind = LanguageServerProtocol.Protocol.General.CompletionItemKind
 
@@ -134,6 +147,18 @@ let filePathToUri (filePath: string) =
         "file:///" + uri.ToString()
 
 let startCore (commands: Commands) =
+    let getRecentTypeCheckResultsForFile file =
+        match commands.TryGetFileCheckerOptionsWithLines file with
+        | ResultOrString.Error s ->
+            Result.Error (sprintf "Can't get filecheck options with lines: %s" s)
+        | ResultOrString.Ok (options, lines) ->
+            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+            match tyResOpt with
+            | None ->
+                Result.Error "Cached typecheck results not yet available"
+            | Some tyRes ->
+                Ok (options, lines, tyRes)
+
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -219,6 +244,7 @@ let startCore (commands: Commands) =
                     Capabilities =
                         { ServerCapabilities.Default with
                             HoverProvider = Some true
+                            RenameProvider = Some true
                             TextDocumentSync =
                                 Some { TextDocumentSyncOptions.Default with
                                          OpenClose = Some true
@@ -246,7 +272,7 @@ let startCore (commands: Commands) =
             match contentChange, doc.Version with
             | Some contentChange, Some version ->
                 if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                    do! parseAsync filePath contentChange.Text doc.Version.Value
+                    do! parseAsync filePath contentChange.Text version
                 else
                     dbgf "Parse not started, received partial change"
             | _ ->
@@ -323,6 +349,51 @@ let startCore (commands: Commands) =
                         let s = tooltipToMarkdown tipText
                         dbgf "Tootlip: %A" s
                         return HoverResponse (Some { Contents = MarkedString (StringAndLanguage { Language = "fsharp"; Value = s }); Range = None })
+        | Rename renameParams ->
+            let uri = Uri(renameParams.TextDocument.Uri)
+            let filePath = uri.LocalPath
+            let pos = protocolPosToPos renameParams.Position
+            dbgf "Rename for pos=%A" pos
+
+            // TODO: How do we get a versioned answer ??? as we have the version
+            match getRecentTypeCheckResultsForFile filePath with
+            | Ok (_options, lines, tyRes) ->
+                let lineStr = lines.[pos.Line-1]
+                dbgf "Rename is for line=%s" lineStr
+                let! symbolUse = commands.SymbolUseProjectNotSerialized tyRes pos lineStr
+                match symbolUse with
+                | Ok (_sym, symbols) ->
+                    let documentChanges =
+                        symbols
+                        |> Array.groupBy (fun sym -> sym.FileName)
+                        |> Array.map(fun (fileName, symbols) ->
+                            let edits =
+                                symbols |> Array.map (fun sym ->
+                                    {
+                                        Range = fcsRangeToLsp sym.RangeAlternate
+                                        NewText = renameParams.NewName
+                                    }
+                                )
+
+                            {
+                                TextDocument =
+                                    {
+                                        Uri = filePathToUri fileName
+                                        // TODO: Maintain the version of all "in flight" documents for each TypeCheck
+                                        Version = None
+                                    }
+                                Edits = edits
+                            }
+                        )
+
+                    return
+                        WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> RenameResponse
+                | Result.Error s ->
+                    // TODO: use a custom JSON-RPC error
+                    return InvalidRequest s
+            | Result.Error s ->
+                // TODO: use a custom JSON-RPC error
+                return InvalidRequest s
         | Exit ->
             Environment.Exit(0)
             return NoResponse
