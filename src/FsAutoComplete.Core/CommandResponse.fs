@@ -534,7 +534,16 @@ module CommandResponse =
     //                yield { Range = r; Kind = Enum.GetName(typeof<SemanticClassificationType>, k) } ]
     serialize { Kind = "colorizations"; Data = [] } //TODO: Fix colorization
 
-  let findDeclaration (serialize : Serializer) (range: Range.range) =
+  let findDeclaration (serialize : Serializer) (result: FindDeclarationResult) =
+    match result with
+    | FindDeclarationResult.Range range ->
+        let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
+        serialize { Kind = "finddecl"; Data = data }
+    | FindDeclarationResult.ExternalDeclaration extDecl ->
+        let data = { Line = extDecl.Line; Column = extDecl.Column + 1; File = extDecl.File }
+        serialize { Kind = "finddecl"; Data = data }
+    
+  let findTypeDeclaration (serialize : Serializer) (range: Range.range) =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
     serialize { Kind = "finddecl"; Data = data }
 
