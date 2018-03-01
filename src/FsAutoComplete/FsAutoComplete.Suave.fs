@@ -18,7 +18,7 @@ module internal Utils =
         JsonConvert.DeserializeObject(json, typeof<'a>) :?> 'a
 
     let getResourceFromReq<'a> (req : HttpRequest) =
-        let getString rawForm =
+        let getString (rawForm : byte []) =
             System.Text.Encoding.UTF8.GetString(rawForm)
         req.rawForm |> getString |> fromJson<'a>
 
@@ -226,13 +226,13 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
 #if SUAVE_2
-        serverConfig.logger.log Logging.LogLevel.Info (fun _ -> 
+        serverConfig.logger.log Logging.LogLevel.Info (fun _ ->
             Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
             Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
         )
         |> Async.RunSynchronously
 #else
-        serverConfig.logger.Log Logging.LogLevel.Info (fun () -> 
+        serverConfig.logger.Log Logging.LogLevel.Info (fun () ->
             Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
             Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid)
         )
