@@ -38,17 +38,20 @@ GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.64.6)
+    FAKE (4.64.9)
     Octokit (0.29) - generate_load_scripts: true
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (8f21aabb0974b0f4c7b7dab674b2ea2691a9db8c)
+    modules/Octokit/Octokit.fsx (ca79b3ffa4a7651f1a9ab49f96093f1fbe992fd8)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net46
 NUGET
   remote: https://www.nuget.org/api/v2
+    FSharp.Core (4.3.4)
+    Hopac (0.3.23)
+      FSharp.Core (>= 3.1.2.5)
     Http.fs (5.0.1)
     Newtonsoft.Json (11.0.1)
     System.Net.WebSockets (4.3)
