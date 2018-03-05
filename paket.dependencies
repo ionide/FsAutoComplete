@@ -51,7 +51,7 @@ group Test
   nuget NUnit.Runners
 
 group IntegrationTests
-  framework: net46
+  framework: net461
   source https://nuget.org/api/v2
   generate_load_scripts: true
 
