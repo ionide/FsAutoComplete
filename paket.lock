@@ -6,16 +6,41 @@ NUGET
       FSharp.Core (>= 4.0.0.1)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1)
-    FSharp.Compiler.Service (20.0.1)
+    FSharp.Compiler.Service (21.0.1)
+      FSharp.Core (>= 4.1.18)
+      Microsoft.DiaSymReader (>= 1.1)
+      Microsoft.DiaSymReader.PortablePdb (>= 1.2)
       System.Collections.Immutable (>= 1.3.1)
       System.Reflection.Metadata (>= 1.4.2)
-    FSharp.Compiler.Service.ProjectCracker (20.0.1)
-      FSharp.Compiler.Service (>= 20.0.1)
+      System.ValueTuple (>= 4.4)
+    FSharp.Compiler.Service.ProjectCracker (21.0.1)
+      FSharp.Compiler.Service (>= 21.0.1)
+      FSharp.Core (>= 4.1.18)
+      System.ValueTuple (>= 4.4)
     FSharp.Core (4.3.4) - redirects: force
     FSharpLint.Core (0.9.0-beta)
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 14.0.2)
       FSharp.Compiler.Service.ProjectCracker (>= 14.0.2)
+    Microsoft.DiaSymReader (1.2)
+      Microsoft.Net.Compilers (>= 2.3)
+    Microsoft.DiaSymReader.PortablePdb (1.4)
+      Microsoft.DiaSymReader (>= 1.2)
+      System.Collections (>= 4.3)
+      System.Collections.Immutable (>= 1.3.1)
+      System.Diagnostics.Debug (>= 4.3)
+      System.Globalization (>= 4.3)
+      System.IO (>= 4.3)
+      System.Linq (>= 4.3)
+      System.Reflection (>= 4.3)
+      System.Reflection.Metadata (>= 1.4.2)
+      System.Reflection.Primitives (>= 4.3)
+      System.Runtime (>= 4.3)
+      System.Runtime.Extensions (>= 4.3)
+      System.Runtime.InteropServices (>= 4.3)
+      System.Text.Encoding (>= 4.3)
+      System.Threading (>= 4.3)
+    Microsoft.Net.Compilers (2.6.1)
     Microsoft.NETCore.Platforms (2.0.1) - redirects: force
     Mono.Cecil (0.9.6.4)
     NETStandard.Library (2.0.1) - redirects: force
@@ -26,10 +51,22 @@ NUGET
     Sln (0.3)
     Suave (1.1.3)
       FSharp.Core (>= 3.1.2.5)
+    System.Collections (4.3)
     System.Collections.Immutable (1.3.1)
+    System.Diagnostics.Debug (4.3)
+    System.Globalization (4.3)
+    System.IO (4.3)
+    System.Linq (4.3)
+    System.Reflection (4.3)
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
+    System.Reflection.Primitives (4.3)
+    System.Runtime (4.3)
+    System.Runtime.Extensions (4.3)
+    System.Runtime.InteropServices (4.3)
     System.Runtime.InteropServices.RuntimeInformation (4.3) - redirects: force
+    System.Text.Encoding (4.3)
+    System.Threading (4.3)
     System.ValueTuple (4.4) - redirects: force
       NETStandard.Library (>= 1.6.1)
 
@@ -38,11 +75,11 @@ GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.64.6)
+    FAKE (4.64.10)
     Octokit (0.29) - generate_load_scripts: true
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (8f21aabb0974b0f4c7b7dab674b2ea2691a9db8c)
+    modules/Octokit/Octokit.fsx (ca79b3ffa4a7651f1a9ab49f96093f1fbe992fd8)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
