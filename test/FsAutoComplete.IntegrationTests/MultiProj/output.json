@@ -172,11 +172,11 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "Bar",
+    "Name": "Foo",
     "Overloads": [
       [
         {
-          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Signature": "type Foo =\n  | Bar\n  | Qux",
           "Comment": ""
         }
       ]
@@ -187,27 +187,6 @@
 {
   "Kind": "completion",
   "Data": [
-    {
-      "Name": "add",
-      "ReplacementText": "add",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "addition",
-      "ReplacementText": "addition",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P",
-      "NamespaceToOpen": null
-    },
     {
       "Name": "Foo",
       "ReplacementText": "Foo",
@@ -220,13 +199,6 @@
       "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P",
       "NamespaceToOpen": null
     }
   ]
@@ -405,11 +377,11 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "Bar",
+    "Name": "Foo",
     "Overloads": [
       [
         {
-          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Signature": "type Foo =\n  | Bar\n  | Qux",
           "Comment": ""
         }
       ]
@@ -420,27 +392,6 @@
 {
   "Kind": "completion",
   "Data": [
-    {
-      "Name": "add",
-      "ReplacementText": "add",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "addition",
-      "ReplacementText": "addition",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P",
-      "NamespaceToOpen": null
-    },
     {
       "Name": "Foo",
       "ReplacementText": "Foo",
@@ -453,13 +404,6 @@
       "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P",
       "NamespaceToOpen": null
     }
   ]
@@ -612,11 +556,11 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "Bar",
+    "Name": "Foo",
     "Overloads": [
       [
         {
-          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Signature": "type Foo =\n  | Bar\n  | Qux",
           "Comment": ""
         }
       ]
@@ -627,27 +571,6 @@
 {
   "Kind": "completion",
   "Data": [
-    {
-      "Name": "add",
-      "ReplacementText": "add",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "addition",
-      "ReplacementText": "addition",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P",
-      "NamespaceToOpen": null
-    },
     {
       "Name": "Foo",
       "ReplacementText": "Foo",
@@ -660,13 +583,6 @@
       "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P",
       "NamespaceToOpen": null
     }
   ]
@@ -819,11 +735,11 @@
 {
   "Kind": "helptext",
   "Data": {
-    "Name": "Bar",
+    "Name": "Foo",
     "Overloads": [
       [
         {
-          "Signature": "union case FileTwo.Foo.Bar: FileTwo.Foo",
+          "Signature": "type Foo =\n  | Bar\n  | Qux",
           "Comment": ""
         }
       ]
@@ -834,27 +750,6 @@
 {
   "Kind": "completion",
   "Data": [
-    {
-      "Name": "add",
-      "ReplacementText": "add",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "addition",
-      "ReplacementText": "addition",
-      "Glyph": "Method",
-      "GlyphChar": "M",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Bar",
-      "ReplacementText": "Bar",
-      "Glyph": "Property",
-      "GlyphChar": "P",
-      "NamespaceToOpen": null
-    },
     {
       "Name": "Foo",
       "ReplacementText": "Foo",
@@ -867,13 +762,6 @@
       "ReplacementText": "NewObjectType",
       "Glyph": "Class",
       "GlyphChar": "C",
-      "NamespaceToOpen": null
-    },
-    {
-      "Name": "Qux",
-      "ReplacementText": "Qux",
-      "Glyph": "Property",
-      "GlyphChar": "P",
       "NamespaceToOpen": null
     }
   ]
