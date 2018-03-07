@@ -206,8 +206,7 @@ let runall cfg =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
-    [ @".paket/load/net46/IntegrationTests/Http.fs.fsx"
-      @".paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
+    [ @".paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
       @".paket/load/net46/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
       @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
       @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
