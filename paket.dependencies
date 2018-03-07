@@ -31,7 +31,7 @@ group Netcore
   nuget FSharp.Core
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
-  nuget FSharp.Compiler.Service ~> 20.0
+  nuget FSharp.Compiler.Service ~> 21.0
 
 
 group Build
