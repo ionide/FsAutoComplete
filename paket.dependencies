@@ -51,13 +51,14 @@ group Test
   nuget NUnit.Runners
 
 group IntegrationTests
-  framework: net46
+  framework: net461
   source https://nuget.org/api/v2
   generate_load_scripts: true
 
   nuget Http.fs
   nuget Newtonsoft.Json
   nuget System.Net.WebSockets.Client
+  nuget Hopac
 
 group SourceLink
   storage: none

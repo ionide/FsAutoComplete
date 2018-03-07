@@ -86,6 +86,9 @@ GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net46
 NUGET
   remote: https://www.nuget.org/api/v2
+    FSharp.Core (4.3.4)
+    Hopac (0.3.23)
+      FSharp.Core (>= 3.1.2.5)
     Http.fs (5.0.1)
     Newtonsoft.Json (11.0.1)
     System.Net.WebSockets (4.3)
