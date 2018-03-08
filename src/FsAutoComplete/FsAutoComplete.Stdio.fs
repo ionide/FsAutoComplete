@@ -61,7 +61,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
               | ResultOrString.Ok options ->
                   let projectOptions, lines = options
                   let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
-                           pos.Col <= lineStr.Length + 1 && pos.Col >= 1
+                           pos.Column <= lineStr.Length + 1 && pos.Column >= 1
                   if not ok then
                       return [Response.error writeJson "Position is out of range"]
                   else

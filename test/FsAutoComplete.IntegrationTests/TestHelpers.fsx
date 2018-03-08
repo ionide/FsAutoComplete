@@ -3,10 +3,10 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
-#load "../../.paket/load/net46/IntegrationTests/Hopac.fsx"
-#load "../../.paket/load/net46/IntegrationTests/Http.fs.fsx"
-#load "../../.paket/load/net46/IntegrationTests/Newtonsoft.Json.fsx"
-#load "../../.paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
+#load "../../.paket/load/net461/IntegrationTests/Hopac.fsx"
+#load "../../.paket/load/net461/IntegrationTests/Http.fs.fsx"
+#load "../../.paket/load/net461/IntegrationTests/Newtonsoft.Json.fsx"
+#load "../../.paket/load/net461/IntegrationTests/System.Net.WebSockets.Client.fsx"
 
 open Newtonsoft.Json
 

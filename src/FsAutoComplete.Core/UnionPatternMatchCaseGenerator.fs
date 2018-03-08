@@ -434,11 +434,11 @@ let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entit
         |> Set.count
     caseCount > 0 && writtenCaseCount < caseCount
 
-let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
+let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
         let! input = parseResults.ParseTree
-        return! tryFindPatternMatchExprInParsedInput (codeGenService.ExtractFSharpPos pos) input
+        return! tryFindPatternMatchExprInParsedInput pos input
     }
 
 let tryFindBarTokenLPosInRange (codeGenService: CodeGenerationService) (range: range) (document: Document) =
@@ -572,12 +572,6 @@ let tryFindUnionDefinitionFromPos (codeGenService: CodeGenerationService) pos do
     asyncMaybe {
         let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
         let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
-        let symbolRange = {
-            StartLine = symbol.Line
-            StartColumn = symbol.LeftColumn
-            EndLine = symbol.Line
-            EndColumn = symbol.RightColumn
-        }
 
         let! superficialTypeDefinition =
             match symbolUse.Symbol with
@@ -593,7 +587,7 @@ let tryFindUnionDefinitionFromPos (codeGenService: CodeGenerationService) pos do
             | UnionType(_) -> Some superficialTypeDefinition
             | _ -> None
 
-        return symbolRange, patMatchExpr, realTypeDefinition, insertionParams
+        return patMatchExpr, realTypeDefinition, insertionParams
     }
 
 let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
