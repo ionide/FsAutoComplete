@@ -11,7 +11,7 @@ NUGET
       System.Reflection.Metadata (>= 1.4.2)
     FSharp.Compiler.Service.ProjectCracker (17.0.1)
       FSharp.Compiler.Service (>= 17.0.1)
-    FSharp.Core (4.0.0.1) - redirects: on
+    FSharp.Core (4.3.4) - redirects: on
     FSharpLint.Core (0.9.0-beta)
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 14.0.2)
@@ -27,7 +27,7 @@ NUGET
       System.Collections.Immutable (>= 1.3.1)
 GITHUB
   remote: rspeele/TaskBuilder.fs
-    TaskBuilder.fs (b8324e2a13b34f3a7a0d875b06a980bae1c6272c)
+    TaskBuilder.fs (90b641c53dc60dc8c9e0aecbb76576fc9611f441)
 GROUP Build
 GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net45
@@ -37,7 +37,7 @@ NUGET
     Octokit (0.29) - generate_load_scripts: true
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (a50a9b0833619c296d0f968af1964f6590b06995)
+    modules/Octokit/Octokit.fsx (96f1594fd50ced6c1aa45d7cf74fb6c067d08ac1)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
