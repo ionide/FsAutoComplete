@@ -146,7 +146,27 @@ let filePathToUri (filePath: string) =
     else
         "file:///" + uri.ToString()
 
-let startCore (commands: Commands) =
+open LanguageServerProtocol
+open LanguageServerProtocol.LspResult
+
+type FsharpLspServer(commands: Commands, lspClient: LspClient) =
+    inherit LspServer()
+
+    let mutable clientCapabilities: ClientCapabilities option = None
+    let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
+
+    let parseAsync filePath (text: string) version = async {
+        dbgf "[%s] Parse started" filePath
+        let! resp = commands.ParseNoSerialize filePath (text.Split('\n')) version
+
+        match resp with
+        | ResultOrString.Error msg -> dbgf "[%s] Parse failed with %s" filePath msg
+        | ResultOrString.Ok errors ->
+            dbgf "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
+            let diagnostics = errors |> Array.map errorToDiagnostic
+            do! lspClient.TextDocumentPublishDiagnostics({ Uri = filePathToUri filePath; Diagnostics = diagnostics })
+    }
+
     let getRecentTypeCheckResultsForFile file =
         match commands.TryGetFileCheckerOptionsWithLines file with
         | ResultOrString.Error s ->
@@ -159,40 +179,19 @@ let startCore (commands: Commands) =
             | Some tyRes ->
                 Ok (options, lines, tyRes)
 
-    use input = Console.OpenStandardInput()
-    use output = Console.OpenStandardOutput()
+    override __.Initialize(p) = async {
+        clientCapabilities <- p.Capabilities
+        glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
 
-    let mutable clientCapabilities: ClientCapabilities option = None
-    let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
-
-    let handleClientRequest (sendToClient: RequestSender) (request: ClientRequest) = async {
-
-        let parseAsync filePath (text: string) version = async {
-            dbgf "[%s] Parse started" filePath
-            let! resp = commands.ParseNoSerialize filePath (text.Split('\n')) version
-
-            match resp with
-            | ResultOrString.Error msg -> dbgf "[%s] Parse failed with %s" filePath msg
-            | ResultOrString.Ok errors ->
-                dbgf "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
-                let diagnostics = errors |> Array.map errorToDiagnostic
-                sendToClient (PublishDiagnostics { Uri = filePathToUri filePath; Diagnostics = diagnostics })
-        }
-
-        match request with
-        | Initialize p ->
-            clientCapabilities <- p.Capabilities
-            glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
-
-            match p.RootPath with
-            | None -> ()
-            | Some rootPath ->
-                let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
-                dbgf "Loading projects: %A" projects
-                let! response = commands.WorkspaceLoad ignore (List.ofSeq projects)
-                dbgf "WorkspaceLoad result = %A" response
-                ()
+        match p.RootPath with
+        | None -> ()
+        | Some rootPath ->
+            let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
+            dbgf "Loading projects: %A" projects
+            let! response = commands.WorkspaceLoad ignore (List.ofSeq projects)
+            dbgf "WorkspaceLoad result = %A" response
             ()
+
             // TODO
 (*
             commands.Checker.FileChecked.Add (fun (filePath, _) ->
@@ -239,169 +238,183 @@ let startCore (commands: Commands) =
                     |> Async.Start
                 )
 *)
-            return InitializeResponse
-                { InitializeResult.Default with
-                    Capabilities =
-                        { ServerCapabilities.Default with
-                            HoverProvider = Some true
-                            RenameProvider = Some true
-                            TextDocumentSync =
-                                Some { TextDocumentSyncOptions.Default with
-                                         OpenClose = Some true
-                                         Change = Some TextDocumentSyncKind.Full
-                                         Save = Some { IncludeText = Some true }
-                                     }
-                            CompletionProvider =
-                                Some {
-                                    ResolveProvider = Some false
-                                    TriggerCharacters = Some ([| "."; "'"; "," |])
-                                }
-                        }
-                }
-        | DidOpenTextDocument documentParams ->
-            let doc = documentParams.TextDocument
-            let filePath = Uri(doc.Uri).LocalPath
 
-            do! parseAsync filePath doc.Text doc.Version
-
-            return NoResponse
-        | DidChangeTextDocument changeParams ->
-            let doc = changeParams.TextDocument
-            let filePath = Uri(doc.Uri).LocalPath
-            let contentChange = changeParams.ContentChanges |> Seq.tryLast
-            match contentChange, doc.Version with
-            | Some contentChange, Some version ->
-                if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                    do! parseAsync filePath contentChange.Text version
-                else
-                    dbgf "Parse not started, received partial change"
-            | _ ->
-                dbgf "Found no change for %s" filePath
-                ()
-            return NoResponse
-        | Completion completionParams ->
-            // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
-            let noCompletion = CompletionResponse (Some { IsIncomplete = true; Items = [||] })
-            let doc = completionParams.TextDocument
-            let file = Uri(doc.Uri).LocalPath
-            match commands.TryGetFileCheckerOptionsWithLines file with
-            | ResultOrString.Error s ->
-                dbgf "Can't get filecheck options with lines: %s" s
-                return noCompletion
-            | ResultOrString.Ok (options, lines) ->
-                let pos = protocolPosToPos completionParams.Position
-                let line = pos.Line
-                let col = pos.Col
-                let lineStr = lines.[line]
-                let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
-                if not ok then
-                    dbgf "Out of range"
-                    return noCompletion
-                else
-                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
-                    match tyResOpt with
-                    | None ->
-                        dbgf "Cached typecheck results not yet available"
-                        return noCompletion
-                    | Some tyRes ->
-                        let getAllSymbols () = tyRes.GetAllEntities()
-                        let! res = tyRes.TryGetCompletions pos lineStr (Some "StartsWith") getAllSymbols
-                        match res with
-                        | Some (decls, _residue) ->
-                            let items =
-                                decls
-                                |> Array.map (fun d ->
-                                    { CompletionItem.Create(d.Name) with
-                                        Kind = glyphToCompletionKind d.Glyph
-                                    }
-                                )
-                            let x = { IsIncomplete = false; Items = items}
-                            return CompletionResponse (Some x)
-                        | None ->
-                            return noCompletion
-        | Hover posParams ->
-            let uri = Uri(posParams.TextDocument.Uri)
-            let pos = protocolPosToPos posParams.Position
-            let filePath = uri.LocalPath
-
-            dbgf "Hovering %s at %A" filePath pos
-
-            match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(filePath, pos) with
-            | ResultOrString.Error s ->
-                dbgf "TypeCheck error: %s" s
-                return HoverResponse None
-            | ResultOrString.Ok (options, _lines, lineStr) ->
-                // TODO: Should sometimes pass options.Source in here to force a reparse
-                //       for completions e.g. `(some typed expr).$`
-                let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(filePath, options)
-                match tyResOpt with
-                | None ->
-                    dbgf "No recent typecheck"
-                    return HoverResponse None
-                | Some tyRes ->
-                    let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
-                    match tipResult with
-                    | Result.Error err ->
-                        dbgf "Tooltip error: %s" err
-                        return HoverResponse None
-                    | Result.Ok (tipText, _y, _z) ->
-                        dbgf "Tootlip: %A" tipText
-                        let s = tooltipToMarkdown tipText
-                        dbgf "Tootlip: %A" s
-                        return HoverResponse (Some { Contents = MarkedString (StringAndLanguage { Language = "fsharp"; Value = s }); Range = None })
-        | Rename renameParams ->
-            let uri = Uri(renameParams.TextDocument.Uri)
-            let filePath = uri.LocalPath
-            let pos = protocolPosToPos renameParams.Position
-            dbgf "Rename for pos=%A" pos
-
-            // TODO: How do we get a versioned answer ??? as we have the version
-            match getRecentTypeCheckResultsForFile filePath with
-            | Ok (_options, lines, tyRes) ->
-                let lineStr = lines.[pos.Line-1]
-                dbgf "Rename is for line=%s" lineStr
-                let! symbolUse = commands.SymbolUseProjectNotSerialized tyRes pos lineStr
-                match symbolUse with
-                | Ok (_sym, symbols) ->
-                    let documentChanges =
-                        symbols
-                        |> Array.groupBy (fun sym -> sym.FileName)
-                        |> Array.map(fun (fileName, symbols) ->
-                            let edits =
-                                symbols |> Array.map (fun sym ->
-                                    {
-                                        Range = fcsRangeToLsp sym.RangeAlternate
-                                        NewText = renameParams.NewName
-                                    }
-                                )
-
-                            {
-                                TextDocument =
-                                    {
-                                        Uri = filePathToUri fileName
-                                        // TODO: Maintain the version of all "in flight" documents for each TypeCheck
-                                        Version = None
-                                    }
-                                Edits = edits
+        return
+            { InitializeResult.Default with
+                Capabilities =
+                    { ServerCapabilities.Default with
+                        HoverProvider = Some true
+                        RenameProvider = Some true
+                        TextDocumentSync =
+                            Some { TextDocumentSyncOptions.Default with
+                                     OpenClose = Some true
+                                     Change = Some TextDocumentSyncKind.Full
+                                     Save = Some { IncludeText = Some true }
+                                 }
+                        CompletionProvider =
+                            Some {
+                                ResolveProvider = Some false
+                                TriggerCharacters = Some ([| "."; "'"; "," |])
                             }
-                        )
-
-                    return
-                        WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> RenameResponse
-                | Result.Error s ->
-                    // TODO: use a custom JSON-RPC error
-                    return InvalidRequest s
-            | Result.Error s ->
-                // TODO: use a custom JSON-RPC error
-                return InvalidRequest s
-        | Exit ->
-            Environment.Exit(0)
-            return NoResponse
-        | x when x.IsNotification -> return NoResponse
-        | _ -> return UnhandledRequest
+                    }
+            }
+            |> success
     }
 
-    LanguageServerProtocol.Server.start input output handleClientRequest
+    override __.TextDocumentDidOpen(p) = async {
+        let doc = p.TextDocument
+        let filePath = Uri(doc.Uri).LocalPath
+
+        do! parseAsync filePath doc.Text doc.Version
+    }
+
+    override __.TextDocumentDidChange(p) = async {
+        let doc = p.TextDocument
+        let filePath = Uri(doc.Uri).LocalPath
+        let contentChange = p.ContentChanges |> Seq.tryLast
+        match contentChange, doc.Version with
+        | Some contentChange, Some version ->
+            if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
+                do! parseAsync filePath contentChange.Text version
+            else
+                dbgf "Parse not started, received partial change"
+        | _ ->
+            dbgf "Found no change for %s" filePath
+            ()
+    }
+
+    override __.TextDocumentCompletion(p) = async {
+        // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
+        let noCompletion = Result.Ok (Some { IsIncomplete = true; Items = [||] })
+        let doc = p.TextDocument
+        let file = Uri(doc.Uri).LocalPath
+        match commands.TryGetFileCheckerOptionsWithLines file with
+        | ResultOrString.Error s ->
+            dbgf "Can't get filecheck options with lines: %s" s
+            return noCompletion
+        | ResultOrString.Ok (options, lines) ->
+            let pos = protocolPosToPos p.Position
+            let line = pos.Line
+            let col = pos.Col
+            let lineStr = lines.[line]
+            let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
+            if not ok then
+                dbgf "Out of range"
+                return noCompletion
+            else
+                let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                match tyResOpt with
+                | None ->
+                    dbgf "Cached typecheck results not yet available"
+                    return noCompletion
+                | Some tyRes ->
+                    let getAllSymbols () = tyRes.GetAllEntities()
+                    let! res = tyRes.TryGetCompletions pos lineStr (Some "StartsWith") getAllSymbols
+                    match res with
+                    | Some (decls, _residue) ->
+                        let items =
+                            decls
+                            |> Array.map (fun d ->
+                                { CompletionItem.Create(d.Name) with
+                                    Kind = glyphToCompletionKind d.Glyph
+                                }
+                            )
+                        let x = { IsIncomplete = false; Items = items}
+                        return Result.Ok (Some x)
+                    | None ->
+                        return noCompletion
+    }
+
+    override __.TextDocumentHover(p) = async {
+        let uri = Uri(p.TextDocument.Uri)
+        let pos = protocolPosToPos p.Position
+        let filePath = uri.LocalPath
+
+        dbgf "Hovering %s at %A" filePath pos
+
+        match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(filePath, pos) with
+        | ResultOrString.Error s ->
+            dbgf "TypeCheck error: %s" s
+            return success None
+        | ResultOrString.Ok (options, _lines, lineStr) ->
+            // TODO: Should sometimes pass options.Source in here to force a reparse
+            //       for completions e.g. `(some typed expr).$`
+            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(filePath, options)
+            match tyResOpt with
+            | None ->
+                dbgf "No recent typecheck"
+                return success None
+            | Some tyRes ->
+                let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
+                match tipResult with
+                | Result.Error err ->
+                    dbgf "Tooltip error: %s" err
+                    return Result.Ok None
+                | Result.Ok (tipText, _y, _z) ->
+                    dbgf "Tootlip: %A" tipText
+                    let s = tooltipToMarkdown tipText
+                    dbgf "Tootlip: %A" s
+                    let response =
+                        {
+                            Contents = MarkedString (StringAndLanguage { Language = "fsharp"; Value = s })
+                            Range = None
+                        }
+                    return success (Some response)
+    }
+
+    override __.TextDocumentRename(p) = async {
+        let uri = Uri(p.TextDocument.Uri)
+        let filePath = uri.LocalPath
+        let pos = protocolPosToPos p.Position
+        dbgf "Rename for pos=%A" pos
+
+        // TODO: How do we get a versioned answer ??? as we have the version
+        match getRecentTypeCheckResultsForFile filePath with
+        | Ok (_options, lines, tyRes) ->
+            let lineStr = lines.[pos.Line-1]
+            dbgf "Rename is for line=%s" lineStr
+            let! symbolUse = commands.SymbolUseProjectNotSerialized tyRes pos lineStr
+            match symbolUse with
+            | Ok (_sym, symbols) ->
+                let documentChanges =
+                    symbols
+                    |> Array.groupBy (fun sym -> sym.FileName)
+                    |> Array.map(fun (fileName, symbols) ->
+                        let edits =
+                            symbols |> Array.map (fun sym ->
+                                {
+                                    Range = fcsRangeToLsp sym.RangeAlternate
+                                    NewText = p.NewName
+                                }
+                            )
+
+                        {
+                            TextDocument =
+                                {
+                                    Uri = filePathToUri fileName
+                                    // TODO: Maintain the version of all "in flight" documents for each TypeCheck
+                                    Version = None
+                                }
+                            Edits = edits
+                        }
+                    )
+
+                return
+                    WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> Result.Ok
+            | Result.Error s ->
+                return invalidParams (s.ToString())
+        | Result.Error s ->
+            return invalidParams (s.ToString())
+    }
+
+    override __.Exit() = async {
+        Environment.Exit(0)
+    }
+let startCore (commands: Commands) =
+    use input = Console.OpenStandardInput()
+    use output = Console.OpenStandardOutput()
+
+    LanguageServerProtocol.Server.start input output (fun lspClient -> FsharpLspServer(commands, lspClient))
     ()
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =

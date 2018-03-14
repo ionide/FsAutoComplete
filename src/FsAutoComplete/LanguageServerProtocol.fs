@@ -382,6 +382,9 @@ module Protocol =
             trace: string option
         }
 
+        type InitializedParams() =
+            class end
+
         /// Completion options.
         type CompletionOptions = {
             /// The server provides support to resolve additional information for a completion item.
@@ -1063,7 +1066,7 @@ module Protocol =
                     DocumentChanges = None
                 }
 
-
+(*
     [<AutoOpen>]
     module Messages =
         type ClientRequest =
@@ -1129,7 +1132,7 @@ module Protocol =
                     | NoResponse
                     | InvalidRequest _
                     | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
-
+*)
 
 module LowLevel =
     open System
@@ -1224,6 +1227,15 @@ module JsonRpc =
         static member Create(method': string, rpcParams: JToken) =
             { Version = "2.0"; Id = None; Method = method'; Params = Some rpcParams }
 
+    module ErrorCodes =
+        let parseError = -32700
+        let invalidRequest = -32600
+        let methodNotFound = -32601
+        let invalidParams = -32602
+        let internalError = -32603
+        let serverErrorStart = -32000
+        let serverErrorEnd = -32099
+
     type Error = {
         Code: int
         Message: string
@@ -1232,6 +1244,11 @@ module JsonRpc =
     with
         static member Create(code: int, message: string) =
             { Code = code; Message = message; Data = None }
+        static member ParseError = Error.Create(ErrorCodes.parseError, "Parse error")
+        static member InvalidRequest = Error.Create(ErrorCodes.invalidRequest, "Invalid Request")
+        static member MethodNotFound = Error.Create(ErrorCodes.methodNotFound, "Method not found")
+        static member InvalidParams = Error.Create(ErrorCodes.invalidParams, "Invalid params")
+        static member InternalError = Error.Create(ErrorCodes.internalError, "Internal error")
 
     type Response = {
         [<JsonProperty("jsonrpc")>] Version: string
@@ -1240,18 +1257,80 @@ module JsonRpc =
         Result: JToken option
     }
     with
-        static member Success(id: int, result: JToken) =
-            { Version = "2.0"; Id = Some id; Result = Some result; Error = None }
+        static member Success(id: int option, result: JToken option) =
+            { Version = "2.0"; Id = id; Result = result; Error = None }
         static member Failure(id: int option, error: Error) =
             { Version = "2.0"; Id = id; Result = None; Error = Some error }
 
+type LspResult<'t> = Result<'t, JsonRpc.Error>
+type AsyncLspResult<'t> = Async<LspResult<'t>>
+
+module LspResult =
+    let success x : LspResult<_> =
+        Result.Ok x
+
+    let invalidParams s : LspResult<_> =
+        Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, s))
+
+    let internalError s : LspResult<_> =
+        Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s))
+
+let private notImplemented<'t> = async.Return (LspResult<'t>.Error JsonRpc.Error.MethodNotFound)
+
+open Protocol
+
+[<AbstractClass>]
+type LspClient() =
+    abstract member WindowShowMessage: ShowMessageParams -> Async<unit>
+    default __.WindowShowMessage(_) = async.Return(())
+
+    abstract member WindowLogMessage: LogMessageParams -> Async<unit>
+    default __.WindowLogMessage(_) = async.Return(())
+
+    abstract member TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
+    default __.TextDocumentPublishDiagnostics(_) = async.Return(())
+
+[<AbstractClass>]
+type LspServer() =
+    abstract member Initialize: InitializeParams -> AsyncLspResult<InitializeResult>
+    default __.Initialize(_) = notImplemented
+
+    abstract member Initialized: InitializedParams -> Async<unit>
+    default __.Initialized(_) = async.Return(())
+
+    abstract member Shutdown : unit -> Async<unit>
+    default __.Shutdown() = async.Return(())
+
+    abstract member Exit : unit -> Async<unit>
+    default __.Exit() = async.Return(())
+
+    abstract member TextDocumentHover: TextDocumentPositionParams -> AsyncLspResult<Hover option>
+    default __.TextDocumentHover(_) = notImplemented
+
+    abstract member TextDocumentDidOpen: DidOpenTextDocumentParams -> Async<unit>
+    default __.TextDocumentDidOpen(_) = async.Return(())
+
+    abstract member TextDocumentDidChange: DidChangeTextDocumentParams -> Async<unit>
+    default __.TextDocumentDidChange(_) = async.Return(())
+
+    abstract member TextDocumentCompletion: CompletionParams -> AsyncLspResult<CompletionList option>
+    default __.TextDocumentCompletion(_) = notImplemented
+
+    abstract member TextDocumentRename: RenameParams -> AsyncLspResult<WorkspaceEdit option>
+    default __.TextDocumentRename(_) = notImplemented
+
+    abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
+    default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
+
 module Server =
+    open System
     open System.IO
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Serialization
 
     open Protocol
+    open JsonRpc
 
     let jsonSettings =
         let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
@@ -1262,30 +1341,115 @@ module Server =
 
     let jsonSerializer = JsonSerializer.Create(jsonSettings)
 
-    let private parseRequest<'a> (f: 'a -> ClientRequest) (paramsToken: JToken option) =
-        paramsToken
-        |> Option.map (fun paramsToken ->
-            paramsToken.ToObject<'a>(jsonSerializer) |> f)
+    type RequestHandling = {
+        Run: LspServer -> JToken option -> AsyncLspResult<JToken option>
+    }
 
-    let private parseEmpty (req: ClientRequest) (_params: JToken option) =
-        Some req
+    let requestHandling<'param, 'result> (run: LspServer -> 'param -> AsyncLspResult<'result>): RequestHandling =
+        let tokenRun (lspServer: LspServer) (paramsToken: JToken option): AsyncLspResult<JToken option> =
+            try
+                let p =
+                    match paramsToken with
+                    | Some paramsToken ->
+                        let typedParams = paramsToken.ToObject<'param>(jsonSerializer)
+                        Some typedParams
+                    | None ->
+                        if typeof<'param> = typeof<unit> then
+                            Some (unbox ())
+                        else
+                            None
+                match p with
+                | Some p ->
+                    async {
+                        try
+                            let! result = run lspServer p
+                            match result with
+                            | Result.Ok ok ->
+                                if isNull (box ok) then
+                                    return Result.Ok None
+                                else
+                                    let resultToken = JToken.FromObject(ok, jsonSerializer)
+                                    return Result.Ok (Some resultToken)
+                            | Result.Error err ->
+                                return Result.Error err
+                        with
+                        | ex ->
+                            return Result.Error (Error.Create(ErrorCodes.internalError, ex.Message))
+                    }
+                | None ->
+                     async.Return (Result.Error (Error.Create(ErrorCodes.invalidRequest, "No params found")))
+            with
+            | :? JsonException as ex ->
+                async.Return (Result.Error (Error.Create(ErrorCodes.parseError, ex.Message)))
 
-    let requestParser = function
-    | "initialize" -> parseRequest<InitializeParams> Initialize
-    | "initialized" -> parseEmpty Initialized
-    | "textDocument/hover" -> parseRequest<TextDocumentPositionParams> Hover
-    | "textDocument/didOpen" -> parseRequest<DidOpenTextDocumentParams> DidOpenTextDocument
-    | "textDocument/didChange" -> parseRequest<DidChangeTextDocumentParams> DidChangeTextDocument
-    | "textDocument/completion" -> parseRequest<CompletionParams> Completion
-    | "textDocument/rename" -> parseRequest<RenameParams> Rename
-    | "workspace/didChangeWatchedFiles" -> parseRequest<DidChangeWatchedFilesParams> DidChangeWatchedFiles
-    | "shutdown" -> parseEmpty Shutdown
-    | "exit" -> parseEmpty Exit
-    | _ -> fun _ -> None
+        { Run = tokenRun }
 
-    type RequestSender = ServerRequest -> unit
+    /// Notifications don't generate a response or error, but to unify things we considere them as always successful
+    let private notificationSuccess (response: Async<unit>) = async {
+        do! response
+        return Result.Ok ()
+    }
 
-    let start (input: Stream) (output: Stream) (handleRequest: RequestSender -> ClientRequest -> Async<ServerResponse>) =
+    let requestHandlings =
+        [
+            "initialize", requestHandling (fun s p -> s.Initialize(p))
+            "initialized", requestHandling (fun s p -> s.Initialized(p) |> notificationSuccess)
+            "textDocument/hover", requestHandling (fun s p -> s.TextDocumentHover(p))
+            "textDocument/didOpen", requestHandling (fun s p -> s.TextDocumentDidOpen(p) |> notificationSuccess)
+            "textDocument/didChange", requestHandling (fun s p -> s.TextDocumentDidChange(p) |> notificationSuccess)
+            "textDocument/completion", requestHandling (fun s p -> s.TextDocumentCompletion(p))
+            "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
+            "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
+            "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
+            "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
+        ]
+        |> Map.ofList
+
+    let handleRequest (request: JsonRpc.Request) (lspServer: LspServer): Async<JsonRpc.Response option> =
+        async {
+            let mutable methodCallResult = Result.Error (Error.MethodNotFound)
+            match requestHandlings |> Map.tryFind request.Method with
+            | Some handling ->
+                try
+                    let! result = handling.Run lspServer request.Params
+                    methodCallResult <- result
+                with
+                | ex ->
+                    dbgf "Exception %O in call to %s" ex request.Method
+                    methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
+            | None -> ()
+
+            match request.Id with
+            | Some _ ->
+                match methodCallResult with
+                | Result.Ok ok ->
+                    return Some (JsonRpc.Response.Success(request.Id, ok))
+                | Result.Error err ->
+                    return Some (JsonRpc.Response.Failure(request.Id, err))
+            | None ->
+                match methodCallResult with
+                | Result.Ok (Some ok) ->
+                    dbgf "Provided response %A to notification %s but it is ignored" ok request.Method
+                | Result.Error err ->
+                    dbgf "Failed with %A to notification %s but it is ignored" err request.Method
+                | _ ->
+                    ()
+                return None
+        }
+
+    type LspClientImpl(sendServerRequest: string -> obj -> AsyncLspResult<unit>) =
+        inherit LspClient()
+
+        override __.WindowShowMessage(p) =
+            sendServerRequest "window/showMessage" (box p) |> Async.Ignore
+
+        override __.WindowLogMessage(p) =
+            sendServerRequest "window/logMessage" (box p) |> Async.Ignore
+
+        override __.TextDocumentPublishDiagnostics(p) =
+            sendServerRequest "textDocument/publishDiagnostics" (box p) |> Async.Ignore
+
+    let start (input: Stream) (output: Stream) (serverCreator: LspClient -> #LspServer) =
         dbgf "Starting up !"
 
         let sender = MailboxProcessor<string>.Start(fun inbox ->
@@ -1298,52 +1462,36 @@ module Server =
             loop ())
 
         /// When the server wants to send a request/notification to the client
-        let sendServerRequest (serverRequest: ServerRequest) =
-            let serializedResponse = JToken.FromObject(serverRequest.AsJsonSerializable, jsonSerializer)
-            let req = JsonRpc.Request.Create(serverRequest.Method, serializedResponse)
+        let sendServerRequest (method: string) (requestObj: obj): AsyncLspResult<unit> =
+            let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
+            let req = JsonRpc.Request.Create(method, serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
             sender.Post(reqString)
+            // TODO: Really wait for the client answer
+            async.Return (LspResult.Ok ())
 
-        let handleRequest = handleRequest sendServerRequest
+        let lspClient = LspClientImpl sendServerRequest
+        let lspServer = serverCreator lspClient
 
-        let handleClientRequest (requestId: int option) (clientRequest: ClientRequest) = async {
-            try
-                let! response = handleRequest clientRequest
-                dbgf "Will answer: %A" response
-                let rpcResponse =
-                    match response with
-                    | NoResponse -> None
-                    | InvalidRequest message ->
-                        JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32602, message)) |> Some
-                    | UnhandledRequest ->
-                        JsonRpc.Response.Failure(requestId, JsonRpc.Error.Create(-32601, "Method not found")) |> Some
-                    | response ->
-                        let boxed = response.AsJsonSerializable
-                        let serializedResponse = if isNull boxed then null else JToken.FromObject(boxed, jsonSerializer)
-                        JsonRpc.Response.Success(requestId.Value, serializedResponse) |> Some
-                match rpcResponse with
-                | Some rpcResponse ->
-                    let rpcResponseString = JsonConvert.SerializeObject(rpcResponse, jsonSettings)
-                    sender.Post(rpcResponseString)
-                | _ -> ()
-            with
-            | ex -> dbgf "Failed to handle request: %A" ex
-        }
+        let handleClientRequest (requestString: string): unit =
+            let request = JsonConvert.DeserializeObject<JsonRpc.Request>(requestString, jsonSettings)
+            async {
+                let! result = handleRequest request lspServer
+                match result with
+                | Some response ->
+                    let responseString = JsonConvert.SerializeObject(response, jsonSettings)
+                    sender.Post(responseString)
+                | None -> ()
+            }
+            |> Async.StartAsTask
+            |> ignore
 
         while true do
             try
-                let _, rpcRequestString = LowLevel.read input
-                dbgf "Received: %s" rpcRequestString
+                let _, requestString = LowLevel.read input
+                dbgf "Received: %s" requestString
 
-                let rpcRequest = JsonConvert.DeserializeObject<JsonRpc.Request>(rpcRequestString, jsonSettings)
-                let request = requestParser rpcRequest.Method rpcRequest.Params
-                dbgf "Parsed as: %A" request
-
-                match request with
-                | Some request ->
-                    handleClientRequest rpcRequest.Id request |> Async.StartAsTask |> ignore
-                | _ ->
-                    dbgf "Unable to parse request: %s" rpcRequestString
+                handleClientRequest requestString
             with
             | :? EndOfStreamException ->
                 dbgf "Client closed the input stream"
