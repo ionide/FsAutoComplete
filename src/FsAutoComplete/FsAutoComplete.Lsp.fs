@@ -285,7 +285,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
 
     override __.TextDocumentCompletion(p) = async {
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
-        let noCompletion = Result.Ok (Some { IsIncomplete = true; Items = [||] })
+        let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
         let doc = p.TextDocument
         let file = Uri(doc.Uri).LocalPath
         match commands.TryGetFileCheckerOptionsWithLines file with
@@ -320,7 +320,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                                 }
                             )
                         let x = { IsIncomplete = false; Items = items}
-                        return Result.Ok (Some x)
+                        return success (Some x)
                     | None ->
                         return noCompletion
     }
@@ -349,7 +349,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                 match tipResult with
                 | Result.Error err ->
                     dbgf "Tooltip error: %s" err
-                    return Result.Ok None
+                    return success None
                 | Result.Ok (tipText, _y, _z) ->
                     dbgf "Tootlip: %A" tipText
                     let s = tooltipToMarkdown tipText
@@ -400,7 +400,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                     )
 
                 return
-                    WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> Result.Ok
+                    WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> success
             | Result.Error s ->
                 return invalidParams (s.ToString())
         | Result.Error s ->
