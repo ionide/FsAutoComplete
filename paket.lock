@@ -923,20 +923,21 @@ NUGET
     SourceLink.Embed.PaketFiles (2.7.4)
 
 GROUP Test
-RESTRICTION: == net45
+RESTRICTION: == net46
 NUGET
   remote: https://www.nuget.org/api/v2
-    NUnit (3.9)
-    NUnit.ConsoleRunner (3.7)
+    FSharp.Core (4.3.4)
+    NUnit (3.10.1)
+    NUnit.ConsoleRunner (3.8)
     NUnit.Extension.NUnitProjectLoader (3.6)
     NUnit.Extension.NUnitV2Driver (3.7)
     NUnit.Extension.NUnitV2ResultWriter (3.6)
     NUnit.Extension.TeamCityEventListener (1.0.3)
     NUnit.Extension.VSProjectLoader (3.7)
-    NUnit.Runners (3.7)
-      NUnit.ConsoleRunner (>= 3.7)
+    NUnit.Runners (3.8)
+      NUnit.ConsoleRunner (>= 3.8)
       NUnit.Extension.NUnitProjectLoader (>= 3.5)
       NUnit.Extension.NUnitV2Driver (>= 3.6)
       NUnit.Extension.NUnitV2ResultWriter (>= 3.5)
-      NUnit.Extension.TeamCityEventListener (>= 1.0.2)
-      NUnit.Extension.VSProjectLoader (>= 3.5)
+      NUnit.Extension.TeamCityEventListener (>= 1.0.3)
+      NUnit.Extension.VSProjectLoader (>= 3.7)

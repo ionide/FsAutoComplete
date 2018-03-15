@@ -44,9 +44,10 @@ group Build
   nuget FAKE
 
 group Test
-  framework: net45
+  framework: net46
   source https://nuget.org/api/v2
 
+  nuget FSharp.Core >= 4.1.17
   nuget NUnit
   nuget NUnit.Runners
 
