@@ -403,7 +403,7 @@ module Protocol =
         /// Code Lens options.
         type CodeLensOptions = {
             /// Code lens has a resolve provider as well.
-            ResolveProvider: bool option;
+            ResolveProvider: bool option
         }
 
         /// Format document on type options
@@ -597,8 +597,8 @@ module Protocol =
 
     /// Represents a location inside a resource, such as a line inside a text file.
     type Location = {
-        Uri: DocumentUri;
-        Range: Range;
+        Uri: DocumentUri
+        Range: Range
     }
 
     type ITextDocumentIdentifier =
@@ -622,7 +622,7 @@ module Protocol =
             /// (the server has not received an open notification before) the server can send
             /// `null` to indicate that the version is known and the content on disk is the
             /// truth (as speced with document content ownership)
-            Version: int option;
+            Version: int option
         }
         interface ITextDocumentIdentifier with
             member this.Uri with get() = this.Uri
@@ -758,12 +758,12 @@ module Protocol =
         /// The document that did change. The version number points
         /// to the version after all provided content changes have
         /// been applied.
-        TextDocument: VersionedTextDocumentIdentifier;
+        TextDocument: VersionedTextDocumentIdentifier
 
         /// The actual content changes. The content changes describe single state changes
         /// to the document. So if there are two content changes c1 and c2 for a document
         /// in state S10 then c1 move the document to S11 and c2 to S12.
-        ContentChanges: TextDocumentContentChangeEvent[];
+        ContentChanges: TextDocumentContentChangeEvent[]
     }
 
     type FileChangeType =
@@ -1020,7 +1020,7 @@ module Protocol =
 
     type PublishDiagnosticsParams = {
         /// The URI for which diagnostic information is reported.
-        Uri: DocumentUri;
+        Uri: DocumentUri
 
         /// An array of diagnostic information items.
         Diagnostics: Diagnostic[]
@@ -1104,8 +1104,10 @@ module Protocol =
     type DocumentHighlightKind =
         /// A textual occurrence.
         | Text = 1
+
         /// Read-access of a symbol, like reading a variable.
         | Read = 2
+
         /// Write-access of a symbol, like writing to a variable.
         | Write = 3
 
@@ -1118,6 +1120,122 @@ module Protocol =
 
         /// The highlight kind, default is DocumentHighlightKind.Text.
         Kind: DocumentHighlightKind option
+    }
+
+    type DocumentLinkParams = {
+        /// The document to provide document links for.
+        TextDocument: TextDocumentIdentifier
+    }
+
+    /// A document link is a range in a text document that links to an internal or external resource, like another
+    /// text document or a web site.
+    type DocumentLink = {
+        /// The range this link applies to.
+        Range: Range
+
+        /// The uri this link points to. If missing a resolve request is sent later.
+        Target: DocumentUri option
+    }
+
+    type DocumentColorParams = {
+        /// The text document.
+        TextDocument: TextDocumentIdentifier
+    }
+
+    /// Represents a color in RGBA space.
+    type Color = {
+        /// The red component of this color in the range [0-1].
+        Red: float
+
+        /// The green component of this color in the range [0-1].
+        Green: float
+
+        /// The blue component of this color in the range [0-1].
+        Blue: float
+
+        /// The alpha component of this color in the range [0-1].
+        Alpha: float
+    }
+
+    type ColorInformation = {
+        /// The range in the document where this color appears.
+        Range: Range
+
+        /// The actual color value for this color range.
+        Color: Color
+    }
+
+    type ColorPresentationParams = {
+        /// The text document.
+        TextDocument: TextDocumentIdentifier
+
+        /// The color information to request presentations for.
+        ColorInfo: Color
+
+        /// The range where the color would be inserted. Serves as a context.
+        Range: Range
+    }
+
+    type ColorPresentation = {
+        /// The label of this color presentation. It will be shown on the color
+        /// picker header. By default this is also the text that is inserted when selecting
+        /// this color presentation.
+        Label: string
+
+        /// An edit which is applied to a document when selecting
+        /// this presentation for the color.  When `falsy` the label
+        /// is used.
+        TextEdit: TextEdit option
+
+        /// An optional array of additional text edits that are applied when
+        /// selecting this color presentation. Edits must not overlap with the main edit nor with themselves.
+        AdditionalTextEdits: TextEdit[] option
+    }
+
+    /// Value-object describing what options formatting should use.
+    type FormattingOptions = {
+        /// Size of a tab in spaces.
+        TabSize: int
+
+        /// Prefer spaces over tabs.
+        InsertSpaces: bool
+
+        /// Further properties.
+        [<JsonExtensionData>]
+        AdditionalData: System.Collections.Generic.IDictionary<string, JToken>
+    }
+
+    type DocumentFormattingParams = {
+        /// The document to format.
+        TextDocument: TextDocumentIdentifier
+
+        /// The format options.
+        Options: FormattingOptions
+    }
+
+    type DocumentRangeFormattingParams = {
+        /// The document to format.
+        TextDocument: TextDocumentIdentifier
+
+        /// The range to format
+        Range: Range
+
+        /// The format options
+        Options: FormattingOptions
+    }
+
+    type DocumentOnTypeFormattingParams = {
+        /// The document to format.
+        TextDocument: TextDocumentIdentifier
+
+        /// The position at which this request was sent.
+        Position: Position
+
+        /// The character that has been typed.
+        Ch: string
+
+        /// The format options.
+        Options: FormattingOptions
     }
 
 module LowLevel =
@@ -1323,7 +1441,39 @@ type LspServer() =
     abstract member TextDocumentDocumentHighlight: TextDocumentPositionParams -> AsyncLspResult<DocumentHighlight[] option>
     default __.TextDocumentDocumentHighlight(_) = notImplemented
 
+    /// The document links request is sent from the client to the server to request the location of links
+    /// in a document.
+    abstract member TextDocumentDocumentLink: DocumentLinkParams -> AsyncLspResult<DocumentLink[] option>
+    default __.TextDocumentDocumentLink(_) = notImplemented
+
+    /// The document link resolve request is sent from the client to the server to resolve the target of
+    /// a given document link.
+    abstract member DocumentLinkResolve: DocumentLink -> AsyncLspResult<DocumentLink>
+    default __.DocumentLinkResolve(_) = notImplemented
     
+    /// The document color request is sent from the client to the server to list all color refereces
+    /// found in a given text document. Along with the range, a color value in RGB is returned.
+    abstract member TextDocumentDocumentColor: DocumentColorParams -> AsyncLspResult<ColorInformation[]>
+    default __.TextDocumentDocumentColor(_) = notImplemented
+
+    /// The color presentation request is sent from the client to the server to obtain a list of
+    /// presentations for a color value at a given location. Clients can use the result to
+    abstract member TextDocumentColorPresentation: ColorPresentationParams -> AsyncLspResult<ColorPresentation[]>
+    default __.TextDocumentColorPresentation(_) = notImplemented
+
+    /// The document formatting request is sent from the client to the server to format a whole document.
+    abstract member TextDocumentFormatting: DocumentFormattingParams -> AsyncLspResult<TextEdit[] option>
+    default __.TextDocumentFormatting(_) = notImplemented
+
+    /// The document range formatting request is sent from the client to the server to format a given
+    /// range in a document.
+    abstract member TextDocumentRangeFormatting: DocumentRangeFormattingParams -> AsyncLspResult<TextEdit[] option>
+    default __.TextDocumentRangeFormatting(_) = notImplemented
+
+    /// The document on type formatting request is sent from the client to the server to format parts
+    /// of the document during typing.
+    abstract member TextDocumentOnTypeFormatting: DocumentOnTypeFormattingParams -> AsyncLspResult<TextEdit[] option>
+    default __.TextDocumentOnTypeFormatting(_) = notImplemented
 
     abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
     default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
@@ -1408,6 +1558,13 @@ module Server =
             "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
             "textDocument/references", requestHandling (fun s p -> s.TextDocumentReferences(p))
             "textDocument/documentHighlight", requestHandling (fun s p -> s.TextDocumentDocumentHighlight(p))
+            "textDocument/documentLink", requestHandling (fun s p -> s.TextDocumentDocumentLink(p))
+            "documentLink/resolve", requestHandling (fun s p -> s.DocumentLinkResolve(p))
+            "textDocument/documentColor", requestHandling (fun s p -> s.TextDocumentDocumentColor(p))
+            "textDocument/colorPresentation", requestHandling (fun s p -> s.TextDocumentColorPresentation(p))
+            "textDocument/formatting", requestHandling (fun s p -> s.TextDocumentFormatting(p))
+            "textDocument/rangeFormatting", requestHandling (fun s p -> s.TextDocumentRangeFormatting(p))
+            "textDocument/onTypeFormatting", requestHandling (fun s p -> s.TextDocumentOnTypeFormatting(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
