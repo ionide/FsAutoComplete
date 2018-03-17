@@ -54,6 +54,54 @@ module Protocol =
         | Full = 1
         | Incremental = 2
 
+    type DocumentFilter = {
+        /// A language id, like `typescript`.
+        Language: string option
+
+        /// A Uri scheme, like `file` or `untitled`.
+        Scheme: string option
+
+        /// A glob pattern, like `*.{ts,js}`.
+        Pattern: string option
+    }
+
+    type DocumentSelector = DocumentFilter[]
+
+    /// Position in a text document expressed as zero-based line and zero-based character offset.
+    /// A position is between two characters like an ‘insert’ cursor in a editor.
+    type Position = {
+        /// Line position in a document (zero-based).
+        Line: int
+
+        /// Character offset on a line in a document (zero-based). Assuming that the line is
+        /// represented as a string, the `character` value represents the gap between the
+        /// `character` and `character + 1`.
+        ///
+        /// If the character value is greater than the line length it defaults back to the
+        /// line length.
+        Character: int
+    }
+
+    /// A range in a text document expressed as (zero-based) start and end positions.
+    /// A range is comparable to a selection in an editor. Therefore the end position is exclusive.
+    /// If you want to specify a range that contains a line including the line ending character(s)
+    /// then use an end position denoting the start of the next line. For example:
+    type Range = {
+        /// The range's start position.
+        Start: Position
+
+        /// The range's end position.
+        End: Position
+    }
+
+    type DocumentUri = string
+
+    /// Represents a location inside a resource, such as a line inside a text file.
+    type Location = {
+        Uri: DocumentUri
+        Range: Range
+    }
+
     [<AutoOpen>]
     module General =
         type TraceSetting =
@@ -566,40 +614,121 @@ module Protocol =
             Message: string
         }
 
-    /// Position in a text document expressed as zero-based line and zero-based character offset.
-    /// A position is between two characters like an ‘insert’ cursor in a editor.
-    type Position = {
-        /// Line position in a document (zero-based).
-        Line: int
+        type MessageActionItem = {
+            /// A short title like 'Retry', 'Open Log' etc.
+            Title: string;
+        }
 
-        /// Character offset on a line in a document (zero-based). Assuming that the line is
-        /// represented as a string, the `character` value represents the gap between the
-        /// `character` and `character + 1`.
-        ///
-        /// If the character value is greater than the line length it defaults back to the
-        /// line length.
-        Character: int
-    }
+        type ShowMessageRequestParams = {
+            /// The message type.
+            Type: MessageType
+            
+            /// The actual message
+            Message: string
 
-    /// A range in a text document expressed as (zero-based) start and end positions.
-    /// A range is comparable to a selection in an editor. Therefore the end position is exclusive.
-    /// If you want to specify a range that contains a line including the line ending character(s)
-    /// then use an end position denoting the start of the next line. For example:
-    type Range = {
-        /// The range's start position.
-        Start: Position
+            /// The message action items to present.
+            Actions: MessageActionItem[] option
+        }
 
-        /// The range's end position.
-        End: Position
-    }
+    [<AutoOpen>]
+    module Client =
+        /// General parameters to register for a capability.
+        type Registration = {
+            /// The id used to register the request. The id can be used to deregister
+            /// the request again.
+            Id: string
 
-    type DocumentUri = string
+            /// The method / capability to register for.
+            Method: string
 
-    /// Represents a location inside a resource, such as a line inside a text file.
-    type Location = {
-        Uri: DocumentUri
-        Range: Range
-    }
+            /// Options necessary for the registration.
+            RegisterOptions: JToken option
+        }
+
+        type RegistrationParams = {
+            Registrations: Registration[]
+        }
+
+        type ITextDocumentRegistrationOptions =
+            /// A document selector to identify the scope of the registration. If set to null
+            /// the document selector provided on the client side will be used.
+            abstract member DocumentSelector : DocumentSelector option with get
+
+        /// General parameters to unregister a capability.
+        type Unregistration = {
+            /// The id used to unregister the request or notification. Usually an id
+            /// provided during the register request.
+            Id: string
+
+            /// The method / capability to unregister for.
+            Method: string
+        }
+
+        type UnregistrationParams = {
+            Unregisterations: Unregistration[]
+        }
+
+    [<AutoOpen>]
+    module Workspace =
+        type FileChangeType =
+            | Created = 1
+            | Changed = 2
+            | Deleted = 3
+
+        /// An event describing a file change.
+        type FileEvent ={
+            /// The file's URI.
+            Uri: DocumentUri
+
+            /// The change type.
+            Type: FileChangeType
+        }
+
+        type DidChangeWatchedFilesParams = {
+            /// The actual file events.
+            Changes: FileEvent[]
+        }
+
+        type WorkspaceFolder = {
+            /// The associated URI for this workspace folder.
+            Uri: string;
+
+            /// The name of the workspace folder. Defaults to the
+            /// uri's basename.
+            Name: string;
+        }
+
+        /// The workspace folder change event.
+        type WorkspaceFoldersChangeEvent = {
+            /// The array of added workspace folders
+            Added: WorkspaceFolder[];
+
+            /// The array of the removed workspace folders
+            Removed: WorkspaceFolder[];
+        }
+
+        type DidChangeWorkspaceFoldersParams = {
+            /// The actual workspace folder change event.
+            Event: WorkspaceFoldersChangeEvent
+        }
+
+        type DidChangeConfigurationParams = {
+            /// The actual changed settings
+            Settings: JToken;
+        }
+
+        type ConfigurationItem = {
+            /// The scope to get the configuration section for.
+            ScopeUri: string option
+
+            /// The configuration section asked for.
+            Section: string option
+        }
+
+        type ConfigurationParams = {
+            items: ConfigurationItem[]
+        }
+
 
     type ITextDocumentIdentifier =
         abstract member Uri : DocumentUri with get
@@ -764,25 +893,6 @@ module Protocol =
         /// to the document. So if there are two content changes c1 and c2 for a document
         /// in state S10 then c1 move the document to S11 and c2 to S12.
         ContentChanges: TextDocumentContentChangeEvent[]
-    }
-
-    type FileChangeType =
-        | Created = 1
-        | Changed = 2
-        | Deleted = 3
-
-    /// An event describing a file change.
-    type FileEvent ={
-        /// The file's URI.
-        Uri: DocumentUri
-
-        /// The change type.
-        Type: FileChangeType
-    }
-
-    type DidChangeWatchedFilesParams = {
-        /// The actual file events.
-        Changes: FileEvent[]
     }
 
     [<Flags>]
@@ -1385,44 +1495,125 @@ open Protocol
 
 [<AbstractClass>]
 type LspClient() =
+    /// The show message notification is sent from a server to a client to ask the client to display
+    /// a particular message in the user interface.
     abstract member WindowShowMessage: ShowMessageParams -> Async<unit>
     default __.WindowShowMessage(_) = async.Return(())
 
+    /// The show message request is sent from a server to a client to ask the client to display
+    /// a particular message in the user interface. In addition to the show message notification the
+    /// request allows to pass actions and to wait for an answer from the client.
+    abstract member WindowShowMessageRequest: ShowMessageRequestParams -> AsyncLspResult<MessageActionItem option>
+    default __.WindowShowMessageRequest(_) = notImplemented
+
+    /// The log message notification is sent from the server to the client to ask the client to log
+    ///a particular message.
     abstract member WindowLogMessage: LogMessageParams -> Async<unit>
     default __.WindowLogMessage(_) = async.Return(())
+
+    /// The telemetry notification is sent from the server to the client to ask the client to log
+    /// a telemetry event.
+    abstract member TelemetryEvent: Newtonsoft.Json.Linq.JToken -> Async<unit>
+    default __.TelemetryEvent(_) = async.Return(())
+
+    /// The `client/registerCapability` request is sent from the server to the client to register for a new
+    /// capability on the client side. Not all clients need to support dynamic capability registration.
+    /// A client opts in via the dynamicRegistration property on the specific client capabilities. A client
+    /// can even provide dynamic registration for capability A but not for capability B.
+    abstract member ClientRegisterCapability: RegistrationParams -> AsyncLspResult<unit>
+    default __.ClientRegisterCapability(_) = notImplemented
+
+    /// The `client/unregisterCapability` request is sent from the server to the client to unregister a previously
+    /// registered capability.
+    abstract member ClientUnregisterCapability: UnregistrationParams -> AsyncLspResult<unit>
+    default __.ClientUnregisterCapability(_) = notImplemented
+
+    abstract member WorkspaceWorkspaceFolders: unit -> AsyncLspResult<WorkspaceFolder[] option>
+    default __.WorkspaceWorkspaceFolders() = notImplemented
+
+    /// The workspace/configuration request is sent from the server to the client to fetch configuration
+    /// settings from the client.
+    ///
+    /// The request can fetch n configuration settings in one roundtrip. The order of the returned configuration
+    /// settings correspond to the order of the passed ConfigurationItems (e.g. the first item in the response
+    /// is the result for the first configuration item in the params).
+    abstract member WorkspaceConfiguration : ConfigurationParams -> AsyncLspResult<Newtonsoft.Json.Linq.JToken[]>
+    default __.WorkspaceConfiguration(_) = notImplemented
 
     abstract member TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
     default __.TextDocumentPublishDiagnostics(_) = async.Return(())
 
 [<AbstractClass>]
 type LspServer() =
+    /// The initialize request is sent as the first request from the client to the server.
+    /// The initialize request may only be sent once.
     abstract member Initialize: InitializeParams -> AsyncLspResult<InitializeResult>
     default __.Initialize(_) = notImplemented
 
+    /// The initialized notification is sent from the client to the server after the client received the result
+    /// of the initialize request but before the client is sending any other request or notification to the server.
+    /// The server can use the initialized notification for example to dynamically register capabilities.
+    /// The initialized notification may only be sent once.
     abstract member Initialized: InitializedParams -> Async<unit>
     default __.Initialized(_) = async.Return(())
 
+    /// The shutdown request is sent from the client to the server. It asks the server to shut down, but to not
+    /// exit (otherwise the response might not be delivered correctly to the client). There is a separate exit
+    /// notification that asks the server to exit.
     abstract member Shutdown : unit -> Async<unit>
     default __.Shutdown() = async.Return(())
 
+    /// A notification to ask the server to exit its process.
     abstract member Exit : unit -> Async<unit>
     default __.Exit() = async.Return(())
 
+    /// The hover request is sent from the client to the server to request hover information at a given text
+    /// document position.
     abstract member TextDocumentHover: TextDocumentPositionParams -> AsyncLspResult<Hover option>
     default __.TextDocumentHover(_) = notImplemented
 
+    /// The document open notification is sent from the client to the server to signal newly opened text
+    /// documents.
+    ///
+    /// The document’s truth is now managed by the client and the server must not try to read the document’s
+    /// truth using the document’s uri. Open in this sense means it is managed by the client. It doesn’t
+    /// necessarily mean that its content is presented in an editor. An open notification must not be sent
+    /// more than once without a corresponding close notification send before. This means open and close
+    /// notification must be balanced and the max open count for a particular textDocument is one.
     abstract member TextDocumentDidOpen: DidOpenTextDocumentParams -> Async<unit>
     default __.TextDocumentDidOpen(_) = async.Return(())
 
+    /// The document change notification is sent from the client to the server to signal changes to a text document.
     abstract member TextDocumentDidChange: DidChangeTextDocumentParams -> Async<unit>
     default __.TextDocumentDidChange(_) = async.Return(())
 
+    /// The Completion request is sent from the client to the server to compute completion items at a given
+    /// cursor position. Completion items are presented in the IntelliSense user interface.
+    ///
+    /// If computing full completion items is expensive, servers can additionally provide a handler for the
+    /// completion item resolve request (‘completionItem/resolve’). This request is sent when a completion
+    /// item is selected in the user interface. A typical use case is for example: the ‘textDocument/completion’
+    /// request doesn’t fill in the documentation property for returned completion items since it is expensive
+    /// to compute. When the item is selected in the user interface then a ‘completionItem/resolve’ request is
+    /// sent with the selected completion item as a param. The returned completion item should have the
+    /// documentation property filled in. The request can delay the computation of the detail and documentation
+    /// properties. However, properties that are needed for the initial sorting and filtering, like sortText,
+    /// filterText, insertText, and textEdit must be provided in the textDocument/completion request and must
+    /// not be changed during resolve.
     abstract member TextDocumentCompletion: CompletionParams -> AsyncLspResult<CompletionList option>
     default __.TextDocumentCompletion(_) = notImplemented
 
+    /// The request is sent from the client to the server to resolve additional information for a given
+    /// completion item.
+    abstract member CompletionItemResolve: CompletionItem -> AsyncLspResult<CompletionItem>
+    default __.CompletionItemResolve(_) = notImplemented
+
+    /// The rename request is sent from the client to the server to perform a workspace-wide rename of a symbol.
     abstract member TextDocumentRename: RenameParams -> AsyncLspResult<WorkspaceEdit option>
     default __.TextDocumentRename(_) = notImplemented
 
+    /// The goto definition request is sent from the client to the server to resolve the definition location of
+    /// a symbol at a given text document position.
     abstract member TextDocumentDefinition: TextDocumentPositionParams -> AsyncLspResult<GotoDefinitionResult option>
     default __.TextDocumentDefinition(_) = notImplemented
 
@@ -1475,8 +1666,23 @@ type LspServer() =
     abstract member TextDocumentOnTypeFormatting: DocumentOnTypeFormattingParams -> AsyncLspResult<TextEdit[] option>
     default __.TextDocumentOnTypeFormatting(_) = notImplemented
 
+    /// The watched files notification is sent from the client to the server when the client detects changes
+    /// to files watched by the language client. It is recommended that servers register for these file
+    /// events using the registration mechanism. In former implementations clients pushed file events without
+    /// the server actively asking for it.
     abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
     default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
+
+    /// The `workspace/didChangeWorkspaceFolders` notification is sent from the client to the server to inform
+    /// the server about workspace folder configuration changes. The notification is sent by default if both
+    /// *ServerCapabilities/workspace/workspaceFolders* and *ClientCapabilities/workapce/workspaceFolders* are
+    /// true; or if the server has registered to receive this notification it first. 
+    abstract member WorkspaceDidChangeWorkspaceFolders: DidChangeWorkspaceFoldersParams -> Async<unit>
+    default __.WorkspaceDidChangeWorkspaceFolders(_) = async.Return(())
+
+    /// A notification sent from the client to the server to signal the change of configuration settings.
+    abstract member WorkspaceDidChangeConfiguration: DidChangeConfigurationParams -> Async<unit>
+    default __.WorkspaceDidChangeConfiguration(_) = async.Return(())
 
 module Server =
     open System
@@ -1554,6 +1760,7 @@ module Server =
             "textDocument/didOpen", requestHandling (fun s p -> s.TextDocumentDidOpen(p) |> notificationSuccess)
             "textDocument/didChange", requestHandling (fun s p -> s.TextDocumentDidChange(p) |> notificationSuccess)
             "textDocument/completion", requestHandling (fun s p -> s.TextDocumentCompletion(p))
+            "completionItem/resolve", requestHandling (fun s p -> s.CompletionItemResolve(p))
             "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
             "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
             "textDocument/references", requestHandling (fun s p -> s.TextDocumentReferences(p))
@@ -1566,6 +1773,8 @@ module Server =
             "textDocument/rangeFormatting", requestHandling (fun s p -> s.TextDocumentRangeFormatting(p))
             "textDocument/onTypeFormatting", requestHandling (fun s p -> s.TextDocumentOnTypeFormatting(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
+            "workspace/didChangeWorkspaceFolders ", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
+            "workspace/didChangeConfiguration ", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
         ]
