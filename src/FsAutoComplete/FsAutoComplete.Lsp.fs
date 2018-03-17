@@ -140,6 +140,10 @@ let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
     let elementsLines = elements |> List.map tooltipElementToMarkdown
     System.String.Join("\n", elementsLines)
 
+type ITextDocumentPositionParams with
+    member p.GetFilePath() = Uri(p.TextDocument.Uri).LocalPath
+    member p.GetFcsPos() = protocolPosToPos p.Position
+
 let errorToDiagnostic (error: FSharpErrorInfo) =
     {
         Range =
@@ -255,6 +259,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                         RenameProvider = Some true
                         DefinitionProvider = Some true
                         ReferencesProvider = Some true
+                        DocumentHighlightProvider = Some true
                         TextDocumentSync =
                             Some { TextDocumentSyncOptions.Default with
                                      OpenClose = Some true
@@ -336,9 +341,8 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     }
 
     override __.TextDocumentHover(p) = async {
-        let uri = Uri(p.TextDocument.Uri)
-        let pos = protocolPosToPos p.Position
-        let filePath = uri.LocalPath
+        let pos = p.GetFcsPos()
+        let filePath = p.GetFilePath()
 
         dbgf "Hovering %s at %A" filePath pos
 
@@ -375,9 +379,8 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     }
 
     override __.TextDocumentRename(p) = async {
-        let uri = Uri(p.TextDocument.Uri)
-        let filePath = uri.LocalPath
-        let pos = protocolPosToPos p.Position
+        let pos = p.GetFcsPos()
+        let filePath = p.GetFilePath()
         dbgf "Rename for pos=%A" pos
 
         // TODO: How do we get a versioned answer ??? as we have the version
@@ -420,9 +423,8 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     }
 
     override __.TextDocumentDefinition(p) = async {
-        let uri = Uri(p.TextDocument.Uri)
-        let filePath = uri.LocalPath
-        let pos = protocolPosToPos p.Position
+        let pos = p.GetFcsPos()
+        let filePath = p.GetFilePath()
 
         match getRecentTypeCheckResultsForFile filePath with
         | Ok (_options, lines, tyRes) ->
@@ -439,9 +441,8 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     }
 
     override __.TextDocumentReferences(p) = async {
-        let uri = Uri(p.TextDocument.Uri)
-        let filePath = uri.LocalPath
-        let pos = protocolPosToPos p.Position
+        let pos = p.GetFcsPos()
+        let filePath = p.GetFilePath()
    
         match getRecentTypeCheckResultsForFile filePath with
         | Ok (_options, lines, tyRes) ->
@@ -471,6 +472,32 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                     |> Array.map(fun s -> fcsRangeToLspLocation s.RangeAlternate)
                     |> Some
                     |> success
+            | Error s ->
+                return invalidParams s
+        | Error s ->
+            return invalidParams s
+    }
+    
+    override __.TextDocumentDocumentHighlight(p) = async {
+        let pos = p.GetFcsPos()
+        let filePath = p.GetFilePath()
+
+        match getRecentTypeCheckResultsForFile filePath with
+        | Ok (_options, lines, tyRes) ->
+            let lineStr = lines.[pos.Line-1]
+            let! symbolUseResult = tyRes.TryGetSymbolUse pos lineStr
+            match symbolUseResult with
+            | Ok (symbolUse, usages) ->
+                let finalSymbols = Array.append [| symbolUse |] usages
+
+                // TODO: Add fuzzy matches
+                // TODO: Get if it's a read or a write usage
+                return
+                    finalSymbols
+                    |> Array.map(fun s -> { DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate; Kind = None })
+                    |> Some
+                    |> success
+
             | Error s ->
                 return invalidParams s
         | Error s ->

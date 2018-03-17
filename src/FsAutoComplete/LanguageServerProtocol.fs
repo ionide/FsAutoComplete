@@ -1026,18 +1026,22 @@ module Protocol =
         Diagnostics: Diagnostic[]
     }
 
-    type RenameParams = {
-        /// The document to rename.
-        TextDocument: TextDocumentIdentifier
+    type RenameParams =
+        {
+            /// The document to rename.
+            TextDocument: TextDocumentIdentifier
 
-        /// The position at which this request was sent.
-        Position: Position
+            /// The position at which this request was sent.
+            Position: Position
 
-        /// The new name of the symbol. If the given name is not valid the
-        /// request must return a **ResponseError** with an
-        /// appropriate message set.
-        NewName: string
-    }
+            /// The new name of the symbol. If the given name is not valid the
+            /// request must return a **ResponseError** with an
+            /// appropriate message set.
+            NewName: string
+        }
+        interface ITextDocumentPositionParams with
+            member this.TextDocument with get() = this.TextDocument
+            member this.Position with get() = this.Position
 
     /// Describes textual changes on a single text document. The text document is referred to as a
     /// `VersionedTextDocumentIdentifier` to allow clients to check the text document version before an edit is
@@ -1094,6 +1098,27 @@ module Protocol =
     type GotoDefinitionResult =
     | Single of Location
     | Multiple of Location []
+
+    /// A document highlight kind.
+    [<RequireQualifiedAccess>]
+    type DocumentHighlightKind =
+        /// A textual occurrence.
+        | Text = 1
+        /// Read-access of a symbol, like reading a variable.
+        | Read = 2
+        /// Write-access of a symbol, like writing to a variable.
+        | Write = 3
+
+    /// A document highlight is a range inside a text document which deserves
+    /// special attention. Usually a document highlight is visualized by changing
+    /// the background color of its range.
+    type DocumentHighlight = {
+        /// The range this highlight applies to.
+        Range: Range
+
+        /// The highlight kind, default is DocumentHighlightKind.Text.
+        Kind: DocumentHighlightKind option
+    }
 
 module LowLevel =
     open System
@@ -1288,6 +1313,18 @@ type LspServer() =
     abstract member TextDocumentReferences: ReferenceParams -> AsyncLspResult<Location[] option>
     default __.TextDocumentReferences(_) = notImplemented
 
+    /// The document highlight request is sent from the client to the server to resolve a document highlights
+    /// for a given text document position. For programming languages this usually highlights all references
+    /// to the symbol scoped to this file.
+    ///
+    /// However we kept `textDocument/documentHighlight` and `textDocument/references` separate requests since
+    /// the first one is allowed to be more fuzzy. Symbol matches usually have a DocumentHighlightKind of Read
+    /// or Write whereas fuzzy or textual matches use Text as the kind.
+    abstract member TextDocumentDocumentHighlight: TextDocumentPositionParams -> AsyncLspResult<DocumentHighlight[] option>
+    default __.TextDocumentDocumentHighlight(_) = notImplemented
+
+    
+
     abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
     default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
 
@@ -1370,6 +1407,7 @@ module Server =
             "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
             "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
             "textDocument/references", requestHandling (fun s p -> s.TextDocumentReferences(p))
+            "textDocument/documentHighlight", requestHandling (fun s p -> s.TextDocumentDocumentHighlight(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
