@@ -254,6 +254,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                         HoverProvider = Some true
                         RenameProvider = Some true
                         DefinitionProvider = Some true
+                        ReferencesProvider = Some true
                         TextDocumentSync =
                             Some { TextDocumentSyncOptions.Default with
                                      OpenClose = Some true
@@ -428,10 +429,49 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             let lineStr = lines.[pos.Line-1]
             let! declarationResult = tyRes.TryFindDeclaration pos lineStr
             match declarationResult with
-            | Result.Ok range ->
+            | Ok range ->
                 let location = fcsRangeToLspLocation range
                 return success (Some (GotoDefinitionResult.Single location))
-            | Result.Error s ->
+            | Error s ->
+                return invalidParams s
+        | Error s ->
+            return invalidParams s
+    }
+
+    override __.TextDocumentReferences(p) = async {
+        let uri = Uri(p.TextDocument.Uri)
+        let filePath = uri.LocalPath
+        let pos = protocolPosToPos p.Position
+   
+        match getRecentTypeCheckResultsForFile filePath with
+        | Ok (_options, lines, tyRes) ->
+            let lineStr = lines.[pos.Line-1]
+            // Copy-paste of Commands.SymbolUseProject
+            let! symbolUseResult = tyRes.TryGetSymbolUse pos lineStr
+            match symbolUseResult with
+            | Ok (symbolUse, usages) ->
+                let! symbols = async {
+                    if symbolUse.Symbol.IsPrivateToFile then
+                        return usages
+                    elif symbolUse.Symbol.IsInternalToProject then
+                        let opts = commands.FileCheckOptions.[tyRes.FileName]
+                        return! commands.Checker.GetUsesOfSymbol (tyRes.FileName, [tyRes.FileName, opts] , symbolUse.Symbol)
+                    else
+                        return! commands.Checker.GetUsesOfSymbol (tyRes.FileName, commands.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, symbolUse.Symbol)
+                }
+
+                let finalSymbols =
+                    if p.Context.IncludeDeclaration then
+                        Array.append [| symbolUse |] symbols
+                    else
+                        symbols
+
+                return
+                    finalSymbols
+                    |> Array.map(fun s -> fcsRangeToLspLocation s.RangeAlternate)
+                    |> Some
+                    |> success
+            | Error s ->
                 return invalidParams s
         | Error s ->
             return invalidParams s

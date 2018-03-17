@@ -644,6 +644,23 @@ module Protocol =
             member this.TextDocument with get() = this.TextDocument
             member this.Position with get() = this.Position
 
+    type ReferenceContext = {
+        /// Include the declaration of the current symbol.
+        IncludeDeclaration: bool
+    }
+
+    type ReferenceParams  =
+        {
+            /// The text document.
+            TextDocument: TextDocumentIdentifier
+            /// The position inside the text document.
+            Position: Position
+            Context: ReferenceContext
+        }
+        interface ITextDocumentPositionParams with
+            member this.TextDocument with get() = this.TextDocument
+            member this.Position with get() = this.Position
+
     /// A `MarkupContent` literal represents a string value which content is interpreted base on its
     /// kind flag. Currently the protocol supports `plaintext` and `markdown` as markup kinds.
     ///
@@ -1266,6 +1283,11 @@ type LspServer() =
     abstract member TextDocumentDefinition: TextDocumentPositionParams -> AsyncLspResult<GotoDefinitionResult option>
     default __.TextDocumentDefinition(_) = notImplemented
 
+    /// The references request is sent from the client to the server to resolve project-wide references for
+    /// the symbol denoted by the given text document position.
+    abstract member TextDocumentReferences: ReferenceParams -> AsyncLspResult<Location[] option>
+    default __.TextDocumentReferences(_) = notImplemented
+
     abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
     default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
 
@@ -1347,6 +1369,7 @@ module Server =
             "textDocument/completion", requestHandling (fun s p -> s.TextDocumentCompletion(p))
             "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
             "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
+            "textDocument/references", requestHandling (fun s p -> s.TextDocumentReferences(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
