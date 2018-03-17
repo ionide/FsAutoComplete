@@ -40,6 +40,31 @@ let fcsRangeToLsp(range: Microsoft.FSharp.Compiler.Range.range): LanguageServerP
         End = fcsPosToLsp range.End
     }
 
+let filePathToUri (filePath: string) =
+    let uri = StringBuilder(filePath.Length)
+    for c in filePath do
+        if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+            c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
+            c > '\xFF' then
+            uri.Append(c) |> ignore
+        else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
+            uri.Append('/') |> ignore
+        else
+            uri.Append('%') |> ignore
+            uri.Append((int c).ToString("X2")) |> ignore
+
+    if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
+        "file:" + uri.ToString()
+    else
+        "file:///" + uri.ToString()
+
+let fcsRangeToLspLocation(range: Microsoft.FSharp.Compiler.Range.range): LanguageServerProtocol.Protocol.Location =
+    let fileUri = filePathToUri range.FileName
+    let lspRange = fcsRangeToLsp range
+    {
+        Uri = fileUri
+        Range = lspRange
+    }
 
 type FSharpCompletionItemKind = Microsoft.FSharp.Compiler.SourceCodeServices.CompletionItemKind
 type CompletionItemKind = LanguageServerProtocol.Protocol.General.CompletionItemKind
@@ -128,26 +153,9 @@ let errorToDiagnostic (error: FSharpErrorInfo) =
         Code = Some (DiagnosticCode.Number error.ErrorNumber)
     }
 
-let filePathToUri (filePath: string) =
-    let uri = StringBuilder(filePath.Length)
-    for c in filePath do
-        if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-            c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
-            c > '\xFF' then
-            uri.Append(c) |> ignore
-        else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
-            uri.Append('/') |> ignore
-        else
-            uri.Append('%') |> ignore
-            uri.Append((int c).ToString("X2")) |> ignore
-
-    if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-        "file:" + uri.ToString()
-    else
-        "file:///" + uri.ToString()
-
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
+open FsAutoComplete.CommandResponse
 
 type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     inherit LspServer()
@@ -245,6 +253,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                     { ServerCapabilities.Default with
                         HoverProvider = Some true
                         RenameProvider = Some true
+                        DefinitionProvider = Some true
                         TextDocumentSync =
                             Some { TextDocumentSyncOptions.Default with
                                      OpenClose = Some true
@@ -346,17 +355,19 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                 return success None
             | Some tyRes ->
                 let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
+                let! helpResult = commands.Help tyRes pos lineStr
                 match tipResult with
                 | Result.Error err ->
                     dbgf "Tooltip error: %s" err
                     return success None
-                | Result.Ok (tipText, _y, _z) ->
-                    dbgf "Tootlip: %A" tipText
-                    let s = tooltipToMarkdown tipText
+                | Result.Ok (tip, _signature, _footer) ->
+                    dbgf "Tootlip: %A" tip
+                    let s = tooltipToMarkdown tip
                     dbgf "Tootlip: %A" s
                     let response =
                         {
-                            Contents = MarkedString (StringAndLanguage { Language = "fsharp"; Value = s })
+                            Contents =
+                                MarkedStrings (Array.append [| StringAndLanguage { Language = "fsharp"; Value = s } |] (helpResult |> Array.ofList |> Array.map JustString))
                             Range = None
                         }
                     return success (Some response)
@@ -405,6 +416,25 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                 return invalidParams (s.ToString())
         | Result.Error s ->
             return invalidParams (s.ToString())
+    }
+
+    override __.TextDocumentDefinition(p) = async {
+        let uri = Uri(p.TextDocument.Uri)
+        let filePath = uri.LocalPath
+        let pos = protocolPosToPos p.Position
+
+        match getRecentTypeCheckResultsForFile filePath with
+        | Ok (_options, lines, tyRes) ->
+            let lineStr = lines.[pos.Line-1]
+            let! declarationResult = tyRes.TryFindDeclaration pos lineStr
+            match declarationResult with
+            | Result.Ok range ->
+                let location = fcsRangeToLspLocation range
+                return success (Some (GotoDefinitionResult.Single location))
+            | Result.Error s ->
+                return invalidParams s
+        | Error s ->
+            return invalidParams s
     }
 
     override __.Exit() = async {

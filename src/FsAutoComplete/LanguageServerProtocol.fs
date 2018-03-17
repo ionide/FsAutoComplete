@@ -595,6 +595,12 @@ module Protocol =
 
     type DocumentUri = string
 
+    /// Represents a location inside a resource, such as a line inside a text file.
+    type Location = {
+        Uri: DocumentUri;
+        Range: Range;
+    }
+
     type ITextDocumentIdentifier =
         abstract member Uri : DocumentUri with get
 
@@ -1065,74 +1071,12 @@ module Protocol =
                     Changes = Some (WorkspaceEdit.DocumentChangesToChanges edits)
                     DocumentChanges = None
                 }
-
-(*
-    [<AutoOpen>]
-    module Messages =
-        type ClientRequest =
-            | Initialize of InitializeParams
-            | DidOpenTextDocument of DidOpenTextDocumentParams
-            | DidChangeTextDocument of DidChangeTextDocumentParams
-            | DidChangeWatchedFiles of DidChangeWatchedFilesParams
-            | Completion of CompletionParams
-            | Hover of TextDocumentPositionParams
-            | Rename of RenameParams
-            | Initialized
-            | Shutdown
-            | Exit
-        with
-            member this.IsNotification
-                with get() =
-                    match this with
-                    | Initialize _
-                    | Hover _
-                    | Completion _
-                    | Rename _ -> false
-                    | DidChangeTextDocument _
-                    | DidOpenTextDocument _
-                    | DidChangeWatchedFiles _
-                    | Initialized
-                    | Shutdown
-                    | Exit -> true
-
-        type ServerRequest =
-            | LogMessage of LogMessageParams
-            | ShowMessage of ShowMessageParams
-            | PublishDiagnostics of PublishDiagnosticsParams
-        with
-            member this.AsJsonSerializable
-                with get() =
-                    match this with
-                    | LogMessage x -> box x
-                    | ShowMessage x -> box x
-                    | PublishDiagnostics x -> box x
-            member this.Method
-                with get() =
-                    match this with
-                    | LogMessage _ -> "window/showMessage"
-                    | ShowMessage _ -> "window/showMessage"
-                    | PublishDiagnostics _ -> "textDocument/publishDiagnostics"
-
-        type ServerResponse =
-            | NoResponse
-            | InvalidRequest of string
-            | UnhandledRequest
-            | InitializeResponse of InitializeResult
-            | CompletionResponse of CompletionList option
-            | HoverResponse of Hover option
-            | RenameResponse of WorkspaceEdit option
-        with
-            member this.AsJsonSerializable
-                with get() =
-                    match this with
-                    | InitializeResponse x -> box x
-                    | HoverResponse x -> box x
-                    | CompletionResponse x -> box x
-                    | RenameResponse x -> box x
-                    | NoResponse
-                    | InvalidRequest _
-                    | UnhandledRequest -> failwith "Technical responses can't be sent as JSON"
-*)
+    
+    [<ErasedUnion>]
+    [<RequireQualifiedAccess>]
+    type GotoDefinitionResult =
+    | Single of Location
+    | Multiple of Location []
 
 module LowLevel =
     open System
@@ -1319,6 +1263,9 @@ type LspServer() =
     abstract member TextDocumentRename: RenameParams -> AsyncLspResult<WorkspaceEdit option>
     default __.TextDocumentRename(_) = notImplemented
 
+    abstract member TextDocumentDefinition: TextDocumentPositionParams -> AsyncLspResult<GotoDefinitionResult option>
+    default __.TextDocumentDefinition(_) = notImplemented
+
     abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
     default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
 
@@ -1399,6 +1346,7 @@ module Server =
             "textDocument/didChange", requestHandling (fun s p -> s.TextDocumentDidChange(p) |> notificationSuccess)
             "textDocument/completion", requestHandling (fun s p -> s.TextDocumentCompletion(p))
             "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
+            "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
