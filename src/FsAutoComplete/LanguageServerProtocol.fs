@@ -1019,9 +1019,10 @@ module Protocol =
     }
 
     [<ErasedUnion>]
+    [<RequireQualifiedAccess>]
     type MarkedString =
-    | JustString of string
-    | StringAndLanguage of MarkedStringData
+    | String of string
+    | WithLanguage of MarkedStringData
 
     let plaintext s = { Kind = MarkupKind.PlainText; Value = s }
     let markdown s = { Kind = MarkupKind.Markdown; Value = s }
@@ -1173,9 +1174,10 @@ module Protocol =
         | Snippet = 2
 
     [<ErasedUnion>]
-    type CompletionItemDocumentation =
-    | StringDocumentation of string
-    | MarkupDocumentation of MarkupContent
+    [<RequireQualifiedAccess>]
+    type Documentation =
+    | String of string
+    | Markup of MarkupContent
 
     type CompletionItem = {
         /// The label of this completion item. By default
@@ -1192,7 +1194,7 @@ module Protocol =
         Detail: string option
 
         /// A human-readable string that represents a doc-comment.
-        Documentation: CompletionItemDocumentation option
+        Documentation: Documentation option
 
         /// A string that should be used when comparing this item
         /// with other items. When `falsy` the label is used.
@@ -1337,7 +1339,7 @@ module Protocol =
 
     [<ErasedUnion>]
     [<RequireQualifiedAccess>]
-    type GotoDefinitionResult =
+    type GotoResult =
     | Single of Location
     | Multiple of Location []
 
@@ -1432,6 +1434,101 @@ module Protocol =
         /// An optional array of additional text edits that are applied when
         /// selecting this color presentation. Edits must not overlap with the main edit nor with themselves.
         AdditionalTextEdits: TextEdit[] option
+    }
+
+    /// Contains additional diagnostic information about the context in which
+    /// a code action is run.
+    type CodeActionContext = {
+        /// An array of diagnostics.
+        Diagnostics: Diagnostic[]
+    }
+
+    /// Params for the CodeActionRequest
+    type CodeActionParams = {
+        /// The document in which the command was invoked.
+        TextDocument: TextDocumentIdentifier
+
+        /// The range for which the command was invoked.
+        Range: Range
+
+        /// Context carrying additional information.
+        Context: CodeActionContext
+    }
+
+    type CodeLensParams = {
+        /// The document to request code lens for.
+        TextDocument: TextDocumentIdentifier;
+    }
+
+    /// A code lens represents a command that should be shown along with
+    /// source text, like the number of references, a way to run tests, etc.
+    ///
+    /// A code lens is _unresolved_ when no command is associated to it. For performance
+    /// reasons the creation of a code lens and resolving should be done in two stages.
+    type CodeLens = {
+        /// The range in which this code lens is valid. Should only span a single line.
+        Range: Range
+
+        /// The command this code lens represents.
+        Command: Command
+
+        /// A data entry field that is preserved on a code lens item between
+        /// a code lens and a code lens resolve request.
+        Data: JToken option
+    }
+
+    /// Represents a parameter of a callable-signature. A parameter can
+    /// have a label and a doc-comment.
+    type ParameterInformation = {
+        /// The label of this parameter. Will be shown in
+        /// the UI.
+        Label: string
+
+        /// The human-readable doc-comment of this parameter. Will be shown
+        /// in the UI but can be omitted.
+        Documentation: Documentation option
+    }
+
+    ///Represents the signature of something callable. A signature
+    /// can have a label, like a function-name, a doc-comment, and
+    /// a set of parameters.
+    type SignatureInformation = {
+        /// The label of this signature. Will be shown in
+        /// the UI.
+        Label: string
+
+        /// The human-readable doc-comment of this signature. Will be shown
+        /// in the UI but can be omitted.
+        Documentation: Documentation option
+
+        /// The parameters of this signature.
+        Parameters: ParameterInformation[] option
+    }
+
+    /// Signature help represents the signature of something
+    /// callable. There can be multiple signature but only one
+    /// active and only one active parameter.
+    type SignatureHelp = {
+        /// One or more signatures.
+        Signatures: SignatureInformation[]
+
+        /// The active signature. If omitted or the value lies outside the
+        /// range of `signatures` the value defaults to zero or is ignored if
+        /// `signatures.length === 0`. Whenever possible implementors should
+        /// make an active decision about the active signature and shouldn't
+        /// rely on a default value.
+        /// In future version of the protocol this property might become
+        /// mandatory to better express this.
+        ActiveSignature: int option
+
+        /// The active parameter of the active signature. If omitted or the value
+        /// lies outside the range of `signatures[activeSignature].parameters`
+        /// defaults to 0 if the active signature has parameters. If
+        /// the active signature has no parameters it is ignored.
+        /// In future version of the protocol this property might become
+        /// mandatory to better express the active parameter if the
+        /// active signature does have any.
+        ActiveParameter: int option
     }
 
 module LowLevel =
@@ -1732,7 +1829,7 @@ type LspServer() =
 
     /// The goto definition request is sent from the client to the server to resolve the definition location of
     /// a symbol at a given text document position.
-    abstract member TextDocumentDefinition: TextDocumentPositionParams -> AsyncLspResult<GotoDefinitionResult option>
+    abstract member TextDocumentDefinition: TextDocumentPositionParams -> AsyncLspResult<GotoResult option>
     default __.TextDocumentDefinition(_) = notImplemented
 
     /// The references request is sent from the client to the server to resolve project-wide references for
@@ -1754,6 +1851,39 @@ type LspServer() =
     /// in a document.
     abstract member TextDocumentDocumentLink: DocumentLinkParams -> AsyncLspResult<DocumentLink[] option>
     default __.TextDocumentDocumentLink(_) = notImplemented
+
+    /// The goto type definition request is sent from the client to the server to resolve the type definition
+    /// location of a symbol at a given text document position.
+    abstract member TextDocumentTypeDefinition: TextDocumentPositionParams -> AsyncLspResult<GotoResult option>
+    default __.TextDocumentTypeDefinition(_) = notImplemented
+
+    /// The goto implementation request is sent from the client to the server to resolve the implementation
+    /// location of a symbol at a given text document position.
+    abstract member TextDocumentImplementation: TextDocumentPositionParams -> AsyncLspResult<GotoResult option>
+    default __.TextDocumentImplementation(_) = notImplemented
+
+    /// The code action request is sent from the client to the server to compute commands for a given text
+    /// document and range. These commands are typically code fixes to either fix problems or to
+    /// beautify/refactor code. The result of a textDocument/codeAction request is an array of Command literals
+    /// which are typically presented in the user interface. When the command is selected the server should be
+    /// contacted again (via the workspace/executeCommand) request to execute the command.
+    abstract member TextDocumentCodeAction: CodeActionParams -> AsyncLspResult<Command[] option>
+    default __.TextDocumentCodeAction(_) = notImplemented
+
+    /// The code lens request is sent from the client to the server to compute code lenses for a given
+    /// text document.
+    abstract member TextDocumentCodeLens: CodeLensParams -> AsyncLspResult<CodeLens[] option>
+    default __.TextDocumentCodeLens(_) = notImplemented
+
+    /// The code lens resolve request is sent from the client to the server to resolve the command for
+    /// a given code lens item.
+    abstract member CodeLensResolve: CodeLens -> AsyncLspResult<CodeLens>
+    default __.CodeLensResolve(_) = notImplemented
+
+    /// The signature help request is sent from the client to the server to request signature information at
+    /// a given cursor position.
+    abstract member TextDocumentSignatureHelp: TextDocumentPositionParams -> AsyncLspResult<SignatureHelp option>
+    default __.TextDocumentSignatureHelp(_) = notImplemented
 
     /// The document link resolve request is sent from the client to the server to resolve the target of
     /// a given document link.
@@ -1924,9 +2054,15 @@ module Server =
             "completionItem/resolve", requestHandling (fun s p -> s.CompletionItemResolve(p))
             "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
             "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
+            "textDocument/typeDefinition", requestHandling (fun s p -> s.TextDocumentTypeDefinition(p))
+            "textDocument/implementation", requestHandling (fun s p -> s.TextDocumentImplementation(p))
+            "textDocument/codeAction", requestHandling (fun s p -> s.TextDocumentCodeAction(p))
+            "textDocument/codeLens", requestHandling (fun s p -> s.TextDocumentCodeLens(p))
+            "codeLens/resolve", requestHandling (fun s p -> s.CodeLensResolve(p))
             "textDocument/references", requestHandling (fun s p -> s.TextDocumentReferences(p))
             "textDocument/documentHighlight", requestHandling (fun s p -> s.TextDocumentDocumentHighlight(p))
             "textDocument/documentLink", requestHandling (fun s p -> s.TextDocumentDocumentLink(p))
+            "textDocument/signatureHelp", requestHandling (fun s p -> s.TextDocumentSignatureHelp(p))
             "documentLink/resolve", requestHandling (fun s p -> s.DocumentLinkResolve(p))
             "textDocument/documentColor", requestHandling (fun s p -> s.TextDocumentDocumentColor(p))
             "textDocument/colorPresentation", requestHandling (fun s p -> s.TextDocumentColorPresentation(p))

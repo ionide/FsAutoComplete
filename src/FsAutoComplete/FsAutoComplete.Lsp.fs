@@ -372,7 +372,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                     let response =
                         {
                             Contents =
-                                MarkedStrings (Array.append [| StringAndLanguage { Language = "fsharp"; Value = s } |] (helpResult |> Array.ofList |> Array.map JustString))
+                                MarkedStrings (Array.append [| MarkedString.WithLanguage { Language = "fsharp"; Value = s } |] (helpResult |> Array.ofList |> Array.map MarkedString.String))
                             Range = None
                         }
                     return success (Some response)
@@ -433,7 +433,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             match declarationResult with
             | Ok range ->
                 let location = fcsRangeToLspLocation range
-                return success (Some (GotoDefinitionResult.Single location))
+                return success (Some (GotoResult.Single location))
             | Error s ->
                 return invalidParams s
         | Error s ->
