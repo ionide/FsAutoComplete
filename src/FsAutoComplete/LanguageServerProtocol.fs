@@ -102,6 +102,111 @@ module Protocol =
         Range: Range
     }
 
+    type ITextDocumentIdentifier =
+        abstract member Uri : DocumentUri with get
+
+    type TextDocumentIdentifier =
+        {
+            /// The text document's URI.
+            Uri: DocumentUri
+        }
+        interface ITextDocumentIdentifier with
+            member this.Uri with get() = this.Uri
+
+    type VersionedTextDocumentIdentifier =
+        {
+            /// The text document's URI.
+            Uri: DocumentUri
+
+            /// The version number of this document. If a versioned text document identifier
+            /// is sent from the server to the client and the file is not open in the editor
+            /// (the server has not received an open notification before) the server can send
+            /// `null` to indicate that the version is known and the content on disk is the
+            /// truth (as speced with document content ownership)
+            Version: int option
+        }
+        interface ITextDocumentIdentifier with
+            member this.Uri with get() = this.Uri
+
+    type SymbolKind =
+    | File = 1
+    | Module = 2
+    | Namespace = 3
+    | Package = 4
+    | Class = 5
+    | Method = 6
+    | Property = 7
+    | Field = 8
+    | Constructor = 9
+    | Enum = 10
+    | Interface = 11
+    | Function = 12
+    | Variable = 13
+    | Constant = 14
+    | String = 15
+    | Number = 16
+    | Boolean = 17
+    | Array = 18
+    | Object = 19
+    | Key = 20
+    | Null = 21
+    | EnumMember = 22
+    | Struct = 23
+    | Event = 24
+    | Operator = 25
+    | TypeParameter = 26
+
+    /// Represents information about programming constructs like variables, classes,
+    /// interfaces etc.
+    type SymbolInformation = {
+        /// The name of this symbol.
+        Name: string
+
+        /// The kind of this symbol.
+        Kind: SymbolKind
+
+        /// The location of this symbol. The location's range is used by a tool
+        /// to reveal the location in the editor. If the symbol is selected in the
+        /// tool the range's start information is used to position the cursor. So
+        /// the range usually spans more then the actual symbol's name and does
+        /// normally include things like visibility modifiers.
+        ///
+        /// The range doesn't have to denote a node range in the sense of a abstract
+        /// syntax tree. It can therefore not be used to re-construct a hierarchy of
+        /// the symbols.
+        Location: Location
+
+        /// The name of the symbol containing this symbol. This information is for
+        /// user interface purposes (e.g. to render a qualifier in the user interface
+        /// if necessary). It can't be used to re-infer a hierarchy for the document
+        /// symbols.
+        ContainerName: string option
+    }
+
+    /// A textual edit applicable to a text document.
+    type TextEdit = {
+        /// The range of the text document to be manipulated. To insert
+        /// text into a document create a range where start === end.
+        Range: Range
+
+        /// The string to be inserted. For delete operations use an
+        /// empty string.
+        NewText: string
+    }
+
+    /// Describes textual changes on a single text document. The text document is referred to as a
+    /// `VersionedTextDocumentIdentifier` to allow clients to check the text document version before an edit is
+    /// applied. A `TextDocumentEdit` describes all changes on a version Si and after they are applied move the
+    /// document to version Si+1. So the creator of a `TextDocumentEdit `doesn’t need to sort the array or do any
+    /// kind of ordering. However the edits must be non overlapping.
+    type TextDocumentEdit = {
+        /// The text document to change.
+        TextDocument: VersionedTextDocumentIdentifier
+
+        /// The edits to be applied.
+        Edits: TextEdit[]
+    }
+
     [<AutoOpen>]
     module General =
         type TraceSetting =
@@ -120,34 +225,6 @@ module Protocol =
             /// The client supports versioned document changes in `WorkspaceEdit`s
             DocumentChanges: bool option
         }
-
-        type SymbolKind =
-        | File = 1
-        | Module = 2
-        | Namespace = 3
-        | Package = 4
-        | Class = 5
-        | Method = 6
-        | Property = 7
-        | Field = 8
-        | Constructor = 9
-        | Enum = 10
-        | Interface = 11
-        | Function = 12
-        | Variable = 13
-        | Constant = 14
-        | String = 15
-        | Number = 16
-        | Boolean = 17
-        | Array = 18
-        | Object = 19
-        | Key = 20
-        | Null = 21
-        | EnumMember = 22
-        | Struct = 23
-        | Event = 24
-        | Operator = 25
-        | TypeParameter = 26
 
         /// Specific capabilities for the `SymbolKind` in the `workspace/symbol` request.
         type SymbolKindCapabilities = {
@@ -596,6 +673,43 @@ module Protocol =
                     Capabilities = ServerCapabilities.Default
                 }
 
+    /// A workspace edit represents changes to many resources managed in the workspace.
+    /// The edit should either provide `changes` or `documentChanges`. If the client can handle versioned document
+    /// edits and if `documentChanges` are present, the latter are preferred over `changes`.
+    type WorkspaceEdit = {
+        /// Holds changes to existing resources.
+        Changes: Map<string, TextEdit[]> option
+
+        /// An array of `TextDocumentEdit`s to express changes to n different text documents
+        /// where each text document edit addresses a specific version of a text document.
+        /// Whether a client supports versioned document edits is expressed via
+        /// `WorkspaceClientCapabilities.workspaceEdit.documentChanges`.
+        DocumentChanges: TextDocumentEdit[] option
+    }
+    with
+        static member DocumentChangesToChanges(edits: TextDocumentEdit[]) =
+            edits
+            |> Array.map (fun edit -> edit.TextDocument.Uri.ToString(), edit.Edits)
+            |> Map.ofArray
+
+        static member CanUseDocumentChanges(capabilities: ClientCapabilities) =
+            (capabilities.Workspace
+            |> Option.bind(fun x -> x.WorkspaceEdit)
+            |> Option.bind (fun x -> x.DocumentChanges))
+                = Some true
+
+        static member Create(edits: TextDocumentEdit[], capabilities: ClientCapabilities ) =
+            if WorkspaceEdit.CanUseDocumentChanges(capabilities) then
+                {
+                    Changes = None
+                    DocumentChanges = Some edits
+                }
+            else
+                {
+                    Changes = Some (WorkspaceEdit.DocumentChangesToChanges edits)
+                    DocumentChanges = None
+                }
+
     [<AutoOpen>]
     module Window =
         type MessageType =
@@ -729,32 +843,121 @@ module Protocol =
             items: ConfigurationItem[]
         }
 
-
-    type ITextDocumentIdentifier =
-        abstract member Uri : DocumentUri with get
-
-    type TextDocumentIdentifier =
-        {
-            /// The text document's URI.
-            Uri: DocumentUri
+        /// The parameters of a Workspace Symbol Request.
+        type WorkspaceSymbolParams = {
+            /// A non-empty query string
+            Query: string
         }
-        interface ITextDocumentIdentifier with
-            member this.Uri with get() = this.Uri
 
-    type VersionedTextDocumentIdentifier =
-        {
-            /// The text document's URI.
-            Uri: DocumentUri
-
-            /// The version number of this document. If a versioned text document identifier
-            /// is sent from the server to the client and the file is not open in the editor
-            /// (the server has not received an open notification before) the server can send
-            /// `null` to indicate that the version is known and the content on disk is the
-            /// truth (as speced with document content ownership)
-            Version: int option
+        type ExecuteCommandParams = {
+            /// The identifier of the actual command handler.
+            Command: string
+            /// Arguments that the command should be invoked with.
+            Arguments: JToken[] option
         }
-        interface ITextDocumentIdentifier with
-            member this.Uri with get() = this.Uri
+
+        type ApplyWorkspaceEditParams = {
+            /// An optional label of the workspace edit. This label is
+            /// presented in the user interface for example on an undo
+            /// stack to undo the workspace edit.
+            Label: string option
+
+            /// The edits to apply.
+            Edit: WorkspaceEdit
+        }
+
+        type ApplyWorkspaceEditResponse = {
+            /// Indicates whether the edit was applied or not.
+            Applied: bool
+        }
+
+    [<AutoOpen>]
+    module TextDocument =
+        /// Represents reasons why a text document is saved.
+        type TextDocumentSaveReason =
+            /// Manually triggered, e.g. by the user pressing save, by starting debugging,
+            /// or by an API call.
+            | Manual = 1
+
+            /// Automatic after a delay.
+            | AfterDelay = 2
+
+            /// When the editor lost focus.
+            | FocusOut = 3
+
+        /// The parameters send in a will save text document notification.
+        type WillSaveTextDocumentParams = {
+            /// The document that will be saved.
+            TextDocument: TextDocumentIdentifier
+
+            /// The 'TextDocumentSaveReason'.
+            Reason: TextDocumentSaveReason
+        }
+
+        type DidSaveTextDocumentParams = {
+            /// The document that was saved.
+            TextDocument: TextDocumentIdentifier
+
+            /// Optional the content when saved. Depends on the includeText value
+            /// when the save notification was requested.
+            Text: string option
+        }
+
+        type DidCloseTextDocumentParams = {
+            /// The document that was closed.
+            TextDocument: TextDocumentIdentifier
+        }
+
+        /// Value-object describing what options formatting should use.
+        type FormattingOptions = {
+            /// Size of a tab in spaces.
+            TabSize: int
+
+            /// Prefer spaces over tabs.
+            InsertSpaces: bool
+
+            /// Further properties.
+            [<JsonExtensionData>]
+            AdditionalData: System.Collections.Generic.IDictionary<string, JToken>
+        }
+
+        type DocumentFormattingParams = {
+            /// The document to format.
+            TextDocument: TextDocumentIdentifier
+
+            /// The format options.
+            Options: FormattingOptions
+        }
+
+        type DocumentRangeFormattingParams = {
+            /// The document to format.
+            TextDocument: TextDocumentIdentifier
+
+            /// The range to format
+            Range: Range
+
+            /// The format options
+            Options: FormattingOptions
+        }
+
+        type DocumentOnTypeFormattingParams = {
+            /// The document to format.
+            TextDocument: TextDocumentIdentifier
+
+            /// The position at which this request was sent.
+            Position: Position
+
+            /// The character that has been typed.
+            Ch: string
+
+            /// The format options.
+            Options: FormattingOptions
+        }
+
+        type DocumentSymbolParams = {
+            /// The text document.
+            TextDocument: TextDocumentIdentifier
+        }
 
     type ITextDocumentPositionParams =
         /// The text document.
@@ -951,17 +1154,6 @@ module Protocol =
             member this.TextDocument with get() = this.TextDocument
             member this.Position with get() = this.Position
 
-    /// A textual edit applicable to a text document.
-    type TextEdit = {
-        /// The range of the text document to be manipulated. To insert
-        /// text into a document create a range where start === end.
-        Range: Range
-
-        /// The string to be inserted. For delete operations use an
-        /// empty string.
-        NewText: string
-    }
-
     /// Represents a reference to a command. Provides a title which will be used to represent a command in the UI.
     /// Commands are identified by a string identifier. The protocol currently doesn’t specify a set of well-known
     /// commands. So executing a command requires some tool extension code.
@@ -1153,56 +1345,6 @@ module Protocol =
             member this.TextDocument with get() = this.TextDocument
             member this.Position with get() = this.Position
 
-    /// Describes textual changes on a single text document. The text document is referred to as a
-    /// `VersionedTextDocumentIdentifier` to allow clients to check the text document version before an edit is
-    /// applied. A `TextDocumentEdit` describes all changes on a version Si and after they are applied move the
-    /// document to version Si+1. So the creator of a `TextDocumentEdit `doesn’t need to sort the array or do any
-    /// kind of ordering. However the edits must be non overlapping.
-    type TextDocumentEdit = {
-        /// The text document to change.
-        TextDocument: VersionedTextDocumentIdentifier
-
-        /// The edits to be applied.
-        Edits: TextEdit[]
-    }
-
-    /// A workspace edit represents changes to many resources managed in the workspace.
-    /// The edit should either provide `changes` or `documentChanges`. If the client can handle versioned document
-    /// edits and if `documentChanges` are present, the latter are preferred over `changes`.
-    type WorkspaceEdit = {
-        /// Holds changes to existing resources.
-        Changes: Map<string, TextEdit[]> option
-
-        /// An array of `TextDocumentEdit`s to express changes to n different text documents
-        /// where each text document edit addresses a specific version of a text document.
-        /// Whether a client supports versioned document edits is expressed via
-        /// `WorkspaceClientCapabilities.workspaceEdit.documentChanges`.
-        DocumentChanges: TextDocumentEdit[] option
-    }
-    with
-        static member DocumentChangesToChanges(edits: TextDocumentEdit[]) =
-            edits
-            |> Array.map (fun edit -> edit.TextDocument.Uri.ToString(), edit.Edits)
-            |> Map.ofArray
-
-        static member CanUseDocumentChanges(capabilities: ClientCapabilities) =
-            (capabilities.Workspace
-            |> Option.bind(fun x -> x.WorkspaceEdit)
-            |> Option.bind (fun x -> x.DocumentChanges))
-                = Some true
-
-        static member Create(edits: TextDocumentEdit[], capabilities: ClientCapabilities ) =
-            if WorkspaceEdit.CanUseDocumentChanges(capabilities) then
-                {
-                    Changes = None
-                    DocumentChanges = Some edits
-                }
-            else
-                {
-                    Changes = Some (WorkspaceEdit.DocumentChangesToChanges edits)
-                    DocumentChanges = None
-                }
-    
     [<ErasedUnion>]
     [<RequireQualifiedAccess>]
     type GotoDefinitionResult =
@@ -1300,52 +1442,6 @@ module Protocol =
         /// An optional array of additional text edits that are applied when
         /// selecting this color presentation. Edits must not overlap with the main edit nor with themselves.
         AdditionalTextEdits: TextEdit[] option
-    }
-
-    /// Value-object describing what options formatting should use.
-    type FormattingOptions = {
-        /// Size of a tab in spaces.
-        TabSize: int
-
-        /// Prefer spaces over tabs.
-        InsertSpaces: bool
-
-        /// Further properties.
-        [<JsonExtensionData>]
-        AdditionalData: System.Collections.Generic.IDictionary<string, JToken>
-    }
-
-    type DocumentFormattingParams = {
-        /// The document to format.
-        TextDocument: TextDocumentIdentifier
-
-        /// The format options.
-        Options: FormattingOptions
-    }
-
-    type DocumentRangeFormattingParams = {
-        /// The document to format.
-        TextDocument: TextDocumentIdentifier
-
-        /// The range to format
-        Range: Range
-
-        /// The format options
-        Options: FormattingOptions
-    }
-
-    type DocumentOnTypeFormattingParams = {
-        /// The document to format.
-        TextDocument: TextDocumentIdentifier
-
-        /// The position at which this request was sent.
-        Position: Position
-
-        /// The character that has been typed.
-        Ch: string
-
-        /// The format options.
-        Options: FormattingOptions
     }
 
 module LowLevel =
@@ -1489,7 +1585,11 @@ module LspResult =
     let internalError s : LspResult<_> =
         Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s))
 
+/// Return the JSON-RPC "not implemented" error
 let private notImplemented<'t> = async.Return (LspResult<'t>.Error JsonRpc.Error.MethodNotFound)
+
+/// Do nothing and ignore the notification
+let private ignoreNotification = async.Return(())
 
 open Protocol
 
@@ -1498,7 +1598,7 @@ type LspClient() =
     /// The show message notification is sent from a server to a client to ask the client to display
     /// a particular message in the user interface.
     abstract member WindowShowMessage: ShowMessageParams -> Async<unit>
-    default __.WindowShowMessage(_) = async.Return(())
+    default __.WindowShowMessage(_) = ignoreNotification
 
     /// The show message request is sent from a server to a client to ask the client to display
     /// a particular message in the user interface. In addition to the show message notification the
@@ -1509,12 +1609,12 @@ type LspClient() =
     /// The log message notification is sent from the server to the client to ask the client to log
     ///a particular message.
     abstract member WindowLogMessage: LogMessageParams -> Async<unit>
-    default __.WindowLogMessage(_) = async.Return(())
+    default __.WindowLogMessage(_) = ignoreNotification
 
     /// The telemetry notification is sent from the server to the client to ask the client to log
     /// a telemetry event.
     abstract member TelemetryEvent: Newtonsoft.Json.Linq.JToken -> Async<unit>
-    default __.TelemetryEvent(_) = async.Return(())
+    default __.TelemetryEvent(_) = ignoreNotification
 
     /// The `client/registerCapability` request is sent from the server to the client to register for a new
     /// capability on the client side. Not all clients need to support dynamic capability registration.
@@ -1528,6 +1628,17 @@ type LspClient() =
     abstract member ClientUnregisterCapability: UnregistrationParams -> AsyncLspResult<unit>
     default __.ClientUnregisterCapability(_) = notImplemented
 
+    /// Many tools support more than one root folder per workspace. Examples for this are VS Code’s multi-root
+    /// support, Atom’s project folder support or Sublime’s project support. If a client workspace consists of
+    /// multiple roots then a server typically needs to know about this. The protocol up to know assumes one root
+    /// folder which is announce to the server by the rootUri property of the InitializeParams.
+    /// If the client supports workspace folders and announces them via the corrsponding workspaceFolders client
+    /// capability the InitializeParams contain an additional property workspaceFolders with the configured
+    /// workspace folders when the server starts.
+    /// 
+    /// The workspace/workspaceFolders request is sent from the server to the client to fetch the current open
+    /// list of workspace folders. Returns null in the response if only a single file is open in the tool.
+    /// Returns an empty array if a workspace is open but no folders are configured.
     abstract member WorkspaceWorkspaceFolders: unit -> AsyncLspResult<WorkspaceFolder[] option>
     default __.WorkspaceWorkspaceFolders() = notImplemented
 
@@ -1540,8 +1651,25 @@ type LspClient() =
     abstract member WorkspaceConfiguration : ConfigurationParams -> AsyncLspResult<Newtonsoft.Json.Linq.JToken[]>
     default __.WorkspaceConfiguration(_) = notImplemented
 
+    abstract member WorkspaceApplyEdit : ApplyWorkspaceEditParams -> AsyncLspResult<ApplyWorkspaceEditResponse>
+    default __.WorkspaceApplyEdit(_) = notImplemented
+
+    /// Diagnostics notification are sent from the server to the client to signal results of validation runs.
+    /// 
+    /// Diagnostics are “owned” by the server so it is the server’s responsibility to clear them if necessary.
+    /// The following rule is used for VS Code servers that generate diagnostics:
+    /// 
+    /// * if a language is single file only (for example HTML) then diagnostics are cleared by the server when
+    ///   the file is closed.
+    /// * if a language has a project system (for example C#) diagnostics are not cleared when a file closes.
+    ///   When a project is opened all diagnostics for all files are recomputed (or read from a cache).
+    ///
+    /// When a file changes it is the server’s responsibility to re-compute diagnostics and push them to the
+    /// client. If the computed set is empty it has to push the empty array to clear former diagnostics.
+    /// Newly pushed diagnostics always replace previously pushed diagnostics. There is no merging that happens
+    /// on the client side.
     abstract member TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
-    default __.TextDocumentPublishDiagnostics(_) = async.Return(())
+    default __.TextDocumentPublishDiagnostics(_) = ignoreNotification
 
 [<AbstractClass>]
 type LspServer() =
@@ -1555,17 +1683,17 @@ type LspServer() =
     /// The server can use the initialized notification for example to dynamically register capabilities.
     /// The initialized notification may only be sent once.
     abstract member Initialized: InitializedParams -> Async<unit>
-    default __.Initialized(_) = async.Return(())
+    default __.Initialized(_) = ignoreNotification
 
     /// The shutdown request is sent from the client to the server. It asks the server to shut down, but to not
     /// exit (otherwise the response might not be delivered correctly to the client). There is a separate exit
     /// notification that asks the server to exit.
     abstract member Shutdown : unit -> Async<unit>
-    default __.Shutdown() = async.Return(())
+    default __.Shutdown() = ignoreNotification
 
     /// A notification to ask the server to exit its process.
     abstract member Exit : unit -> Async<unit>
-    default __.Exit() = async.Return(())
+    default __.Exit() = ignoreNotification
 
     /// The hover request is sent from the client to the server to request hover information at a given text
     /// document position.
@@ -1581,11 +1709,11 @@ type LspServer() =
     /// more than once without a corresponding close notification send before. This means open and close
     /// notification must be balanced and the max open count for a particular textDocument is one.
     abstract member TextDocumentDidOpen: DidOpenTextDocumentParams -> Async<unit>
-    default __.TextDocumentDidOpen(_) = async.Return(())
+    default __.TextDocumentDidOpen(_) = ignoreNotification
 
     /// The document change notification is sent from the client to the server to signal changes to a text document.
     abstract member TextDocumentDidChange: DidChangeTextDocumentParams -> Async<unit>
-    default __.TextDocumentDidChange(_) = async.Return(())
+    default __.TextDocumentDidChange(_) = ignoreNotification
 
     /// The Completion request is sent from the client to the server to compute completion items at a given
     /// cursor position. Completion items are presented in the IntelliSense user interface.
@@ -1666,23 +1794,65 @@ type LspServer() =
     abstract member TextDocumentOnTypeFormatting: DocumentOnTypeFormattingParams -> AsyncLspResult<TextEdit[] option>
     default __.TextDocumentOnTypeFormatting(_) = notImplemented
 
+    /// The document symbol request is sent from the client to the server to return a flat list of all symbols
+    /// found in a given text document. Neither the symbol’s location range nor the symbol’s container name
+    /// should be used to infer a hierarchy.
+    abstract member TextDocumentDocumentSymbol: DocumentSymbolParams -> AsyncLspResult<SymbolInformation[] option>
+    default __.TextDocumentDocumentSymbol(_) = notImplemented
+
     /// The watched files notification is sent from the client to the server when the client detects changes
     /// to files watched by the language client. It is recommended that servers register for these file
     /// events using the registration mechanism. In former implementations clients pushed file events without
     /// the server actively asking for it.
     abstract member WorkspaceDidChangeWatchedFiles: DidChangeWatchedFilesParams -> Async<unit>
-    default __.WorkspaceDidChangeWatchedFiles(_) = async.Return(())
+    default __.WorkspaceDidChangeWatchedFiles(_) = ignoreNotification
 
     /// The `workspace/didChangeWorkspaceFolders` notification is sent from the client to the server to inform
     /// the server about workspace folder configuration changes. The notification is sent by default if both
     /// *ServerCapabilities/workspace/workspaceFolders* and *ClientCapabilities/workapce/workspaceFolders* are
     /// true; or if the server has registered to receive this notification it first. 
     abstract member WorkspaceDidChangeWorkspaceFolders: DidChangeWorkspaceFoldersParams -> Async<unit>
-    default __.WorkspaceDidChangeWorkspaceFolders(_) = async.Return(())
+    default __.WorkspaceDidChangeWorkspaceFolders(_) = ignoreNotification
 
     /// A notification sent from the client to the server to signal the change of configuration settings.
     abstract member WorkspaceDidChangeConfiguration: DidChangeConfigurationParams -> Async<unit>
-    default __.WorkspaceDidChangeConfiguration(_) = async.Return(())
+    default __.WorkspaceDidChangeConfiguration(_) = ignoreNotification
+
+    /// The workspace symbol request is sent from the client to the server to list project-wide symbols matching
+    /// the query string.
+    abstract member WorkspaceSymbol: WorkspaceSymbolParams -> AsyncLspResult<SymbolInformation[] option>
+    default __.WorkspaceSymbol(_) = notImplemented
+
+    /// The `workspace/executeCommand` request is sent from the client to the server to trigger command execution
+    /// on the server. In most cases the server creates a `WorkspaceEdit` structure and applies the changes to the
+    /// workspace using the request `workspace/applyEdit` which is sent from the server to the client.
+    abstract member WorkspaceExecuteCommand : ExecuteCommandParams -> AsyncLspResult<Newtonsoft.Json.Linq.JToken>
+    default __.WorkspaceExecuteCommand(_) = notImplemented
+
+    /// The document will save notification is sent from the client to the server before the document is
+    /// actually saved.
+    abstract member TextDocumentWillSave: WillSaveTextDocumentParams -> Async<unit>
+    default __.TextDocumentWillSave(_) = ignoreNotification
+
+    /// The document will save request is sent from the client to the server before the document is actually saved.
+    /// The request can return an array of TextEdits which will be applied to the text document before it is saved.
+    /// Please note that clients might drop results if computing the text edits took too long or if a server
+    /// constantly fails on this request. This is done to keep the save fast and reliable.
+    abstract member TextDocumentWillSaveWaitUntil: WillSaveTextDocumentParams -> AsyncLspResult<TextEdit[] option>
+    default __.TextDocumentWillSaveWaitUntil(_) = notImplemented
+
+    /// The document save notification is sent from the client to the server when the document was saved
+    /// in the client.
+    abstract member TextDocumentDidSave: DidSaveTextDocumentParams -> Async<unit>
+    default __.TextDocumentDidSave(_) = ignoreNotification
+
+    /// The document close notification is sent from the client to the server when the document got closed in the
+    /// client. The document’s truth now exists where the document’s uri points to (e.g. if the document’s uri is
+    /// a file uri the truth now exists on disk). As with the open notification the close notification is about
+    /// managing the document’s content. Receiving a close notification doesn’t mean that the document was open in
+    /// an editor before. A close notification requires a previous open notification to be sent.
+    abstract member TextDocumentDidClose: DidCloseTextDocumentParams -> Async<unit>
+    default __.TextDocumentDidClose(_) = ignoreNotification
 
 module Server =
     open System
@@ -1746,7 +1916,8 @@ module Server =
 
         { Run = tokenRun }
 
-    /// Notifications don't generate a response or error, but to unify things we considere them as always successful
+    /// Notifications don't generate a response or error, but to unify things we considere them as always successful.
+    /// They will still not send any response because their ID is null.
     let private notificationSuccess (response: Async<unit>) = async {
         do! response
         return Result.Ok ()
@@ -1772,9 +1943,16 @@ module Server =
             "textDocument/formatting", requestHandling (fun s p -> s.TextDocumentFormatting(p))
             "textDocument/rangeFormatting", requestHandling (fun s p -> s.TextDocumentRangeFormatting(p))
             "textDocument/onTypeFormatting", requestHandling (fun s p -> s.TextDocumentOnTypeFormatting(p))
+            "textDocument/willSave", requestHandling (fun s p -> s.TextDocumentWillSave(p) |> notificationSuccess)
+            "textDocument/willSaveWaitUntil", requestHandling (fun s p -> s.TextDocumentWillSaveWaitUntil(p))
+            "textDocument/didSave", requestHandling (fun s p -> s.TextDocumentDidSave(p) |> notificationSuccess)
+            "textDocument/didClose", requestHandling (fun s p -> s.TextDocumentDidClose(p) |> notificationSuccess)
+            "textDocument/documentSymbol", requestHandling (fun s p -> s.TextDocumentDocumentSymbol(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "workspace/didChangeWorkspaceFolders ", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
             "workspace/didChangeConfiguration ", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)
+            "workspace/symbol", requestHandling (fun s p -> s.WorkspaceSymbol (p))
+            "workspace/executeCommand ", requestHandling (fun s p -> s.WorkspaceExecuteCommand (p))
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
         ]
