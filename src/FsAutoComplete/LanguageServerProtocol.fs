@@ -238,7 +238,7 @@ module Protocol =
     }
     with
         static member DefaultValueSet =
-            [
+            [|
                 SymbolKind.File
                 SymbolKind.Module
                 SymbolKind.Namespace
@@ -257,7 +257,7 @@ module Protocol =
                 SymbolKind.Number
                 SymbolKind.Boolean
                 SymbolKind.Array
-            ]
+            |]
 
     /// Capabilities specific to the `workspace/symbol` request.
     type SymbolCapabilities = {
@@ -2128,6 +2128,9 @@ module Server =
         override __.TextDocumentPublishDiagnostics(p) =
             sendServerRequest "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
+        // TODO: Add the missing notifications
+        // TODO: Implement requests
+
     let start (input: Stream) (output: Stream) (serverCreator: LspClient -> #LspServer) =
         dbgf "Starting up !"
 
@@ -2146,7 +2149,7 @@ module Server =
             let req = JsonRpc.Request.Create(method, serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
             sender.Post(reqString)
-            // TODO: Really wait for the client answer
+            // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
             async.Return (LspResult.Ok ())
 
         let lspClient = LspClientImpl sendServerRequest

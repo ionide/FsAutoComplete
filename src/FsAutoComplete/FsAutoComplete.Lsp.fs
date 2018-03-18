@@ -69,19 +69,17 @@ let fcsRangeToLspLocation(range: Microsoft.FSharp.Compiler.Range.range): Languag
 type FSharpCompletionItemKind = Microsoft.FSharp.Compiler.SourceCodeServices.CompletionItemKind
 type CompletionItemKind = LanguageServerProtocol.Protocol.CompletionItemKind
 
-/// Compute the best possible CompletionItemKind for each FSharpGlyph according
-// to the client capabilities
-let glyphToCompletionKindGenerator (clientCapabilities: ClientCapabilities option) =
-    let completionItemSet =
-        clientCapabilities
-        |> Option.bind(fun x -> x.TextDocument)
-        |> Option.bind(fun x -> x.Completion)
-        |> Option.bind(fun x -> x.CompletionItemKind)
-        |> Option.bind(fun x -> x.ValueSet)
-    let completionItemSet = defaultArg completionItemSet CompletionItemKindCapabilities.DefaultValueSet
+let glyphToKindGenerator<'kind when 'kind : equality>
+    (clientCapabilities: ClientCapabilities option)
+    (setFromCapabilities: ClientCapabilities -> 'kind [] option)
+    (defaultSet: 'kind [])
+    (getUncached: FSharpGlyph -> 'kind[]) =
 
-    let bestAvailable (possible: CompletionItemKind[]) =
-        let mutable found: CompletionItemKind option = None
+    let completionItemSet = clientCapabilities |> Option.bind(setFromCapabilities)
+    let completionItemSet = defaultArg completionItemSet defaultSet
+
+    let bestAvailable (possible: 'kind[]) =
+        let mutable found: 'kind option = None
         let mutable i = 0
         let possibleCount = possible.Length
         while found.IsNone && i < possibleCount do
@@ -90,40 +88,87 @@ let glyphToCompletionKindGenerator (clientCapabilities: ClientCapabilities optio
             i <- i + 1
         found
 
-    let getUncached code =
-        match code with
-        | FSharpGlyph.Class -> bestAvailable [| CompletionItemKind.Class |]
-        | FSharpGlyph.Constant -> bestAvailable [| CompletionItemKind.Constant |]
-        | FSharpGlyph.Delegate -> bestAvailable [| CompletionItemKind.Function |]
-        | FSharpGlyph.Enum -> bestAvailable [| CompletionItemKind.Enum |]
-        | FSharpGlyph.EnumMember -> bestAvailable [| CompletionItemKind.EnumMember; CompletionItemKind.Enum |]
-        | FSharpGlyph.Event -> bestAvailable [| CompletionItemKind.Event |]
-        | FSharpGlyph.Exception -> bestAvailable [| CompletionItemKind.Class |]
-        | FSharpGlyph.Field -> bestAvailable [| CompletionItemKind.Field |]
-        | FSharpGlyph.Interface -> bestAvailable [| CompletionItemKind.Interface; CompletionItemKind.Class |]
-        | FSharpGlyph.Method -> bestAvailable [| CompletionItemKind.Method |]
-        | FSharpGlyph.OverridenMethod-> bestAvailable [| CompletionItemKind.Method |]
-        | FSharpGlyph.Module -> bestAvailable [| CompletionItemKind.Module; CompletionItemKind.Class |]
-        | FSharpGlyph.NameSpace -> bestAvailable [| CompletionItemKind.Module |]
-        | FSharpGlyph.Property -> bestAvailable [| CompletionItemKind.Property |]
-        | FSharpGlyph.Struct -> bestAvailable [| CompletionItemKind.Struct; CompletionItemKind.Class |]
-        | FSharpGlyph.Typedef -> bestAvailable [| CompletionItemKind.Class |]
-        | FSharpGlyph.Type -> bestAvailable [| CompletionItemKind.Class |]
-        | FSharpGlyph.Union -> bestAvailable [| CompletionItemKind.Class |]
-        | FSharpGlyph.Variable -> bestAvailable [| CompletionItemKind.Variable |]
-        | FSharpGlyph.ExtensionMethod -> bestAvailable [| CompletionItemKind.Method |]
-        | FSharpGlyph.Error
-        | _ -> None
-
     let unionCases = FSharpType.GetUnionCases(typeof<FSharpGlyph>)
-    let cache = Dictionary<FSharpGlyph, CompletionItemKind option>(unionCases.Length)
+    let cache = Dictionary<FSharpGlyph, 'kind option>(unionCases.Length)
     for info in unionCases do
         let glyph = FSharpValue.MakeUnion(info, [||]) :?> FSharpGlyph
-        let completionItem = getUncached glyph
+        let completionItem = getUncached glyph |> bestAvailable
         cache.Add(glyph, completionItem)
 
     fun glyph ->
         cache.[glyph]
+
+/// Compute the best possible CompletionItemKind for each FSharpGlyph according
+/// to the client capabilities
+let glyphToCompletionKindGenerator (clientCapabilities: ClientCapabilities option) =
+    glyphToKindGenerator
+        clientCapabilities
+        (fun clientCapabilities ->
+            clientCapabilities.TextDocument
+            |> Option.bind(fun x -> x.Completion)
+            |> Option.bind(fun x -> x.CompletionItemKind)
+            |> Option.bind(fun x -> x.ValueSet))
+        CompletionItemKindCapabilities.DefaultValueSet
+        (fun code ->
+            match code with
+            | FSharpGlyph.Class -> [| CompletionItemKind.Class |]
+            | FSharpGlyph.Constant -> [| CompletionItemKind.Constant |]
+            | FSharpGlyph.Delegate -> [| CompletionItemKind.Function |]
+            | FSharpGlyph.Enum -> [| CompletionItemKind.Enum |]
+            | FSharpGlyph.EnumMember -> [| CompletionItemKind.EnumMember; CompletionItemKind.Enum |]
+            | FSharpGlyph.Event -> [| CompletionItemKind.Event |]
+            | FSharpGlyph.Exception -> [| CompletionItemKind.Class |]
+            | FSharpGlyph.Field -> [| CompletionItemKind.Field |]
+            | FSharpGlyph.Interface -> [| CompletionItemKind.Interface; CompletionItemKind.Class |]
+            | FSharpGlyph.Method -> [| CompletionItemKind.Method |]
+            | FSharpGlyph.OverridenMethod-> [| CompletionItemKind.Method |]
+            | FSharpGlyph.Module -> [| CompletionItemKind.Module; CompletionItemKind.Class |]
+            | FSharpGlyph.NameSpace -> [| CompletionItemKind.Module |]
+            | FSharpGlyph.Property -> [| CompletionItemKind.Property |]
+            | FSharpGlyph.Struct -> [| CompletionItemKind.Struct; CompletionItemKind.Class |]
+            | FSharpGlyph.Typedef -> [| CompletionItemKind.Class |]
+            | FSharpGlyph.Type -> [| CompletionItemKind.Class |]
+            | FSharpGlyph.Union -> [| CompletionItemKind.Class |]
+            | FSharpGlyph.Variable -> [| CompletionItemKind.Variable |]
+            | FSharpGlyph.ExtensionMethod -> [| CompletionItemKind.Method |]
+            | FSharpGlyph.Error
+            | _ -> [||])
+
+/// Compute the best possible SymbolKind for each FSharpGlyph according
+/// to the client capabilities
+let glyphToSymbolKindGenerator (clientCapabilities: ClientCapabilities option) =
+    glyphToKindGenerator
+        clientCapabilities
+        (fun clientCapabilities ->
+            clientCapabilities.TextDocument
+            |> Option.bind(fun x -> x.DocumentSymbol)
+            |> Option.bind(fun x -> x.SymbolKind)
+            |> Option.bind(fun x -> x.ValueSet))
+        SymbolKindCapabilities.DefaultValueSet
+        (fun code ->
+            match code with
+            | FSharpGlyph.Class -> [| SymbolKind.Class |]
+            | FSharpGlyph.Constant -> [| SymbolKind.Constant |]
+            | FSharpGlyph.Delegate -> [| SymbolKind.Function |]
+            | FSharpGlyph.Enum -> [| SymbolKind.Enum |]
+            | FSharpGlyph.EnumMember -> [| SymbolKind.EnumMember; SymbolKind.Enum |]
+            | FSharpGlyph.Event -> [| SymbolKind.Event |]
+            | FSharpGlyph.Exception -> [| SymbolKind.Class |]
+            | FSharpGlyph.Field -> [| SymbolKind.Field |]
+            | FSharpGlyph.Interface -> [| SymbolKind.Interface; SymbolKind.Class |]
+            | FSharpGlyph.Method -> [| SymbolKind.Method |]
+            | FSharpGlyph.OverridenMethod-> [| SymbolKind.Method |]
+            | FSharpGlyph.Module -> [| SymbolKind.Module; SymbolKind.Class |]
+            | FSharpGlyph.NameSpace -> [| SymbolKind.Module |]
+            | FSharpGlyph.Property -> [| SymbolKind.Property |]
+            | FSharpGlyph.Struct -> [| SymbolKind.Struct; SymbolKind.Class |]
+            | FSharpGlyph.Typedef -> [| SymbolKind.Class |]
+            | FSharpGlyph.Type -> [| SymbolKind.Class |]
+            | FSharpGlyph.Union -> [| SymbolKind.Class |]
+            | FSharpGlyph.Variable -> [| SymbolKind.Variable |]
+            | FSharpGlyph.ExtensionMethod -> [| SymbolKind.Method |]
+            | FSharpGlyph.Error
+            | _ -> [||])
 
 let tooltipElementToMarkdown (tip: FSharpToolTipElement<string>) =
     match tip with
@@ -140,8 +185,11 @@ let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
     let elementsLines = elements |> List.map tooltipElementToMarkdown
     System.String.Join("\n", elementsLines)
 
+type TextDocumentIdentifier with
+    member doc.GetFilePath() = Uri(doc.Uri).LocalPath
+
 type ITextDocumentPositionParams with
-    member p.GetFilePath() = Uri(p.TextDocument.Uri).LocalPath
+    member p.GetFilePath() = p.TextDocument.GetFilePath()
     member p.GetFcsPos() = protocolPosToPos p.Position
 
 let errorToDiagnostic (error: FSharpErrorInfo) =
@@ -157,6 +205,24 @@ let errorToDiagnostic (error: FSharpErrorInfo) =
         Code = Some (DiagnosticCode.Number error.ErrorNumber)
     }
 
+let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration): SymbolInformation seq =
+    let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation =
+        // We should nearly always have a kind, if the client doesn't send weird capabilites,
+        // if we don't why not assume module...
+        let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
+        let location = { Uri = uri; Range = fcsRangeToLsp decl.Range }
+        {
+            SymbolInformation.Name = decl.Name
+            Kind = kind
+            Location = location
+            ContainerName = container
+        }
+    seq {
+        yield (inner None topLevel.Declaration)
+        yield! topLevel.Nested |> Seq.ofArray |> Seq.map (inner (Some topLevel.Declaration.Name))
+    }
+
+
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete.CommandResponse
@@ -166,6 +232,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
 
     let mutable clientCapabilities: ClientCapabilities option = None
     let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
+    let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
 
     let parseAsync filePath (text: string) version = async {
         dbgf "[%s] Parse started" filePath
@@ -184,7 +251,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         | ResultOrString.Error s ->
             Result.Error (sprintf "Can't get filecheck options with lines: %s" s)
         | ResultOrString.Ok (options, lines) ->
-            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+            let tyResOpt = commands.Checker.TryGetRecentCheckResultsForFile(file, options)
             match tyResOpt with
             | None ->
                 Result.Error "Cached typecheck results not yet available"
@@ -194,6 +261,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     override __.Initialize(p) = async {
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
+        glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
         match p.RootPath with
         | None -> ()
@@ -260,6 +328,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                         DefinitionProvider = Some true
                         ReferencesProvider = Some true
                         DocumentHighlightProvider = Some true
+                        DocumentSymbolProvider = Some true
                         TextDocumentSync =
                             Some { TextDocumentSyncOptions.Default with
                                      OpenClose = Some true
@@ -500,6 +569,23 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
 
             | Error s ->
                 return invalidParams s
+        | Error s ->
+            return invalidParams s
+    }
+
+    override __.TextDocumentDocumentSymbol(p) = async {
+        let filePath = p.TextDocument.GetFilePath()
+        match getRecentTypeCheckResultsForFile filePath with
+        | Ok (_options, _lines, tyRes) ->
+            let declarations = tyRes.GetParseResults.GetNavigationItems().Declarations
+            
+            return
+                declarations
+                |> Seq.ofArray
+                |> Seq.collect(getSymbolInformations p.TextDocument.Uri glyphToSymbolKind)
+                |> Array.ofSeq
+                |> Some
+                |> success
         | Error s ->
             return invalidParams s
     }
