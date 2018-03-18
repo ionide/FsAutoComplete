@@ -207,471 +207,469 @@ module Protocol =
         Edits: TextEdit[]
     }
 
-    [<AutoOpen>]
-    module General =
-        type TraceSetting =
-            | Off = 0
-            | Messages = 1
-            | Verbose = 2
+    type TraceSetting =
+        | Off = 0
+        | Messages = 1
+        | Verbose = 2
 
-        /// Capabilities for methods that support dynamic registration.
-        type DynamicCapabilities = {
-            /// Method supports dynamic registration.
-            DynamicRegistration: bool option
-        }
+    /// Capabilities for methods that support dynamic registration.
+    type DynamicCapabilities = {
+        /// Method supports dynamic registration.
+        DynamicRegistration: bool option
+    }
 
-        /// Capabilities specific to `WorkspaceEdit`s
-        type WorkspaceEditCapabilities = {
-            /// The client supports versioned document changes in `WorkspaceEdit`s
-            DocumentChanges: bool option
-        }
+    /// Capabilities specific to `WorkspaceEdit`s
+    type WorkspaceEditCapabilities = {
+        /// The client supports versioned document changes in `WorkspaceEdit`s
+        DocumentChanges: bool option
+    }
+
+    /// Specific capabilities for the `SymbolKind` in the `workspace/symbol` request.
+    type SymbolKindCapabilities = {
+        /// The symbol kind values the client supports. When this
+        /// property exists the client also guarantees that it will
+        /// handle values outside its set gracefully and falls back
+        /// to a default value when unknown.
+        ///
+        /// If this property is not present the client only supports
+        /// the symbol kinds from `File` to `Array` as defined in
+        /// the initial version of the protocol.
+        ValueSet: SymbolKind[] option
+    }
+    with
+        static member DefaultValueSet =
+            [
+                SymbolKind.File
+                SymbolKind.Module
+                SymbolKind.Namespace
+                SymbolKind.Package
+                SymbolKind.Class
+                SymbolKind.Method
+                SymbolKind.Property
+                SymbolKind.Field
+                SymbolKind.Constructor
+                SymbolKind.Enum
+                SymbolKind.Interface
+                SymbolKind.Function
+                SymbolKind.Variable
+                SymbolKind.Constant
+                SymbolKind.String
+                SymbolKind.Number
+                SymbolKind.Boolean
+                SymbolKind.Array
+            ]
+
+    /// Capabilities specific to the `workspace/symbol` request.
+    type SymbolCapabilities = {
+        /// Symbol request supports dynamic registration.
+        DynamicRegistration: bool option
 
         /// Specific capabilities for the `SymbolKind` in the `workspace/symbol` request.
-        type SymbolKindCapabilities = {
-            /// The symbol kind values the client supports. When this
-            /// property exists the client also guarantees that it will
-            /// handle values outside its set gracefully and falls back
-            /// to a default value when unknown.
-            ///
-            /// If this property is not present the client only supports
-            /// the symbol kinds from `File` to `Array` as defined in
-            /// the initial version of the protocol.
-            ValueSet: SymbolKind[] option
-        }
-        with
-            static member DefaultValueSet =
-                [
-                    SymbolKind.File
-                    SymbolKind.Module
-                    SymbolKind.Namespace
-                    SymbolKind.Package
-                    SymbolKind.Class
-                    SymbolKind.Method
-                    SymbolKind.Property
-                    SymbolKind.Field
-                    SymbolKind.Constructor
-                    SymbolKind.Enum
-                    SymbolKind.Interface
-                    SymbolKind.Function
-                    SymbolKind.Variable
-                    SymbolKind.Constant
-                    SymbolKind.String
-                    SymbolKind.Number
-                    SymbolKind.Boolean
-                    SymbolKind.Array
-                ]
+        SymbolKind: SymbolKindCapabilities option
+    }
+
+    /// Workspace specific client capabilities.
+    type WorkspaceClientCapabilities = {
+        /// The client supports applying batch edits to the workspace by supporting
+        /// the request 'workspace/applyEdit'
+        ApplyEdit: bool option
+
+        /// Capabilities specific to `WorkspaceEdit`s
+        WorkspaceEdit: WorkspaceEditCapabilities option
+
+        /// Capabilities specific to the `workspace/didChangeConfiguration` notification.
+        DidChangeConfiguration: DynamicCapabilities option
+
+        /// Capabilities specific to the `workspace/didChangeWatchedFiles` notification.
+        DidChangeWatchedFiles: DynamicCapabilities option
 
         /// Capabilities specific to the `workspace/symbol` request.
-        type SymbolCapabilities = {
-            /// Symbol request supports dynamic registration.
-            DynamicRegistration: bool option
+        Symbol: SymbolCapabilities option
+    }
 
-            /// Specific capabilities for the `SymbolKind` in the `workspace/symbol` request.
-            SymbolKind: SymbolKindCapabilities option
-        }
+    type SynchronizationCapabilities = {
+        /// Whether text document synchronization supports dynamic registration.
+        DynamicRegistration: bool option
 
-        /// Workspace specific client capabilities.
-        type WorkspaceClientCapabilities = {
-            /// The client supports applying batch edits to the workspace by supporting
-            /// the request 'workspace/applyEdit'
-            ApplyEdit: bool option
+        /// The client supports sending will save notifications.
+        WillSave: bool option
 
-            /// Capabilities specific to `WorkspaceEdit`s
-            WorkspaceEdit: WorkspaceEditCapabilities option
+        /// The client supports sending a will save request and
+        /// waits for a response providing text edits which will
+        /// be applied to the document before it is saved.
+        WillSaveWaitUntil: bool option
 
-            /// Capabilities specific to the `workspace/didChangeConfiguration` notification.
-            DidChangeConfiguration: DynamicCapabilities option
+        /// The client supports did save notifications.
+        DidSave: bool option
+    }
 
-            /// Capabilities specific to the `workspace/didChangeWatchedFiles` notification.
-            DidChangeWatchedFiles: DynamicCapabilities option
+    module MarkupKind =
+        let PlainText = "plaintext"
+        let Markdown = "markdown"
 
-            /// Capabilities specific to the `workspace/symbol` request.
-            Symbol: SymbolCapabilities option
-        }
+    type HoverCapabilities = {
+        /// Whether hover synchronization supports dynamic registration.
+        DynamicRegistration: bool option
 
-        type SynchronizationCapabilities = {
-            /// Whether text document synchronization supports dynamic registration.
-            DynamicRegistration: bool option
+        /// Client supports the follow content formats for the content
+        /// property. The order describes the preferred format of the client.
+        /// See `MarkupKind` for common values
+        ContentFormat: string[] option
+    }
 
-            /// The client supports sending will save notifications.
-            WillSave: bool option
+    type CompletionItemCapabilities = {
+        /// Client supports snippets as insert text.
+        ///
+        /// A snippet can define tab stops and placeholders with `$1`, `$2`
+        /// and `${3:foo}`. `$0` defines the final tab stop, it defaults to
+        /// the end of the snippet. Placeholders with equal identifiers are linked,
+        /// that is typing in one will update others too.
+        SnippetSupport: bool option
 
-            /// The client supports sending a will save request and
-            /// waits for a response providing text edits which will
-            /// be applied to the document before it is saved.
-            WillSaveWaitUntil: bool option
+        /// Client supports commit characters on a completion item.
+        CommitCharactersSupport: bool option
 
-            /// The client supports did save notifications.
-            DidSave: bool option
-        }
+        /// Client supports the follow content formats for the documentation
+        /// property. The order describes the preferred format of the client.
+        /// See `MarkupKind` for common values
+        DocumentationFormat: string[] option
+    }
 
-        module MarkupKind =
-            let PlainText = "plaintext"
-            let Markdown = "markdown"
+    type CompletionItemKind =
+    | Text = 1
+    | Method = 2
+    | Function = 3
+    | Constructor = 4
+    | Field = 5
+    | Variable = 6
+    | Class = 7
+    | Interface = 8
+    | Module = 9
+    | Property = 10
+    | Unit = 11
+    | Value = 12
+    | Enum = 13
+    | Keyword = 14
+    | Snippet = 15
+    | Color = 16
+    | File = 17
+    | Reference = 18
+    | Folder = 19
+    | EnumMember = 20
+    | Constant = 21
+    | Struct = 22
+    | Event = 23
+    | Operator = 24
+    | TypeParameter = 25
 
-        type HoverCapabilities = {
-            /// Whether hover synchronization supports dynamic registration.
-            DynamicRegistration: bool option
+    type CompletionItemKindCapabilities = {
+        /// The completion item kind values the client supports. When this
+        /// property exists the client also guarantees that it will
+        /// handle values outside its set gracefully and falls back
+        /// to a default value when unknown.
+        ///
+        /// If this property is not present the client only supports
+        /// the completion items kinds from `Text` to `Reference` as defined in
+        /// the initial version of the protocol.
+        ValueSet: CompletionItemKind[] option
+    }
+    with
+        static member DefaultValueSet =
+            [|
+                CompletionItemKind.Text
+                CompletionItemKind.Method
+                CompletionItemKind.Function
+                CompletionItemKind.Constructor
+                CompletionItemKind.Field
+                CompletionItemKind.Variable
+                CompletionItemKind.Class
+                CompletionItemKind.Interface
+                CompletionItemKind.Module
+                CompletionItemKind.Property
+                CompletionItemKind.Unit
+                CompletionItemKind.Value
+                CompletionItemKind.Enum
+                CompletionItemKind.Keyword
+                CompletionItemKind.Snippet
+                CompletionItemKind.Color
+                CompletionItemKind.File
+                CompletionItemKind.Reference
+            |]
 
-            /// Client supports the follow content formats for the content
-            /// property. The order describes the preferred format of the client.
-            /// See `MarkupKind` for common values
-            ContentFormat: string[] option
-        }
+    /// Capabilities specific to the `textDocument/completion`
+    type CompletionCapabilities = {
+        /// Whether completion supports dynamic registration.
+        DynamicRegistration: bool option
 
-        type CompletionItemCapabilities = {
-            /// Client supports snippets as insert text.
-            ///
-            /// A snippet can define tab stops and placeholders with `$1`, `$2`
-            /// and `${3:foo}`. `$0` defines the final tab stop, it defaults to
-            /// the end of the snippet. Placeholders with equal identifiers are linked,
-            /// that is typing in one will update others too.
-            SnippetSupport: bool option
+        /// The client supports the following `CompletionItem` specific
+        /// capabilities.
+        CompletionItem: CompletionItemCapabilities option
 
-            /// Client supports commit characters on a completion item.
-            CommitCharactersSupport: bool option
+        CompletionItemKind: CompletionItemKindCapabilities option
 
-            /// Client supports the follow content formats for the documentation
-            /// property. The order describes the preferred format of the client.
-            /// See `MarkupKind` for common values
-            DocumentationFormat: string[] option
-        }
+        /// The client supports to send additional context information for a
+        /// `textDocument/completion` request.
+        ContextSupport: bool option
+    }
 
-        type CompletionItemKind =
-        | Text = 1
-        | Method = 2
-        | Function = 3
-        | Constructor = 4
-        | Field = 5
-        | Variable = 6
-        | Class = 7
-        | Interface = 8
-        | Module = 9
-        | Property = 10
-        | Unit = 11
-        | Value = 12
-        | Enum = 13
-        | Keyword = 14
-        | Snippet = 15
-        | Color = 16
-        | File = 17
-        | Reference = 18
-        | Folder = 19
-        | EnumMember = 20
-        | Constant = 21
-        | Struct = 22
-        | Event = 23
-        | Operator = 24
-        | TypeParameter = 25
+    type SignatureInformationCapabilities = {
+        /// Client supports the follow content formats for the documentation
+        /// property. The order describes the preferred format of the client.
+        /// See `MarkupKind` for common values
+        DocumentationFormat: string[] option
+    }
 
-        type CompletionItemKindCapabilities = {
-            /// The completion item kind values the client supports. When this
-            /// property exists the client also guarantees that it will
-            /// handle values outside its set gracefully and falls back
-            /// to a default value when unknown.
-            ///
-            /// If this property is not present the client only supports
-            /// the completion items kinds from `Text` to `Reference` as defined in
-            /// the initial version of the protocol.
-            ValueSet: CompletionItemKind[] option
-        }
-        with
-            static member DefaultValueSet =
-                [|
-                    CompletionItemKind.Text
-                    CompletionItemKind.Method
-                    CompletionItemKind.Function
-                    CompletionItemKind.Constructor
-                    CompletionItemKind.Field
-                    CompletionItemKind.Variable
-                    CompletionItemKind.Class
-                    CompletionItemKind.Interface
-                    CompletionItemKind.Module
-                    CompletionItemKind.Property
-                    CompletionItemKind.Unit
-                    CompletionItemKind.Value
-                    CompletionItemKind.Enum
-                    CompletionItemKind.Keyword
-                    CompletionItemKind.Snippet
-                    CompletionItemKind.Color
-                    CompletionItemKind.File
-                    CompletionItemKind.Reference
-                |]
+    type SignatureHelpCapabilities = {
+        /// Whether signature help supports dynamic registration.
+        DynamicRegistration: bool option
+
+        /// The client supports the following `SignatureInformation`
+        /// specific properties.
+        SignatureInformation: SignatureInformationCapabilities option
+    }
+
+    /// apabilities specific to the `textDocument/documentSymbol`
+    type DocumentSymbolCapabilities = {
+        /// Whether document symbol supports dynamic registration.
+        DynamicRegistration: bool option
+
+        /// Specific capabilities for the `SymbolKind`.
+        SymbolKind: SymbolKindCapabilities option
+    }
+
+    /// Text document specific client capabilities.
+    type TextDocumentClientCapabilities = {
+        Synchronization: SynchronizationCapabilities option
 
         /// Capabilities specific to the `textDocument/completion`
-        type CompletionCapabilities = {
-            /// Whether completion supports dynamic registration.
-            DynamicRegistration: bool option
+        Completion: CompletionCapabilities option
 
-            /// The client supports the following `CompletionItem` specific
-            /// capabilities.
-            CompletionItem: CompletionItemCapabilities option
+        /// Capabilities specific to the `textDocument/hover`
+        Hover: HoverCapabilities option
 
-            CompletionItemKind: CompletionItemKindCapabilities option
+        /// Capabilities specific to the `textDocument/signatureHelp`
+        SignatureHelp: SignatureHelpCapabilities option
 
-            /// The client supports to send additional context information for a
-            /// `textDocument/completion` request.
-            ContextSupport: bool option
-        }
+        /// Capabilities specific to the `textDocument/references`
+        References: DynamicCapabilities option
 
-        type SignatureInformationCapabilities = {
-            /// Client supports the follow content formats for the documentation
-            /// property. The order describes the preferred format of the client.
-            /// See `MarkupKind` for common values
-            DocumentationFormat: string[] option
-        }
-
-        type SignatureHelpCapabilities = {
-            /// Whether signature help supports dynamic registration.
-            DynamicRegistration: bool option
-
-            /// The client supports the following `SignatureInformation`
-            /// specific properties.
-            SignatureInformation: SignatureInformationCapabilities option
-        }
+        /// Whether document highlight supports dynamic registration.
+        DocumentHighlight: DynamicCapabilities option
 
         /// apabilities specific to the `textDocument/documentSymbol`
-        type DocumentSymbolCapabilities = {
-            /// Whether document symbol supports dynamic registration.
-            DynamicRegistration: bool option
+        DocumentSymbol: DocumentSymbolCapabilities option
 
-            /// Specific capabilities for the `SymbolKind`.
-            SymbolKind: SymbolKindCapabilities option
-        }
+        /// Capabilities specific to the `textDocument/formatting`
+        Formatting: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/rangeFormatting`
+        RangeFormatting: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/onTypeFormatting`
+        OnTypeFormatting: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/definition`
+        Definition: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/codeAction`
+        CodeAction: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/codeLens`
+        CodeLens: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/documentLink`
+        DocumentLink: DynamicCapabilities option
+
+        /// Capabilities specific to the `textDocument/rename`
+        Rename: DynamicCapabilities option
+    }
+
+    type ClientCapabilities = {
+        /// Workspace specific client capabilities.
+        Workspace: WorkspaceClientCapabilities option
 
         /// Text document specific client capabilities.
-        type TextDocumentClientCapabilities = {
-            Synchronization: SynchronizationCapabilities option
+        TextDocument: TextDocumentClientCapabilities option
 
-            /// Capabilities specific to the `textDocument/completion`
-            Completion: CompletionCapabilities option
+        /// Experimental client capabilities.
+        Experimental: JToken option
+    }
 
-            /// Capabilities specific to the `textDocument/hover`
-            Hover: HoverCapabilities option
+    type InitializeParams = {
+        ProcessId: int option
+        RootPath: string option
+        RootUri: string option
+        InitializationOptions: JToken option
+        Capabilities: ClientCapabilities option
+        [<JsonConverter(typeof<StringEnumConverter>, true)>]
+        trace: string option
+    }
 
-            /// Capabilities specific to the `textDocument/signatureHelp`
-            SignatureHelp: SignatureHelpCapabilities option
+    type InitializedParams() =
+        class end
 
-            /// Capabilities specific to the `textDocument/references`
-            References: DynamicCapabilities option
+    /// Completion options.
+    type CompletionOptions = {
+        /// The server provides support to resolve additional information for a completion item.
+        ResolveProvider: bool option
 
-            /// Whether document highlight supports dynamic registration.
-            DocumentHighlight: DynamicCapabilities option
+        /// The characters that trigger completion automatically.
+        TriggerCharacters: string[] option
+    }
 
-            /// apabilities specific to the `textDocument/documentSymbol`
-            DocumentSymbol: DocumentSymbolCapabilities option
+    /// Signature help options.
+    type SignatureHelpOptions = {
+        /// The characters that trigger signature help automatically.
+        TriggerCharacters: string[] option
+    }
 
-            /// Capabilities specific to the `textDocument/formatting`
-            Formatting: DynamicCapabilities option
+    /// Code Lens options.
+    type CodeLensOptions = {
+        /// Code lens has a resolve provider as well.
+        ResolveProvider: bool option
+    }
 
-            /// Capabilities specific to the `textDocument/rangeFormatting`
-            RangeFormatting: DynamicCapabilities option
+    /// Format document on type options
+    type DocumentOnTypeFormattingOptions = {
+        /// A character on which formatting should be triggered, like `}`.
+        FirstTriggerCharacter: string
 
-            /// Capabilities specific to the `textDocument/onTypeFormatting`
-            OnTypeFormatting: DynamicCapabilities option
+        /// More trigger characters.
+        MoreTriggerCharacter: string[] option
+    }
 
-            /// Capabilities specific to the `textDocument/definition`
-            Definition: DynamicCapabilities option
+    /// Document link options
+    type DocumentLinkOptions = {
+        /// Document links have a resolve provider as well.
+        ResolveProvider: bool option
+    }
 
-            /// Capabilities specific to the `textDocument/codeAction`
-            CodeAction: DynamicCapabilities option
+    /// Execute command options.
+    type ExecuteCommandOptions = {
+        /// The commands to be executed on the server
+        commands: string[] option
+    }
 
-            /// Capabilities specific to the `textDocument/codeLens`
-            CodeLens: DynamicCapabilities option
+    /// Save options.
+    type SaveOptions = {
+        /// The client is supposed to include the content on save.
+        IncludeText: bool option
+    }
 
-            /// Capabilities specific to the `textDocument/documentLink`
-            DocumentLink: DynamicCapabilities option
+    type TextDocumentSyncOptions = {
+        /// Open and close notifications are sent to the server.
+        OpenClose: bool option
 
-            /// Capabilities specific to the `textDocument/rename`
-            Rename: DynamicCapabilities option
-        }
+        /// Change notifications are sent to the server. See TextDocumentSyncKind.None, TextDocumentSyncKind.Full
+        /// and TextDocumentSyncKindIncremental.
+        Change: TextDocumentSyncKind option
 
-        type ClientCapabilities = {
-            /// Workspace specific client capabilities.
-            Workspace: WorkspaceClientCapabilities option
+        /// Will save notifications are sent to the server.
+        WillSave: bool option
 
-            /// Text document specific client capabilities.
-            TextDocument: TextDocumentClientCapabilities option
+        /// Will save wait until requests are sent to the server.
+        WillSaveWaitUntil: bool option
 
-            /// Experimental client capabilities.
-            Experimental: JToken option
-        }
+        /// Save notifications are sent to the server.
+        Save: SaveOptions option
+    }
+    with
+        static member Default =
+            {
+                OpenClose = None
+                Change = None
+                WillSave = None
+                WillSaveWaitUntil = None
+                Save = None
+            }
 
-        type InitializeParams = {
-            ProcessId: int option
-            RootPath: string option
-            RootUri: string option
-            InitializationOptions: JToken option
-            Capabilities: ClientCapabilities option
-            [<JsonConverter(typeof<StringEnumConverter>, true)>]
-            trace: string option
-        }
+    type ServerCapabilities = {
+        /// Defines how text documents are synced. Is either a detailed structure defining each notification or
+        /// for backwards compatibility the TextDocumentSyncKind number.
+        TextDocumentSync: TextDocumentSyncOptions option
 
-        type InitializedParams() =
-            class end
+        /// The server provides hover support.
+        HoverProvider: bool option
 
-        /// Completion options.
-        type CompletionOptions = {
-            /// The server provides support to resolve additional information for a completion item.
-            ResolveProvider: bool option
+        /// The server provides completion support.
+        CompletionProvider: CompletionOptions option
 
-            /// The characters that trigger completion automatically.
-            TriggerCharacters: string[] option
-        }
+        /// The server provides signature help support.
+        SignatureHelpProvider: SignatureHelpOptions option
 
-        /// Signature help options.
-        type SignatureHelpOptions = {
-            /// The characters that trigger signature help automatically.
-            TriggerCharacters: string[] option
-        }
+        /// The server provides goto definition support.
+        DefinitionProvider: bool option
 
-        /// Code Lens options.
-        type CodeLensOptions = {
-            /// Code lens has a resolve provider as well.
-            ResolveProvider: bool option
-        }
+        /// The server provides find references support.
+        ReferencesProvider: bool option
 
-        /// Format document on type options
-        type DocumentOnTypeFormattingOptions = {
-            /// A character on which formatting should be triggered, like `}`.
-            FirstTriggerCharacter: string
+        /// The server provides document highlight support.
+        DocumentHighlightProvider: bool option
 
-            /// More trigger characters.
-            MoreTriggerCharacter: string[] option
-        }
+        /// The server provides document symbol support.
+        DocumentSymbolProvider: bool option
 
-        /// Document link options
-        type DocumentLinkOptions = {
-            /// Document links have a resolve provider as well.
-            ResolveProvider: bool option
-        }
+        /// The server provides workspace symbol support.
+        WorkspaceSymbolProvider: bool option
 
-        /// Execute command options.
-        type ExecuteCommandOptions = {
-            /// The commands to be executed on the server
-            commands: string[] option
-        }
+        /// The server provides code actions.
+        CodeActionProvider: bool option
 
-        /// Save options.
-        type SaveOptions = {
-            /// The client is supposed to include the content on save.
-            IncludeText: bool option
-        }
+        /// The server provides code lens.
+        CodeLensProvider: CodeLensOptions option
 
-        type TextDocumentSyncOptions = {
-            /// Open and close notifications are sent to the server.
-            OpenClose: bool option
+        /// The server provides document formatting.
+        DocumentFormattingProvider: bool option
 
-            /// Change notifications are sent to the server. See TextDocumentSyncKind.None, TextDocumentSyncKind.Full
-            /// and TextDocumentSyncKindIncremental.
-            Change: TextDocumentSyncKind option
+        /// The server provides document range formatting.
+        DocumentRangeFormattingProvider: bool option
 
-            /// Will save notifications are sent to the server.
-            WillSave: bool option
+        /// The server provides document formatting on typing.
+        DocumentOnTypeFormattingProvider: DocumentOnTypeFormattingOptions option
 
-            /// Will save wait until requests are sent to the server.
-            WillSaveWaitUntil: bool option
+        /// The server provides rename support.
+        RenameProvider: bool option
 
-            /// Save notifications are sent to the server.
-            Save: SaveOptions option
-        }
-        with
-            static member Default =
-                {
-                    OpenClose = None
-                    Change = None
-                    WillSave = None
-                    WillSaveWaitUntil = None
-                    Save = None
-                }
+        /// The server provides document link support.
+        DocumentLinkProvider: DocumentLinkOptions option
 
-        type ServerCapabilities = {
-            /// Defines how text documents are synced. Is either a detailed structure defining each notification or
-            /// for backwards compatibility the TextDocumentSyncKind number.
-            TextDocumentSync: TextDocumentSyncOptions option
+        /// The server provides execute command support.
+        ExecuteCommandProvider: ExecuteCommandOptions option
 
-            /// The server provides hover support.
-            HoverProvider: bool option
+        /// Experimental server capabilities.
+        Experimental: JToken option
+    }
+    with
+        static member Default =
+            {
+                HoverProvider = None
+                TextDocumentSync = None
+                CompletionProvider = None
+                SignatureHelpProvider = None
+                DefinitionProvider = None
+                ReferencesProvider = None
+                DocumentHighlightProvider = None
+                DocumentSymbolProvider = None
+                WorkspaceSymbolProvider = None
+                CodeActionProvider = None
+                CodeLensProvider = None
+                DocumentFormattingProvider = None
+                DocumentRangeFormattingProvider = None
+                DocumentOnTypeFormattingProvider = None
+                RenameProvider = None
+                DocumentLinkProvider = None
+                ExecuteCommandProvider = None
+                Experimental = None
+            }
 
-            /// The server provides completion support.
-            CompletionProvider: CompletionOptions option
-
-            /// The server provides signature help support.
-            SignatureHelpProvider: SignatureHelpOptions option
-
-            /// The server provides goto definition support.
-            DefinitionProvider: bool option
-
-            /// The server provides find references support.
-            ReferencesProvider: bool option
-
-            /// The server provides document highlight support.
-            DocumentHighlightProvider: bool option
-
-            /// The server provides document symbol support.
-            DocumentSymbolProvider: bool option
-
-            /// The server provides workspace symbol support.
-            WorkspaceSymbolProvider: bool option
-
-            /// The server provides code actions.
-            CodeActionProvider: bool option
-
-            /// The server provides code lens.
-            CodeLensProvider: CodeLensOptions option
-
-            /// The server provides document formatting.
-            DocumentFormattingProvider: bool option
-
-            /// The server provides document range formatting.
-            DocumentRangeFormattingProvider: bool option
-
-            /// The server provides document formatting on typing.
-            DocumentOnTypeFormattingProvider: DocumentOnTypeFormattingOptions option
-
-            /// The server provides rename support.
-            RenameProvider: bool option
-
-            /// The server provides document link support.
-            DocumentLinkProvider: DocumentLinkOptions option
-
-            /// The server provides execute command support.
-            ExecuteCommandProvider: ExecuteCommandOptions option
-
-            /// Experimental server capabilities.
-            Experimental: JToken option
-        }
-        with
-            static member Default =
-                {
-                    HoverProvider = None
-                    TextDocumentSync = None
-                    CompletionProvider = None
-                    SignatureHelpProvider = None
-                    DefinitionProvider = None
-                    ReferencesProvider = None
-                    DocumentHighlightProvider = None
-                    DocumentSymbolProvider = None
-                    WorkspaceSymbolProvider = None
-                    CodeActionProvider = None
-                    CodeLensProvider = None
-                    DocumentFormattingProvider = None
-                    DocumentRangeFormattingProvider = None
-                    DocumentOnTypeFormattingProvider = None
-                    RenameProvider = None
-                    DocumentLinkProvider = None
-                    ExecuteCommandProvider = None
-                    Experimental = None
-                }
-
-        type InitializeResult = {
-            Capabilities: ServerCapabilities
-        }
-        with
-            static member Default =
-                {
-                    Capabilities = ServerCapabilities.Default
-                }
+    type InitializeResult = {
+        Capabilities: ServerCapabilities
+    }
+    with
+        static member Default =
+            {
+                Capabilities = ServerCapabilities.Default
+            }
 
     /// A workspace edit represents changes to many resources managed in the workspace.
     /// The edit should either provide `changes` or `documentChanges`. If the client can handle versioned document
@@ -710,254 +708,246 @@ module Protocol =
                     DocumentChanges = None
                 }
 
-    [<AutoOpen>]
-    module Window =
-        type MessageType =
-            | Error = 1
-            | Warning = 2
-            | Info = 3
-            | Log = 4
+    type MessageType =
+        | Error = 1
+        | Warning = 2
+        | Info = 3
+        | Log = 4
 
-        type LogMessageParams = {
-            Type: MessageType
-            Message: string
-        }
+    type LogMessageParams = {
+        Type: MessageType
+        Message: string
+    }
 
-        type ShowMessageParams = {
-            Type: MessageType
-            Message: string
-        }
+    type ShowMessageParams = {
+        Type: MessageType
+        Message: string
+    }
 
-        type MessageActionItem = {
-            /// A short title like 'Retry', 'Open Log' etc.
-            Title: string;
-        }
+    type MessageActionItem = {
+        /// A short title like 'Retry', 'Open Log' etc.
+        Title: string;
+    }
 
-        type ShowMessageRequestParams = {
-            /// The message type.
-            Type: MessageType
+    type ShowMessageRequestParams = {
+        /// The message type.
+        Type: MessageType
             
-            /// The actual message
-            Message: string
+        /// The actual message
+        Message: string
 
-            /// The message action items to present.
-            Actions: MessageActionItem[] option
-        }
+        /// The message action items to present.
+        Actions: MessageActionItem[] option
+    }
 
-    [<AutoOpen>]
-    module Client =
-        /// General parameters to register for a capability.
-        type Registration = {
-            /// The id used to register the request. The id can be used to deregister
-            /// the request again.
-            Id: string
+    /// General parameters to register for a capability.
+    type Registration = {
+        /// The id used to register the request. The id can be used to deregister
+        /// the request again.
+        Id: string
 
-            /// The method / capability to register for.
-            Method: string
+        /// The method / capability to register for.
+        Method: string
 
-            /// Options necessary for the registration.
-            RegisterOptions: JToken option
-        }
+        /// Options necessary for the registration.
+        RegisterOptions: JToken option
+    }
 
-        type RegistrationParams = {
-            Registrations: Registration[]
-        }
+    type RegistrationParams = {
+        Registrations: Registration[]
+    }
 
-        type ITextDocumentRegistrationOptions =
-            /// A document selector to identify the scope of the registration. If set to null
-            /// the document selector provided on the client side will be used.
-            abstract member DocumentSelector : DocumentSelector option with get
+    type ITextDocumentRegistrationOptions =
+        /// A document selector to identify the scope of the registration. If set to null
+        /// the document selector provided on the client side will be used.
+        abstract member DocumentSelector : DocumentSelector option with get
 
-        /// General parameters to unregister a capability.
-        type Unregistration = {
-            /// The id used to unregister the request or notification. Usually an id
-            /// provided during the register request.
-            Id: string
+    /// General parameters to unregister a capability.
+    type Unregistration = {
+        /// The id used to unregister the request or notification. Usually an id
+        /// provided during the register request.
+        Id: string
 
-            /// The method / capability to unregister for.
-            Method: string
-        }
+        /// The method / capability to unregister for.
+        Method: string
+    }
 
-        type UnregistrationParams = {
-            Unregisterations: Unregistration[]
-        }
+    type UnregistrationParams = {
+        Unregisterations: Unregistration[]
+    }
 
-    [<AutoOpen>]
-    module Workspace =
-        type FileChangeType =
-            | Created = 1
-            | Changed = 2
-            | Deleted = 3
+    type FileChangeType =
+        | Created = 1
+        | Changed = 2
+        | Deleted = 3
 
-        /// An event describing a file change.
-        type FileEvent ={
-            /// The file's URI.
-            Uri: DocumentUri
+    /// An event describing a file change.
+    type FileEvent ={
+        /// The file's URI.
+        Uri: DocumentUri
 
-            /// The change type.
-            Type: FileChangeType
-        }
+        /// The change type.
+        Type: FileChangeType
+    }
 
-        type DidChangeWatchedFilesParams = {
-            /// The actual file events.
-            Changes: FileEvent[]
-        }
+    type DidChangeWatchedFilesParams = {
+        /// The actual file events.
+        Changes: FileEvent[]
+    }
 
-        type WorkspaceFolder = {
-            /// The associated URI for this workspace folder.
-            Uri: string;
+    type WorkspaceFolder = {
+        /// The associated URI for this workspace folder.
+        Uri: string;
 
-            /// The name of the workspace folder. Defaults to the
-            /// uri's basename.
-            Name: string;
-        }
+        /// The name of the workspace folder. Defaults to the
+        /// uri's basename.
+        Name: string;
+    }
 
-        /// The workspace folder change event.
-        type WorkspaceFoldersChangeEvent = {
-            /// The array of added workspace folders
-            Added: WorkspaceFolder[];
+    /// The workspace folder change event.
+    type WorkspaceFoldersChangeEvent = {
+        /// The array of added workspace folders
+        Added: WorkspaceFolder[];
 
-            /// The array of the removed workspace folders
-            Removed: WorkspaceFolder[];
-        }
+        /// The array of the removed workspace folders
+        Removed: WorkspaceFolder[];
+    }
 
-        type DidChangeWorkspaceFoldersParams = {
-            /// The actual workspace folder change event.
-            Event: WorkspaceFoldersChangeEvent
-        }
+    type DidChangeWorkspaceFoldersParams = {
+        /// The actual workspace folder change event.
+        Event: WorkspaceFoldersChangeEvent
+    }
 
-        type DidChangeConfigurationParams = {
-            /// The actual changed settings
-            Settings: JToken;
-        }
+    type DidChangeConfigurationParams = {
+        /// The actual changed settings
+        Settings: JToken;
+    }
 
-        type ConfigurationItem = {
-            /// The scope to get the configuration section for.
-            ScopeUri: string option
+    type ConfigurationItem = {
+        /// The scope to get the configuration section for.
+        ScopeUri: string option
 
-            /// The configuration section asked for.
-            Section: string option
-        }
+        /// The configuration section asked for.
+        Section: string option
+    }
 
-        type ConfigurationParams = {
-            items: ConfigurationItem[]
-        }
+    type ConfigurationParams = {
+        items: ConfigurationItem[]
+    }
 
-        /// The parameters of a Workspace Symbol Request.
-        type WorkspaceSymbolParams = {
-            /// A non-empty query string
-            Query: string
-        }
+    /// The parameters of a Workspace Symbol Request.
+    type WorkspaceSymbolParams = {
+        /// A non-empty query string
+        Query: string
+    }
 
-        type ExecuteCommandParams = {
-            /// The identifier of the actual command handler.
-            Command: string
-            /// Arguments that the command should be invoked with.
-            Arguments: JToken[] option
-        }
+    type ExecuteCommandParams = {
+        /// The identifier of the actual command handler.
+        Command: string
+        /// Arguments that the command should be invoked with.
+        Arguments: JToken[] option
+    }
 
-        type ApplyWorkspaceEditParams = {
-            /// An optional label of the workspace edit. This label is
-            /// presented in the user interface for example on an undo
-            /// stack to undo the workspace edit.
-            Label: string option
+    type ApplyWorkspaceEditParams = {
+        /// An optional label of the workspace edit. This label is
+        /// presented in the user interface for example on an undo
+        /// stack to undo the workspace edit.
+        Label: string option
 
-            /// The edits to apply.
-            Edit: WorkspaceEdit
-        }
+        /// The edits to apply.
+        Edit: WorkspaceEdit
+    }
 
-        type ApplyWorkspaceEditResponse = {
-            /// Indicates whether the edit was applied or not.
-            Applied: bool
-        }
+    type ApplyWorkspaceEditResponse = {
+        /// Indicates whether the edit was applied or not.
+        Applied: bool
+    }
 
-    [<AutoOpen>]
-    module TextDocument =
-        /// Represents reasons why a text document is saved.
-        type TextDocumentSaveReason =
-            /// Manually triggered, e.g. by the user pressing save, by starting debugging,
-            /// or by an API call.
-            | Manual = 1
+    /// Represents reasons why a text document is saved.
+    type TextDocumentSaveReason =
+        /// Manually triggered, e.g. by the user pressing save, by starting debugging,
+        /// or by an API call.
+        | Manual = 1
 
-            /// Automatic after a delay.
-            | AfterDelay = 2
+        /// Automatic after a delay.
+        | AfterDelay = 2
 
-            /// When the editor lost focus.
-            | FocusOut = 3
+        /// When the editor lost focus.
+        | FocusOut = 3
 
-        /// The parameters send in a will save text document notification.
-        type WillSaveTextDocumentParams = {
-            /// The document that will be saved.
-            TextDocument: TextDocumentIdentifier
+    /// The parameters send in a will save text document notification.
+    type WillSaveTextDocumentParams = {
+        /// The document that will be saved.
+        TextDocument: TextDocumentIdentifier
 
-            /// The 'TextDocumentSaveReason'.
-            Reason: TextDocumentSaveReason
-        }
+        /// The 'TextDocumentSaveReason'.
+        Reason: TextDocumentSaveReason
+    }
 
-        type DidSaveTextDocumentParams = {
-            /// The document that was saved.
-            TextDocument: TextDocumentIdentifier
+    type DidSaveTextDocumentParams = {
+        /// The document that was saved.
+        TextDocument: TextDocumentIdentifier
 
-            /// Optional the content when saved. Depends on the includeText value
-            /// when the save notification was requested.
-            Text: string option
-        }
+        /// Optional the content when saved. Depends on the includeText value
+        /// when the save notification was requested.
+        Text: string option
+    }
 
-        type DidCloseTextDocumentParams = {
-            /// The document that was closed.
-            TextDocument: TextDocumentIdentifier
-        }
+    type DidCloseTextDocumentParams = {
+        /// The document that was closed.
+        TextDocument: TextDocumentIdentifier
+    }
 
-        /// Value-object describing what options formatting should use.
-        type FormattingOptions = {
-            /// Size of a tab in spaces.
-            TabSize: int
+    /// Value-object describing what options formatting should use.
+    type FormattingOptions = {
+        /// Size of a tab in spaces.
+        TabSize: int
 
-            /// Prefer spaces over tabs.
-            InsertSpaces: bool
+        /// Prefer spaces over tabs.
+        InsertSpaces: bool
 
-            /// Further properties.
-            [<JsonExtensionData>]
-            AdditionalData: System.Collections.Generic.IDictionary<string, JToken>
-        }
+        /// Further properties.
+        [<JsonExtensionData>]
+        AdditionalData: System.Collections.Generic.IDictionary<string, JToken>
+    }
 
-        type DocumentFormattingParams = {
-            /// The document to format.
-            TextDocument: TextDocumentIdentifier
+    type DocumentFormattingParams = {
+        /// The document to format.
+        TextDocument: TextDocumentIdentifier
 
-            /// The format options.
-            Options: FormattingOptions
-        }
+        /// The format options.
+        Options: FormattingOptions
+    }
 
-        type DocumentRangeFormattingParams = {
-            /// The document to format.
-            TextDocument: TextDocumentIdentifier
+    type DocumentRangeFormattingParams = {
+        /// The document to format.
+        TextDocument: TextDocumentIdentifier
 
-            /// The range to format
-            Range: Range
+        /// The range to format
+        Range: Range
 
-            /// The format options
-            Options: FormattingOptions
-        }
+        /// The format options
+        Options: FormattingOptions
+    }
 
-        type DocumentOnTypeFormattingParams = {
-            /// The document to format.
-            TextDocument: TextDocumentIdentifier
+    type DocumentOnTypeFormattingParams = {
+        /// The document to format.
+        TextDocument: TextDocumentIdentifier
 
-            /// The position at which this request was sent.
-            Position: Position
+        /// The position at which this request was sent.
+        Position: Position
 
-            /// The character that has been typed.
-            Ch: string
+        /// The character that has been typed.
+        Ch: string
 
-            /// The format options.
-            Options: FormattingOptions
-        }
+        /// The format options.
+        Options: FormattingOptions
+    }
 
-        type DocumentSymbolParams = {
-            /// The text document.
-            TextDocument: TextDocumentIdentifier
-        }
+    type DocumentSymbolParams = {
+        /// The text document.
+        TextDocument: TextDocumentIdentifier
+    }
 
     type ITextDocumentPositionParams =
         /// The text document.

@@ -67,7 +67,7 @@ let fcsRangeToLspLocation(range: Microsoft.FSharp.Compiler.Range.range): Languag
     }
 
 type FSharpCompletionItemKind = Microsoft.FSharp.Compiler.SourceCodeServices.CompletionItemKind
-type CompletionItemKind = LanguageServerProtocol.Protocol.General.CompletionItemKind
+type CompletionItemKind = LanguageServerProtocol.Protocol.CompletionItemKind
 
 /// Compute the best possible CompletionItemKind for each FSharpGlyph according
 // to the client capabilities
