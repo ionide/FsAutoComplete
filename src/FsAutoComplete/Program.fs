@@ -33,16 +33,15 @@ let entry args =
           printfn "%s" Options.commandText
           exit 0 )
 
-      results.TryGetResult(<@ Options.CLIArguments.Language_Server @>)
-      |> Option.iter (fun _ ->
-          FsAutoComplete.Lsp.start commands results
-          exit 0 )
+      Options.apply results
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
           FsAutoComplete.Stdio.start commands results
       | Options.TransportMode.Http ->
           FsAutoComplete.Suave.start commands results
+      | Options.TransportMode.Lsp ->
+          FsAutoComplete.Lsp.start commands results
     with
     | :? ArguParseException as ex ->
       printfn "%s" ex.Message

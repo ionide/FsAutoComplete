@@ -1,6 +1,8 @@
 module FsAutoComplete.Lsp
 
-let private dbgf format = Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine(s)) format
+/// Write a trace to System.Diagnostics.Trace
+let private tracefn format =
+    Debug.print format
 
 open Argu
 open System
@@ -14,60 +16,94 @@ open Microsoft.FSharp.Reflection
 open System.Collections.Generic
 open System.Text
 
-let traceConfig () =
-    Trace.Listeners.Clear()
+[<AutoOpen>]
+module private Conversions =
+    module Lsp = LanguageServerProtocol.Protocol
 
-    System.IO.File.WriteAllText(@"C:\temp\fsac.txt", "")
-    let twtl = new TextWriterTraceListener(@"C:\temp\fsac.txt")
-    twtl.Name <- "TextLogger"
-    twtl.TraceOutputOptions <- TraceOptions.ThreadId ||| TraceOptions.DateTime
+    let protocolPosToPos (pos: Lsp.Position): Pos =
+        { Line = pos.Line + 1; Col = pos.Character + 1 }
 
-    Trace.Listeners.Add(twtl) |> ignore
-    Trace.AutoFlush <- true
+    let posToProtocolPos (pos: Pos): Lsp.Position =
+        { Line = pos.Line - 1; Character = pos.Col - 1 }
 
-let protocolPosToPos (pos: LanguageServerProtocol.Protocol.Position): Pos =
-    { Line = pos.Line + 1; Col = pos.Character + 1 }
+    let fcsPosToLsp (pos: Microsoft.FSharp.Compiler.Range.pos): Lsp.Position =
+        { Line = pos.Line - 1; Character = pos.Column }
 
-let posToProtocolPos (pos: Pos): LanguageServerProtocol.Protocol.Position =
-    { Line = pos.Line - 1; Character = pos.Col - 1 }
+    let fcsRangeToLsp(range: Microsoft.FSharp.Compiler.Range.range): Lsp.Range =
+        {
+            Start = fcsPosToLsp range.Start
+            End = fcsPosToLsp range.End
+        }
 
-let fcsPosToLsp (pos: Microsoft.FSharp.Compiler.Range.pos): LanguageServerProtocol.Protocol.Position =
-    { Line = pos.Line - 1; Character = pos.Column }
+    let filePathToUri (filePath: string): DocumentUri =
+        let uri = StringBuilder(filePath.Length)
+        for c in filePath do
+            if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
+                c > '\xFF' then
+                uri.Append(c) |> ignore
+            else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
+                uri.Append('/') |> ignore
+            else
+                uri.Append('%') |> ignore
+                uri.Append((int c).ToString("X2")) |> ignore
 
-let fcsRangeToLsp(range: Microsoft.FSharp.Compiler.Range.range): LanguageServerProtocol.Protocol.Range =
-    {
-        Start = fcsPosToLsp range.Start
-        End = fcsPosToLsp range.End
-    }
-
-let filePathToUri (filePath: string) =
-    let uri = StringBuilder(filePath.Length)
-    for c in filePath do
-        if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-            c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
-            c > '\xFF' then
-            uri.Append(c) |> ignore
-        else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
-            uri.Append('/') |> ignore
+        if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
+            "file:" + uri.ToString()
         else
-            uri.Append('%') |> ignore
-            uri.Append((int c).ToString("X2")) |> ignore
+            "file:///" + uri.ToString()
 
-    if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-        "file:" + uri.ToString()
-    else
-        "file:///" + uri.ToString()
+    let fcsRangeToLspLocation(range: Microsoft.FSharp.Compiler.Range.range): Lsp.Location =
+        let fileUri = filePathToUri range.FileName
+        let lspRange = fcsRangeToLsp range
+        {
+            Uri = fileUri
+            Range = lspRange
+        }
 
-let fcsRangeToLspLocation(range: Microsoft.FSharp.Compiler.Range.range): LanguageServerProtocol.Protocol.Location =
-    let fileUri = filePathToUri range.FileName
-    let lspRange = fcsRangeToLsp range
-    {
-        Uri = fileUri
-        Range = lspRange
-    }
+    type TextDocumentIdentifier with
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
+
+    type ITextDocumentPositionParams with
+        member p.GetFilePath() = p.TextDocument.GetFilePath()
+        member p.GetFcsPos() = protocolPosToPos p.Position
+
+    let fcsSeverityToDiagnostic = function
+        | FSharpErrorSeverity.Error -> DiagnosticSeverity.Error
+        | FSharpErrorSeverity.Warning -> DiagnosticSeverity.Warning
+
+    let fcsErrorToDiagnostic (error: FSharpErrorInfo) =
+        {
+            Range =
+                {
+                    Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
+                    End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
+                }
+            Severity = Some (fcsSeverityToDiagnostic error.Severity)
+            Source = Some (error.Subcategory)
+            Message = error.Message
+            Code = Some (DiagnosticCode.Number error.ErrorNumber)
+        }
+
+    let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration): SymbolInformation seq =
+        let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation =
+            // We should nearly always have a kind, if the client doesn't send weird capabilites,
+            // if we don't why not assume module...
+            let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
+            let location = { Uri = uri; Range = fcsRangeToLsp decl.Range }
+            {
+                SymbolInformation.Name = decl.Name
+                Kind = kind
+                Location = location
+                ContainerName = container
+            }
+        seq {
+            yield (inner None topLevel.Declaration)
+            yield! topLevel.Nested |> Seq.ofArray |> Seq.map (inner (Some topLevel.Declaration.Name))
+        }
 
 [<AutoOpen>]
-module GlyphConversions =
+module private GlyphConversions =
     let private glyphToKindGenerator<'kind when 'kind : equality>
         (clientCapabilities: ClientCapabilities option)
         (setFromCapabilities: ClientCapabilities -> 'kind [] option)
@@ -186,44 +222,6 @@ let tooltipToMarkdown (tip: FSharpToolTipText<string>) =
     let elementsLines = elements |> List.map tooltipElementToMarkdown
     System.String.Join("\n", elementsLines)
 
-type TextDocumentIdentifier with
-    member doc.GetFilePath() = Uri(doc.Uri).LocalPath
-
-type ITextDocumentPositionParams with
-    member p.GetFilePath() = p.TextDocument.GetFilePath()
-    member p.GetFcsPos() = protocolPosToPos p.Position
-
-let errorToDiagnostic (error: FSharpErrorInfo) =
-    {
-        Range =
-            {
-                Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
-                End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
-            }
-        Severity = Some (match error.Severity with | FSharpErrorSeverity.Error  -> DiagnosticSeverity.Error | FSharpErrorSeverity.Warning -> DiagnosticSeverity.Warning)
-        Source = Some (error.Subcategory)
-        Message = error.Message
-        Code = Some (DiagnosticCode.Number error.ErrorNumber)
-    }
-
-let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration): SymbolInformation seq =
-    let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation =
-        // We should nearly always have a kind, if the client doesn't send weird capabilites,
-        // if we don't why not assume module...
-        let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
-        let location = { Uri = uri; Range = fcsRangeToLsp decl.Range }
-        {
-            SymbolInformation.Name = decl.Name
-            Kind = kind
-            Location = location
-            ContainerName = container
-        }
-    seq {
-        yield (inner None topLevel.Declaration)
-        yield! topLevel.Nested |> Seq.ofArray |> Seq.map (inner (Some topLevel.Declaration.Name))
-    }
-
-
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete.CommandResponse
@@ -236,14 +234,14 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
 
     let parseAsync filePath (text: string) version = async {
-        dbgf "[%s] Parse started" filePath
+        tracefn "[%s] Parse started" filePath
         let! resp = commands.ParseNoSerialize filePath (text.Split('\n')) version
 
         match resp with
-        | ResultOrString.Error msg -> dbgf "[%s] Parse failed with %s" filePath msg
+        | ResultOrString.Error msg -> tracefn "[%s] Parse failed with %s" filePath msg
         | ResultOrString.Ok errors ->
-            dbgf "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
-            let diagnostics = errors |> Array.map errorToDiagnostic
+            tracefn "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
+            let diagnostics = errors |> Array.map fcsErrorToDiagnostic
             do! lspClient.TextDocumentPublishDiagnostics({ Uri = filePathToUri filePath; Diagnostics = diagnostics })
     }
 
@@ -268,9 +266,9 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         | None -> ()
         | Some rootPath ->
             let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
-            dbgf "Loading projects: %A" projects
+            tracefn "Loading projects: %A" projects
             let! response = commands.WorkspaceLoad ignore (List.ofSeq projects)
-            dbgf "WorkspaceLoad result = %A" response
+            tracefn "WorkspaceLoad result = %A" response
             ()
 
             // TODO
@@ -363,9 +361,9 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                 do! parseAsync filePath contentChange.Text version
             else
-                dbgf "Parse not started, received partial change"
+                tracefn "Parse not started, received partial change"
         | _ ->
-            dbgf "Found no change for %s" filePath
+            tracefn "Found no change for %s" filePath
             ()
     }
 
@@ -376,7 +374,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         let file = Uri(doc.Uri).LocalPath
         match commands.TryGetFileCheckerOptionsWithLines file with
         | ResultOrString.Error s ->
-            dbgf "Can't get filecheck options with lines: %s" s
+            tracefn "Can't get filecheck options with lines: %s" s
             return noCompletion
         | ResultOrString.Ok (options, lines) ->
             let pos = protocolPosToPos p.Position
@@ -385,13 +383,13 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             let lineStr = lines.[line]
             let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
             if not ok then
-                dbgf "Out of range"
+                tracefn "Out of range"
                 return noCompletion
             else
                 let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                 match tyResOpt with
                 | None ->
-                    dbgf "Cached typecheck results not yet available"
+                    tracefn "Cached typecheck results not yet available"
                     return noCompletion
                 | Some tyRes ->
                     let getAllSymbols () = tyRes.GetAllEntities()
@@ -415,11 +413,11 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         let pos = p.GetFcsPos()
         let filePath = p.GetFilePath()
 
-        dbgf "Hovering %s at %A" filePath pos
+        tracefn "Hovering %s at %A" filePath pos
 
         match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(filePath, pos) with
         | ResultOrString.Error s ->
-            dbgf "TypeCheck error: %s" s
+            tracefn "TypeCheck error: %s" s
             return success None
         | ResultOrString.Ok (options, _lines, lineStr) ->
             // TODO: Should sometimes pass options.Source in here to force a reparse
@@ -427,19 +425,19 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(filePath, options)
             match tyResOpt with
             | None ->
-                dbgf "No recent typecheck"
+                tracefn "No recent typecheck"
                 return success None
             | Some tyRes ->
                 let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
                 let! helpResult = commands.Help tyRes pos lineStr
                 match tipResult with
                 | Result.Error err ->
-                    dbgf "Tooltip error: %s" err
+                    tracefn "Tooltip error: %s" err
                     return success None
                 | Result.Ok (tip, _signature, _footer) ->
-                    dbgf "Tootlip: %A" tip
+                    tracefn "Tootlip: %A" tip
                     let s = tooltipToMarkdown tip
-                    dbgf "Tootlip: %A" s
+                    tracefn "Tootlip: %A" s
                     let response =
                         {
                             Contents =
@@ -452,13 +450,13 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     override __.TextDocumentRename(p) = async {
         let pos = p.GetFcsPos()
         let filePath = p.GetFilePath()
-        dbgf "Rename for pos=%A" pos
+        tracefn "Rename for pos=%A" pos
 
         // TODO: How do we get a versioned answer ??? as we have the version
         match getRecentTypeCheckResultsForFile filePath with
         | Ok (_options, lines, tyRes) ->
             let lineStr = lines.[pos.Line-1]
-            dbgf "Rename is for line=%s" lineStr
+            tracefn "Rename is for line=%s" lineStr
             let! symbolUse = commands.SymbolUseProjectNotSerialized tyRes pos lineStr
             match symbolUse with
             | Ok (_sym, symbols) ->
@@ -611,6 +609,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     override __.Exit() = async {
         Environment.Exit(0)
     }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -619,11 +618,15 @@ let startCore (commands: Commands) =
     ()
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
-    traceConfig()
-    dbgf "Starting"
+    // stdout is used for commands
+    if Debug.output = stdout then
+        Debug.output <- stderr
+
+    tracefn "Starting"
 
     try
         startCore commands
     with
-    | ex -> dbgf "LSP failed with %A" ex
-    ()
+    | ex -> tracefn "LSP failed with %A" ex
+
+    0
