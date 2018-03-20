@@ -180,6 +180,7 @@ type Commands (serialize : Serializer) =
     member x.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
     member x.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member x.Files = state.Files
+    member x.NavigationDeclarations = state.NavigationDeclarations
 
     member x.ParseNoSerialize file lines version =
         let file = Path.GetFullPath file

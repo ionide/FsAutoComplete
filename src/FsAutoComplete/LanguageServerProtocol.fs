@@ -1672,8 +1672,11 @@ module LspResult =
     let internalError s : LspResult<_> =
         Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s))
 
+    let notImplemented<'a> : LspResult<'a> =
+        Result.Error (JsonRpc.Error.MethodNotFound)
+
 /// Return the JSON-RPC "not implemented" error
-let private notImplemented<'t> = async.Return (LspResult<'t>.Error JsonRpc.Error.MethodNotFound)
+let private notImplemented<'t> = async.Return LspResult.notImplemented<'t>
 
 /// Do nothing and ignore the notification
 let private ignoreNotification = async.Return(())
