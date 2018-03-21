@@ -4,7 +4,7 @@ open Argu
 open System
 open System.IO
 open LanguageServerProtocol.Server
-open LanguageServerProtocol.Protocol
+open LanguageServerProtocol.Types
 open System.Diagnostics
 open FsAutoComplete.Utils
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -14,7 +14,7 @@ open System.Text
 
 [<AutoOpen>]
 module private Conversions =
-    module Lsp = LanguageServerProtocol.Protocol
+    module Lsp = LanguageServerProtocol.Types
 
     let protocolPosToPos (pos: Lsp.Position): Pos =
         { Line = pos.Line + 1; Col = pos.Character + 1 }
@@ -129,7 +129,7 @@ module private GlyphConversions =
         fun glyph ->
             cache.[glyph]
 
-    type CompletionItemKind = LanguageServerProtocol.Protocol.CompletionItemKind
+    type CompletionItemKind = LanguageServerProtocol.Types.CompletionItemKind
 
     /// Compute the best possible CompletionItemKind for each FSharpGlyph according
     /// to the client capabilities

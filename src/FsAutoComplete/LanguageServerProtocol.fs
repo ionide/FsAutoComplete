@@ -43,7 +43,7 @@ module LspJsonConverters =
         override __.ReadJson(_reader, _t, _existingValue, _serializer) =
             failwith "Not implemented"
 
-module Protocol =
+module Types =
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Converters
@@ -84,8 +84,16 @@ module Protocol =
 
     /// A range in a text document expressed as (zero-based) start and end positions.
     /// A range is comparable to a selection in an editor. Therefore the end position is exclusive.
+    ///
     /// If you want to specify a range that contains a line including the line ending character(s)
     /// then use an end position denoting the start of the next line. For example:
+    ///
+    /// ```fsharp
+    /// {
+    ///     Start = { Line = 5; character = 23 }
+    ///     End = { Line = 6; character = 0 }
+    /// }
+    /// ```
     type Range = {
         /// The range's start position.
         Start: Position
@@ -1679,7 +1687,7 @@ let private notImplemented<'t> = async.Return LspResult.notImplemented<'t>
 /// Do nothing and ignore the notification
 let private ignoreNotification = async.Return(())
 
-open Protocol
+open Types
 open System.Text
 
 [<AbstractClass>]
@@ -1983,7 +1991,7 @@ module Server =
     open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Serialization
 
-    open Protocol
+    open Types
     open JsonRpc
 
     let jsonSettings =
