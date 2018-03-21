@@ -182,29 +182,24 @@ type Commands (serialize : Serializer) =
     member x.Files = state.Files
     member x.NavigationDeclarations = state.NavigationDeclarations
 
-    member x.ParseNoSerialize file lines version =
+    member x.ParseAndCheckFileInProject file lines version =
         let file = Path.GetFullPath file
+        do x.CancelQueue file
 
         async {
-            // let colorizations = state.ColorizationOutput
             let parse' fileName text options =
                 async {
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                     return
                         match result with
                         | ResultOrString.Error e -> ResultOrString.Error e
-                        | ResultOrString.Ok (parseResult, checkResults) ->
+                        | ResultOrString.Ok (parseResult, checkResultAnswer) ->
                             do fileParsed.Trigger parseResult
                             do fileInProjectChecked.Trigger file
-                            match checkResults with
+                            match checkResultAnswer with
                             | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error "Parse aborted"
-                            | FSharpCheckFileAnswer.Succeeded results ->
-                                let errors = Array.append results.Errors parseResult.Errors
-                                ResultOrString.Ok errors
-                                (*if colorizations then
-                                    [ Response.errors serialize (errors, fileName)
-                                      Response.colorizations serialize (results.GetSemanticClassification None) ]
-                                else [ Response.errors serialize (errors, fileName) ]*)
+                            | FSharpCheckFileAnswer.Succeeded checkResult ->
+                                ResultOrString.Ok (parseResult, checkResult)
                 }
             let text = String.concat "\n" lines
 
@@ -226,44 +221,20 @@ type Commands (serialize : Serializer) =
 
     member x.Parse file lines version =
         let file = Path.GetFullPath file
-        do x.CancelQueue file
         async {
-            let colorizations = state.ColorizationOutput
-            let parse' fileName text options =
-                async {
-                    let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
-                    return
-                        match result with
-                        | ResultOrString.Error e -> [Response.error serialize e]
-                        | ResultOrString.Ok (parseResult, checkResults) ->
-                            do fileParsed.Trigger parseResult
-                            do fileInProjectChecked.Trigger file
-                            match checkResults with
-                            | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                            | FSharpCheckFileAnswer.Succeeded results ->
-                                let errors = Array.append results.Errors parseResult.Errors
-                                if colorizations then
-                                    [ Response.errors serialize (errors, fileName)
-                                      Response.colorizations serialize (results.GetSemanticClassification None) ]
-                                else [ Response.errors serialize (errors, fileName) ]
-                }
-            let text = String.concat "\n" lines
-
-            if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
-                return! parse' file text checkOptions
-            else
-                let! checkOptions =
-                    match state.GetCheckerOptions(file, lines) with
-                    | Some c -> async.Return c
-                    | None -> async {
-                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
-                        return checkOptions
-                    }
-                return! parse' file text checkOptions
-        } |> x.AsCancellable file
+            let! result = x.ParseAndCheckFileInProject file lines version
+            return
+                match result with
+                | Ok (parseResult, checkResult) ->
+                    let errors = Array.append checkResult.Errors parseResult.Errors
+                    if state.ColorizationOutput then
+                        [ Response.errors serialize (errors, file)
+                          Response.colorizations serialize (checkResult.GetSemanticClassification None) ]
+                    else [ Response.errors serialize (errors, file) ]
+                | Error e ->
+                    [Response.error serialize e]
+        }
+        |> x.AsCancellable file
 
     member x.ParseAndCheckProjectsInBackgroundForFile file = async {
         match checker.GetDependingProjects file (state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray) with
@@ -463,47 +434,35 @@ type Commands (serialize : Serializer) =
         |> x.SerializeResult Response.help
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
-    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+    member __.GetUsagesOfSymbolInWorkspace (tyRes : ParseAndCheckResults) (pos: Pos) lineStr = async {
         let fn = tyRes.FileName
-        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
-            async {
-                let fsym = sym.Symbol
-                if fsym.IsPrivateToFile then
-                    return Response.symbolUse serialize (sym, usages)
-                elif fsym.IsInternalToProject then
-                    let opts = state.FileCheckOptions.[tyRes.FileName]
-                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                    return Response.symbolUse serialize (sym, symbols)
-                else
-                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
-                    return Response.symbolUse serialize (sym, symbols)
-            })
-        |> x.AsCancellable (Path.GetFullPath fn)
+        let! result = tyRes.TryGetSymbolUse pos lineStr
+        match result with
+        | Ok (sym, usages) ->
+            let fsym = sym.Symbol
+            if fsym.IsPrivateToFile then
+                return Ok (sym, usages)
+            elif fsym.IsInternalToProject then
+                let options = state.FileCheckOptions.[tyRes.FileName]
+                let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, options] , sym.Symbol)
+                return Ok (sym, symbols)
+            else
+                let! symbols =
+                    let options =
+                        state.FileCheckOptions.ToArray()
+                        |> Array.map (fun (KeyValue(k, v)) -> k,v)
+                        |> Seq.ofArray
+                    checker.GetUsesOfSymbol (fn, options, sym.Symbol)
+                return Ok (sym, symbols)
+        | Result.Error _ as err -> return err
+    }
 
-    member x.SymbolUseProjectNotSerialized (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
-        let fn = tyRes.FileName
-        async {
-            let! result = tyRes.TryGetSymbolUse pos lineStr
-            match result with
-            | Ok (sym, usages) ->
-                let fsym = sym.Symbol
-                if fsym.IsPrivateToFile then
-                    return Ok (sym, usages)
-                elif fsym.IsInternalToProject then
-                    let options = state.FileCheckOptions.[tyRes.FileName]
-                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, options] , sym.Symbol)
-                    return Ok (sym, symbols)
-                else
-                    let! symbols =
-                        let options =
-                            state.FileCheckOptions.ToArray()
-                            |> Array.map (fun (KeyValue(k, v)) -> k,v)
-                            |> Seq.ofArray
-                        checker.GetUsesOfSymbol (fn, options, sym.Symbol)
-                    return Ok (sym, symbols)
-            | Error err ->
-                return Error err
-        }
+    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
+        x.GetUsagesOfSymbolInWorkspace tyRes pos lineStr
+        |> x.SerializeResultAsync (fun _ (sym, usages) -> async {
+            return Response.symbolUse serialize (sym, usages)
+        })
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr

@@ -231,11 +231,12 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
 
     let parseAsync filePath (text: string) version = async {
         Debug.print "[%s] Parse started" filePath
-        let! resp = commands.ParseNoSerialize filePath (text.Split('\n')) version
+        let! resp = commands.ParseAndCheckFileInProject filePath (text.Split('\n')) version
 
         match resp with
-        | ResultOrString.Error msg -> Debug.print "[%s] Parse failed with %s" filePath msg
-        | ResultOrString.Ok errors ->
+        | Result.Error msg -> Debug.print "[%s] Parse failed with %s" filePath msg
+        | Result.Ok (parseResult, checkResult) ->
+            let errors = Array.append checkResult.Errors parseResult.Errors
             Debug.print "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
             let diagnostics = errors |> Array.map fcsErrorToDiagnostic
             do! lspClient.TextDocumentPublishDiagnostics({ Uri = filePathToUri filePath; Diagnostics = diagnostics })
@@ -453,7 +454,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         | Ok (_options, lines, tyRes) ->
             let lineStr = lines.[pos.Line-1]
             Debug.print "Rename is for line=%s" lineStr
-            let! symbolUse = commands.SymbolUseProjectNotSerialized tyRes pos lineStr
+            let! symbolUse = commands.GetUsagesOfSymbolInWorkspace tyRes pos lineStr
             match symbolUse with
             | Ok (_sym, symbols) ->
                 let documentChanges =
@@ -512,25 +513,14 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         match getRecentTypeCheckResultsForFile filePath with
         | Ok (_options, lines, tyRes) ->
             let lineStr = lines.[pos.Line-1]
-            // Copy-paste of Commands.SymbolUseProject
-            let! symbolUseResult = tyRes.TryGetSymbolUse pos lineStr
+            let! symbolUseResult = commands.GetUsagesOfSymbolInWorkspace tyRes pos lineStr
             match symbolUseResult with
-            | Ok (symbolUse, usages) ->
-                let! symbols = async {
-                    if symbolUse.Symbol.IsPrivateToFile then
-                        return usages
-                    elif symbolUse.Symbol.IsInternalToProject then
-                        let opts = commands.FileCheckOptions.[tyRes.FileName]
-                        return! commands.Checker.GetUsesOfSymbol (tyRes.FileName, [tyRes.FileName, opts] , symbolUse.Symbol)
-                    else
-                        return! commands.Checker.GetUsesOfSymbol (tyRes.FileName, commands.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, symbolUse.Symbol)
-                }
-
+            | Ok (declaration, usages) ->
                 let finalSymbols =
                     if p.Context.IncludeDeclaration then
-                        Array.append [| symbolUse |] symbols
+                        Array.append [| declaration |] usages
                     else
-                        symbols
+                        usages
 
                 return
                     finalSymbols
@@ -559,7 +549,11 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                 // TODO: Get if it's a read or a write usage
                 return
                     finalSymbols
-                    |> Array.map(fun s -> { DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate; Kind = None })
+                    |> Array.map(fun s ->
+                        {
+                            DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
+                            Kind = None
+                        })
                     |> Some
                     |> success
 
