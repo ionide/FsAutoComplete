@@ -37,7 +37,7 @@ NUGET
     Octokit (0.29) - generate_load_scripts: true
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (96f1594fd50ced6c1aa45d7cf74fb6c067d08ac1)
+    modules/Octokit/Octokit.fsx (c160d4907360cfd42904008dab2bd22c0a4a9952)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON

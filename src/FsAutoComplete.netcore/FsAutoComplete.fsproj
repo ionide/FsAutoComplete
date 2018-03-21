@@ -9,10 +9,6 @@
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\paket-files\netcore\rspeele\TaskBuilder.fs\TaskBuilder.fs">
-      <Paket>True</Paket>
-      <Link>paket-files/TaskBuilder.fs</Link>
-    </Compile>
     <Compile Include="..\FsAutoComplete\AssemblyInfo.fs" />
     <Compile Include="..\FsAutoComplete\Debug.fs" />
     <Compile Include="..\FsAutoComplete\Options.fs" />

@@ -1535,8 +1535,6 @@ module LowLevel =
     open System
     open System.IO
     open System.Text
-    open System.Threading.Tasks
-    open FSharp.Control.Tasks.ContextInsensitive
 
     let headerBufferSize = 300
     let minimumHeaderLength = 21

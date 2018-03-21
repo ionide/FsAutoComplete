@@ -33,10 +33,6 @@
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\paket-files\rspeele\TaskBuilder.fs\TaskBuilder.fs">
-      <Paket>True</Paket>
-      <Link>paket-files/TaskBuilder.fs</Link>
-    </Compile>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Options.fs" />

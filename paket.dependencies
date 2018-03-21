@@ -13,7 +13,6 @@ nuget FSharpLint.Core 0.9.0-beta
 nuget FSharp.Core >= 4.1.17 redirects:on
 nuget System.Collections.Immutable < 1.4
 nuget OptimizedPriorityQueue
-github rspeele/TaskBuilder.fs TaskBuilder.fs
 
 group Netcore
   storage: none
@@ -32,7 +31,6 @@ group Netcore
   nuget FSharp.Core >= 4.1.17
   nuget System.Collections.Immutable
   nuget OptimizedPriorityQueue
-  github rspeele/TaskBuilder.fs TaskBuilder.fs
 
 group Build
   framework: net45
