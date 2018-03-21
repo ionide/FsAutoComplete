@@ -400,8 +400,8 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                                     Kind = glyphToCompletionKind d.Glyph
                                 }
                             )
-                        let x = { IsIncomplete = false; Items = items}
-                        return success (Some x)
+                        let completionList = { IsIncomplete = false; Items = items}
+                        return success (Some completionList)
                     | None ->
                         return noCompletion
     }
@@ -596,27 +596,24 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         return symbols |> Some |> success
     }
 
-    override __.Exit() = async {
-        Environment.Exit(0)
-    }
-
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
     LanguageServerProtocol.Server.start input output (fun lspClient -> FsharpLspServer(commands, lspClient))
-    ()
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     // stdout is used for commands
     if Debug.output = stdout then
         Debug.output <- stderr
 
-    Debug.print "Starting"
+    Debug.print "Starting LSP mode"
 
     try
-        startCore commands
+        let result = startCore commands
+        Debug.print "Ending LSP mode with %A" result
+        int result
     with
-    | ex -> Debug.print "LSP failed with %A" ex
-
-    0
+    | ex ->
+        Debug.print "LSP mode crashed with %A" ex
+        3

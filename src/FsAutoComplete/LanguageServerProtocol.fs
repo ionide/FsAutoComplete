@@ -1,7 +1,7 @@
 module LanguageServerProtocol
 
-
-let private dbgf format = Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine(s)) format
+let private traceFn format =
+    Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine("LSP: " + s)) format
 
 [<AutoOpen>]
 module LspJsonConverters =
@@ -732,7 +732,7 @@ module Protocol =
     type ShowMessageRequestParams = {
         /// The message type.
         Type: MessageType
-            
+
         /// The actual message
         Message: string
 
@@ -1682,6 +1682,7 @@ let private notImplemented<'t> = async.Return LspResult.notImplemented<'t>
 let private ignoreNotification = async.Return(())
 
 open Protocol
+open System.Text
 
 [<AbstractClass>]
 type LspClient() =
@@ -1725,7 +1726,7 @@ type LspClient() =
     /// If the client supports workspace folders and announces them via the corrsponding workspaceFolders client
     /// capability the InitializeParams contain an additional property workspaceFolders with the configured
     /// workspace folders when the server starts.
-    /// 
+    ///
     /// The workspace/workspaceFolders request is sent from the server to the client to fetch the current open
     /// list of workspace folders. Returns null in the response if only a single file is open in the tool.
     /// Returns an empty array if a workspace is open but no folders are configured.
@@ -1745,10 +1746,10 @@ type LspClient() =
     default __.WorkspaceApplyEdit(_) = notImplemented
 
     /// Diagnostics notification are sent from the server to the client to signal results of validation runs.
-    /// 
+    ///
     /// Diagnostics are “owned” by the server so it is the server’s responsibility to clear them if necessary.
     /// The following rule is used for VS Code servers that generate diagnostics:
-    /// 
+    ///
     /// * if a language is single file only (for example HTML) then diagnostics are cleared by the server when
     ///   the file is closed.
     /// * if a language has a project system (for example C#) diagnostics are not cleared when a file closes.
@@ -1892,7 +1893,7 @@ type LspServer() =
     /// a given document link.
     abstract member DocumentLinkResolve: DocumentLink -> AsyncLspResult<DocumentLink>
     default __.DocumentLinkResolve(_) = notImplemented
-    
+
     /// The document color request is sent from the client to the server to list all color refereces
     /// found in a given text document. Along with the range, a color value in RGB is returned.
     abstract member TextDocumentDocumentColor: DocumentColorParams -> AsyncLspResult<ColorInformation[]>
@@ -1933,7 +1934,7 @@ type LspServer() =
     /// The `workspace/didChangeWorkspaceFolders` notification is sent from the client to the server to inform
     /// the server about workspace folder configuration changes. The notification is sent by default if both
     /// *ServerCapabilities/workspace/workspaceFolders* and *ClientCapabilities/workapce/workspaceFolders* are
-    /// true; or if the server has registered to receive this notification it first. 
+    /// true; or if the server has registered to receive this notification it first.
     abstract member WorkspaceDidChangeWorkspaceFolders: DidChangeWorkspaceFoldersParams -> Async<unit>
     default __.WorkspaceDidChangeWorkspaceFolders(_) = ignoreNotification
 
@@ -2097,7 +2098,7 @@ module Server =
                     methodCallResult <- result
                 with
                 | ex ->
-                    dbgf "Exception %O in call to %s" ex request.Method
+                    traceFn "Exception %O in call to %s" ex request.Method
                     methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
             | None -> ()
 
@@ -2111,9 +2112,9 @@ module Server =
             | None ->
                 match methodCallResult with
                 | Result.Ok (Some ok) ->
-                    dbgf "Provided response %A to notification %s but it is ignored" ok request.Method
+                    traceFn "Provided response %A to notification %s but it is ignored" ok request.Method
                 | Result.Error err ->
-                    dbgf "Failed with %A to notification %s but it is ignored" err request.Method
+                    traceFn "Failed with %A to notification %s but it is ignored" err request.Method
                 | _ ->
                     ()
                 return None
@@ -2134,13 +2135,23 @@ module Server =
         // TODO: Add the missing notifications
         // TODO: Implement requests
 
+    type private RequestHandlingResult =
+        | Normal
+        | WasExit
+        | WasShutdown
+
+    type LspCloseReason =
+        | RequestedByClient = 0
+        | ErrorExitWithoutShutdown = 1
+        | ErrorStreamClosed = 2
+
     let start (input: Stream) (output: Stream) (serverCreator: LspClient -> #LspServer) =
-        dbgf "Starting up !"
+        traceFn "Starting up !"
 
         let sender = MailboxProcessor<string>.Start(fun inbox ->
             let rec loop () = async {
                 let! str = inbox.Receive()
-                dbgf "Writing to client: %s" str
+                traceFn "Writing to client: %s" str
                 LowLevel.write output str
                 return! loop ()
             }
@@ -2158,8 +2169,9 @@ module Server =
         let lspClient = LspClientImpl sendServerRequest
         let lspServer = serverCreator lspClient
 
-        let handleClientRequest (requestString: string): unit =
+        let handleClientRequest (requestString: string): RequestHandlingResult =
             let request = JsonConvert.DeserializeObject<JsonRpc.Request>(requestString, jsonSettings)
+
             async {
                 let! result = handleRequest request lspServer
                 match result with
@@ -2171,14 +2183,35 @@ module Server =
             |> Async.StartAsTask
             |> ignore
 
-        while true do
+            match request.Method with
+            | "shutdown" -> RequestHandlingResult.WasShutdown
+            | "exit" -> RequestHandlingResult.WasExit
+            | _ -> RequestHandlingResult.Normal
+
+        let mutable shutdownReceived = false
+        let mutable quitReceived = false
+        let mutable quit = false
+        while not quit do
             try
                 let _, requestString = LowLevel.read input
-                dbgf "Received: %s" requestString
+                traceFn "Received: %s" requestString
 
-                handleClientRequest requestString
+                match handleClientRequest requestString with
+                | RequestHandlingResult.WasShutdown -> shutdownReceived <- true
+                | RequestHandlingResult.WasExit ->
+                    quitReceived <- true
+                    quit <- true
+                | RequestHandlingResult.Normal -> ()
             with
             | :? EndOfStreamException ->
-                dbgf "Client closed the input stream"
-                System.Environment.Exit(0)
-            | ex -> dbgf "%O" ex
+                traceFn "Client closed the input stream"
+                quit <- true
+            | ex ->
+                traceFn "%O" ex
+
+        traceFn "Ended"
+
+        match shutdownReceived, quitReceived with
+        | true, true -> LspCloseReason.RequestedByClient
+        | false, true -> LspCloseReason.ErrorExitWithoutShutdown
+        | _ -> LspCloseReason.ErrorStreamClosed
