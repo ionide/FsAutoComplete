@@ -1,9 +1,5 @@
 module FsAutoComplete.Lsp
 
-/// Write a trace to System.Diagnostics.Trace
-let private tracefn format =
-    Debug.print format
-
 open Argu
 open System
 open System.IO
@@ -234,13 +230,13 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
 
     let parseAsync filePath (text: string) version = async {
-        tracefn "[%s] Parse started" filePath
+        Debug.print "[%s] Parse started" filePath
         let! resp = commands.ParseNoSerialize filePath (text.Split('\n')) version
 
         match resp with
-        | ResultOrString.Error msg -> tracefn "[%s] Parse failed with %s" filePath msg
+        | ResultOrString.Error msg -> Debug.print "[%s] Parse failed with %s" filePath msg
         | ResultOrString.Ok errors ->
-            tracefn "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
+            Debug.print "[%s] Parse finished with success, reporting %d errors" filePath errors.Length
             let diagnostics = errors |> Array.map fcsErrorToDiagnostic
             do! lspClient.TextDocumentPublishDiagnostics({ Uri = filePathToUri filePath; Diagnostics = diagnostics })
     }
@@ -266,9 +262,9 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         | None -> ()
         | Some rootPath ->
             let projects = Directory.EnumerateFiles(rootPath, "*.fsproj", SearchOption.AllDirectories)
-            tracefn "Loading projects: %A" projects
+            Debug.print "Loading projects: %A" projects
             let! response = commands.WorkspaceLoad ignore (List.ofSeq projects)
-            tracefn "WorkspaceLoad result = %A" response
+            Debug.print "WorkspaceLoad result = %A" response
             ()
 
             // TODO
@@ -361,9 +357,9 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                 do! parseAsync filePath contentChange.Text version
             else
-                tracefn "Parse not started, received partial change"
+                Debug.print "Parse not started, received partial change"
         | _ ->
-            tracefn "Found no change for %s" filePath
+            Debug.print "Found no change for %s" filePath
             ()
     }
 
@@ -374,7 +370,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         let file = Uri(doc.Uri).LocalPath
         match commands.TryGetFileCheckerOptionsWithLines file with
         | ResultOrString.Error s ->
-            tracefn "Can't get filecheck options with lines: %s" s
+            Debug.print "Can't get filecheck options with lines: %s" s
             return noCompletion
         | ResultOrString.Ok (options, lines) ->
             let pos = protocolPosToPos p.Position
@@ -383,13 +379,13 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             let lineStr = lines.[line]
             let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
             if not ok then
-                tracefn "Out of range"
+                Debug.print "Out of range"
                 return noCompletion
             else
                 let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                 match tyResOpt with
                 | None ->
-                    tracefn "Cached typecheck results not yet available"
+                    Debug.print "Cached typecheck results not yet available"
                     return noCompletion
                 | Some tyRes ->
                     let getAllSymbols () = tyRes.GetAllEntities()
@@ -413,11 +409,11 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         let pos = p.GetFcsPos()
         let filePath = p.GetFilePath()
 
-        tracefn "Hovering %s at %A" filePath pos
+        Debug.print "Hovering %s at %A" filePath pos
 
         match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(filePath, pos) with
         | ResultOrString.Error s ->
-            tracefn "TypeCheck error: %s" s
+            Debug.print "TypeCheck error: %s" s
             return success None
         | ResultOrString.Ok (options, _lines, lineStr) ->
             // TODO: Should sometimes pass options.Source in here to force a reparse
@@ -425,19 +421,19 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
             let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(filePath, options)
             match tyResOpt with
             | None ->
-                tracefn "No recent typecheck"
+                Debug.print "No recent typecheck"
                 return success None
             | Some tyRes ->
                 let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
                 let! helpResult = commands.Help tyRes pos lineStr
                 match tipResult with
                 | Result.Error err ->
-                    tracefn "Tooltip error: %s" err
+                    Debug.print "Tooltip error: %s" err
                     return success None
                 | Result.Ok (tip, _signature, _footer) ->
-                    tracefn "Tootlip: %A" tip
+                    Debug.print "Tootlip: %A" tip
                     let s = tooltipToMarkdown tip
-                    tracefn "Tootlip: %A" s
+                    Debug.print "Tootlip: %A" s
                     let response =
                         {
                             Contents =
@@ -450,13 +446,13 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
     override __.TextDocumentRename(p) = async {
         let pos = p.GetFcsPos()
         let filePath = p.GetFilePath()
-        tracefn "Rename for pos=%A" pos
+        Debug.print "Rename for pos=%A" pos
 
         // TODO: How do we get a versioned answer ??? as we have the version
         match getRecentTypeCheckResultsForFile filePath with
         | Ok (_options, lines, tyRes) ->
             let lineStr = lines.[pos.Line-1]
-            tracefn "Rename is for line=%s" lineStr
+            Debug.print "Rename is for line=%s" lineStr
             let! symbolUse = commands.SymbolUseProjectNotSerialized tyRes pos lineStr
             match symbolUse with
             | Ok (_sym, symbols) ->
@@ -622,11 +618,11 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     if Debug.output = stdout then
         Debug.output <- stderr
 
-    tracefn "Starting"
+    Debug.print "Starting"
 
     try
         startCore commands
     with
-    | ex -> tracefn "LSP failed with %A" ex
+    | ex -> Debug.print "LSP failed with %A" ex
 
     0
