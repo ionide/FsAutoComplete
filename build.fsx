@@ -183,7 +183,7 @@ let applyPaketLoadScriptWorkaround paketLoadScript =
     |> Array.iter (trace)
     trace "apply fix"
     File.ReadAllLines(includeFile)
-    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net46/IntegrationTests/", ""))
+    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net461/IntegrationTests/", ""))
     |> fun lines -> File.WriteAllLines(includeFile, lines)
     trace (sprintf "File '%s' contents:" includeFile)
     File.ReadAllLines(includeFile)
@@ -206,12 +206,12 @@ let runall cfg =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
-    [ @".paket/load/net46/IntegrationTests/Http.fs.fsx"
-      @".paket/load/net46/IntegrationTests/System.Net.WebSockets.Client.fsx"
-      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
-      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
-      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
-      @".paket/load/net46/IntegrationTests/System.Security.Cryptography.Primitives.fsx" ]
+    [ @".paket/load/net461/IntegrationTests/Http.fs.fsx"
+      @".paket/load/net461/IntegrationTests/System.Net.WebSockets.Client.fsx"
+      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
+      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
+      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
+      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.Primitives.fsx" ]
     |> List.iter applyPaketLoadScriptWorkaround
 
     trace "Running Integration tests..."

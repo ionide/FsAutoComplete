@@ -4,8 +4,8 @@ open System
 
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
-open FsAutoComplete.UnopenedNamespacesResolver
 open FSharpLint.Application
+open System.Text.RegularExpressions
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -44,6 +44,7 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.DU -> "D"
 
 module CommandResponse =
+  open Microsoft.FSharp.Compiler.Range
 
   type ResponseMsg<'T> =
     {
@@ -292,7 +293,7 @@ module CommandResponse =
 
   type UnionCaseResponse = {
     Text : string
-    Position : Pos
+    Position : pos
   }
 
   type Parameter = {
@@ -465,9 +466,11 @@ module CommandResponse =
   let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
       serialize {  Kind = "completion"
                    Data = [ for d in decls do
-                               let code = PrettyNaming.QuoteIdentifierIfNeeded d.Name
-                               let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
+                              let code =
+                                if Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9\.']+$""") then d.Name else
+                                PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                              let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
+                              yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
                             if includeKeywords then
                               for k in KeywordList.allKeywords do
                                 yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"; NamespaceToOpen = None}
@@ -576,7 +579,7 @@ module CommandResponse =
           Name = name
           Type = ctx.ScopeKind.ToString()
           Line = ctx.Pos.Line
-          Column = ctx.Pos.Col
+          Column = ctx.Pos.Column
           MultipleNames = multiple
         })
       |> List.toArray

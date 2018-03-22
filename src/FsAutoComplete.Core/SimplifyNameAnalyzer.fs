@@ -14,6 +14,7 @@ module SimplifyNameDiagnosticAnalyzer =
             let mutable result = ResizeArray()
             let symbolUses =
                 symbolUses
+                |> Array.filter (fun symbolUse -> not symbolUse.IsFromOpenStatement)
                 |> Array.Parallel.map (fun symbolUse ->
                     let lineStr = source.[symbolUse.RangeAlternate.StartLine - 1].ToString()
                     // for `System.DateTime.Now` it returns ([|"System"; "DateTime"|], "Now")

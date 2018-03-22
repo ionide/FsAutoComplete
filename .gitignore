@@ -19,7 +19,6 @@
 pack/*
 
 packages
-.paket/paket.exe
 paket-files/
 .paket/load/
 

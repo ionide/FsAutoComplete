@@ -15,17 +15,18 @@ open System.Text
 [<AutoOpen>]
 module private Conversions =
     module Lsp = LanguageServerProtocol.Types
+    module FcsRange = Microsoft.FSharp.Compiler.Range
 
-    let protocolPosToPos (pos: Lsp.Position): Pos =
-        { Line = pos.Line + 1; Col = pos.Character + 1 }
+    let protocolPosToPos (pos: Lsp.Position): FcsRange.pos =
+        FcsRange.mkPos (pos.Line + 1) (pos.Character + 1)
 
-    let posToProtocolPos (pos: Pos): Lsp.Position =
-        { Line = pos.Line - 1; Character = pos.Col - 1 }
+    let posToProtocolPos (pos: FcsRange.pos): Lsp.Position =
+        { Line = pos.Line - 1; Character = pos.Column - 1 }
 
-    let fcsPosToLsp (pos: Microsoft.FSharp.Compiler.Range.pos): Lsp.Position =
+    let fcsPosToLsp (pos: FcsRange.pos): Lsp.Position =
         { Line = pos.Line - 1; Character = pos.Column }
 
-    let fcsRangeToLsp(range: Microsoft.FSharp.Compiler.Range.range): Lsp.Range =
+    let fcsRangeToLsp(range: FcsRange.range): Lsp.Range =
         {
             Start = fcsPosToLsp range.Start
             End = fcsPosToLsp range.End
@@ -376,7 +377,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
         | ResultOrString.Ok (options, lines) ->
             let pos = protocolPosToPos p.Position
             let line = pos.Line
-            let col = pos.Col
+            let col = pos.Column
             let lineStr = lines.[line]
             let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
             if not ok then
@@ -392,7 +393,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                     let getAllSymbols () = tyRes.GetAllEntities()
                     let! res = tyRes.TryGetCompletions pos lineStr (Some "StartsWith") getAllSymbols
                     match res with
-                    | Some (decls, _residue) ->
+                    | Some (decls, _residue, _shouldKeywords) ->
                         let items =
                             decls
                             |> Array.map (fun d ->

@@ -122,7 +122,7 @@ module TypedAstExtensionHelpers =
         member x.TryGetFullCompiledOperatorNameIdents() : Idents option =
             // For operator ++ displayName is ( ++ ) compiledName is op_PlusPlus
             if isOperator x.DisplayName && x.DisplayName <> x.CompiledName then
-                x.EnclosingEntity
+                x.DeclaringEntity  
                 |> Option.bind (fun e -> e.TryGetFullName())
                 |> Option.map (fun enclosingEntityFullName ->
                      Array.append (enclosingEntityFullName.Split '.') [| x.CompiledName |])
@@ -323,7 +323,7 @@ module TypedAstPatterns =
     /// Constructor (enclosingEntity)
     let (|Constructor|_|) (func: FSharpMemberOrFunctionOrValue) =
         match func.CompiledName with
-        | ".ctor" | ".cctor" -> Some func.EnclosingEntity
+        | ".ctor" | ".cctor" -> Some func.DeclaringEntity 
         | _ -> None
 
     let (|Function|_|) excluded (func: FSharpMemberOrFunctionOrValue) =
