@@ -427,7 +427,7 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                 return success None
             | Some tyRes ->
                 let! tipResult = tyRes.TryGetToolTipEnhanced pos lineStr
-                let! helpResult = commands.Help tyRes pos lineStr
+                //let! helpResult = commands.Help tyRes pos lineStr
                 match tipResult with
                 | Result.Error err ->
                     Debug.print "Tooltip error: %s" err

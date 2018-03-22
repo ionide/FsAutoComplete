@@ -2190,9 +2190,9 @@ module Server =
             loop ())
 
         /// When the server wants to send a request/notification to the client
-        let sendServerRequest (method: string) (requestObj: obj): AsyncLspResult<unit> =
+        let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<unit> =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-            let req = JsonRpc.Request.Create(method, serializedResponse)
+            let req = JsonRpc.Request.Create(rpcMethod, serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
             sender.Post(reqString)
             // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
