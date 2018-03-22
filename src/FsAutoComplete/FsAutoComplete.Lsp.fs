@@ -439,7 +439,10 @@ type FsharpLspServer(commands: Commands, lspClient: LspClient) =
                     let response =
                         {
                             Contents =
-                                MarkedStrings (Array.append [| MarkedString.WithLanguage { Language = "fsharp"; Value = s } |] (helpResult |> Array.ofList |> Array.map MarkedString.String))
+                                MarkedStrings
+                                    [|
+                                        MarkedString.WithLanguage { Language = "fsharp"; Value = s }
+                                    |]
                             Range = None
                         }
                     return success (Some response)
