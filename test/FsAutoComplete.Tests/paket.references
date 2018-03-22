@@ -1,5 +1,4 @@
 FSharp.Compiler.Service
-FSharp.Core
 
 group Test
   NUnit

@@ -1,5 +1,7 @@
 module LanguageServerProtocol
 
+open FsAutoComplete.Utils // For Result<_,_>
+
 let private traceFn format =
     Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine("LSP: " + s)) format
 

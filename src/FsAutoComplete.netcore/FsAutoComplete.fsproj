@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
@@ -8,6 +8,7 @@
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="..\FsAutoComplete\AssemblyInfo.fs" />
     <Compile Include="..\FsAutoComplete\Debug.fs" />
@@ -21,8 +22,11 @@
     <Compile Include="..\FsAutoComplete\FsAutoComplete.Lsp.fs" />
     <Compile Include="..\FsAutoComplete\Program.fs" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core.netcore\FsAutoComplete.Core.fsproj" />
   </ItemGroup>
+
   <Import Project="..\..\.paket\Paket.Restore.targets" />
+
 </Project>

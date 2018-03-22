@@ -34,7 +34,7 @@ let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
 let testAssemblies = "**/bin/*/*Tests*.dll"
 
 if Environment.OSVersion.Platform = PlatformID.Win32NT then
-  MSBuildDefaults <- {MSBuildDefaults with ToolsVersion = Some "15.0"}
+  MSBuildDefaults <- {MSBuildDefaults with ToolsVersion = Some "14.0"}
 
 Target "BuildDebug" (fun _ ->
   MSBuildDebug "" "Build" ["./FsAutoComplete.sln"]
