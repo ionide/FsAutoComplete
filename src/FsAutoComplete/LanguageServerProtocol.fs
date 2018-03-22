@@ -45,6 +45,30 @@ module LspJsonConverters =
         override __.ReadJson(_reader, _t, _existingValue, _serializer) =
             failwith "Not implemented"
 
+    type OptionConverter() =
+        inherit JsonConverter()
+
+        override __.CanConvert(t) =
+            t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
+
+        override __.WriteJson(writer, value, serializer) =
+            let value =
+                if isNull value then null
+                else
+                    let _,fields = FSharpValue.GetUnionFields(value, value.GetType())
+                    fields.[0]
+            serializer.Serialize(writer, value)
+
+        override __.ReadJson(reader, t, _existingValue, serializer) =
+            let innerType = t.GetGenericArguments().[0]
+            let innerType =
+                if innerType.IsValueType then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
+                else innerType
+            let value = serializer.Deserialize(reader, innerType)
+            let cases = FSharpType.GetUnionCases(t)
+            if isNull value then FSharpValue.MakeUnion(cases.[0], [||])
+            else FSharpValue.MakeUnion(cases.[1], [|value|])
+
 module Types =
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
@@ -1998,7 +2022,7 @@ module Server =
 
     let jsonSettings =
         let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
-        result.Converters.Add(FsAutoComplete.OptionConverter())
+        result.Converters.Add(OptionConverter())
         result.Converters.Add(ErasedUnionConverter())
         result.ContractResolver <- CamelCasePropertyNamesContractResolver()
         result
