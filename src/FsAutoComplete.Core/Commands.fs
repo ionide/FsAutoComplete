@@ -447,9 +447,14 @@ type Commands (serialize : Serializer) =
             if fsym.IsPrivateToFile then
                 return Ok (sym, usages)
             elif fsym.IsInternalToProject then
-                let options = state.FileCheckOptions.[tyRes.FileName]
-                let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, options] , sym.Symbol)
-                return Ok (sym, symbols)
+                match state.FileCheckOptions.TryGetValue (Utils.normalizePath tyRes.FileName) with
+                | true, options ->
+                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, options] , sym.Symbol)
+                    return Ok (sym, symbols)
+                | _ ->
+                    let keys = state.FileCheckOptions.Keys |> Seq.map (sprintf "\"%s\"")
+                    let keys = String.Join(", ", keys)
+                    return Error (sprintf "File options not found for \"%s\".\nKnown files: %s" tyRes.FileName keys)
             else
                 let! symbols =
                     let options =

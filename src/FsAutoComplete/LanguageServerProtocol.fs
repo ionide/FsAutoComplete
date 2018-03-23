@@ -2062,13 +2062,13 @@ module Server =
                                 return Result.Error err
                         with
                         | ex ->
-                            return Result.Error (Error.Create(ErrorCodes.internalError, ex.Message))
+                            return Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
                     }
                 | None ->
                      async.Return (Result.Error (Error.Create(ErrorCodes.invalidRequest, "No params found")))
             with
             | :? JsonException as ex ->
-                async.Return (Result.Error (Error.Create(ErrorCodes.parseError, ex.Message)))
+                async.Return (Result.Error (Error.Create(ErrorCodes.parseError, ex.ToString())))
 
         { Run = tokenRun }
 
