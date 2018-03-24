@@ -222,8 +222,9 @@ type Commands (serialize : Serializer) =
 
     member x.Parse file lines version =
         let file = Path.GetFullPath file
+        let result = x.ParseAndCheckFileInProject file lines version
         async {
-            let! result = x.ParseAndCheckFileInProject file lines version
+            let! result = result
             return
                 match result with
                 | Ok (parseResult, checkResult) ->
