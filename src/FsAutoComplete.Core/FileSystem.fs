@@ -14,7 +14,7 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
     let getFile = normalize >> tryFindFile
 
     let getContent (filename: string) =
-        filename 
+        filename
         |> getFile
         |> Option.map (fun file ->
              System.Text.Encoding.UTF8.GetBytes (String.Join ("\n", file.Lines)))
@@ -44,3 +44,10 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
         member __.FileDelete file = file |> normalize |> actualFs.FileDelete
         member __.AssemblyLoadFrom file = file |> normalize |> actualFs.AssemblyLoadFrom
         member __.AssemblyLoad assemblyName = actualFs.AssemblyLoad assemblyName
+        member __.IsStableFileHeuristic fileName =
+            let directory = Path.GetDirectoryName(fileName)
+            directory.Contains("Reference Assemblies/") ||
+            directory.Contains("Reference Assemblies\\") ||
+            directory.Contains("packages/") ||
+            directory.Contains("packages\\") ||
+            directory.Contains("lib/mono/")
