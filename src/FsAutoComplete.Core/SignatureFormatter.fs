@@ -227,7 +227,7 @@ module SignatureFormatter =
                                 paramTypes
                                 |> List.map (formatParameterPadded length)
                                 |> String.concat (" *\n"))
-                |> String.concat (" ->\n")
+                |> String.concat ("->\n")
 
             let typeArguments =
                 allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType ++ retTypeConstraint
@@ -364,7 +364,9 @@ module SignatureFormatter =
         let constraints =
             match v.FullTypeSafe with
             | Some fulltype when fulltype.IsGenericParameter ->
-                Some (formatGenericParameter false displayContext fulltype.GenericParameter)
+                let formattedParam = formatGenericParameter false displayContext fulltype.GenericParameter
+                if String.IsNullOrWhiteSpace formattedParam then None
+                else Some formattedParam
             | _ -> None
         match constraints with
         | Some constraints -> prefix ++ name ++ ":" ++ constraints
