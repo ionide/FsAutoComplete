@@ -79,6 +79,16 @@ type FSharpSymbol with
         | :? FSharpGenericParameter -> ""
         | _ -> ""
 
+    member x.XmlDoc =
+        match x with
+        | :? FSharpMemberOrFunctionOrValue as func -> func.XmlDoc
+        | :? FSharpEntity as fse -> fse.XmlDoc
+        | :? FSharpField as fsf -> fsf.XmlDoc
+        | :? FSharpUnionCase as fsu -> fsu.XmlDoc
+        | :? FSharpActivePatternCase as apc -> apc.XmlDoc
+        | :? FSharpGenericParameter as gp -> gp.XmlDoc
+        | _ -> ResizeArray() :> Collections.Generic.IList<_>
+
 type FSharpSymbolUse with
     member this.IsPrivateToFile =
         let isPrivate =
