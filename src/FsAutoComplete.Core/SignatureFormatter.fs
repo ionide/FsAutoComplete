@@ -1,11 +1,13 @@
 namespace FsAutoComplete
 
+open UntypedAstUtils
 [<AutoOpen>]
 module PrintParameter =
     let print sb = Printf.bprintf sb "%s"
 
 
 module SignatureFormatter =
+    open Microsoft.FSharp.Compiler
     open Microsoft.FSharp.Compiler.SourceCodeServices
     open System
     open System.Text
@@ -30,134 +32,77 @@ module SignatureFormatter =
                     else
                         unionField.Name ++ ":" ++ ((unionField.FieldType.Format displayContext)))
                 |> String.concat " * "
-            unionCase.DisplayName ++ "of" ++ typeList
+            unionCase.DisplayName + " of " + typeList
          else unionCase.DisplayName
 
-    let chopStringTo (s:string) (c:char) =
-        // chopStringTo "abcdef" 'c' --> "def"
-        if s.IndexOf c <> -1 then
-            let i =  s.IndexOf c + 1
-            s.Substring(i, s.Length - i)
-        else
-            s
-
-    let tryChopPropertyName (s: string) =
-        // member names start with get_ or set_ when the member is a property
-        let s =
-            if s.StartsWith("get_", StringComparison.Ordinal) ||
-                s.StartsWith("set_", StringComparison.Ordinal)
-            then s
-            else chopStringTo s '.'
-
-        if s.Length <= 4 || (let s = s.Substring(0,4) in s <> "get_" && s <> "set_") then
-            None
-        else
-            Some(s.Substring(4,s.Length - 4))
-
-    let formatGenericParameter displayContext (param:FSharpGenericParameter) =
-
-
-
+    let formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
         let asGenericParamName (param: FSharpGenericParameter) =
             (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
 
         let sb = StringBuilder()
 
-        print sb (asGenericParamName param)
-
-        let getConstraintSymbols (constrainedBy: FSharpGenericParameterConstraint) =
+        let getConstraint (constrainedBy: FSharpGenericParameterConstraint) =
             let memberConstraint (c: FSharpGenericParameterMemberConstraint) =
-
                 let formattedMemberName, isProperty =
-                    match c.IsProperty, tryChopPropertyName c.MemberName with
+                    match c.IsProperty, PrettyNaming.TryChopPropertyName c.MemberName with
                     | true, Some(chopped) when chopped <> c.MemberName ->
                         chopped, true
-                    | _, _ -> c.MemberName, false
+                    | _, _ -> 
+                        if PrettyNaming.IsMangledOpName c.MemberName then
+                            PrettyNaming.DemangleOperatorName c.MemberName, false
+                        else
+                            c.MemberName, false
 
                 seq {
-                    yield " : ("
                     if c.MemberIsStatic then yield "static "
-
                     yield "member "
                     yield formattedMemberName
-                    yield " : "
-
-                    if isProperty then
-                        yield (c.MemberReturnType.Format displayContext)
-                    else
-                        if c.MemberArgumentTypes.Count <= 1 then
-                            yield "unit"
+                    if includeMemberConstraintTypes then
+                        yield " : "
+                        if isProperty then
+                            yield (c.MemberReturnType.Format displayContext)
                         else
-                            yield asGenericParamName param
-                        yield " -> "
-                        yield ((c.MemberReturnType.Format displayContext).TrimStart())
-
-                    yield ")"
-                }
+                            if c.MemberArgumentTypes.Count <= 1 then
+                                yield "unit"
+                            else
+                                yield asGenericParamName param
+                            yield " -> "
+                            yield ((c.MemberReturnType.Format displayContext).TrimStart())
+                } |> String.concat ""
 
             let typeConstraint (tc: FSharpType) =
-                seq {
-                    yield " :> "
-                    yield (tc.Format displayContext)
-                }
+                sprintf ":> %s" (tc.Format displayContext)
 
-            let constructorConstraint () =
-                seq {
-                    yield " : "
-                    yield "("
-                    yield "new"
-                    yield " : "
-                    yield "unit"
-                    yield " -> '"
-                    yield param.DisplayName
-                    yield ")"
-                }
             let enumConstraint (ec: FSharpType) =
-                seq {
-                    yield " : "
-                    yield "enum"
-                    yield "<"
-                    yield ec.Format displayContext
-                    yield ">"
-                }
+                sprintf "enum<%s>" (ec.Format displayContext)
 
             let delegateConstraint (tc: FSharpGenericParameterDelegateConstraint) =
-                seq {
-                    yield " : "
-                    yield "delegate"
-                    yield "<"
-                    yield tc.DelegateTupledArgumentType.Format displayContext
-                    yield ", "
-                    yield tc.DelegateReturnType.Format displayContext
-                    yield ">"
-                }
+                sprintf "delegate<%s, %s>" (tc.DelegateTupledArgumentType.Format displayContext) (tc.DelegateReturnType.Format displayContext)
 
             let symbols =
                 match constrainedBy with
-                | _ when constrainedBy.IsCoercesToConstraint -> typeConstraint constrainedBy.CoercesToTarget
-                | _ when constrainedBy.IsMemberConstraint -> memberConstraint constrainedBy.MemberConstraintData
-                | _ when constrainedBy.IsSupportsNullConstraint -> seq { yield " : "; yield "null" }
-                | _ when constrainedBy.IsRequiresDefaultConstructorConstraint -> constructorConstraint()
-                | _ when constrainedBy.IsReferenceTypeConstraint -> seq { yield " : "; yield "not struct" }
-                | _ when constrainedBy.IsEnumConstraint -> enumConstraint constrainedBy.EnumConstraintTarget
-                | _ when constrainedBy.IsComparisonConstraint -> seq { yield " : "; yield "comparison" }
-                | _ when constrainedBy.IsEqualityConstraint -> seq { yield " : "; yield "equality" }
-                | _ when constrainedBy.IsDelegateConstraint -> delegateConstraint constrainedBy.DelegateConstraintData
-                | _ when constrainedBy.IsUnmanagedConstraint -> seq { yield " : "; yield "unmanaged"}
-                | _ when constrainedBy.IsNonNullableValueTypeConstraint -> seq { yield " : "; yield "struct" }
-                | _ -> Seq.empty
+                | _ when constrainedBy.IsCoercesToConstraint -> Some(typeConstraint constrainedBy.CoercesToTarget)
+                | _ when constrainedBy.IsMemberConstraint -> Some(memberConstraint constrainedBy.MemberConstraintData)
+                | _ when constrainedBy.IsSupportsNullConstraint -> Some("null")
+                | _ when constrainedBy.IsRequiresDefaultConstructorConstraint -> Some("default constructor")
+                | _ when constrainedBy.IsReferenceTypeConstraint -> Some("reference")
+                | _ when constrainedBy.IsEnumConstraint -> Some(enumConstraint constrainedBy.EnumConstraintTarget)
+                | _ when constrainedBy.IsComparisonConstraint -> Some("comparison")
+                | _ when constrainedBy.IsEqualityConstraint -> Some("equality")
+                | _ when constrainedBy.IsDelegateConstraint -> Some(delegateConstraint constrainedBy.DelegateConstraintData)
+                | _ when constrainedBy.IsUnmanagedConstraint -> Some("unmanaged")
+                | _ when constrainedBy.IsNonNullableValueTypeConstraint -> Some("struct")
+                | _ -> None
 
-            seq {
-                yield " when "
-                yield asGenericParamName param
-                yield! symbols
-            }
+            symbols
 
         if param.Constraints.Count > 0 then
             param.Constraints
-            |> Seq.collect getConstraintSymbols
-            |> Seq.iter(fun symbol -> print sb symbol)
+            |> Seq.choose getConstraint
+            |> Seq.distinct
+            |> Seq.iteri(fun i symbol -> if i > 0 then print sb " and "
+                                         print sb symbol)
 
         sb.ToString()
 
@@ -188,8 +133,7 @@ module SignatureFormatter =
                     match func.EnclosingEntitySafe with
                     | Some ent -> if ent.IsFSharp then "new" ++ accessibility
                                   else accessibility
-                    | _ ->
-                      accessibility
+                    | _ -> accessibility
                 elif func.IsProperty then
                     if func.IsInstanceMember then
                         if func.IsDispatchSlot then "abstract property" ++ accessibility
@@ -213,15 +157,15 @@ module SignatureFormatter =
 
         let retType =
             //This try block will be removed when FCS updates
-            try
-                func.ReturnParameter.Type.Format displayContext
-            with _ex ->
-                try
-                    if func.FullType.GenericArguments.Count > 0 then
-                        let lastArg = func.FullType.GenericArguments |> Seq.last
-                        lastArg.Format displayContext
-                    else "Unknown"
-                with _ -> "Unknown"
+            try func.ReturnParameter.Type.Format displayContext
+            with _ex -> "Unknown"
+
+        let retTypeConstraint =
+            if func.ReturnParameter.Type.IsGenericParameter then
+                let formattedParam = formatGenericParameter false displayContext func.ReturnParameter.Type.GenericParameter
+                if String.IsNullOrWhiteSpace formattedParam then formattedParam
+                else "(requires " + formattedParam + " )"
+            else ""
 
         let padLength =
             let allLengths =
@@ -239,14 +183,11 @@ module SignatureFormatter =
         let isDelegate =
             match func.EnclosingEntitySafe with
             | Some ent -> ent.IsDelegate
-            | _ ->
-                false
+            | _ -> false
 
         let formatParameter (p:FSharpParameter) =
-            try
-                p.Type.Format displayContext
-            with
-            | :? InvalidOperationException -> p.DisplayName
+            try p.Type.Format displayContext
+            with :? InvalidOperationException -> p.DisplayName
 
         match argInfos with
         | [] ->
@@ -269,19 +210,30 @@ module SignatureFormatter =
             let parameterTypeWithPadding (p: FSharpParameter) length =
                 (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
 
+            let formatParameterPadded length p =
+                let paddedParam = formatName indent padLength p ++ (parameterTypeWithPadding p length)
+                if p.Type.IsGenericParameter then
+                    let paramConstraint =
+                        let formattedParam = formatGenericParameter false displayContext p.Type.GenericParameter
+                        if String.IsNullOrWhiteSpace formattedParam then formattedParam
+                        else "(requires " + formattedParam + " )"
+                    if paramConstraint = retTypeConstraint then paddedParam
+                    else paddedParam + paramConstraint
+                else paddedParam
+
             let allParams =
                 List.zip many allParamsLengths
                 |> List.map(fun (paramTypes, length) ->
                                 paramTypes
-                                |> List.map(fun p -> formatName indent padLength p ++ (parameterTypeWithPadding p length))
-                                |> String.concat ("*" + "\n"))
-                |> String.concat ("->\n")
+                                |> List.map (formatParameterPadded length)
+                                |> String.concat (" *\n"))
+                |> String.concat (" ->\n")
 
             let typeArguments =
-                allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType
+                allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType ++ retTypeConstraint
 
             if isDelegate then typeArguments
-            else modifiers ++ functionName + ": " + "\n" + typeArguments
+            else modifiers ++ functionName + ": \n" + typeArguments
 
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
@@ -289,7 +241,7 @@ module SignatureFormatter =
                 if func.IsConstructor then "new"
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
-                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then tryChopPropertyName func.DisplayName |> Option.fill func.DisplayName
+                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.fill func.DisplayName
                 else func.DisplayName
             name
 
@@ -347,13 +299,12 @@ module SignatureFormatter =
                 with _ -> "Unknown"
 
         let formatName (parameter:FSharpParameter) =
-            match parameter.Name with Some name -> name | None -> parameter.DisplayName
+            parameter.Name |> Option.getOrElse parameter.DisplayName
 
         let isDelegate =
             match func.EnclosingEntitySafe with
             | Some ent -> ent.IsDelegate
-            | _ ->
-                false
+            | _ -> false
 
         let res =
             match argInfos with
@@ -391,7 +342,7 @@ module SignatureFormatter =
             if overloads = 1 then
                 res
             else
-                sprintf "%s (+ %d overloads)" res (overloads - 1)
+                sprintf "%s (+ %i overloads)" res (overloads - 1)
 
         match getter, setter with
         | true, true -> res ++ "with get,set"
@@ -404,13 +355,20 @@ module SignatureFormatter =
     let getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
         let retType = v.FullType.Format displayContext
         let prefix =
-            if v.IsMutable then "val" ++ "mutable"
+            if v.IsMutable then "val mutable"
             else "val"
         let name =
             if v.DisplayName.StartsWith "( "
             then PrettyNaming.QuoteIdentifierIfNeeded v.LogicalName
             else v.DisplayName
-        prefix ++ name ++ ":" ++ retType
+        let constraints =
+            match v.FullTypeSafe with
+            | Some fulltype when fulltype.IsGenericParameter ->
+                Some (formatGenericParameter false displayContext fulltype.GenericParameter)
+            | _ -> None
+        match constraints with
+        | Some constraints -> prefix ++ name ++ ":" ++ constraints
+        | None -> prefix ++ name ++ ":" ++ retType
 
     let getFieldSignature displayContext (field: FSharpField) =
         let retType = field.FieldType.Format displayContext
@@ -418,7 +376,7 @@ module SignatureFormatter =
         | Some lv -> field.DisplayName + ":" ++ retType ++ "=" ++ (string lv)
         | None ->
             let prefix =
-                if field.IsMutable then "val" ++ "mutable"
+                if field.IsMutable then "val mutable"
                 else "val"
             prefix ++ field.DisplayName + ":" ++ retType
 
@@ -454,27 +412,24 @@ module SignatureFormatter =
             | _                         -> "type"
 
         let enumtip () =
-            " =\n" +
-            "  |" ++
+            " =\n  |" ++
             (fse.FSharpFields
             |> Seq.filter (fun f -> not f.IsCompilerGenerated)
             |> Seq.map (fun field -> match field.LiteralValue with
                                      | Some lv -> field.Name + " = " + (string lv)
                                      | None -> field.Name )
-            |> String.concat ("\n" + "  | " ) )
+            |> String.concat ("\n  | " ) )
 
         let uniontip () =
-            " =" + "\n" +
-            "  |" ++ (fse.UnionCases
-                                  |> Seq.map (getUnioncaseSignature displayContext)
-                                  |> String.concat ("\n" + "  | " ) )
+            " =\n  |" ++ (fse.UnionCases
+                          |> Seq.map (getUnioncaseSignature displayContext)
+                          |> String.concat ("\n  | " ) )
 
         let delegateTip () =
             let invoker =
                 fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
             let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
-            " =" + "\n" +
-            "   " + "delegate" + " of\n" + invokerSig
+            " =\n   delegate of\n" + invokerSig
 
         let typeTip () =
             let constrc =
@@ -497,8 +452,7 @@ module SignatureFormatter =
 
             let funcs =
                 fse.MembersFunctionsAndValues
-                |> Seq.filter (fun n -> n.Accessibility.IsPublic ) //TODO: If defined in same project as current scope then show also internals
-                |> Seq.filter (fun n -> not n.IsConstructor)
+                |> Seq.filter (fun n -> n.Accessibility.IsPublic && (not n.IsConstructor) ) //TODO: If defined in same project as current scope then show also internals
                 |> Seq.groupBy (fun n -> n.FullName)
                 |> Seq.map (fun (_,v) ->
                     match v |> Seq.tryFind (fun f -> f.IsProperty) with
@@ -527,8 +481,17 @@ module SignatureFormatter =
         let typeDisplay =
             let name =
                 if fse.GenericParameters.Count > 0 then
-                    let p = fse.GenericParameters |> Seq.map (formatGenericParameter displayContext) |> String.concat ","
-                    fse.DisplayName + ("<") + p + (">")
+                    let paramsAndConstraints =
+                        fse.GenericParameters
+                        |> Seq.groupBy (fun p -> p.Name)
+                        |> Seq.map (fun (name, constraints) ->
+                                             let constraints =
+                                                 constraints
+                                                 |> Seq.map (formatGenericParameter false displayContext)
+                                                 |>  String.concat " and"
+                                             sprintf "'%s (requires %s)" name constraints )
+
+                    fse.DisplayName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
                 else fse.DisplayName
 
             let basicName = modifier + typeName ++ name
@@ -632,9 +595,11 @@ module SignatureFormatter =
             Some(signature, footerForType symbol)
 
         | SymbolUse.GenericParameter gp ->
-            let signature = formatGenericParameter symbol.DisplayContext gp
+            let signature =
+                sprintf "%s (requires %s)"
+                    (if gp.IsSolveAtCompileTime then "^" + gp.Name else "'" + gp.Name)
+                    (formatGenericParameter false symbol.DisplayContext gp)
             Some(signature, footerForType symbol)
 
         | _ ->
             None
-
