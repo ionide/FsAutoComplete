@@ -114,24 +114,30 @@ type ParseAndCheckResults
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
-      return
-        match tip with
-        | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) ->
-            match identIsland with
-            | [ident] ->
-               KeywordList.tryGetKeywordDescription ident
-               |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-               |> function
-               | Some tip -> Ok (tip, ident, "")
-               | None -> Error "No tooltip information"
-            | _ -> Error "No tooltip information"
-        | _ ->
-        match symbol with
-        | None -> Error "No tooltip information"
-        | Some s ->
-          match SignatureFormatter.getTooltipDetailsFromSymbolUse s with
-          | None -> Error "No tooltip information"
-          | Some (s,f) -> Ok (tip, s, f)
+
+      match tip with
+      | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
+          match identIsland with
+          | [ident] ->
+             let keyword = KeywordList.tryGetKeywordDescription ident
+                           |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
+             match keyword with
+             | Some tip -> return Ok (tip, ident, "")
+             | None -> return Error "No tooltip information"
+          | _ -> return Error "No tooltip information"
+      | _ ->
+      match symbol with
+      | None -> return Error "No tooltip information"
+      | Some symbol ->
+        match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
+        | None -> return Error "No tooltip information"
+        | Some (signature, footer) ->
+            let xmlDoc, xmlDocSig = symbol.Symbol.XmlDoc, symbol.Symbol.XmlDocSig
+            let fsharpXmlDoc =
+                if xmlDoc.Count > 0 then FSharpXmlDoc.Text (String.Join( "\n", xmlDoc))
+                else FSharpXmlDoc.XmlDocFileSignature (xmlDocSig, symbol.Symbol.Assembly.FileName |> Option.getOrElse "")
+            let tip = FSharpToolTipText [FSharpToolTipElement.Single("", fsharpXmlDoc)]
+            return Ok (tip, signature, footer)
   }
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
