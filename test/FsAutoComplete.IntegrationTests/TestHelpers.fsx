@@ -201,7 +201,7 @@ let listenWs onMessage port action ct = async {
 
   do! ws.ConnectAsync(System.Uri(address), ct) |> Async.AwaitTask
 
-  let rec receive receivedBytes = async {
+  let rec receive (receivedBytes : ArraySegment<_>) = async {
       let! result = ws.ReceiveAsync(receivedBytes, ct) |> Async.AwaitTask
       let currentBuffer = moveBuffer receivedBytes result.Count
       if result.EndOfMessage then
