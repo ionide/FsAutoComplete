@@ -63,7 +63,7 @@
     [
       {
         "Signature": "val funct: \n   x: CommandResponse.ResponseMsg<'a> \n   -> unit",
-        "Comment": "\n\nsome random xml docs",
+        "Comment": "some random xml docs",
         "Footer": "Full name: Script.funct\nAssembly: Script"
       }
     ]
@@ -75,7 +75,7 @@
     [
       {
         "Signature": "type Abcd\n  new: unit -> Abcd\n  member Add: a: int * b: int -> int (+ 2 overloads)\n  property asdfg:  int with get\n  property bnm:  int with get,set\n  property cvbnm:  int with get,set",
-        "Comment": "\n\nSample type",
+        "Comment": "Sample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
       }
     ]
@@ -207,7 +207,7 @@
     [
       {
         "Signature": "val map: \n   mapping: 'T -> 'U ->\n   list   : 'T list  \n         -> 'U list",
-        "Comment": "Builds a new collection whose elements are the results of applying the given function\n to each of the elements of the collection.\n\n`list`: The input list.\n`mapping`: The function to transform elements from the input list.\nGeneric parameters:\n`'T` is `int`\n`'U` is `int`",
+        "Comment": "",
         "Footer": "Full name: Microsoft.FSharp.Collections.List.map\nAssembly: FSharp.Core"
       }
     ]
