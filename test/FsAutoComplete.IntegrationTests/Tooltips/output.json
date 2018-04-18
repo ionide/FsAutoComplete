@@ -63,7 +63,7 @@
     [
       {
         "Signature": "val funct: \n   x: CommandResponse.ResponseMsg<'a> \n   -> unit",
-        "Comment": "some random xml docs",
+        "Comment": "\n\nsome random xml docs",
         "Footer": "Full name: Script.funct\nAssembly: Script"
       }
     ]
@@ -75,7 +75,7 @@
     [
       {
         "Signature": "type Abcd\n  new: unit -> Abcd\n  member Add: a: int * b: int -> int (+ 2 overloads)\n  property asdfg:  int with get\n  property bnm:  int with get,set\n  property cvbnm:  int with get,set",
-        "Comment": "Sample type",
+        "Comment": "\n\nSample type",
         "Footer": "Full name: Script.Abcd\nAssembly: Script"
       }
     ]
