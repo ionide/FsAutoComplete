@@ -487,11 +487,13 @@ module SignatureFormatter =
                         fse.GenericParameters
                         |> Seq.groupBy (fun p -> p.Name)
                         |> Seq.map (fun (name, constraints) ->
-                                             let constraints =
+                                             let renderedConstraints =
                                                  constraints
                                                  |> Seq.map (formatGenericParameter false displayContext)
                                                  |>  String.concat " and"
-                                             sprintf "'%s (requires %s)" name constraints )
+                                             if String.IsNullOrWhiteSpace renderedConstraints
+                                             then "'" + name
+                                             else sprintf "'%s (requires %s)" name renderedConstraints )
 
                     fse.DisplayName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
                 else fse.DisplayName
