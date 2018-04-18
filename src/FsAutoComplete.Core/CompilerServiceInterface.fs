@@ -132,11 +132,6 @@ type ParseAndCheckResults
         match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
         | None -> return Error "No tooltip information"
         | Some (signature, footer) ->
-            let xmlDoc, xmlDocSig = symbol.Symbol.XmlDoc, symbol.Symbol.XmlDocSig
-            let fsharpXmlDoc =
-                if xmlDoc.Count > 0 then FSharpXmlDoc.Text (String.Join( "\n", xmlDoc))
-                else FSharpXmlDoc.XmlDocFileSignature (symbol.Symbol.Assembly.FileName |> Option.getOrElse "", xmlDocSig)
-            let tip = FSharpToolTipText [FSharpToolTipElement.Single("", fsharpXmlDoc)]
             return Ok (tip, signature, footer)
   }
 
