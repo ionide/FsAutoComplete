@@ -162,12 +162,16 @@ type ParseAndCheckResults
           let fsym = symboluse.Symbol
           match fsym with
           | :? FSharpMemberOrFunctionOrValue as symbol ->
-            let parms =
-              symbol.CurriedParameterGroups
-              |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
-              |> Seq.toList
+
             let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
-            return Ok(typ, parms)
+            if symbol.IsPropertyGetterMethod then
+                return Ok(typ, [])
+            else
+              let parms =
+                symbol.CurriedParameterGroups
+                |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
+                |> Seq.toList
+              return Ok(typ, parms)
           | _ ->
             return (ResultOrString.Error "Not a member, function or value" )
     }
