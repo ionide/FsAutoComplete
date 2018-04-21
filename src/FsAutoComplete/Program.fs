@@ -8,7 +8,6 @@ open Argu
 
 [<EntryPoint>]
 let entry args =
-
     try
       System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
 
@@ -41,6 +40,8 @@ let entry args =
           FsAutoComplete.Stdio.start commands results
       | Options.TransportMode.Http ->
           FsAutoComplete.Suave.start commands results
+      | Options.TransportMode.Lsp ->
+          FsAutoComplete.Lsp.start commands results
     with
     | :? ArguParseException as ex ->
       printfn "%s" ex.Message

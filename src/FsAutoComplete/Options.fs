@@ -53,6 +53,8 @@ module Options =
   open Argu
 
   type TransportMode =
+      /// Language server protocol on stdin/stdout
+      | Lsp
       | Stdio
       | Http
 
@@ -95,12 +97,7 @@ module Options =
             exit 1
       | VFilter v ->
           Debug.categories <- v.Split(',') |> set |> Some
-      | Commands
-      | Version
-      | WaitForDebugger
-      | HostPID _
-      | Mode _
-      | Port _ ->
+      | _ ->
           ()
 
     args.GetAllResults()

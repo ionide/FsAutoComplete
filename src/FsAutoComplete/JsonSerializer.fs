@@ -23,7 +23,7 @@ module private JsonSerializerConverters =
             fields.[0]
       serializer.Serialize(writer, value)
 
-    override x.ReadJson(reader, t, existingValue, serializer) =
+    override x.ReadJson(reader, t, _existingValue, serializer) =
       let innerType = t.GetGenericArguments().[0]
       let innerType =
         if innerType.IsValueType then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
