@@ -368,6 +368,10 @@ module CommandResponse =
     Status: string
     }
 
+  type CompileResponse = {
+    Code: int
+    }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -627,4 +631,7 @@ module CommandResponse =
       SimplifiedName.Names = data |> Seq.map (fun (r,n) -> { SimplifiedNameData.RelativeName = n; SimplifiedNameData.UnnecessaryRange =r }) |> Seq.toArray
     }
     serialize { Kind = "simpifiedNames"; Data = data}
+
+  let compile (serialize : Serializer) code =
+    serialize { Kind = "compile"; Data = {Code = code}}
 
