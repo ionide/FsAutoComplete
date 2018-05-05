@@ -140,13 +140,13 @@ type Commands (serialize : Serializer) =
         response.Files
         |> parseFilesInTheBackground
         |> Async.Start
-    
+
     let getGitHash () =
         Assembly.GetEntryAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
         |> Seq.cast<AssemblyMetadataAttribute>
         |> Seq.map (fun (m) -> m.Key,m.Value)
         |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
-    
+
     member __.Notify = notify.Publish
 
     member __.NotifyErrorsInBackground
@@ -714,9 +714,21 @@ type Commands (serialize : Serializer) =
                     return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
 
+    member x.Compile projectFileName = async {
+        let projectFileName = Path.GetFullPath projectFileName
+        match state.Projects.TryFind projectFileName with
+        | None -> return [ Response.info serialize "Project not found" ]
+        | Some proj ->
+        match proj.Response with
+        | None -> return [ Response.info serialize "Project not found" ]
+        | Some proj ->
+            let! _ = checker.Compile(proj.Options.OtherOptions)
+            return [ Response.info serialize "Project compiled"]
+    }
+
     member x.GetGitHash =
         let hash = getGitHash()
-        match hash with 
+        match hash with
         | Some hash -> hash
         | None -> ""
 
