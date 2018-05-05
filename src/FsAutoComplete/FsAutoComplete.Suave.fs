@@ -201,6 +201,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines   -> commands.GetUnionPatternMatchCases tyRes (mkPos data.Line data.Column) lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
             path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray))
+            path "/compile" >=> handler (fun (data : ProjectRequest) -> commands.Compile data.FileName)
             path "/quit" >=> handler (fun (_data: QuitRequest) ->
                 async {
                     cts.CancelAfter(System.TimeSpan.FromSeconds(1.0))
