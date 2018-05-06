@@ -656,7 +656,7 @@ type Commands (serialize : Serializer) =
                 do! Async.Sleep(Environment.workspaceLoadDelay().TotalMilliseconds |> int)
             | _ -> ()
 
-            do! Workspace.loadInBackground onLoaded false files
+            do! Workspace.loadInBackground onLoaded false (projects |> List.map snd)
 
             Response.workspaceLoad serialize true
             |> NotificationEvent.Workspace

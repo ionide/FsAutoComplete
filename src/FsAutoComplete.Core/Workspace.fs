@@ -35,17 +35,21 @@ let parseProject verbose projectFileName =
     |> getProjectOptions ignore projsCache verbose
     |> Result.bind bindExtraOptions
 
-let loadInBackground onLoaded verbose (files: string list) = async {
+let loadInBackground onLoaded verbose (projects: Project list) = async {
     let projsCache = new ProjectCrackerDotnetSdk.ParsedProjectCache()
 
-    for projectFileName in files do
-        projectFileName
-        |> getProjectOptions onLoaded projsCache verbose
-        |> Result.bind bindExtraOptions
-        |> function
-           | Ok (opts, extraInfo, projectFiles, logMap) ->
-                onLoaded (WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap))
-           | Error error ->
-                onLoaded (WorkspaceProjectState.Failed (projectFileName, error))
+    for project in projects do
+        match project.Response with
+        | Some res ->
+            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Files, res.Log))
+        | None ->
+            project.FileName
+            |> getProjectOptions onLoaded projsCache verbose
+            |> Result.bind bindExtraOptions
+            |> function
+            | Ok (opts, extraInfo, projectFiles, logMap) ->
+                    onLoaded (WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap))
+            | Error error ->
+                    onLoaded (WorkspaceProjectState.Failed (project.FileName, error))
 
     }
