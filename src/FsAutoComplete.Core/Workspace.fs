@@ -38,7 +38,9 @@ let parseProject verbose projectFileName =
 let loadInBackground onLoaded verbose (projects: Project list) = async {
     let projsCache = new ProjectCrackerDotnetSdk.ParsedProjectCache()
 
-    for project in projects do
+    projects
+    |> List.toArray
+    |> Array.Parallel.iter(fun project ->
         match project.Response with
         | Some res ->
             onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Files, res.Log))
@@ -51,5 +53,5 @@ let loadInBackground onLoaded verbose (projects: Project list) = async {
                     onLoaded (WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap))
             | Error error ->
                     onLoaded (WorkspaceProjectState.Failed (project.FileName, error))
-
+    )
     }
