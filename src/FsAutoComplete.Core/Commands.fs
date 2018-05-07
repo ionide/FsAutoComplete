@@ -721,8 +721,8 @@ type Commands (serialize : Serializer) =
         match proj.Response with
         | None -> return [ Response.info serialize "Project not found" ]
         | Some proj ->
-            let! _,code = checker.Compile(proj.Options.OtherOptions)
-            return [ Response.compile serialize code]
+            let! errors,code = checker.Compile(proj.Options.OtherOptions)
+            return [ Response.compile serialize (errors,code)]
     }
 
     member x.GetGitHash =

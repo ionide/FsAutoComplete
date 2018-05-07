@@ -370,7 +370,8 @@ module CommandResponse =
 
   type CompileResponse = {
     Code: int
-    }
+    Errors: FSharpErrorInfo []
+  }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
@@ -632,6 +633,6 @@ module CommandResponse =
     }
     serialize { Kind = "simpifiedNames"; Data = data}
 
-  let compile (serialize : Serializer) code =
-    serialize { Kind = "compile"; Data = {Code = code}}
+  let compile (serialize : Serializer) (errors,code) =
+    serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
 
