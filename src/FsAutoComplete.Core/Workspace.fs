@@ -39,8 +39,7 @@ let loadInBackground onLoaded verbose (projects: Project list) = async {
     let projsCache = new ProjectCrackerDotnetSdk.ParsedProjectCache()
 
     projects
-    |> List.toArray
-    |> Array.Parallel.iter(fun project ->
+    |> List.iter(fun project ->
         match project.Response with
         | Some res ->
             onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Files, res.Log))
