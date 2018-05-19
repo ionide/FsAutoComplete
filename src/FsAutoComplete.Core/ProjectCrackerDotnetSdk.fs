@@ -2,7 +2,6 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open System.Collections.Generic
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -61,7 +60,7 @@ module ProjectCrackerDotnetSdk =
   type private ProjectParsingSdk = DotnetSdk | VerboseSdk
 
   type ParsedProject = string * FSharpProjectOptions * ((string * string) list)
-  type ParsedProjectCache = Dictionary<string, ParsedProject>
+  type ParsedProjectCache = Collections.Concurrent.ConcurrentDictionary<string, ParsedProject>
 
   let private getProjectOptionsFromProjectFile notifyState (cache: ParsedProjectCache) parseAsSdk (file : string) =
 
@@ -176,7 +175,7 @@ module ProjectCrackerDotnetSdk =
                           sprintf "Exe Path: '%s'" exePath
                           sprintf "Args: '%s'" args ]
                         |> String.concat " "
-                    
+
                     failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
             | _ ->
                 failwithf "error getting msbuild info: internal error"
@@ -210,7 +209,7 @@ module ProjectCrackerDotnetSdk =
             let rspNormalized =
                 //workaround, arguments in rsp can use relative paths
                 rsp |> List.map (FscArguments.useFullPaths projDir)
-            
+
             let sdkTypeData, log =
                 match parseAsSdk with
                 | ProjectParsingSdk.DotnetSdk ->
@@ -251,8 +250,8 @@ module ProjectCrackerDotnetSdk =
             alreadyParsed
         | false, _ ->
             let p = file |> projInfoOf additionalMSBuildProps
-            cache.Add(key, p)
-            p
+            cache.AddOrUpdate(key, p, fun _ _ -> p)
+
 
     let _, po, log = projInfo [] file
     po, log
@@ -288,7 +287,7 @@ module ProjectCrackerDotnetSdk =
                 | ProjectSdkType.DotnetSdk _ ->
                     sources
             | _ -> sources
-            
+
         Ok (po, Seq.toList compileFiles, (log |> Map.ofList))
       with
         | ProjectInspectException d -> Error d

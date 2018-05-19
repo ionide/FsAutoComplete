@@ -128,6 +128,8 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
     member __.Response with get() = agent.PostAndReply GetResponse
                         and set r = agent.Post (SetResponse r)
 
+    member __.FileName = fullPath
+
     interface IDisposable with
         member __.Dispose() =
             afsw.Dispose()

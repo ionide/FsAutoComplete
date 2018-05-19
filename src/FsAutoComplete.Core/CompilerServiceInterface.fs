@@ -438,3 +438,5 @@ type FSharpCompilerServiceChecker() =
     let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
+
+  member __.Compile = checker.Compile

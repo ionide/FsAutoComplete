@@ -140,13 +140,13 @@ type Commands (serialize : Serializer) =
         response.Files
         |> parseFilesInTheBackground
         |> Async.Start
-    
+
     let getGitHash () =
         Assembly.GetEntryAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
         |> Seq.cast<AssemblyMetadataAttribute>
         |> Seq.map (fun (m) -> m.Key,m.Value)
         |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
-    
+
     member __.Notify = notify.Publish
 
     member __.NotifyErrorsInBackground
@@ -613,58 +613,57 @@ type Commands (serialize : Serializer) =
         for projectFileName, proj in projects do
             state.Projects.[projectFileName] <- proj
 
-        async {
-            let projectLoadedSuccessfully projectFileName response =
-                let project =
-                    match state.Projects.TryFind projectFileName with
-                    | Some prj -> prj
-                    | None ->
-                        let proj = new Project(projectFileName, onChange)
-                        state.Projects.[projectFileName] <- proj
-                        proj
+        let projectLoadedSuccessfully projectFileName response =
+            let project =
+                match state.Projects.TryFind projectFileName with
+                | Some prj -> prj
+                | None ->
+                    let proj = new Project(projectFileName, onChange)
+                    state.Projects.[projectFileName] <- proj
+                    proj
 
-                project.Response <- Some response
+            project.Response <- Some response
 
-                onProjectLoaded projectFileName response
+            onProjectLoaded projectFileName response
 
-            let rec onLoaded p =
-                match p with
-                | WorkspaceProjectState.Loading projectFileName ->
-                    Response.projectLoading serialize projectFileName
-                    |> NotificationEvent.Workspace
-                    |> notify.Trigger
-                | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
-                    let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
-                    projectLoadedSuccessfully projectFileName response
-                    Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
-                    |> NotificationEvent.Workspace
-                    |> notify.Trigger
-                | WorkspaceProjectState.Failed (projectFileName, error) ->
-                    Response.projectError serialize error
-                    |> NotificationEvent.Workspace
-                    |> notify.Trigger
+        let rec onLoaded p =
+            match p with
+            | WorkspaceProjectState.Loading projectFileName ->
+                Response.projectLoading serialize projectFileName
+                |> NotificationEvent.Workspace
+                |> notify.Trigger
+            | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
+                let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
+                projectLoadedSuccessfully projectFileName response
+                Response.project serialize (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
+                |> NotificationEvent.Workspace
+                |> notify.Trigger
+            | WorkspaceProjectState.Failed (projectFileName, error) ->
+                Response.projectError serialize error
+                |> NotificationEvent.Workspace
+                |> notify.Trigger
 
-            Response.workspaceLoad serialize false
-            |> NotificationEvent.Workspace
-            |> notify.Trigger
+        Response.workspaceLoad serialize false
+        |> NotificationEvent.Workspace
+        |> notify.Trigger
 
-            // this is to delay the project loading notification (of this thread)
-            // after the workspaceload started response returned below in outer async
-            // Make test output repeteable, and notification in correct order
-            match Environment.workspaceLoadDelay() with
-            | delay when delay > TimeSpan.Zero ->
-                do! Async.Sleep(Environment.workspaceLoadDelay().TotalMilliseconds |> int)
-            | _ -> ()
+        // this is to delay the project loading notification (of this thread)
+        // after the workspaceload started response returned below in outer async
+        // Make test output repeteable, and notification in correct order
+        match Environment.workspaceLoadDelay() with
+        | delay when delay > TimeSpan.Zero ->
+            do! Async.Sleep(Environment.workspaceLoadDelay().TotalMilliseconds |> int)
+        | _ -> ()
 
-            do! Workspace.loadInBackground onLoaded false files
+        do! Workspace.loadInBackground onLoaded false (projects |> List.map snd)
 
-            Response.workspaceLoad serialize true
-            |> NotificationEvent.Workspace
-            |> notify.Trigger
+        Response.workspaceLoad serialize true
+        |> NotificationEvent.Workspace
+        |> notify.Trigger
 
-        } |> Async.Start
 
-        return [Response.workspaceLoad serialize false]
+
+        return [Response.workspaceLoad serialize true]
     }
 
     member x.GetUnusedDeclarations file =
@@ -714,9 +713,21 @@ type Commands (serialize : Serializer) =
                     return [ Response.unusedOpens serialize (unused |> List.toArray) ]
         } |> x.AsCancellable file
 
+    member x.Compile projectFileName = async {
+        let projectFileName = Path.GetFullPath projectFileName
+        match state.Projects.TryFind projectFileName with
+        | None -> return [ Response.info serialize "Project not found" ]
+        | Some proj ->
+        match proj.Response with
+        | None -> return [ Response.info serialize "Project not found" ]
+        | Some proj ->
+            let! errors,code = checker.Compile(proj.Options.OtherOptions)
+            return [ Response.compile serialize (errors,code)]
+    }
+
     member x.GetGitHash =
         let hash = getGitHash()
-        match hash with 
+        match hash with
         | Some hash -> hash
         | None -> ""
 

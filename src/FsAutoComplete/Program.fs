@@ -10,7 +10,7 @@ open Argu
 let entry args =
 
     try
-      System.Threading.ThreadPool.SetMinThreads(8, 8) |> ignore
+      System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
       let commands = Commands(writeJson)
       let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
