@@ -195,9 +195,11 @@ module SignatureFormatter =
             if isDelegate then retType
             else modifiers ++ functionName + ":" ++ retType
 
-        | [[]] ->
+        | [[]] ->         
             if isDelegate then retType
-            elif func.IsConstructor then modifiers + ": unit -> " ++ retType //A ctor with () parameters seems to be a list with an empty list
+            //A ctor with () parameters seems to be a list with an empty list.
+            // Also abstract members and abstract member overrides with one () parameter seem to be a list with an empty list.
+            elif func.IsConstructor || (func.IsMember && (not func.IsPropertyGetterMethod)) then modifiers + ": unit -> " ++ retType
             else modifiers ++ functionName + ":" ++ retType //Value members seems to be a list with an empty list
         | [[p]] when  maybeGetter && formatParameter p = "unit" -> //Member or property with only getter
             modifiers ++ functionName + ":" ++ retType
