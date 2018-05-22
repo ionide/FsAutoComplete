@@ -171,7 +171,13 @@ type ParseAndCheckResults
                 symbol.CurriedParameterGroups
                 |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
                 |> Seq.toList
-              return Ok(typ, parms)
+              // Abstract members and abstract member overrides with one () parameter seem have a list with an empty list
+              // as parameters.
+              match parms with
+              | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) -> 
+                return Ok(typ, [ [ ("unit", "unit") ] ])
+              | _ -> 
+                return Ok(typ, parms)
           | _ ->
             return (ResultOrString.Error "Not a member, function or value" )
     }
