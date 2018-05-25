@@ -370,6 +370,7 @@ type Commands (serialize : Serializer) =
 
                     //Init cache for current list
                     state.Declarations.Clear()
+                    state.HelpText.Clear()
                     state.CompletionNamespaceInsert.Clear()
                     state.CurrentAST <- tyRes.GetAST
 
