@@ -17,6 +17,7 @@ module ProjectCrackerProjectJson =
       |> Array.filter((<>) "--nocopyfsharpcore")
 
     {
+      ProjectId = Some file
       ProjectFileName = file
       SourceFiles = [||]
       OtherOptions = rsp

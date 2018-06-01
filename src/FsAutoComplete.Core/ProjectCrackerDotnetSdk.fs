@@ -224,6 +224,7 @@ module ProjectCrackerDotnetSdk =
 
             let po =
                 {
+                    ProjectId = Some file
                     ProjectFileName = file
                     SourceFiles = [||]
                     OtherOptions = rspNormalized |> Array.ofList

@@ -69,7 +69,8 @@ type State =
     let opts=
         defaultArg (Environment.fsharpCoreOpt  |> Option.map (fun path -> [| yield sprintf "-r:%s" path; yield "--noframework" |] )) [|"--noframework"|]
 
-    { ProjectFileName = file + ".fsproj"
+    { ProjectId = Some (file + ".fsproj")
+      ProjectFileName = file + ".fsproj"
       SourceFiles = [|file|]
       OtherOptions = opts // "--noframework"
       ReferencedProjects = [| |]
