@@ -68,15 +68,11 @@ type Commands (serialize : Serializer) =
 
 
     do checker.ProjectChecked.Add(fun (o, _) ->
-        state.FileCheckOptions.ToArray()
-        |> Array.tryPick(fun (KeyValue(k, v)) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
-        |> Option.iter (fun p ->
-            state.BackgroundProjects.TryRemove(p) |> ignore
-            // printfn "BACKGROUND CHECKER - PARSED: %s" o
-            // printfn "2. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
-
-        )
-        backgroundChecker () ) //When one project finished, start new one
+        if notifyErrorsInBackground then
+            state.FileCheckOptions.ToArray()
+            |> Array.tryPick(fun (KeyValue(_, v)) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
+            |> Option.iter ( state.BackgroundProjects.TryRemove >> ignore)
+            backgroundChecker () ) //When one project finished, start new one
 
     let normalizeOptions (opts : FSharpProjectOptions) =
         { opts with
