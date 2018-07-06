@@ -72,7 +72,10 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
     let persistentCache = ProjectPersistentCache(projectFile)
 
     let fullPath = Path.GetFullPath projectFile
-    let projectAsset = (Path.GetDirectoryName projectFile) </> "obj" </> "project.assets.json"
+    let objFolder = (Path.GetDirectoryName projectFile) </> "obj" |> Path.GetFullPath
+
+    let projectAssetsFile = objFolder </> "project.assets.json"
+    let projectProps = "*.props"
 
     let agent = MailboxProcessor.Start <| fun mb ->
         let rec loop (lastWriteTime, response) = async {
@@ -90,13 +93,22 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
 
                 return! loop (lastWriteTime, r)
         }
-        let lwt =
-            if File.Exists projectAsset then
-                let a = File.GetLastWriteTimeUtc projectAsset
-                let p = File.GetLastWriteTimeUtc projectFile
-                max a p
+        let projectTime = File.GetLastWriteTimeUtc projectFile
+        let projectAssetsTime = 
+            if File.Exists projectAssetsFile then
+                File.GetLastWriteTimeUtc projectAssetsFile
             else
-                File.GetLastWriteTimeUtc projectFile
+                DateTime.MinValue
+
+        let projectPropsTime =
+            let propsFiles = Directory.EnumerateFiles(objFolder,projectProps) |> Seq.toList
+            match propsFiles with
+            | [] -> DateTime.MinValue
+            | _ -> propsFiles |> Seq.map File.GetLastWriteTimeUtc |> Seq.max
+
+
+        let lwt = max (max projectTime projectAssetsTime) projectPropsTime
+
         let state = persistentCache.LoadCache lwt
         loop (lwt, state)
 
@@ -111,24 +123,37 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
     do fsw.EnableRaisingEvents <- true
 
     do
-        if projectAsset |> Path.GetDirectoryName |> Directory.Exists |> not then
-            projectAsset |> Path.GetDirectoryName |> Directory.CreateDirectory |> ignore
-    ///File System Watcher for `obj` dir, at the moment only `project.assets.json`
+        if projectAssetsFile |> Path.GetDirectoryName |> Directory.Exists |> not then
+            projectAssetsFile |> Path.GetDirectoryName |> Directory.CreateDirectory |> ignore
+
+    ///File System Watcher for `obj` dir, at the moment only `project.assets.json` and `*.props`
     let afsw =
         new FileSystemWatcher(
-            Path = Path.GetDirectoryName projectAsset,
-            Filter = Path.GetFileName projectAsset)
+            Path = Path.GetDirectoryName projectAssetsFile,
+            Filter = Path.GetFileName projectAssetsFile)
 
-    do afsw.Changed.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAsset)))
-    do afsw.Created.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAsset)))
+    do afsw.Changed.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAssetsFile)))
+    do afsw.Created.Add (fun _ -> agent.Post (Changed (File.GetLastWriteTimeUtc projectAssetsFile)))
     do afsw.Deleted.Add (fun _ -> agent.Post (Changed (DateTime.UtcNow)))
 
     do afsw.EnableRaisingEvents <- true
+
+    let propsfsw =
+        new FileSystemWatcher(
+            Path = objFolder,
+            Filter = projectProps)
+
+    do propsfsw.Changed.Add (fun x -> agent.Post (Changed (File.GetLastWriteTimeUtc x.FullPath)))
+    do propsfsw.Created.Add (fun x -> agent.Post (Changed (File.GetLastWriteTimeUtc x.FullPath)))
+    do propsfsw.Deleted.Add (fun _ -> agent.Post (Changed (DateTime.UtcNow)))
+
+    do propsfsw.EnableRaisingEvents <- true    
 
     member __.Response with get() = agent.PostAndReply GetResponse
                         and set r = agent.Post (SetResponse r)
 
     interface IDisposable with
         member __.Dispose() =
+            propsfsw.Dispose()
             afsw.Dispose()
             fsw.Dispose()
