@@ -30,10 +30,12 @@ type private XmlDocMember(doc: XmlDocument) =
   let exceptions = readChildren "exception" doc
   override x.ToString() =
     summary + nl + nl +
-    (pars |> Seq.map (fun kv -> "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl) +
+    (if pars.Count = 0 then ""
+     else "**Parameters**" + nl +
+            (pars |> Seq.map (fun kv -> "  * `" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl)) +
     (if exceptions.Count = 0 then ""
-     else nl + nl + "Exceptions:" + nl +
-          (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
+     else nl + nl + "**Exceptions**" + nl +
+            (exceptions |> Seq.map (fun kv -> "  * `" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
 
 let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
   let acc' =
@@ -97,7 +99,7 @@ let private buildFormatComment cmt =
 let private formatGenericParamInfo cmt =
   let m = Regex.Match(cmt, """(.*) is (.*)""")
   if m.Success then
-    sprintf "`%s` is `%s`" m.Groups.[1].Value m.Groups.[2].Value
+    sprintf "  * `%s` is `%s`" m.Groups.[1].Value m.Groups.[2].Value
   else
     cmt
 
@@ -116,15 +118,15 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
             Some (items |> List.map (fun i ->
-              let comment =
-                if i.TypeMapping.IsEmpty then
-                  buildFormatComment i.XmlDoc
-                else
-                  buildFormatComment i.XmlDoc
-                  + "\nGeneric parameters:\n"
-                  + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
+                let comment =
+                    if i.TypeMapping.IsEmpty then
+                      buildFormatComment i.XmlDoc
+                    else
+                      buildFormatComment i.XmlDoc
+                      + "\n\n**Generic parameters**\n\n"
+                      + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
-              (signature, comment, footer)))
+                (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
 
