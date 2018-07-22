@@ -11,8 +11,6 @@ open Utils
 open System.Reflection
 open Microsoft.FSharp.Compiler.Range
 
-
-
 module Response = CommandResponse
 
 [<RequireQualifiedAccess>]
@@ -26,8 +24,10 @@ type Commands (serialize : Serializer) =
     let state = State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
+    let fileChecked = Event<FSharpParseFileResults * FSharpCheckFileResults * string>()
     let fileInProjectChecked = Event<SourceFilePath>()
     let mutable notifyErrorsInBackground = true
+    let mutable useSymbolCache = false
 
     let notify = Event<NotificationEvent>()
 
@@ -44,6 +44,15 @@ type Commands (serialize : Serializer) =
                 ()
         } |> Async.Start
 
+    let updateSymbolUsesCache (filename: FilePath) (check: FSharpCheckFileResults) =
+        async {
+            try
+                let! symbols = check.GetAllUsesOfAllSymbolsInFile()
+                state.SymbulUseCache.AddOrUpdate(filename, symbols, fun _ _ -> symbols) |> ignore
+            with
+            | _ -> ()
+        }
+
     do fileParsed.Publish.Add (fun parseRes ->
        let decls = parseRes.GetNavigationItems().Declarations
        state.NavigationDeclarations.[parseRes.FileName] <- decls
@@ -51,20 +60,29 @@ type Commands (serialize : Serializer) =
 
     do checker.FileChecked.Add (fun (n,_) ->
         async {
+            let opts = state.FileCheckOptions.[n]
+            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+            fileChecked.Trigger (res.GetParseResults, res.GetCheckResults, res.FileName)
+        } |> Async.Start
+    )
+
+    do fileChecked.Publish.Add (fun (parse, check, file) ->
+        async {
             try
-                let opts = state.FileCheckOptions.[n]
-                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                let checkErrors = res.GetCheckResults.Errors
-                let parseErrors = res.GetParseResults.Errors
+                let checkErrors = parse.Errors
+                let parseErrors = check.Errors
                 let errors = Array.append checkErrors parseErrors
 
-                Response.errors serialize (errors, n)
+                Response.errors serialize (errors, file)
                 |> NotificationEvent.ParseError
                 |> notify.Trigger
             with
             | _ -> ()
         }
         |> if notifyErrorsInBackground then Async.Start else ignore
+
+        updateSymbolUsesCache file check
+        |> if useSymbolCache then Async.Start else ignore
     )
 
 
@@ -150,6 +168,10 @@ type Commands (serialize : Serializer) =
         with get() = notifyErrorsInBackground
         and set(value) = notifyErrorsInBackground <- value
 
+    member __.UseSymbolCache
+        with get() = useSymbolCache
+        and set(value) = useSymbolCache <- value
+
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
             // A failure is only info here, as this command is expected to be
@@ -192,6 +214,7 @@ type Commands (serialize : Serializer) =
                             match checkResults with
                             | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
                             | FSharpCheckFileAnswer.Succeeded results ->
+                                do fileChecked.Trigger (parseResult, results, fileName)
                                 let errors = Array.append results.Errors parseResult.Errors
                                 if colorizations then
                                     [ Response.errors serialize (errors, fileName)
@@ -425,6 +448,13 @@ type Commands (serialize : Serializer) =
                 let fsym = sym.Symbol
                 if fsym.IsPrivateToFile then
                     return Response.symbolUse serialize (sym, usages)
+                elif useSymbolCache then
+                    let symbols =
+                        state.SymbulUseCache.Values
+                        |> Seq.collect id
+                        |> Seq.where (fun n -> n.Symbol.FullName = fsym.FullName)
+                        |> Seq.toArray
+                    return Response.symbolUse serialize (sym, symbols)
                 elif fsym.IsInternalToProject then
                     let opts = state.FileCheckOptions.[tyRes.FileName]
                     let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
@@ -745,6 +775,34 @@ type Commands (serialize : Serializer) =
             let! errors,code = checker.Compile(proj.Options.OtherOptions)
             return [ Response.compile serialize (errors,code)]
     }
+
+    member __.BuildBackgroundSymbolsCache () = async {
+        let c = FSharpCompilerServiceChecker()
+        state.Projects.Values
+        |> Seq.iter (fun n ->
+            n.Response |> Option.iter (fun r ->
+                r.Files
+                |> Seq.iter (fun f ->
+                    state.Files.TryFind f |> Option.iter (fun vf ->
+                        async {
+                            let text = vf.Lines |> String.concat "\n"
+                            let! res = c.ParseAndCheckFileInProject(f, 0, text, r.Options)
+                            match res with
+                            | ResultOrString.Error e -> ()
+                            | ResultOrString.Ok (_, checkResults) ->
+                                match checkResults with
+                                | FSharpCheckFileAnswer.Aborted -> ()
+                                | FSharpCheckFileAnswer.Succeeded results ->
+                                    do! updateSymbolUsesCache f results
+                        } |> Async.RunSynchronously
+                    )
+                )
+            )
+        )
+    }
+
+    member x.EnableSymbolCache () =
+        x.UseSymbolCache <- true
 
     member x.GetGitHash =
         let hash = getGitHash()

@@ -174,9 +174,9 @@ type ParseAndCheckResults
               // Abstract members and abstract member overrides with one () parameter seem have a list with an empty list
               // as parameters.
               match parms with
-              | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) -> 
+              | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) ->
                 return Ok(typ, [ [ ("unit", "unit") ] ])
-              | _ -> 
+              | _ ->
                 return Ok(typ, parms)
           | _ ->
             return (ResultOrString.Error "Not a member, function or value" )
@@ -265,6 +265,8 @@ type ParseAndCheckResults
         ]
       with
       | _ -> []
+
+  member __.GetAllSymbolUsesInFile () = checkResults.GetAllUsesOfAllSymbolsInFile()
 
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
@@ -378,6 +380,7 @@ type FSharpCompilerServiceChecker() =
 
 
   member __.CheckProjectInBackground = checker.CheckProjectInBackground
+  member __.CheckProject = checker.ParseAndCheckProject
 
   member x.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
