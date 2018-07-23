@@ -4,7 +4,6 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open Utils
-open FsAutoComplete.ProjectRecognizer
 open Microsoft.FSharp.Compiler.Range
 
 type ParseAndCheckResults
@@ -378,9 +377,7 @@ type FSharpCompilerServiceChecker() =
 
   }
 
-
   member __.CheckProjectInBackground = checker.CheckProjectInBackground
-  member __.CheckProject = checker.ParseAndCheckProject
 
   member x.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)

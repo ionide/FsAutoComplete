@@ -7,8 +7,8 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FsAutoComplete</RootNamespace>
-    <AssemblyName>fsautocomplete</AssemblyName>
+    <RootNamespace>FsAutoComplete.SymbolCache</RootNamespace>
+    <AssemblyName>fsautocomplete.symbolcache</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>FSharp.InteractiveAutocomplete</Name>
@@ -34,16 +34,10 @@
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Debug.fs" />
-    <Compile Include="Options.fs" />
-    <Compile Include="CommandInput.fs" />
     <Compile Include="JsonSerializer.fs" />
-    <Compile Include="FsAutoComplete.Stdio.fs" />
-    <Compile Include="FsAutoComplete.HttpApiContract.fs" />
-    <Compile Include="FsAutoComplete.Suave.fs" />
+    <Compile Include="FsAutoComplete.SymbolCache.fs" />
     <Compile Include="Program.fs" />
-    <None Include="FsAutoComplete.fsproj.paket.references" />
+    <None Include="paket.references" />
     <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
@@ -57,10 +51,6 @@
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj">
       <Name>FsAutoComplete.Core</Name>
       <Project>{4e4786f3-4566-44e1-8787-91790007f0f6}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fsproj">
-      <Name>FsAutoComplete.SymbolCache.fsproj</Name>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

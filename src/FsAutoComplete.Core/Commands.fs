@@ -48,7 +48,7 @@ type Commands (serialize : Serializer) =
         async {
             try
                 let! symbols = check.GetAllUsesOfAllSymbolsInFile()
-                state.SymbulUseCache.AddOrUpdate(filename, symbols, fun _ _ -> symbols) |> ignore
+                SymbolCache.sendSymbols serialize filename symbols
             with
             | _ -> ()
         }
@@ -60,9 +60,12 @@ type Commands (serialize : Serializer) =
 
     do checker.FileChecked.Add (fun (n,_) ->
         async {
-            let opts = state.FileCheckOptions.[n]
-            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-            fileChecked.Trigger (res.GetParseResults, res.GetCheckResults, res.FileName)
+            try
+                let opts = state.FileCheckOptions.[n]
+                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                fileChecked.Trigger (res.GetParseResults, res.GetCheckResults, res.FileName)
+            with
+            | _ -> ()
         } |> Async.Start
     )
 
@@ -449,12 +452,17 @@ type Commands (serialize : Serializer) =
                 if fsym.IsPrivateToFile then
                     return Response.symbolUse serialize (sym, usages)
                 elif useSymbolCache then
-                    let symbols =
-                        state.SymbulUseCache.Values
-                        |> Seq.collect id
-                        |> Seq.where (fun n -> n.Symbol.FullName = fsym.FullName)
-                        |> Seq.toArray
-                    return Response.symbolUse serialize (sym, symbols)
+                    let! res =  SymbolCache.getSymbols fsym.FullName
+                    if res = "ERROR" then
+                        if fsym.IsInternalToProject then
+                            let opts = state.FileCheckOptions.[tyRes.FileName]
+                            let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                            return Response.symbolUse serialize (sym, symbols)
+                        else
+                            let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                            return Response.symbolUse serialize (sym, symbols)
+                    else
+                        return res
                 elif fsym.IsInternalToProject then
                     let opts = state.FileCheckOptions.[tyRes.FileName]
                     let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
@@ -776,30 +784,36 @@ type Commands (serialize : Serializer) =
             return [ Response.compile serialize (errors,code)]
     }
 
-    member __.BuildBackgroundSymbolsCache () = async {
-        let c = FSharpCompilerServiceChecker()
-        state.Projects.Values
-        |> Seq.iter (fun n ->
-            n.Response |> Option.iter (fun r ->
-                r.Files
-                |> Seq.iter (fun f ->
-                    state.Files.TryFind f |> Option.iter (fun vf ->
-                        async {
-                            let text = vf.Lines |> String.concat "\n"
-                            let! res = c.ParseAndCheckFileInProject(f, 0, text, r.Options)
-                            match res with
-                            | ResultOrString.Error e -> ()
-                            | ResultOrString.Ok (_, checkResults) ->
-                                match checkResults with
-                                | FSharpCheckFileAnswer.Aborted -> ()
-                                | FSharpCheckFileAnswer.Succeeded results ->
-                                    do! updateSymbolUsesCache f results
-                        } |> Async.RunSynchronously
-                    )
-                )
-            )
-        )
-    }
+    member __.BuildSymbolCacheForProject proj =
+        match state.Projects.TryFind proj with
+        | None -> ()
+        | Some pr ->
+            match pr.Response with
+            | None -> ()
+            | Some r ->
+                SymbolCache.buildProjectCache serialize r.Options
+                |> Async.Start
+
+    member __.BuildBackgroundSymbolsCache () =
+        async {
+            let start = DateTime.Now
+            SymbolCache.startCache ()
+            do! Async.Sleep 100
+            let r =
+                state.Projects.Values
+                |> Seq.fold (fun acc n ->
+                    let s =
+                        match n.Response with
+                        | None -> async.Return ()
+                        | Some r ->
+                            SymbolCache.buildProjectCache serialize r.Options
+                    acc |> Async.bind (fun _ -> s )
+                    ) (async.Return ())
+            do! r
+            let finish = DateTime.Now
+            printfn "[Symbol Cache] Building background cache took %fms" (finish-start).TotalMilliseconds
+        }
+
 
     member x.EnableSymbolCache () =
         x.UseSymbolCache <- true

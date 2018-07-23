@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core.netcore\FsAutoComplete.Core.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.SymbolCache.netcore\FsAutoComplete.SymbolCache.fsproj" />
   </ItemGroup>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />

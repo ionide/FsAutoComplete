@@ -173,6 +173,9 @@ module CommandResponse =
       IsFromDispatchSlotImplementation : bool
       IsFromPattern : bool
       IsFromType : bool
+      SymbolFullName: string
+      SymbolDisplayName: string
+      SymbolIsLocal: bool
     }
 
   type SymbolUseResponse =
@@ -504,7 +507,10 @@ module CommandResponse =
                       IsFromComputationExpression = su.IsFromComputationExpression
                       IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
                       IsFromPattern = su.IsFromPattern
-                      IsFromType = su.IsFromType } ] |> Seq.distinct |> Seq.toList }
+                      IsFromType = su.IsFromType
+                      SymbolFullName = symbol.Symbol.FullName
+                      SymbolDisplayName = symbol.Symbol.DisplayName
+                      SymbolIsLocal = symbol.Symbol.IsPrivateToFile } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symboluse"; Data = su }
 
   let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
