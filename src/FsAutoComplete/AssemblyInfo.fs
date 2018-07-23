@@ -9,7 +9,7 @@ open System.Reflection
 [<assembly: AssemblyFileVersionAttribute("0.34.0")>]
 [<assembly: AssemblyMetadataAttribute("githash","7b5ff04d8213a33c51ab50a9cb710ef06c4ff5e1")>]
 
-do ()
+
 
 module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FsAutoComplete"
@@ -18,4 +18,3 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyVersion = "0.34.0"
     let [<Literal>] AssemblyFileVersion = "0.34.0"
     let [<Literal>] AssemblyMetadata_githash = "7b5ff04d8213a33c51ab50a9cb710ef06c4ff5e1"
-

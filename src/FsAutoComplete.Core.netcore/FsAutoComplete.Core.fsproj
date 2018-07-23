@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;SUAVE_2;$(DefineConstants)</DefineConstants>
+    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;SUAVE_2;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,6 +34,7 @@
     <Compile Include="..\FsAutoComplete.Core\CodeGeneration.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="..\FsAutoComplete.Core\RecordStubGenerator.fs" />
+    <Compile Include="..\FsAutoComplete.Core\SymbolCache.fs" />
     <Compile Include="..\FsAutoComplete.Core\Commands.fs" />
   </ItemGroup>
 

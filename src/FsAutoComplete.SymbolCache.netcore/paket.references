@@ -1,0 +1,7 @@
+group Netcore
+
+FSharp.Compiler.Service
+Argu
+Newtonsoft.Json
+Suave
+FSharp.Core
