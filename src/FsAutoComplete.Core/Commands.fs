@@ -656,6 +656,7 @@ type Commands (serialize : Serializer) =
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
         let d = WorkspacePeek.peek dir deep excludedDirs
+        state.WorkspaceRoot <- dir
 
         return [Response.workspacePeek serialize d]
     }
@@ -797,7 +798,7 @@ type Commands (serialize : Serializer) =
     member __.BuildBackgroundSymbolsCache () =
         async {
             let start = DateTime.Now
-            SymbolCache.startCache ()
+            SymbolCache.startCache state.WorkspaceRoot
             do! Async.Sleep 100
             let r =
                 state.Projects.Values

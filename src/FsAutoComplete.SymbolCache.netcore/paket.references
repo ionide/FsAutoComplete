@@ -5,3 +5,5 @@ Argu
 Newtonsoft.Json
 Suave
 FSharp.Core
+Dapper
+Microsoft.Data.Sqlite

@@ -12,6 +12,11 @@ open FsAutoComplete.Utils
 open CommandResponse
 open SymbolCache
 open FsAutoComplete.Utils
+open System
+open System.IO
+open System.IO
+open Microsoft.Data.Sqlite
+open Dapper
 
 [<AutoOpen>]
 module internal Utils =
@@ -24,6 +29,53 @@ module internal Utils =
         req.rawForm |> getString |> fromJson<'a>
 
 let state = ConcurrentDictionary<string, SymbolUseRange[]>()
+
+type private PersistentStateMessage =
+    | Save of file : string * symbols : SymbolUseRange[]
+    | FillState
+
+type PersistentState (dir) =
+    let connectionString = "Data Source=/.ionide/symbolCache.db"
+
+    let dir = Path.Combine(dir, ".ionide")
+    do if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
+    let dbPath = Path.Combine(dir, "symbolCache.db")
+    let dbExists = File.Exists dbPath
+
+    do if not dbExists then
+        use connection = new SqliteConnection(connectionString)
+        let cmd = "CREATE TABLE Symbols(
+            FileName TEXT,
+            StartLine INT,
+            StartColumn INT,
+            EndLine INT,
+            EndColumn INT,
+            IsFromDefinition BOOLEAN,
+            IsFromAttribute BOOLEAN
+            IsFromComputationExpression BOOLEAN,
+            IsFromDispatchSlotImplementation BOOLEAN,
+            IsFromPattern BOOLEAN,
+            IsFromType BOOLEAN,
+            SymbolFullName TEXT,
+            SymbolDisplayName TEXT,
+            SymbolIsLocal BOOLEAN
+        )"
+
+        connection.Execute(cmd)
+        |> ignore
+
+
+    // let agent = MailboxProcessor.Start <| fun mb ->
+    //     let rec loop () = async {
+    //         let! msg = mb.Receive()
+    //         match msg with
+    //         | Save (file)
+
+
+    //     }
+
+
+
 
 
 type BackgroundFSharpCompilerServiceChecker() =
@@ -52,7 +104,6 @@ module Commands =
             |> Array.iter (fun (fn, symbols) ->
                 let sms = symbols |> Array.map (SymbolCache.fromSymbolUse)
                 state.AddOrUpdate(fn, sms, fun _ _ -> sms) |> ignore
-                printfn "%A" (sms |> Array.map (fun s -> s.SymbolFullName))
             )
             let e = DateTime.Now
             printfn "PROJECT: %s TOOK %fms" opts.ProjectFileName (e-start).TotalMilliseconds
@@ -71,10 +122,11 @@ module Commands =
     let updateSymbols (req: SymbolCacheRequest) =
         state.AddOrUpdate(req.Filename, req.Uses, fun _ _ -> req.Uses)
         |> ignore
-        printfn "%A" (req.Uses |> Array.map (fun s -> s.SymbolFullName))
 
 
-let start port =
+let start port dir =
+    Directory.SetCurrentDirectory dir
+    let pS = PersistentState(dir)
 
     let app =
         choose [
@@ -120,5 +172,6 @@ let start port =
         { defaultConfig with
             bindings = [{ defaultBinding with socketBinding = withPort }] }
 
+    printfn "CURRENT DIR: %s" Environment.CurrentDirectory
     startWebServer serverConfig app
     0

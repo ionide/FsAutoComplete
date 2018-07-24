@@ -152,7 +152,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         | true -> CommandResponse.info writeJson "Background parsing started"
                 return r :: res
                 })
-            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false commands.BuildSymbolCacheForProject)
+            path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/projectsInBackground" >=> handler (fun (data : FileRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
@@ -201,7 +201,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines -> commands.GetUnionPatternMatchCases tyRes (mkPos data.Line data.Column) lines lineStr)
             path "/recordStubGenerator" >=> positionHandler (fun data tyRes lineStr lines -> commands.GetRecordStub tyRes (mkPos data.Line data.Column) lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
-            path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad commands.BuildSymbolCacheForProject (data.Files |> List.ofArray))
+            path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray))
             path "/compile" >=> handler (fun (data : ProjectRequest) -> commands.Compile data.FileName)
             path "/buildBackgroundSymbolCache" >=> fun httpCtx ->
                 async {

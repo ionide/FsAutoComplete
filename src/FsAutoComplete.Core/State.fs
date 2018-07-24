@@ -6,7 +6,6 @@ open System.Collections.Concurrent
 open System.Threading
 open Priority_Queue
 open Microsoft.FSharp.Compiler.Range
-open System.Collections.Concurrent
 
 type DeclName = string
 type CompletionNamespaceInsert = string * int * int
@@ -26,6 +25,8 @@ type State =
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
     BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
 
+    mutable WorkspaceRoot: string
+
     mutable ColorizationOutput: bool
   }
 
@@ -40,6 +41,7 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       BackgroundProjects = SimplePriorityQueue<_, _>()
+      WorkspaceRoot = Environment.CurrentDirectory
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
