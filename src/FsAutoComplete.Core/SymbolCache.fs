@@ -43,7 +43,7 @@ let pid =
     Process.GetCurrentProcess().Id
 
 
-let startCache () =
+let startCache (dir : string) =
     port <- Random().Next(9000,9999)
     let si = ProcessStartInfo()
     si.RedirectStandardOutput <- true
@@ -52,14 +52,14 @@ let startCache () =
 
     #if DOTNET_SPAWN
     si.FileName <- "dotnet"
-    si.Arguments <- Path.Combine(p, "fsautocomplete.symbolcache.dll") + " " + (string port) + " " + (string pid)
+    si.Arguments <- Path.Combine(p, "fsautocomplete.symbolcache.dll") + " " + (string port) + " " + (string pid) + " " + (if dir.Contains " " then sprintf "\"%s\"" dir else dir)
     #else
     if Utils.runningOnMono then
         si.FileName <- "mono"
-        si.Arguments <- Path.Combine(p, "fsautocomplete.symbolcache.exe") + " " + (string port) + " " + (string pid)
+        si.Arguments <- Path.Combine(p, "fsautocomplete.symbolcache.exe") + " " + (string port) + " " + (string pid) + " " + (if dir.Contains " " then sprintf "\"%s\"" dir else dir)
     else
         si.FileName <- Path.Combine(p, "fsautocomplete.symbolcache.exe")
-        si.Arguments <- (string port) + " " + (string pid)
+        si.Arguments <- (string port) + " " + (string pid) + " " + (if dir.Contains " " then sprintf "\"%s\"" dir else dir)
     #endif
 
     let proc = Process.Start(si)

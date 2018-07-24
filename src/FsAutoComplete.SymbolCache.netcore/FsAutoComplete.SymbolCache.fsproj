@@ -13,6 +13,7 @@
     <Compile Include="..\FsAutoComplete.SymbolCache\JsonSerializer.fs" />
     <Compile Include="..\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fs" />
     <Compile Include="..\FsAutoComplete.SymbolCache\Program.fs" />
+
   </ItemGroup>
 
   <ItemGroup>

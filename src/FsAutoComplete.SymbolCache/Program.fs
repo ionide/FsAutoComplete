@@ -18,8 +18,9 @@ let entry args =
     try
         let port = Int32.Parse args.[0]
         let pid = Int32.Parse args.[1]
+        let dir = args.[2]
         zombieCheckWithHostPID (fun () -> exit 0) pid
-        FsAutoComplete.SymbolCacheApi.start port
+        FsAutoComplete.SymbolCacheApi.start port dir
     with
     | e ->
       printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
