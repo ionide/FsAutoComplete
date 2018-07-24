@@ -1,6 +1,6 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2035
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{1BE8AF57-B314-4C92-82A9-64CD9B7A4990}"
 	ProjectSection(SolutionItems) = preProject
@@ -21,15 +21,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E1A34828
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{430286DC-C9C0-4EAA-AAED-E72434FD8E34}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete", "src\FsAutoComplete\FsAutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core.VerboseSdkHelper", "src\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj", "{385ECB13-18AA-4EC6-BB10-494A7F450A75}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.SymbolCache", "src\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fsproj", "{E7B7A7B7-8E5F-4B6D-BEFB-386E09AED98C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,20 +43,20 @@ Global
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88}.Release|Any CPU.Build.0 = Release|Any CPU
 		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E7B7A7B7-8E5F-4B6D-BEFB-386E09AED98C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7B7A7B7-8E5F-4B6D-BEFB-386E09AED98C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7B7A7B7-8E5F-4B6D-BEFB-386E09AED98C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7B7A7B7-8E5F-4B6D-BEFB-386E09AED98C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{F5EBDD99-5ED7-4311-A5CB-7CFCE696FF88} = {430286DC-C9C0-4EAA-AAED-E72434FD8E34}
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1C4EE83B-632A-4929-8C96-38F14254229E}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = FsAutoComplete\FsAutoComplete.fsproj

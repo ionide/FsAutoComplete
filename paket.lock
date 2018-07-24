@@ -1,4 +1,4 @@
-RESTRICTION: == net45
+RESTRICTION: == net461
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.7)
@@ -16,17 +16,13 @@ NUGET
       FSharp.Compiler.Service (>= 23.0.3)
       FSharp.Core (>= 4.1.18)
       System.ValueTuple (>= 4.3.1)
-    FSharp.Core (4.3.4) - redirects: force
+    FSharp.Core (4.5.1) - redirects: force
     FSharpLint.Core (0.9.0-beta)
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 14.0.2)
       FSharp.Compiler.Service.ProjectCracker (>= 14.0.2)
     Microsoft.Data.Sqlite (2.1)
-    Microsoft.NETCore.Platforms (2.0.1) - redirects: force
     Mono.Cecil (0.10)
-    NETStandard.Library (2.0.1) - redirects: force
-      Microsoft.NETCore.Platforms (>= 1.1)
-      System.Runtime.InteropServices.RuntimeInformation (>= 4.3)
     Newtonsoft.Json (11.0.2)
     OptimizedPriorityQueue (4.1.1)
     Sln (0.3)
@@ -35,9 +31,7 @@ NUGET
     System.Collections.Immutable (1.3.1)
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
-    System.Runtime.InteropServices.RuntimeInformation (4.3) - redirects: force
-    System.ValueTuple (4.4) - redirects: force
-      NETStandard.Library (>= 1.6.1)
+    System.ValueTuple (4.5) - redirects: force
 
 GROUP Build
 GENERATE-LOAD-SCRIPTS: ON
@@ -1067,7 +1061,7 @@ NUGET
     SourceLink.Embed.PaketFiles (2.7.4)
 
 GROUP Test
-RESTRICTION: == net45
+RESTRICTION: == net461
 NUGET
   remote: https://www.nuget.org/api/v2
     NUnit (3.10.1)

@@ -15,7 +15,7 @@ open FsAutoComplete.Utils
 open System
 open System.IO
 open System.IO
-open Microsoft.Data.Sqlite
+open Microsoft.Data.Sqlite 
 open Dapper
 
 [<AutoOpen>]
