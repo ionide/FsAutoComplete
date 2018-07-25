@@ -296,6 +296,11 @@ module CommandResponse =
     Position : pos
   }
 
+  type RecordStubResponse = {
+      Text : string
+      Position : pos
+  }
+
   type Parameter = {
     Name : string
     Type : string
@@ -607,11 +612,18 @@ module CommandResponse =
     serialize { Kind = "namespaces"; Data = data}
 
   let unionCase (serialize : Serializer) (text : string) position =
-    let data = {
+    let data : UnionCaseResponse = {
       Text = text
       Position = position
     }
     serialize { Kind = "unionCase"; Data = data}
+
+  let recordStub (serialize : Serializer) (text : string) position =
+    let data : RecordStubResponse = {
+      Text = text
+      Position = position
+    }
+    serialize { Kind = "recordStub"; Data = data}
 
   let unusedDeclarations (serialize : Serializer) data =
     let data =

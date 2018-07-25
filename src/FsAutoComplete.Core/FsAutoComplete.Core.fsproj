@@ -68,6 +68,7 @@
     <Compile Include="Workspace.fs" />
     <Compile Include="CodeGeneration.fs" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
+    <Compile Include="RecordStubGenerator.fs" />
     <Compile Include="Commands.fs" />
     <None Include="paket.references" />
   </ItemGroup>

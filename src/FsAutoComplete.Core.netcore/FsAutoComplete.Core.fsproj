@@ -33,6 +33,7 @@
     <Compile Include="..\FsAutoComplete.Core\Workspace.fs" />
     <Compile Include="..\FsAutoComplete.Core\CodeGeneration.fs" />
     <Compile Include="..\FsAutoComplete.Core\UnionPatternMatchCaseGenerator.fs" />
+    <Compile Include="..\FsAutoComplete.Core\RecordStubGenerator.fs" />
     <Compile Include="..\FsAutoComplete.Core\Commands.fs" />
   </ItemGroup>
 

@@ -7,7 +7,7 @@ open System.Reflection
 [<assembly: AssemblyDescriptionAttribute("A command line tool for interfacing with FSharp.Compiler.Service over a pipe.")>]
 [<assembly: AssemblyVersionAttribute("0.34.0")>]
 [<assembly: AssemblyFileVersionAttribute("0.34.0")>]
-[<assembly: AssemblyMetadataAttribute("githash","ae4759a7fd15c12c3f41a4bd7c84d5ebfaf10cbf")>]
+[<assembly: AssemblyMetadataAttribute("githash","7b5ff04d8213a33c51ab50a9cb710ef06c4ff5e1")>]
 do ()
 
 module internal AssemblyVersionInformation =
@@ -16,4 +16,4 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyDescription = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
     let [<Literal>] AssemblyVersion = "0.34.0"
     let [<Literal>] AssemblyFileVersion = "0.34.0"
-    let [<Literal>] AssemblyMetadata_githash = "ae4759a7fd15c12c3f41a4bd7c84d5ebfaf10cbf"
+    let [<Literal>] AssemblyMetadata_githash = "7b5ff04d8213a33c51ab50a9cb710ef06c4ff5e1"
