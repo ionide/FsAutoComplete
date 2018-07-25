@@ -160,6 +160,7 @@ module CommandResponse =
       Overloads : Overload list
     }
 
+  [<CLIMutable>]
   type SymbolUseRange =
     {
       FileName: string
