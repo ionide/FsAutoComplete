@@ -37,6 +37,7 @@ Target "BuildDebug" (fun _ ->
   DotNetCli.Build (fun p ->
      { p with
          Project = "FsAutoComplete.sln"
+         Configuration = "Debug"
          AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
 
   DotNetCli.Build (fun p ->
