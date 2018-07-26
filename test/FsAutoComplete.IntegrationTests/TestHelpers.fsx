@@ -51,7 +51,7 @@ let fsacExePath () =
                     "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete")
   | FSACRuntime.NET ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete/bin/Debug/fsautocomplete.exe")
+                    "../../src/FsAutoComplete/bin/Debug/net461/fsautocomplete.exe")
 
 let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.FileName <-
