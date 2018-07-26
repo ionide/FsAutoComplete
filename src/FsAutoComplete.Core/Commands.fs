@@ -5,6 +5,7 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open FsAutoComplete.UnionPatternMatchCaseGenerator
+open FsAutoComplete.RecordStubGenerator
 open System.Threading
 open Utils
 open System.Reflection
@@ -590,6 +591,29 @@ type Commands (serialize : Serializer) =
                 return [Response.unionCase serialize result pos ]
             else
                 return [Response.info serialize "Union at position not found"]
+        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
+    member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
+        async {
+            let codeGenServer = CodeGenerationService(checker, state)
+            let doc = {
+                Document.LineCount = lines.Length
+                FullName = tyRes.FileName
+                GetText = fun _ -> lines |> String.concat "\n"
+                GetLineText0 = fun i -> lines.[i]
+                GetLineText1 = fun i -> lines.[i - 1]
+            }
+
+            let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
+            match res with
+            | None -> return [Response.info serialize "Record at position not found"]
+            | Some(recordEpr, recordDefinition, insertionPos) ->
+                if shouldGenerateRecordStub recordEpr recordDefinition then
+                    let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
+                    let pos = mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
+                    return [Response.recordStub serialize result pos]
+                else
+                    return [Response.info serialize "Record at position not found"]
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {

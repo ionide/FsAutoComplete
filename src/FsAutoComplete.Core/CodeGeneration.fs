@@ -60,7 +60,6 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             with
             | _ -> None
 
-
 [<AutoOpen>]
 module internal CodeGenerationUtils =
     open Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming
