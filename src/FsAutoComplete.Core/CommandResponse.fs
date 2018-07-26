@@ -214,6 +214,9 @@ module CommandResponse =
       Message:string
       Subcategory:string
     }
+    static member IsIgnored(e:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
+        // FST-1027 support in Fake 5
+        e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
     static member OfFSharpError(e:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
       {
         FileName = e.FileName
@@ -538,9 +541,13 @@ module CommandResponse =
                 }
 
   let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[], file: string) =
+    let errors =
+        errors
+        |> Array.filter (FSharpErrorInfo.IsIgnored >> not)
+        |> Array.map FSharpErrorInfo.OfFSharpError
     serialize { Kind = "errors";
                 Data = { File = file
-                         Errors = Array.map FSharpErrorInfo.OfFSharpError errors }}
+                         Errors = errors }}
 
   let colorizations (serialize : Serializer) (colorizations: (Range.range * SemanticClassificationType)[]) =
     // let data = [ for r, k in colorizations do
