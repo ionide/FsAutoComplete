@@ -133,7 +133,7 @@ type Commands (serialize : Serializer) =
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
             state.CurrentAST
-            |> Option.bind (fun ast -> ParsedInput.tryFindNearestPointToInsertOpenDeclaration (pos.Line) ast idents TopLevel )
+            |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents TopLevel )
             |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Column))
 
     let fillHelpTextInTheBackground decls (pos : pos) fn getLine =

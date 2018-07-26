@@ -1,5 +1,6 @@
 framework: net461
 source https://www.nuget.org/api/v2/
+source lib
 
 nuget Argu ~> 3.7
 nuget FSharp.Compiler.Service ~> 23.0
@@ -21,6 +22,7 @@ nuget Microsoft.Data.Sqlite
 group Netcore
   storage: none
   source https://www.nuget.org/api/v2/
+  source lib
 
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
