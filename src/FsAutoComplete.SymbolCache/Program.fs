@@ -24,4 +24,6 @@ let entry args =
     with
     | e ->
       printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
+      if not (isNull e.InnerException) then
+        printfn "Inner error - %s \n %s" e.InnerException.Message e.InnerException.StackTrace
       3
