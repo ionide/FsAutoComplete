@@ -81,8 +81,8 @@ type PersistentState (dir) =
                     let inserCmd =
                         sprintf "INSERT INTO SYMBOLS(FileName, StartLine, StartColumn, EndLine, EndColumn, IsFromDefinition, IsFromAttribute, IsFromComputationExpression, IsFromDispatchSlotImplementation, IsFromPattern, IsFromType, SymbolFullName, SymbolDisplayName, SymbolIsLocal) VALUES
                         (@FileName, @StartLine, @StartColumn, @EndLine, @EndColumn, @IsFromDefinition, @IsFromAttribute, @IsFromComputationExpression, @IsFromDispatchSlotImplementation, @IsFromPattern, @IsFromType, @SymbolFullName, @SymbolDisplayName, @SymbolIsLocal)"
-                    connection.Execute(delCmd, transaction = tx) |> printfn "[Debug] Deleted %d Rows "
-                    connection.Execute(inserCmd, sugs, transaction = tx) |> printfn "[Debug] Added %d Rows"
+                    connection.Execute(delCmd, transaction = tx) |> ignore
+                    connection.Execute(inserCmd, sugs, transaction = tx) |> ignore
                     tx.Commit()
                     let e = DateTime.Now
                     printfn "[Debug] Updating DB took %fms" (e-d).TotalMilliseconds
