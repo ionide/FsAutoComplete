@@ -25,6 +25,7 @@
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />
+    <Compile Include="Decompiler.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="WorkspacePeek.fs" />
     <Compile Include="CommandResponse.fs" />
