@@ -19,8 +19,32 @@ type private XmlDocMember(doc: XmlDocument) =
             // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
             // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
             // Put content in single quotes for possible formatting improvements on editor side.
-            let c = Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
-            Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
+            let c = Regex.Replace(node.InnerXml,"""<code.*?>(.*?)<\/code>""", "`$1`")
+            let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
+            let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
+            let tableIndex = c.IndexOf("<table>")
+            if tableIndex > 0 then
+                let start = c.Substring(0, tableIndex)
+                let table = c.Substring(tableIndex)
+                let rows = Regex.Matches(c, "<th>").Count
+                let table =
+                    table.Replace(nl, "")
+                        .Replace("\n", "")
+                        .Replace("<table>", "")
+                        .Replace("</table>", "")
+                        .Replace("<thead>", "")
+                        .Replace("</thead>", (String.replicate rows "| --- "))
+                        .Replace("<tbody>", nl)
+                        .Replace("</tbody>", "")
+                        .Replace("<tr>", "")
+                        .Replace("</tr>", "|" + nl)
+                        .Replace("<th>", "|")
+                        .Replace("</th>", "")
+                        .Replace("<td>", "|")
+                        .Replace("</td>", "")
+                start + nl + nl + nl + nl + table
+            else
+                c
 
     let readChildren name (doc: XmlDocument) =
         doc.DocumentElement.GetElementsByTagName name
