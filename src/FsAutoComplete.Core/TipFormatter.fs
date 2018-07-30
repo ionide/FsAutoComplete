@@ -19,7 +19,9 @@ type private XmlDocMember(doc: XmlDocument) =
             // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
             // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
             // Put content in single quotes for possible formatting improvements on editor side.
-            Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
+            let c = Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)"><\/\w+>""", "`$1`")
+            Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
+
     let readChildren name (doc: XmlDocument) =
         doc.DocumentElement.GetElementsByTagName name
         |> Seq.cast<XmlNode>
@@ -56,7 +58,10 @@ let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
         doc.Load(subReader)
         acc |> Map.add key (XmlDocMember doc) |> Some
       with
-      | _ -> Some acc
+      | ex ->
+        printfn "%s" ex.Message
+        printfn "%s" ex.StackTrace
+        Some acc
     | _ -> Some acc
   match acc' with
   | None -> acc
@@ -84,11 +89,21 @@ let private getXmlDoc =
         // Prevent other threads from tying to add the same doc simultaneously
         xmlDocCache.AddOrUpdate(xmlFile, Map.empty, fun _ _ -> Map.empty) |> ignore
         try
-          use reader = XmlReader.Create actualXmlFile
+          let cnt = File.ReadAllText actualXmlFile
+          let cnt =
+            if actualXmlFile.Contains "netstandard.xml" then
+                let cnt = Regex.Replace(cnt,"""(<p .*?>)+(.*)(<\/?p>)*""", "$2")
+                cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
+            else
+                cnt
+          use stringReader = new StringReader(cnt)
+          use reader = XmlReader.Create stringReader
           let xmlDoc = readXmlDoc reader Map.empty
           xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, fun _ _ -> xmlDoc) |> ignore
           Some xmlDoc
-        with _ ->
+        with ex ->
+          printfn "%s" ex.Message
+          printfn "%s" ex.StackTrace
           None  // TODO: Remove the empty map from cache to try again in the next request?
 
 // --------------------------------------------------------------------------------------
