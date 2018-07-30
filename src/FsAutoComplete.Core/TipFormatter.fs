@@ -19,7 +19,7 @@ type private XmlDocMember(doc: XmlDocument) =
             // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
             // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
             // Put content in single quotes for possible formatting improvements on editor side.
-            let c = Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)"><\/\w+>""", "`$1`")
+            let c = Regex.Replace(node.InnerXml,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
             Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
 
     let readChildren name (doc: XmlDocument) =
@@ -27,9 +27,19 @@ type private XmlDocMember(doc: XmlDocument) =
         |> Seq.cast<XmlNode>
         |> Seq.map (fun node -> node.Attributes.[0].InnerText.Replace("T:",""), readContent node)
         |> Map.ofSeq
+
+
+
     let summary = readContent doc.DocumentElement.ChildNodes.[0]
     let pars = readChildren "param" doc
     let exceptions = readChildren "exception" doc
+
+    let returns =
+        doc.DocumentElement.GetElementsByTagName "returns"
+        |> Seq.cast<XmlNode>
+        |> Seq.tryHead
+        |> Option.map (fun node -> readContent node)
+
     override x.ToString() =
         summary + nl + nl +
         (pars |> Seq.map (fun kv -> "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl) +
@@ -44,7 +54,9 @@ type private XmlDocMember(doc: XmlDocument) =
                 (pars |> Seq.map (fun kv -> "* `" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl)) +
         (if exceptions.Count = 0 then ""
          else nl + nl + "**Exceptions**" + nl +
-                (exceptions |> Seq.map (fun kv -> "* `" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
+                (exceptions |> Seq.map (fun kv -> "* `" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl)) +
+        (if returns.IsNone then "" else nl + nl + "**Returns**" + nl + nl + returns.Value )
+
 
 let rec private readXmlDoc (reader: XmlReader) (acc: Map<string,XmlDocMember>) =
   let acc' =
