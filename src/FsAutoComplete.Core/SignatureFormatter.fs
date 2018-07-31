@@ -474,9 +474,10 @@ module SignatureFormatter =
 
             let res =
                 [ yield constrc
-                //   yield! fields
-                //   if Seq.length fields > 0 then yield "\n"
-                //   yield! funcs
+                  if not fse.IsFSharpModule then
+                    yield! fields
+                    if Seq.length fields > 0 then yield "\n"
+                    yield! funcs
                 ]
                 |> Seq.distinct
                 |> String.concat "\n  "
