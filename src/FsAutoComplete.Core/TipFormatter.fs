@@ -53,7 +53,8 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
             // Put content in single quotes for possible formatting improvements on editor side.
             let text = node.InnerXml.Replace("<para>", "\n\n")
                                     .Replace("</para>", "\n")
-            let c = Regex.Replace(text,"""<code.*?>(.*?)<\/code>""", "`$1`")
+            let c = Regex.Replace(text, """<a href="(.*?)">(.*?)<\/a>""", "[$2]($1)" )
+            let c = Regex.Replace(c,"""<code.*?>(.*?)<\/code>""", "`$1`")
             let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
             let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
             let tableIndex = c.IndexOf("<table>")
