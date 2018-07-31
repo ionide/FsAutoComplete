@@ -48,7 +48,7 @@ module SignatureFormatter =
                     match c.IsProperty, PrettyNaming.TryChopPropertyName c.MemberName with
                     | true, Some(chopped) when chopped <> c.MemberName ->
                         chopped, true
-                    | _, _ -> 
+                    | _, _ ->
                         if PrettyNaming.IsMangledOpName c.MemberName then
                             PrettyNaming.DemangleOperatorName c.MemberName, false
                         else
@@ -195,7 +195,7 @@ module SignatureFormatter =
             if isDelegate then retType
             else modifiers ++ functionName + ":" ++ retType
 
-        | [[]] ->         
+        | [[]] ->
             if isDelegate then retType
             //A ctor with () parameters seems to be a list with an empty list.
             // Also abstract members and abstract member overrides with one () parameter seem to be a list with an empty list.
@@ -474,9 +474,10 @@ module SignatureFormatter =
 
             let res =
                 [ yield constrc
-                  yield! fields
-                  if Seq.length fields > 0 then yield "\n"
-                  yield! funcs]
+                //   yield! fields
+                //   if Seq.length fields > 0 then yield "\n"
+                //   yield! funcs
+                ]
                 |> Seq.distinct
                 |> String.concat "\n  "
 
