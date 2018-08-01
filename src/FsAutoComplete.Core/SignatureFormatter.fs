@@ -195,6 +195,7 @@ module SignatureFormatter =
             if isDelegate then retType
             else modifiers ++ functionName + ":" ++ retType
 
+        | _ when func.IsProperty -> modifiers ++ functionName + ":" ++ retType
         | [[]] ->
             if isDelegate then retType
             //A ctor with () parameters seems to be a list with an empty list.
@@ -255,12 +256,7 @@ module SignatureFormatter =
                 | _ -> ""
 
             let modifier =
-                //F# types are prefixed with new, should non F# types be too for consistancy?
                 if func.IsConstructor then
-                    match func.EnclosingEntitySafe with
-                    | Some ent -> if ent.IsFSharp then "new" ++ accessibility
-                                  else accessibility
-                    | _ ->
                       accessibility
                 elif func.IsProperty then
                     if func.IsInstanceMember then
@@ -315,6 +311,7 @@ module SignatureFormatter =
                 if isDelegate then retType
                 else modifiers ++ functionName + ": " ++ retType
 
+            | _ when func.IsProperty -> modifiers ++ functionName + ": " ++ retType
             | [[]] ->
                 if isDelegate then retType
                 elif func.IsConstructor then modifiers + ": unit ->" ++ retType //A ctor with () parameters seems to be a list with an empty list
@@ -395,7 +392,7 @@ module SignatureFormatter =
                     Some (n.Split([|':' |], 2).[1])
                 with _ -> None )
             |> Option.getOrElse ""
-        sprintf "active recognizer %s: %s" apc.Name findVal
+        sprintf "active pattern %s: %s" apc.Name findVal
 
     let getEntitySignature displayContext (fse: FSharpEntity) =
         let modifier =
@@ -438,7 +435,7 @@ module SignatureFormatter =
         let typeTip () =
             let constrc =
                 fse.MembersFunctionsAndValues
-                |> Seq.filter (fun n -> n.IsConstructor)
+                |> Seq.filter (fun n -> n.IsConstructor && n.Accessibility.IsPublic)
                 |> fun v ->
                     match Seq.tryHead v with
                     | None -> ""
