@@ -200,6 +200,53 @@ type ParseAndCheckResults
             return Ok (tip, signature, footer)
   }
 
+  member __.TryGetFormattedDocumentation (pos: pos) (lineStr: LineStr) = async {
+    let s = DateTime.Now
+    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    | None -> return Error "Cannot find ident"
+    | Some(col,identIsland) ->
+
+      // TODO: Display other tooltip types, for example for strings or comments where appropriate
+      let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+
+      match tip with
+      | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
+          match identIsland with
+          | [ident] ->
+             let keyword = KeywordList.tryGetKeywordDescription ident
+                           |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
+             match keyword with
+             | Some tip ->
+              let e = DateTime.Now
+              printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+              return Ok (tip, (ident, (([||], [||], [||]))), "", "")
+             | None ->
+              let e = DateTime.Now
+              printfn "[Debug] documentation took %fms" (e-s).TotalMilliseconds
+              return Error "No tooltip information"
+          | _ ->
+            let e = DateTime.Now
+            printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+            return Error "No documentation information"
+      | _ ->
+      match symbol with
+      | None ->
+        let e = DateTime.Now
+        printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+        return Error "No documentation information"
+      | Some symbol ->
+        match DocumentationFormatter.getTooltipDetailsFromSymbolUse symbol with
+        | None ->
+          let e = DateTime.Now
+          printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+          return Error "No documentation information"
+        | Some (signature, footer, cn) ->
+            let e = DateTime.Now
+            printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+            return Ok (tip, signature, footer, cn)
+  }
+
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
     async {
         let s = DateTime.Now
