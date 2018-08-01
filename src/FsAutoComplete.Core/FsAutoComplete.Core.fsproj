@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net461</TargetFramework>
     <Prefer32Bit>false</Prefer32Bit>
+    <Platform>x64</Platform>
   </PropertyGroup>
 
   <ItemGroup>
