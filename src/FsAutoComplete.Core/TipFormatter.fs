@@ -9,7 +9,7 @@ open System.Xml
 open System.Text.RegularExpressions
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-module Section =
+module private Section =
 
     let inline nl<'T> = Environment.NewLine
 
@@ -44,7 +44,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     let nl = Environment.NewLine
     /// References used to detect if we should remove meaningless spaces
     let tabsOffset = String.replicate (columnOffset + indentationSize) " "
-    let readContent (node: XmlNode) =
+    let readContentForTooltip (node: XmlNode) =
         match node with
         | null -> null
         | _ ->
@@ -95,25 +95,30 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     let readChildren name (doc: XmlDocument) =
         doc.DocumentElement.GetElementsByTagName name
         |> Seq.cast<XmlNode>
-        |> Seq.map (fun node -> node.Attributes.[0].InnerText.Replace("T:",""), readContent node)
+        |> Seq.map (fun node -> node.Attributes.[0].InnerText.Replace("T:",""), node)
         |> Map.ofSeq
 
     let readRemarks (doc : XmlDocument) =
         doc.DocumentElement.GetElementsByTagName "remarks"
         |> Seq.cast<XmlNode>
-        |> Seq.map (fun node -> readContent node )
 
-    let summary = readContent doc.DocumentElement.ChildNodes.[0]
-    let pars = readChildren "param" doc
-    let remarks = readRemarks doc
-    let exceptions = readChildren "exception" doc
-    let typeParams = readChildren "typeparam" doc
-
-    let returns =
+    let rawSummary = doc.DocumentElement.ChildNodes.[0]
+    let rawPars = readChildren "param" doc
+    let rawRemarks = readRemarks doc
+    let rawExceptions = readChildren "exception" doc
+    let rawTypeParams = readChildren "typeparam" doc
+    let rawReturs =
         doc.DocumentElement.GetElementsByTagName "returns"
         |> Seq.cast<XmlNode>
         |> Seq.tryHead
-        |> Option.map (fun node -> readContent node)
+
+
+    let summary = readContentForTooltip rawSummary
+    let pars = rawPars |> Map.map (fun _ n -> readContentForTooltip n)
+    let remarks = rawRemarks |> Seq.map readContentForTooltip
+    let exceptions = rawExceptions |> Map.map (fun _ n -> readContentForTooltip n)
+    let typeParams = rawTypeParams |> Map.map (fun _ n -> readContentForTooltip n)
+    let returns = rawReturs |> Option.map readContentForTooltip
 
     override x.ToString() =
         summary + nl + nl +
@@ -123,6 +128,15 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
                 (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
 
     member __.ToEnhancedString() =
+        "**Description**" + nl + nl
+        + summary
+        + Section.fromList "" remarks
+        + Section.fromMap "Type parameters" typeParams
+        + Section.fromMap "Parameters" pars
+        + Section.fromOption "Returns" returns
+        + Section.fromMap "Exceptions" exceptions
+
+    member __.ToDocumentationString() =
         "**Description**" + nl + nl
         + summary
         + Section.fromList "" remarks
@@ -165,9 +179,9 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize : int) (acc: Map
   | _, None -> acc
   | indentationSize, Some acc' -> readXmlDoc reader indentationSize acc'
 
-let private getXmlDoc =
-  let xmlDocCache = Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
-  fun dllFile ->
+let private xmlDocCache = Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
+
+let private getXmlDoc dllFile =
     let xmlFile = Path.ChangeExtension(dllFile, ".xml")
     if xmlDocCache.ContainsKey xmlFile then
       Some xmlDocCache.[xmlFile]
@@ -220,6 +234,17 @@ let private buildFormatComment cmt (isEnhanced : bool) =
        | _ -> ""
     | _ -> ""
 
+let private buildFormatDocumentation cmt =
+    match cmt with
+    | FSharpXmlDoc.Text s -> s
+    | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
+       match getXmlDoc dllFile with
+       | Some doc when doc.ContainsKey memberName ->
+            doc.[memberName].ToDocumentationString()
+       | _ -> ""
+    | _ -> ""
+
+
 let private formatGenericParamInfo cmt =
   let m = Regex.Match(cmt, """(.*) is (.*)""")
   if m.Success then
@@ -237,7 +262,7 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
-let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) : (string * string * string) list list =
+let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string)  : (string * string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
@@ -252,6 +277,23 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
 
                 (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
+        | _ -> None)
+
+let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fields, functions)) : string * (string [] * string [] * string [])) (footer : string) (cn: string) =
+    tips
+    |> List.choose (function
+        | FSharpToolTipElement.Group items ->
+            Some (items |> List.map (fun i ->
+                let comment =
+                    if i.TypeMapping.IsEmpty then
+                      buildFormatComment i.XmlDoc true
+                    else
+                      buildFormatComment i.XmlDoc true
+                      + "\n\n**Generic parameters**\n\n"
+                      + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
+
+                (signature, constructors, fields, functions, comment, footer, cn)))
+        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", [||],[||], [||], error, "", "")]
         | _ -> None)
 
 let extractSignature (FSharpToolTipText tips) =

@@ -180,6 +180,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         | Some tyRes -> return! commands.Completion tyRes (mkPos data.Line data.Column) lineStr lines file (Some data.Filter) data.IncludeKeywords data.IncludeExternal
                 })
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes (mkPos data.Line data.Column) lineStr)
+            path "/documentation" >=> positionHandler (fun data tyRes lineStr _ -> commands.FormattedDocumentation tyRes (mkPos data.Line data.Column) lineStr)
             path "/signature" >=> positionHandler (fun data tyRes lineStr _ -> commands.Typesig tyRes (mkPos data.Line data.Column) lineStr)
             path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes (mkPos data.Line data.Column) lineStr)
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes (mkPos data.Line data.Column) lineStr)

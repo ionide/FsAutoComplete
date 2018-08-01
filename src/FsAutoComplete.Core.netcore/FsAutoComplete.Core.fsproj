@@ -16,6 +16,7 @@
     <Compile Include="..\FsAutoComplete.Core\Environment.fs" />
     <Compile Include="..\FsAutoComplete.Core\SignatureFormatter.fs" />
     <Compile Include="..\FsAutoComplete.Core\TipFormatter.fs" />
+    <Compile Include="..\FsAutoComplete.Core\DocumentationFormatter.fs" />
     <Compile Include="..\FsAutoComplete.Core\FileSystem.fs" />
     <Compile Include="..\FsAutoComplete.Core\Parser.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProjectCrackerTypes.fs" />
