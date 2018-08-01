@@ -7,6 +7,8 @@
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Platform>x64</Platform>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="JsonSerializer.fs" />

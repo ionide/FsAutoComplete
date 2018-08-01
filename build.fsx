@@ -50,6 +50,7 @@ Target "BuildRelease" (fun _ ->
   DotNetCli.Build (fun p ->
      { p with
          Project = "FsAutoComplete.sln"
+         Runtime = "win-x64"
          AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
 
   DotNetCli.Build (fun p ->
@@ -300,6 +301,7 @@ Target "LocalRelease" (fun _ ->
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
+           Runtime = "win-x64"
            Project = "src/FsAutoComplete" })
 
     CleanDirs [ "bin/release_netcore" ]
