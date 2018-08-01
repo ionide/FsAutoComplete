@@ -424,6 +424,11 @@ type Commands (serialize : Serializer) =
         |> x.SerializeResult Response.toolTip
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
+    member x.FormattedDocumentation (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+        tyRes.TryGetFormattedDocumentation pos lineStr
+        |> x.SerializeResult Response.formattedDocumentation
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
     member x.Typesig (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetToolTip pos lineStr
         |> x.SerializeResult Response.typeSig

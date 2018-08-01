@@ -139,6 +139,17 @@ module CommandResponse =
       Footer: string
     }
 
+  type DocumentationDescription =
+    {
+      XmlKey: string
+      Constructors: string list
+      Fields: string list
+      Functions: string list
+      Signature: string
+      Comment: string
+      Footer: string
+    }
+
   type OverloadParameter =
     {
       Name : string
@@ -569,7 +580,7 @@ module CommandResponse =
     | FindDeclarationResult.ExternalDeclaration extDecl ->
         let data = { Line = extDecl.Line; Column = extDecl.Column + 1; File = extDecl.File }
         serialize { Kind = "finddecl"; Data = data }
-    
+
   let findTypeDeclaration (serialize : Serializer) (range: Range.range) =
     let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
     serialize { Kind = "finddecl"; Data = data }
@@ -585,6 +596,10 @@ module CommandResponse =
   let toolTip (serialize : Serializer) (tip, signature, footer) =
     let data = TipFormatter.formatTipEnhanced tip signature footer |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
+
+  let formattedDocumentation (serialize : Serializer) (tip, signature, footer, cn) =
+    let data = TipFormatter.formatDocumentation tip signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
+    serialize { Kind = "formattedDocumentation"; Data = data }
 
   let typeSig (serialize : Serializer) (tip) =
     let data = TipFormatter.extractSignature tip
