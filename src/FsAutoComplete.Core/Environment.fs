@@ -74,7 +74,6 @@ module Environment =
       if Utils.runningOnMono then "xbuild" // mono <= 5.0
 #endif
       else
-        // older, pre VS2017 15.8 msbuild locations
         let legacyPaths =
             [ programFilesX86 </> @"\MSBuild\14.0\Bin"
               programFilesX86 </> @"\MSBuild\12.0\Bin"
@@ -82,7 +81,7 @@ module Environment =
               @"c:\Windows\Microsoft.NET\Framework\v4.0.30319"
               @"c:\Windows\Microsoft.NET\Framework\v4.0.30128"
               @"c:\Windows\Microsoft.NET\Framework\v3.5" ]
-        // newer, post VS2017 15.8 install locations
+        
         let sideBySidePaths =
           vsRoots
           |> List.map (fun root -> root </> "MSBuild" </> "15.0" </> "bin" )
