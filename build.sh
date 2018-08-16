@@ -10,6 +10,8 @@ OS=${OS:-"unknown"}
 if [[ "$OS" != "Windows_NT" ]]
 then
   FSIARGS="--fsiargs -d:MONO"
+  export FrameworkPathOverride
+  FrameworkPathOverride=$(dirname "$(which mono)")/../lib/mono/4.5/
 fi
 
 function run() {
