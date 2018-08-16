@@ -74,9 +74,19 @@ module Environment =
         if not (String.IsNullOrEmpty ev) then ev
         else findPath MSBuildPath "MSBuild.exe"
 
-  let private fsharpInstallationPath =
+  /// these are the single-instance installation paths on windows from FSharp versions < 4.5
+  let private legacyFSharpInstallationPaths =
     ["4.1"; "4.0"; "3.1"; "3.0"]
     |> List.map (fun v -> programFilesX86 </> @"\Microsoft SDKs\F#\" </> v </> @"\Framework\v4.0")
+
+  /// starting with F# 4.5 the binaries are installed in a side-by-side manner to a per-VS-edition folder
+  let private sideBySideFSharpInstallationPaths =
+    let skus = ["Community"; "Professional"; "Enterprise"]
+    let pattern sku = programFilesX86 </> "Microsoft Visual Studio" </> "2017" </> sku </> "Common7" </> "IDE" </> "CommonExtensions" </> "Microsoft" </> "FSharp"
+    skus |> List.map pattern
+
+  let private fsharpInstallationPath =
+    sideBySideFSharpInstallationPaths @ legacyFSharpInstallationPaths
     |> List.tryFind Directory.Exists
 
   let fsi =
