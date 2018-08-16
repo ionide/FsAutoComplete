@@ -54,6 +54,17 @@ module Environment =
       | Some file -> file
       | None -> tool
 
+  let private vsSkus = ["Community"; "Professional"; "Enterprise"]
+  let private vsVersions = ["2017"]
+  let cartesian a b =
+    [ for a' in a do
+        for b' in b do
+          yield a', b' ]
+
+  let private vsRoots =
+    cartesian vsVersions vsSkus 
+    |> List.map (fun (version, sku) -> programFilesX86 </> "Microsoft Visual Studio" </> version </> sku) 
+
   let msbuild =
 #if SCRIPT_REFS_FROM_MSBUILD
       if not(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) then
@@ -63,20 +74,36 @@ module Environment =
       if Utils.runningOnMono then "xbuild" // mono <= 5.0
 #endif
       else
+        let legacyPaths =
+            [ programFilesX86 </> @"\MSBuild\14.0\Bin"
+              programFilesX86 </> @"\MSBuild\12.0\Bin"
+              programFilesX86 </> @"\MSBuild\12.0\Bin\amd64"
+              @"c:\Windows\Microsoft.NET\Framework\v4.0.30319"
+              @"c:\Windows\Microsoft.NET\Framework\v4.0.30128"
+              @"c:\Windows\Microsoft.NET\Framework\v3.5" ]
+        
+        let sideBySidePaths =
+          vsRoots
+          |> List.map (fun root -> root </> "MSBuild" </> "15.0" </> "bin" )
         let MSBuildPath =
-            (programFilesX86 </> @"\MSBuild\14.0\Bin") + ";" +
-            (programFilesX86 </> @"\MSBuild\12.0\Bin") + ";" +
-            (programFilesX86 </> @"\MSBuild\12.0\Bin\amd64") + ";" +
-            @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\;" +
-            @"c:\Windows\Microsoft.NET\Framework\v4.0.30128\;" +
-            @"c:\Windows\Microsoft.NET\Framework\v3.5\"
+          sideBySidePaths @ legacyPaths
+          |> String.concat ";"
         let ev = Environment.GetEnvironmentVariable "MSBuild"
         if not (String.IsNullOrEmpty ev) then ev
         else findPath MSBuildPath "MSBuild.exe"
 
-  let private fsharpInstallationPath =
-    ["4.1"; "4.0"; "3.1"; "3.0"]
+  /// these are the single-instance installation paths on windows from FSharp versions < 4.5
+  let private legacyFSharpInstallationPaths =
+    ["10.1"; "4.1"; "4.0"; "3.1"; "3.0"]
     |> List.map (fun v -> programFilesX86 </> @"\Microsoft SDKs\F#\" </> v </> @"\Framework\v4.0")
+
+  /// starting with F# 4.5 the binaries are installed in a side-by-side manner to a per-VS-edition folder
+  let private sideBySideFSharpInstallationPaths =
+    let pattern root = root </> "Common7" </> "IDE" </> "CommonExtensions" </> "Microsoft" </> "FSharp"
+    vsRoots |> List.map pattern
+
+  let private fsharpInstallationPath =
+    sideBySideFSharpInstallationPaths @ legacyFSharpInstallationPaths
     |> List.tryFind Directory.Exists
 
   let fsi =
