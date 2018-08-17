@@ -66,7 +66,7 @@ module Environment =
     |> List.map (fun (version, sku) -> programFilesX86 </> "Microsoft Visual Studio" </> version </> sku) 
 
   let msbuild =
-      if Utils.runningOnMono then "msbuild" // we're way past 5.0 now, time to get updated
+      if Utils.runningOnMono || not Utils.isWindows then "msbuild" // we're way past 5.0 now, time to get updated
       else
         let legacyPaths =
             [ programFilesX86 </> @"\MSBuild\14.0\Bin"
