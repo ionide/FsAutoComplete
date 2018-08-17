@@ -66,13 +66,7 @@ module Environment =
     |> List.map (fun (version, sku) -> programFilesX86 </> "Microsoft Visual Studio" </> version </> sku) 
 
   let msbuild =
-#if SCRIPT_REFS_FROM_MSBUILD
-      if not(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) then
-        //well, depends on mono version, but like this is mono >= 5.2 (msbuild on mono 5.0 sort of works)
-        "msbuild"
-#else
-      if Utils.runningOnMono then "xbuild" // mono <= 5.0
-#endif
+      if Utils.runningOnMono then "msbuild" // we're way past 5.0 now, time to get updated
       else
         let legacyPaths =
             [ programFilesX86 </> @"\MSBuild\14.0\Bin"
@@ -107,13 +101,16 @@ module Environment =
     |> List.tryFind Directory.Exists
 
   let fsi =
-    if Utils.runningOnMono then "fsharpi"
+    // on netcore on non-windows we just deflect to fsharpi as usual
+    if Utils.runningOnMono || not Utils.isWindows then "fsharpi"
     else
+      // if running on windows, non-mono we can't yet send paths to the netcore version of fsi.exe so use the one from full-framework
       Option.getOrElse "" fsharpInstallationPath </> "fsi.exe"
 
   let fsc =
-    if Utils.runningOnMono then "fsharpc"
+    if Utils.runningOnMono || not Utils.isWindows then "fsharpc"
     else
+      // if running on windows, non-mono we can't yet send paths to the netcore version of fsc.exe so use the one from full-framework
       Option.getOrElse "" fsharpInstallationPath </> "fsc.exe"
 
   let fsharpCoreOpt =
