@@ -40,6 +40,56 @@ let isAScript fileName =
     let ext = Path.GetExtension fileName
     [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
 
+/// Determines if the current system is an Unix system.
+/// See http://www.mono-project.com/docs/faq/technical/#how-to-detect-the-execution-platform
+let isUnix =
+#if NETSTANDARD1_6
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+        System.Runtime.InteropServices.OSPlatform.Linux) ||
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+        System.Runtime.InteropServices.OSPlatform.OSX)
+#else
+    int System.Environment.OSVersion.Platform |> fun p -> (p = 4) || (p = 6) || (p = 128)
+#endif
+
+/// Determines if the current system is a MacOs system
+let isMacOS =
+#if NETSTANDARD1_6
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+        System.Runtime.InteropServices.OSPlatform.OSX)
+#else
+    (System.Environment.OSVersion.Platform = PlatformID.MacOSX) ||
+        // osascript is the AppleScript interpreter on OS X
+        File.Exists "/usr/bin/osascript"
+#endif
+
+/// Determines if the current system is a Linux system
+let isLinux =
+#if NETSTANDARD1_6
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+        System.Runtime.InteropServices.OSPlatform.Linux)
+#else
+    isUnix && not isMacOS
+#endif
+
+/// Determines if the current system is a Windows system
+let isWindows =
+#if NETSTANDARD1_6
+    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+        System.Runtime.InteropServices.OSPlatform.Windows)
+#else
+    match System.Environment.OSVersion.Platform with
+    | PlatformID.Win32NT | PlatformID.Win32S | PlatformID.Win32Windows | PlatformID.WinCE -> true
+    | _ -> false
+#endif
+
+let runningOnNetCore =
+#if NETSTANDARD1_6
+    true
+#else
+    false
+#endif
+
 let runningOnMono =
   try not << isNull <| Type.GetType "Mono.Runtime"
   with _ -> false
