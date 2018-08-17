@@ -54,7 +54,7 @@ module Environment =
       | Some file -> file
       | None -> tool
 
-  let private vsSkus = ["Community"; "Professional"; "Enterprise"]
+  let private vsSkus = ["Community"; "Professional"; "Enterprise"; "BuildTools"]
   let private vsVersions = ["2017"]
   let cartesian a b =
     [ for a' in a do
