@@ -8,10 +8,13 @@ let getProjectOptions notifyState (cache: ProjectCrackerDotnetSdk.ParsedProjectC
         Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
     else
         match projectFileName with
+        | NetCoreProjectJson when verbose -> ProjectCrackerProjectJson.load projectFileName
         | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
+        | NetCoreSdk when verbose -> ProjectCrackerDotnetSdk.loadVerboseSdk notifyState cache projectFileName
         | NetCoreSdk -> ProjectCrackerDotnetSdk.load notifyState cache projectFileName
 #if NO_PROJECTCRACKER
-        | Net45 -> ProjectCrackerDotnetSdk.loadVerboseSdk notifyState cache projectFileName
+        | Net45 when verbose -> ProjectCrackerDotnetSdk.loadVerboseSdk notifyState cache projectFileName
+        | Net45 -> ProjectCrackerDotnetSdk.load notifyState cache projectFileName
         | Unsupported -> Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
 #else
         | Net45 -> ProjectCrackerVerbose.load notifyState FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore projectFileName verbose
