@@ -50,12 +50,13 @@ group Build
   nuget FAKE
 
 group Test
-  framework: net461
+  framework: net461, netcoreapp2.0
   source https://nuget.org/api/v2
 
-  nuget NUnit
-  nuget NUnit.Runners
-
+  nuget nunit
+  nuget NUnit3TestAdapter
+  nuget Microsoft.NET.Test.Sdk
+    
 group IntegrationTests
   framework: net471
   source https://nuget.org/api/v2

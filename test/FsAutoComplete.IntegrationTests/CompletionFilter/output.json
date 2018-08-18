@@ -20,6 +20,7 @@
     ]
   }
 }
+[Debug] TryGetCompletions took 122.916000ms
 {
   "Kind": "helptext",
   "Data": {
@@ -68,6 +69,7 @@
     }
   ]
 }
+[Debug] TryGetCompletions took 1.137000ms
 {
   "Kind": "helptext",
   "Data": {
@@ -102,6 +104,7 @@
     }
   ]
 }
+[Debug] TryGetCompletions took 0.896000ms
 {
   "Kind": "helptext",
   "Data": {

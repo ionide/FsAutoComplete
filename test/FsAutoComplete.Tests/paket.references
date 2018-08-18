@@ -1,5 +1,4 @@
-FSharp.Compiler.Service
-
 group Test
-  NUnit
-  NUnit.Runners
+  nunit
+  NUnit3TestAdapter
+  Microsoft.NET.Test.Sdk
