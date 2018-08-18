@@ -299,7 +299,7 @@ Target "LocalRelease" (fun _ ->
     
     DotNetCli.Publish (fun p ->
        { p with
-           Output = __SOURCE_DIRECTORY__ </> "bin/release"
+           Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
            Framework = "netcoreapp2.0"
            Project = "src/FsAutoComplete"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
