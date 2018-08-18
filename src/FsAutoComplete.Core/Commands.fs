@@ -287,14 +287,7 @@ type Commands (serialize : Serializer) =
 
     member x.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
-
-        let project =
-            match state.Projects.TryFind projectFileName with
-            | Some prj -> prj
-            | None ->
-                let proj = new Project(projectFileName, onChange)
-                state.Projects.[projectFileName] <- proj
-                proj
+        let project = state.Projects.GetOrAdd(projectFileName, fun key -> new Project(key, onChange))
 
         let projResponse =
             match project.Response with
