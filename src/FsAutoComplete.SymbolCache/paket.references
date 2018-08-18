@@ -7,3 +7,6 @@ Microsoft.Data.Sqlite
 
 group Net
     Suave framework: net461
+
+group Netcore
+    Suave framework: netcoreapp2.0

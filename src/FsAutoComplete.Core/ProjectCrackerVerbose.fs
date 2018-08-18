@@ -3,6 +3,9 @@ namespace FsAutoComplete
 open System
 open System.IO
 
+#if NO_PROJECTCRACKER
+#else
+
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 module ProjectCrackerVerbose =
@@ -85,3 +88,5 @@ module ProjectCrackerVerbose =
       with e ->
         Error (GenericError(file, e.Message))
 
+
+#endif

@@ -1,7 +1,0 @@
-FSharp.Compiler.Service
-Argu
-Newtonsoft.Json
-FSharp.Core
-
-group Netcore
-    Suave framework: netcoreapp2.0

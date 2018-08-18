@@ -8,3 +8,5 @@ group Net
     Suave framework: net461
     FSharp.Compiler.Service.ProjectCracker
 
+group Netcore
+    Suave framework: netcoreapp2.0

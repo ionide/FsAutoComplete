@@ -2,21 +2,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
     <AssemblyName>fsautocomplete.symbolcache</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework) == 'net461'">
     <Prefer32Bit>false</Prefer32Bit>
     <Platform>x64</Platform>
   </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework) == 'netstandard2.0'">
+    <DefineConstants>SUAVE_2;$(DefineConstants)</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="FsAutoComplete.SymbolCache.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
   </ItemGroup>
+  
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
