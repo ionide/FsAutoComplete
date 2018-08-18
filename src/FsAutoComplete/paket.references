@@ -1,7 +1,10 @@
 System.ValueTuple
 FSharp.Compiler.Service
-FSharp.Compiler.Service.ProjectCracker
 Argu
 Newtonsoft.Json
-Suave
 FSharp.Core
+
+group Net
+    Suave framework: net461
+    FSharp.Compiler.Service.ProjectCracker
+

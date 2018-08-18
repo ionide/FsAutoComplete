@@ -1,9 +1,9 @@
-group Netcore
-
 FSharp.Compiler.Service
 Argu
 Newtonsoft.Json
-Suave
 FSharp.Core
 Dapper
 Microsoft.Data.Sqlite
+
+group Netcore
+    Suave framework: netcoreapp2.0
