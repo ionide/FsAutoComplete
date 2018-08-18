@@ -157,6 +157,9 @@ module Option =
 
 [<RequireQualifiedAccess>]
 module Async =
+    open System.Threading
+    open System.Threading.Tasks
+
     /// Transforms an Async value using the specified function.
     [<CompiledName("Map")>]
     let map (mapping : 'a -> 'b) (value : Async<'a>) : Async<'b> =
@@ -185,6 +188,22 @@ module Async =
           let ccont e = econt e
           // Start the workflow using a provided cancellation token
           Async.StartWithContinuations( work, cont, econt, ccont, cancellationToken=cancellationToken) )
+
+    /// Executes the given `Async<'a>` with the provided `CancellationToken` controlling cancellation
+    let withCancellation (ct:CancellationToken) (a:Async<'a>) : Async<'a> = async {
+      let! ct2 = Async.CancellationToken
+      use cts = CancellationTokenSource.CreateLinkedTokenSource (ct, ct2)
+      let tcs = new TaskCompletionSource<'a>()
+      use _reg = cts.Token.Register (fun () -> tcs.TrySetCanceled() |> ignore)
+      let a = async {
+        try
+          let! a = a
+          tcs.TrySetResult a |> ignore
+        with ex ->
+          tcs.TrySetException ex |> ignore }
+      Async.Start (a, cts.Token)
+      return! tcs.Task |> Async.AwaitTask
+    }
 
 // Maybe computation expression builder, copied from ExtCore library
 /// https://github.com/jack-pappas/ExtCore/blob/master/ExtCore/Control.fs
