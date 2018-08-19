@@ -40,7 +40,9 @@ let ``should find FSharp.Core`` () =
 [<Test>]
 let ``should find fsc on Windows`` () =
   if not Utils.runningOnMono then
-    Assert.That(Environment.fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
+    Assert.That(Option.isSome Environment.fsc, "should find fsc.exe")
+    let (Some fsc) = Environment.fsc
+    Assert.That(fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
 
 [<Test>]
 let ``should find msbuild on Windows`` () =

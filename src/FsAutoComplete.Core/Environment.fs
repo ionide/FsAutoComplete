@@ -45,9 +45,8 @@ module Environment =
       else None
 
   let private tryFindPath backupPaths tool =
-      let paths = Environment.GetEnvironmentVariable "PATH" + string Path.PathSeparator + backupPaths
-      let paths = paths.Split(Path.PathSeparator)
-      tryFindFile paths tool
+      let paths = Environment.GetEnvironmentVariable "PATH" |> String.split Path.PathSeparator
+      tryFindFile (paths @ backupPaths) tool
 
   let private findPath backupPaths tool =
       match tryFindPath backupPaths tool with
@@ -66,7 +65,7 @@ module Environment =
     |> List.map (fun (version, sku) -> programFilesX86 </> "Microsoft Visual Studio" </> version </> sku) 
 
   let msbuild =
-      if Utils.runningOnMono || not Utils.isWindows then "msbuild" // we're way past 5.0 now, time to get updated
+      if Utils.runningOnMono || not Utils.isWindows then Some "msbuild" // we're way past 5.0 now, time to get updated
       else
         let legacyPaths =
             [ programFilesX86 </> @"\MSBuild\14.0\Bin"
@@ -75,16 +74,14 @@ module Environment =
               @"c:\Windows\Microsoft.NET\Framework\v4.0.30319"
               @"c:\Windows\Microsoft.NET\Framework\v4.0.30128"
               @"c:\Windows\Microsoft.NET\Framework\v3.5" ]
-        
+
         let sideBySidePaths =
           vsRoots
           |> List.map (fun root -> root </> "MSBuild" </> "15.0" </> "bin" )
-        let MSBuildPath =
-          sideBySidePaths @ legacyPaths
-          |> String.concat ";"
+
         let ev = Environment.GetEnvironmentVariable "MSBuild"
-        if not (String.IsNullOrEmpty ev) then ev
-        else findPath MSBuildPath "MSBuild.exe"
+        if not (String.IsNullOrEmpty ev) then Some ev
+        else tryFindPath (sideBySidePaths @ legacyPaths) "MsBuild.exe"
 
   /// these are the single-instance installation paths on windows from FSharp versions < 4.5
   let private legacyFSharpInstallationPaths =
@@ -102,16 +99,16 @@ module Environment =
 
   let fsi =
     // on netcore on non-windows we just deflect to fsharpi as usual
-    if Utils.runningOnMono || not Utils.isWindows then "fsharpi"
+    if Utils.runningOnMono || not Utils.isWindows then Some "fsharpi"
     else
       // if running on windows, non-mono we can't yet send paths to the netcore version of fsi.exe so use the one from full-framework
-      Option.getOrElse "" fsharpInstallationPath </> "fsi.exe"
+      fsharpInstallationPath |> Option.map (fun root -> root </> "fsi.exe")
 
   let fsc =
-    if Utils.runningOnMono || not Utils.isWindows then "fsharpc"
+    if Utils.runningOnMono || not Utils.isWindows then Some "fsharpc"
     else
       // if running on windows, non-mono we can't yet send paths to the netcore version of fsc.exe so use the one from full-framework
-      Option.getOrElse "" fsharpInstallationPath </> "fsc.exe"
+      fsharpInstallationPath |> Option.map (fun root -> root </> "fsc.exe")
 
   let fsharpCoreOpt =
 #if SCRIPT_REFS_FROM_MSBUILD
