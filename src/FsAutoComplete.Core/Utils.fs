@@ -466,6 +466,7 @@ module String =
             Some()
         else None
 
+    let split (splitter: char) (s: string) = s.Split([| splitter |], StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
 
 
 type ConcurrentDictionary<'key, 'value> with

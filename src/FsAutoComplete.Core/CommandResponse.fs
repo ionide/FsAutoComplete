@@ -213,9 +213,9 @@ module CommandResponse =
 
   type CompilerLocationResponse =
     {
-      Fsc: string
-      Fsi: string
-      MSBuild: string
+      Fsc: string option
+      Fsi: string option
+      MSBuild: string option
     }
 
   type FSharpErrorInfo =
