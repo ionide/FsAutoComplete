@@ -370,7 +370,7 @@ Target "All" id
 "BuildDebug" ==> "All"
 "Test" ==> "All"
 
-"AssemblyInfo" ==> "LocalRelease"
+"BuildRelease" ==> "LocalRelease"
 "LocalRelease" ==> "ReleaseArchive"
 
 "AssemblyInfo"
