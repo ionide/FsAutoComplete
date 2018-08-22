@@ -43,7 +43,8 @@ Target "BuildDebug" (fun _ ->
   DotNetCli.Build (fun p ->
      { p with
          Configuration = "Debug"
-         Project = "FsAutoComplete.netcore.sln" })
+         Project = "FsAutoComplete.netcore.sln"
+         AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
 
 Target "BuildRelease" (fun _ ->
@@ -302,13 +303,15 @@ Target "LocalRelease" (fun _ ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
            Runtime = "win-x64"
-           Project = "src/FsAutoComplete" })
+           Project = "src/FsAutoComplete"
+           AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 
     CleanDirs [ "bin/release_netcore" ]
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
-           Project = "src/FsAutoComplete.netcore" })
+           Project = "src/FsAutoComplete.netcore"
+           AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
 
 #load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
