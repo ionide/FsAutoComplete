@@ -70,8 +70,7 @@ type State =
     lst
 
   static member private FileWithoutProjectOptions(file) =
-    let opts=
-        defaultArg (Environment.fsharpCoreOpt  |> Option.map (fun path -> [| yield sprintf "-r:%s" path; yield "--noframework" |] )) [|"--noframework"|]
+    let opts = [| yield sprintf "-r:%s" Environment.fsharpCore; yield "--noframework" |]
 
     { ProjectId = Some (file + ".fsproj")
       ProjectFileName = file + ".fsproj"

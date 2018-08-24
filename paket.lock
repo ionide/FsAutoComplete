@@ -7,7 +7,7 @@ NUGET
       FSharp.Core (>= 4.0.0.1)
     FParsec (1.0.3)
       FSharp.Core (>= 4.0.0.1)
-    FSharp.Core (4.5.1) - redirects: force
+    FSharp.Core (4.5.2) - redirects: force
     FSharpLint.Core (0.9.0-beta)
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 14.0.2)
