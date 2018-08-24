@@ -34,10 +34,6 @@ let ``normalCracking`` () =
      CollectionAssert.AreEqual (["Third"], idents, "idents")
 
 [<Test>]
-let ``should find FSharp.Core`` () =
-  Assert.That(Option.isSome Environment.fsharpCoreOpt, "FSharp.Core.dll resolution failed")
-
-[<Test>]
 let ``should find fsc on Windows`` () =
   if not Utils.runningOnMono then
     Assert.That(Option.isSome Environment.fsc, "should find fsc.exe")

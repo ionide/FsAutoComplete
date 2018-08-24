@@ -425,12 +425,7 @@ module FSharpCompilerServiceCheckerHelper =
   let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
 
   let ensureCorrectFSharpCore (options: string[]) =
-    [| match Environment.fsharpCoreOpt with
-       | Some path -> yield (sprintf "-r:%s" path)
-       | None ->
-          match options |> Array.tryFind isFSharpCore with
-          | Some ref -> yield ref
-          | None -> ()
+    [| yield sprintf "-r:%s" Environment.fsharpCore
        //ensure single FSharp.Core ref
        yield! options |> Array.filter (not << isFSharpCore) |]
 

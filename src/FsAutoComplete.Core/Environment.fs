@@ -110,23 +110,9 @@ module Environment =
       // if running on windows, non-mono we can't yet send paths to the netcore version of fsc.exe so use the one from full-framework
       fsharpInstallationPath |> Option.map (fun root -> root </> "fsc.exe")
 
-  let fsharpCoreOpt =
-#if SCRIPT_REFS_FROM_MSBUILD
-    if not(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) then
-      None
-#else
-    if Utils.runningOnMono then
-      let mscorlibDir = Path.GetDirectoryName typeof<obj>.Assembly.Location
-      if List.forall File.Exists (List.map (combinePaths mscorlibDir) ["FSharp.Core.dll"; "FSharp.Core.optdata"; "FSharp.Core.sigdata"]) then
-        Some (mscorlibDir </> "FSharp.Core.dll")
-      else
-        None
-#endif
-    else
-      let referenceAssembliesPath =
-        programFilesX86 </> @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\"
-      let fsharpCoreVersions = ["4.4.1.0"; "4.4.0.0"; "4.3.1.0"; "4.3.0.0"]
-      tryFindFile (List.map (combinePaths referenceAssembliesPath) fsharpCoreVersions) "FSharp.Core.dll"
+  let fsharpCore =
+    let dir = Path.GetDirectoryName <| System.Reflection.Assembly.GetExecutingAssembly().Location
+    dir </> "FSharp.Core.dll"
 
 #if SCRIPT_REFS_FROM_MSBUILD
 #else
