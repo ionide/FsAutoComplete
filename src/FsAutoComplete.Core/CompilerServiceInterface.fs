@@ -425,9 +425,17 @@ module FSharpCompilerServiceCheckerHelper =
   let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
 
   let ensureCorrectFSharpCore (options: string[]) =
-    [| yield sprintf "-r:%s" Environment.fsharpCore
-       //ensure single FSharp.Core ref
-       yield! options |> Array.filter (not << isFSharpCore) |]
+    let fsharpCores, others = Array.partition isFSharpCore options
+
+    // ensure that there is only one fsharpcore ref provided
+    let fsharpCoreRef =
+      match fsharpCores with
+      | [||] -> sprintf "-r:%s" Environment.fsharpCore
+      | [| ref |] -> ref
+      | refs -> Array.head refs
+
+    [| yield fsharpCoreRef
+       yield! others |]
 
 #if SCRIPT_REFS_FROM_MSBUILD
 #else
