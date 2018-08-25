@@ -49,13 +49,13 @@ type ParseAndCheckResults
     match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
     | None ->
       let e = DateTime.Now
-      printfn "[Debug] TryGetMethodOverrides took %fms" (e-s).TotalMilliseconds
+      //printfn "[Debug] TryGetMethodOverrides took %fms" (e-s).TotalMilliseconds
       return ResultOrString.Error "Could not find ident at this location"
     | Some identIsland ->
 
     let! meth = checkResults.GetMethods(line, col, lineStr, Some identIsland)
     let e = DateTime.Now
-    printfn "[Debug] TryGetMethodOverrides took %fms" (e-s).TotalMilliseconds
+    //printfn "[Debug] TryGetMethodOverrides took %fms" (e-s).TotalMilliseconds
     return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
@@ -69,15 +69,15 @@ type ParseAndCheckResults
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ ->
         let e = DateTime.Now
-        printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
         return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range ->
         let e = DateTime.Now
-        printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
         let e = DateTime.Now
-        printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
         return Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym)
                 |> Option.map (fun extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec))
                 |> Option.getOrElse (ResultOrString.Error "External declaration not resolved")
@@ -88,14 +88,14 @@ type ParseAndCheckResults
     match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None ->
       let e = DateTime.Now
-      printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
+      //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
       return Error "Cannot find ident at this location"
     | Some(col,identIsland) ->
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
       match symbol with
       | None ->
         let e = DateTime.Now
-        printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
         return Error "Cannot find symbol at this locaion"
       | Some sym ->
         let r =
@@ -110,11 +110,11 @@ type ParseAndCheckResults
         match r with
         | Some r when File.Exists r.FileName ->
           let e = DateTime.Now
-          printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
           return (Ok r)
         | _ ->
           let e = DateTime.Now
-          printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
           return Error "No type information for the symbol at this location"
 
   }
@@ -137,19 +137,19 @@ type ParseAndCheckResults
                |> function
                | Some tip ->
                 let e = DateTime.Now
-                printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
+                //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
                 Ok tip
                | None ->
                 let e = DateTime.Now
-                printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
+                //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
                 ResultOrString.Error "No tooltip information"
             | _ ->
               let e = DateTime.Now
-              printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
+              //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
               ResultOrString.Error "No tooltip information"
         | _ ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
           Ok(tip)
   }
 
@@ -172,31 +172,31 @@ type ParseAndCheckResults
              match keyword with
              | Some tip ->
               let e = DateTime.Now
-              printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
+              //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
               return Ok (tip, ident, "")
              | None ->
               let e = DateTime.Now
-              printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
+              //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
               return Error "No tooltip information"
           | _ ->
             let e = DateTime.Now
-            printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
+            //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
             return Error "No tooltip information"
       | _ ->
       match symbol with
       | None ->
         let e = DateTime.Now
-        printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
         return Error "No tooltip information"
       | Some symbol ->
         match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
         | None ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
           return Error "No tooltip information"
         | Some (signature, footer) ->
             let e = DateTime.Now
-            printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
+            //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
             return Ok (tip, signature, footer)
   }
 
@@ -219,31 +219,31 @@ type ParseAndCheckResults
              match keyword with
              | Some tip ->
               let e = DateTime.Now
-              printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+              //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
               return Ok (tip, (ident, (([||], [||], [||]))), "", "")
              | None ->
               let e = DateTime.Now
-              printfn "[Debug] documentation took %fms" (e-s).TotalMilliseconds
+              //printfn "[Debug] documentation took %fms" (e-s).TotalMilliseconds
               return Error "No tooltip information"
           | _ ->
             let e = DateTime.Now
-            printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+            //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
             return Error "No documentation information"
       | _ ->
       match symbol with
       | None ->
         let e = DateTime.Now
-        printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
         return Error "No documentation information"
       | Some symbol ->
         match DocumentationFormatter.getTooltipDetailsFromSymbolUse symbol with
         | None ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
           return Error "No documentation information"
         | Some (signature, footer, cn) ->
             let e = DateTime.Now
-            printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+            //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
             return Ok (tip, signature, footer, cn)
   }
 
@@ -253,7 +253,7 @@ type ParseAndCheckResults
         match Parsing.findLongIdents(pos.Column - 1, lineStr) with
         | None ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
@@ -261,13 +261,13 @@ type ParseAndCheckResults
         match symboluse with
         | None ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
 
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
         let e = DateTime.Now
-        printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
         return Ok (symboluse, symboluses) }
 
   member __.TryGetSignatureData (pos: pos) (lineStr: LineStr) =
@@ -276,7 +276,7 @@ type ParseAndCheckResults
         match Parsing.findLongIdents(pos.Column - 1, lineStr) with
         | None ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
@@ -284,7 +284,7 @@ type ParseAndCheckResults
         match symboluse with
         | None ->
           let e = DateTime.Now
-          printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
+          //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
           let fsym = symboluse.Symbol
@@ -294,7 +294,7 @@ type ParseAndCheckResults
             let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
             if symbol.IsPropertyGetterMethod then
                 let e = DateTime.Now
-                printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
+                //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
                 return Ok(typ, [])
             else
               let parms =
@@ -306,15 +306,15 @@ type ParseAndCheckResults
               match parms with
               | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) ->
                 let e = DateTime.Now
-                printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
+                //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
                 return Ok(typ, [ [ ("unit", "unit") ] ])
               | _ ->
                 let e = DateTime.Now
-                printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
+                //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
                 return Ok(typ, parms)
           | _ ->
             let e = DateTime.Now
-            printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
+            //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
             return (ResultOrString.Error "Not a member, function or value" )
     }
 
@@ -379,7 +379,7 @@ type ParseAndCheckResults
 
       let shouldKeywords = decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
       let e = DateTime.Now
-      printfn "[Debug] TryGetCompletions took %fms" (e-s).TotalMilliseconds
+      //printfn "[Debug] TryGetCompletions took %fms" (e-s).TotalMilliseconds
       return Some (decls, residue, shouldKeywords)
     with :? TimeoutException -> return None
   }
@@ -404,7 +404,7 @@ type ParseAndCheckResults
             yield! content
         ]
         let e = DateTime.Now
-        printfn "[Debug] GetAllEntities took %fms" (e-s).TotalMilliseconds
+        //printfn "[Debug] GetAllEntities took %fms" (e-s).TotalMilliseconds
         res
       with
       | _ -> []
