@@ -23,7 +23,7 @@ module ProjectCrackerVerbose =
 
         let po, logMap =
           let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
-
+          //printfn "from cracker: %A" p
           match p.SourceFiles, p.OtherOptions, logMap |> Map.isEmpty with
           | [| |], [| |], false ->
             //HACK project cracker has failed
@@ -37,7 +37,7 @@ module ProjectCrackerVerbose =
                 |> fun a -> String.Join(Environment.NewLine, a)
             failwithf "Failed parsing project file: %s" logs
           | _ -> ()
-
+          
           let opts =
             if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
               ensureCorrectFSharpCore p.OtherOptions
