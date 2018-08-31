@@ -96,7 +96,8 @@ Used in match expressions"""
             "<@", "Delimits a typed code quotation."
             "@>", "Delimits a typed code quotation."
             "<@@", "Delimits a untyped code quotation."
-            "@@>", "Delimits a untyped code quotation."]
+            "@@>", "Delimits a untyped code quotation."
+            "=", "Returns `true` if the left side is equal to the right side; otherwise, returns `false`. Also used in a let binding to associates an identifier with a value or function" ]
 
     let tryGetKeywordDescription (keyword: string) =
         keywordDescriptions |> Map.tryFind keyword

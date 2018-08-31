@@ -262,7 +262,7 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
-let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string)  : (string * string * string) list list =
+let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) : (string * string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
