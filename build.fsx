@@ -62,6 +62,8 @@ Target "BuildRelease" (fun _ ->
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
+  -- (integrationTestDir + "/DotNetCore*/*.*")
+  -- (integrationTestDir + "/DotNetSdk*/*.*")
 
 type Mode = HttpMode | StdioMode
 type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
@@ -210,12 +212,12 @@ let runall cfg =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
-    [ @".paket/load/net461/IntegrationTests/Http.fs.fsx"
-      @".paket/load/net461/IntegrationTests/System.Net.WebSockets.Client.fsx"
-      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
-      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
-      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
-      @".paket/load/net461/IntegrationTests/System.Security.Cryptography.Primitives.fsx" ]
+    [ @".paket/load/net471/IntegrationTests/Http.fs.fsx"
+      @".paket/load/net471/IntegrationTests/System.Net.WebSockets.Client.fsx"
+      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
+      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
+      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
+      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Primitives.fsx" ]
     |> List.iter applyPaketLoadScriptWorkaround
 
     trace "Running Integration tests..."
