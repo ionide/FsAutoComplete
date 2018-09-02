@@ -94,9 +94,11 @@ let sendSymbols (serializer: Serializer) fn (symbols: FSharpSymbolUse[]) =
         |> fun n -> {Filename = fn; Uses = n}
         |> serializer
 
-    makePostRequest ("http://localhost:" + (string port) + "/updateSymbols") request
-    |> Async.Ignore
-    |> Async.Start
+    try
+        makePostRequest ("http://localhost:" + (string port) + "/updateSymbols") request
+        |> Async.Ignore
+        |> Async.Start
+    with _ -> ()
     ()
 
 let getSymbols symbolName =
