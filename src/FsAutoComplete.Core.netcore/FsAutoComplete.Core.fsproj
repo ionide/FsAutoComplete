@@ -37,6 +37,7 @@
     <Compile Include="..\FsAutoComplete.Core\UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="..\FsAutoComplete.Core\RecordStubGenerator.fs" />
     <Compile Include="..\FsAutoComplete.Core\SymbolCache.fs" />
+    <Compile Include="..\FsAutoComplete.Analyzers\AnalyzerSDK.fs" />
     <Compile Include="..\FsAutoComplete.Core\Commands.fs" />
   </ItemGroup>
 
