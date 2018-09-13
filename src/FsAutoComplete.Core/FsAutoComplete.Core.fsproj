@@ -33,13 +33,14 @@
     <Compile Include="WorkspacePeek.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
+    <Compile Include="..\FsAutoComplete.Analyzers\AnalyzerSDK.fs" />
+    <Compile Include="Analyzers.fs" />
     <Compile Include="State.fs" />
     <Compile Include="Workspace.fs" />
     <Compile Include="CodeGeneration.fs" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="RecordStubGenerator.fs" />
     <Compile Include="SymbolCache.fs" />
-    <Compile Include="..\FsAutoComplete.Analyzers\AnalyzerSDK.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
 
