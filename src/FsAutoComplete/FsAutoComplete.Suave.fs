@@ -144,6 +144,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 WebSocket.handShake (echo (notificationFor (function NotificationEvent.ParseError n -> Some n | _ -> None)))
             path "/notifyWorkspace" >=>
                 WebSocket.handShake (echo (notificationFor (function NotificationEvent.Workspace n -> Some n | _ -> None)))
+            path "/notifyAnalyzer" >=>
+                WebSocket.handShake (echo (notificationFor (function NotificationEvent.AnalyzerMessage n -> Some n | _ -> None)))
             path "/parse" >=> handler (fun (data : ParseRequest) -> async {
                 let! res = commands.Parse data.FileName data.Lines data.Version
                 //Hack for tests
@@ -219,6 +221,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 with _ -> ()
                 let res = [ CommandResponse.info writeJson "Background symbol cache started"] |> List.toArray |> Json.toJson
                 Response.response HttpCode.HTTP_200 res httpCtx
+            path "/registerAnalyzer" >=> handler (fun (data : FileRequest) -> commands.LoadAnalyzers data.FileName)
             path "/quit" >=> handler (fun (_data: QuitRequest) ->
                 async {
                     cts.CancelAfter(System.TimeSpan.FromSeconds(1.0))

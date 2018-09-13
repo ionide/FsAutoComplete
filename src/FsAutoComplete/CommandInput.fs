@@ -36,6 +36,7 @@ type Command =
   | CompilerLocation
   | WorkspacePeek of string * int * string[]
   | WorkspaceLoad of string[]
+  | RegisterAnalyzer of string
   | Started
   | Quit
 
@@ -80,6 +81,13 @@ module CommandInput =
       let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
       return Lint(filename) }
+
+  let registerAnalyzer = parser {
+    let! _ = string "analyzer "
+    let! _ = char '"'
+    let! filename = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+    let! _ = char '"'
+    return RegisterAnalyzer(filename) }
 
   let unusedDeclarations = parser {
       let! _ = string "unusedDeclarations "
@@ -212,7 +220,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

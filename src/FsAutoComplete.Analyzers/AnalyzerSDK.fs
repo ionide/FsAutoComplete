@@ -12,7 +12,7 @@ type Context =
     { FileName: string
       Content: string[]
       ParseTree: ParsedInput
-      AbstractSyntaxTree: FSharpImplementationFileContents
+      TypedTree: FSharpImplementationFileContents
       Symbols: FSharpEntity list }
 
 type Fix =

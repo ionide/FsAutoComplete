@@ -17,6 +17,7 @@ module Response = CommandResponse
 type NotificationEvent =
     | ParseError of string
     | Workspace of string
+    | AnalyzerMessage of string
 
 type Commands (serialize : Serializer) =
 
@@ -83,6 +84,29 @@ type Commands (serialize : Serializer) =
             | _ -> ()
         }
         |> if notifyErrorsInBackground then Async.Start else ignore
+
+        async {
+            try
+                let analyzers = state.Analyzers.Values |> Seq.collect id
+                if analyzers |> Seq.length > 0 then
+                    match parse.ParseTree, check.ImplementationFile with
+                    | Some pt, Some tast ->
+                        let context : AnalyzerSDK.Context = {
+                            FileName = file
+                            Content = state.Files.[file].Lines
+                            ParseTree = pt
+                            TypedTree = tast
+                            Symbols = check.PartialAssemblySignature.Entities |> Seq.toList
+                        }
+                        let result = analyzers |> Seq.collect (fun n -> n context)
+                        Response.analyzer serialize (result, file)
+                        |> NotificationEvent.AnalyzerMessage
+                        |> notify.Trigger
+                    | _ -> ()
+
+            with
+            | _ -> ()
+        } |> Async.Start
 
         updateSymbolUsesCache file check
         |> if useSymbolCache then Async.Start else ignore
@@ -820,6 +844,11 @@ type Commands (serialize : Serializer) =
             printfn "[Symbol Cache] Building background cache took %fms" (finish-start).TotalMilliseconds
         }
 
+    member __.LoadAnalyzers (path: string) = async {
+        let analyzers = Analyzers.loadAnalyzers path
+        state.Analyzers.AddOrUpdate(path, (fun _ -> analyzers), (fun _ _ -> analyzers)) |> ignore
+        return [Response.info serialize (sprintf "%d Analyzers registered" analyzers.Length) ]
+    }
 
     member x.EnableSymbolCache () =
         x.UseSymbolCache <- true

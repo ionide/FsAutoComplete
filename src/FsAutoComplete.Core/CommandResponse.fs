@@ -396,6 +396,16 @@ module CommandResponse =
     Errors: FSharpErrorInfo []
   }
 
+  type AnalyzerMsg =
+    { Type: string
+      Message: string
+      Code: string
+      Severity: string
+      Fixes: AnalyzerSDK.Fix list }
+  type AnalyzerResponse =
+    { File: string
+      Messages: AnalyzerMsg list}
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -685,4 +695,21 @@ module CommandResponse =
 
   let compile (serialize : Serializer) (errors,code) =
     serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
+
+  let analyzer (serialize: Serializer) (messages: AnalyzerSDK.Message seq, file: string) =
+    let r =
+      messages |> Seq.map (fun m ->
+        let s =
+          match m.Severity with
+          | AnalyzerSDK.Info -> "info"
+          | AnalyzerSDK.Warning -> "warning"
+          | AnalyzerSDK.Error -> "error"
+        { Code = m.Code
+          Fixes = m.Fixes
+          Message = m.Message
+          Severity = s
+          Type = m.Type
+        })
+      |> Seq.toList
+    serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
 
