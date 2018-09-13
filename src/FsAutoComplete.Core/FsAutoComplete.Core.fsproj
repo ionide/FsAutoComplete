@@ -31,7 +31,6 @@
     <Compile Include="Decompiler.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="WorkspacePeek.fs" />
-    <Compile Include="..\FsAutoComplete.Analyzers\AnalyzerSDK.fs" />
     <Compile Include="Analyzers.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
@@ -46,6 +45,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.Analyzers\FsAutoComplete.Analyzers.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 

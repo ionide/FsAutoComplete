@@ -5,11 +5,11 @@ open System.IO
 open System.Reflection
 open AnalyzerSDK
 
-let attributeName = "AnalyzerSDK.AnalyzerAttribute"
+let attributeName = "AnalyzerAttribute"
 
 let isAnalyzer (mi: MemberInfo) =
     mi.GetCustomAttributes true
-    |> Seq.exists (fun n -> n.GetType().FullName = attributeName)
+    |> Seq.exists (fun n -> n.GetType().Name = attributeName)
 
 let analyzerFromMember (mi: MemberInfo) : Analyzer option =
     let inline unboxAnalyzer v =
@@ -22,7 +22,18 @@ let analyzerFromMember (mi: MemberInfo) : Analyzer option =
         if m.FieldType = typeof<Analyzer> then Some(m.GetValue(null) |> unboxAnalyzer)
         else None
       | :? MethodInfo as m ->
-        if m.ReturnType = typeof<Analyzer> then Some(m.Invoke(null, null) |> unboxAnalyzer)
+        if m.ReturnType = typeof<Analyzer>
+          then Some(m.Invoke(null, null) |> unboxAnalyzer)
+        elif m.ReturnType.FullName.StartsWith "Microsoft.FSharp.Collections.FSharpList`1[[AnalyzerSDK+Message" then
+          try
+            let x : Analyzer = fun ctx ->
+              try
+                m.Invoke(null, [|ctx|]) |> unbox
+              with
+              | ex -> []
+            Some x
+          with
+          | ex -> None
         else None
       | :? PropertyInfo as m ->
         if m.PropertyType = typeof<Analyzer> then Some(m.GetValue(null, null) |> unboxAnalyzer)
@@ -34,10 +45,12 @@ let analyzersFromType (t: Type) =
     let asMembers x = Seq.map (fun m -> m :> MemberInfo) x
     let bindingFlags = BindingFlags.Public ||| BindingFlags.Static
 
-    [ t.GetTypeInfo().GetMethods bindingFlags |> asMembers
-      t.GetTypeInfo().GetProperties bindingFlags |> asMembers
-      t.GetTypeInfo().GetFields bindingFlags |> asMembers ]
-    |> Seq.collect id
+    let members =
+      [ t.GetTypeInfo().GetMethods bindingFlags |> asMembers
+        t.GetTypeInfo().GetProperties bindingFlags |> asMembers
+        t.GetTypeInfo().GetFields bindingFlags |> asMembers ]
+      |> Seq.collect id
+    members
     |> Seq.choose analyzerFromMember
     |> Seq.toList
 

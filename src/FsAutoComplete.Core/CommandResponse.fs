@@ -401,6 +401,7 @@ module CommandResponse =
       Message: string
       Code: string
       Severity: string
+      Range: Range.range
       Fixes: AnalyzerSDK.Fix list }
   type AnalyzerResponse =
     { File: string
@@ -708,6 +709,7 @@ module CommandResponse =
           Fixes = m.Fixes
           Message = m.Message
           Severity = s
+          Range = m.Range
           Type = m.Type
         })
       |> Seq.toList
