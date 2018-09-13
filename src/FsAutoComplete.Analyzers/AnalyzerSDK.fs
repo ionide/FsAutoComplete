@@ -1,6 +1,7 @@
 module AnalyzerSDK
 
 open System
+open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.Ast
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
@@ -16,7 +17,7 @@ type Context =
       Symbols: FSharpEntity list }
 
 type Fix =
-    { FromRange : Range
+    { FromRange : Range.range
       FromText : string
       ToText : string }
 
@@ -30,6 +31,7 @@ type Message =
       Message: string
       Code: string
       Severity: Severity
+      Range: Range.range
       Fixes: Fix list }
 
 type Analyzer = Context -> Message list
