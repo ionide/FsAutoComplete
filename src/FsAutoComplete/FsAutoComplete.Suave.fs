@@ -221,7 +221,16 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 with _ -> ()
                 let res = [ CommandResponse.info writeJson "Background symbol cache started"] |> List.toArray |> Json.toJson
                 Response.response HttpCode.HTTP_200 res httpCtx
-            path "/registerAnalyzer" >=> handler (fun (data : FileRequest) -> commands.LoadAnalyzers data.FileName)
+            path "/registerAnalyzer" >=> handler (fun (data : FileRequest) ->
+                try
+                    commands.LoadAnalyzers data.FileName
+                with
+                | ex ->
+                    printfn "EXCEPTION: %A" ex.Message
+                    printfn "EXCEPTION: %A" ex.StackTrace
+                    printfn "EXCEPTION: %A" ex.Source
+                    reraise ()
+                )
             path "/quit" >=> handler (fun (_data: QuitRequest) ->
                 async {
                     cts.CancelAfter(System.TimeSpan.FromSeconds(1.0))
