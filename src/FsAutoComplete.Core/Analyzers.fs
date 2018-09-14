@@ -24,7 +24,7 @@ let analyzerFromMember (mi: MemberInfo) : Analyzer option =
       | :? MethodInfo as m ->
         if m.ReturnType = typeof<Analyzer>
           then Some(m.Invoke(null, null) |> unboxAnalyzer)
-        elif m.ReturnType.FullName.StartsWith "Microsoft.FSharp.Collections.FSharpList`1[[AnalyzerSDK+Message" then
+        elif m.ReturnType.FullName.StartsWith "Microsoft.FSharp.Collections.FSharpList`1[[FSharp.Analyzers.SDK.Message" then
           try
             let x : Analyzer = fun ctx ->
               try
@@ -57,9 +57,8 @@ let analyzersFromType (t: Type) =
 let loadAnalyzers (dir: FilePath): Analyzer list =
     if Directory.Exists dir then
       let dlls =
-          Directory.GetFiles(dir, "*.dll", SearchOption.AllDirectories)
+          Directory.GetFiles(dir, "*Analyzer*.dll", SearchOption.AllDirectories)
           |> Array.choose (fun n ->
-            printfn "Analyzer loading - %s" n
             try
               Some (Assembly.LoadFile n)
             with
