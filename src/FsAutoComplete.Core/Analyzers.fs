@@ -55,10 +55,18 @@ let analyzersFromType (t: Type) =
     |> Seq.toList
 
 let loadAnalyzers (dir: FilePath): Analyzer list =
-    let dlls =
-        Directory.GetFiles(dir, "*.dll", SearchOption.AllDirectories)
-        |> Array.map (Assembly.LoadFile)
-    dlls
-    |> Array.collect (fun a -> a.GetExportedTypes())
-    |> Seq.collect (analyzersFromType)
-    |> Seq.toList
+    if Directory.Exists dir then
+      let dlls =
+          Directory.GetFiles(dir, "*.dll", SearchOption.AllDirectories)
+          |> Array.choose (fun n ->
+            printfn "Analyzer loading - %s" n
+            try
+              Some (Assembly.LoadFile n)
+            with
+            | _ -> None)
+      dlls
+      |> Array.collect (fun a -> a.GetExportedTypes())
+      |> Seq.collect (analyzersFromType)
+      |> Seq.toList
+    else
+      []
