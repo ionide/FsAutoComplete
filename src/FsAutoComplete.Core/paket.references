@@ -6,3 +6,4 @@ Dotnet.ProjInfo
 Newtonsoft.Json
 OptimizedPriorityQueue
 ICSharpCode.Decompiler
+FSharp.Analyzers.SDK

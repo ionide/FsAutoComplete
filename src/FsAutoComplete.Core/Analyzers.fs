@@ -3,7 +3,7 @@ module FsAutoComplete.Analyzers
 open System
 open System.IO
 open System.Reflection
-open AnalyzerSDK
+open FSharp.Analyzers.SDK
 
 let attributeName = "AnalyzerAttribute"
 
@@ -54,7 +54,7 @@ let analyzersFromType (t: Type) =
     |> Seq.choose analyzerFromMember
     |> Seq.toList
 
-let loadAnalyzers (dir: FilePath): AnalyzerSDK.Analyzer list =
+let loadAnalyzers (dir: FilePath): Analyzer list =
     let dlls =
         Directory.GetFiles(dir, "*.dll", SearchOption.AllDirectories)
         |> Array.map (Assembly.LoadFile)

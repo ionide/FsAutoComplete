@@ -43,7 +43,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper.netcore\FsAutoComplete.Core.VerboseSdkHelper.fsproj" />
-    <ProjectReference Include="..\FsAutoComplete.Analyzers\FsAutoComplete.Analyzers.fsproj" />
   </ItemGroup>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />

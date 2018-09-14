@@ -10,6 +10,7 @@ open System.Threading
 open Utils
 open System.Reflection
 open Microsoft.FSharp.Compiler.Range
+open FSharp.Analyzers
 
 module Response = CommandResponse
 
@@ -91,7 +92,7 @@ type Commands (serialize : Serializer) =
                 if analyzers |> Seq.length > 0 then
                     match parse.ParseTree, check.ImplementationFile with
                     | Some pt, Some tast ->
-                        let context : AnalyzerSDK.Context = {
+                        let context : SDK.Context = {
                             FileName = file
                             Content = state.Files.[file].Lines
                             ParseTree = pt

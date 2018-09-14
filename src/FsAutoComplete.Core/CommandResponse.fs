@@ -6,6 +6,7 @@ open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open System.Text.RegularExpressions
+open FSharp.Analyzers
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -402,7 +403,7 @@ module CommandResponse =
       Code: string
       Severity: string
       Range: Range.range
-      Fixes: AnalyzerSDK.Fix list }
+      Fixes: SDK.Fix list }
   type AnalyzerResponse =
     { File: string
       Messages: AnalyzerMsg list}
@@ -697,14 +698,14 @@ module CommandResponse =
   let compile (serialize : Serializer) (errors,code) =
     serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
 
-  let analyzer (serialize: Serializer) (messages: AnalyzerSDK.Message seq, file: string) =
+  let analyzer (serialize: Serializer) (messages: SDK.Message seq, file: string) =
     let r =
       messages |> Seq.map (fun m ->
         let s =
           match m.Severity with
-          | AnalyzerSDK.Info -> "info"
-          | AnalyzerSDK.Warning -> "warning"
-          | AnalyzerSDK.Error -> "error"
+          | SDK.Info -> "info"
+          | SDK.Warning -> "warning"
+          | SDK.Error -> "error"
         { Code = m.Code
           Fixes = m.Fixes
           Message = m.Message

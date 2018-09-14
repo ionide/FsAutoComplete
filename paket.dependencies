@@ -17,6 +17,8 @@ nuget System.ValueTuple redirects:force // workaround for older version of net f
 nuget Dapper
 nuget Microsoft.Data.Sqlite
 
+nuget FSharp.Analyzers.SDK
+
 group Netcore
   storage: none
   source https://www.nuget.org/api/v2/
@@ -36,6 +38,8 @@ group Netcore
   nuget Dapper
   nuget Microsoft.Data.Sqlite
   nuget ICSharpCode.Decompiler
+
+  nuget FSharp.Analyzers.SDK
 
 group Build
   framework: net45
