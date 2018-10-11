@@ -57,8 +57,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, mkPos data.Line data.Column ) with
                 | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
                 | ResultOrString.Ok (options, lines, lineStr) ->
-                  // TODO: Should sometimes pass options.Source in here to force a reparse
-                  //       for completions e.g. `(some typed expr).$`
                   try
                     let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                     match tyResOpt with
@@ -176,9 +174,9 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     if not ok then
                         return [CommandResponse.error writeJson "Position is out of range"]
                     else
-
+                        let c = lineStr.[col - 2]
                         let! tyResOpt =
-                            if lineStr.TrimEnd().EndsWith "." then
+                            if c = '.' then
                                 let f = String.concat "\n" lines
                                 if commands.LastVersionChecked >= data.Version then
                                     commands.CheckFileInProject(file, data.Version, f, options)
