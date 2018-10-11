@@ -99,7 +99,7 @@ type Commands (serialize : Serializer) =
                             Content = state.Files.[file].Lines
                             ParseTree = pt
                             TypedTree = tast
-                            Symbols = check.PartialAssemblySignature.Entities |> Seq.toList
+                            Symbols = parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList
                         }
                         let result = analyzers |> Seq.collect (fun n -> n context)
                         Response.analyzer serialize (result, file)
