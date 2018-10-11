@@ -176,12 +176,19 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     if not ok then
                         return [CommandResponse.error writeJson "Position is out of range"]
                     else
+
                         let! tyResOpt =
                             if lineStr.TrimEnd().EndsWith "." then
                                 let f = String.concat "\n" lines
-                                commands.CheckFileInProject(file, data.Version, f, options)
+                                if commands.LastVersionChecked >= data.Version then
+                                    commands.CheckFileInProject(file, data.Version, f, options)
+                                else
+                                    commands.FileChecked
+                                    |> Event.filter (fun (_, name, version) -> name = file && version = data.Version)
+                                    |> Event.map (fun (prc, _, _) -> Some prc)
+                                    |> Async.AwaitEvent
                             else
-                                commands.TryGetRecentTypeCheckResultsForFile(file, options) |> Async.result
+                                commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
                         | Some tyRes -> return! commands.Completion tyRes (mkPos data.Line data.Column) lineStr lines file (Some data.Filter) data.IncludeKeywords data.IncludeExternal

@@ -26,10 +26,11 @@ type Commands (serialize : Serializer) =
     let state = State.Initial
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
-    let fileChecked = Event<FSharpParseFileResults * FSharpCheckFileResults * string>()
+    let fileChecked = Event<ParseAndCheckResults * string * int>()
     let fileInProjectChecked = Event<SourceFilePath>()
     let mutable notifyErrorsInBackground = true
     let mutable useSymbolCache = false
+    let mutable lastVersionChecked = -1
 
     let notify = Event<NotificationEvent>()
 
@@ -65,17 +66,18 @@ type Commands (serialize : Serializer) =
             try
                 let opts = state.FileCheckOptions.[n]
                 let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                fileChecked.Trigger (res.GetParseResults, res.GetCheckResults, res.FileName)
+                fileChecked.Trigger (res, res.FileName, -1)
             with
             | _ -> ()
         } |> Async.Start
     )
 
-    do fileChecked.Publish.Add (fun (parse, check, file) ->
+    do fileChecked.Publish.Add (fun (parseAndCheck, file, version) ->
         async {
             try
-                let checkErrors = parse.Errors
-                let parseErrors = check.Errors
+
+                let checkErrors = parseAndCheck.GetParseResults.Errors
+                let parseErrors = parseAndCheck.GetCheckResults.Errors
                 let errors = Array.append checkErrors parseErrors
 
                 Response.errors serialize (errors, file)
@@ -90,7 +92,7 @@ type Commands (serialize : Serializer) =
             try
                 let analyzers = state.Analyzers.Values |> Seq.collect id
                 if analyzers |> Seq.length > 0 then
-                    match parse.ParseTree, check.ImplementationFile with
+                    match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                     | Some pt, Some tast ->
                         let context : SDK.Context = {
                             FileName = file
@@ -109,7 +111,7 @@ type Commands (serialize : Serializer) =
             | _ -> ()
         } |> Async.Start
 
-        updateSymbolUsesCache file check
+        updateSymbolUsesCache file parseAndCheck.GetCheckResults
         |> if useSymbolCache then Async.Start else ignore
     )
 
@@ -192,6 +194,8 @@ type Commands (serialize : Serializer) =
 
     member __.Notify = notify.Publish
 
+    member __.FileChecked = fileChecked.Publish
+
     member __.NotifyErrorsInBackground
         with get() = notifyErrorsInBackground
         and set(value) = notifyErrorsInBackground <- value
@@ -199,6 +203,9 @@ type Commands (serialize : Serializer) =
     member __.UseSymbolCache
         with get() = useSymbolCache
         and set(value) = useSymbolCache <- value
+
+    member __.LastVersionChecked
+        with get() = lastVersionChecked
 
     member private x.SerializeResultAsync (successToString: Serializer -> 'a -> Async<string>, ?failureToString: Serializer -> string -> string) =
         Async.bind <| function
@@ -239,18 +246,18 @@ type Commands (serialize : Serializer) =
                     return
                         match result with
                         | ResultOrString.Error e -> [Response.error serialize e]
-                        | ResultOrString.Ok (parseResult, checkResults) ->
+                        | ResultOrString.Ok (parseAndCheck) ->
+                            let parseResult = parseAndCheck.GetParseResults
+                            let results = parseAndCheck.GetCheckResults
                             do fileParsed.Trigger parseResult
                             do fileInProjectChecked.Trigger file
-                            match checkResults with
-                            | FSharpCheckFileAnswer.Aborted -> [Response.info serialize "Parse aborted"]
-                            | FSharpCheckFileAnswer.Succeeded results ->
-                                do fileChecked.Trigger (parseResult, results, fileName)
-                                let errors = Array.append results.Errors parseResult.Errors
-                                if colorizations then
-                                    [ Response.errors serialize (errors, fileName)
-                                      Response.colorizations serialize (results.GetSemanticClassification None) ]
-                                else [ Response.errors serialize (errors, fileName) ]
+                            do lastVersionChecked <- version
+                            do fileChecked.Trigger (parseAndCheck, fileName, version)
+                            let errors = Array.append results.Errors parseResult.Errors
+                            if colorizations then
+                                [   Response.errors serialize (errors, fileName)
+                                    Response.colorizations serialize (results.GetSemanticClassification None) ]
+                            else [ Response.errors serialize (errors, fileName) ]
                 }
             let text = String.concat "\n" lines
 

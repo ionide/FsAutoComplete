@@ -563,7 +563,11 @@ type FSharpCompilerServiceChecker() =
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
       return
           match res with
-          | Choice1Of2 x -> Ok x
+          | Choice1Of2 (p,c)->
+            match c with
+            | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error "Check aborted"
+            | FSharpCheckFileAnswer.Succeeded(c) ->
+              Ok (ParseAndCheckResults(p,c, entityCache))
           | Choice2Of2 e -> ResultOrString.Error e.Message
     }
 
