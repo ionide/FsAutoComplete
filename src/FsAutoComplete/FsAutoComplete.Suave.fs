@@ -270,7 +270,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
             Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
         )
-        |> Async.RunSynchronously
 #else
         serverConfig.logger.Log Logging.LogLevel.Info (fun () ->
             Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore

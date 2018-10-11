@@ -4,7 +4,7 @@ source https://www.nuget.org/api/v2/
 nuget Argu ~> 3.7
 nuget FSharp.Compiler.Service ~> 25.0
 nuget FSharp.Compiler.Service.ProjectCracker ~> 25.0
-nuget Dotnet.ProjInfo ~> 0.9.0
+nuget Dotnet.ProjInfo ~> 0.11.0
 nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
@@ -26,7 +26,7 @@ group Netcore
   github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
   nuget Argu ~> 3.7
-  nuget Dotnet.ProjInfo ~> 0.9.0
+  nuget Dotnet.ProjInfo ~> 0.11.0
   nuget Sln ~> 0.3.0
   nuget Mono.Cecil
   nuget Newtonsoft.Json
