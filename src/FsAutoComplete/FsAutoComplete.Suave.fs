@@ -57,8 +57,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, mkPos data.Line data.Column ) with
                 | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
                 | ResultOrString.Ok (options, lines, lineStr) ->
-                  // TODO: Should sometimes pass options.Source in here to force a reparse
-                  //       for completions e.g. `(some typed expr).$`
                   try
                     let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                     match tyResOpt with
@@ -176,7 +174,19 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     if not ok then
                         return [CommandResponse.error writeJson "Position is out of range"]
                     else
-                        let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                        let c = lineStr.[col - 2]
+                        let! tyResOpt =
+                            if c = '.' then
+                                let f = String.concat "\n" lines
+                                if commands.LastVersionChecked >= data.Version then
+                                    commands.CheckFileInProject(file, data.Version, f, options)
+                                else
+                                    commands.FileChecked
+                                    |> Event.filter (fun (_, name, version) -> name = file && version = data.Version)
+                                    |> Event.map (fun (prc, _, _) -> Some prc)
+                                    |> Async.AwaitEvent
+                            else
+                                commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
                         match tyResOpt with
                         | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
                         | Some tyRes -> return! commands.Completion tyRes (mkPos data.Line data.Column) lineStr lines file (Some data.Filter) data.IncludeKeywords data.IncludeExternal
