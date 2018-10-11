@@ -567,6 +567,19 @@ type FSharpCompilerServiceChecker() =
           | Choice2Of2 e -> ResultOrString.Error e.Message
     }
 
+  member __.ParseAndCheckFileInProject'(filePath, version, source, options) =
+    async {
+      let fixedFilePath = fixFileName filePath
+      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
+      return
+          match res with
+          | Choice1Of2 (pr,cr) ->
+            match cr with
+            | FSharpCheckFileAnswer.Aborted -> None
+            | FSharpCheckFileAnswer.Succeeded cr -> Some  (ParseAndCheckResults (pr, cr, entityCache))
+          | Choice2Of2 e -> None
+    }
+
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))

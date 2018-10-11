@@ -221,6 +221,9 @@ type Commands (serialize : Serializer) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
 
     member x.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
+
+    member x.CheckFileInProject = checker.ParseAndCheckFileInProject'
+
     member x.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
     member x.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member x.Files = state.Files
