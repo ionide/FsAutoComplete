@@ -21,6 +21,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                 match msg with
                 | NotificationEvent.ParseError x -> x
                 | NotificationEvent.Workspace x -> x
+                | NotificationEvent.AnalyzerMessage x -> x
 
             Console.WriteLine(msgText)
 
@@ -38,7 +39,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
       async {
           match commandQueue.Take() with
           | Started ->
-              return [ 
+              return [
                   CommandResponse.info writeJson (sprintf "git commit sha: %s" <| commands.GetGitHash);
                   CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
                ]
@@ -85,6 +86,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | CompilerLocation -> return commands.CompilerLocation()
           | Colorization enabled -> commands.Colorization enabled; return []
           | Lint filename -> return! commands.Lint filename
+          | RegisterAnalyzer dir -> return! commands.LoadAnalyzers dir
           | UnusedDeclarations filename -> return! commands.GetUnusedDeclarations filename
           | SimplifiedNames filename -> return! commands.GetSimplifiedNames filename
           | UnusedOpens filename -> return! commands.GetUnusedOpens filename
