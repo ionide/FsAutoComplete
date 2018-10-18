@@ -9,7 +9,7 @@ open Microsoft.FSharp.Compiler.Range
 open FSharp.Analyzers.SDK
 
 type DeclName = string
-type CompletionNamespaceInsert = string * int * int
+type CompletionNamespaceInsert = string * int * int * string
 
 type State =
   {

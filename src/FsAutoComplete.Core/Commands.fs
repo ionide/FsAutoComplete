@@ -161,7 +161,7 @@ type Commands (serialize : Serializer) =
         |> Option.bind (fun n ->
             state.CurrentAST
             |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents TopLevel )
-            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Column))
+            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Column, ic.ScopeKind.ToString()))
 
     let fillHelpTextInTheBackground decls (pos : pos) fn getLine =
         let declName (d: FSharpDeclarationListItem) = d.Name

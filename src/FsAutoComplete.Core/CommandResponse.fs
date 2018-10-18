@@ -202,6 +202,7 @@ module CommandResponse =
       Text: string
       Line: int
       Column: int
+      Type: string
     }
 
 
@@ -422,7 +423,7 @@ module CommandResponse =
 
   let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText, additionalEdit ) =
     let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
-    let additionalEdit = additionalEdit |> Option.map (fun (n, l, c) -> {AdditionalEdit.Text = n; Line = l; Column = c})
+    let additionalEdit = additionalEdit |> Option.map (fun (n, l, c, t) -> {AdditionalEdit.Text = n; Line = l; Column = c; Type = t})
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = additionalEdit  } }
 
   let helpTextSimple (serialize: Serializer) (name : string, tip: string) =
