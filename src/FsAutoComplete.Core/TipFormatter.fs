@@ -221,17 +221,23 @@ let private getXmlDoc dllFile =
 // --------------------------------------------------------------------------------------
 // Formatting of tool-tip information displayed in F# IntelliSense
 // --------------------------------------------------------------------------------------
-let private buildFormatComment cmt (isEnhanced : bool) =
+let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) =
     match cmt with
     | FSharpXmlDoc.Text s -> s
     | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
-       match getXmlDoc dllFile with
-       | Some doc when doc.ContainsKey memberName ->
+        match getXmlDoc dllFile with
+        | Some doc when doc.ContainsKey memberName ->
+            let typeDoc =
+                match typeDoc with
+                | Some s when doc.ContainsKey s ->
+                    if isEnhanced then doc.[s].ToEnhancedString() else string doc.[s]
+                | _ -> ""
+            let typeDoc = typeDoc.Replace("**Description**", "**Type Description**")
             if isEnhanced then
-                doc.[memberName].ToEnhancedString()
+                doc.[memberName].ToEnhancedString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
             else
-                string doc.[memberName]
-       | _ -> ""
+                string doc.[memberName] + (if typeDoc <> "" then "\n\n" + typeDoc else "")
+        | _ -> ""
     | _ -> ""
 
 let private buildFormatDocumentation cmt =
@@ -258,20 +264,20 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
             let getRemarks (it : FSharpToolTipElementData<string>) = defaultArg (it.Remarks |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)) ""
-            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc false)))
+            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc false None)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
-let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) : (string * string * string) list list =
+let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) (typeDoc: string option) : (string * string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
             Some (items |> List.map (fun i ->
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc true
+                      buildFormatComment i.XmlDoc true typeDoc
                     else
-                      buildFormatComment i.XmlDoc true
+                      buildFormatComment i.XmlDoc true typeDoc
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
@@ -286,9 +292,9 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
             Some (items |> List.map (fun i ->
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc true
+                      buildFormatComment i.XmlDoc true None
                     else
-                      buildFormatComment i.XmlDoc true
+                      buildFormatComment i.XmlDoc true None
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 

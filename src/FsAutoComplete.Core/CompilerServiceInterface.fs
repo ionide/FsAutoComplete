@@ -173,7 +173,7 @@ type ParseAndCheckResults
              | Some tip ->
               let e = DateTime.Now
               //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
-              return Ok (tip, ident, "")
+              return Ok (tip, ident, "", None)
              | None ->
               let e = DateTime.Now
               //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
@@ -189,6 +189,7 @@ type ParseAndCheckResults
         //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
         return Error "No tooltip information"
       | Some symbol ->
+
         match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
         | None ->
           let e = DateTime.Now
@@ -196,8 +197,11 @@ type ParseAndCheckResults
           return Error "No tooltip information"
         | Some (signature, footer) ->
             let e = DateTime.Now
+            let typeDoc = getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
+
+
             //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
-            return Ok (tip, signature, footer)
+            return Ok (tip, signature, footer, typeDoc)
   }
 
   member __.TryGetFormattedDocumentation (pos: pos) (lineStr: LineStr) = async {

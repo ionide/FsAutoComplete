@@ -610,8 +610,8 @@ module CommandResponse =
         })
      serialize { Kind = "declarations"; Data = decls' }
 
-  let toolTip (serialize : Serializer) (tip, signature, footer) =
-    let data = TipFormatter.formatTipEnhanced tip signature footer |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
+  let toolTip (serialize : Serializer) (tip, signature, footer, typeDoc) =
+    let data = TipFormatter.formatTipEnhanced tip signature footer typeDoc |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
 
   let formattedDocumentation (serialize : Serializer) (tip, signature, footer, cn) =
