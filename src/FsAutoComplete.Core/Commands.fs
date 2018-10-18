@@ -387,6 +387,10 @@ type Commands (serialize : Serializer) =
     }
 
     member __.Helptext sym =
+        match KeywordList.tryGetKeywordDescription sym with
+        | Some s ->
+            [Response.helpTextSimple serialize (sym, s)]
+        | None ->
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
             [Response.error serialize (sprintf "No help text available for symbol '%s'" sym)]

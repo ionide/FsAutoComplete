@@ -425,6 +425,10 @@ module CommandResponse =
     let additionalEdit = additionalEdit |> Option.map (fun (n, l, c) -> {AdditionalEdit.Text = n; Line = l; Column = c})
     serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = additionalEdit  } }
 
+  let helpTextSimple (serialize: Serializer) (name : string, tip: string) =
+    let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
+    serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
+
   let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
