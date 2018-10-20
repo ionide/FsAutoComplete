@@ -709,8 +709,8 @@ type Commands (serialize : Serializer) =
         return [Response.workspacePeek serialize d]
     }
 
-    member x.WorkspaceLoad onChange (files: string list) = async {
-
+    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) = async {
+        checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
         //TODO check full path
         let projectFileNames = files |> List.map Path.GetFullPath
 

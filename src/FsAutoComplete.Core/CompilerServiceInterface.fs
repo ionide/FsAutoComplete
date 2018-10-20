@@ -484,6 +484,15 @@ type FSharpCompilerServiceChecker() =
 
   let entityCache = EntityCache()
 
+  let mutable disableInMemoryProjectReferences = false
+
+  let clearProjectReferecnes (opts: FSharpProjectOptions) =
+    if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
+
+  member __.DisableInMemoryProjectReferences
+    with get() = disableInMemoryProjectReferences
+    and set(value) = disableInMemoryProjectReferences <- value
+
   member __.GetDependingProjects file (options : seq<string * FSharpProjectOptions>) =
     let project = options |> Seq.tryFind (fun (k,_) -> k = file)
     project |> Option.map (fun (_, option) ->
@@ -541,14 +550,15 @@ type FSharpCompilerServiceChecker() =
         | Some (p, projs) ->
         let! results =
           [ yield p; yield! projs]
-          |> Seq.map checker.ParseAndCheckProject
+          |> Seq.map (clearProjectReferecnes >> checker.ParseAndCheckProject)
           |> Async.Parallel
-        let! currentResult =  checker.ParseAndCheckProject option
+        let! currentResult =  checker.ParseAndCheckProject (clearProjectReferecnes option)
         let res = [| yield currentResult; yield! results |]
         return Ok res
       }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
+    let opt = clearProjectReferecnes opt
     checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
@@ -563,13 +573,19 @@ type FSharpCompilerServiceChecker() =
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
+      let options = clearProjectReferecnes options
+      printfn "\nOPTIONS - FILES: %A" options.SourceFiles
+      printfn "\nOPTIONS - OTHER OPTIONS:"
+      options.OtherOptions |> Array.iter (printfn "\n%s")
+      printfn "\nOPTIONS - PROJECT REFERENCES: %A" (options.ReferencedProjects |> Array.map fst)
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
       return
           match res with
           | Choice1Of2 (p,c)->
+            let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
             match c with
-            | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error "Check aborted"
+            | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
           | Choice2Of2 e -> ResultOrString.Error e.Message
@@ -577,6 +593,7 @@ type FSharpCompilerServiceChecker() =
 
   member __.ParseAndCheckFileInProject'(filePath, version, source, options) =
     async {
+      let options = clearProjectReferecnes options
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
       return
@@ -589,6 +606,7 @@ type FSharpCompilerServiceChecker() =
     }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
+    let options = clearProjectReferecnes options
     checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
@@ -601,6 +619,7 @@ type FSharpCompilerServiceChecker() =
         let! res =
           [yield p; yield! projects ]
           |> Seq.map (fun (opts) -> async {
+              let opts = clearProjectReferecnes opts
               let! res = checker.ParseAndCheckProject opts
               return! res.GetUsesOfSymbol symbol
             })
