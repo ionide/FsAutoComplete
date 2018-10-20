@@ -308,6 +308,9 @@ Target "LocalRelease" (fun _ ->
            Project = "src/FsAutoComplete"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 
+    !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/*.*"
+    |> CopyFiles "bin/release"
+
     CleanDirs [ "bin/release_netcore" ]
     DotNetCli.Publish (fun p ->
        { p with
