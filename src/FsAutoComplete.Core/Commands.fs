@@ -134,20 +134,24 @@ type Commands (serialize : Serializer) =
             files
             |> List.toArray
             |> Array.Parallel.iter (fun file ->
-                let sourceOpt =
-                    match state.Files.TryFind file with
-                    | Some f -> Some (f.Lines)
-                    | None when File.Exists(file) ->
-                        let ctn = File.ReadAllLines file
-                        state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn }
-                        Some (ctn)
-                    | None -> None
-                match sourceOpt with
-                | None -> ()
-                | Some source ->
-                    let opts = state.FileCheckOptions.[file] |> Utils.projectOptionsToParseOptions
-                    let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
-                    fileParsed.Trigger parseRes
+                try
+                    let sourceOpt =
+                        match state.Files.TryFind file with
+                        | Some f -> Some (f.Lines)
+                        | None when File.Exists(file) ->
+                            let ctn = File.ReadAllLines file
+                            state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn }
+                            Some (ctn)
+                        | None -> None
+                    match sourceOpt with
+                    | None -> ()
+                    | Some source ->
+                        let opts = state.FileCheckOptions.[file] |> Utils.projectOptionsToParseOptions
+                        let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
+                        fileParsed.Trigger parseRes
+                with
+                | _ ->
+                    printfn "Failed to parse file: %s" file
             ) }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =

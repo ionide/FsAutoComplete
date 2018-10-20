@@ -13,7 +13,7 @@ module ProjectCrackerVerbose =
   // varie:
   // - search delle cose e' fatto con EndsWith, doesnt check if is an argument like -r
   // - riarrangia i files fsi per po.SourceFiles in modo che siano prima del proprio file .fs **e lo toglie da project options**
-  // - po.SourceFiles e' ritonato come snd, a questi files viene appicciata la po (FSharpProjectOptions), quindi importante 
+  // - po.SourceFiles e' ritonato come snd, a questi files viene appicciata la po (FSharpProjectOptions), quindi importante
   //   di filtrarli corretamente altrimenti non sarebbero parsabili
   // - let po = { po with SourceFiles = po.SourceFiles |> Array.map normalizeDirSeparators }
 
@@ -22,7 +22,26 @@ module ProjectCrackerVerbose =
         notifyState (WorkspaceProjectState.Loading file)
 
         let po, logMap =
-          let p, logMap = ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
+          let p, logMap =
+            try
+                ProjectCracker.GetProjectOptionsFromProjectFileLogged(file, enableLogging=verbose)
+            with
+            | e ->
+                //HACK - Project cracker is failing to correctly deserialize cracking results
+                // if there was some additional content in MsBuild's stdout. As a result it returns
+                //whole stdout in error message. This checks if the error message contains correct JSON object
+                //reporesenting FSharpProjectOptions
+                if e.Message.Contains """{"Error@":null""" then
+                    let startIndex = e.Message.IndexOf("""{"Error@":null""")
+                    let endIndex = e.Message.IndexOf("stderr was:")
+                    let msg = e.Message.Substring(startIndex, endIndex-startIndex)
+                    let ser = new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof<ProjectCrackerTool.ProjectOptions>)
+                    let stringBytes = System.Text.Encoding.Unicode.GetBytes msg
+                    use ms = new MemoryStream(stringBytes)
+                    let opts = ser.ReadObject(ms) :?> ProjectCrackerTool.ProjectOptions
+                    Utils.Convert DateTime.Now opts
+                else
+                    raise e
           //printfn "from cracker: %A" p
           match p.SourceFiles, p.OtherOptions, logMap |> Map.isEmpty with
           | [| |], [| |], false ->
@@ -30,6 +49,7 @@ module ProjectCrackerVerbose =
             //  ref https://github.com/fsharp/FSharp.Compiler.Service/issues/804
             //  the ProjectCracker.GetProjectOptionsFromProjectFileLogged doesnt throw, just return an
             //  uninitalized FSharpProjectOptions and some log, who contains the exception
+            printfn "MAP: %A" logMap
             let logs =
                 logMap
                 |> Map.toArray
@@ -37,7 +57,7 @@ module ProjectCrackerVerbose =
                 |> fun a -> String.Join(Environment.NewLine, a)
             failwithf "Failed parsing project file: %s" logs
           | _ -> ()
-          
+
           let opts =
             if not (Seq.exists (fun (s: string) -> s.Contains "FSharp.Core.dll") p.OtherOptions) then
               ensureCorrectFSharpCore p.OtherOptions

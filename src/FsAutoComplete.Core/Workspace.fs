@@ -29,10 +29,37 @@ let private bindExtraOptions (opts: Microsoft.FSharp.Compiler.SourceCodeServices
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
+let private deduplicateReferences (opts: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
+    let projs =
+        opts.ReferencedProjects |> Array.map fst
+
+    let references =
+        opts.OtherOptions
+        |> Array.choose (fun n -> if n.StartsWith "-r:" then Some (n.Substring(3)) else None)
+        |> Array.groupBy (Path.GetFullPathSafe)
+        |> Array.map (fun (_,lst) ->
+            match lst |> Array.tryFind (fun n -> projs |> Array.contains n) with
+            | Some s -> s
+            | None -> Array.head lst )
+
+    let oos = [|
+        yield! (opts.OtherOptions |> Array.filter (fun n -> not (n.StartsWith "-r:")))
+        yield! (references |> Array.map (sprintf "-r:%s"))
+    |]
+    let opts = {opts with OtherOptions = oos}
+    opts, projectFiles, logMap
+
+let private removeDeprecatedArgs (opts: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
+    let oos = opts.OtherOptions |> Array.filter (fun n -> n <> "--times" && n <> "--no-jit-optimize")
+    let opts = {opts with OtherOptions = oos}
+    opts, projectFiles, logMap
+
 let parseProject verbose projectFileName =
     let projsCache = new ProjectCrackerDotnetSdk.ParsedProjectCache()
     projectFileName
     |> getProjectOptions ignore projsCache verbose
+    |> Result.map deduplicateReferences
+    |> Result.map removeDeprecatedArgs
     |> Result.bind bindExtraOptions
 
 let loadInBackground onLoaded verbose (projects: Project list) = async {
@@ -46,6 +73,8 @@ let loadInBackground onLoaded verbose (projects: Project list) = async {
         | None ->
             project.FileName
             |> getProjectOptions onLoaded projsCache verbose
+            |> Result.map deduplicateReferences
+            |> Result.map removeDeprecatedArgs
             |> Result.bind bindExtraOptions
             |> function
             | Ok (opts, extraInfo, projectFiles, logMap) ->
