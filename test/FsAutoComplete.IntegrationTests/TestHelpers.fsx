@@ -354,7 +354,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "workspacePeek" (makeRequestId())
 
   member x.workspaceload (projects: string list): unit =
-    { WorkspaceLoadRequest.Files = projects |> Array.ofList }
+    { WorkspaceLoadRequest.Files = projects |> Array.ofList; DisableInMemoryProjectReferences = false}
     |> recordRequest "workspaceLoad" (makeRequestId())
 
   member x.quit (): unit =
