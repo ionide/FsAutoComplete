@@ -75,9 +75,10 @@ let (|AnyNetcoreRuntime|_|) r =
   | FSACRuntime.NETCoreFDD -> Some ()
   | FSACRuntime.NET -> None
 
-let isTestSkipped cfg fn =
+let isTestSkipped cfg (fn:string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
+
 
   let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") <> "0"
 
