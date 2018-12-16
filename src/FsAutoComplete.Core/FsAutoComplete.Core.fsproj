@@ -40,7 +40,6 @@
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="WorkspacePeek.fs" />
     <Compile Include="Analyzers.fs" />
-    <Compile Include="CommandResponse.fs" />
     <Compile Include="Project.fs" />
     <Compile Include="State.fs" />
     <Compile Include="Workspace.fs" />

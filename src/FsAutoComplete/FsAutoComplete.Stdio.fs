@@ -40,15 +40,15 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           match commandQueue.Take() with
           | Started ->
               return [
-                  CommandResponse.info writeJson (sprintf "git commit sha: %s" <| commands.GetGitHash);
-                  CommandResponse.info writeJson (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
+                  CoreResponse.InfoRes (sprintf "git commit sha: %s" <| commands.GetGitHash);
+                  CoreResponse.InfoRes (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
                ]
           | Parse (file, kind, lines) ->
               let! res = commands.Parse file lines 0
               //Hack for tests
               let r = match kind with
-                      | Synchronous -> Response.info writeJson "Synchronous parsing started"
-                      | Normal -> Response.info writeJson "Background parsing started"
+                      | Synchronous -> CoreResponse.InfoRes "Synchronous parsing started"
+                      | Normal -> CoreResponse.InfoRes "Background parsing started"
               return r :: res
 
           | Project (file, verbose) ->
@@ -58,19 +58,19 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
               let file = Path.GetFullPath file
               match commands.TryGetFileCheckerOptionsWithLines file with
-              | ResultOrString.Error s -> return [Response.error writeJson s]
+              | ResultOrString.Error s -> return [CoreResponse.ErrorRes s]
               | ResultOrString.Ok options ->
                   let projectOptions, lines = options
                   let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
                            pos.Column <= lineStr.Length + 1 && pos.Column >= 1
                   if not ok then
-                      return [Response.error writeJson "Position is out of range"]
+                      return [CoreResponse.ErrorRes "Position is out of range"]
                   else
                     // TODO: Should sometimes pass options.Source in here to force a reparse
                     //       for completions e.g. `(some typed expr).$`
                     let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, projectOptions)
                     match tyResOpt with
-                    | None -> return [ Response.info writeJson "Cached typecheck results not yet available"]
+                    | None -> return [ CoreResponse.InfoRes "Cached typecheck results not yet available"]
                     | Some tyRes ->
                         return!
                             match cmd with
@@ -101,7 +101,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
       |> Async.Catch
       |> Async.RunSynchronously
       |> function
-         | Choice1Of2 res -> res |> List.iter Console.WriteLine
+         | Choice1Of2 res -> res |> List.iter (CommandResponse.serialize writeJson >> Console.WriteLine)
          | Choice2Of2 exn ->
             exn
             |> sprintf "Unexpected internal error. Please report at https://github.com/fsharp/FsAutoComplete/issues, attaching the exception information:\n%O"

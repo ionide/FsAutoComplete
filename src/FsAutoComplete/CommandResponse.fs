@@ -1,4 +1,4 @@
-﻿namespace FsAutoComplete
+namespace FsAutoComplete
 
 open System
 
@@ -7,6 +7,8 @@ open FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open System.Text.RegularExpressions
 open FSharp.Analyzers
+open FsAutoComplete.WorkspacePeek
+open SymbolCache
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -172,29 +174,10 @@ module CommandResponse =
       Overloads : Overload list
     }
 
-  [<CLIMutable>]
-  type SymbolUseRange =
-    {
-      FileName: string
-      StartLine: int
-      StartColumn: int
-      EndLine: int
-      EndColumn: int
-      IsFromDefinition: bool
-      IsFromAttribute : bool
-      IsFromComputationExpression : bool
-      IsFromDispatchSlotImplementation : bool
-      IsFromPattern : bool
-      IsFromType : bool
-      SymbolFullName: string
-      SymbolDisplayName: string
-      SymbolIsLocal: bool
-    }
-
   type SymbolUseResponse =
     {
       Name: string
-      Uses: SymbolUseRange list
+      Uses: SymbolCache.SymbolUseRange list
     }
 
   type AdditionalEdit =
@@ -481,20 +464,20 @@ module CommandResponse =
   let workspacePeek (serialize : Serializer) (found: FsAutoComplete.WorkspacePeek.Interesting list) =
     let mapInt i =
         match i with
-        | FsAutoComplete.WorkspacePeek.Interesting.Directory (p, fsprojs) ->
+        | Interesting.Directory (p, fsprojs) ->
             WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
-        | FsAutoComplete.WorkspacePeek.Interesting.Solution (p, sd) ->
+        | Interesting.Solution (p, sd) ->
             let rec item (x: FsAutoComplete.WorkspacePeek.SolutionItem) =
                 let kind =
                     match x.Kind with
-                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unknown
-                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Unsupported ->
+                    | SolutionItemKind.Unknown
+                    | SolutionItemKind.Unsupported ->
                         None
-                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.MsbuildFormat msbuildProj ->
+                    | SolutionItemKind.MsbuildFormat msbuildProj ->
                         Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat {
                             WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
                         })
-                    | FsAutoComplete.WorkspacePeek.SolutionItemKind.Folder(children, files) ->
+                    | SolutionItemKind.Folder(children, files) ->
                         let c = children |> List.choose item
                         Some (WorkspacePeekFoundSolutionItemKind.Folder {
                             WorkspacePeekFoundSolutionItemKindFolder.Items = c
@@ -522,7 +505,7 @@ module CommandResponse =
                               let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
                               yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
                             if includeKeywords then
-                              for k in KeywordList.allKeywords do
+                              for k in FsAutoComplete.KeywordList.allKeywords do
                                 yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"; NamespaceToOpen = None}
                           ] }
 
@@ -567,6 +550,14 @@ module CommandResponse =
                       SymbolDisplayName = symbol.Symbol.DisplayName
                       SymbolIsLocal = symbol.Symbol.IsPrivateToFile } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symbolimplementation"; Data = su }
+
+  let symbolUseRange (serialize : Serializer) (uses: SymbolUseRange[]) =
+    let symbol = uses.[0]
+    let su =
+      { Name = symbol.SymbolDisplayName
+        Uses = List.ofArray uses
+      }
+    serialize { Kind = "symboluse"; Data = su }
 
   let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
     let pms =
@@ -753,3 +744,73 @@ module CommandResponse =
         })
       |> Seq.toList
     serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
+
+  let serialize (s: Serializer) = function
+    | CoreResponse.InfoRes(text) ->
+      info s text
+    | CoreResponse.ErrorRes(text) ->
+      error s text
+    | CoreResponse.HelpText(name, tip, additionalEdit) ->
+      helpText s (name, tip, additionalEdit)
+    | CoreResponse.HelpTextSimple(name, tip) ->
+      helpTextSimple s (name, tip)
+    | CoreResponse.Project(projectFileName, projectFiles, outFileOpt, references, logMap, extra, additionals) ->
+      project s (projectFileName, projectFiles, outFileOpt, references, logMap, extra, additionals)
+    | CoreResponse.ProjectError(errorDetails) ->
+      projectError s errorDetails
+    | CoreResponse.ProjectLoading(projectFileName) ->
+      projectLoading s projectFileName
+    | CoreResponse.WorkspacePeek(found) ->
+      workspacePeek s found
+    | CoreResponse.WorkspaceLoad(finished) ->
+      workspaceLoad s finished
+    | CoreResponse.Completion(decls, includeKeywords) ->
+      completion s decls includeKeywords
+    | CoreResponse.SymbolUse(symbol, uses) ->
+      symbolUse s (symbol, uses)
+    | CoreResponse.SignatureData(typ, parms) ->
+      signatureData s (typ, parms)
+    | CoreResponse.Help(data) ->
+      help s data
+    | CoreResponse.Methods(meth, commas) ->
+      methods s (meth, commas)
+    | CoreResponse.Errors(es, file) ->
+      errors s (es, file)
+    | CoreResponse.Colorizations(colors) ->
+      colorizations s colors
+    | CoreResponse.FindDeclaration(result) ->
+      findDeclaration s result
+    | CoreResponse.FindTypeDeclaration(range) ->
+      findTypeDeclaration s range
+    | CoreResponse.Declarations(decls) ->
+      declarations s decls
+    | CoreResponse.ToolTip(tip, signature, footer, typeDoc) ->
+      toolTip s (tip, signature, footer, typeDoc)
+    | CoreResponse.FormattedDocumentation(tip, signature, footer, cn) ->
+      formattedDocumentation s (tip, signature, footer, cn)
+    | CoreResponse.TypeSig(tip) ->
+      typeSig s tip
+    | CoreResponse.CompilerLocation(fcs, fsi, msbuild) ->
+      compilerLocation s fcs fsi msbuild
+    | CoreResponse.Lint(warnings) ->
+      lint s warnings
+    | CoreResponse.ResolveNamespaces(word, opens, qualifies) ->
+      resolveNamespace s (word, opens, qualifies)
+    | CoreResponse.UnionCase(text, position) ->
+      unionCase s text position
+    | CoreResponse.RecordStub(text, position) ->
+      recordStub s text position
+    | CoreResponse.UnusedDeclarations(decls) ->
+      unusedDeclarations s decls
+    | CoreResponse.UnusedOpens(opens) ->
+      unusedOpens s opens
+    | CoreResponse.SimplifiedName(names) ->
+      simplifiedNames s names
+    | CoreResponse.Compile(errors, code) ->
+      compile s (errors, code)
+    | CoreResponse.Analyzer(messages, file) ->
+      analyzer s (messages, file)
+    | CoreResponse.SymbolUseRange(ranges) ->
+      symbolUseRange s ranges
+    | CoreResponse.InterfaceStub(text, position) ->
+      interfaceStub s text position
