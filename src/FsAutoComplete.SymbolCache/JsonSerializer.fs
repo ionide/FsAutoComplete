@@ -40,34 +40,6 @@ module private JsonSerializerConverters =
         | FSharpErrorSeverity.Warning -> "Warning"
     serializer.Serialize(writer, s)
 
-  let workspacePeekFoundWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
-    let t, v =
-        match value with
-        | CommandResponse.WorkspacePeekFound.Directory d ->
-            "directory", box d
-        | CommandResponse.WorkspacePeekFound.Solution sln ->
-            "solution", box sln
-    writer.WriteStartObject()
-    writer.WritePropertyName("Type")
-    writer.WriteValue(t)
-    writer.WritePropertyName("Data")
-    serializer.Serialize(writer, v)
-    writer.WriteEndObject()
-
-  let workspacePeekFoundSolutionItemKindWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
-    let t, v =
-        match value with
-        | CommandResponse.WorkspacePeekFoundSolutionItemKind.Folder d ->
-            "folder", box d
-        | CommandResponse.WorkspacePeekFoundSolutionItemKind.MsbuildFormat msbuildProj ->
-            "msbuildFormat", box msbuildProj
-    writer.WriteStartObject()
-    writer.WritePropertyName("Kind")
-    writer.WriteValue(t)
-    writer.WritePropertyName("Data")
-    serializer.Serialize(writer, v)
-    writer.WriteEndObject()
-
   let rangeWriter (writer: JsonWriter) (range: Range.range) (_serializer : JsonSerializer) =
     writer.WriteStartObject()
     writer.WritePropertyName("StartColumn")
@@ -78,22 +50,6 @@ module private JsonSerializerConverters =
     writer.WriteValue(range.EndColumn + 1)
     writer.WritePropertyName("EndLine")
     writer.WriteValue(range.EndLine)
-    writer.WriteEndObject()
-
-  let projectSdkTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
-    let t, v =
-        match value with
-        | CommandResponse.ProjectResponseInfo.Verbose ->
-            "verbose", (Object())
-        | CommandResponse.ProjectResponseInfo.ProjectJson ->
-            "project.json", (Object())
-        | CommandResponse.ProjectResponseInfo.DotnetSdk d->
-            "dotnet/sdk", box d
-    writer.WriteStartObject()
-    writer.WritePropertyName("SdkType")
-    writer.WriteValue(t)
-    writer.WritePropertyName("Data")
-    serializer.Serialize(writer, v)
     writer.WriteEndObject()
 
   let projectOutputTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
@@ -135,9 +91,6 @@ module private JsonSerializerConverters =
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
        OptionConverter() :> JsonConverter
-       writeOnlyConverter workspacePeekFoundWriter sameDU
-       writeOnlyConverter workspacePeekFoundSolutionItemKindWriter sameDU
-       writeOnlyConverter projectSdkTypeWriter sameDU
        writeOnlyConverter projectOutputTypeWriter sameDU |]
 
 module JsonSerializer =

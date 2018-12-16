@@ -32,39 +32,39 @@ type private WebSocketMessage =
 
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
-    let handler f : WebPart = fun (r : HttpContext) -> async {
+    let handler (f: 'a -> Async<CoreResponse list>) : WebPart = fun (r : HttpContext) -> async {
           let data = r.request |> getResourceFromReq
           let! res = Async.Catch (f data)
           match res with
           | Choice1Of2 res ->
-             let res' = res |> List.toArray |> Json.toJson
+             let res' = res |> List.map (CommandResponse.serialize writeJson) |> List.toArray |> Json.toJson
              return! Response.response HttpCode.HTTP_200 res' r
           | Choice2Of2 e ->
             printfn "Unhandled error - %s \n %s" e.Message e.StackTrace
             return! Response.response HttpCode.HTTP_500 (Json.toJson e) r
         }
 
-    let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<string list>) : WebPart = fun (r : HttpContext) ->
+    let positionHandler (f : PositionRequest -> ParseAndCheckResults -> string -> string [] -> Async<CoreResponse list>) : WebPart = fun (r : HttpContext) ->
         async {
             let data = r.request |> getResourceFromReq<PositionRequest>
             let file = Path.GetFullPath data.FileName
             let! res =
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, mkPos data.Line data.Column ) with
-                | ResultOrString.Error s -> async.Return ([CommandResponse.error writeJson s])
+                | ResultOrString.Error s -> async.Return ([CoreResponse.ErrorRes s])
                 | ResultOrString.Ok (options, lines, lineStr) ->
                   try
                     let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                     match tyResOpt with
-                    | None -> async.Return [CommandResponse.info writeJson "Cached typecheck results not yet available"]
+                    | None -> async.Return [CoreResponse.InfoRes "Cached typecheck results not yet available"]
                     | Some tyRes ->
                         async {
                             let! r = Async.Catch (f data tyRes lineStr lines)
                             match r with
                             | Choice1Of2 r -> return r
-                            | Choice2Of2 e -> return [CommandResponse.error writeJson e.Message]
+                            | Choice2Of2 e -> return [CoreResponse.ErrorRes e.Message]
                         }
-                  with e -> async.Return [CommandResponse.error writeJson e.Message]
-            let res' = res |> List.toArray |> Json.toJson
+                  with e -> async.Return [CoreResponse.ErrorRes e.Message]
+            let res' = res |> List.map (CommandResponse.serialize writeJson) |> List.toArray |> Json.toJson
             return! Response.response HttpCode.HTTP_200 res' r
         }
 
@@ -126,17 +126,17 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let app =
         choose [
             path "/notify" >=>
-                WebSocket.handShake (echo (notificationFor (function NotificationEvent.ParseError n -> Some n | _ -> None)))
+                WebSocket.handShake (echo (notificationFor (function NotificationEvent.ParseError n -> Some (CommandResponse.serialize writeJson n) | _ -> None)))
             path "/notifyWorkspace" >=>
-                WebSocket.handShake (echo (notificationFor (function NotificationEvent.Workspace n -> Some n | _ -> None)))
+                WebSocket.handShake (echo (notificationFor (function NotificationEvent.Workspace n -> Some (CommandResponse.serialize writeJson n) | _ -> None)))
             path "/notifyAnalyzer" >=>
-                WebSocket.handShake (echo (notificationFor (function NotificationEvent.AnalyzerMessage n -> Some n | _ -> None)))
+                WebSocket.handShake (echo (notificationFor (function NotificationEvent.AnalyzerMessage n -> Some (CommandResponse.serialize writeJson n) | _ -> None)))
             path "/parse" >=> handler (fun (data : ParseRequest) -> async {
                 let! res = commands.Parse data.FileName data.Lines data.Version
                 //Hack for tests
                 let r = match data.IsAsync with
-                        | false -> CommandResponse.info writeJson "Synchronous parsing started"
-                        | true -> CommandResponse.info writeJson "Background parsing started"
+                        | false -> CoreResponse.InfoRes "Synchronous parsing started"
+                        | true -> CoreResponse.InfoRes "Background parsing started"
                 return r :: res
                 })
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
@@ -152,14 +152,14 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {
                 let file = Path.GetFullPath data.FileName
                 match commands.TryGetFileCheckerOptionsWithLines file with
-                | ResultOrString.Error s -> return [CommandResponse.error writeJson s]
+                | ResultOrString.Error s -> return [CoreResponse.ErrorRes s]
                 | ResultOrString.Ok (options, lines) ->
                     let line = data.Line
                     let col = data.Column
                     let lineStr = data.SourceLine
                     let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
                     if not ok then
-                        return [CommandResponse.error writeJson "Position is out of range"]
+                        return [CoreResponse.ErrorRes "Position is out of range"]
                     else
                         let c = lineStr.[col - 2]
                         let! tyResOpt =
@@ -175,7 +175,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                             else
                                 commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
                         match tyResOpt with
-                        | None -> return [ CommandResponse.info writeJson "Cached typecheck results not yet available"]
+                        | None -> return [ CoreResponse.InfoRes"Cached typecheck results not yet available"]
                         | Some tyRes -> return! commands.Completion tyRes (mkPos data.Line data.Column) lineStr lines file (Some data.Filter) data.IncludeKeywords data.IncludeExternal
                 })
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes (mkPos data.Line data.Column) lineStr)

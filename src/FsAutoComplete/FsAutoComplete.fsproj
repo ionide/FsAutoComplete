@@ -16,6 +16,7 @@
     <Compile Include="Debug.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="CommandInput.fs" />
+    <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="FsAutoComplete.Stdio.fs" />
     <Compile Include="FsAutoComplete.HttpApiContract.fs" />

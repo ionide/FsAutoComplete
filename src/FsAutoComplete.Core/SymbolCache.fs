@@ -4,7 +4,6 @@ open System
 open System.Diagnostics
 open FsAutoComplete
 open FSharp.Compiler.SourceCodeServices
-open CommandResponse
 
 open System.Net
 open System.IO
@@ -30,6 +29,24 @@ let makePostRequest (url : string) (requestBody : string) =
     }
 
 let mutable port = 0
+
+[<CLIMutable>]
+type SymbolUseRange = {
+    FileName: string
+    StartLine: int
+    StartColumn: int
+    EndLine: int
+    EndColumn: int
+    IsFromDefinition: bool
+    IsFromAttribute : bool
+    IsFromComputationExpression : bool
+    IsFromDispatchSlotImplementation : bool
+    IsFromPattern : bool
+    IsFromType : bool
+    SymbolFullName: string
+    SymbolDisplayName: string
+    SymbolIsLocal: bool
+}
 
 type SymbolCacheRequest = {
     Filename: string
@@ -103,12 +120,17 @@ let sendSymbols (serializer: Serializer) fn (symbols: FSharpSymbolUse[]) =
 
 let getSymbols symbolName =
     makePostRequest ("http://localhost:" + (string port) + "/getSymbols") symbolName
+    |> Async.map (fun n ->
+        try
+            Some <| JsonConvert.DeserializeObject<SymbolUseRange[]> n
+        with
+        | _ -> None)
 
 let getImplementation symbolName =
     makePostRequest ("http://localhost:" + (string port) + "/getImplementation") symbolName
 
 let buildProjectCache (serializer: Serializer) (opts: FSharpProjectOptions) =
     opts
-    |> JsonConvert.SerializeObject
+    |> serializer
     |> makePostRequest ("http://localhost:" + (string port) + "/buildCacheForProject")
     |> Async.Ignore
