@@ -423,6 +423,12 @@ module Array =
             array.[idx] <- t2
             array.[arrlen-idx] <- t1
 
+    let splitAt (n : int) (xs : 'a[]) : 'a[] * 'a[] =
+        match xs with
+        | [||] | [|_|] -> xs, [||]
+        | _ when n >= xs.Length || n < 0 -> xs, [||]
+        | _ -> xs.[0..n-1], xs.[n..]
+
 module List =
 
     ///Returns the greatest of all elements in the list that is less than the threshold
@@ -551,3 +557,18 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
     let exitCode = p.ExitCode
 
     exitCode, (workingDir, exePath, args)
+
+[<AutoOpen>]
+module Patterns =
+
+    let (|StartsWith|_|) (pat : string) (str : string)  =
+        match str with
+        | null -> None
+        | _ when str.StartsWith pat -> Some str
+        | _ -> None
+
+    let (|Contains|_|) (pat : string) (str : string)  =
+        match str with
+        | null -> None
+        | _ when str.Contains pat -> Some str
+        | _ -> None

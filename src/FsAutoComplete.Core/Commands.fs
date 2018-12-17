@@ -55,6 +55,11 @@ type NotificationEvent =
     | ParseError of CoreResponse
     | Workspace of CoreResponse
     | AnalyzerMessage of CoreResponse
+    | UnusedOpens of CoreResponse
+    | Lint of CoreResponse
+    | Analyzer of CoreResponse
+    | UnusedDeclarations of CoreResponse
+    | SimplifyNames of CoreResponse
 
 type Commands (serialize : Serializer) =
 
@@ -67,8 +72,11 @@ type Commands (serialize : Serializer) =
     let mutable notifyErrorsInBackground = true
     let mutable useSymbolCache = false
     let mutable lastVersionChecked = -1
+    let mutable isWorkspaceReady = false
 
     let notify = Event<NotificationEvent>()
+
+    let workspaceReady = Event<unit>()
 
     let rec backgroundChecker () =
         async {
@@ -238,8 +246,13 @@ type Commands (serialize : Serializer) =
 
     member __.Notify = notify.Publish
 
+    member __.WorkspaceReady = workspaceReady.Publish
+
     member __.FileChecked = fileChecked.Publish
 
+    member __.IsWorkspaceReady
+        with get() = isWorkspaceReady
+        and set(value) = isWorkspaceReady <- value
     member __.NotifyErrorsInBackground
         with get() = notifyErrorsInBackground
         and set(value) = notifyErrorsInBackground <- value
@@ -432,6 +445,10 @@ type Commands (serialize : Serializer) =
 
     member __.Helptext sym =
         match KeywordList.tryGetKeywordDescription sym with
+        | Some s ->
+            [CoreResponse.HelpTextSimple (sym, s)]
+        | None ->
+        match KeywordList.tryGetHashDescription sym with
         | Some s ->
             [CoreResponse.HelpTextSimple (sym, s)]
         | None ->
@@ -640,7 +657,10 @@ type Commands (serialize : Serializer) =
                                 let res' =
                                     match res with
                                     | LintResult.Failure _ -> [ CoreResponse.InfoRes "Something went wrong, linter failed"]
-                                    | LintResult.Success warnings -> [ CoreResponse.Lint warnings ]
+                                    | LintResult.Success warnings ->
+                                        let res = CoreResponse.Lint warnings
+                                        notify.Trigger (NotificationEvent.Lint res)
+                                        [ res ]
 
                                 res'
                             with _ex ->
@@ -867,6 +887,8 @@ type Commands (serialize : Serializer) =
         |> NotificationEvent.Workspace
         |> notify.Trigger
 
+        x.IsWorkspaceReady <- true
+        workspaceReady.Trigger ()
 
 
         return [CoreResponse.WorkspaceLoad true]
@@ -886,7 +908,9 @@ type Commands (serialize : Serializer) =
                 | Some tyRes ->
                     let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
                     let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
-                    return [ CoreResponse.UnusedDeclarations unused ]
+                    let res = CoreResponse.UnusedDeclarations unused
+                    notify.Trigger (NotificationEvent.UnusedDeclarations res)
+                    return [ res ]
         } |> x.AsCancellable file
 
     member x.GetSimplifiedNames file =
@@ -902,7 +926,9 @@ type Commands (serialize : Serializer) =
                 | Some tyRes ->
                     let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
                     let! simplified = SimplifyNameDiagnosticAnalyzer.getSimplifyNameRanges tyRes.GetCheckResults source allUses
-                    return [ CoreResponse.SimplifiedName (Seq.toArray simplified) ]
+                    let res = CoreResponse.SimplifiedName (Seq.toArray simplified)
+                    notify.Trigger (NotificationEvent.SimplifyNames res)
+                    return [ res ]
         } |> x.AsCancellable file
 
     member x.GetUnusedOpens file =
@@ -916,7 +942,9 @@ type Commands (serialize : Serializer) =
                 | None -> return [ CoreResponse.InfoRes "Cached typecheck results not yet available"]
                 | Some tyRes ->
                     let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
-                    return [ CoreResponse.UnusedOpens (unused |> List.toArray) ]
+                    let res = CoreResponse.UnusedOpens (unused |> List.toArray)
+                    notify.Trigger (NotificationEvent.UnusedOpens res)
+                    return [ res ]
         } |> x.AsCancellable file
 
     member x.Compile projectFileName = async {

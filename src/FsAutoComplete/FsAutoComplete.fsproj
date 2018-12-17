@@ -21,6 +21,8 @@
     <Compile Include="FsAutoComplete.Stdio.fs" />
     <Compile Include="FsAutoComplete.HttpApiContract.fs" />
     <Compile Include="FsAutoComplete.Suave.fs" />
+    <Compile Include="LanguageServerProtocol.fs" />
+    <Compile Include="FsAutoComplete.Lsp.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
   </ItemGroup>

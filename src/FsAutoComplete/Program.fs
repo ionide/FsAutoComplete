@@ -41,6 +41,8 @@ let entry args =
           FsAutoComplete.Stdio.start commands results
       | Options.TransportMode.Http ->
           FsAutoComplete.Suave.start commands results
+      | Options.TransportMode.Lsp ->
+          FsAutoComplete.Lsp.start commands results
     with
     | :? ArguParseException as ex ->
       printfn "%s" ex.Message

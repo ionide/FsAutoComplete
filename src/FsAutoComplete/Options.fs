@@ -66,6 +66,7 @@ module Options =
   type TransportMode =
       | Stdio
       | Http
+      | Lsp
 
   type CLIArguments =
       | Version
