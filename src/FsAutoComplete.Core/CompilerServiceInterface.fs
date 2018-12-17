@@ -353,6 +353,7 @@ type ParseAndCheckResults
       let! results = checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
 
       let getKindPriority = function
+        | CompletionItemKind.CustomOperation -> -1
         | CompletionItemKind.Property -> 0
         | CompletionItemKind.Field -> 1
         | CompletionItemKind.Method (isExtension = false) -> 2
