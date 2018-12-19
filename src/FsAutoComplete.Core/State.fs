@@ -52,14 +52,27 @@ type State =
 
     x.FileCheckOptions.TryFind file
     |> Option.map (fun opts ->
-        x.Files.[file] <- { Lines = lines; Touched = DateTime.Now }
+        x.Files.[file] <- { Lines = lines; Touched = DateTime.Now; Version = None }
         x.FileCheckOptions.[file] <- opts
         opts
     )
 
-  member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts) =
+  member x.TryGetFileVersion (file: SourceFilePath) : int option =
     let file = Utils.normalizePath file
-    let fileState = { Lines = lines; Touched = DateTime.Now }
+
+    x.Files.TryFind file
+    |> Option.bind (fun f -> f.Version)
+
+  member x.SetFileVersion (file: SourceFilePath) (version: int) =
+    x.Files.TryFind file
+    |> Option.iter (fun n ->
+      let fileState = {n with Version = Some version}
+      x.Files.[file] <- fileState
+    )
+
+  member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts, version) =
+    let file = Utils.normalizePath file
+    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
     x.FileCheckOptions.[file] <- opts
 

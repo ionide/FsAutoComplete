@@ -4,14 +4,14 @@ textDocument/hover - OK
 textDocument/didOpen - OK
 textDocument/didChange - OK
 textDocument/completion - OK
-completionItem/resolve - partially implemented, not working in ST
+completionItem/resolve - OK
 textDocument/rename - bug
 textDocument/definition - OK
-textDocument/typeDefinition - implemented, not working in ST
+textDocument/typeDefinition - OK
 textDocument/implementation - Nope
 textDocument/codeAction - TODO
-textDocument/codeLens - TODO
-codeLens/resolve - TODO
+textDocument/codeLens - OK
+codeLens/resolve - OK
 textDocument/references - OK
 textDocument/documentHighlight - OK
 textDocument/documentLink - Nope

@@ -80,8 +80,8 @@ let startCache (dir : string) =
     #endif
 
     let proc = Process.Start(si)
-    proc.OutputDataReceived.Add (fun e -> printfn "[Symbol Cache]: %s" e.Data)
-    proc.ErrorDataReceived.Add (fun e -> printfn "[Symbol Cache]: %s" e.Data)
+    // proc.OutputDataReceived.Add (fun e -> fprintf stderr "[Symbol Cache]: %s" e.Data)
+    // proc.ErrorDataReceived.Add (fun e -> fprintf stderr  "[Symbol Cache]: %s" e.Data)
     proc.BeginOutputReadLine();
     proc.BeginErrorReadLine();
     ()

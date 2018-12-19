@@ -170,8 +170,8 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize : int) (acc: Map
         indentationSize, acc |> Map.add key (XmlDocMember(doc, indentationSize, xli.LinePosition - 3)) |> Some
       with
       | ex ->
-        printfn "%s" ex.Message
-        printfn "%s" ex.StackTrace
+        // printfn "%s" ex.Message
+        // printfn "%s" ex.StackTrace
         indentationSize, Some acc
     | _ -> indentationSize, Some acc
 
@@ -202,20 +202,20 @@ let private getXmlDoc dllFile =
         xmlDocCache.AddOrUpdate(xmlFile, Map.empty, fun _ _ -> Map.empty) |> ignore
         try
           let cnt = File.ReadAllText actualXmlFile
-          let cnt =
-            if actualXmlFile.Contains "netstandard.xml" then
-                let cnt = Regex.Replace(cnt,"""(<p .*?>)+(.*)(<\/?p>)*""", "$2")
-                cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
-            else
-                cnt
+        //   let cnt =
+        //     if actualXmlFile.Contains "netstandard.xml" then
+        //         let cnt = Regex.Replace(cnt,"""(<p .*?>)+(.*)(<\/?p>)*""", "$2")
+        //         cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
+        //     else
+        //         cnt
           use stringReader = new StringReader(cnt)
           use reader = XmlReader.Create stringReader
           let xmlDoc = readXmlDoc reader 0 Map.empty
           xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, fun _ _ -> xmlDoc) |> ignore
           Some xmlDoc
         with ex ->
-          printfn "%s" ex.Message
-          printfn "%s" ex.StackTrace
+        //   printfn "%s" ex.Message
+        //   printfn "%s" ex.StackTrace
           None  // TODO: Remove the empty map from cache to try again in the next request?
 
 // --------------------------------------------------------------------------------------
