@@ -225,9 +225,9 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     commands.LoadAnalyzers data.FileName
                 with
                 | ex ->
-                    printfn "EXCEPTION: %A" ex.Message
-                    printfn "EXCEPTION: %A" ex.StackTrace
-                    printfn "EXCEPTION: %A" ex.Source
+                    // printfn "EXCEPTION: %A" ex.Message
+                    // printfn "EXCEPTION: %A" ex.StackTrace
+                    // printfn "EXCEPTION: %A" ex.Source
                     reraise ()
                 )
             path "/quit" >=> handler (fun (_data: QuitRequest) ->

@@ -5,7 +5,8 @@ open System
 
 type VolatileFile =
   { Touched: DateTime
-    Lines: string [] }
+    Lines: string []
+    Version: int option}
 
 open System.IO
 

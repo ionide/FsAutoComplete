@@ -38,14 +38,14 @@ type CoreResponse =
     | FormattedDocumentation of tip: FSharpToolTipText<string> * signature: (string * (string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
     | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
-    | Lint of warnings: LintWarning.Warning list
+    | Lint of file: string * warnings: LintWarning.Warning list
     | ResolveNamespaces of word: string * opens: (string * string * InsertContext * bool) list * qualifies: (string * string) list
     | UnionCase of text: string * position: pos
     | RecordStub of text: string * position: pos
     | InterfaceStub of text: string * position: pos
-    | UnusedDeclarations of decls: (range * bool)[]
-    | UnusedOpens of opens: range[]
-    | SimplifiedName of names: (range * string)[]
+    | UnusedDeclarations of file: string * decls: (range * bool)[]
+    | UnusedOpens of file: string * opens: range[]
+    | SimplifiedName of file: string * names: (range * string)[]
     | Compile of errors: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[] * code: int
     | Analyzer of messages: SDK.Message [] * file: string
     | SymbolUseRange of ranges: SymbolCache.SymbolUseRange[]
@@ -184,7 +184,7 @@ type Commands (serialize : Serializer) =
                         | Some f -> Some (f.Lines)
                         | None when File.Exists(file) ->
                             let ctn = File.ReadAllLines file
-                            state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn }
+                            state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn; Version = None }
                             Some (ctn)
                         | None -> None
                     match sourceOpt with
@@ -292,6 +292,8 @@ type Commands (serialize : Serializer) =
     member x.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
     member x.Files = state.Files
 
+    member x.TryGetFileVersion = state.TryGetFileVersion
+
     member x.Parse file lines version =
         let file = Path.GetFullPath file
         do x.CancelQueue file
@@ -320,15 +322,17 @@ type Commands (serialize : Serializer) =
 
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
+                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 return! parse' file text checkOptions
             else
                 let! checkOptions =
                     match state.GetCheckerOptions(file, lines) with
-                    | Some c -> async.Return c
+                    | Some c ->
+                        state.SetFileVersion file version
+                        async.Return c
                     | None -> async {
                         let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
-                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions)
+                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
                 return! parse' file text checkOptions
@@ -658,7 +662,7 @@ type Commands (serialize : Serializer) =
                                     match res with
                                     | LintResult.Failure _ -> [ CoreResponse.InfoRes "Something went wrong, linter failed"]
                                     | LintResult.Success warnings ->
-                                        let res = CoreResponse.Lint warnings
+                                        let res = CoreResponse.Lint (file,warnings)
                                         notify.Trigger (NotificationEvent.Lint res)
                                         [ res ]
 
@@ -908,7 +912,7 @@ type Commands (serialize : Serializer) =
                 | Some tyRes ->
                     let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
                     let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
-                    let res = CoreResponse.UnusedDeclarations unused
+                    let res = CoreResponse.UnusedDeclarations (file, unused)
                     notify.Trigger (NotificationEvent.UnusedDeclarations res)
                     return [ res ]
         } |> x.AsCancellable file
@@ -926,7 +930,7 @@ type Commands (serialize : Serializer) =
                 | Some tyRes ->
                     let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
                     let! simplified = SimplifyNameDiagnosticAnalyzer.getSimplifyNameRanges tyRes.GetCheckResults source allUses
-                    let res = CoreResponse.SimplifiedName (Seq.toArray simplified)
+                    let res = CoreResponse.SimplifiedName (file, (Seq.toArray simplified))
                     notify.Trigger (NotificationEvent.SimplifyNames res)
                     return [ res ]
         } |> x.AsCancellable file
@@ -942,7 +946,7 @@ type Commands (serialize : Serializer) =
                 | None -> return [ CoreResponse.InfoRes "Cached typecheck results not yet available"]
                 | Some tyRes ->
                     let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
-                    let res = CoreResponse.UnusedOpens (unused |> List.toArray)
+                    let res = CoreResponse.UnusedOpens (file, (unused |> List.toArray))
                     notify.Trigger (NotificationEvent.UnusedOpens res)
                     return [ res ]
         } |> x.AsCancellable file
@@ -985,8 +989,6 @@ type Commands (serialize : Serializer) =
                     acc |> Async.bind (fun _ -> s )
                     ) (async.Return ())
             do! r
-            let finish = DateTime.Now
-            printfn "[Symbol Cache] Building background cache took %fms" (finish-start).TotalMilliseconds
         }
 
     member __.LoadAnalyzers (path: string) = async {

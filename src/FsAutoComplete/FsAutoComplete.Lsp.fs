@@ -104,9 +104,11 @@ module private Conversions =
                     End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
                 }
             Severity = Some (fcsSeverityToDiagnostic error.Severity)
-            Source = Some ("F# Compiler")
+            Source = "F# Compiler"
             Message = error.Message
             Code = Some (DiagnosticCode.Number error.ErrorNumber)
+            RelatedInformation = [||]
+            Tags = None
         }
 
     let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration): SymbolInformation seq =
@@ -125,6 +127,31 @@ module private Conversions =
             yield (inner None topLevel.Declaration)
             yield! topLevel.Nested |> Seq.ofArray |> Seq.map (inner (Some topLevel.Declaration.Name))
         }
+
+    let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: FSharpNavigationTopLevelDeclaration): CodeLens [] =
+        let map (decl: FSharpNavigationDeclarationItem): CodeLens =
+            {
+                Command = None
+                Data = Some (Newtonsoft.Json.Linq.JToken.FromObject [|uri; typ |] )
+                Range = fcsRangeToLsp decl.Range
+            }
+        topLevel.Nested
+        |> Array.filter(fun n ->
+            not (n.Glyph <> FSharpGlyph.Method
+              && n.Glyph <> FSharpGlyph.OverridenMethod
+              && n.Glyph <> FSharpGlyph.ExtensionMethod
+              && n.Glyph <> FSharpGlyph.Field
+              && n.Glyph <> FSharpGlyph.EnumMember
+              && n.Glyph <> FSharpGlyph.Property
+              || n.IsAbstract
+              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Interface
+              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Record
+              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.DU
+              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Enum
+              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Exception)
+        )
+        |> Array.map map
+
 
 [<AutoOpen>]
 module private GlyphConversions =
@@ -390,11 +417,32 @@ module Workspace =
     let countProjectsInSln (sln : WorkspacePeekFoundSolution) =
         sln.Items |> List.map foldFsproj |> List.sumBy List.length
 
+module SigantureData =
+    let formatSignature typ parms : string =
+        let formatType =
+            function
+            | Contains "->" t -> sprintf "(%s)" t
+            | t -> t
+
+        let args =
+            parms
+            |> List.map (fun group ->
+                group
+                |> List.map (fun (n,t) -> formatType t)
+                |> String.concat " * "
+            )
+            |> String.concat " -> "
+
+        if String.IsNullOrEmpty args then typ else args + " -> " + formatType typ
+
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete
 open FSharpLint.Application.LintWarning
 open System.Diagnostics
+open Newtonsoft.Json.Linq
+open Newtonsoft.Json.Linq
+open Newtonsoft.Json.Linq
 
 type PlainNotification= { Content: string }
 
@@ -553,46 +601,53 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Async.Start
 
                 | NotificationEvent.ParseError (CoreResponse.Errors (errors, file)) ->
-                    let diags = errors |> Array.map (fcsErrorToDiagnostic)
                     let uri = filePathToUri file
+                    diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
+
+                    let diags = errors |> Array.map (fcsErrorToDiagnostic)
                     diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
 
-                // | NotificationEvent.UnusedOpens (CoreResponse.UnusedOpens opens) ->
-                //     let diags = opens |> Array.map(fun n ->
-                //         {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = Some "FSAC"; Message = "Unused open statement" }
-                //     )
-                //     let uri = filePathToUri opens.[0].FileName
-                //     diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
-                //     sendDiagnostics uri
+                | NotificationEvent.UnusedOpens (CoreResponse.UnusedOpens (file, opens)) ->
+                    let uri = filePathToUri file
+                    diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
 
-                // | NotificationEvent.UnusedDeclarations (CoreResponse.UnusedDeclarations decls) ->
-                //     let diags = decls |> Array.map(fun (n, _) ->
-                //         {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = Some "FSAC"; Message = "This value is unused" }
-                //     )
-                //     let (r,_) = decls.[0]
-                //     let uri = filePathToUri r.FileName
-                //     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
-                //     sendDiagnostics uri
+                    let diags = opens |> Array.map(fun n ->
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = [||]; Tags = Some [|1|] }
+                    )
+                    diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
+                    sendDiagnostics uri
 
-                // | NotificationEvent.SimplifyNames (CoreResponse.SimplifiedName decls) ->
-                //     let diags = decls |> Array.map(fun (n, _) ->
-                //         {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Information; Source = Some "FSAC"; Message = "This qualifier is redundant" }
-                //     )
-                //     let (r,_) = decls.[0]
-                //     let uri = filePathToUri r.FileName
-                //     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
-                //     sendDiagnostics uri
+                | NotificationEvent.UnusedDeclarations (CoreResponse.UnusedDeclarations (file, decls)) ->
+                    let uri = filePathToUri file
+                    diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
 
-                // | NotificationEvent.Lint (CoreResponse.Lint warnings) ->
-                //     let diags =
-                //         warnings |> List.map(fun (n: Warning) ->
-                //             {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = Some "F# Linter"; Message = "Lint: " + n.Info })
-                //         |> List.toArray
-                //     let uri = filePathToUri warnings.[0].Range.FileName
+                    let diags = decls |> Array.map(fun (n, _) ->
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = [||]; Tags = Some [|1|] }
+                    )
+                    diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
+                    sendDiagnostics uri
 
-                //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
-                //     sendDiagnostics uri
+                | NotificationEvent.SimplifyNames (CoreResponse.SimplifiedName (file, decls)) ->
+                    let uri = filePathToUri file
+                    diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
+
+                    let diags = decls |> Array.map(fun (n, _) ->
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = [||]; Tags = Some [|1|] }
+                    )
+                    diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
+                    sendDiagnostics uri
+
+                | NotificationEvent.Lint (CoreResponse.Lint (file, warnings)) ->
+                    let uri = filePathToUri file
+                    diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+
+                    let diags =
+                        warnings |> List.map(fun (n: Warning) ->
+                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = [||]; Tags = None })
+                        |> List.toArray
+                    diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
+                    sendDiagnostics uri
                 | _ ->
                     //TODO: Add analyzer support
                     ()
@@ -653,43 +708,50 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | Some p ->
             async {
                 let! peek = commands.WorkspacePeek p config.WorkspaceModePeekDeepLevel (List.ofArray config.WorkspaceExcludedDirs)
-                return
-                    match peek.[0] with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+
+                match peek.[0] with
+                | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                    ()
+                | CoreResponse.WorkspacePeek ints ->
+
+                    let serialized = CommandResponse.workspacePeek JsonSerializer.writeJson ints
+                    lspClient.NotifyWorkspacePeek {Content = serialized} |> Async.Start
+
+                    let peeks =
+                        ints
+                        |> List.map Workspace.mapInteresting
+                        |> List.sortByDescending (fun x ->
+                            match x with
+                            | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
+                            | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
+
+                    match peeks with
+                    | [] -> ()
+                    | [CommandResponse.WorkspacePeekFound.Directory projs] ->
+                        commands.WorkspaceLoad ignore projs.Fsprojs false
+                        |> Async.Ignore
+                        |> Async.Start
+                    | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
+                        let projs =
+                            sln.Items
+                            |> List.collect Workspace.foldFsproj
+                            |> List.map fst
+                        commands.WorkspaceLoad ignore projs false
+                        |> Async.Ignore
+                        |> Async.Start
+                    | _ ->
+                        //TODO: Above case always picks solution with most projects, should be changed
                         ()
-                    | CoreResponse.WorkspacePeek ints ->
+                | _ -> ()
+                if config.EnableBackgroundSymbolCache then
+                    commands.EnableSymbolCache()
 
-                        let serialized = CommandResponse.workspacePeek JsonSerializer.writeJson ints
-                        lspClient.NotifyWorkspacePeek {Content = serialized} |> Async.Start
+                    commands.BuildBackgroundSymbolsCache ()
+                    |> Async.Start
 
-                        let peeks =
-                            ints
-                            |> List.map Workspace.mapInteresting
-                            |> List.sortByDescending (fun x ->
-                                match x with
-                                | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
-                                | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
-
-                        match peeks with
-                        | [] -> ()
-                        | [CommandResponse.WorkspacePeekFound.Directory projs] ->
-                            commands.WorkspaceLoad ignore projs.Fsprojs false
-                            |> Async.Ignore
-                            |> Async.Start
-                        | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
-                            let projs =
-                                sln.Items
-                                |> List.collect Workspace.foldFsproj
-                                |> List.map fst
-                            commands.WorkspaceLoad ignore projs false
-                            |> Async.Ignore
-                            |> Async.Start
-                        | _ ->
-                            //TODO: Above case always picks solution with most projects, should be changed
-                            ()
-                    | _ -> ()
+                return ()
             } |> Async.Start
-            ()
+
         // Debug.print "INIT RETURN"
         return
             { InitializeResult.Default with
@@ -704,6 +766,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentSymbolProvider = Some true
                         WorkspaceSymbolProvider = Some true
                         CodeActionProvider = Some true
+                        CodeLensProvider = Some {
+                            CodeLensOptions.ResolveProvider = Some true
+                        }
                         TextDocumentSync =
                             Some { TextDocumentSyncOptions.Default with
                                      OpenClose = Some true
@@ -894,18 +959,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             match lines |> Array.splitAt (lines.Length - 1) with
                             | (h, [| StartsWith "Full name:" fullName |]) ->
                                 [| yield fsharpBlock h
-                                   yield markStr "plaintext"  ("*" + fullName + "*") |]
+                                   yield MarkedString.String ("*" + fullName + "*") |]
                             | _ -> [| fsharpBlock lines |]
+
 
                         let commentContent =
                             comment
                             |> Markdown.createCommentBlock
-                            |> markStr "plaintext"
+                            |> MarkedString.String
 
                         let footerContent =
                             footer.Split '\n'
                             |> Array.filter (not << String.IsNullOrWhiteSpace)
-                            |> Array.map (fun n -> markStr "plaintext" ("*" + n + "*"))
+                            |> Array.map (fun n -> MarkedString.String ("*" + n + "*"))
 
 
                         let response =
@@ -949,7 +1015,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                         {
                                             Uri = filePathToUri fileName
                                             // TODO: Maintain the version of all "in flight" documents for each TypeCheck
-                                            Version = None
+                                            Version = commands.TryGetFileVersion fileName
                                         }
                                     Edits = edits
                                 }
@@ -971,8 +1037,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     TextDocument =
                                         {
                                             Uri = filePathToUri fileName
-                                            // TODO: Maintain the version of all "in flight" documents for each TypeCheck
-                                            Version = None
+
+                                            Version = commands.TryGetFileVersion fileName
                                         }
                                     Edits = edits
                                 }
@@ -1062,9 +1128,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     override __.TextDocumentDocumentSymbol(p) = async {
+        let fn = p.TextDocument.GetFilePath()
         if not commands.IsWorkspaceReady then
             do! WorkspaceReady |> Async.AwaitEvent
-        let! res = commands.Declarations (p.TextDocument.GetFilePath()) None None
+        let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1101,6 +1168,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentCodeAction(p) = async {
+        let fn = p.TextDocument.GetFilePath()
         let unusedOpenActions =
             if config.UnusedOpensAnalyzer then
                 let diag =
@@ -1123,8 +1191,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             TextDocument =
                                 {
                                     Uri = p.TextDocument.Uri
-                                    // TODO: Maintain the version of all "in flight" documents for each TypeCheck
-                                    Version = None
+                                    Version = commands.TryGetFileVersion fn
                                 }
                             Edits = [|e|]
                         }
@@ -1143,10 +1210,148 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let res =
             [|
                 yield! unusedOpenActions
-            |] |> TextDocumentCodeActionResult.CodeActions |> Some
+            |]
+
+        let res = if res |> Array.isEmpty then None else res |> TextDocumentCodeActionResult.CodeActions |> Some
 
         return success res
     }
+
+    override __.TextDocumentCodeLens(p) = async {
+        let fn = p.TextDocument.GetFilePath()
+        if not commands.IsWorkspaceReady then
+            do! WorkspaceReady |> Async.AwaitEvent
+        let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Declarations (decls) ->
+                let res =
+                    decls
+                    |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "signature")
+                    |> Array.collect id
+                let res2 =
+                    if config.EnableReferenceCodeLens && config.EnableBackgroundSymbolCache then
+                        decls
+                        |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "reference")
+                        |> Array.collect id
+                    else
+                        [||]
+
+                [| yield! res2; yield! res |]
+                |> Some
+                |> success
+            | _ -> LspResult.notImplemented
+        return res
+    }
+
+    override __.CodeLensResolve(p) =
+        let handler f (arg: CodeLens) =
+            async {
+                let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
+                let data = arg.Data.Value.ToObject<string[]>()
+                let file = Uri(data.[0]).LocalPath
+                Debug.print "Position request: %s at %A" file pos
+
+                return!
+                    match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                    | ResultOrString.Error s ->
+                        Debug.print "Getting file checker options failed: %s" s
+                        let cmd = {Title = ""; Command = None; Arguments = None}
+                        {p with Command = Some cmd} |> success |> async.Return
+                    | ResultOrString.Ok (options, _, lineStr) ->
+                        try
+                            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                            match tyResOpt with
+                            | None ->
+                                Debug.print "Cached typecheck results not yet available"
+                                let cmd = {Title = ""; Command = None; Arguments = None}
+                                {p with Command = Some cmd} |> success |> async.Return
+                            | Some tyRes ->
+                                async {
+                                    let! r = Async.Catch (f arg pos tyRes lineStr data.[1] file)
+                                    match r with
+                                    | Choice1Of2 r -> return r
+                                    | Choice2Of2 e ->
+                                        Debug.print "Operation failed: %s" e.Message
+                                        let cmd = {Title = ""; Command = None; Arguments = None}
+                                        return {p with Command = Some cmd} |> success
+                                }
+                        with e ->
+                            Debug.print "Operation failed: %s" e.Message
+                            let cmd = {Title = ""; Command = None; Arguments = None}
+                            {p with Command = Some cmd} |> success |> async.Return
+            }
+
+
+        handler (fun p pos tyRes lineStr typ file ->
+            async {
+                if typ = "signature" then
+                    let! res = commands.SignatureData tyRes pos lineStr
+                    let res =
+                        match res.[0] with
+                        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                            Debug.print "Error: %s" msg
+                            let cmd = {Title = ""; Command = None; Arguments = None}
+                            {p with Command = Some cmd} |> success
+                        | CoreResponse.SignatureData (typ, parms) ->
+                            let formatted = SigantureData.formatSignature typ parms
+                            let cmd = {Title = formatted; Command = None; Arguments = None}
+                            {p with Command = Some cmd} |> success
+                        | _ ->
+                            Debug.print "Other"
+                            let cmd = {Title = ""; Command = None; Arguments = None}
+                            {p with Command = Some cmd} |> success
+                    return res
+                else
+                    let! res = commands.SymbolUseProject tyRes pos lineStr
+                    let res =
+                        match res.[0] with
+                        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                            Debug.print "Error: %s" msg
+                            let cmd = {Title = ""; Command = None; Arguments = None}
+                            {p with Command = Some cmd} |> success
+                        | CoreResponse.SymbolUse (sym, uses) ->
+                            let formatted =
+                                if uses.Length = 1 then "1 Reference"
+                                else sprintf "%d References" uses.Length
+                            let locs =
+                                uses
+                                |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
+
+                            let args = [|
+                                JToken.FromObject (filePathToUri file)
+                                JToken.FromObject (fcsPosToLsp pos)
+                                JToken.FromObject locs
+                            |]
+
+                            let cmd = {Title = formatted; Command = Some "editor.action.showReferences"; Arguments = Some args}
+                            {p with Command = Some cmd} |> success
+                        | CoreResponse.SymbolUseRange (uses) ->
+                            let formatted =
+                                if uses.Length - 1 = 1 then "1 Reference"
+                                elif uses.Length = 0 then "0 References"
+                                else sprintf "%d References" (uses.Length - 1)
+                            let locs =
+                                uses
+                                |> Array.map symbolUseRangeToLspLocation
+
+                            let args = [|
+                                JToken.FromObject (filePathToUri file)
+                                JToken.FromObject (fcsPosToLsp pos)
+                                JToken.FromObject locs
+                            |]
+
+                            let cmd = {Title = formatted; Command = Some "fsharp.showReferences"; Arguments = Some args}
+                            {p with Command = Some cmd} |> success
+                        | _ ->
+                            Debug.print "Other"
+                            let cmd = {Title = ""; Command = None; Arguments = None}
+                            {p with Command = Some cmd} |> success
+                    return res
+            }
+        ) p
 
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()

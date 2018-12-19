@@ -8,7 +8,7 @@ module Debug =
   let mutable verbose = false
   let mutable categories : Set<string> option = None
 
-  let mutable output = stdout
+  let mutable output = stderr
 
   [<Sealed>]
   type Format<'T> private () =

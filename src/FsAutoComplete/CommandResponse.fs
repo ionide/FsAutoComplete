@@ -792,7 +792,7 @@ module CommandResponse =
       typeSig s tip
     | CoreResponse.CompilerLocation(fcs, fsi, msbuild) ->
       compilerLocation s fcs fsi msbuild
-    | CoreResponse.Lint(warnings) ->
+    | CoreResponse.Lint(_,warnings) ->
       lint s warnings
     | CoreResponse.ResolveNamespaces(word, opens, qualifies) ->
       resolveNamespace s (word, opens, qualifies)
@@ -800,11 +800,11 @@ module CommandResponse =
       unionCase s text position
     | CoreResponse.RecordStub(text, position) ->
       recordStub s text position
-    | CoreResponse.UnusedDeclarations(decls) ->
+    | CoreResponse.UnusedDeclarations(_,decls) ->
       unusedDeclarations s decls
-    | CoreResponse.UnusedOpens(opens) ->
+    | CoreResponse.UnusedOpens(_,opens) ->
       unusedOpens s opens
-    | CoreResponse.SimplifiedName(names) ->
+    | CoreResponse.SimplifiedName(_,names) ->
       simplifiedNames s names
     | CoreResponse.Compile(errors, code) ->
       compile s (errors, code)

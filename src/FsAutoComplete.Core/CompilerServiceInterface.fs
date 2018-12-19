@@ -576,10 +576,6 @@ type FSharpCompilerServiceChecker() =
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       let options = clearProjectReferecnes options
-      //printfn "\nOPTIONS - FILES: %A" options.SourceFiles
-      //printfn "\nOPTIONS - OTHER OPTIONS:"
-      //options.OtherOptions |> Array.iter (printfn "\n%s")
-      //printfn "\nOPTIONS - PROJECT REFERENCES: %A" (options.ReferencedProjects |> Array.map fst)
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
       return

@@ -1192,7 +1192,7 @@ module Types =
         Title: string
 
         /// The identifier of the actual command handler.
-        Command: string
+        Command: string option
 
         /// Arguments that the command handler should be
         /// invoked with.
@@ -1348,10 +1348,12 @@ module Types =
 
         /// A human-readable string describing the source of this
         /// diagnostic, e.g. 'typescript' or 'super lint'.
-        Source: string option
+        Source: string
 
         /// The diagnostic's message.
         Message: string
+        RelatedInformation: JToken []
+        Tags: int[] option
     }
 
     type PublishDiagnosticsParams = {
@@ -1543,7 +1545,7 @@ module Types =
         Range: Range
 
         /// The command this code lens represents.
-        Command: Command
+        Command: Command option
 
         /// A data entry field that is preserved on a code lens item between
         /// a code lens and a code lens resolve request.
@@ -1667,12 +1669,13 @@ module LowLevel =
             headers, str
 
     let write (stream: Stream) (data: string) =
-        use writer = new BinaryWriter(stream)
         let bytes = Encoding.UTF8.GetBytes(data)
-        let header = sprintf "Content-Length: %d\r\n\r\n" bytes.Length
-        let headerBytes = Encoding.ASCII.GetBytes(header)
-        writer.Write(headerBytes)
-        writer.Write(bytes)
+        let header = sprintf "Content-Type: application/vscode-jsonrpc; charset=utf-8\r\nContent-Length: %d\r\n\r\n" bytes.Length
+        let headerBytes = Encoding.ASCII.GetBytes header
+        use ms = new MemoryStream(headerBytes.Length + bytes.Length)
+        ms.Write(headerBytes, 0, headerBytes.Length)
+        ms.Write(bytes, 0, bytes.Length)
+        stream.Write(ms.ToArray(), 0, int ms.Position)
 
 module JsonRpc =
     open Newtonsoft.Json
@@ -2221,9 +2224,8 @@ module Server =
         let sender = MailboxProcessor<string>.Start(fun inbox ->
             let rec loop () = async {
                 let! str = inbox.Receive()
-                FsAutoComplete.Debug.print "Writing to client: %s" str
                 LowLevel.write output str
-                do! Async.Sleep 10
+                // do! Async.Sleep 1000
                 return! loop ()
             }
             loop ())
