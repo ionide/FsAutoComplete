@@ -14,8 +14,8 @@ textDocument/codeLens - OK
 codeLens/resolve - OK
 textDocument/references - OK
 textDocument/documentHighlight - OK
-textDocument/documentLink - Nope
-textDocument/signatureHelp - TODO
+textDocument/documentLink - TODO
+textDocument/signatureHelp - OK
 documentLink/resolve - Nope
 textDocument/documentColor - Nope
 textDocument/colorPresentation - Nope

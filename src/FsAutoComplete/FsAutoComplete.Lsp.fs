@@ -439,9 +439,6 @@ open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete
 open FSharpLint.Application.LintWarning
-open System.Diagnostics
-open Newtonsoft.Json.Linq
-open Newtonsoft.Json.Linq
 open Newtonsoft.Json.Linq
 
 type PlainNotification= { Content: string }
@@ -765,21 +762,24 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentHighlightProvider = Some true
                         DocumentSymbolProvider = Some true
                         WorkspaceSymbolProvider = Some true
-                        CodeActionProvider = Some true
+                        SignatureHelpProvider = Some {
+                            SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]
+                        }
+                        CompletionProvider =
+                            Some {
+                                ResolveProvider = Some true
+                                TriggerCharacters = Some ([| "."; "'"; "," |])
+                            }
                         CodeLensProvider = Some {
                             CodeLensOptions.ResolveProvider = Some true
                         }
+                        CodeActionProvider = Some true
                         TextDocumentSync =
                             Some { TextDocumentSyncOptions.Default with
                                      OpenClose = Some true
                                      Change = Some TextDocumentSyncKind.Full
                                      Save = Some { IncludeText = Some true }
                                  }
-                        CompletionProvider =
-                            Some {
-                                ResolveProvider = Some true
-                                TriggerCharacters = Some ([| "."; "'"; "," |])
-                            }
                     }
             }
             |> success
@@ -936,6 +936,46 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ -> ci
         return success res
     }
+
+    override x.TextDocumentSignatureHelp(p) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.Methods tyRes  pos lines
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.Methods (methods, commas) ->
+                        let sigs =
+                            methods.Methods |> Array.map(fun m ->
+                                let (sign, comm) = TipFormatter.formatTip m.Description |> List.head |> List.head
+                                let parameters =
+                                    m.Parameters |> Array.map (fun p ->
+                                        {ParameterInformation.Label = p.ParameterName; Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting)}
+                                    )
+                                let d = Documentation.Markup (markdown comm)
+                                { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
+                            )
+
+                        let activSig =
+                            let sigs = sigs |> Seq.sortBy (fun n -> n.Parameters.Value.Length)
+                            sigs
+                            |> Seq.findIndex (fun s -> s.Parameters.Value.Length >= commas)
+                            |> fun index -> if index + 1 >= (sigs |> Seq.length) then index else index + 1
+
+                        let res = {Signatures = sigs;
+                                   ActiveSignature = Some activSig;
+                                   ActiveParameter = Some commas }
+
+
+
+                        success (Some res)
+                    | _ -> LspResult.notImplemented
+
+
+                return res
+            }
+        )
 
     override x.TextDocumentHover(p) =
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
