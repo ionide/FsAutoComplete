@@ -51,11 +51,11 @@ GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (5.8.4)
+    FAKE (4.64.13)
     Octokit (0.32)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (e87cbfd45bbba17d7e49f7922ae39b88ccddec2b)
+    modules/Octokit/Octokit.fsx (457ae4cfb9bb4a39f0eb1352140584d7d04ebe5d)
       Octokit (>= 0.20)
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
