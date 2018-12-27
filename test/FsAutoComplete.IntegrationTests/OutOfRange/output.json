@@ -80,7 +80,7 @@
   "Data": [
     [
       {
-        "Signature": "module XA\n  \n  val funky: x: int -> int",
+        "Signature": "module XA",
         "Comment": "",
         "Footer": "Full name: Script.XA\nAssembly: Script"
       }
@@ -92,7 +92,7 @@
   "Data": [
     [
       {
-        "Signature": "module XA\n  \n  val funky: x: int -> int",
+        "Signature": "module XA",
         "Comment": "",
         "Footer": "Full name: Script.XA\nAssembly: Script"
       }
