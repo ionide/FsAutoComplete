@@ -306,7 +306,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "parse" (makeRequestId())
 
   member x.completion (fn: string) (lineStr:string)(line: int) (col: int) : unit =
-    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false; IncludeExternal = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = ""; IncludeKeywords = false; IncludeExternal = false; Version = 0 }
     |> recordRequest "completion" (makeRequestId())
 
   member x.methods (fn: string) (lineStr: string)(line: int) (col: int) : unit =
@@ -314,7 +314,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "methods" (makeRequestId())
 
   member x.completionFilter (fn: string) (lineStr: string)(line: int) (col: int) (filter: string) : unit =
-    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false; IncludeExternal = false }
+    { CompletionRequest.FileName = absPath fn; SourceLine = lineStr; Line = line; Column = col; Filter = filter; IncludeKeywords = false; IncludeExternal = false; Version = 0 }
     |> recordRequest"completion" (makeRequestId())
 
   member x.tooltip (fn: string) (lineStr: string) (line: int) (col: int) : unit =
@@ -354,7 +354,7 @@ type FsAutoCompleteWrapperHttp() =
     |> recordRequest "workspacePeek" (makeRequestId())
 
   member x.workspaceload (projects: string list): unit =
-    { WorkspaceLoadRequest.Files = projects |> Array.ofList }
+    { WorkspaceLoadRequest.Files = projects |> Array.ofList; DisableInMemoryProjectReferences = false }
     |> recordRequest "workspaceLoad" (makeRequestId())
 
   member x.quit (): unit =
