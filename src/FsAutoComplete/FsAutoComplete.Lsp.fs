@@ -785,6 +785,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             |> success
     }
 
+    override __.Initialized(p) = async {
+        return ()
+    }
+
     override __.TextDocumentDidOpen(p) = async {
         if not commands.IsWorkspaceReady then
             do! commands.WorkspaceReady |> Async.AwaitEvent
@@ -800,6 +804,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
         if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
         if config.SimplifyNameAnalyzer then do! (commands.GetSimplifiedNames filePath |> Async.Ignore)
+        if not config.MinimizeBackgroundParsing then do! (commands.ParseAndCheckProjectsInBackgroundForFile filePath |> Async.Ignore)
+
     }
 
     override __.TextDocumentDidChange(p) = async {
@@ -824,6 +830,18 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ ->
                 Debug.print "Found no change for %s" filePath
                 ()
+    }
+
+    override __.TextDocumentDidSave(p) = async {
+        if not commands.IsWorkspaceReady then
+            Debug.print "Workspace not ready"
+        elif config.MinimizeBackgroundParsing then
+            Debug.print "Background parsing disabled"
+        else
+            let doc = p.TextDocument
+            let filePath = Uri(doc.Uri).LocalPath
+            do! (commands.ParseAndCheckProjectsInBackgroundForFile filePath |> Async.Ignore)
+            ()
     }
 
     override __.TextDocumentCompletion(p) = async {
