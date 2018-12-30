@@ -29,9 +29,9 @@
 * `textDocument/didSave` - OK
 * `textDocument/didClose `- Nope
 * `textDocument/documentSymbol` - OK
-* `workspace/didChangeWatchedFiles` - TODO
+* `workspace/didChangeWatchedFiles` - OK
 * `workspace/didChangeWorkspaceFolders` - Nope
-* `workspace/didChangeConfiguration` - TODO
+* `workspace/didChangeConfiguration` - OK
 * `workspace/symbol` - OK
 * `workspace/executeCommand` - TODO (`fsharp.generateDoc`)
 
@@ -46,5 +46,14 @@
 * `fsharp/workspaceLoad` - TODO
 * `fsharp/compilerLocation` - TODO
 * `fsharp/project` - TODO
+* `fsharp/compile`
 * `fsharp/notifyWorkspace` - OK
 * `fsharp/notifyWorkspacePeek` - OK
+
+
+NOTES:
+
+* Client is responsible for project loading/parsing/refreshing other than initial loading
+* Initial project loading is done automatically if and only if there exists single solution file in the workspace, or there is no solution files in the workspace (in such case all detected projects are loaded)
+* Custom endpoints are using (for messages body) exactly same serialization format as old JSON protocol
+* `workspace/didChangeWatchedFiles` should be used only for removing diagnostics from the files that were deleted.
