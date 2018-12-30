@@ -440,8 +440,19 @@ open LanguageServerProtocol.LspResult
 open FsAutoComplete
 open FSharpLint.Application.LintWarning
 open Newtonsoft.Json.Linq
+open YoLo
 
 type PlainNotification= { Content: string }
+
+type ProjectParms = {
+    /// Project file to compile
+    Project: TextDocumentIdentifier
+}
+
+type WorkspaceLoadParms = {
+    /// Project files to load
+    TextDocuments: TextDocumentIdentifier []
+}
 
 type FSharpConfigDto = {
     WorkspaceModePeekDeepLevel: int option
@@ -1457,11 +1468,130 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return ()
     }
 
+    member x.FSharpSignature(p) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.Typesig tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.TypeSig tip ->
+                        { Content =  CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+        )
+
+    member __.FSharpLineLense(p) = async {
+        let fn = p.Project.GetFilePath()
+        if not commands.IsWorkspaceReady then
+            do! WorkspaceReady |> Async.AwaitEvent
+        let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Declarations (decls) ->
+                { Content =  CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
+                |> success
+            | _ -> LspResult.notImplemented
+        return res
+    }
+
+    member x.LineLensResolve(p) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.SignatureData tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.SignatureData(typ, parms) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+        )
+
+    member __.FSharpCompilerLocation(p) = async {
+        let res = commands.CompilerLocation ()
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.CompilerLocation(fsc, fsi, msbuld) ->
+                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuld }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
+    member __.FSharpCompile(p) = async {
+        let fn = p.Project.GetFilePath()
+        let! res = commands.Compile fn
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Compile(ers, code) ->
+                { Content =  CommandResponse.compile FsAutoComplete.JsonSerializer.writeJson (ers, code) }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
+    member __.FSharpWorkspaceLoad(p) = async {
+        let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
+        let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.WorkspaceLoad fin ->
+                { Content =  CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson fin }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
+    member __.FSharpProject(p) = async {
+        let fn = p.Project.GetFilePath()
+        let! res = commands.Project fn false ignore
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Project (fn, files, outFile, refs, logMap, extra, adds) ->
+                { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson (fn, files, outFile, refs, logMap, extra, adds) }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
-    LanguageServerProtocol.Server.start defaultRequestHandlings input output FSharpLspClient (fun lspClient -> FsharpLspServer(commands, lspClient))
+    let requestsHandlings =
+        defaultRequestHandlings<FsharpLspServer> ()
+        |> Map.add "fsharp/signature" (requestHandling (fun s p -> s.FSharpSignature(p) ))
+        |> Map.add "fsharp/lineLens" (requestHandling (fun s p -> s.FSharpLineLense(p) ))
+        |> Map.add "lineLens/resolve" (requestHandling (fun s p -> s.LineLensResolve(p) ))
+        |> Map.add "fsharp/compilerLocation" (requestHandling (fun s p -> s.FSharpCompilerLocation(p) ))
+        |> Map.add "fsharp/compile" (requestHandling (fun s p -> s.FSharpCompile(p) ))
+        |> Map.add "fsharp/workspaceLoad" (requestHandling (fun s p -> s.FSharpWorkspaceLoad(p) ))
+        |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))
+
+    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FsharpLspServer(commands, lspClient))
 
 let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     // stdout is used for commands

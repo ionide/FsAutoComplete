@@ -23,7 +23,7 @@
 * `textDocument/colorPresentation` - Nope
 * `textDocument/formatting` - ?
 * `textDocument/rangeFormatting` - ?
-* `textDocument/onTypeFormatting` -?
+* `textDocument/onTypeFormatting` - ?
 * `textDocument/willSave` - Nope
 * `textDocument/willSaveWaitUntil` - Nope
 * `textDocument/didSave` - OK
@@ -41,19 +41,22 @@
 
 **CUSTOM**
 
-* `fsharp/signature` - TODO
-* `fsharp/lineLens` - TODO
-* `fsharp/workspaceLoad` - TODO
-* `fsharp/compilerLocation` - TODO
-* `fsharp/project` - TODO
-* `fsharp/compile`
+* `fsharp/signature` - OK
+* `fsharp/lineLens` - OK
+* `lineLens/resolve` - OK
+* `fsharp/workspaceLoad` - OK
+* `fsharp/compilerLocation` - OK
+* `fsharp/project` - OK
+* `fsharp/compile` - OK
 * `fsharp/notifyWorkspace` - OK
 * `fsharp/notifyWorkspacePeek` - OK
 
 
 NOTES:
 
+* Current implementation was done was trying to do minimal changes in the other layers of FSAC to ensure it doesn't break other clients. As such, some implementations in LSP layer looks bit clunky. If we agree that LSP is way to go for all clients, we can deprecate other communication protocols, and do bigger refactoring of `Core` project.
 * Client is responsible for project loading/parsing/refreshing other than initial loading
 * Initial project loading is done automatically if and only if there exists single solution file in the workspace, or there is no solution files in the workspace (in such case all detected projects are loaded)
-* Custom endpoints are using (for messages body) exactly same serialization format as old JSON protocol
+* Custom endpoints are using (for messages body) `PlainNotification` type and string format serialized with exactly same serialization format as old JSON protocol
 * `workspace/didChangeWatchedFiles` should be used only for removing diagnostics from the files that were deleted.
+* Ionide's LineLenses needs to be implemented in client side using custom endpoints, it's too innovative for MSFT ;]
