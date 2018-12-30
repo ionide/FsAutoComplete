@@ -2081,14 +2081,14 @@ module Server =
 
     let jsonSerializer = JsonSerializer.Create(jsonSettings)
 
-    type RequestHandling = {
-        Run: LspServer -> JToken option -> AsyncLspResult<JToken option>
+    type RequestHandling<'server when 'server :> LspServer> = {
+        Run: 'server -> JToken option -> AsyncLspResult<JToken option>
     }
 
     let deserialize<'t> (token: JToken) = token.ToObject<'t>(jsonSerializer)
 
-    let requestHandling<'param, 'result> (run: LspServer -> 'param -> AsyncLspResult<'result>): RequestHandling =
-        let tokenRun (lspServer: LspServer) (paramsToken: JToken option): AsyncLspResult<JToken option> =
+    let requestHandling<'param, 'result, 'server when 'server :> LspServer> (run: 'server -> 'param -> AsyncLspResult<'result>): RequestHandling<'server> =
+        let tokenRun (lspServer: 'server) (paramsToken: JToken option): AsyncLspResult<JToken option> =
             try
                 let p =
                     match paramsToken with
@@ -2133,7 +2133,7 @@ module Server =
         return Result.Ok ()
     }
 
-    let defaultRequestHandlings =
+    let defaultRequestHandlings<'server when 'server :> LspServer> () : Map<string, RequestHandling<'server>> =
         [
             "initialize", requestHandling (fun s p -> s.Initialize(p))
             "initialized", requestHandling (fun s p -> s.Initialized(p) |> notificationSuccess)
@@ -2174,7 +2174,7 @@ module Server =
         ]
         |> Map.ofList
 
-    let handleRequest (requestHandlings : Map<string,RequestHandling>) (request: JsonRpc.Request) (lspServer: LspServer): Async<JsonRpc.Response option> =
+    let handleRequest<'server when 'server :> LspServer> (requestHandlings : Map<string,RequestHandling<'server>>) (request: JsonRpc.Request) (lspServer: 'server): Async<JsonRpc.Response option> =
         async {
             let mutable methodCallResult = Result.Error (Error.MethodNotFound)
             match requestHandlings |> Map.tryFind request.Method with
@@ -2218,7 +2218,7 @@ module Server =
         | ErrorExitWithoutShutdown = 1
         | ErrorStreamClosed = 2
 
-    let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling>) (input: Stream) (output: Stream) (clientCreator: ClientNotificationSender -> 'a) (serverCreator: 'a -> 'b) =
+    let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: ClientNotificationSender -> 'a) (serverCreator: 'a -> 'b) =
         traceFn "Starting up !"
 
         let sender = MailboxProcessor<string>.Start(fun inbox ->
