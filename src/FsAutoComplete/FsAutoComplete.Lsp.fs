@@ -1431,7 +1431,23 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
         ) p
 
-    override __.WorkspaceDidChangeConfiguration (p) = async {
+    override __.WorkspaceDidChangeWatchedFiles(p) = async {
+        p.Changes
+        |> Array.iter (fun c ->
+            if c.Type = FileChangeType.Deleted then
+                let uri = c.Uri
+                diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
+                diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
+                diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
+                diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
+                diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+            ()
+        )
+
+        return ()
+    }
+
+    override __.WorkspaceDidChangeConfiguration(p) = async {
         let c =
             p.Settings
             |> Server.deserialize<FSharpConfigDto>
