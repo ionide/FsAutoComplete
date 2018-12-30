@@ -521,6 +521,26 @@ with
             DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
         }
 
+    member x.AddDto(dto: FSharpConfigDto) =
+        {
+            WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel x.WorkspaceModePeekDeepLevel
+            WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs x.WorkspaceExcludedDirs
+            KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
+            ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
+            Linter = defaultArg dto.Linter x.Linter
+            RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration
+            UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer x.UnusedOpensAnalyzer
+            UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
+            SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer
+            ResolveNamespaces = defaultArg dto.ResolveNamespaces x.ResolveNamespaces
+            MinimizeBackgroundParsing = defaultArg dto.MinimizeBackgroundParsing x.MinimizeBackgroundParsing
+            EnableBackgroundSymbolCache = defaultArg dto.EnableBackgroundSymbolCache x.EnableBackgroundSymbolCache
+            EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
+            EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
+            AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
+            DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
+        }
+
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()
 
@@ -1410,6 +1430,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     return res
             }
         ) p
+
+    override __.WorkspaceDidChangeConfiguration (p) = async {
+        let c =
+            p.Settings
+            |> Server.deserialize<FSharpConfigDto>
+            |> config.AddDto
+
+        config <- c
+        return ()
+    }
 
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
