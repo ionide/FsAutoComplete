@@ -33,7 +33,7 @@
 * `workspace/didChangeWorkspaceFolders` - Nope
 * `workspace/didChangeConfiguration` - TODO
 * `workspace/symbol` - OK
-* `workspace/executeCommand` - TODO (`fsharp.generateDoc`, `fsharp.clearCache`)
+* `workspace/executeCommand` - TODO (`fsharp.generateDoc`)
 
 * `window/showMessage` - OK
 * `window/logMessage` - OK
