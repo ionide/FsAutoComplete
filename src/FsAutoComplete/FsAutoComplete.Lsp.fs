@@ -440,7 +440,6 @@ open LanguageServerProtocol.LspResult
 open FsAutoComplete
 open FSharpLint.Application.LintWarning
 open Newtonsoft.Json.Linq
-open YoLo
 
 type PlainNotification= { Content: string }
 
