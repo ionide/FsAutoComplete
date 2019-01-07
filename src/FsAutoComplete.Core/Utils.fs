@@ -459,7 +459,7 @@ module String =
                | index -> str.Substring (0, str.Length - index.Length), Some (int index)
 
 
-    let (|StartsWith|_|) pattern value =
+    let (|StartsWith|_|) (pattern: string) (value: string) =
         if String.IsNullOrWhiteSpace value then
             None
         elif value.StartsWith pattern then
@@ -476,11 +476,11 @@ type ConcurrentDictionary<'key, 'value> with
         | _ -> None
 
 type Path with
-    static member GetFullPathSafe path =
+    static member GetFullPathSafe (path: string) =
         try Path.GetFullPath path
         with _ -> path
 
-    static member GetFileNameSafe path =
+    static member GetFileNameSafe (path: string) =
         try Path.GetFileName path
         with _ -> path
 
@@ -492,7 +492,7 @@ let asyncMaybe = AsyncMaybeBuilder()
 let maybe = MaybeBuilder()
 
 
-let chooseByPrefix prefix (s: string) =
+let chooseByPrefix (prefix: string) (s: string) =
     if s.StartsWith(prefix) then Some (s.Substring(prefix.Length))
     else None
 
@@ -500,7 +500,7 @@ let chooseByPrefix2 prefixes (s: string) =
     prefixes
     |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
 
-let splitByPrefix prefix (s: string) =
+let splitByPrefix (prefix: string) (s: string) =
     if s.StartsWith(prefix) then Some (prefix, s.Substring(prefix.Length))
     else None
 

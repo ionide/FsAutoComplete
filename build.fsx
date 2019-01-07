@@ -75,7 +75,7 @@ let (|AnyNetcoreRuntime|_|) r =
   | FSACRuntime.NETCoreFDD -> Some ()
   | FSACRuntime.NET -> None
 
-let isTestSkipped cfg fn =
+let isTestSkipped cfg (fn : string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
