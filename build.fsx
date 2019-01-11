@@ -312,7 +312,6 @@ Target "LocalRelease" (fun _ ->
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
-           Runtime = "win-x64"
            Framework = "net461"
            Project = "src/FsAutoComplete"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
