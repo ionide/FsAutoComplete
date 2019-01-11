@@ -73,7 +73,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
         let inline byteSegment array =
             Sockets.ByteSegment(array)
         let emptyBs =
-            Sockets.ByteSegment.Empty
+            Sockets.ByteSegment([||])
 
         fun _cx ->
 
