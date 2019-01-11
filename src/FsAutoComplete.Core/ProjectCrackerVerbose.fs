@@ -1,3 +1,4 @@
+#if NET461
 namespace FsAutoComplete
 
 open System
@@ -105,3 +106,4 @@ module ProjectCrackerVerbose =
       with e ->
         Error (GenericError(file, e.Message))
 
+#endif

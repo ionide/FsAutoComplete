@@ -18,7 +18,7 @@ type private ProjectPersistentCacheMessage =
     | Save of lastWriteTime : DateTime * response : ProjectCrackerCache option
     | Load of lastWriteTime : DateTime * channel : AsyncReplyChannel<ProjectCrackerCache option>
 
-type ProjectPersistentCache (projectFile) =
+type ProjectPersistentCache (projectFile: string) =
     let cachePath = (Path.GetDirectoryName projectFile) </> "obj" </> "fsac.cache"
     let settings = JsonSerializerSettings()
     do settings.MissingMemberHandling <- MissingMemberHandling.Error

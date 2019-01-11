@@ -1,6 +1,6 @@
-System.ValueTuple
+System.ValueTuple condition:NET461
 FSharp.Compiler.Service
-FSharp.Compiler.Service.ProjectCracker
+FSharp.Compiler.Service.ProjectCracker condition:NET461
 Argu
 Newtonsoft.Json
 Suave

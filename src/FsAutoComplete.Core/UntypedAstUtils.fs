@@ -655,7 +655,7 @@ module HashDirectiveInfo =
         // those might need to be abstracted away from real filesystem operations
         let fileExists = File.Exists
         let directoryExists = Directory.Exists
-        let isPathRooted = Path.IsPathRooted
+        let isPathRooted (path: string) = Path.IsPathRooted path
         let getDirectoryOfFile = Path.GetFullPathSafe >> Path.GetDirectoryName
         let getRootedDirectory = Path.GetFullPathSafe
         let makeRootedDirectoryIfNecessary baseDirectory directory =

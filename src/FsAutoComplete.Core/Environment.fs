@@ -111,7 +111,7 @@ module Environment =
       fsharpInstallationPath |> Option.map (fun root -> root </> "fsc.exe")
 
   let fsharpCore =
-    let dir = Path.GetDirectoryName <| System.Reflection.Assembly.GetExecutingAssembly().Location
+    let dir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     dir </> "FSharp.Core.dll"
 
 #if SCRIPT_REFS_FROM_MSBUILD
