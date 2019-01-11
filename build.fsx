@@ -39,24 +39,12 @@ Target "BuildDebug" (fun _ ->
          Project = "FsAutoComplete.sln"
          Configuration = "Debug"
          AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-
-  DotNetCli.Build (fun p ->
-     { p with
-         Configuration = "Debug"
-         Project = "FsAutoComplete.netcore.sln"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
 
 Target "BuildRelease" (fun _ ->
   DotNetCli.Build (fun p ->
      { p with
          Project = "FsAutoComplete.sln"
-         Runtime = "win-x64"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.netcore.sln"
          AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
 )
 
@@ -75,7 +63,7 @@ let (|AnyNetcoreRuntime|_|) r =
   | FSACRuntime.NETCoreFDD -> Some ()
   | FSACRuntime.NET -> None
 
-let isTestSkipped cfg fn =
+let isTestSkipped cfg (fn: string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
@@ -209,7 +197,7 @@ let applyPaketLoadScriptWorkaround paketLoadScript =
     |> Array.iter (trace)
     trace "apply fix"
     File.ReadAllLines(includeFile)
-    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net461/IntegrationTests/", ""))
+    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper/.paket/load/net461/IntegrationTests/", ""))
     |> fun lines -> File.WriteAllLines(includeFile, lines)
     trace (sprintf "File '%s' contents:" includeFile)
     File.ReadAllLines(includeFile)
@@ -325,6 +313,7 @@ Target "LocalRelease" (fun _ ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
            Runtime = "win-x64"
+           Framework = "net461"
            Project = "src/FsAutoComplete"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 
@@ -335,6 +324,7 @@ Target "LocalRelease" (fun _ ->
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
+           Framework = "netcoreapp2.0"
            Project = "src/FsAutoComplete.netcore"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
