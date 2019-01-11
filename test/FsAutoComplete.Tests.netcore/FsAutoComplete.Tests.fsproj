@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FsAutoComplete.netcore\FsAutoComplete.fsproj" />
+    <ProjectReference Include="..\..\src\FsAutoComplete\FsAutoComplete.fsproj" />
   </ItemGroup>
 
 </Project>

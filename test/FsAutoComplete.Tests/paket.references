@@ -1,5 +1,4 @@
-FSharp.Compiler.Service
-
 group Test
+  FSharp.Compiler.Service
   NUnit
   NUnit.Runners

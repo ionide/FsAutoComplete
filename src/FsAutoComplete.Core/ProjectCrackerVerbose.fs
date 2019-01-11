@@ -1,4 +1,3 @@
-#if NET461
 namespace FsAutoComplete
 
 open System
@@ -105,5 +104,3 @@ module ProjectCrackerVerbose =
         Ok (setExtraInfo po, Array.toList po.SourceFiles, logMap)
       with e ->
         Error (GenericError(file, e.Message))
-
-#endif

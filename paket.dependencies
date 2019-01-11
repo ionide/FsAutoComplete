@@ -35,6 +35,7 @@ group Test
   framework: net461
   source https://nuget.org/api/v2
 
+  nuget FSharp.Compiler.Service ~> 25.0
   nuget NUnit
   nuget NUnit.Runners
 
