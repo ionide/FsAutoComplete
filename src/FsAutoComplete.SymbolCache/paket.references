@@ -1,4 +1,4 @@
-System.ValueTuple
+System.ValueTuple condition:net461
 FSharp.Compiler.Service
 Newtonsoft.Json
 Suave

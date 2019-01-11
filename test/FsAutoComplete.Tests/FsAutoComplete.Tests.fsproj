@@ -777,7 +777,7 @@
     </When>
   </Choose>
   <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
+    <When Condition="'$(NET461)' == 'True' And ($(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1')">
       <ItemGroup>
         <Reference Include="System.ValueTuple">
           <HintPath>..\..\..\..\.nuget\packages\system.valuetuple\4.5.0\lib\net461\System.ValueTuple.dll</HintPath>
