@@ -43,4 +43,8 @@ let ``should find fsc on Windows`` () =
 [<Test>]
 let ``should find msbuild on Windows`` () =
   if not Utils.runningOnMono then
-    Assert.That(Environment.msbuild.Length > "MSBuild.exe".Length, "MSBuild.exe resolution failed")
+    match Environment.msbuild with
+    | Some msbuild ->
+      Assert.That(msbuild.Length > ("MSBuild.exe".Length), "MSBuild.exe resolution failed")
+    | None ->
+      ()

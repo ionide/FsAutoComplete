@@ -32,12 +32,12 @@ group Build
   nuget FAKE ~> 4
 
 group Test
-  framework: net461
+  framework: net461, netstandard2.0, netcoreapp2.0
   source https://nuget.org/api/v2
 
-  nuget FSharp.Compiler.Service ~> 25.0
-  nuget NUnit
-  nuget NUnit.Runners
+  nuget NUnit 3.10.1
+  nuget NUnit3TestAdapter 3.10.0
+  nuget Microsoft.NET.Test.Sdk 15.8.0
 
 group IntegrationTests
   framework: net461
