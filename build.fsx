@@ -381,7 +381,7 @@ Target "All" id
 
 "IntegrationTestStdioMode" ==> "IntegrationTest"
 // "IntegrationTestHttpMode" ==> "IntegrationTest"
-// "IntegrationTestStdioModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_STDIO") <> "0"))
+"IntegrationTestStdioModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_STDIO") <> "0"))
 // "IntegrationTestHttpModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_HTTP") <> "0"))
 
 "BuildDebug" ==> "All"
