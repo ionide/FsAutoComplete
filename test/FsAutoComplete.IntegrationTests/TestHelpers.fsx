@@ -42,13 +42,13 @@ let fsacExePath () =
   match testConfig.Runtime with
   | FSACRuntime.NETCoreFDD false ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
+                    "../../src/FsAutoComplete/bin/Debug/netcoreapp2.0/fsautocomplete.dll")
   | FSACRuntime.NETCoreFDD true ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
+                    "../../src/FsAutoComplete/bin/Debug/netcoreapp2.0/publish/fsautocomplete.dll")
   | FSACRuntime.NETCoreSCD ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete.netcore/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete")
+                    "../../src/FsAutoComplete/bin/Debug/netcoreapp2.0/publish_native/fsautocomplete")
   | FSACRuntime.NET ->
     IO.Path.Combine(__SOURCE_DIRECTORY__,
                     "../../src/FsAutoComplete/bin/Debug/net461/fsautocomplete.exe")
@@ -57,8 +57,7 @@ let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.FileName <-
       match testConfig.Runtime with
       | FSACRuntime.NETCoreFDD _ ->
-          IO.Path.Combine(__SOURCE_DIRECTORY__,
-                          "../../.dotnetsdk/v2.0.3/dotnet")
+          "dotnet"
       | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
           fsacExePath ()
 
