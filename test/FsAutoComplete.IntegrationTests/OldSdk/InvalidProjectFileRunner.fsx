@@ -8,9 +8,12 @@ let normalizedOutputRemoveToolsList s =
   // normalized by test suite default function
   // like:
   //  Available tools: ["C:/Program Files (x86)/MSBuild/12.0/bin";\n "C:/Program Files (x86)/MSBuild/14.0/bin";\n "C:/WINDOWS/Microsoft.NET/Framework/v2.0.50727";\n "C:/WINDOWS/Microsoft.NET/Framework/v3.5";\n "C:/Windows/Microsoft.NET/Framework/v4.0.30319"]. Message
-  System.Text.RegularExpressions.Regex.Replace(s,
+  try
+    System.Text.RegularExpressions.Regex.Replace(s,
               """\\\"(.|\n|\r)*\][\.Message]""",
               "<absolute path lists>]")
+  with ex ->
+    sprintf "Cannot normalize %s" s
 
 let invalidprojectfileJson = outputJsonForRuntime "invalidprojectfile.json"
 
