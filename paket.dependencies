@@ -34,6 +34,7 @@ group Build
 group Test
   framework: net461, netstandard2.0, netcoreapp2.0
   source https://nuget.org/api/v2
+  storage: none
 
   nuget NUnit 3.10.1
   nuget NUnit3TestAdapter 3.10.0

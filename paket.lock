@@ -464,6 +464,7 @@ NUGET
     SourceLink.Embed.PaketFiles (2.7.4)
 
 GROUP Test
+STORAGE: NONE
 RESTRICTION: || (== net461) (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://www.nuget.org/api/v2
