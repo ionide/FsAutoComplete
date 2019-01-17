@@ -87,9 +87,10 @@ let isTestSkipped cfg (fn: string) =
   | FSACRuntime.NET, _, "RobustCommands", "NoSuchProjectRunner.fsx"
   | FSACRuntime.NET, _, "UncompiledReferencedProjects", "Runner.fsx" ->
     Some "The test use old fsproj, and msbuild tools version 4 is not supported anymore in .NET FSAC"
-  // return unexpected empty lint suggestions list, maybe is a bug?
+  // known failure. lint fails because a binding redirect over FParsec initializing FSharpLint
+  | FSACRuntime.NET, _, "LinterWithOptions", "Runner.fsx"
   | FSACRuntime.NET, _, "Linter", "Runner.fsx" ->
-    Some "return unexpected empty lint suggestions list, maybe is a bug?"
+    Some "known failure. lint fails because a binding redirect over FParsec initializing FSharpLint "
   // stdio and http
   | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
