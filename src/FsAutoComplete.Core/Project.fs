@@ -101,7 +101,12 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
 
                 return! loop (lastWriteTime, r)
         }
-        let projectTime = File.GetLastWriteTimeUtc projectFile
+        let projectTime =
+            if File.Exists projectFile then
+                File.GetLastWriteTimeUtc projectFile
+            else
+                DateTime.MinValue
+            
         let projectAssetsTime = 
             if File.Exists projectAssetsFile then
                 File.GetLastWriteTimeUtc projectAssetsFile
@@ -109,10 +114,13 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
                 DateTime.MinValue
 
         let projectPropsTime =
-            let propsFiles = Directory.EnumerateFiles(objFolder,projectProps) |> Seq.toList
-            match propsFiles with
-            | [] -> DateTime.MinValue
-            | _ -> propsFiles |> Seq.map File.GetLastWriteTimeUtc |> Seq.max
+            if Directory.Exists objFolder then
+                let propsFiles = Directory.EnumerateFiles(objFolder,projectProps) |> Seq.toList
+                match propsFiles with
+                | [] -> DateTime.MinValue
+                | _ -> propsFiles |> Seq.map File.GetLastWriteTimeUtc |> Seq.max
+            else
+                DateTime.MinValue
 
 
         let lwt = max (max projectTime projectAssetsTime) projectPropsTime
