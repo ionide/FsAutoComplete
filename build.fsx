@@ -67,26 +67,9 @@ let isTestSkipped cfg (fn: string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
-  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") <> "0"
+  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") = "1"
 
   match cfg.Runtime, cfg.Mode, dir, file with
-  // fsproj in test suite use ToolsVersion 4 (VS2010) and is not supported anymore in .net
-  | FSACRuntime.NET, _, "ErrorTestsJson", "ErrorsRunner.fsx"
-  | FSACRuntime.NET, _, "FindDeclarations", "FindDeclRunner.fsx"
-  | FSACRuntime.NET, _, "MultiProj", "MultiProjRunner.fsx"
-  | FSACRuntime.NET, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
-  | FSACRuntime.NET, _, "ParamCompletion", "ParamCompletionRunner.fsx"
-  | FSACRuntime.NET, _, "ProjectReload", "Runner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
-  | FSACRuntime.NET, _, "SymbolUse", "SymbolUseRunner.fsx"
-  | FSACRuntime.NET, _, "Test1Json", "Test1JsonRunner.fsx"
-  | FSACRuntime.NET, _, "NoFSharpCoreReference", "Runner.fsx"
-  | FSACRuntime.NET, _, "OldSdk", "InvalidProjectFileRunner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "NoSuchProjectRunner.fsx"
-  | FSACRuntime.NET, _, "UncompiledReferencedProjects", "Runner.fsx" ->
-    Some "The test use old fsproj, and msbuild tools version 4 is not supported anymore in .NET FSAC"
   // known failure. lint fails because a binding redirect over FParsec initializing FSharpLint
   | FSACRuntime.NET, _, "LinterWithOptions", "Runner.fsx"
   | FSACRuntime.NET, _, "Linter", "Runner.fsx" ->
