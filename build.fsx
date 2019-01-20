@@ -105,18 +105,18 @@ let isTestSkipped cfg (fn: string) =
   | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
   // fsproj in test suite use ToolsVersion 4 (VS2010) and is not always installed
-  | AnyNetcoreRuntime, _, "ErrorTestsJson", "ErrorsRunner.fsx"
-  | AnyNetcoreRuntime, _, "FindDeclarations", "FindDeclRunner.fsx"
-  | AnyNetcoreRuntime, _, "MultiProj", "MultiProjRunner.fsx"
-  | AnyNetcoreRuntime, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
-  | AnyNetcoreRuntime, _, "ParamCompletion", "ParamCompletionRunner.fsx"
-  | AnyNetcoreRuntime, _, "ProjectReload", "Runner.fsx"
-  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
-  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
-  | AnyNetcoreRuntime, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
-  | AnyNetcoreRuntime, _, "SymbolUse", "SymbolUseRunner.fsx"
-  | AnyNetcoreRuntime, _, "Test1Json", "Test1JsonRunner.fsx"
-  | AnyNetcoreRuntime, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
+  | _, _, "ErrorTestsJson", "ErrorsRunner.fsx"
+  | _, _, "FindDeclarations", "FindDeclRunner.fsx"
+  | _, _, "MultiProj", "MultiProjRunner.fsx"
+  | _, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
+  | _, _, "ParamCompletion", "ParamCompletionRunner.fsx"
+  | _, _, "ProjectReload", "Runner.fsx"
+  | _, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
+  | _, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
+  | _, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
+  | _, _, "SymbolUse", "SymbolUseRunner.fsx"
+  | _, _, "Test1Json", "Test1JsonRunner.fsx"
+  | -, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
     Some "The test use old fsproj, and msbuild tools version 4 is not installed"
   // by default others are enabled
   | _ -> None
