@@ -116,7 +116,7 @@ let isTestSkipped cfg (fn: string) =
   | _, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
   | _, _, "SymbolUse", "SymbolUseRunner.fsx"
   | _, _, "Test1Json", "Test1JsonRunner.fsx"
-  | -, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
+  | _, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
     Some "The test use old fsproj, and msbuild tools version 4 is not installed"
   // by default others are enabled
   | _ -> None
