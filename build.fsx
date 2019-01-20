@@ -139,14 +139,15 @@ let runIntegrationTest cfg (fn: string) : bool =
       | HttpMode -> "--define:FSAC_TEST_HTTP"
       | StdioMode -> ""
     let fsiArgs = sprintf "%s %s %s" mode runtime fn
-    tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
+    let fsiPath = FSIHelper.fsiPath
+    tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
     let testExecution =
       try
         FileUtils.pushd dir
 
         let result, messages =
             ExecProcessRedirected (fun info ->
-              info.FileName <- FSIHelper.fsiPath
+              info.FileName <- fsiPath
               info.Arguments <- fsiArgs
               info.WorkingDirectory <- dir
             ) (TimeSpan.FromMinutes(1.0))
@@ -154,7 +155,8 @@ let runIntegrationTest cfg (fn: string) : bool =
         System.Threading.Thread.Sleep (TimeSpan.FromSeconds(1.0))
 
         Some (result, messages |> List.ofSeq)
-      with _ ->
+      with ex ->
+        tracefn "fsi failed with ex %A" ex
         None
     FileUtils.popd ()
     match testExecution with
