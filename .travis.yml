@@ -13,11 +13,7 @@ matrix:
       env:
         - FSAC_TESTSUITE_NETCORE_MODE_STDIO=0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
-    - mono: 5.0.1
-      dotnet: 2.1.500
-      env:
-        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
-    - mono: 5.2.0
+    - mono: 5.18.0
       dotnet: 2.1.500
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
