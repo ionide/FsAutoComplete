@@ -28,31 +28,39 @@ type ProjectPersistentCache (projectFile: string) =
             let! msg = mb.Receive()
             match msg with
             | Save (lwt, resp) ->
-                let r = resp |> Option.map JsonConvert.SerializeObject
-                let resp' = defaultArg r ""
-                let ctn = [| lwt.ToString(); resp' |]
-                File.WriteAllLines(cachePath, ctn)
+                try
+                    let r = resp |> Option.map JsonConvert.SerializeObject
+                    let resp' = defaultArg r ""
+                    let ctn = [| lwt.ToString(); resp' |]
+                    File.WriteAllLines(cachePath, ctn)
+                with _ex ->
+                    //TODO add trace
+                    ()
                 return! loop()
             | Load (lwt, channel) ->
                 let resp =
-                    if File.Exists cachePath then
-                        let ctn = File.ReadAllLines(cachePath)
-                        if lwt.ToString() = ctn.[0] then
-                            let r = ctn.[1]
-                            try
-                                let x = JsonConvert.DeserializeObject<ProjectCrackerCache> r
-                                if isNull (box x) then
-                                    File.Delete cachePath //Remove cahce that can't be deserialized
+                    try
+                        if File.Exists cachePath then
+                            let ctn = File.ReadAllLines(cachePath)
+                            if lwt.ToString() = ctn.[0] then
+                                let r = ctn.[1]
+                                try
+                                    let x = JsonConvert.DeserializeObject<ProjectCrackerCache> r
+                                    if isNull (box x) then
+                                        File.Delete cachePath //Remove cahce that can't be deserialized
+                                        None
+                                    else
+                                        Some x
+                                with
+                                | _ ->
+                                    File.Delete cachePath
                                     None
-                                else
-                                    Some x
-                            with
-                            | _ ->
-                                File.Delete cachePath
+                            else
                                 None
                         else
                             None
-                    else
+                    with _ex ->
+                        //TODO add trace
                         None
 
                 channel.Reply resp
