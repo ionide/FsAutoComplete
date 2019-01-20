@@ -34,11 +34,11 @@ type Interesting =
 | Solution of string * SolutionData
 | Directory of string * string list
 
-let tryParseSln slnFilePath = 
+let tryParseSln (slnFilePath: string) = 
     let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
         let slnDir = Path.GetDirectoryName slnFilePath
         let makeAbsoluteFromSlnDir =
-            let makeAbs path =
+            let makeAbs (path: string) =
                 if Path.IsPathRooted path then
                     path
                 else
@@ -118,7 +118,7 @@ let peek (rootDir: string) deep (excludedDirs: string list) =
         (fun (s: string) -> normalizedDirs |> Array.contains (s.ToUpperInvariant()))
 
     let scanDir (dirInfo: DirectoryInfo) =
-        let hasExt ext (s: FileInfo) = s.FullName.EndsWith(ext)
+        let hasExt (ext: string) (s: FileInfo) = s.FullName.EndsWith(ext)
         dirInfo.EnumerateFiles("*.*", SearchOption.TopDirectoryOnly)
         |> Seq.choose (fun s ->
             match s with

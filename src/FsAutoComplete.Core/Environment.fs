@@ -111,7 +111,7 @@ module Environment =
       fsharpInstallationPath |> Option.map (fun root -> root </> "fsc.exe")
 
   let fsharpCore =
-    let dir = Path.GetDirectoryName <| System.Reflection.Assembly.GetExecutingAssembly().Location
+    let dir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
     dir </> "FSharp.Core.dll"
 
 #if SCRIPT_REFS_FROM_MSBUILD
@@ -130,21 +130,6 @@ module Environment =
     | None ->
       Array.empty
 #endif
-
-  let netReferecesAssembliesTFM () =
-#if SCRIPT_REFS_FROM_MSBUILD
-    NETFrameworkInfoProvider.installedNETVersions ()
-    |> Array.ofList
-#else
-    dotNetVersions ()
-    |> Array.map Path.GetFileName
-#endif
-
-  let netReferecesAssembliesTFMLatest () =
-    netReferecesAssembliesTFM ()
-    |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
-    |> Array.rev
-    |> Array.tryHead
 
   let workspaceLoadDelay () =
     match System.Environment.GetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY") with

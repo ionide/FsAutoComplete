@@ -18,7 +18,7 @@ type private ProjectPersistentCacheMessage =
     | Save of lastWriteTime : DateTime * response : ProjectCrackerCache option
     | Load of lastWriteTime : DateTime * channel : AsyncReplyChannel<ProjectCrackerCache option>
 
-type ProjectPersistentCache (projectFile) =
+type ProjectPersistentCache (projectFile: string) =
     let cachePath = (Path.GetDirectoryName projectFile) </> "obj" </> "fsac.cache"
     let settings = JsonSerializerSettings()
     do settings.MissingMemberHandling <- MissingMemberHandling.Error
@@ -28,31 +28,39 @@ type ProjectPersistentCache (projectFile) =
             let! msg = mb.Receive()
             match msg with
             | Save (lwt, resp) ->
-                let r = resp |> Option.map JsonConvert.SerializeObject
-                let resp' = defaultArg r ""
-                let ctn = [| lwt.ToString(); resp' |]
-                File.WriteAllLines(cachePath, ctn)
+                try
+                    let r = resp |> Option.map JsonConvert.SerializeObject
+                    let resp' = defaultArg r ""
+                    let ctn = [| lwt.ToString(); resp' |]
+                    File.WriteAllLines(cachePath, ctn)
+                with _ex ->
+                    //TODO add trace
+                    ()
                 return! loop()
             | Load (lwt, channel) ->
                 let resp =
-                    if File.Exists cachePath then
-                        let ctn = File.ReadAllLines(cachePath)
-                        if lwt.ToString() = ctn.[0] then
-                            let r = ctn.[1]
-                            try
-                                let x = JsonConvert.DeserializeObject<ProjectCrackerCache> r
-                                if isNull (box x) then
-                                    File.Delete cachePath //Remove cahce that can't be deserialized
+                    try
+                        if File.Exists cachePath then
+                            let ctn = File.ReadAllLines(cachePath)
+                            if lwt.ToString() = ctn.[0] then
+                                let r = ctn.[1]
+                                try
+                                    let x = JsonConvert.DeserializeObject<ProjectCrackerCache> r
+                                    if isNull (box x) then
+                                        File.Delete cachePath //Remove cahce that can't be deserialized
+                                        None
+                                    else
+                                        Some x
+                                with
+                                | _ ->
+                                    File.Delete cachePath
                                     None
-                                else
-                                    Some x
-                            with
-                            | _ ->
-                                File.Delete cachePath
+                            else
                                 None
                         else
                             None
-                    else
+                    with _ex ->
+                        //TODO add trace
                         None
 
                 channel.Reply resp
@@ -93,7 +101,12 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
 
                 return! loop (lastWriteTime, r)
         }
-        let projectTime = File.GetLastWriteTimeUtc projectFile
+        let projectTime =
+            if File.Exists projectFile then
+                File.GetLastWriteTimeUtc projectFile
+            else
+                DateTime.MinValue
+            
         let projectAssetsTime = 
             if File.Exists projectAssetsFile then
                 File.GetLastWriteTimeUtc projectAssetsFile
@@ -101,10 +114,13 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
                 DateTime.MinValue
 
         let projectPropsTime =
-            let propsFiles = Directory.EnumerateFiles(objFolder,projectProps) |> Seq.toList
-            match propsFiles with
-            | [] -> DateTime.MinValue
-            | _ -> propsFiles |> Seq.map File.GetLastWriteTimeUtc |> Seq.max
+            if Directory.Exists objFolder then
+                let propsFiles = Directory.EnumerateFiles(objFolder,projectProps) |> Seq.toList
+                match propsFiles with
+                | [] -> DateTime.MinValue
+                | _ -> propsFiles |> Seq.map File.GetLastWriteTimeUtc |> Seq.max
+            else
+                DateTime.MinValue
 
 
         let lwt = max (max projectTime projectAssetsTime) projectPropsTime

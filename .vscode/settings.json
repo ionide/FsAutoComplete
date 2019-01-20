@@ -1,4 +1,10 @@
 {
+    "FSharp.excludeProjectDirectories": [
+        ".git",
+        "paket-files",
+        "packages",
+        "test/FsAutoComplete.IntegrationTests"
+    ],
     //otherwise take a lot of time to load proj inside
     //the test directories
     "omnisharp.autoStart": false

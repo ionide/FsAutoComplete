@@ -39,24 +39,12 @@ Target "BuildDebug" (fun _ ->
          Project = "FsAutoComplete.sln"
          Configuration = "Debug"
          AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-
-  DotNetCli.Build (fun p ->
-     { p with
-         Configuration = "Debug"
-         Project = "FsAutoComplete.netcore.sln"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
 
 Target "BuildRelease" (fun _ ->
   DotNetCli.Build (fun p ->
      { p with
          Project = "FsAutoComplete.sln"
-         Runtime = "win-x64"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.netcore.sln"
          AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
 )
 
@@ -75,33 +63,17 @@ let (|AnyNetcoreRuntime|_|) r =
   | FSACRuntime.NETCoreFDD -> Some ()
   | FSACRuntime.NET -> None
 
-let isTestSkipped cfg fn =
+let isTestSkipped cfg (fn: string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
-  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") <> "0"
+  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") = "1"
 
   match cfg.Runtime, cfg.Mode, dir, file with
-  // fsproj in test suite use ToolsVersion 4 (VS2010) and is not supported anymore in .net
-  | FSACRuntime.NET, _, "ErrorTestsJson", "ErrorsRunner.fsx"
-  | FSACRuntime.NET, _, "FindDeclarations", "FindDeclRunner.fsx"
-  | FSACRuntime.NET, _, "MultiProj", "MultiProjRunner.fsx"
-  | FSACRuntime.NET, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
-  | FSACRuntime.NET, _, "ParamCompletion", "ParamCompletionRunner.fsx"
-  | FSACRuntime.NET, _, "ProjectReload", "Runner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
-  | FSACRuntime.NET, _, "SymbolUse", "SymbolUseRunner.fsx"
-  | FSACRuntime.NET, _, "Test1Json", "Test1JsonRunner.fsx"
-  | FSACRuntime.NET, _, "NoFSharpCoreReference", "Runner.fsx"
-  | FSACRuntime.NET, _, "OldSdk", "InvalidProjectFileRunner.fsx"
-  | FSACRuntime.NET, _, "RobustCommands", "NoSuchProjectRunner.fsx"
-  | FSACRuntime.NET, _, "UncompiledReferencedProjects", "Runner.fsx" ->
-    Some "The test use old fsproj, and msbuild tools version 4 is not supported anymore in .NET FSAC"
-  // return unexpected empty lint suggestions list, maybe is a bug?
+  // known failure. lint fails because a binding redirect over FParsec initializing FSharpLint
+  | FSACRuntime.NET, _, "LinterWithOptions", "Runner.fsx"
   | FSACRuntime.NET, _, "Linter", "Runner.fsx" ->
-    Some "return unexpected empty lint suggestions list, maybe is a bug?"
+    Some "known failure. lint fails because a binding redirect over FParsec initializing FSharpLint "
   // stdio and http
   | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
@@ -133,18 +105,19 @@ let isTestSkipped cfg fn =
   | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
   // fsproj in test suite use ToolsVersion 4 (VS2010) and is not always installed
-  | AnyNetcoreRuntime, _, "ErrorTestsJson", "ErrorsRunner.fsx"
-  | AnyNetcoreRuntime, _, "FindDeclarations", "FindDeclRunner.fsx"
-  | AnyNetcoreRuntime, _, "MultiProj", "MultiProjRunner.fsx"
-  | AnyNetcoreRuntime, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
-  | AnyNetcoreRuntime, _, "ParamCompletion", "ParamCompletionRunner.fsx"
-  | AnyNetcoreRuntime, _, "ProjectReload", "Runner.fsx"
-  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
-  | AnyNetcoreRuntime, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
-  | AnyNetcoreRuntime, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
-  | AnyNetcoreRuntime, _, "SymbolUse", "SymbolUseRunner.fsx"
-  | AnyNetcoreRuntime, _, "Test1Json", "Test1JsonRunner.fsx"
-  | AnyNetcoreRuntime, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
+  | _, _, "ErrorTestsJson", "ErrorsRunner.fsx"
+  | _, _, "FindDeclarations", "FindDeclRunner.fsx"
+  | _, _, "MultiProj", "MultiProjRunner.fsx"
+  | _, _, "MultipleUnsavedFiles", "multunsavedRunner.fsx"
+  | _, _, "ParamCompletion", "ParamCompletionRunner.fsx"
+  | _, _, "ProjectReload", "Runner.fsx"
+  | _, _, "RobustCommands", "CompleteBadPositionRunner.fsx"
+  | _, _, "RobustCommands", "CompleteNoSuchFileRunner.fsx"
+  | _, _, "RobustCommands", "ParseNoSuchFileRunner.fsx"
+  | _, _, "SymbolUse", "SymbolUseRunner.fsx"
+  | _, _, "Test1Json", "Test1JsonRunner.fsx"
+  | _, _, "NoFSharpCoreReference", "Runner.fsx"
+  | _, _, "UncompiledReferencedProjects", "Runner.fsx" when not(msbuildToolsVersion4Installed) ->
     Some "The test use old fsproj, and msbuild tools version 4 is not installed"
   // by default others are enabled
   | _ -> None
@@ -167,22 +140,24 @@ let runIntegrationTest cfg (fn: string) : bool =
       | HttpMode -> "--define:FSAC_TEST_HTTP"
       | StdioMode -> ""
     let fsiArgs = sprintf "%s %s %s" mode runtime fn
-    tracefn "Running fsi '%s %s' (from dir '%s')"  FSIHelper.fsiPath fsiArgs dir
+    let fsiPath = FSIHelper.fsiPath
+    tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
     let testExecution =
       try
         FileUtils.pushd dir
 
         let result, messages =
             ExecProcessRedirected (fun info ->
-              info.FileName <- FSIHelper.fsiPath
+              info.FileName <- fsiPath
               info.Arguments <- fsiArgs
               info.WorkingDirectory <- dir
-            ) (TimeSpan.FromMinutes(10.0))
+            ) (TimeSpan.FromMinutes(1.0))
 
         System.Threading.Thread.Sleep (TimeSpan.FromSeconds(1.0))
 
         Some (result, messages |> List.ofSeq)
-      with _ ->
+      with ex ->
+        tracefn "fsi failed with ex %A" ex
         None
     FileUtils.popd ()
     match testExecution with
@@ -209,7 +184,7 @@ let applyPaketLoadScriptWorkaround paketLoadScript =
     |> Array.iter (trace)
     trace "apply fix"
     File.ReadAllLines(includeFile)
-    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper.netcore/.paket/load/net461/IntegrationTests/", ""))
+    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper/.paket/load/net461/IntegrationTests/", ""))
     |> fun lines -> File.WriteAllLines(includeFile, lines)
     trace (sprintf "File '%s' contents:" includeFile)
     File.ReadAllLines(includeFile)
@@ -324,7 +299,7 @@ Target "LocalRelease" (fun _ ->
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
-           Runtime = "win-x64"
+           Framework = "net461"
            Project = "src/FsAutoComplete"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 
@@ -335,7 +310,8 @@ Target "LocalRelease" (fun _ ->
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
-           Project = "src/FsAutoComplete.netcore"
+           Framework = "netcoreapp2.0"
+           Project = "src/FsAutoComplete"
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
 
@@ -392,7 +368,7 @@ Target "All" id
 
 "IntegrationTestStdioMode" ==> "IntegrationTest"
 // "IntegrationTestHttpMode" ==> "IntegrationTest"
-// "IntegrationTestStdioModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_STDIO") <> "0"))
+"IntegrationTestStdioModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_STDIO") <> "0"))
 // "IntegrationTestHttpModeNetCore" =?> ("IntegrationTest", ((environVar "FSAC_TESTSUITE_NETCORE_MODE_HTTP") <> "0"))
 
 "BuildDebug" ==> "All"

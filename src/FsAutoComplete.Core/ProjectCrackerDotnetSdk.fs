@@ -64,7 +64,7 @@ module ProjectCrackerDotnetSdk =
 
   let private getProjectOptionsFromProjectFile notifyState (cache: ParsedProjectCache) parseAsSdk (file : string) =
 
-    let rec projInfoOf additionalMSBuildProps file : ParsedProject =
+    let rec projInfoOf additionalMSBuildProps (file: string) : ParsedProject =
         let projDir = Path.GetDirectoryName file
 
         notifyState (WorkspaceProjectState.Loading file)
