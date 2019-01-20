@@ -131,21 +131,6 @@ module Environment =
       Array.empty
 #endif
 
-  let netReferecesAssembliesTFM () =
-#if SCRIPT_REFS_FROM_MSBUILD
-    NETFrameworkInfoProvider.installedNETVersions ()
-    |> Array.ofList
-#else
-    dotNetVersions ()
-    |> Array.map Path.GetFileName
-#endif
-
-  let netReferecesAssembliesTFMLatest () =
-    netReferecesAssembliesTFM ()
-    |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
-    |> Array.rev
-    |> Array.tryHead
-
   let workspaceLoadDelay () =
     match System.Environment.GetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY") with
     | delayMs when not (String.IsNullOrWhiteSpace(delayMs)) ->

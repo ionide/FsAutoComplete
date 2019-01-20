@@ -20,8 +20,8 @@
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Lexer.fs" />
-    <Compile Include="NETFrameworkInfoProvider.fs" />
     <Compile Include="Environment.fs" />
+    <Compile Include="NETFrameworkInfoProvider.fs" />
     <Compile Include="SignatureFormatter.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />

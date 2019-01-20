@@ -447,7 +447,7 @@ module FSharpCompilerServiceCheckerHelper =
   let ensureCorrectVersions (options: string[]) =
     if Utils.runningOnMono then options
     else
-      match Environment.referenceAssembliesPath (), Environment.netReferecesAssembliesTFMLatest () with
+      match Environment.referenceAssembliesPath (), NETFrameworkInfoProvider.netReferecesAssembliesTFMLatest () with
       | _, None -> options
       | Some referenceAssembliesPath, Some version ->
         let oldRef = referenceAssembliesPath </> "v4.0"
@@ -508,7 +508,7 @@ type FSharpCompilerServiceChecker() =
 
 #if SCRIPT_REFS_FROM_MSBUILD
 
-    let targetFramework = Environment.netReferecesAssembliesTFMLatest ()
+    let targetFramework = NETFrameworkInfoProvider.netReferecesAssembliesTFMLatest ()
 
     let additionaRefs =
       NETFrameworkInfoProvider.additionalArgumentsBy targetFramework
