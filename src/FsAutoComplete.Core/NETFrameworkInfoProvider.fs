@@ -171,7 +171,7 @@ module NETFrameworkInfoProvider =
 
   let netReferecesAssembliesTFM () =
 #if SCRIPT_REFS_FROM_MSBUILD
-    NETFrameworkInfoProvider.installedNETVersions ()
+    installedNETVersions ()
     |> Array.ofList
 #else
     Environment.dotNetVersions ()
