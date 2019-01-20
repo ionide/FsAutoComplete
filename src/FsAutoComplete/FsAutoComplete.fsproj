@@ -11,6 +11,10 @@
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework) == 'net461'">
+    <Prefer32Bit>false</Prefer32Bit>
+    <Platform>x64</Platform>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Debug.fs" />
