@@ -51,7 +51,7 @@ module NETFrameworkInfoProvider =
               Utils.runProcess loggedMessages.Enqueue (Path.GetDirectoryName file) exePath (args |> String.concat " ")
 
             let msbuildPath =
-                Dotnet.ProjInfo.Inspect.MSBuildExePath.Path "msbuild"
+                Dotnet.ProjInfo.Inspect.MSBuildExePath.Path (Environment.msbuild)
 
             Dotnet.ProjInfo.Inspect.msbuild msbuildPath runCmd
 
