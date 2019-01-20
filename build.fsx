@@ -166,7 +166,7 @@ let runIntegrationTest cfg (fn: string) : bool =
               info.FileName <- FSIHelper.fsiPath
               info.Arguments <- fsiArgs
               info.WorkingDirectory <- dir
-            ) (TimeSpan.FromMinutes(10.0))
+            ) (TimeSpan.FromMinutes(1.0))
 
         System.Threading.Thread.Sleep (TimeSpan.FromSeconds(1.0))
 
