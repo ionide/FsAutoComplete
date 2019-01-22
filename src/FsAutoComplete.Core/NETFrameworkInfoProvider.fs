@@ -51,7 +51,12 @@ module NETFrameworkInfoProvider =
               Utils.runProcess loggedMessages.Enqueue (Path.GetDirectoryName file) exePath (args |> String.concat " ")
 
             let msbuildPath =
-                Dotnet.ProjInfo.Inspect.MSBuildExePath.Path "msbuild"
+                let path =
+                    match Environment.msbuild with
+                    | Some msbuildPath -> msbuildPath
+                    | None -> "msbuild"
+                Dotnet.ProjInfo.Inspect.MSBuildExePath.Path path
+                
 
             Dotnet.ProjInfo.Inspect.msbuild msbuildPath runCmd
 
@@ -164,4 +169,18 @@ module NETFrameworkInfoProvider =
     let key = targetFramework |> Option.getOrElse ""
     additionalArgsByTfm.GetOrAdd(key, f)
 
+  let netReferecesAssembliesTFM () =
+#if SCRIPT_REFS_FROM_MSBUILD
+    installedNETVersions ()
+    |> Array.ofList
+#else
+    Environment.dotNetVersions ()
+    |> Array.map Path.GetFileName
+#endif
+
+  let netReferecesAssembliesTFMLatest () =
+    netReferecesAssembliesTFM ()
+    |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
+    |> Array.rev
+    |> Array.tryHead
 

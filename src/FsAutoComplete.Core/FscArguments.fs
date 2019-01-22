@@ -16,7 +16,7 @@ module FscArguments =
 
   let private outputFileArg = ["--out:"; "-o:"]
 
-  let private makeAbs projDir f =
+  let private makeAbs projDir (f: string) =
       if Path.IsPathRooted f then f else Path.Combine(projDir, f)
 
   let outputFile projDir rsp =

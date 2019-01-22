@@ -34,11 +34,11 @@ type Interesting =
 | Solution of string * SolutionData
 | Directory of string * string list
 
-let tryParseSln slnFilePath =
+let tryParseSln (slnFilePath: string) = 
     let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
         let slnDir = Path.GetDirectoryName slnFilePath
         let makeAbsoluteFromSlnDir =
-            let makeAbs path =
+            let makeAbs (path: string) =
                 if Path.IsPathRooted path then
                     path
                 else

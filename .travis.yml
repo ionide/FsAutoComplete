@@ -1,5 +1,5 @@
 language: csharp
-dist: trusty
+dist: xenial # dotnet sdk 2.2 isn't installable on trusty due to https://travis-ci.community/t/dotnet-core-2-2/1216/12
 
 sudo: false
 
@@ -9,26 +9,22 @@ script:
 matrix:
   include:
     - mono: 4.8.1
-      dotnet: 2.0.0
+      dotnet: 2.1.500
       env:
         - FSAC_TESTSUITE_NETCORE_MODE_STDIO=0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
-    - mono: 5.0.1
-      dotnet: 2.0.0
-      env:
-        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
-    - mono: 5.2.0
-      dotnet: 2.0.0
+    - mono: 5.18.0
+      dotnet: 2.1.500
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
     - mono: latest # => "stable release"
-      dotnet: 2.0.0
+      dotnet: 2.1.500
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
     - mono: weekly # => "latest commits"
-      dotnet: 2.0.0
+      dotnet: 2.1.500
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0

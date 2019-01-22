@@ -12,6 +12,9 @@ the beginning of the path.
 
 ## Dev guide
 
+Some tests are disabled because usually msbuild 4 is not installed.
+Reenable tests setting env var `FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED` to `1`
+
 ### How to attach to running fsautocomplete under test.
 
 fsautocomplete has a `--wait-debugger` argument for wait at start, so is possibile to attach to process

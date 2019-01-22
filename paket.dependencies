@@ -1,46 +1,27 @@
-framework: net461
+framework: net461, netstandard2.0, netcoreapp2.0
 source https://www.nuget.org/api/v2/
+storage: none
+
+github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
 nuget Argu ~> 3.7
 nuget FSharp.Compiler.Service ~> 25.0
-nuget FSharp.Compiler.Service.ProjectCracker ~> 25.0
+nuget FSharp.Compiler.Service.ProjectCracker ~> 25.0 framework:net461, condition:net461
 nuget Dotnet.ProjInfo ~> 0.11.0
-nuget ICSharpCode.Decompiler
+nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
-nuget Suave < 2.0
-nuget FSharpLint.Core 0.9.0-beta
+nuget Suave
+nuget FSharpLint.Core 0.10.1
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
-nuget System.ValueTuple redirects:force // workaround for older version of net framework..
+nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
 nuget Dapper
 nuget Microsoft.Data.Sqlite
 
 nuget FSharp.Analyzers.SDK
-
-group Netcore
-  storage: none
-  source https://www.nuget.org/api/v2/
-
-  github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
-
-  nuget Argu ~> 3.7
-  nuget Dotnet.ProjInfo ~> 0.11.0
-  nuget Sln ~> 0.3.0
-  nuget Mono.Cecil
-  nuget Newtonsoft.Json
-  nuget Suave
-  nuget FSharpLint.Core 0.9.0-beta
-  nuget FSharp.Core
-  nuget OptimizedPriorityQueue
-  nuget FSharp.Compiler.Service ~> 25.0
-  nuget Dapper
-  nuget Microsoft.Data.Sqlite
-  nuget ICSharpCode.Decompiler
-
-  nuget FSharp.Analyzers.SDK
-
+  
 group Build
   framework: net45
   source https://www.nuget.org/api/v2/
@@ -51,11 +32,13 @@ group Build
   nuget FAKE ~> 4
 
 group Test
-  framework: net461
+  framework: net461, netstandard2.0, netcoreapp2.0
   source https://nuget.org/api/v2
+  storage: none
 
-  nuget NUnit
-  nuget NUnit.Runners
+  nuget NUnit 3.10.1
+  nuget NUnit3TestAdapter 3.10.0
+  nuget Microsoft.NET.Test.Sdk 15.8.0
 
 group IntegrationTests
   framework: net461

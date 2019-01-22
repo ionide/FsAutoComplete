@@ -27,13 +27,8 @@ open Microsoft.FSharp.Compiler.Range
 
 [<RequireQualifiedAccess>]
 type private WebSocketMessage =
-#if SUAVE_2
     | Send of WebSocket.Opcode * Sockets.ByteSegment * bool
     | SendAndWait of WebSocket.Opcode * Sockets.ByteSegment * bool * AsyncReplyChannel<unit>
-#else
-    | Send of WebSocket.Opcode * (byte array) * bool
-    | SendAndWait of WebSocket.Opcode * (byte array) * bool * AsyncReplyChannel<unit>
-#endif
 
 let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
 
@@ -76,17 +71,9 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     let echo notificationEvent (webSocket : Suave.WebSocket.WebSocket) =
 
         let inline byteSegment array =
-#if SUAVE_2
             Sockets.ByteSegment(array)
-#else
-            array
-#endif
         let emptyBs =
-#if SUAVE_2
-            Sockets.ByteSegment.Empty
-#else
-            [||]
-#endif
+            Sockets.ByteSegment([||])
 
         fun _cx ->
 
@@ -258,25 +245,16 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             cancellationToken = cts.Token
             bindings = [{ defaultBinding with socketBinding = withPort }] }
 
-#if SUAVE_2
     let logger = Suave.Logging.LiterateConsoleTarget([| "FsAutoComplete" |], Logging.Info)
     let serverConfig =
         { serverConfig with logger = logger }
-#endif
 
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
-#if SUAVE_2
         serverConfig.logger.log Logging.LogLevel.Info (fun _ ->
             Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
             Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
         )
-#else
-        serverConfig.logger.Log Logging.LogLevel.Info (fun () ->
-            Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
-            Logging.LogLine.mk "FsAutoComplete" Logging.LogLevel.Info Logging.TraceHeader.empty None (sprintf "tracking host PID %i" pid)
-        )
-#endif
         Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 
