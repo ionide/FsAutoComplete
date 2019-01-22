@@ -39,6 +39,7 @@
     <Compile Include="CodeGeneration.fs" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="RecordStubGenerator.fs" />
+    <Compile Include="InterfaceStubGenerator.fs" />
     <Compile Include="SymbolCache.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>

@@ -186,6 +186,22 @@ module Async =
           // Start the workflow using a provided cancellation token
           Async.StartWithContinuations( work, cont, econt, ccont, cancellationToken=cancellationToken) )
 
+    [<RequireQualifiedAccess>]
+    module Array =
+        /// Async implementation of Array.map.
+        let map (mapping : 'T -> Async<'U>) (array : 'T[]) : Async<'U[]> =
+            let len = Array.length array
+            let result = Array.zeroCreate len
+
+            async { // Apply the mapping function to each array element.
+                for i in 0 .. len - 1 do
+                    let! mappedValue = mapping array.[i]
+                    result.[i] <- mappedValue
+
+                // Return the completed results.
+                return result
+}
+
 // Maybe computation expression builder, copied from ExtCore library
 /// https://github.com/jack-pappas/ExtCore/blob/master/ExtCore/Control.fs
 [<Sealed>]
@@ -468,6 +484,18 @@ module String =
 
     let split (splitter: char) (s: string) = s.Split([| splitter |], StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
 
+    let getLines (str: string) =
+        use reader = new StringReader(str)
+        [|
+            let line = ref (reader.ReadLine())
+            while not (isNull (!line)) do
+                yield !line
+                line := reader.ReadLine()
+            if str.EndsWith("\n") then
+                // last trailing space not returned
+                // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
+                yield String.Empty
+        |]
 
 type ConcurrentDictionary<'key, 'value> with
     member x.TryFind key =
