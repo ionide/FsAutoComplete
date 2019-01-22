@@ -704,7 +704,6 @@ type Commands (serialize : Serializer) =
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =
-        printfn "GetInterfaceStub"
         async {
             let codeGenServer = CodeGenerationService(checker, state)
             let doc = {
