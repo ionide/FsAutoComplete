@@ -897,16 +897,18 @@ let findLastGreaterOperator (tokens : FSharpTokenInfo list) =
             && token.TokenName = "GREATER"
     )
 
-/// Round the given `value`, to the nearest multiple of `radix`
-/// Ex: roundToNearest 10 4 -> 8
-let roundToNearest (value : int) (radix : int) =
-    Math.Round(float value / float radix) * float radix
-    |> int
+/// Return the greater multiple of `powerNumber` which is smaller than `value`
+/// Ex: roundToNearest 14 4 -> 12
+let findGreaterMultiple (value : int) (powerNumber : int) =
+    let mutable res = powerNumber
+    while res + powerNumber < value do
+        res <- res + powerNumber
+    res
 
 /// Try to find the start column, so we know what the base indentation should be
-let inferStartColumn (indentSize : int) (interfaceData : InterfaceData) =
+let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
     match getMemberNameAndRanges interfaceData with
-    | (_, range) :: _ ->
+    | (_, _) :: _ ->
         getLineIdent lineStr
     | [] ->
         match interfaceData with
@@ -920,7 +922,7 @@ let inferStartColumn (indentSize : int) (interfaceData : InterfaceData) =
                 |> List.tryPick (fun (t: FSharpTokenInfo) ->
                         if t.CharClass = FSharpTokenCharKind.Keyword && t.TokenName = "NEW" then
                             // We round to nearest so the generated code will align on the indentation guides
-                            roundToNearest (t.LeftColumn + indentSize) indentSize
+                            findGreaterMultiple (t.LeftColumn + indentSize) indentSize
                             |> Some
                         else None)
                 // There is no reference point, we indent the content at the start column of the interface
@@ -990,7 +992,7 @@ let handleImplementInterface (codeGenServer : CodeGenerationService) (pos : pos)
             let generatedString =
                 let formattedString =
                     formatInterface
-                        (inferStartColumn 4) // 4 here correspond to the indent size
+                        (inferStartColumn codeGenServer pos doc lineStr interfaceData 4) // 4 here correspond to the indent size
                         4 // Should we make it a setting from the IDE ?
                         interfaceData.TypeParameters
                         "$objectIdent"
@@ -1007,17 +1009,22 @@ let handleImplementInterface (codeGenServer : CodeGenerationService) (pos : pos)
                 | InterfaceData.ObjExpr _ ->
                     formattedString.TrimEnd('\n')
 
-            match insertInfo with
-            | Some (shouldAppendWith, insertPosition) ->
-                if shouldAppendWith then
-                    return Some (insertPosition, " with" + generatedString)
-                else
-                    return Some (insertPosition, generatedString)
-            | None ->
-                // Unable to find an optimal insert position so return the position under the cursor
-                // By doing that we allow the user to copy/paste the code if the insertion break the code
-                // If we return None, then user would not benefit from interface stub generation at all
-                return Some (pos, generatedString)
+            // If generatedString is empty it means nothing is missing to the interface
+            // So we return None, in order to not show a "Falsy Hint"
+            if String.IsNullOrEmpty generatedString then
+                return None
+            else
+                match insertInfo with
+                | Some (shouldAppendWith, insertPosition) ->
+                    if shouldAppendWith then
+                        return Some (insertPosition, " with" + generatedString)
+                    else
+                        return Some (insertPosition, generatedString)
+                | None ->
+                    // Unable to find an optimal insert position so return the position under the cursor
+                    // By doing that we allow the user to copy/paste the code if the insertion break the code
+                    // If we return None, then user would not benefit from interface stub generation at all
+                    return Some (pos, generatedString)
         | None ->
             return None
     }
