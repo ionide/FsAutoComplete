@@ -154,6 +154,8 @@ module internal Conversions =
         )
         |> Array.map map
 
+    let getText (lines: string []) (r: Lsp.Range) =
+        lines.[r.Start.Line].Substring(r.Start.Character, r.End.Character - r.Start.Character)
 
 [<AutoOpen>]
 module internal GlyphConversions =
