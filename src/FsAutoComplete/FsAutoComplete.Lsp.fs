@@ -742,43 +742,85 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             async.Return []
             }
 
+    member private __.IfDiagnostic str handler p =
+        let diag =
+            p.Context.Diagnostics |> Seq.tryFind (fun n ->
+                n.Message = str
+            )
+        match diag with
+        | None -> async.Return []
+        | Some d -> handler d
+
+    member private __.CreateFix uri fn title (d: Diagnostic) range replacement  =
+        let e =
+            {
+                Range = range
+                NewText = replacement
+            }
+        let edit =
+            {
+                TextDocument =
+                    {
+                        Uri = uri
+                        Version = commands.TryGetFileVersion fn
+                    }
+                Edits = [|e|]
+            }
+        let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
+
+
+        { CodeAction.Title = title
+          Kind = Some "quickfix"
+          Diagnostics = Some [| d |]
+          Edit = we
+          Command = None}
+
     member private x.GetUnusedOpensCodeActions fn p =
         if config.UnusedOpensAnalyzer then
-            let diag =
-                p.Context.Diagnostics |> Seq.tryFind (fun n ->
-                    n.Message = "Unused open statement"
-                )
-            match diag with
-            | None -> []
-            | Some d ->
-                let e =
-                    {
-                        Range = {
-                            Start = {Line = d.Range.Start.Line - 1; Character = 1000}
-                            End = {Line = d.Range.End.Line; Character = d.Range.End.Character}
-                        }
-                        NewText = ""
-                    }
-                let edit =
-                    {
-                        TextDocument =
-                            {
-                                Uri = p.TextDocument.Uri
-                                Version = commands.TryGetFileVersion fn
-                            }
-                        Edits = [|e|]
-                    }
-                let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
-                let action =
-                    { CodeAction.Title = "Remove unused open"
-                      Kind = Some "quickfix"
-                      Diagnostics = Some [| d |]
-                      Edit = we
-                      Command = None}
-
-                [action]
+            p |> x.IfDiagnostic "Unused open statement" (fun d ->
+                let range = {
+                    Start = {Line = d.Range.Start.Line - 1; Character = 1000}
+                    End = {Line = d.Range.End.Line; Character = d.Range.End.Character}
+                }
+                let action = x.CreateFix p.TextDocument.Uri fn "Remove unused open" d range ""
+                async.Return [action])
         else
-            []
+            async.Return []
+
+    member private x.GetErrorSuggestionsCodeActions fn p =
+        p |> x.IfDiagnostic "Maybe you want one of the following:" (fun d ->
+            d.Message.Split('\n').[1..]
+            |> Array.map (fun suggestion ->
+                let s = suggestion.Trim()
+                let s =
+                    if System.Text.RegularExpressions.Regex.IsMatch(s, """^[a-zA-Z][a-zA-Z0-9']+$""") then
+                        s
+                    else
+                        "``" + s + "``"
+                let title = sprintf "Replace with %s" s
+                let action = x.CreateFix p.TextDocument.Uri fn title d d.Range s
+                action)
+            |> Array.toList
+            |> async.Return
+        )
+
+    member private x.GetNewKeywordSuggestionCodeAction fn p lines =
+        p |> x.IfDiagnostic "It is recommended that objects supporting the IDisposable interface are created using the syntax" (fun d ->
+            let s = "new " + getText lines d.Range
+            x.CreateFix p.TextDocument.Uri fn "Add new" d d.Range s
+            |> List.singleton
+            |> async.Return
+        )
+
+    member private x.GetUnusedCodeAction fn p lines =
+        p |> x.IfDiagnostic "is unused" (fun d ->
+            let s = "_"
+            let s2 = "_" + getText lines d.Range
+            [
+                x.CreateFix p.TextDocument.Uri fn "Replace with _" d d.Range s
+                x.CreateFix p.TextDocument.Uri fn "Prefix with _" d d.Range s2
+            ] |> async.Return
+        )
 
     member private x.GetResolveNamespaceActions fn (p: CodeActionParams) =
         let insertLine line lineStr =
@@ -812,15 +854,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | ScopeKind.Namespace -> 1
             | _ -> l
 
-
         if config.ResolveNamespaces then
-            let diag =
-                p.Context.Diagnostics |> Seq.tryFind (fun n ->
-                    n.Message = "Unused open statement"
-                )
-            match diag with
-            | None -> async.Return []
-            | Some d ->
+            p |> x.IfDiagnostic "Unused open statement" (fun d ->
                 async {
                     let pos = protocolPosToPos d.Range.Start
                     return!
@@ -903,21 +938,27 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 return res
                             }
                         )
-                }
+                })
         else
             async.Return []
 
     override x.TextDocumentCodeAction(p) = async {
         let fn = p.TextDocument.GetFilePath()
-
-        let unusedOpensActions = x.GetUnusedOpensCodeActions fn p
+        let lines = commands.Files.[fn].Lines
+        let! unusedOpensActions = x.GetUnusedOpensCodeActions fn p
         let! resolveNamespaceActions = x.GetResolveNamespaceActions fn p
+        let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
+        let! unusedActions = x.GetUnusedCodeAction fn p lines
+        let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
 
 
         let res =
             [|
                 yield! unusedOpensActions
                 yield! resolveNamespaceActions
+                yield! errorSuggestionActions
+                yield! unusedActions
+                yield! newKeywordAction
             |]
 
         let res = if res |> Array.isEmpty then None else res |> TextDocumentCodeActionResult.CodeActions |> Some
