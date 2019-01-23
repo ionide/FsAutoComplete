@@ -906,10 +906,10 @@ let findGreaterMultiple (value : int) (powerNumber : int) =
     res
 
 /// Try to find the start column, so we know what the base indentation should be
-let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
+let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
     match getMemberNameAndRanges interfaceData with
-    | (_, _) :: _ ->
-        getLineIdent lineStr
+    | (_, range) :: _ ->
+        getLineIdent lines.[range.StartLine-1]
     | [] ->
         match interfaceData with
         | InterfaceData.Interface _ as iface ->
@@ -932,7 +932,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
 /// Return None, if we failed to handle the interface implementation
 /// Return Some (insertPosition, generatedString):
 /// `insertPosition`: representation the position where the editor should insert the `generatedString`
-let handleImplementInterface (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lineStr : string) (interfaceData : InterfaceData) =
+let handleImplementInterface (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) =
     async {
         let! result = asyncMaybe {
             let! _symbol, symbolUse =
@@ -992,7 +992,7 @@ let handleImplementInterface (codeGenServer : CodeGenerationService) (pos : pos)
             let generatedString =
                 let formattedString =
                     formatInterface
-                        (inferStartColumn codeGenServer pos doc lineStr interfaceData 4) // 4 here correspond to the indent size
+                        (inferStartColumn codeGenServer pos doc lines lineStr interfaceData 4) // 4 here correspond to the indent size
                         4 // Should we make it a setting from the IDE ?
                         interfaceData.TypeParameters
                         "$objectIdent"

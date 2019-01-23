@@ -718,7 +718,7 @@ type Commands (serialize : Serializer) =
             match res with
             | None -> return [Response.info serialize "Interface at position not found"]
             | Some interfaceData ->
-                let! stubInfo = handleImplementInterface codeGenServer pos doc lineStr interfaceData
+                let! stubInfo = handleImplementInterface codeGenServer pos doc lines lineStr interfaceData
 
                 match stubInfo with
                 | Some (insertPosition, generatedCode) ->
