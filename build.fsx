@@ -1,15 +1,17 @@
-open Fake
 // include Fake lib
 #r @"packages/build/FAKE/tools/FakeLib.dll"
 
+open Fake
 open Fake.Git
 open Fake.ReleaseNotesHelper
 open Fake.UserInputHelper
 open Fake.ZipHelper
 open Fake.Testing
 open Fake.AssemblyInfoFile
+open Fake.Testing
 open System
 open System.IO
+open System.Text.RegularExpressions
 
 let project = "FsAutoComplete"
 let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
