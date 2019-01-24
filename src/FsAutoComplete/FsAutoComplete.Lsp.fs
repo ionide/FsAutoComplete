@@ -565,7 +565,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     TextDocument =
                                         {
                                             Uri = filePathToUri fileName
-                                            // TODO: Maintain the version of all "in flight" documents for each TypeCheck
                                             Version = commands.TryGetFileVersion fileName
                                         }
                                     Edits = edits
@@ -822,6 +821,28 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             ] |> async.Return
         )
 
+    member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
+        p |> x.IfDiagnostic "Incomplete pattern matches on this expression. For example" (fun d ->
+            async {
+                let line = d.Range.Start.Line + 2
+                let col = lines.[line - 1].IndexOf('|') + 3
+                let pos = FcsRange.mkPos (line + 1) (col + 1)
+                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetUnionPatternMatchCases tyRes pos lines line)
+                let res =
+                    match res.[0] with
+                    | CoreResponse.UnionCase (text, position) ->
+                        let range = {
+                            Start = fcsPosToLsp position
+                            End = fcsPosToLsp position
+                        }
+                        let text = text.Replace("$1", "failwith \"Not Implemented\"")
+                        [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" d range text ]
+                    | _ ->
+                        []
+                return res
+            }
+        )
+
     member private x.GetResolveNamespaceActions fn (p: CodeActionParams) =
         let insertLine line lineStr =
             {
@@ -950,6 +971,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
         let! unusedActions = x.GetUnusedCodeAction fn p lines
         let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
+        let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
 
 
         let res =
@@ -959,6 +981,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 yield! errorSuggestionActions
                 yield! unusedActions
                 yield! newKeywordAction
+                yield! duCaseActions
             |]
 
         let res = if res |> Array.isEmpty then None else res |> TextDocumentCodeActionResult.CodeActions |> Some
@@ -1257,9 +1280,6 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
     // stdout is used for commands
     if Debug.output = stdout then
         Debug.output <- stderr
-
-    // Debug.print "Starting LSP mode"
-
     try
         let result = startCore commands
         Debug.print "Ending LSP mode with %A" result
