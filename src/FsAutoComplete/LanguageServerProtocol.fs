@@ -1344,7 +1344,7 @@ module Types =
         Severity: DiagnosticSeverity option
 
         /// The diagnostic's code. Can be omitted.
-        Code: DiagnosticCode option
+        Code: string option
 
         /// A human-readable string describing the source of this
         /// diagnostic, e.g. 'typescript' or 'super lint'.
