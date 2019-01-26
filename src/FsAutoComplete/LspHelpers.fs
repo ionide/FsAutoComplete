@@ -108,7 +108,7 @@ module internal Conversions =
             Severity = Some (fcsSeverityToDiagnostic error.Severity)
             Source = "F# Compiler"
             Message = error.Message
-            Code = Some (DiagnosticCode.Number error.ErrorNumber)
+            Code = Some (string error.ErrorNumber)
             RelatedInformation = [||]
             Tags = None
         }
