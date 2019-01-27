@@ -1,3 +1,5 @@
+version: 5.195.7
+
 framework: net461, netstandard2.0, netcoreapp2.0
 source https://www.nuget.org/api/v2/
 storage: none
