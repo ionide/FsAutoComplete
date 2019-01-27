@@ -239,6 +239,36 @@ Target "IntegrationTestHttpModeNetCore" (fun _ ->
   runall cfg
 )
 
+Target "LspTest" (fun _ ->
+  DotNetCli.RunCommand id "run -p \"./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj\""
+)
+
+// Target "UnitTest" (fun _ ->
+//     trace "Running Unit tests."
+//     !! testAssemblies
+//     |> NUnit3 (fun p ->
+//         { p with
+//             ShadowCopy = true
+//             TimeOut = TimeSpan.FromMinutes 10.
+//             OutputDir = "TestResults.xml" })
+//     trace "Done Unit tests."
+// )
+
+
+
+Target "AssemblyInfo" (fun _ ->
+  let fileName = "src" </> project </> "AssemblyInfo.fs"
+  let githash = Information.getCurrentSHA1 ""
+
+  CreateFSharpAssemblyInfo fileName
+    [ Attribute.Title project
+      Attribute.Product project
+      Attribute.Description summary
+      Attribute.Version release.AssemblyVersion
+      Attribute.FileVersion release.AssemblyVersion
+      Attribute.Metadata("githash", githash) ]
+)
+
 Target "ReleaseArchive" (fun _ ->
     CleanDirs [ "bin/pkgs" ]
     ensureDirectory "bin/pkgs"
@@ -291,14 +321,28 @@ Target "All" id
 Target "Release" id
 Target "BuildDebug" id
 
-"IntegrationTest" ==> "Test"
+"AssemblyInfo" ==> "BuildDebug"
+
+"BuildDebug"
+  ==> "Build"
+  ==> "IntegrationTest"
+
+"BuildDebug"
+  ==> "Build"
+  ==> "LspTest"
+
+// "UnitTest" ==> "Test"
+
 
 "LocalRelease" ==> "IntegrationTestStdioMode" ==> "IntegrationTest"
 "LocalRelease" ==> "IntegrationTestHttpMode" ==> "IntegrationTest"
 "LocalRelease" ==> "IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
 "LocalRelease" ==> "IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
+"LspTest" ==> "Test"
+"IntegrationTest" ==> "Test"
 "Test" ==> "All"
+"BuildDebug" ==> "All"
 
 "Build"
   ==> "LocalRelease"

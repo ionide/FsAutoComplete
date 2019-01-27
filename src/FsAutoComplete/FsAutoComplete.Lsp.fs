@@ -741,7 +741,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             async.Return []
             }
 
-    member private __.IfDiagnostic str handler p =
+    member private __.IfDiagnostic (str: string) handler p =
         let diag =
             p.Context.Diagnostics |> Seq.tryFind (fun n -> n.Message.Contains str)
         match diag with
