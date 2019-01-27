@@ -1,0 +1,5 @@
+FSharp.Core
+
+group Test
+  Expecto
+  OmniSharp.Extensions.LanguageClient
