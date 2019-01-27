@@ -134,7 +134,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                     let diags =
                         warnings |> List.map(fun (n: Warning) ->
-                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = [||]; Tags = None })
+                            let ri =
+                                n.Fix
+                                |> Option.map (fun f -> {Range = fcsRangeToLsp f.FromRange; NewText = f.ToText})
+                                |> Option.map (JToken.FromObject)
+                                |> Option.toArray
+                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = ri; Tags = None })
                         |> List.toArray
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -819,6 +824,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             ] |> async.Return
         )
 
+    member private x.GetLinterCodeAction fn p =
+        p |> x.IfDiagnostic "Lint:" (fun d ->
+            if Array.isEmpty d.RelatedInformation then
+                async.Return []
+            else
+                let te = d.RelatedInformation.[0].ToObject<TextEdit>()
+                x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) d te.Range te.NewText
+                |> List.singleton
+                |> async.Return
+        )
+
     member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
         p |> x.IfDiagnostic "Incomplete pattern matches on this expression. For example" (fun d ->
             async {
@@ -970,6 +986,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let! unusedActions = x.GetUnusedCodeAction fn p lines
         let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
         let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
+        let! linterActions = x.GetLinterCodeAction fn p
 
 
         let res =
@@ -980,6 +997,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 yield! unusedActions
                 yield! newKeywordAction
                 yield! duCaseActions
+                yield! linterActions
             |]
 
         let res = if res |> Array.isEmpty then None else res |> TextDocumentCodeActionResult.CodeActions |> Some
