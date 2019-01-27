@@ -550,3 +550,20 @@ with
             AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
             DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
         }
+
+//source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
+type Debounce<'a>(timeout, fn) =
+    let debounce fn timeout = MailboxProcessor<'a>.Start(fun agent ->
+        let rec loop ida idb arg = async {
+            let! r = agent.TryReceive(timeout)
+            match r with
+            | Some arg -> return! loop ida (idb + 1) (Some arg)
+            | None when ida <> idb -> fn arg.Value; return! loop idb idb None
+            | None -> return! loop ida idb arg
+        }
+        loop 0 0 None)
+
+    let mailbox = debounce fn timeout
+
+    /// Calls the function, after debouncing has been applied.
+    member __.Bounce(arg) = mailbox.Post(arg)

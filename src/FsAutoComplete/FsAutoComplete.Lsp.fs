@@ -63,6 +63,33 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | Some tyRes ->
                 Ok (options, lines, tyRes)
 
+    let parseFile (p: DidChangeTextDocumentParams) =
+        async {
+            if not commands.IsWorkspaceReady then
+                Debug.print "Workspace not ready"
+                ()
+            else
+                let doc = p.TextDocument
+                let filePath = Uri(doc.Uri).LocalPath
+                let contentChange = p.ContentChanges |> Seq.tryLast
+                match contentChange, doc.Version with
+                | Some contentChange, Some version ->
+                    if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
+                        let content = contentChange.Text.Split('\n')
+                        do! (commands.Parse filePath content version |> Async.Ignore)
+                        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+                        if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
+                        if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
+                        if config.SimplifyNameAnalyzer then do! (commands.GetSimplifiedNames filePath |> Async.Ignore)
+                    else
+                        Debug.print "Parse not started, received partial change"
+                | _ ->
+                    Debug.print "Found no change for %s" filePath
+                    ()
+        } |> Async.Start
+
+    let parseFileDebuncer = Debounce(200, parseFile)
+
     let diagnosticCollections = System.Collections.Concurrent.ConcurrentDictionary<DocumentUri * string,Diagnostic[]>()
 
     let sendDiagnostics (uri: DocumentUri) =
@@ -307,27 +334,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentDidChange(p) = async {
-        if not commands.IsWorkspaceReady then
-            Debug.print "Workspace not ready"
-            ()
-        else
-            let doc = p.TextDocument
-            let filePath = Uri(doc.Uri).LocalPath
-            let contentChange = p.ContentChanges |> Seq.tryLast
-            match contentChange, doc.Version with
-            | Some contentChange, Some version ->
-                if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                    let content = contentChange.Text.Split('\n')
-                    do! (commands.Parse filePath content version |> Async.Ignore)
-                    if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-                    if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
-                    if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
-                    if config.SimplifyNameAnalyzer then do! (commands.GetSimplifiedNames filePath |> Async.Ignore)
-                else
-                    Debug.print "Parse not started, received partial change"
-            | _ ->
-                Debug.print "Found no change for %s" filePath
-                ()
+        parseFileDebuncer.Bounce p
     }
 
     override __.TextDocumentDidSave(p) = async {
