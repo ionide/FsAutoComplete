@@ -4,12 +4,13 @@
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework) == 'net461'">
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Prefer32Bit>false</Prefer32Bit>
     <Platform>x64</Platform>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework) == 'netstandard2.0'">
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
     <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;SUAVE_2;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
   </PropertyGroup>
 
