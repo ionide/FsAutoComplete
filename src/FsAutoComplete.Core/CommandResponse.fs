@@ -321,6 +321,11 @@ module CommandResponse =
       Position : pos
   }
 
+  type InterfaceStubResponse = {
+      Text : string
+      Position : pos
+  }
+
   type Parameter = {
     Name : string
     Type : string
@@ -680,6 +685,13 @@ module CommandResponse =
     }
     serialize { Kind = "recordStub"; Data = data}
 
+  let interfaceStub (serialize : Serializer) (text : string) (position : pos) =
+    let data : InterfaceStubResponse = {
+      Text = text
+      Position = position
+    }
+    serialize { Kind = "interfaceStub"; Data = data}
+
   let unusedDeclarations (serialize : Serializer) data =
     let data =
       data |> Array.map (fun (r, t) ->
@@ -720,4 +732,3 @@ module CommandResponse =
         })
       |> Seq.toList
     serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
-

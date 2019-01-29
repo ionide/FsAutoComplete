@@ -6,6 +6,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
+open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
 open System.Reflection
@@ -700,6 +701,29 @@ type Commands (serialize : Serializer) =
                     return [Response.recordStub serialize result pos]
                 else
                     return [Response.info serialize "Record at position not found"]
+        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
+    member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =
+        async {
+            let codeGenServer = CodeGenerationService(checker, state)
+            let doc = {
+                Document.LineCount = lines.Length
+                FullName = tyRes.FileName
+                GetText = fun _ -> lines |> String.concat "\n"
+                GetLineText0 = fun i -> lines.[i]
+                GetLineText1 = fun i -> lines.[i - 1]
+            }
+
+            let! res = tryFindInterfaceExprInBufferAtPos codeGenServer pos doc
+            match res with
+            | None -> return [Response.info serialize "Interface at position not found"]
+            | Some interfaceData ->
+                let! stubInfo = handleImplementInterface codeGenServer pos doc lines lineStr interfaceData
+
+                match stubInfo with
+                | Some (insertPosition, generatedCode) ->
+                    return [Response.interfaceStub serialize generatedCode insertPosition]
+                | None -> return [Response.info serialize "Interface at position not found"]
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {

@@ -200,6 +200,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/namespaces" >=> positionHandler (fun data tyRes lineStr _   -> commands.GetNamespaceSuggestions tyRes (mkPos data.Line data.Column) lineStr)
             path "/unionCaseGenerator" >=> positionHandler (fun data tyRes lineStr lines -> commands.GetUnionPatternMatchCases tyRes (mkPos data.Line data.Column) lines lineStr)
             path "/recordStubGenerator" >=> positionHandler (fun data tyRes lineStr lines -> commands.GetRecordStub tyRes (mkPos data.Line data.Column) lines lineStr)
+            path "/interfaceStubGenerator" >=> positionHandler (fun data tyRes lineStr lines -> commands.GetInterfaceStub tyRes (mkPos data.Line data.Column) lines lineStr)
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
             path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray) data.DisableInMemoryProjectReferences)
             path "/compile" >=> handler (fun (data : ProjectRequest) -> commands.Compile data.FileName)

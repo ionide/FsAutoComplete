@@ -69,7 +69,7 @@ let tryParseSln (slnFilePath: string) =
                 | _ ->
                     (item.ProjectName |> makeAbsoluteFromSlnDir), SolutionItemKind.Unknown
 
-            let name, itemKind = parseKind item 
+            let name, itemKind = parseKind item
             { Guid = item.ProjectGuid |> Guid.Parse
               Name = name
               Kind = itemKind }
