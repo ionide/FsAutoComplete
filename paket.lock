@@ -439,6 +439,7 @@ GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net461
 NUGET
   remote: https://www.nuget.org/api/v2
+    FSharp.Core (4.6)
     Hopac (0.4.1)
     Http.fs (5.3)
     Newtonsoft.Json (12.0.1)
@@ -446,6 +447,7 @@ NUGET
     System.Net.WebSockets.Client (4.3.2)
       System.Net.WebSockets (>= 4.3)
       System.Security.Cryptography.X509Certificates (>= 4.3)
+    System.Runtime (4.3)
     System.Security.Cryptography.Algorithms (4.3.1)
       System.Security.Cryptography.Primitives (>= 4.3)
     System.Security.Cryptography.Encoding (4.3)

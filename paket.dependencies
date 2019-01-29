@@ -51,6 +51,8 @@ group IntegrationTests
   nuget Newtonsoft.Json 11.0.2
   nuget System.Net.WebSockets.Client
   nuget Hopac
+  nuget FSharp.Core ~> 4.5
+  nuget System.Runtime
 
 group SourceLink
   storage: none
