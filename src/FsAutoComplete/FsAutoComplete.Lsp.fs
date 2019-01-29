@@ -1007,9 +1007,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 yield! linterActions
             |]
 
-        let res = if res |> Array.isEmpty then None else res |> TextDocumentCodeActionResult.CodeActions |> Some
 
-        return success res
+        return res |> TextDocumentCodeActionResult.CodeActions |> Some |> success
     }
 
     override __.TextDocumentCodeLens(p) = async {
@@ -1191,6 +1190,23 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
         )
 
+    member x.FSharpSignatureData(p) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.SignatureData tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.SignatureData (typ, parms) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+        )
+
     member __.FSharpLineLense(p) = async {
         let fn = p.Project.GetFilePath()
         if not commands.IsWorkspaceReady then
@@ -1290,6 +1306,7 @@ let startCore (commands: Commands) =
     let requestsHandlings =
         defaultRequestHandlings<FsharpLspServer> ()
         |> Map.add "fsharp/signature" (requestHandling (fun s p -> s.FSharpSignature(p) ))
+        |> Map.add "fsharp/signatureData" (requestHandling (fun s p -> s.FSharpSignatureData(p) ))
         |> Map.add "fsharp/lineLens" (requestHandling (fun s p -> s.FSharpLineLense(p) ))
         |> Map.add "lineLens/resolve" (requestHandling (fun s p -> s.LineLensResolve(p) ))
         |> Map.add "fsharp/compilerLocation" (requestHandling (fun s p -> s.FSharpCompilerLocation(p) ))
