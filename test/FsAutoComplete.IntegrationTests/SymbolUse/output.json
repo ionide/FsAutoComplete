@@ -10,6 +10,7 @@
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.Runtime.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
     ],
@@ -84,7 +85,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "Program.testval",
+        "SymbolDisplayName": "testval",
+        "SymbolIsLocal": false
       },
       {
         "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
@@ -97,7 +101,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "Program.testval",
+        "SymbolDisplayName": "testval",
+        "SymbolIsLocal": false
       },
       {
         "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
@@ -110,7 +117,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "Program.testval",
+        "SymbolDisplayName": "testval",
+        "SymbolIsLocal": false
       }
     ]
   }
@@ -131,7 +141,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "testval",
+        "SymbolDisplayName": "testval",
+        "SymbolIsLocal": true
       },
       {
         "FileName": "<absolute path removed>/FsAutoComplete.IntegrationTests/SymbolUse/Program.fs",
@@ -144,7 +157,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "testval",
+        "SymbolDisplayName": "testval",
+        "SymbolIsLocal": true
       }
     ]
   }
@@ -169,7 +185,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "Program.shadowed",
+        "SymbolDisplayName": "shadowed",
+        "SymbolIsLocal": false
       }
     ]
   }
@@ -190,7 +209,10 @@
         "IsFromComputationExpression": false,
         "IsFromDispatchSlotImplementation": false,
         "IsFromPattern": false,
-        "IsFromType": false
+        "IsFromType": false,
+        "SymbolFullName": "Program.shadowed",
+        "SymbolDisplayName": "shadowed",
+        "SymbolIsLocal": false
       }
     ]
   }

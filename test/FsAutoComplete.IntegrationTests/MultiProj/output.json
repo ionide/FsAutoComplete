@@ -10,6 +10,7 @@
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.Runtime.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
     ],
@@ -215,6 +216,7 @@
     "References": [
       "<absolute path removed>/FSharp.Core.dll",
       "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.Runtime.dll",
       "<absolute path removed>/System.dll",
       "<absolute path removed>/mscorlib.dll"
     ],

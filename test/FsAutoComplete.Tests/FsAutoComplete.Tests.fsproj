@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <IsPackable>false</IsPackable>
-    <AutoGenerateBindingRedirects Condition=" '$(TargetFramework)' == 'net461' " >true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="nunit" Version="3.10.1" />
@@ -11,8 +10,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.8.0" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Tests.fs" Condition=" '$(TargetFramework)' == 'net461' " />
-    <Compile Include="UnitTest1.fs" Condition=" '$(TargetFramework)' == 'netcoreapp2.1' " />
+    <Compile Include="UnitTest1.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\FsAutoComplete\FsAutoComplete.fsproj" />
