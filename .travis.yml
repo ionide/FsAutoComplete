@@ -3,6 +3,10 @@ dist: xenial # dotnet sdk 2.2 isn't installable on trusty due to https://travis-
 
 sudo: false
 
+# execute any number of scripts before the test run, custom env's are available as variables
+before_script:
+  - ./travis.sh
+
 script:
   - ./build.sh All
 
@@ -28,7 +32,12 @@ matrix:
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
+    - mono: latest
+      dotnet: latest
+      env:
+        - FORCE_DOTNET_VERSION=2.2.103
 
   allow_failures:
     - mono: latest
     - mono: weekly
+    - dotnet: latest
