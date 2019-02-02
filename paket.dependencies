@@ -1,6 +1,6 @@
 version: 5.195.7
 
-framework: net461, netstandard2.0, netcoreapp2.0
+framework: net461, netstandard2.0, netcoreapp2.1
 source https://www.nuget.org/api/v2/
 storage: none
 
@@ -34,7 +34,7 @@ group Build
   nuget FAKE ~> 4
 
 group Test
-  framework: net461, netstandard2.0, netcoreapp2.0
+  framework: net461, netstandard2.0, netcoreapp2.1
   source https://nuget.org/api/v2
   storage: none
 
@@ -48,7 +48,7 @@ group IntegrationTests
   generate_load_scripts: true
 
   nuget Http.fs
-  nuget Newtonsoft.Json
+  nuget Newtonsoft.Json 11.0.2
   nuget System.Net.WebSockets.Client
   nuget Hopac
 
