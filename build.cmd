@@ -1,5 +1,4 @@
-echo off
-cls
+@echo off
 
 .paket\paket.exe restore
 if errorlevel 1 (
