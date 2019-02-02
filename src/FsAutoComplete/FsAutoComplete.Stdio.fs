@@ -131,7 +131,7 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
 
           while true do
             let inputLine = Console.ReadLine()
-#if NETCOREAPP2_0
+#if NETCOREAPP
             //on .net core, bom is not stripped.
             //ref https://github.com/dotnet/standard/issues/260
             //TODO tweak console.inputencoding to remove the BOM instead of this ugly hack

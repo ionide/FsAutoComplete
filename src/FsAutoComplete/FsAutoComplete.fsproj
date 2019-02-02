@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp2.1</TargetFrameworks>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
@@ -28,5 +28,20 @@
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fsproj" />
   </ItemGroup>
+
+  <!-- bundle the net461 exe inside the .net core tool package -->
+  <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(PackAsTool)' == 'true' ">
+    <Content Include="$(RepoDir)/bin/release/*">
+      <Pack>true</Pack>
+      <PackagePath>tools\net461\any\%(Filename)%(Extension)</PackagePath>
+      <Visible>true</Visible>
+    </Content>
+  </ItemGroup>
+
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
