@@ -3,9 +3,10 @@ dist: xenial # dotnet sdk 2.2 isn't installable on trusty due to https://travis-
 
 sudo: false
 
-# execute any number of scripts before the test run, custom env's are available as variables
 before_install:
-  - ./travis.sh
+  - |
+    ./travis.sh
+  - dotnet --info
 
 script:
   - ./build.sh All
