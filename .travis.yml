@@ -32,10 +32,12 @@ matrix:
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
-    - mono: latest
-      dotnet: latest
+    - mono: 5.18.0
+      dotnet: 2.2.103
       env:
         - FORCE_DOTNET_VERSION=2.2.103
+        - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
+        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
 
   allow_failures:
     - mono: latest
