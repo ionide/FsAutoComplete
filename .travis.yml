@@ -42,4 +42,4 @@ matrix:
   allow_failures:
     - mono: latest
     - mono: weekly
-    - dotnet: latest
+    - dotnet: 2.2.103
