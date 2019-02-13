@@ -49,6 +49,31 @@
   }
 }
 {
+  "Kind": "project",
+  "Data": {
+    "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectCache/Test1.fsproj",
+    "Files": [
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectCache/Program.fs"
+    ],
+    "Output": "<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectCache/bin/Debug/Test1.exe",
+    "References": [
+      "<absolute path removed>/FSharp.Core.dll",
+      "<absolute path removed>/System.Core.dll",
+      "<absolute path removed>/System.dll",
+      "<absolute path removed>/mscorlib.dll"
+    ],
+    "Logs": {
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectCache/Test1.fsproj": ""
+    },
+    "OutputType": "exe",
+    "Info": {
+      "SdkType": "verbose",
+      "Data": {}
+    },
+    "AdditionalInfo": {}
+  }
+}
+{
   "Kind": "info",
   "Data": "quitting..."
 }
