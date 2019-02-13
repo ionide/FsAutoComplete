@@ -16,6 +16,7 @@
         <String>Program.fs</String>
       </BuildOrder>
     </BuildOrder>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -44,10 +45,6 @@
   <ItemGroup>
     <Reference Include="FSharp.Core">
       <HintPath>../../../../packages/integrationtests/FSharp.Core/lib/net45/FSharp.Core.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Runtime">
-      <HintPath>../../../../packages/integrationtests/System.Runtime/lib/net462/System.Runtime.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
