@@ -314,7 +314,10 @@ module TypedAstPatterns =
     let (|RecordField|_|) (e: FSharpSymbol) =
         match e with
         | :? FSharpField as field ->
-            if field.DeclaringEntity.IsFSharpRecord then Some field else None
+            match field.DeclaringEntity with
+            | Some entity when entity.IsFSharpRecord -> Some field
+            | Some _
+            | None -> None
         | _ -> None
 
     let (|ActivePatternCase|_|) (symbol: FSharpSymbol) =

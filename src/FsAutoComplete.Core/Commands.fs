@@ -697,13 +697,15 @@ type Commands (serialize : Serializer) =
             let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
             match res with
             | None -> return [Response.info serialize "Record at position not found"]
-            | Some(recordEpr, recordDefinition, insertionPos) ->
+            | Some(recordEpr, Some recordDefinition, insertionPos) ->
                 if shouldGenerateRecordStub recordEpr recordDefinition then
                     let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
                     let pos = mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
                     return [Response.recordStub serialize result pos]
                 else
                     return [Response.info serialize "Record at position not found"]
+            | Some (recordExpr, None, insertionPos) ->
+                return [Response.info serialize "Cannot generate record stub for anonymous records"]
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =

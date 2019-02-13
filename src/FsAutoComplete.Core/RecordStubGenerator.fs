@@ -339,7 +339,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
             | SynExpr.Assert(synExpr, _) ->
                 walkExpr synExpr
 
-            | SynExpr.Tuple(synExprList, _, _range)
+            | SynExpr.Tuple(_, synExprList, _, _range)
             | SynExpr.ArrayOrList(_, synExprList, _range) ->
                 List.tryPick walkExpr synExprList
 
@@ -368,7 +368,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
 
             | SynExpr.MatchLambda(_isExnMatch, _argm, synMatchClauseList, _spBind, _wholem) ->
                 synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
-            | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _, _range) ->
+            | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
                 walkExpr synExpr
                 |> Option.orElse (synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
 
@@ -542,12 +542,13 @@ let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos:
 
         match symbolUse.Symbol with
         | :? FSharpEntity as entity when entity.IsFSharpRecord && entity.DisplayName = symbol.Text ->
-            return! Some (recordExpression, entity, insertionPos)
+            return! Some (recordExpression, Some entity, insertionPos)
 
-        | :? FSharpField as field when
-            field.DeclaringEntity.IsFSharpRecord &&
-            field.DisplayName = symbol.Text ->
+        | :? FSharpField as field ->
+            match field.DeclaringEntity with
+            | Some decl when decl.IsFSharpRecord && field.DisplayName = symbol.Text ->
                 return! Some (recordExpression, field.DeclaringEntity, insertionPos)
+            | _ -> return! None
         | _ ->
             return! None
     }

@@ -54,8 +54,7 @@ let private clauseIsCandidateForCodeGen (cursorPos: pos) (clause: SynMatchClause
         | SynPat.LongIdent(_, _, _, ConstructorPats nestedPats, _, r) ->
             // The cursor should not be in the nested patterns
             rangeContainsPos r cursorPos && List.forall (not << patIsCandidate) nestedPats
-        | SynPat.Tuple _
-        | SynPat.StructTuple _ -> false
+        | SynPat.Tuple _ -> false
         | SynPat.ArrayOrList _
         | SynPat.Record _
         | SynPat.Null _
@@ -172,7 +171,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
             | SynExpr.Assert(synExpr, _) ->
                 walkExpr synExpr
 
-            | SynExpr.Tuple(synExprList, _, _range)
+            | SynExpr.Tuple(_, synExprList, _, _range)
             | SynExpr.ArrayOrList(_, synExprList, _range) ->
                 List.tryPick walkExpr synExprList
 
@@ -218,27 +217,24 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                        else None
                 )
 
-            | SynExpr.Match(sequencePointInfoForBinding, synExpr, synMatchClauseList, isExnMatch, _range) as matchExpr ->
+            | SynExpr.Match(sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) as matchExpr ->
                 getIfPosInRange synExpr.Range (fun () -> walkExpr synExpr)
                 |> Option.orTry (fun () ->
                     synMatchClauseList
                     |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
                 )
                 |> Option.orTry (fun () ->
-                    if isExnMatch then
-                        None
+                    let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
+                    if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.getOrElse false then
+                        match sequencePointInfoForBinding with
+                        | SequencePointAtBinding range ->
+                            { MatchWithOrFunctionRange = range
+                              Expr = matchExpr
+                              Clauses = synMatchClauseList }
+                            |> Some
+                        | _ -> None
                     else
-                       let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
-                       if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.getOrElse false then
-                            match sequencePointInfoForBinding with
-                            | SequencePointAtBinding range ->
-                                { MatchWithOrFunctionRange = range
-                                  Expr = matchExpr
-                                  Clauses = synMatchClauseList }
-                                |> Some
-                            | _ -> None
-                        else
-                            None
+                        None
                 )
 
             | SynExpr.App(_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
@@ -358,8 +354,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         | SynPat.DeprecatedCharRange(_, _, _)
         | SynPat.FromParseError(_, _) -> false
 
-        | SynPat.Tuple(innerPatList, _)
-        | SynPat.StructTuple(innerPatList, _) -> List.forall checkPattern innerPatList
+        | SynPat.Tuple(_,innerPatList, _) -> List.forall checkPattern innerPatList
 
         | SynPat.Record(recordInnerPatList, _) ->
             recordInnerPatList
