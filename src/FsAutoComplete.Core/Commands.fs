@@ -151,8 +151,8 @@ type Commands (serialize : Serializer) =
                         let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
                         fileParsed.Trigger parseRes
                 with
-                | _ ->
-                    printfn "Failed to parse file: %s" file
+                | ex ->
+                    printfn "Failed to parse file '%s' exn %A" file ex
             ) }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
