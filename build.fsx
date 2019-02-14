@@ -31,9 +31,6 @@ let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "bin" </> "pkgs" </> "fsautocomplete.zip"
 let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
 
-// Pattern specifying assemblies to be tested using NUnit
-let testAssemblies = "**/bin/*/*Tests*.dll"
-
 Target "BuildDebug" (fun _ ->
   DotNetCli.Build (fun p ->
      { p with
@@ -262,18 +259,6 @@ Target "IntegrationTestHttpModeNetCore" (fun _ ->
   listAll cfg
   runall cfg
 )
-
-// Target "UnitTest" (fun _ ->
-//     trace "Running Unit tests."
-//     !! testAssemblies
-//     |> NUnit3 (fun p ->
-//         { p with
-//             ShadowCopy = true
-//             TimeOut = TimeSpan.FromMinutes 10.
-//             OutputDir = "TestResults.xml" })
-//     trace "Done Unit tests."
-// )
-
 
 
 Target "AssemblyInfo" (fun _ ->
