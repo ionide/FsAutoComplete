@@ -71,19 +71,21 @@ module ProjectRecognizer =
         //  for checking .NET Core fsproj. NB: casing of FSharp may be inconsistent.
         //The `dotnet-compile-fsc.rsp` are created also in `preview3+`, so we can
         //  reuse the same behaviour of `preview2`
-        let rec getProjectType (sr:StreamReader) limit =
+        let rec getProjectType lines =
             // post preview5 dropped this, check Sdk field
             let isNetCore (line:string) = line.ToLower().Contains("sdk=")
-            if limit = 0 then
+            match lines with
+            | [] ->
                 Unsupported // unsupported project type
-            else
-                let line = sr.ReadLine()
+            | (line: string) :: xs ->
                 if not <| line.Contains("ToolsVersion") && not <| line.Contains("Sdk=") then
-                    getProjectType sr (limit-1)
+                    getProjectType xs
                 else // both net45 and preview3-5 have 'ToolsVersion', > 5 has 'Sdk'
                     if isNetCore line then NetCoreSdk else Net45
         if Path.GetExtension file = ".json" then
             NetCoreProjectJson // dotnet core preview 2 or earlier
         else
-            use sr = File.OpenText(file)
-            getProjectType sr 3
+            File.ReadLines(file)
+            |> Seq.truncate 3
+            |> List.ofSeq
+            |> getProjectType
