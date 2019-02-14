@@ -27,10 +27,7 @@ nuget FSharp.Analyzers.SDK
 group Build
   framework: net45
   source https://www.nuget.org/api/v2/
-  generate_load_scripts: true
 
-  github fsharp/FAKE modules/Octokit/Octokit.fsx
-  nuget Octokit
   nuget FAKE ~> 4
 
 group Test

@@ -424,16 +424,11 @@ GITHUB
   remote: Microsoft/visualfsharp
     src/fsharp/FSharp.Build/Fsc.fs (cc1b137bc17f401a0cc669ff8fc598714d0fe652)
 GROUP Build
-GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net45
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.64.14)
-    Octokit (0.32)
-GITHUB
-  remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (5e58b484c43da36bbe0f7e9111f6c61a951a38a7)
-      Octokit (>= 0.20)
+
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net461
