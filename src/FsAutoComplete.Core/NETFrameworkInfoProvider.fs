@@ -2,26 +2,6 @@ namespace FsAutoComplete
 
 module DotnetProjInfoInspectHelpers =
 
-  let (|MsbuildOk|_|) x =
-    match x with
-#if NETSTANDARD2_0
-    | Ok x -> Some x
-    | Error _ -> None
-#else
-    | Choice1Of2 x -> Some x
-    | Choice2Of2 _ -> None
-#endif
-
-  let (|MsbuildError|_|) x =
-    match x with
-#if NETSTANDARD2_0
-    | Ok _ -> None
-    | Error x -> Some x
-#else
-    | Choice1Of2 _ -> None
-    | Choice2Of2 x -> Some x
-#endif
-
   let msbuildPropBool (s: string) =
     match s.Trim() with
     | "" -> None
@@ -64,14 +44,14 @@ module NETFrameworkInfoProvider =
             let additionalArgs = additionalProps |> List.map Dotnet.ProjInfo.Inspect.MSBuild.Property
 
             file
-            |> Dotnet.ProjInfo.Inspect.getProjectInfoOldSdk loggedMessages.Enqueue msbuildExec getArgs additionalArgs
+            |> Dotnet.ProjInfo.Inspect.getProjectInfo loggedMessages.Enqueue msbuildExec getArgs additionalArgs
 
         infoResult, (loggedMessages.ToArray() |> Array.toList)
 
     match result with
-    | MsbuildOk r ->
+    | Ok (r) ->
         r, log
-    | MsbuildError x ->
+    | Error x ->
         match x with
         | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget ->
             failwithf "Unexpected MSBuild result, all targets skipped"
