@@ -23,6 +23,7 @@ let releaseNotesData =
 
 let release = List.head releaseNotesData
 
+let isMono = Fake.EnvironmentHelper.isMono
 
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
@@ -74,6 +75,9 @@ let isTestSkipped cfg (fn: string) =
   | FSACRuntime.NET, _, "LinterWithOptions", "Runner.fsx"
   | FSACRuntime.NET, _, "Linter", "Runner.fsx" ->
     Some "known failure. lint fails because a binding redirect over FParsec initializing FSharpLint "
+  // known difference. On mono the error message from msbuild is different and not normalized
+  | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" when isMono ->
+    Some "known difference. On mono the error message from msbuild is different and not normalized"
   // stdio and http
   | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
