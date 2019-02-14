@@ -68,8 +68,6 @@ let isTestSkipped cfg (fn: string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
-  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") = "1"
-
   match cfg.Runtime, cfg.Mode, dir, file with
   // known failure. lint fails because a binding redirect over FParsec initializing FSharpLint
   | FSACRuntime.NET, _, "LinterWithOptions", "Runner.fsx"
