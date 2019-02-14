@@ -151,6 +151,10 @@ type Commands (serialize : Serializer) =
                         let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
                         fileParsed.Trigger parseRes
                 with
+                | :? System.Threading.ThreadAbortException as ex ->
+                    // on mono, if background parsing is aborted a ThreadAbortException
+                    // is raised, who can be ignored
+                    ()
                 | ex ->
                     printfn "Failed to parse file '%s' exn %A" file ex
             ) }
