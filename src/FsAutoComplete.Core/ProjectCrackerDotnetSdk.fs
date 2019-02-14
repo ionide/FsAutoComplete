@@ -171,8 +171,6 @@ module ProjectCrackerDotnetSdk =
                         |> String.concat " "
 
                     failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
-            | _ ->
-                failwithf "error getting msbuild info: internal error"
 
         match todo with
         | CrossTargeting (tfm :: _) ->

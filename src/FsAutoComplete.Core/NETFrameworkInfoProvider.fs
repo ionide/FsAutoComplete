@@ -67,9 +67,6 @@ module NETFrameworkInfoProvider =
                 |> String.concat " "
             
             failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
-    | _ ->
-        failwithf "error getting msbuild info: internal error"
-
 
   let private getInstalledNETVersions () =
     let result, _ = getInfoFromMsbuild (Dotnet.ProjInfo.NETFrameworkInfoFromMSBuild.installedNETFrameworks) []
