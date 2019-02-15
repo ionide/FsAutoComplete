@@ -72,13 +72,22 @@ let testConfig =
         Printf.ksprintf makeAbs format
 
     let fsacExePath =
-      match fsacRuntime with
-      | FSACRuntime.NETCoreFDD ->
-        fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.dll" configuration framework
-      | FSACRuntime.NETCoreSCD ->
-        fromRoot "../../src/FsAutoComplete/bin/%s/%s/publish_native/fsautocomplete" configuration framework
-      | FSACRuntime.NET ->
-        fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.exe" configuration framework
+      if published then
+        match fsacRuntime with
+        | FSACRuntime.NETCoreFDD ->
+          fromRoot "../../bin/release_netcore/fsautocomplete.dll"
+        | FSACRuntime.NETCoreSCD ->
+          fromRoot "../../bin/release_netcore/fsautocomplete"
+        | FSACRuntime.NET ->
+          fromRoot "../../bin/release/fsautocomplete.exe"
+      else
+        match fsacRuntime with
+        | FSACRuntime.NETCoreFDD ->
+          fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.dll" configuration framework
+        | FSACRuntime.NETCoreSCD ->
+          fromRoot "../../src/FsAutoComplete/bin/%s/%s/publish_native/fsautocomplete" configuration framework
+        | FSACRuntime.NET ->
+          fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.exe" configuration framework
 
     { Runtime = fsacRuntime
       Configuration = configuration
