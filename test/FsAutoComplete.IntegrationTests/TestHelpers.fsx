@@ -85,7 +85,7 @@ let testConfig =
         | FSACRuntime.NETCoreFDD ->
           fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.dll" configuration framework
         | FSACRuntime.NETCoreSCD ->
-          fromRoot "../../src/FsAutoComplete/bin/%s/%s/publish_native/fsautocomplete" configuration framework
+          fromRoot "../../src/FsAutoComplete/bin/%s/%s/publish/fsautocomplete" configuration framework
         | FSACRuntime.NET ->
           fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.exe" configuration framework
 

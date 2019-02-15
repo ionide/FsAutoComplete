@@ -24,26 +24,13 @@ let release = List.head releaseNotesData
 
 let isMono = Fake.EnvironmentHelper.isMono
 
+let configuration = getBuildParamOrDefault "configuration" "Release"
+
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "bin" </> "pkgs" </> "fsautocomplete.zip"
 let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
-
-Target "BuildDebug" (fun _ ->
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.sln"
-         Configuration = "Debug"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-)
-
-Target "BuildRelease" (fun _ ->
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.sln"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-)
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
@@ -113,16 +100,16 @@ let runIntegrationTest cfg (fn: string) : bool =
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    let runtime =
-      match cfg.Runtime with
-      | FSACRuntime.NET -> ""
-      | FSACRuntime.NETCoreSCD -> "--define:FSAC_TEST_EXE_NETCORE_SCD"
-      | FSACRuntime.NETCoreFDD -> "--define:FSAC_TEST_EXE_NETCORE"
     let mode =
       match cfg.Mode with
       | HttpMode -> "--define:FSAC_TEST_HTTP"
       | StdioMode -> ""
-    let fsiArgs = sprintf "%s %s %s" mode runtime fn
+    let framework =
+      match cfg.Runtime with
+      | FSACRuntime.NET -> "net461"
+      | FSACRuntime.NETCoreSCD
+      | FSACRuntime.NETCoreFDD -> "netcoreapp2.1"
+    let fsiArgs = sprintf "%s %s -- -pub -f %s -c %s" mode fn framework configuration
     let fsiPath = FSIHelper.fsiPath
     tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
     let testExecution =
@@ -294,6 +281,7 @@ Target "LocalRelease" (fun _ ->
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
            Framework = "net461"
            Project = "src/FsAutoComplete"
+           Configuration = configuration
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 
     !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/*.*"
@@ -305,6 +293,7 @@ Target "LocalRelease" (fun _ ->
            Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
            Framework = "netcoreapp2.1"
            Project = "src/FsAutoComplete"
+           Configuration = configuration
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
 )
 
@@ -313,41 +302,35 @@ Target "Clean" (fun _ ->
   DeleteFiles [ releaseArchive; releaseArchiveNetCore ]
 )
 
-Target "Build" id
+Target "Build" (fun _ ->
+  DotNetCli.Build (fun p ->
+     { p with
+         Project = "FsAutoComplete.sln"
+         Configuration = configuration
+         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
+)
+
 Target "Test" id
 Target "IntegrationTest" id
 Target "All" id
 Target "Release" id
+Target "BuildDebug" id
 
-"AssemblyInfo" ==> "BuildDebug"
-
-"BuildDebug"
-  ==> "Build"
-  ==> "IntegrationTest"
-
-"BuildDebug"
-  ==> "Build"
-  // ==> "UnitTest"
-
-// "UnitTest" ==> "Test"
 "IntegrationTest" ==> "Test"
 
-"IntegrationTestStdioMode" ==> "IntegrationTest"
-"IntegrationTestHttpMode" ==> "IntegrationTest"
-"IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
-"IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestStdioMode" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestHttpMode" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
-"BuildDebug" ==> "All"
 "Test" ==> "All"
 
-"BuildRelease" ==> "LocalRelease"
-"LocalRelease" ==> "ReleaseArchive"
-
 "AssemblyInfo"
-  ==> "BuildRelease"
+  ==> "Build"
+  ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "Release"
 
 "ReleaseArchive" ==> "All"
 
-RunTargetOrDefault "BuildDebug"
+RunTargetOrDefault "Build"
