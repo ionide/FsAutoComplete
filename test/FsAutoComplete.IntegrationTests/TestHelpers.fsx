@@ -3,60 +3,105 @@ open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 
+#load "../../.paket/load/net471/IntegrationTests/Argu.fsx"
 #load "../../.paket/load/net471/IntegrationTests/Hopac.fsx"
 #load "../../.paket/load/net471/IntegrationTests/Http.fs.fsx"
 #load "../../.paket/load/net471/IntegrationTests/Newtonsoft.Json.fsx"
 #load "../../.paket/load/net471/IntegrationTests/System.Net.WebSockets.Client.fsx"
 
+open Argu
+
+type CLIArguments =
+    | [<AltCommandLine("-c")>] Configuration of name:string
+    | [<AltCommandLine("-f")>] Framework of tfm:string
+    | [<AltCommandLine("-r")>] Runtime of rid:string
+    | [<AltCommandLine("-pub")>] Published
+with
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Configuration _ -> "The configuration. The default is 'Debug'."
+            | Framework _ -> "The target framework. The default is 'netcoreapp2.1'"
+            | Published -> "Test the exe published in '~/bin/' dirs instead"
+            | Runtime _ -> "The target runtime. If set, it will test a self-contained deployment."
+
+let fsxArgs =
+  let rec getArgs args =
+    match args with
+    | "--" :: rest -> rest
+    | _ :: tail -> getArgs tail
+    | [] -> []
+
+  fsi.CommandLineArgs |> List.ofArray |> getArgs
+
 open Newtonsoft.Json
 
 let (</>) a b = Path.Combine(a,b)
 
-type FSACRuntime = NET | NETCoreSCD | NETCoreFDD of published: bool
-type IntegrationTestConfig = { Runtime: FSACRuntime }
+type IntegrationTestConfig =
+  { Runtime: FSACRuntime;
+    Configuration: string;
+    Framework: string;
+    Rid: string option;
+    Published: bool;
+    FsacExePath: string }
+and FSACRuntime = NET | NETCoreSCD | NETCoreFDD
 
 let testConfig =
-#if FSAC_TEST_EXE_NETCORE
-    { Runtime = NETCoreFDD false }
-#else
-#if FSAC_TEST_EXE_NETCORE_PUBLISHED
-    { Runtime = NETCoreFDD true }
-#else
-#if FSAC_TEST_EXE_NETCORE_SCD
-    { Runtime = NETCoreSCD }
-#else
-    { Runtime = NET }
-#endif
-#endif
-#endif
+    let parser = ArgumentParser.Create<CLIArguments>(programName = "fsac_test")
+
+    let results = parser.Parse (Array.ofList fsxArgs)
+
+    let configuration = results.GetResult (<@ Configuration @>, defaultValue = "Debug")
+    let framework = results.GetResult (<@ Framework @>, defaultValue = "netcoreapp2.1")
+    let rid = results.TryGetResult <@ Runtime @>
+    let published = results.Contains <@ Published @>
+
+    let fsacRuntime =
+      if framework.StartsWith("netcoreapp") then
+        match rid with
+        | Some _ -> NETCoreSCD
+        | None -> NETCoreFDD
+      else
+        NET // TODO support SCD too
+
+    let fromRoot format =
+        let makeAbs relativePath =
+          IO.Path.Combine(__SOURCE_DIRECTORY__, relativePath)
+          |> Path.GetFullPath
+        Printf.ksprintf makeAbs format
+
+    let fsacExePath =
+      match fsacRuntime with
+      | FSACRuntime.NETCoreFDD ->
+        fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.dll" configuration framework
+      | FSACRuntime.NETCoreSCD ->
+        fromRoot "../../src/FsAutoComplete/bin/%s/%s/publish_native/fsautocomplete" configuration framework
+      | FSACRuntime.NET ->
+        fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.exe" configuration framework
+
+    { Runtime = fsacRuntime
+      Configuration = configuration
+      Framework = framework
+      Rid = rid
+      Published = published
+      FsacExePath = fsacExePath }
 
 
 let outputJsonForRuntime path =
   match testConfig.Runtime with
-  | FSACRuntime.NETCoreFDD _ | FSACRuntime.NETCoreSCD ->
+  | FSACRuntime.NETCoreFDD | FSACRuntime.NETCoreSCD ->
     System.IO.Path.ChangeExtension(path, ".netcore.json")
   | FSACRuntime.NET ->
     path
 
 let fsacExePath () =
-  match testConfig.Runtime with
-  | FSACRuntime.NETCoreFDD false ->
-    IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete/bin/Debug/netcoreapp2.1/fsautocomplete.dll")
-  | FSACRuntime.NETCoreFDD true ->
-    IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete/bin/Debug/netcoreapp2.1/publish/fsautocomplete.dll")
-  | FSACRuntime.NETCoreSCD ->
-    IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete/bin/Debug/netcoreapp2.1/publish_native/fsautocomplete")
-  | FSACRuntime.NET ->
-    IO.Path.Combine(__SOURCE_DIRECTORY__,
-                    "../../src/FsAutoComplete/bin/Debug/net461/fsautocomplete.exe")
+  testConfig.FsacExePath
 
 let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.FileName <-
       match testConfig.Runtime with
-      | FSACRuntime.NETCoreFDD _ ->
+      | FSACRuntime.NETCoreFDD ->
           "dotnet"
       | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
           fsacExePath ()
@@ -68,7 +113,7 @@ let configureFSACArgs (startInfo: ProcessStartInfo) =
     startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     startInfo.EnvironmentVariables.Add("FSAC_WORKSPACELOAD_DELAY", "2000")
     match testConfig.Runtime with
-    | FSACRuntime.NETCoreFDD _ ->
+    | FSACRuntime.NETCoreFDD ->
         startInfo.Arguments <- fsacExePath ()
     | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
         ()
