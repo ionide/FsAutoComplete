@@ -12,7 +12,6 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 
-let githubOrg = "fsharp"
 let project = "FsAutoComplete"
 let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
 
@@ -205,6 +204,7 @@ let runall cfg =
       printfn "Done: %s" (ok.ToString())
 
     [ @".paket/load/net471/IntegrationTests/Http.fs.fsx"
+      @".paket/load/net471/IntegrationTests/Argu.fsx"
       @".paket/load/net471/IntegrationTests/System.Net.WebSockets.Client.fsx"
       @".paket/load/net471/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
       @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
