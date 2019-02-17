@@ -6,7 +6,7 @@ storage: none
 
 github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
-nuget Argu ~> 3.7
+nuget Argu ~> 5.2.0
 nuget FSharp.Compiler.Service ~> 25.0
 nuget FSharp.Compiler.Service.ProjectCracker ~> 25.0 framework:net461, condition:net461
 nuget Dotnet.ProjInfo ~> 0.31.0
@@ -49,7 +49,7 @@ group IntegrationTests
   nuget System.Net.WebSockets.Client
   nuget Hopac
   nuget FSharp.Core ~> 4.5
-  nuget Argu ~> 3.7
+  nuget Argu ~> 5.2.0
 
 group SourceLink
   storage: none
