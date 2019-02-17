@@ -89,6 +89,9 @@ let isTestSkipped cfg (fn: string) =
     Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
   | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
+  // known difference, the FSharp.Core of script is different so are xmldoc
+  | AnyNetcoreRuntime, _, "Tooltips", "Runner.fsx" ->
+    Some "known difference, the FSharp.Core of script is different so are xmldoc"
   // by default others are enabled
   | _ -> None
 
