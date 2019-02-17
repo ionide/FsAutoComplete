@@ -27,10 +27,7 @@ nuget FSharp.Analyzers.SDK
 group Build
   framework: net45
   source https://www.nuget.org/api/v2/
-  generate_load_scripts: true
 
-  github fsharp/FAKE modules/Octokit/Octokit.fsx
-  nuget Octokit
   nuget FAKE ~> 4
 
 group Test
@@ -52,7 +49,7 @@ group IntegrationTests
   nuget System.Net.WebSockets.Client
   nuget Hopac
   nuget FSharp.Core ~> 4.5
-  nuget System.Runtime
+  nuget Argu ~> 3.7
 
 group SourceLink
   storage: none

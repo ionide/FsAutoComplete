@@ -12,7 +12,6 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 
-let githubOrg = "fsharp"
 let project = "FsAutoComplete"
 let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
 
@@ -25,29 +24,13 @@ let release = List.head releaseNotesData
 
 let isMono = Fake.EnvironmentHelper.isMono
 
+let configuration = getBuildParamOrDefault "configuration" "Release"
+
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
 let releaseArchive = "bin" </> "pkgs" </> "fsautocomplete.zip"
 let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
-
-// Pattern specifying assemblies to be tested using NUnit
-let testAssemblies = "**/bin/*/*Tests*.dll"
-
-Target "BuildDebug" (fun _ ->
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.sln"
-         Configuration = "Debug"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-)
-
-Target "BuildRelease" (fun _ ->
-  DotNetCli.Build (fun p ->
-     { p with
-         Project = "FsAutoComplete.sln"
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
-)
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
@@ -67,8 +50,6 @@ let (|AnyNetcoreRuntime|_|) r =
 let isTestSkipped cfg (fn: string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
-
-  let msbuildToolsVersion4Installed = (environVar "FSAC_TESTSUITE_MSBUILD_TOOLSVERSION_4_INSTALLED") = "1"
 
   match cfg.Runtime, cfg.Mode, dir, file with
   // known failure. lint fails because a binding redirect over FParsec initializing FSharpLint
@@ -108,6 +89,9 @@ let isTestSkipped cfg (fn: string) =
     Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
   | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
+  // known difference, the FSharp.Core of script is different so are xmldoc
+  | AnyNetcoreRuntime, _, "Tooltips", "Runner.fsx" ->
+    Some "known difference, the FSharp.Core of script is different so are xmldoc"
   // by default others are enabled
   | _ -> None
 
@@ -119,16 +103,16 @@ let runIntegrationTest cfg (fn: string) : bool =
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    let runtime =
-      match cfg.Runtime with
-      | FSACRuntime.NET -> ""
-      | FSACRuntime.NETCoreSCD -> "--define:FSAC_TEST_EXE_NETCORE_SCD"
-      | FSACRuntime.NETCoreFDD -> "--define:FSAC_TEST_EXE_NETCORE"
     let mode =
       match cfg.Mode with
       | HttpMode -> "--define:FSAC_TEST_HTTP"
       | StdioMode -> ""
-    let fsiArgs = sprintf "%s %s %s" mode runtime fn
+    let framework =
+      match cfg.Runtime with
+      | FSACRuntime.NET -> "net461"
+      | FSACRuntime.NETCoreSCD
+      | FSACRuntime.NETCoreFDD -> "netcoreapp2.1"
+    let fsiArgs = sprintf "%s %s -- -pub -f %s -c %s" mode fn framework configuration
     let fsiPath = FSIHelper.fsiPath
     tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
     let testExecution =
@@ -210,6 +194,7 @@ let runall cfg =
       printfn "Done: %s" (ok.ToString())
 
     [ @".paket/load/net471/IntegrationTests/Http.fs.fsx"
+      @".paket/load/net471/IntegrationTests/Argu.fsx"
       @".paket/load/net471/IntegrationTests/System.Net.WebSockets.Client.fsx"
       @".paket/load/net471/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
       @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
@@ -265,18 +250,6 @@ Target "IntegrationTestHttpModeNetCore" (fun _ ->
   runall cfg
 )
 
-// Target "UnitTest" (fun _ ->
-//     trace "Running Unit tests."
-//     !! testAssemblies
-//     |> NUnit3 (fun p ->
-//         { p with
-//             ShadowCopy = true
-//             TimeOut = TimeSpan.FromMinutes 10.
-//             OutputDir = "TestResults.xml" })
-//     trace "Done Unit tests."
-// )
-
-
 
 Target "AssemblyInfo" (fun _ ->
   let fileName = "src" </> project </> "AssemblyInfo.fs"
@@ -311,10 +284,8 @@ Target "LocalRelease" (fun _ ->
            Output = __SOURCE_DIRECTORY__ </> "bin/release"
            Framework = "net461"
            Project = "src/FsAutoComplete"
+           Configuration = configuration
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
-
-    !! "packages/FSharp.Compiler.Service.ProjectCracker/utilities/net45/*.*"
-    |> CopyFiles "bin/release"
 
     CleanDirs [ "bin/release_netcore" ]
     DotNetCli.Publish (fun p ->
@@ -322,35 +293,8 @@ Target "LocalRelease" (fun _ ->
            Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
            Framework = "netcoreapp2.1"
            Project = "src/FsAutoComplete"
+           Configuration = configuration
            AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
-)
-
-#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
-open Octokit
-
-Target "Release" (fun _ ->
-    let user = getUserInput "Username: "
-    let pw = getUserPassword "Password: "
-    let remote =
-      Git.CommandHelper.getGitResult "" "remote -v"
-      |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
-      |> Seq.tryFind (fun (s: string) -> s.Contains(githubOrg + "/" + project))
-      |> function None -> "https://github.com/" + githubOrg + "/" + project
-                | Some (s: string) ->  s.Split().[0]
-
-    StageAll ""
-    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
-    Branches.pushBranch "" remote (Information.getBranchName "")
-
-    Branches.tag "" release.NugetVersion
-    Branches.pushTag "" remote release.NugetVersion
-
-    // release on github
-    createClient user pw
-    |> createDraft githubOrg project release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
-    |> uploadFiles [ releaseArchive; releaseArchiveNetCore ]
-    |> releaseDraft
-    |> Async.RunSynchronously
 )
 
 Target "Clean" (fun _ ->
@@ -358,40 +302,35 @@ Target "Clean" (fun _ ->
   DeleteFiles [ releaseArchive; releaseArchiveNetCore ]
 )
 
-Target "Build" id
+Target "Build" (fun _ ->
+  DotNetCli.Build (fun p ->
+     { p with
+         Project = "FsAutoComplete.sln"
+         Configuration = configuration
+         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
+)
+
 Target "Test" id
 Target "IntegrationTest" id
 Target "All" id
+Target "Release" id
+Target "BuildDebug" id
 
-"AssemblyInfo" ==> "BuildDebug"
-
-"BuildDebug"
-  ==> "Build"
-  ==> "IntegrationTest"
-
-"BuildDebug"
-  ==> "Build"
-  // ==> "UnitTest"
-
-// "UnitTest" ==> "Test"
 "IntegrationTest" ==> "Test"
 
-"IntegrationTestStdioMode" ==> "IntegrationTest"
-"IntegrationTestHttpMode" ==> "IntegrationTest"
-"IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
-"IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestStdioMode" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestHttpMode" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
+"LocalRelease" ==> "IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
-"BuildDebug" ==> "All"
 "Test" ==> "All"
 
-"BuildRelease" ==> "LocalRelease"
-"LocalRelease" ==> "ReleaseArchive"
-
 "AssemblyInfo"
-  ==> "BuildRelease"
+  ==> "Build"
+  ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "Release"
 
 "ReleaseArchive" ==> "All"
 
-RunTargetOrDefault "BuildDebug"
+RunTargetOrDefault "Build"
