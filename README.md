@@ -3,50 +3,54 @@
 
 # FsAutoComplete
 
-This project provides a command-line interface to the [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) project. It is intended to be used as a backend service for rich editing or 'intellisense' features for editors. Currently it is used by:
+The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or 'intellisense' features for editors.
 
-* [Atom](https://github.com/ionide/ionide-atom-fsharp)
+It can be hosted as command-line interface (`stdio` mode) or as http server (`http` mode), both using the same json protocol.
+
+Currently it is used by:
+
 * [Emacs](https://github.com/fsharp/emacs-fsharp-mode)
-* [Sublime Text](https://github.com/fsharp/sublime-fsharp-package)
 * [Vim](https://github.com/fsharp/vim-fsharp)
 * [Visual Studio Code](https://github.com/ionide/ionide-vscode-fsharp)
 
-This README is targeted at developers.
+It's based on:
+
+- [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
+- [Dotnet.ProjInfo](https://github.com/enricosada/dotnet-proj-info/) for project/sln management.
+- [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
 
 ## Required software
 
-* F# 4.0 or newer
-* MSBuild 12 or newer
+FsAutoComplete can run on .NET/mono or .NET Core.
 
-### Windows
+### FSAC .NET
 
-This can be obtained by installing Visual Studio 2013 or downloading:
+* on windows: [Microsoft Build Tools 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48159)
+* on unix/mac: Required: Mono >= 5.12, Recommended: Mono >= 5.18
 
-* [Visual F# Tools 4.0](https://www.microsoft.com/en-us/download/details.aspx?id=48179)
-* [Microsoft Built Tools 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48159)
+### FSAC .NET Core
 
-### Mono
-
-* Required: Mono >= 5.12
-* Recommended: Mono >= 5.18
+* .NET Core Sdk
+* on unix/mac: Required: Mono >= 5.12, Recommended: Mono >= 5.18
 
 ## Building and testing
 
-There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](.travis.yml) and [AppVeyor](appveyor.yml).
+Requirements:
+
+- .NET Core Sdk, see [global.json](global.json) for the exact version.
+- Mono 5.18 on unix/osx
+- Microsoft Build Tools 2013
+
+There is a [FAKE script](build.fsx) who can be invoked with `build.cmd`/`build.sh`.
+
+- To build fsautocomplete binaries in `~/bin` directory, do run `build LocalRelease`
+- To build, run all tests and create packages, do run `build All`
 
 The [integration tests](test/FsAutoComplete.IntegrationTests) use a simple strategy of running a scripted session with `fsautocomplete` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
 
+see [test/FsAutoComplete.IntegrationTests/README.md](test/FsAutoComplete.IntegrationTests/README.md) for more info.
+
 ## Troubleshooting
-
-### Project file loading issues
-
-#### Old sdk project (verbose fsproj)
-
-Try invoking the binary for project file cracking directly:
-
-    mono FSharp.Compiler.Service.ProjectCrackerTool.exe --text <path to>/MyProject.fsproj true
-
-Inspect the log output. At the top will be an F# data structure containing compiler options including referenced assemblies. This is then followed by a detailed MSBuild log. Take a look for any error messages to do with assembly resolution. It is common for this fake build to fail overall, because it does not actually compile the project, so latter steps such as copying of output will fail. This will not interfere with assembly resolution.
 
 ### FileWatcher exceptions
 
@@ -56,7 +60,7 @@ You may see a stack trace finishing with `System.IO.IOException: kqueue() error 
 
 It is expected that the editor will launch this program in the background and communicate over a pipe. It is possible to use interactively, although due to the lack of any readline support it isn't pleasant, and text pasted into the buffer may not be echoed. As a result, use this only for very simple debugging. For more complex scenarios it is better to write another integration test by copying an [existing one](test/FsAutoComplete.IntegrationTests/Test1Json).
 
-The available commands can be listed by running `fsautocomplete.exe --commands`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
+The available commands can be listed by running `fsautocomplete --commands`. Commands are all on a single line, with the exception of the `parse` command, which should be followed by the current text of the file to parse (which may differ from the contents on disk), and terminated with a line containing only `<<EOF>>`.
 
 Data is returned as JSON. An example of a simple session is:
 
