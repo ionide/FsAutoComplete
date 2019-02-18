@@ -1,3 +1,32 @@
+#### 0.35.0
+
+* new project parser for old fsproj/fsx based on `Dotnet.ProjInfo`, enabled by default in .NET Core FSAC
+* add unused declarations diagnostic
+* add simplified names analyzer
+* add unused opens analyzer
+* styling for XmlDocs and tooltips
+* add find type declaration command
+* adds autocomplete for external (from unopened namespaces and modules) symbols, provides information where and what `open` statements should be inserted
+* add workspaceLoad async command
+* add notifications (project loading, etc). In http mode, using websocket
+* add generic parameters to tooltips
+* include keywords in autocomplete only when needed
+* don't autocomplete for comments, strings etc
+* add project cache
+* watch file changes, to trigger project reloading
+* implement record stub generator (#297)
+* add background and persistent symbol cache out of process
+* use dnspy libs to navigate to decompiled files for external libs (#299)
+* fsac .NET runs as 64 bit exe
+* add description for '=' symbol (#312)
+* fix autocomplete for literal values (#316)
+* support keywords in helptext command
+* add interface stub generator (#327)
+* support `FSharp.Analyzers.SDK` analyzer
+* upgrade to `FSharp.Compiler.Service` v25.0.1
+* upgrade to `Dotnet.ProjInfo` v0.31.0
+* upgrade to `FSharpLint.Core` v0.10.4
+
 #### 0.34.0 - 13.09.2017
 
 * support mixed dotnet langs projects (#173)
