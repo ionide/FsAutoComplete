@@ -16,6 +16,8 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
+  - script: sudo apt-get install fsharp
+    displayName: Install fsharpi
   - script: echo "##vso[task.setvariable variable=FrameworkPathOverride]$(dirname $(which mono))/../lib/mono/4.5/"
     displayName: Workaround .NET reference assemblies on linux
   - script: ./build.sh All
