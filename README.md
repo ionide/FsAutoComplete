@@ -27,16 +27,14 @@ This can be obtained by installing Visual Studio 2013 or downloading:
 
 ### Mono
 
-* Required: Mono >= 4.8
-* Recommended: Mono >= 5.2
+* Required: Mono >= 5.12
+* Recommended: Mono >= 5.18
 
 ## Building and testing
 
-There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](.travis.yml) and [AppVeyor](appveyor.yml), and so also has the ability to run the Emacs unit and integration tests.
+There is a [FAKE script](build.fsx) with chain-loaders for [*nix](build.sh) and [Windows](build.cmd). This can be used for both building and running the unit and integration tests. It is also the core of the CI builds running on [Travis](.travis.yml) and [AppVeyor](appveyor.yml).
 
-The [integration tests](test/FsAutoComplete.IntegrationTests) use a simple strategy of running a scripted session with `fsautocomplete.exe` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
-
-There are [unit tests](test/FsAutoComplete.Tests) for FSharp.CompilerBinding, which smoothes the integration with [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service). The tests are simply constructed using NUnit.
+The [integration tests](test/FsAutoComplete.IntegrationTests) use a simple strategy of running a scripted session with `fsautocomplete` and then comparing the output with that saved in the repository. This requires careful checking when the test is first constructed. On later runs, absolute paths are removed using regular expressions to ensure that the tests are machine-independent.
 
 ## Troubleshooting
 
