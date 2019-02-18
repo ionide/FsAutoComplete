@@ -566,8 +566,7 @@ type Commands (serialize : Serializer) =
                                         { Lint.OptionalLintParameters.Default with Configuration = Some opts}
                                         { Ast = tree
                                           Source = source
-                                          TypeCheckResults = Some tyRes.GetCheckResults
-                                          FSharpVersion = Version() }
+                                          TypeCheckResults = Some tyRes.GetCheckResults }
                                 let res' =
                                     match res with
                                     | LintResult.Failure _ -> [ Response.info serialize "Something went wrong, linter failed"]

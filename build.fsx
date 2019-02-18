@@ -52,10 +52,6 @@ let isTestSkipped cfg (fn: string) =
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
   match cfg.Runtime, cfg.Mode, dir, file with
-  // known failure. lint fails because a binding redirect over FParsec initializing FSharpLint
-  | FSACRuntime.NET, _, "LinterWithOptions", "Runner.fsx"
-  | FSACRuntime.NET, _, "Linter", "Runner.fsx" ->
-    Some "known failure. lint fails because a binding redirect over FParsec initializing FSharpLint "
   // known difference. On mono the error message from msbuild is different and not normalized
   | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" when isMono ->
     Some "known difference. On mono the error message from msbuild is different and not normalized"
