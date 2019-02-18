@@ -93,5 +93,13 @@ Each response is exactly one line, which simplifies the application of a JSON pa
 
 The maintainers of this repository are:
 
- - [Robin Neatherway](https://github.com/rneatherway), [Steffen Forkmann](http://github.com/forki), [Karl Nilsson](http://github.com/kjnilsson), [Enrico Sada](http://github.com/enricosada) and [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
- - The primary maintainer for this repository is [Robin Neatherway](https://github.com/rneatherway)
+- [Steffen Forkmann](http://github.com/forki)
+- [Karl Nilsson](http://github.com/kjnilsson)
+- [Enrico Sada](http://github.com/enricosada)
+- [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
+
+The primary maintainer for this repository is [Enrico Sada](http://github.com/enricosada)
+
+Previous maintainers:
+
+- [Robin Neatherway](https://github.com/rneatherway)
