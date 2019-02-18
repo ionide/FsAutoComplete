@@ -85,13 +85,7 @@ module ProjectCrackerDotnetSdk =
                 let asFscArgs props =
                     let fsc = Microsoft.FSharp.Build.Fsc()
                     Dotnet.ProjInfo.FakeMsbuildTasks.getResponseFileFromTask props fsc
-                let ok =
-#if NETSTANDARD2_0
-                    Ok
-#else
-                    Choice1Of2
-#endif
-                Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (asFscArgs >> ok)
+                Dotnet.ProjInfo.Inspect.getFscArgsOldSdk (asFscArgs >> Ok)
 
         let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
         let additionalInfo = //needed for extra
@@ -134,7 +128,7 @@ module ProjectCrackerDotnetSdk =
                 | ProjectParsingSdk.DotnetSdk ->
                     Dotnet.ProjInfo.Inspect.getProjectInfos
                 | ProjectParsingSdk.VerboseSdk ->
-                    Dotnet.ProjInfo.Inspect.getProjectInfosOldSdk
+                    Dotnet.ProjInfo.Inspect.getProjectInfos
 
             let infoResult =
                 file
@@ -144,9 +138,9 @@ module ProjectCrackerDotnetSdk =
 
         let todo =
             match results with
-            | MsbuildOk [getFscArgsResult; getP2PRefsResult; gpResult] ->
+            | Ok [getFscArgsResult; getP2PRefsResult; gpResult] ->
                 match getFscArgsResult, getP2PRefsResult, gpResult with
-                | MsbuildError(MSBuildPrj.MSBuildSkippedTarget), MsbuildError(MSBuildPrj.MSBuildSkippedTarget), MsbuildOk (MSBuildPrj.GetResult.Properties props) ->
+                | Error(MSBuildPrj.MSBuildSkippedTarget), Error(MSBuildPrj.MSBuildSkippedTarget), Ok (MSBuildPrj.GetResult.Properties props) ->
                     // Projects with multiple target frameworks, fails if the target framework is not choosen
                     let prop key = props |> Map.ofList |> Map.tryFind key
 
@@ -155,13 +149,13 @@ module ProjectCrackerDotnetSdk =
                         CrossTargeting tfms
                     | _ ->
                         failwithf "error getting msbuild info: some targets skipped, found props: %A" props
-                | MsbuildOk (MSBuildPrj.GetResult.FscArgs fa), MsbuildOk (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), MsbuildOk (MSBuildPrj.GetResult.Properties p) ->
+                | Ok (MSBuildPrj.GetResult.FscArgs fa), Ok (MSBuildPrj.GetResult.ResolvedP2PRefs p2p), Ok (MSBuildPrj.GetResult.Properties p) ->
                     NoCrossTargeting { FscArgs = fa; P2PRefs = p2p; Properties = p |> Map.ofList }
                 | r ->
                     failwithf "error getting msbuild info: %A" r
-            | MsbuildOk r ->
+            | Ok r ->
                 failwithf "error getting msbuild info: internal error, more info returned than expected %A" r
-            | MsbuildError r ->
+            | Error r ->
                 match r with
                 | Dotnet.ProjInfo.Inspect.GetProjectInfoErrors.MSBuildSkippedTarget ->
                     failwithf "Unexpected MSBuild result, all targets skipped"
@@ -177,8 +171,6 @@ module ProjectCrackerDotnetSdk =
                         |> String.concat " "
 
                     failwithf "%s%s%s" msbuildErrorMsg (Environment.NewLine) logMsg
-            | _ ->
-                failwithf "error getting msbuild info: internal error"
 
         match todo with
         | CrossTargeting (tfm :: _) ->

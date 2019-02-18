@@ -10,6 +10,7 @@ let getProjectOptions notifyState (cache: ProjectCrackerDotnetSdk.ParsedProjectC
         match projectFileName with
         | NetCoreProjectJson -> ProjectCrackerProjectJson.load projectFileName
         | NetCoreSdk -> ProjectCrackerDotnetSdk.load notifyState cache projectFileName
+        | FSharpNetSdk -> Error (GenericError(projectFileName, (sprintf "Project file '%s' using FSharp.NET.Sdk not supported" projectFileName)))
 #if NO_PROJECTCRACKER
         | Net45 -> ProjectCrackerDotnetSdk.loadVerboseSdk notifyState cache projectFileName
         | Unsupported -> Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
