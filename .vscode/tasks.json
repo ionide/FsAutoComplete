@@ -4,19 +4,25 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "taskName": "build",
+            "taskName": "build_debug_net",
             "type": "shell",
-            "command": "./build.cmd LocalRelease",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "command": "dotnet build src/FsAutoComplete -f net461",
+            "group": "build",
+            "problemMatcher": [
+                "$msCompile"
+            ]
         },
         {
             "taskName": "build_debug_netcore",
             "type": "shell",
-            "command": "dotnet build src/FsAutoComplete.netcore",
-            "group": "build"
+            "command": "dotnet build src/FsAutoComplete -f netcoreapp2.1",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
         }
     ]
 }
