@@ -4,21 +4,10 @@ jobs:
   pool:
     vmImage: 'vs2017-win2016'
   steps:
-  - powershell: |
-      $buildId = $env:BUILD_BUILDNUMBER.PadLeft(7, '0');
-      $versionSuffixPR = "-PR$($env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER)-$buildId";
-      $branchName = "$env:BUILD_SOURCEBRANCHNAME".Replace("_","");
-      $versionSuffixBRANCH = "-$branchName-$buildId";
-      $isTag = "$env:BUILD_SOURCEBRANCH".StartsWith('refs/tags/');
-      $isPR = "$env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER" -ne ""
-      $versionSuffix = if ($isTag) { "" } else { if ($isPR) { $versionSuffixPR } else { $versionSuffixBRANCH } };
-      Write-Host "##vso[task.setvariable variable=VersionSuffix]$versionSuffix";
   - script: echo "##vso[task.setvariable variable=PATH]C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\IDE\CommonExtensions\Microsoft\FSharp;%PATH%"
     displayName: set fsi in PATH
   - script: build.cmd All
     displayName: build All
-    env:
-      VersionSuffix: '$(VersionSuffix)'
   - task: PublishBuildArtifacts@1
     inputs:
       pathtoPublish: 'bin/pkgs'
@@ -31,8 +20,6 @@ jobs:
     displayName: Workaround .NET reference assemblies on linux
   - script: ./build.sh All
     displayName: build All
-    env:
-      VersionSuffix: '$(VersionSuffix)'
 - job: MacOS
   pool:
     vmImage: 'macOS-10.13'
@@ -41,5 +28,3 @@ jobs:
     displayName: Workaround .NET reference assemblies on linux
   - script: ./build.sh All
     displayName: build All
-    env:
-      VersionSuffix: '$(VersionSuffix)'
