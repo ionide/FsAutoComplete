@@ -7,7 +7,6 @@ storage: none
 github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
 nuget Argu ~> 5.2.0
-nuget Argu ~> 3.7
 nuget FSharp.Compiler.Service ~> 26.0
 nuget FSharp.Compiler.Service.ProjectCracker ~> 26.0 framework:net461, condition:net461
 nuget Dotnet.ProjInfo ~> 0.31.0
