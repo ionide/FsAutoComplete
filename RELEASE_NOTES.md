@@ -1,5 +1,8 @@
 #### 0.36.0
 
+* upgrade to `FSharp.Compiler.Service` v26.0.1 (#338)
+* upgrade to `FSharpLint.Core` v0.10.5
+
 #### 0.35.0 - 19.02.2019
 
 * new project parser for old fsproj/fsx based on `Dotnet.ProjInfo`, enabled by default in .NET Core FSAC
