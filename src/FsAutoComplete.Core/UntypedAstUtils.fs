@@ -77,7 +77,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
         | SynTypeConstraint.WhereTyparSupportsMember (ts, sign, _) -> List.iter walkType ts; walkMemberSig sign
 
     and walkPat = function
-        | SynPat.Tuple (pats, _)
+        | SynPat.Tuple (_, pats, _)
         | SynPat.ArrayOrList (_, pats, _)
         | SynPat.Ands (pats, _) -> List.iter walkPat pats
         | SynPat.Named (pat, ident, _, _, _) ->
@@ -125,7 +125,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
         | SynType.LongIdent ident -> addLongIdentWithDots ident
         | SynType.App (ty, _, types, _, _, _, _) -> walkType ty; List.iter walkType types
         | SynType.LongIdentApp (_, _, _, types, _, _, _) -> List.iter walkType types
-        | SynType.Tuple (ts, _) -> ts |> List.iter (fun (_, t) -> walkType t)
+        | SynType.Tuple (_, ts, _) -> ts |> List.iter (fun (_, t) -> walkType t)
         | SynType.WithGlobalConstraints (t, typeConstraints, _) ->
             walkType t; List.iter walkTypeConstraint typeConstraints
         | _ -> ()
@@ -163,7 +163,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
         | SynExpr.TypeTest (e, t, _)
         | SynExpr.Upcast (e, t, _)
         | SynExpr.Downcast (e, t, _) -> walkExpr e; walkType t
-        | SynExpr.Tuple (es, _, _)
+        | SynExpr.Tuple (_, es, _, _)
         | Sequentials es
         | SynExpr.ArrayOrList (_, es, _) -> List.iter walkExpr es
         | SynExpr.App (_, _, e1, e2, _)
@@ -190,7 +190,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
             List.iter walkExpr [e1; e2]
         | SynExpr.MatchLambda (_, _, synMatchClauseList, _, _) ->
             List.iter walkClause synMatchClauseList
-        | SynExpr.Match (_, e, synMatchClauseList, _, _) ->
+        | SynExpr.Match (_, e, synMatchClauseList, _) ->
             walkExpr e
             List.iter walkClause synMatchClauseList
         | SynExpr.TypeApp (e, _, tys, _, _, _, _) ->
@@ -408,12 +408,12 @@ let getQuotationRanges ast =
         | SynExpr.TryFinally (expr1, expr2, _, _, _)
         | SynExpr.While (_, expr1, expr2, _) ->
             visitExpr expr1; visitExpr expr2
-        | SynExpr.Tuple (exprs, _, _)
+        | SynExpr.Tuple (_, exprs, _, _)
         | SynExpr.ArrayOrList (_, exprs, _)
         | Sequentials  exprs ->
             List.iter visitExpr exprs
         | SynExpr.TryWith (expr, _, clauses, _, _, _, _)
-        | SynExpr.Match (_, expr, clauses, _, _) ->
+        | SynExpr.Match (_, expr, clauses, _) ->
             visitExpr expr; visitMatches clauses
         | SynExpr.IfThenElse (cond, trueBranch, falseBranchOpt, _, _, _, _) ->
             visitExpr cond; visitExpr trueBranch
@@ -435,7 +435,7 @@ let getQuotationRanges ast =
         | SynPat.Paren (pat, _)
         | SynPat.Typed (pat, _, _) -> visitPattern pat
         | SynPat.Ands (pats, _)
-        | SynPat.Tuple (pats, _)
+        | SynPat.Tuple (_, pats, _)
         | SynPat.ArrayOrList (_, pats, _) -> List.iter visitPattern pats
         | SynPat.Or (pat1, pat2, _) -> visitPattern pat1; visitPattern pat2
         | SynPat.LongIdent (_, _, _, ctorArgs, _, _) ->
@@ -521,9 +521,9 @@ let internal getStringLiterals ast : Range.range list =
         | SynExpr.While (_, expr1, expr2, _) ->
             visitExpr expr1; visitExpr expr2
         | Sequentials exprs
-        | SynExpr.Tuple (exprs, _, _)
+        | SynExpr.Tuple (_, exprs, _, _)
         | SynExpr.ArrayOrList(_, exprs, _) -> List.iter visitExpr exprs
-        | SynExpr.Match (_, expr, clauses, _, _)
+        | SynExpr.Match (_, expr, clauses, _)
         | SynExpr.TryWith(expr, _, clauses, _, _, _, _) ->
             visitExpr expr; visitMatches clauses
         | SynExpr.IfThenElse(cond, trueBranch, falseBranchOpt, _, _, _, _) ->
@@ -855,7 +855,7 @@ module Outlining =
             | SynExpr.LetOrUse (_,_,bindings, body,_) ->
                 yield! parseBindings bindings
                 yield! parseExpr body
-            | SynExpr.Match (seqPointAtBinding,_,clauses,_,r) ->
+            | SynExpr.Match (seqPointAtBinding,_,clauses,r) ->
                 match seqPointAtBinding with
                 | SequencePointAtBinding pr ->
                     yield! rcheck Scope.Match Collapse.Below <| Range.endToEnd pr r
@@ -947,7 +947,7 @@ module Outlining =
                 // subtract columns so the @@> or @> is not collapsed
                 yield! rcheck Scope.Quote Collapse.Same <| Range.modBoth r (if isRaw then 3 else 2) (if isRaw then 3 else 2)
                 yield! parseExpr e
-            | SynExpr.Tuple (es,_,r) ->
+            | SynExpr.Tuple (_,es,_,r) ->
                 yield! rcheck Scope.Tuple Collapse.Same r
                 yield! Seq.collect parseExpr es
             | SynExpr.Paren (e,_,_,_) ->
@@ -1279,7 +1279,7 @@ module Printf =
             | SynType.MeasureDivide (t1, t2, _) -> walkType t1; walkType t2
             | SynType.App (ty, _, types, _, _, _, _) -> walkType ty; List.iter walkType types
             | SynType.LongIdentApp (_, _, _, types, _, _, _) -> List.iter walkType types
-            | SynType.Tuple (ts, _) -> ts |> List.iter (fun (_, t) -> walkType t)
+            | SynType.Tuple (_, ts, _) -> ts |> List.iter (fun (_, t) -> walkType t)
             | SynType.WithGlobalConstraints (t, typeConstraints, _) ->
                 walkType t; List.iter walkTypeConstraint typeConstraints
             | _ -> ()
@@ -1332,7 +1332,7 @@ module Printf =
             | SynExpr.App (_, _, SynExpr.App(_, true, SynExpr.Ident op, e1, _), e2, _) ->
                 let rec deconstruct = function
                     | SynExpr.Paren (exp, _, _, _) -> deconstruct exp
-                    | SynExpr.Tuple (exps, _, _) ->
+                    | SynExpr.Tuple (_, exps, _, _) ->
                         exps |> List.iter (fun exp -> addAppWithArg { Range = e.Range; Arg = exp.Range})
                         ()
                     | _ -> ()
@@ -1379,7 +1379,7 @@ module Printf =
                 | SynExpr.TypeTest (e, t, _)
                 | SynExpr.Upcast (e, t, _)
                 | SynExpr.Downcast (e, t, _) -> walkExpr e; walkType t
-                | SynExpr.Tuple (es, _, _)
+                | SynExpr.Tuple (_, es, _, _)
                 | Sequentials es
                 | SynExpr.ArrayOrList (_, es, _) -> List.iter walkExpr es
                 | SynExpr.TryFinally (e1, e2, _, _, _)
@@ -1395,7 +1395,7 @@ module Printf =
                 | SynExpr.ForEach (_, _, _, _, e1, e2, _) -> List.iter walkExpr [e1; e2]
                 | SynExpr.MatchLambda (_, _, synMatchClauseList, _, _) ->
                     List.iter walkClause synMatchClauseList
-                | SynExpr.Match (_, e, synMatchClauseList, _, _) ->
+                | SynExpr.Match (_, e, synMatchClauseList, _) ->
                     walkExpr e
                     List.iter walkClause synMatchClauseList
                 | SynExpr.TypeApp (e, _, tys, _, _, _, _) ->

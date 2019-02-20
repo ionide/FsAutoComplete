@@ -59,7 +59,7 @@ type InterfaceData =
                         None
                 | SynType.Anon _ ->
                     Some "_"
-                | SynType.Tuple(ts, _) ->
+                | SynType.Tuple(_, ts, _) ->
                     Some (ts |> Seq.choose (snd >> (|TypeIdent|_|)) |> String.concat " * ")
                 | SynType.Array(dimension, TypeIdent typeName, _) ->
                     Some (sprintf "%s [%s]" typeName (new String(',', dimension-1)))
@@ -670,7 +670,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
             | SynExpr.Typed(synExpr, _synType, _range) ->
                 walkExpr synExpr
 
-            | SynExpr.Tuple(synExprList, _, _range)
+            | SynExpr.Tuple(_, synExprList, _, _range)
             | SynExpr.ArrayOrList(_, synExprList, _range) ->
                 List.tryPick walkExpr synExprList
 
@@ -711,7 +711,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
 
             | SynExpr.MatchLambda(_isExnMatch, _argm, synMatchClauseList, _spBind, _wholem) ->
                 synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
-            | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _, _range) ->
+            | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
                 walkExpr synExpr
                 |> Option.orElse (synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
 
