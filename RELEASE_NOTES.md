@@ -1,3 +1,5 @@
+#### 0.36.0
+
 #### 0.35.0 - 19.02.2019
 
 * new project parser for old fsproj/fsx based on `Dotnet.ProjInfo`, enabled by default in .NET Core FSAC
