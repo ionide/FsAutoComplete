@@ -1,3 +1,5 @@
+#### 0.40.0
+
 #### 0.36.0 - 20.02.2019
 
 * upgrade to `FSharp.Compiler.Service` v26.0.1 (#338)
