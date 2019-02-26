@@ -3,9 +3,9 @@
 open System
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open Microsoft.FSharp.Reflection
+open FSharp.Compiler
+open FSharp.Compiler.SourceCodeServices
+open FSharp.Reflection
 
 module private JsonSerializerConverters =
 
@@ -130,7 +130,7 @@ module private JsonSerializerConverters =
             cache := (!cache).Add(input,res)
             res
 
-    let sameDU = memoizeTest (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty)
+    let sameDU = memoizeTest (fun ty t -> FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty)
 
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)

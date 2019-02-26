@@ -3,7 +3,7 @@ namespace FsAutoComplete
 open System
 open System.IO
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 module ProjectCrackerVerbose =
 

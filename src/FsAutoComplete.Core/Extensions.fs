@@ -1,7 +1,7 @@
 [<AutoOpen>]
 module FsAutoComplete.Extensions
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System
 
 type FSharpEntity with
@@ -130,8 +130,8 @@ type FSharpMemberOrFunctionOrValue with
 
     member x.EnclosingEntitySafe =
         try
-            x.DeclaringEntity 
-        with :? InvalidOperationException -> None 
+            x.DeclaringEntity
+        with :? InvalidOperationException -> None
 
 type FSharpGenericParameterMemberConstraint with
     member x.IsProperty =

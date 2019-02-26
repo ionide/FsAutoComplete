@@ -1,6 +1,6 @@
 namespace FsAutoComplete
 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.AbstractIL.Internal.Library
 open System
 
 type VolatileFile =

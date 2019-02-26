@@ -2,9 +2,9 @@
 module FsAutoComplete.RecordStubGenerator
 
 open FsAutoComplete.UntypedAstUtils
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Ast
+open FSharp.Compiler.Range
+open FSharp.Compiler.SourceCodeServices
 open System.Diagnostics
 
 // Algorithm

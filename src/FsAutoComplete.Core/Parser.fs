@@ -6,7 +6,7 @@
 namespace FsAutoComplete
 
 open System
-open Microsoft.FSharp.Compiler
+open FSharp.Compiler
 
 // --------------------------------------------------------------------------------------
 // Simple implementation of LazyList
@@ -42,12 +42,12 @@ module Parser =
 
   let result v = P (fun c -> [v, c])
   let zero () = P (fun _ -> [])
-  
+
   let bind (P p) f = P (fun inp ->
     [ for (pr, inp') in p inp do
         let (P pars) = f pr
         yield! pars inp' ])
-  
+
   let plus (P p) (P q) = P (fun inp ->
     (p inp) @ (q inp) )
 
@@ -127,7 +127,7 @@ module Parsing =
   module Legacy =
     let inline isFirstOpChar ch =
         ch = '!' || ch = '%'|| ch = '&' || ch = '*'|| ch = '+'|| ch = '-'|| ch = '.'|| ch = '/'|| ch = '<'|| ch = '='|| ch = '>'|| ch = '@'|| ch = '^'|| ch = '|'|| ch = '~'
-  
+
     let isOpChar ch = ch = '?' || isFirstOpChar ch
 
     let parseBackSymOpFragment = parser {
@@ -190,8 +190,8 @@ module Parsing =
   let tryGetFirst p s = match apply p s with h::_ -> Some h | [] -> None
 
   let inline private tryGetLexerSymbolIslands sym =
-      match sym.Text with 
-      | "" -> None 
+      match sym.Text with
+      | "" -> None
       | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
 
   // Parsing - find the identifier around the current location

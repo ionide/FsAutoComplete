@@ -2,7 +2,7 @@
 namespace FsAutoComplete
 
 open FsAutoComplete
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 module UnusedDeclarationsAnalyzer =
     open System.Collections.Generic

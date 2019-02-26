@@ -4,9 +4,9 @@ module FsAutoComplete.InterfaceStubGenerator
 open System
 open System.Diagnostics
 open FsAutoComplete.UntypedAstUtils
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Ast
+open FSharp.Compiler.Range
+open FSharp.Compiler.SourceCodeServices
 
 /// Capture information about an interface in ASTs
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
@@ -120,7 +120,7 @@ let internal formatArgUsage ctx hasTypeAnnotation (namesWithIndices: Map<string,
     let nm =
         match arg.Name with
         | None ->
-            if arg.Type.HasTypeDefinition && arg.Type.TypeDefinition.XmlDocSig = "T:Microsoft.FSharp.Core.unit" then "()"
+            if arg.Type.HasTypeDefinition && arg.Type.TypeDefinition.XmlDocSig = "T:FSharp.Core.unit" then "()"
             else sprintf "arg%d" (namesWithIndices |> Map.toSeq |> Seq.map snd |> Seq.sumBy Set.count |> max 1)
         | Some x -> x
 
@@ -209,7 +209,7 @@ let internal formatMember (ctx: Context) m verboseMode =
         let args, namesWithIndices =
             match argInfos with
             | [[x]] when v.IsPropertyGetterMethod && x.Name.IsNone
-                            && x.Type.TypeDefinition.XmlDocSig = "T:Microsoft.FSharp.Core.unit" ->
+                            && x.Type.TypeDefinition.XmlDocSig = "T:FSharp.Core.unit" ->
                 "", Map.ofList [ctx.ObjectIdent, Set.empty]
             | _  -> formatArgsUsage ctx verboseMode v argInfos
 
