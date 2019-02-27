@@ -36,10 +36,10 @@ NUGET
       FSharp.Core (>= 4.5.2) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
       System.ValueTuple (>= 4.4) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
     FSharp.Core (4.6.2) - redirects: force
-    FSharpLint.Core (0.10.5)
+    FSharpLint.Core (0.10.7)
       Dotnet.ProjInfo (>= 0.31)
       FParsec (>= 1.0.3)
-      FSharp.Compiler.Service (>= 26.0.1)
+      FSharp.Compiler.Service (>= 27.0.1)
       FSharp.Core (>= 4.5.4)
     Humanizer.Core (2.5.16)
       NETStandard.Library (>= 1.6.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (< netstandard2.0))
