@@ -6,7 +6,7 @@ open Suave.Filters
 open Newtonsoft.Json
 open FsAutoComplete.JsonSerializer
 open System.Collections.Concurrent
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System
 open FsAutoComplete.Utils
 open CommandResponse

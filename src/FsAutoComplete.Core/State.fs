@@ -1,11 +1,11 @@
 ﻿namespace FsAutoComplete
 
 open System
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
 open Priority_Queue
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler.Range
 open FSharp.Analyzers.SDK
 
 type DeclName = string
@@ -20,7 +20,7 @@ type State =
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
     Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * pos * SourceFilePath>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
-    mutable CurrentAST: Microsoft.FSharp.Compiler.Ast.ParsedInput option
+    mutable CurrentAST: FSharp.Compiler.Ast.ParsedInput option
 
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>

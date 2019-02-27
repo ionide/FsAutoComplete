@@ -19,7 +19,7 @@ let getProjectOptions notifyState (cache: ProjectCrackerDotnetSdk.ParsedProjectC
         | Unsupported -> ProjectCrackerVerbose.load notifyState FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore projectFileName verbose
 #endif
 
-let private bindExtraOptions (opts: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
+let private bindExtraOptions (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
     match opts.ExtraProjectInfo with
     | None ->
         Error (GenericError(opts.ProjectFileName, "expected ExtraProjectInfo after project parsing, was None"))
@@ -30,7 +30,7 @@ let private bindExtraOptions (opts: Microsoft.FSharp.Compiler.SourceCodeServices
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
-let private deduplicateReferences (opts: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
+let private deduplicateReferences (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
     let projs =
         opts.ReferencedProjects |> Array.map fst
 
@@ -50,7 +50,7 @@ let private deduplicateReferences (opts: Microsoft.FSharp.Compiler.SourceCodeSer
     let opts = {opts with OtherOptions = oos}
     opts, projectFiles, logMap
 
-let private removeDeprecatedArgs (opts: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
+let private removeDeprecatedArgs (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOptions, projectFiles, logMap) =
     let oos = opts.OtherOptions |> Array.filter (fun n -> n <> "--times" && n <> "--no-jit-optimize")
     let opts = {opts with OtherOptions = oos}
     opts, projectFiles, logMap

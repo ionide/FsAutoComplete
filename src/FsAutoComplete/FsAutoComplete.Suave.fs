@@ -23,7 +23,7 @@ module internal Utils =
         req.rawForm |> getString |> fromJson<'a>
 
 open Argu
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler.Range
 
 [<RequireQualifiedAccess>]
 type private WebSocketMessage =

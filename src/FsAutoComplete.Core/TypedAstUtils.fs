@@ -3,7 +3,7 @@ namespace FsAutoComplete
 
 open System
 open System.Text.RegularExpressions
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open UntypedAstUtils
 
 [<NoComparison>]

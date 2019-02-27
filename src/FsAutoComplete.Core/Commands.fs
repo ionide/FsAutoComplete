@@ -2,7 +2,7 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
@@ -10,7 +10,7 @@ open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
 open System.Reflection
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler.Range
 open FSharp.Analyzers
 
 module Response = CommandResponse

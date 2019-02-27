@@ -2,7 +2,7 @@ namespace FsAutoComplete
 
 open Parser
 open System
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler.Range
 
 // The types of commands that need position information
 type PosCommand =
