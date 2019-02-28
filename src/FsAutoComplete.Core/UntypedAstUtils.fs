@@ -1,10 +1,10 @@
 /// Code from VisualFSharpPowerTools project: https://github.com/fsprojects/VisualFSharpPowerTools/blob/master/src/FSharp.Editing/Common/UntypedAstUtils.fs
 module FsAutoComplete.UntypedAstUtils
 
-open Microsoft.FSharp.Compiler.Ast
+open FSharp.Compiler.Ast
 open System.Collections.Generic
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler
+open FSharp.Compiler.Range
 
 type Range.range with
     member inline x.IsEmpty = x.StartColumn = x.EndColumn && x.StartLine = x.EndLine

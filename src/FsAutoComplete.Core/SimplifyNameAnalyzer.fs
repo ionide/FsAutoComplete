@@ -4,8 +4,8 @@ namespace FsAutoComplete
 open FsAutoComplete
 
 module SimplifyNameDiagnosticAnalyzer =
-    open Microsoft.FSharp.Compiler.SourceCodeServices
-    open Microsoft.FSharp.Compiler.Range
+    open FSharp.Compiler.SourceCodeServices
+    open FSharp.Compiler.Range
 
     let getPlidLength (plid: string list) = (plid |> List.sumBy String.length) + plid.Length
 

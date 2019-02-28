@@ -3,7 +3,7 @@ module SymbolCache
 open System
 open System.Diagnostics
 open FsAutoComplete
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open CommandResponse
 
 open System.Net

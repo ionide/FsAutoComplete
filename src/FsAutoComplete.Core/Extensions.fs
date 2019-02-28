@@ -1,7 +1,7 @@
 [<AutoOpen>]
 module FsAutoComplete.Extensions
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System
 
 type FSharpEntity with

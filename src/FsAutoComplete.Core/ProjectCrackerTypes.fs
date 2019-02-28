@@ -59,7 +59,7 @@ type GetProjectOptionsErrors =
 
 type [<RequireQualifiedAccess>] WorkspaceProjectState =
     | Loading of string
-    | Loaded of Microsoft.FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * ExtraProjectInfoData * string list * Map<string,string>
+    | Loaded of FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * ExtraProjectInfoData * string list * Map<string,string>
     | Failed of string * GetProjectOptionsErrors
 
 module ProjectRecognizer =

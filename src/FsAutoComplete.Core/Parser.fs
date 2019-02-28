@@ -6,7 +6,7 @@
 namespace FsAutoComplete
 
 open System
-open Microsoft.FSharp.Compiler
+open FSharp.Compiler
 
 // --------------------------------------------------------------------------------------
 // Simple implementation of LazyList

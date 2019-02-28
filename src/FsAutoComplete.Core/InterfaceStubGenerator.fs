@@ -4,9 +4,9 @@ module FsAutoComplete.InterfaceStubGenerator
 open System
 open System.Diagnostics
 open FsAutoComplete.UntypedAstUtils
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Ast
+open FSharp.Compiler.Range
+open FSharp.Compiler.SourceCodeServices
 
 /// Capture information about an interface in ASTs
 [<RequireQualifiedAccess; NoEquality; NoComparison>]

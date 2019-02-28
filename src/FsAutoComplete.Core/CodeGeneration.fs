@@ -4,9 +4,9 @@ namespace FsAutoComplete
 open System
 open System.IO
 open System.CodeDom.Compiler
-open Microsoft.FSharp.Compiler.Ast
-open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Ast
+open FSharp.Compiler.Range
+open FSharp.Compiler.SourceCodeServices
 
 [<Measure>] type Line0
 [<Measure>] type Line1
@@ -62,7 +62,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
 
 [<AutoOpen>]
 module internal CodeGenerationUtils =
-    open Microsoft.FSharp.Compiler.SourceCodeServices.PrettyNaming
+    open FSharp.Compiler.SourceCodeServices.PrettyNaming
 
 
     type ColumnIndentedTextWriter() =

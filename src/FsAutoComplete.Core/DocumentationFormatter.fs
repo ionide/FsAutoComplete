@@ -24,8 +24,8 @@ module A =
 
 module DocumentationFormatter =
 
-    open Microsoft.FSharp.Compiler
-    open Microsoft.FSharp.Compiler.SourceCodeServices
+    open FSharp.Compiler
+    open FSharp.Compiler.SourceCodeServices
     open System
     open System.Text
 

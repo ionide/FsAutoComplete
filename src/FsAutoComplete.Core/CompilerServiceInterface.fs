@@ -2,14 +2,14 @@ namespace FsAutoComplete
 
 open System
 open System.IO
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open Utils
-open Microsoft.FSharp.Compiler.Range
+open FSharp.Compiler.Range
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
     | ExternalDeclaration of Decompiler.ExternalContentPosition
-    | Range of Microsoft.FSharp.Compiler.Range.range
+    | Range of FSharp.Compiler.Range.range
 
 type ParseAndCheckResults
     (
@@ -336,7 +336,7 @@ type ParseAndCheckResults
   member __.TryGetCompletions (pos: pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
     try
       let s = DateTime.Now
-      let longName = Microsoft.FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 2)
+      let longName = FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 2)
       let residue = longName.PartialIdent
 
       let getAllSymbols() =

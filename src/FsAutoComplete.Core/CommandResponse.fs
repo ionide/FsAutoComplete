@@ -2,8 +2,8 @@
 
 open System
 
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler
+open FSharp.Compiler.SourceCodeServices
 open FSharpLint.Application
 open System.Text.RegularExpressions
 open FSharp.Analyzers
@@ -45,7 +45,7 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.DU -> "D"
 
 module CommandResponse =
-  open Microsoft.FSharp.Compiler.Range
+  open FSharp.Compiler.Range
 
   type ResponseMsg<'T> =
     {
@@ -231,10 +231,10 @@ module CommandResponse =
       Message:string
       Subcategory:string
     }
-    static member IsIgnored(e:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
+    static member IsIgnored(e:FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
         // FST-1027 support in Fake 5
         e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
-    static member OfFSharpError(e:Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
+    static member OfFSharpError(e:FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
       {
         FileName = e.FileName
         StartLine = e.StartLineAlternate
@@ -580,7 +580,7 @@ module CommandResponse =
                               ] }
                 }
 
-  let errors (serialize : Serializer) (errors: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[], file: string) =
+  let errors (serialize : Serializer) (errors: FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[], file: string) =
     let errors =
         errors
         |> Array.filter (FSharpErrorInfo.IsIgnored >> not)

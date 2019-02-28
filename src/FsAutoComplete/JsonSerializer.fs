@@ -3,8 +3,8 @@
 open System
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
-open Microsoft.FSharp.Compiler
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler
+open FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Reflection
 
 module private JsonSerializerConverters =
