@@ -1,4 +1,7 @@
-#### 0.40.0
+#### 0.37.0 - 28.02.2019
+
+* upgrade to `FSharp.Compiler.Service` v27.0.1
+* upgrade to `FSharpLint.Core` v0.10.7
 
 #### 0.36.0 - 20.02.2019
 
