@@ -51,17 +51,6 @@
     </Content>
   </ItemGroup>
 
-  <Target Name="CopyProjectCrackerToolExeToOutputDir"
-          AfterTargets="ComputeFilesToPublish"
-          Condition=" '$(TargetFramework)' == 'net461' ">
-    <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/$(OutputPath)FSharp.Compiler.Service.ProjectCrackerTool.exe"
-                             RelativePath="FSharp.Compiler.Service.ProjectCrackerTool.exe" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/$(OutputPath)FSharp.Compiler.Service.ProjectCrackerTool.exe.config"
-                             RelativePath="FSharp.Compiler.Service.ProjectCrackerTool.exe.config" />
-    </ItemGroup>
-  </Target>
-
   <Target Name="CopySymbolCacheJsonToOutputDir"
           AfterTargets="ComputeFilesToPublish"
           Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">

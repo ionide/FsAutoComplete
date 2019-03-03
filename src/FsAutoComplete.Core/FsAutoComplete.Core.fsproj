@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
-    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;SUAVE_2;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
+    <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,9 +30,6 @@
     <Compile Include="Parser.fs" />
     <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="FscArguments.fs" />
-    <Compile Include="ProjectCrackerProjectJson.fs" />
-    <Compile Include="ProjectCrackerDotnetSdk.fs" />
-    <Compile Include="ProjectCrackerVerbose.fs" Condition="$(TargetFramework) == 'net461'"/>
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />

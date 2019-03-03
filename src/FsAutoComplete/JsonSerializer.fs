@@ -99,9 +99,9 @@ module private JsonSerializerConverters =
   let projectOutputTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
     let s =
         match value with
-        | ProjectOutputType.Library -> "lib"
-        | ProjectOutputType.Exe -> "exe"
-        | ProjectOutputType.Custom(x) -> x.ToLower()
+        | CommandResponse.ProjectOutputType.Library -> "lib"
+        | CommandResponse.ProjectOutputType.Exe -> "exe"
+        | CommandResponse.ProjectOutputType.Custom(x) -> x.ToLower()
     serializer.Serialize(writer, s)
 
 

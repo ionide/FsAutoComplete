@@ -128,6 +128,10 @@ module CommandResponse =
       Info: ProjectResponseInfo
       AdditionalInfo: Map<string, string>
     }
+  and ProjectOutputType =
+    | Library
+    | Exe
+    | Custom of string
 
   type OverloadDescription =
     {
@@ -430,14 +434,12 @@ module CommandResponse =
     let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
     serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
-      | ProjectSdkType.Verbose _ ->
+      | Dotnet.ProjInfo.Workspace.ProjectSdkType.Verbose _ ->
         ProjectResponseInfo.Verbose
-      | ProjectSdkType.ProjectJson ->
-        ProjectResponseInfo.ProjectJson
-      | ProjectSdkType.DotnetSdk info ->
+      | Dotnet.ProjInfo.Workspace.ProjectSdkType.DotnetSdk info ->
         ProjectResponseInfo.DotnetSdk {
           IsTestProject = info.IsTestProject
           Configuration = info.Configuration
@@ -460,7 +462,11 @@ module CommandResponse =
         Output = match outFileOpt with Some x -> x | None -> "null"
         References = List.sortBy IO.Path.GetFileName references
         Logs = logMap
-        OutputType = extra.ProjectOutputType
+        OutputType =
+          match extra.ProjectOutputType with
+          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Library -> Library
+          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Exe -> Exe
+          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
         AdditionalInfo = additionals }
     serialize { Kind = "project"; Data = projectData }
