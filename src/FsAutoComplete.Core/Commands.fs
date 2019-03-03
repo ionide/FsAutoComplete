@@ -19,7 +19,7 @@ type CoreResponse =
     | ErrorRes of text: string
     | HelpText of name: string * tip: FSharpToolTipText * additionalEdit: (string * int * int * string) option
     | HelpTextSimple of name: string * tip: string
-    | Project of projectFileName: ProjectFilePath * projectFiles: List<SourceFilePath> * outFileOpt : string option * references : ProjectFilePath list * logMap : Map<string,string> * extra: ExtraProjectInfoData * additionals : Map<string,string>
+    | Project of projectFileName: ProjectFilePath * projectFiles: List<SourceFilePath> * outFileOpt : string option * references : ProjectFilePath list * logMap : Map<string,string> * extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * additionals : Map<string,string>
     | ProjectError of errorDetails: GetProjectOptionsErrors
     | ProjectLoading of projectFileName: ProjectFilePath
     | WorkspacePeek of found: WorkspacePeek.Interesting list
@@ -245,6 +245,11 @@ type Commands (serialize : Serializer) =
         |> parseFilesInTheBackground
         |> Async.Start
 
+    let workspaceBinder () =
+        let config = Dotnet.ProjInfo.Workspace.LoaderConfig.Default Environment.msbuildLocator
+        let loader = Dotnet.ProjInfo.Workspace.Loader.Create(config)
+        loader, checker.CreateFCSBinder(NETFrameworkInfoProvider.netFWInfo, loader)
+
     member __.Notify = notify.Publish
 
     member __.WorkspaceReady = workspaceReady.Publish
@@ -415,15 +420,8 @@ type Commands (serialize : Serializer) =
         return [CoreResponse.Errors ([||], "") ]
     }
 
-    member private __.ToProjectCache (opts, extraInfo, projectFiles, logMap) =
-        let outFileOpt =
-            match extraInfo.ProjectSdkType with
-            | ProjectSdkType.Verbose v ->
-                Some (v.TargetPath)
-            | ProjectSdkType.ProjectJson ->
-                FscArguments.outputFile (Path.GetDirectoryName(opts.ProjectFileName)) (opts.OtherOptions |> List.ofArray)
-            | ProjectSdkType.DotnetSdk v ->
-                Some (v.TargetPath)
+    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projectFiles, logMap) =
+        let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
         let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
 
@@ -438,7 +436,7 @@ type Commands (serialize : Serializer) =
 
         (opts.ProjectFileName, cached)
 
-    member x.Project projectFileName verbose onChange = async {
+    member x.Project projectFileName _verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
         let project =
             match state.Projects.TryFind projectFileName with
@@ -447,12 +445,19 @@ type Commands (serialize : Serializer) =
                 let proj = new Project(projectFileName, onChange)
                 state.Projects.[projectFileName] <- proj
                 proj
+
+        let workspaceBinder = workspaceBinder ()
+
         let projResponse =
             match project.Response with
             | Some response ->
                 Result.Ok (projectFileName, response)
             | None ->
-                match projectFileName |> Workspace.parseProject verbose |> Result.map (x.ToProjectCache) with
+                let projectCached =
+                    projectFileName
+                    |> Workspace.parseProject workspaceBinder
+                    |> Result.map (fun (opts, optsDPW, projectFiles, logMap) -> x.ToProjectCache(opts, optsDPW.ExtraProjectInfo, projectFiles, logMap) )
+                match projectCached with
                 | Result.Ok (projectFileName, response) ->
                     project.Response <- Some response
                     Result.Ok (projectFileName, response)
@@ -961,7 +966,7 @@ type Commands (serialize : Serializer) =
 
             onProjectLoaded projectFileName response
 
-        let rec onLoaded p =
+        let onLoaded p =
             match p with
             | WorkspaceProjectState.Loading projectFileName ->
                 CoreResponse.ProjectLoading projectFileName
@@ -990,7 +995,45 @@ type Commands (serialize : Serializer) =
             do! Async.Sleep(Environment.workspaceLoadDelay().TotalMilliseconds |> int)
         | _ -> ()
 
-        do! Workspace.loadInBackground onLoaded false (projects |> List.map snd)
+        let loader, fcsBinder = workspaceBinder ()
+
+        let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
+
+        let bindNewOnloaded (n: Dotnet.ProjInfo.Workspace.WorkspaceProjectState) : WorkspaceProjectState option =
+            match n with
+            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loading (path, _) ->
+                Some (WorkspaceProjectState.Loading path)
+            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap) ->
+                match fcsBinder.GetProjectOptions(opts.ProjectFileName) with
+                | Some fcsOpts ->
+                    match Workspace.extractOptionsDPW fcsOpts with
+                    | Ok optsDPW ->
+                        let view = projViewer.Render optsDPW
+                        let projectFiles =
+                            view.Items
+                            |> List.map (fun item ->
+                                match item with
+                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile path -> path)
+
+                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
+                    | Error _ ->
+                        None //TODO not ignore the error
+                | None ->
+                    //TODO notify C# project too
+                    None
+            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Failed (path, e) ->
+                let error =
+                    match e with
+                    | Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors.ProjectNotRestored s ->
+                        GetProjectOptionsErrors.ProjectNotRestored s
+                    | Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors.GenericError (a, b) ->
+                        GetProjectOptionsErrors.GenericError (a,b)
+                Some (WorkspaceProjectState.Failed (path, error))
+
+        loader.Notifications.Add(fun (_, arg) ->
+            arg |> bindNewOnloaded |> Option.iter onLoaded )
+
+        do! Workspace.loadInBackground onLoaded (loader, fcsBinder) (projects |> List.map snd)
 
         CoreResponse.WorkspaceLoad true
         |> NotificationEvent.Workspace
