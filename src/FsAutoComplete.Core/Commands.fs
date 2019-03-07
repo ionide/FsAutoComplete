@@ -327,6 +327,8 @@ type Commands (serialize : Serializer) =
             ExtraInfo = extraInfo
         }
 
+        printfn "po: %A" opts
+
         (opts.ProjectFileName, cached)
 
     member x.Project projectFileName verbose onChange = async {
