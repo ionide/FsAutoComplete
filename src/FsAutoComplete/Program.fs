@@ -17,7 +17,7 @@ let entry args =
       let fs = FileSystem(originalFs, commands.Files.TryFind)
       AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
-      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete.exe")
+      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
 
       let results = parser.Parse args
 
