@@ -34,7 +34,6 @@ let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
-  -- (integrationTestDir + "/DotNetCore*/*.*")
   -- (integrationTestDir + "/DotNetSdk*/*.*")
 
 type Mode = HttpMode | StdioMode
@@ -58,9 +57,6 @@ let isTestSkipped cfg (fn: string) =
   // stdio and http
   | _, _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
-  | AnyNetcoreRuntime, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx" ->
-    Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
-  | _, _, "DotNetCoreCrossgenWithNetFx", "Runner.fsx"
   | _, _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
     | true, _ -> None //always run it on windows
@@ -79,10 +75,6 @@ let isTestSkipped cfg (fn: string) =
   | _, HttpMode, "ProjectReload", "Runner.fsx" ->
     Some "probably ok, is a notification"
   // .net core based fsac
-  | AnyNetcoreRuntime, _, "DotNetCore", "AppAndLibRunner.fsx"
-  | AnyNetcoreRuntime, _, "DotNetCoreCrossgen", "Runner.fsx"
-  | AnyNetcoreRuntime, _, "DotNetCoreWithOtherDotnetLang", "FSharpOuterRunner.fsx" ->
-    Some "DotnetCore (sdk 1.0) tests cannot specify the dotnet sdk to use (1.0), and wrongly fallback to 2.0 in tests because is the one running FSAC. related to https://github.com/fsharp/FsAutoComplete/issues/213"
   | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
   // known difference, the FSharp.Core of script is different so are xmldoc
