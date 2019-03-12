@@ -6,7 +6,6 @@ open Fake.Git
 open Fake.ReleaseNotesHelper
 open Fake.UserInputHelper
 open Fake.ZipHelper
-open Fake.AssemblyInfoFile
 open Fake.Testing
 open System
 open System.IO
@@ -238,20 +237,6 @@ Target "IntegrationTestHttpModeNetCore" (fun _ ->
   runall cfg
 )
 
-
-Target "AssemblyInfo" (fun _ ->
-  let fileName = "src" </> project </> "AssemblyInfo.fs"
-  let githash = Information.getCurrentSHA1 ""
-
-  CreateFSharpAssemblyInfo fileName
-    [ Attribute.Title project
-      Attribute.Product project
-      Attribute.Description summary
-      Attribute.Version release.AssemblyVersion
-      Attribute.FileVersion release.AssemblyVersion
-      Attribute.Metadata("githash", githash) ]
-)
-
 Target "ReleaseArchive" (fun _ ->
     CleanDirs [ "bin/pkgs" ]
     ensureDirectory "bin/pkgs"
@@ -273,7 +258,7 @@ Target "LocalRelease" (fun _ ->
            Framework = "net461"
            Project = "src/FsAutoComplete"
            Configuration = configuration
-           AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
+           AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ]  })
 
     CleanDirs [ "bin/release_netcore" ]
     DotNetCli.Publish (fun p ->
@@ -282,7 +267,7 @@ Target "LocalRelease" (fun _ ->
            Framework = "netcoreapp2.1"
            Project = "src/FsAutoComplete"
            Configuration = configuration
-           AdditionalArgs = [ "/p:SourceLinkCreate=true" ]  })
+           AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ]  })
 )
 
 Target "Clean" (fun _ ->
@@ -295,7 +280,7 @@ Target "Build" (fun _ ->
      { p with
          Project = "FsAutoComplete.sln"
          Configuration = configuration
-         AdditionalArgs = [ "/p:SourceLinkCreate=true" ] })
+         AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ] })
 )
 
 Target "Test" id
@@ -313,8 +298,7 @@ Target "BuildDebug" id
 
 "Test" ==> "All"
 
-"AssemblyInfo"
-  ==> "Build"
+"Build"
   ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "Release"
