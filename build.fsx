@@ -34,7 +34,6 @@ let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
 
 let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
-  -- (integrationTestDir + "/DotNetSdk*/*.*")
 
 type Mode = HttpMode | StdioMode
 type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
