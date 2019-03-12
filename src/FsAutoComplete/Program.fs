@@ -26,7 +26,7 @@ let entry args =
 
       results.TryGetResult(<@ Options.CLIArguments.Version @>)
       |> Option.iter (fun _ ->
-          printfn "%s" Version.string
+          printfn "FsAutoComplete %s" (Version.string())
           exit 0 )
 
       results.TryGetResult(<@ Options.CLIArguments.Commands @>)

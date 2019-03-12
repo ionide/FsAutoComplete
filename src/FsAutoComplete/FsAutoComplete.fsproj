@@ -13,7 +13,6 @@
     <Platform>x64</Platform>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="CommandInput.fs" />
