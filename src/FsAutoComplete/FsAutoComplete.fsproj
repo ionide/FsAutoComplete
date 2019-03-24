@@ -58,5 +58,16 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="CopySymbolCacheJsonToOutputDir"
+          AfterTargets="ComputeFilesToPublish"
+          Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.deps.json"
+                             RelativePath="fsautocomplete.symbolcache.deps.json" />
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.runtimeconfig.json"
+                             RelativePath="fsautocomplete.symbolcache.runtimeconfig.json" />
+    </ItemGroup>
+  </Target>
+
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
