@@ -1333,6 +1333,15 @@ module Types =
         ///  Reports a hint.
         | Hint = 4
 
+
+    /// Represents a related message and source code location for a diagnostic. This should be
+    /// used to point to code locations that cause or related to a diagnostics, e.g when duplicating
+    /// a symbol in a scope.
+    type DiagnosticRelatedInformation = {
+        Location: Location
+        Message: string
+    }
+
     /// Represents a diagnostic, such as a compiler error or warning. Diagnostic objects are only valid in the
     /// scope of a resource.
     type Diagnostic = {
@@ -1352,7 +1361,7 @@ module Types =
 
         /// The diagnostic's message.
         Message: string
-        RelatedInformation: JToken []
+        RelatedInformation: DiagnosticRelatedInformation [] option
         Tags: int[] option
     }
 

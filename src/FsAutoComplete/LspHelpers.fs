@@ -109,7 +109,7 @@ module internal Conversions =
             Source = "F# Compiler"
             Message = error.Message
             Code = Some (string error.ErrorNumber)
-            RelatedInformation = [||]
+            RelatedInformation = Some [||]
             Tags = None
         }
 

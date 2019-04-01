@@ -51,6 +51,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let workspaceReady = Event<unit>()
     let WorkspaceReady = workspaceReady.Publish
 
+    let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
+
     let getRecentTypeCheckResultsForFile file =
         match commands.TryGetFileCheckerOptionsWithLines file with
         | ResultOrString.Error s ->
@@ -130,7 +132,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = opens |> Array.map(fun n ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = [||]; Tags = Some [|1|] }
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [|1|] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -140,7 +142,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = [||]; Tags = Some [|1|] }
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [|1|] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -150,7 +152,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = [||]; Tags = Some [|1|] }
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = Some [||]; Tags = Some [|1|] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -159,14 +161,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
+                    let fs =
+                        warnings |> List.choose (fun n ->
+                            n.Fix
+                            |> Option.map (fun f -> (fcsRangeToLsp n.Range), {Range = fcsRangeToLsp f.FromRange; NewText = f.ToText})
+                        )
+
+                    fixes.[uri] <- fs
                     let diags =
                         warnings |> List.map(fun (n: Warning) ->
-                            let ri =
-                                n.Fix
-                                |> Option.map (fun f -> {Range = fcsRangeToLsp f.FromRange; NewText = f.ToText})
-                                |> Option.map (JToken.FromObject)
-                                |> Option.toArray
-                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = ri; Tags = None })
+                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = Some [||]; Tags = None })
                         |> List.toArray
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -833,13 +837,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member private x.GetLinterCodeAction fn p =
         p |> x.IfDiagnostic "Lint:" (fun d ->
-            if Array.isEmpty d.RelatedInformation then
-                async.Return []
-            else
-                let te = d.RelatedInformation.[0].ToObject<TextEdit>()
-                x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) d te.Range te.NewText
-                |> List.singleton
-                |> async.Return
+            let uri = filePathToUri fn
+
+            match fixes.TryGetValue uri with
+            | false, _ -> async.Return []
+            | true, lst ->
+                match lst |> Seq.tryFind (fun (r, te) -> r = d.Range) with
+                | None -> async.Return []
+                | Some (r, te) ->
+                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) d te.Range te.NewText
+                    |> List.singleton
+                    |> async.Return
         )
 
     member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
