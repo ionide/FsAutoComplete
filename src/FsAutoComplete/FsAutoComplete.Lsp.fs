@@ -5,14 +5,14 @@ open System
 open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete
 open FSharpLint.Application.LintWarning
 open Newtonsoft.Json.Linq
 open LspHelpers
-module FcsRange = Microsoft.FSharp.Compiler.Range
+module FcsRange = FSharp.Compiler.Range
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()

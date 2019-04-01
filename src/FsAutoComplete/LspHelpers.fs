@@ -4,13 +4,13 @@ open System
 open System.IO
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
-open Microsoft.FSharp.Compiler.SourceCodeServices
-open Microsoft.FSharp.Reflection
+open FSharp.Compiler.SourceCodeServices
+open FSharp.Reflection
 open System.Collections.Generic
 open System.Text
 
 
-module FcsRange = Microsoft.FSharp.Compiler.Range
+module FcsRange = FSharp.Compiler.Range
 
 [<AutoOpen>]
 module internal Conversions =
@@ -58,7 +58,7 @@ module internal Conversions =
         else
             "file:///" + (uri.ToString()).TrimStart('/')
 
-    let fcsRangeToLspLocation(range: Microsoft.FSharp.Compiler.Range.range): Lsp.Location =
+    let fcsRangeToLspLocation(range: FSharp.Compiler.Range.range): Lsp.Location =
         let fileUri = filePathToUri range.FileName
         let lspRange = fcsRangeToLsp range
         {
