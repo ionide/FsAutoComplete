@@ -361,7 +361,6 @@ type ParseAndCheckResults
         | CompletionItemKind.Argument -> 4
         | CompletionItemKind.Other -> 5
         | CompletionItemKind.Method (isExtension = true) -> 6
-        | CompletionItemKind.CustomOperation -> 7 // TODO: assign a proper value
 
       let sortedDeclItems =
           results.Items
