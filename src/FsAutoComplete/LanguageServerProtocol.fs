@@ -473,9 +473,23 @@ module Types =
         SymbolKind: SymbolKindCapabilities option
     }
 
+    /// Capabilities specific to `textDocument/publishDiagnostics`.
+    type PublishDiagnosticsCapabilites = {
+
+        /// Whether the clients accepts diagnostics with related information.
+        RelatedInformation: bool option
+
+
+        /// Client supports the tag property to provide meta data about a diagnostic.
+        TagSupport: bool option
+    }
+
     /// Text document specific client capabilities.
     type TextDocumentClientCapabilities = {
         Synchronization: SynchronizationCapabilities option
+
+        /// Capabilities specific to `textDocument/publishDiagnostics`.
+        PublishDiagnostics:PublishDiagnosticsCapabilites
 
         /// Capabilities specific to the `textDocument/completion`
         Completion: CompletionCapabilities option
