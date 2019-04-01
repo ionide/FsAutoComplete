@@ -352,6 +352,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         parseFileDebuncer.Bounce p
     }
 
+    //TODO: Investigate if this should be done at all
     override __.TextDocumentDidSave(p) = async {
         if not commands.IsWorkspaceReady then
             Debug.print "Workspace not ready"

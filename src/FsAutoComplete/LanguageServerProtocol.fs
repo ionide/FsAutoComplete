@@ -1673,7 +1673,11 @@ module LowLevel =
             failwithf "Content-Length header not found"
         else
             let result = Array.zeroCreate<byte> contentLength.Value
-            let readCount = stream.Read(result, 0, contentLength.Value)
+            let mutable readCount = 0
+            while readCount < contentLength.Value do
+                let toRead = contentLength.Value - readCount
+                let readInCurrentBatch = stream.Read(result, readCount, toRead)
+                readCount <- readCount + readInCurrentBatch
             let str = Encoding.UTF8.GetString(result, 0, readCount)
             headers, str
 
