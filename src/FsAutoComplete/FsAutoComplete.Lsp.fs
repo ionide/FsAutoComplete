@@ -142,7 +142,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = opens |> Array.map(fun n ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [|1|] }
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -152,7 +152,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [|1|] }
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -162,7 +162,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = Some [||]; Tags = Some [|1|] }
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -191,7 +191,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ -> ()
         ) |> subscriptions.Add
 
-    member __.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
+    member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath()
