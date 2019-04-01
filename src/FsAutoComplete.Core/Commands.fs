@@ -46,7 +46,7 @@ type CoreResponse =
     | UnusedDeclarations of file: string * decls: (range * bool)[]
     | UnusedOpens of file: string * opens: range[]
     | SimplifiedName of file: string * names: (range * string)[]
-    | Compile of errors: Microsoft.FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[] * code: int
+    | Compile of errors: FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[] * code: int
     | Analyzer of messages: SDK.Message [] * file: string
     | SymbolUseRange of ranges: SymbolCache.SymbolUseRange[]
 
