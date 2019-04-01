@@ -22,6 +22,8 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                 | NotificationEvent.ParseError x -> x
                 | NotificationEvent.Workspace x -> x
                 | NotificationEvent.AnalyzerMessage x -> x
+                | _ -> CoreResponse.InfoRes "Unknown notification type"
+
 
             Console.WriteLine(msgText)
 
