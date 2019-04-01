@@ -19,13 +19,12 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
 
             let msgText =
                 match msg with
-                | NotificationEvent.ParseError x -> x
-                | NotificationEvent.Workspace x -> x
-                | NotificationEvent.AnalyzerMessage x -> x
-                | _ -> CoreResponse.InfoRes "Unknown notification type"
+                | NotificationEvent.ParseError x -> Some x
+                | NotificationEvent.Workspace x -> Some x
+                | NotificationEvent.AnalyzerMessage x -> Some x
+                | _ -> None
 
-
-            Console.WriteLine(msgText)
+            msgText |> Option.iter Console.WriteLine
 
             return! messageLoop ()
             }
