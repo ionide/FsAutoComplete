@@ -51,6 +51,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let workspaceReady = Event<unit>()
     let WorkspaceReady = workspaceReady.Publish
 
+    let fileParsed = Event<unit>()
+    let FileParsed = fileParsed.Publish
+
+    //TODO: Thread safe version
+    let mutable parsingFiles = false
+
+    //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
 
     let getRecentTypeCheckResultsForFile file =
@@ -66,6 +73,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 Ok (options, lines, tyRes)
 
     let parseFile (p: DidChangeTextDocumentParams) =
+
         async {
             if not commands.IsWorkspaceReady then
                 Debug.print "Workspace not ready"
@@ -79,6 +87,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                         let content = contentChange.Text.Split('\n')
                         do! (commands.Parse filePath content version |> Async.Ignore)
+                        parsingFiles <- false
+                        fileParsed.Trigger ()
                         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
                         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
                         if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
@@ -338,6 +348,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentDidChange(p) = async {
+        parsingFiles <- true
         parseFileDebuncer.Bounce p
     }
 
@@ -697,6 +708,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let fn = p.TextDocument.GetFilePath()
         if not commands.IsWorkspaceReady then
             do! WorkspaceReady |> Async.AwaitEvent
+        if parsingFiles then
+            do! FileParsed |> Async.AwaitEvent
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
             match res.[0] with
@@ -1023,6 +1036,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let fn = p.TextDocument.GetFilePath()
         if not commands.IsWorkspaceReady then
             do! WorkspaceReady |> Async.AwaitEvent
+        if parsingFiles then
+            do! FileParsed |> Async.AwaitEvent
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
             match res.[0] with
