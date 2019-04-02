@@ -10,6 +10,7 @@ type PosCommand =
   | Methods
   | SymbolUse
   | SymbolUseProject
+  | SymbolImplementationProject
   | ToolTip
   | TypeSig
   | FindDeclaration
@@ -168,6 +169,7 @@ module CommandInput =
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
              (string "symboluse " |> Parser.map (fun _ -> SymbolUse)) <|>
              (string "symboluseproject " |> Parser.map (fun _ -> SymbolUseProject)) <|>
+             (string "symbolimplementation " |> Parser.map (fun _ -> SymbolImplementationProject)) <|>
              (string "tooltip " |> Parser.map (fun _ -> ToolTip)) <|>
              (string "typesig " |> Parser.map (fun _ -> TypeSig)) <|>
              (string "methods " |> Parser.map (fun _ -> Methods)) <|>
