@@ -1,4 +1,5 @@
 namespace FsAutoComplete
+#r "../../../bin/lib/net45/FSharp.Data.dll"
 
 open System
 open System.IO
@@ -12,6 +13,7 @@ open Utils
 open System.Reflection
 open FSharp.Compiler.Range
 open FSharp.Analyzers
+open FSharp.Data
 
 [<RequireQualifiedAccess>]
 type CoreResponse =
@@ -81,6 +83,16 @@ type Commands (serialize : Serializer) =
     let mutable isWorkspaceReady = false
 
     let notify = Event<NotificationEvent>()
+
+    let fsdn (querystr:string) = 
+        Http.RequestString( "https://fsdn.azurewebsites.net/api/search",query=querystr, httpMethod="GET" )
+        let resp = req.GetResponse()
+        let info = JsonValue.Parse(resp)
+        let infonamespace = info?namespace.AsString()
+        let infoclass = info?class_name.AsString()
+        let infomethod = info?name.AsString()
+        let finalresp = infonamespace + infoclass + infomethod
+        Console.WriteLine(finalresp)
 
     let workspaceReady = Event<unit>()
 
