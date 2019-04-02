@@ -5,6 +5,7 @@
 * include symbolcache `runtimeconfig.json` and `deps.json` to .net core binaries
 * add `default.win32manifest` to .net core binaries
 * fix to allow run with only .NET Core Runtime 3 installed (previously v2.x was required) [#364](https://github.com/fsharp/FsAutoComplete/issues/364)
+* add go-to-implementation command (`symbolimplementation`)
 
 #### 0.37.0 - 28.02.2019
 
