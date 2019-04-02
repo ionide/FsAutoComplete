@@ -15,7 +15,7 @@ nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Suave
-nuget FSharpLint.Core 0.10.7
+nuget FSharpLint.Core 0.10.8
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
