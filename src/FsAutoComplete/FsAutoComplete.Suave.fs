@@ -182,6 +182,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/documentation" >=> positionHandler (fun data tyRes lineStr _ -> commands.FormattedDocumentation tyRes (mkPos data.Line data.Column) lineStr)
             path "/signature" >=> positionHandler (fun data tyRes lineStr _ -> commands.Typesig tyRes (mkPos data.Line data.Column) lineStr)
             path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes (mkPos data.Line data.Column) lineStr)
+            path "/symbolimplementation" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolImplementationProject tyRes (mkPos data.Line data.Column) lineStr)
             path "/symboluse" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUse tyRes (mkPos data.Line data.Column) lineStr)
             path "/signatureData" >=> positionHandler (fun data tyRes lineStr _ -> commands.SignatureData tyRes (mkPos data.Line data.Column) lineStr)
             path "/finddeclaration" >=> positionHandler (fun data tyRes lineStr _ -> commands.FindDeclaration tyRes (mkPos data.Line data.Column) lineStr)

@@ -82,6 +82,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                             | FindTypeDeclaration -> commands.FindTypeDeclaration tyRes pos lineStr
                             | Methods -> commands.Methods tyRes pos lines
                             | SymbolUseProject -> commands.SymbolUseProject tyRes pos lineStr
+                            | SymbolImplementationProject -> commands.SymbolImplementationProject tyRes pos lineStr
                             | SignatureData -> commands.SignatureData tyRes pos lineStr
           | CompilerLocation -> return commands.CompilerLocation()
           | Colorization enabled -> commands.Colorization enabled; return []
