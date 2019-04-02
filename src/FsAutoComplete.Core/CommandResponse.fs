@@ -547,6 +547,27 @@ module CommandResponse =
                       SymbolIsLocal = symbol.Symbol.IsPrivateToFile } ] |> Seq.distinct |> Seq.toList }
     serialize { Kind = "symboluse"; Data = su }
 
+  let symbolImplementation (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
+    let su =
+      { Name = symbol.Symbol.DisplayName
+        Uses =
+          [ for su in uses do
+              yield { StartLine = su.RangeAlternate.StartLine
+                      StartColumn = su.RangeAlternate.StartColumn + 1
+                      EndLine = su.RangeAlternate.EndLine
+                      EndColumn = su.RangeAlternate.EndColumn + 1
+                      FileName = su.FileName
+                      IsFromDefinition = su.IsFromDefinition
+                      IsFromAttribute = su.IsFromAttribute
+                      IsFromComputationExpression = su.IsFromComputationExpression
+                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
+                      IsFromPattern = su.IsFromPattern
+                      IsFromType = su.IsFromType
+                      SymbolFullName = symbol.Symbol.FullName
+                      SymbolDisplayName = symbol.Symbol.DisplayName
+                      SymbolIsLocal = symbol.Symbol.IsPrivateToFile } ] |> Seq.distinct |> Seq.toList }
+    serialize { Kind = "symbolimplementation"; Data = su }
+
   let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
     let pms =
       parms

@@ -163,6 +163,16 @@ module Commands =
 
         writeJson { Kind = "symboluse"; Data = su }
 
+    let getImplementations symbolName =
+        let uses =
+            state.Values
+            |> Seq.collect id
+            |> Seq.where (fun sm -> sm.SymbolFullName = symbolName && not sm.SymbolIsLocal && (sm.IsFromDispatchSlotImplementation || sm.IsFromType ))
+            |> Seq.toList
+        let su : SymbolUseResponse = {Name = uses.[0].SymbolDisplayName; Uses = uses }
+
+        writeJson { Kind = "symbolimplementation"; Data = su }
+
     let updateSymbols (onAdded : string -> SymbolUseRange[] -> unit) (req: SymbolCacheRequest) =
         state.AddOrUpdate(req.Filename, req.Uses, fun _ _ -> req.Uses)
         |> onAdded req.Filename
@@ -197,6 +207,22 @@ let start port dir =
                     let res = System.Text.Encoding.UTF8.GetBytes uses
                     let e = DateTime.Now
                     printfn "[Debug] /getSymbols request took %fms" (e-d).TotalMilliseconds
+                    Response.response HttpCode.HTTP_200 res httpCtx
+                with
+                | ex ->
+                    printfn "%s" ex.Message
+                    printfn "%s" ex.StackTrace
+                    let res = System.Text.Encoding.UTF8.GetBytes "ERROR"
+                    Response.response HttpCode.HTTP_200 res httpCtx
+
+            path "/getImplementation" >=> fun httpCtx ->
+                try
+                    let d = DateTime.Now
+                    let sn = httpCtx.request.rawForm |> System.Text.Encoding.UTF8.GetString
+                    let uses = Commands.getImplementations sn
+                    let res = System.Text.Encoding.UTF8.GetBytes uses
+                    let e = DateTime.Now
+                    printfn "[Debug] /getImplementation request took %fms" (e-d).TotalMilliseconds
                     Response.response HttpCode.HTTP_200 res httpCtx
                 with
                 | ex ->

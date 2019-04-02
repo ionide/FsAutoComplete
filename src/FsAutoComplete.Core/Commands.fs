@@ -526,6 +526,40 @@ type Commands (serialize : Serializer) =
             })
         |> x.AsCancellable (Path.GetFullPath fn)
 
+    member x.SymbolImplementationProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+        let fn = tyRes.FileName
+        let filterSymbols symbols =
+            symbols
+            |> Array.where (fun (su: FSharpSymbolUse) -> su.IsFromDispatchSlotImplementation || (su.IsFromType && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.RangeAlternate )) )
+
+        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
+            async {
+                let fsym = sym.Symbol
+                if fsym.IsPrivateToFile then
+                    return Response.symbolImplementation serialize (sym, filterSymbols usages)
+                elif useSymbolCache then
+                    let! res =  SymbolCache.getImplementation fsym.FullName
+                    if res = "ERROR" then
+                        if fsym.IsInternalToProject then
+                            let opts = state.FileCheckOptions.[tyRes.FileName]
+                            let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                            return Response.symbolUse serialize (sym, filterSymbols symbols )
+                        else
+                            let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                            return Response.symbolUse serialize (sym, filterSymbols symbols)
+                    else
+                        return res
+                elif fsym.IsInternalToProject then
+                    let opts = state.FileCheckOptions.[tyRes.FileName]
+                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                    return Response.symbolUse serialize (sym, filterSymbols symbols )
+                else
+                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                    let symbols = filterSymbols symbols
+                    return Response.symbolUse serialize (sym, symbols )
+            })
+        |> x.AsCancellable (Path.GetFullPath fn)
+
     member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.SerializeResult (Response.findDeclaration, Response.error)
