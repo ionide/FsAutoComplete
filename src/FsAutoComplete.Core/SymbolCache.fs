@@ -104,6 +104,9 @@ let sendSymbols (serializer: Serializer) fn (symbols: FSharpSymbolUse[]) =
 let getSymbols symbolName =
     makePostRequest ("http://localhost:" + (string port) + "/getSymbols") symbolName
 
+let getImplementation symbolName =
+    makePostRequest ("http://localhost:" + (string port) + "/getImplementation") symbolName
+
 let buildProjectCache (serializer: Serializer) (opts: FSharpProjectOptions) =
     opts
     |> JsonConvert.SerializeObject
