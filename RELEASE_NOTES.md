@@ -1,6 +1,7 @@
 #### 0.38.0
 
 * upgrade to `FSharp.Compiler.Service` v28.0.0
+* upgrade to `FSharpLint.Core` v0.10.8
 * include symbolcache `runtimeconfig.json` and `deps.json` to .net core binaries
 * add `default.win32manifest` to .net core binaries
 
