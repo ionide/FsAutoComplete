@@ -59,6 +59,18 @@ type ParseAndCheckResults
     return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
+  type PathOfLoad =
+    { 
+      Path: string
+      Column: int }
+
+    let findAndGoToLoad (path: string) (line: string) (column: int) =
+    let result = FromLoadModule.tryParseLoad line column
+    match result with
+    | None -> None
+    | Some path ->
+        Some { Path = Path.GetFullPath(path); Column = column }
+        
     let s = DateTime.Now
     match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
