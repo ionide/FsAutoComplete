@@ -7,6 +7,11 @@ open Utils
 open FSharp.Compiler.Range
 
 [<RequireQualifiedAccess>]
+type PathOfLoad =
+    { 
+        Path: string
+        Column: int 
+    }
 type FindDeclarationResult =
     | ExternalDeclaration of Decompiler.ExternalContentPosition
     | Range of FSharp.Compiler.Range.range
@@ -59,6 +64,12 @@ type ParseAndCheckResults
     return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
+    let findAndGoToLoad (path: string) (line: string) (column: int) =
+      let result = FromLoadModule.tryParseLoad line column
+      match result with
+      | None -> None
+      | Some path ->
+           Some { PathOfLoad.Path = Path.GetFullPath(path); PathOfLoad.Column = column }
     let s = DateTime.Now
     match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
