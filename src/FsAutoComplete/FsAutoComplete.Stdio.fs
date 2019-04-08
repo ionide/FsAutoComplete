@@ -95,6 +95,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | WorkspacePeek (dir, deep, excludeDir) -> return! commands.WorkspacePeek dir deep (excludeDir |> List.ofArray)
           | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray) false
           | Error msg -> return commands.Error msg
+          | Fsdn -> return! commands.Fsdn ()
           | Quit ->
               quit <- true
               return! commands.Quit()

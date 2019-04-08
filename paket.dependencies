@@ -10,6 +10,7 @@ nuget Argu ~> 5.2.0
 nuget FSharp.Compiler.Service ~> 28.0
 nuget FSharp.Compiler.Service.ProjectCracker ~> 28.0 framework:net461, condition:net461
 nuget Dotnet.ProjInfo ~> 0.31.0
+nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7

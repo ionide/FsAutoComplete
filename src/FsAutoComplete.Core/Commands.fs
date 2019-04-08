@@ -1,5 +1,7 @@
 namespace FsAutoComplete
+#if INTERACTIVE
 #r "../../../bin/lib/net45/FSharp.Data.dll"
+#endif
 
 open System
 open System.IO
@@ -14,6 +16,7 @@ open System.Reflection
 open FSharp.Compiler.Range
 open FSharp.Analyzers
 open FSharp.Data
+open FSharp.Data.JsonExtensions
 
 [<RequireQualifiedAccess>]
 type CoreResponse =
@@ -85,14 +88,39 @@ type Commands (serialize : Serializer) =
     let notify = Event<NotificationEvent>()
 
     let fsdn (querystr:string) = 
-        Http.RequestString( "https://fsdn.azurewebsites.net/api/search",query=querystr, httpMethod="GET" )
-        let resp = req.GetResponse()
-        let info = JsonValue.Parse(resp)
-        let infonamespace = info?namespace.AsString()
-        let infoclass = info?class_name.AsString()
-        let infomethod = info?name.AsString()
+        let queryString =
+            [ "query=" + querystr
+              "exclusion="
+              "respect_name_difference=enabled"
+              "greedy_matching=enabled"
+              "ignore_parameter_style=enabled"
+              "ignore_case=enabled"
+              "substring=enabled"
+              "swap_order=enabled"
+              "complement=enabled"
+              "language=fsharp"
+              "single_letter_as_variable=enabled"
+              "limit=500"
+            ]
+            |> String.concat "&"
+
+        let req = Http.RequestString( "https://fsdn.azurewebsites.net/api/search?" + queryString )
+        let info = JsonValue.Parse(req)
+
+        let values = info?values.AsArray()
+        let v = values |> Array.head
+        let d = v?api?name?id.AsString()
+
+        let info2 = v?api?name
+        //return a list of strings
+
+        let infonamespace = info2?``namespace``.AsString()
+        let infoclass = info2?class_name.AsString()
+        let infomethod = info2?id.AsString()
         let finalresp = infonamespace + infoclass + infomethod
-        Console.WriteLine(finalresp)
+
+        [ finalresp ]
+
 
     let workspaceReady = Event<unit>()
 
@@ -306,6 +334,11 @@ type Commands (serialize : Serializer) =
 
     member private x.MapResult (successToString: 'a -> CoreResponse, ?failureToString: string -> CoreResponse) =
         x.MapResultAsync ((fun x -> successToString x |> async.Return), ?failureToString = failureToString)
+
+    member x.Fsdn () = async {
+            printfn "hi! tried to do fsdn from commands"
+            return fsdn "int -> int"
+        }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
         let cts = new CancellationTokenSource()
