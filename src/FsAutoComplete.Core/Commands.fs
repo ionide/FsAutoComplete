@@ -335,9 +335,9 @@ type Commands (serialize : Serializer) =
     member private x.MapResult (successToString: 'a -> CoreResponse, ?failureToString: string -> CoreResponse) =
         x.MapResultAsync ((fun x -> successToString x |> async.Return), ?failureToString = failureToString)
 
-    member x.Fsdn () = async {
+    member x.Fsdn (querystr) = async {
             printfn "hi! tried to do fsdn from commands"
-            return fsdn "int -> int"
+            return fsdn querystr
         }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =

@@ -40,7 +40,7 @@ type Command =
   | RegisterAnalyzer of string
   | Started
   | Quit
-  | Fsdn
+  | Fsdn of string
 
 module CommandInput =
   /// Parse 'quit' command
@@ -166,8 +166,11 @@ module CommandInput =
       return WorkspaceLoad (files |> Array.ofList) }
 
   let fsdn = parser {
-      let! _ = string "fsdn"
-      return Fsdn
+      let! _ = string "fsdn "
+      let! _ = char '"'
+      let! querystr = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      return (Fsdn querystr)
       }
 
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
