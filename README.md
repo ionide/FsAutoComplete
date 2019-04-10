@@ -83,7 +83,13 @@ module X =
 
 ```json
 {"Kind":"INFO","Data":"Background parsing started"}
+```
+
+```json
 completion "Program.fs" 4 13
+```
+
+```json
 {"Kind":"completion","Data":["func"]}
 ```
 
