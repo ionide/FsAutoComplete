@@ -5,3 +5,4 @@ Suave
 FSharp.Core
 Dapper
 Microsoft.Data.Sqlite
+Microsoft.SourceLink.GitHub

@@ -23,6 +23,8 @@ nuget Dapper
 nuget Microsoft.Data.Sqlite
 nuget FSharp.Analyzers.SDK
 
+nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true
+
 group Build
   framework: net45
   source https://www.nuget.org/api/v2/
