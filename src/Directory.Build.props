@@ -1,6 +1,14 @@
 <Project>
-  <ItemGroup>
-    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.7.4" PrivateAssets="All" />
-    <PackageReference Include="SourceLink.Embed.PaketFiles" Version="2.7.4" PrivateAssets="All" />
-  </ItemGroup>
+  <Import Project="..\Directory.Build.props" />
+
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <EnableSourceLink>true</EnableSourceLink>
+    <EnableSourceLink Condition=" '$(OS)' != 'Windows_NT' AND '$(MSBuildRuntimeType)' != 'Core' ">false</EnableSourceLink>
+
+    <!-- suppress false positive warning FS2003 about invalid version of AssemblyInformationalVersionAttribute -->
+    <NoWarn>$(NoWarn);FS2003</NoWarn>
+  </PropertyGroup>
 </Project>

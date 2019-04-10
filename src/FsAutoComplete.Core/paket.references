@@ -7,3 +7,4 @@ Newtonsoft.Json
 OptimizedPriorityQueue
 ICSharpCode.Decompiler
 FSharp.Analyzers.SDK
+Microsoft.SourceLink.GitHub
