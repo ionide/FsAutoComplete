@@ -78,6 +78,11 @@ type Commands (serialize : Serializer) =
 
     let workspaceReady = Event<unit>()
 
+    let fileStateSet = Event<unit>()
+
+    //TODO: Thread safe version
+    let mutable fileStateWaiting = false
+
     let rec backgroundChecker () =
         async {
             try
@@ -250,6 +255,8 @@ type Commands (serialize : Serializer) =
 
     member __.FileChecked = fileChecked.Publish
 
+    member __.FileStateSet = fileStateSet
+
     member __.IsWorkspaceReady
         with get() = isWorkspaceReady
         and set(value) = isWorkspaceReady <- value
@@ -257,12 +264,16 @@ type Commands (serialize : Serializer) =
         with get() = notifyErrorsInBackground
         and set(value) = notifyErrorsInBackground <- value
 
-    member __.UseSymbolCache
-        with get() = useSymbolCache
-        and set(value) = useSymbolCache <- value
+    member __.FileStateWaiting
+        with get() = fileStateWaiting
+        and set(value) = fileStateWaiting <- value
 
     member __.LastVersionChecked
         with get() = lastVersionChecked
+
+    member __.UseSymbolCache
+        with get() = useSymbolCache
+        and set(value) = useSymbolCache <- value
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse>, ?failureToString: string -> CoreResponse) =
         Async.bind <| function
@@ -323,6 +334,8 @@ type Commands (serialize : Serializer) =
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
+                x.FileStateWaiting <- false
+                fileStateSet.Trigger ()
                 return! parse' file text checkOptions
             else
                 let! checkOptions =
@@ -335,6 +348,8 @@ type Commands (serialize : Serializer) =
                         state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
+                x.FileStateWaiting <- false
+                fileStateSet.Trigger ()
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
 
