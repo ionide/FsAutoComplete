@@ -1,6 +1,6 @@
 namespace FsAutoComplete
 #if INTERACTIVE
-#r "../../../bin/lib/net45/FSharp.Data.dll"
+#r "/home/nikita/.nuget/packages/fsharp.data/3.0.1/lib/net45/FSharp.Data.dll"
 #endif
 
 open System
@@ -105,22 +105,23 @@ type Commands (serialize : Serializer) =
             |> String.concat "&"
 
         let req = Http.RequestString( "https://fsdn.azurewebsites.net/api/search?" + queryString )
-        let info = JsonValue.Parse(req)
+        let results = JsonValue.Parse(req)
 
-        let values = info?values.AsArray()
-        let v = values |> Array.head
-        let d = v?api?name?id.AsString()
+        let values = results?values.AsArray()
+        
+        let createResult (values) =
+            let v = values
+            let info2 = v?api?name
+            //return a list of strings
+            let infonamespace = info2?``namespace``.AsString()
+            let infoclass = info2?class_name.AsString()
+            let infomethod = info2?id.AsString()
+            let finalresp = infonamespace + infoclass + infomethod
+            finalresp 
 
-        let info2 = v?api?name
-        //return a list of strings
-
-        let infonamespace = info2?``namespace``.AsString()
-        let infoclass = info2?class_name.AsString()
-        let infomethod = info2?id.AsString()
-        let finalresp = infonamespace + infoclass + infomethod
-
-        [ finalresp ]
-
+        values
+        |> Array.map createResult
+        |> Array.toList    
 
     let workspaceReady = Event<unit>()
 
