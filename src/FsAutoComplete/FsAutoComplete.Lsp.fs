@@ -34,6 +34,9 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     member __.NotifyWorkspacePeek (p: PlainNotification) =
         sendServerRequest "fsharp/notifyWorkspacePeek" (box p) |> Async.Ignore
 
+    member __.NotifyCancelledRequest (p: PlainNotification) =
+        sendServerRequest "fsharp/notifyCancel" (box p) |> Async.Ignore
+
     // TODO: Add the missing notifications
     // TODO: Implement requests
 
@@ -96,7 +99,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     ()
         } |> Async.Start
 
-    let parseFileDebuncer = Debounce(200, parseFile)
+    let parseFileDebuncer = Debounce(500, parseFile)
 
     let diagnosticCollections = System.Collections.Concurrent.ConcurrentDictionary<DocumentUri * string,Diagnostic[]>()
 
@@ -180,6 +183,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         |> List.toArray
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
+                | NotificationEvent.Canceled (CoreResponse.InfoRes msg) ->
+                    let ntf = {Content = msg}
+                    lspClient.NotifyCancelledRequest ntf
+                    |> Async.Start
                 | _ ->
                     //TODO: Add analyzer support
                     ()

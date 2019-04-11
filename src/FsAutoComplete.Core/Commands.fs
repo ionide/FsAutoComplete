@@ -60,6 +60,7 @@ type NotificationEvent =
     | Analyzer of CoreResponse
     | UnusedDeclarations of CoreResponse
     | SimplifyNames of CoreResponse
+    | Canceled of CoreResponse
 
 type Commands (serialize : Serializer) =
 
@@ -290,7 +291,12 @@ type Commands (serialize : Serializer) =
         state.AddCancellationToken(filename, cts)
         Async.StartCatchCancellation(action, cts.Token)
         |> Async.Catch
-        |> Async.map (function Choice1Of2 res -> res | Choice2Of2 err -> [CoreResponse.InfoRes (sprintf "Request cancelled (exn was %A)" err)])
+        |> Async.map (function
+            | Choice1Of2 res -> res
+            | Choice2Of2 err ->
+                let cld = CoreResponse.InfoRes (sprintf "Request cancelled (exn was %A)" err)
+                notify.Trigger (NotificationEvent.Canceled cld)
+                [cld])
 
     member private x.CancelQueue (filename : SourceFilePath) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
