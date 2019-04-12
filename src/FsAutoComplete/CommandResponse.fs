@@ -404,6 +404,11 @@ module CommandResponse =
     { File: string
       Messages: AnalyzerMsg list}
 
+  type FsdnResponse = {
+    Functions: string list
+  }
+
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -582,6 +587,10 @@ module CommandResponse =
 
   let help (serialize : Serializer) (data : string) =
     serialize { Kind = "help"; Data = data }
+
+  let fsdn (serialize : Serializer) (functions : string list) =
+    let data = { FsdnResponse.Functions = functions }
+    serialize { Kind = "fsdn"; Data = data }
 
   let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"

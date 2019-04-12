@@ -338,7 +338,8 @@ type Commands (serialize : Serializer) =
 
     member x.Fsdn (querystr) = async {
             printfn "hi! tried to do fsdn from commands"
-            return fsdn querystr
+            let results = fsdn querystr
+            return [ Response.fsdn serialize results ]
         }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
