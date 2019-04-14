@@ -64,7 +64,7 @@ type [<RequireQualifiedAccess>] WorkspaceProjectState =
 
 module ProjectRecognizer =
 
-    let (|NetCoreProjectJson|FSharpNetSdk|NetCoreSdk|Net45|Unsupported|) file =
+    let (|NetCoreProjectJson|FSharpNetSdk|NetCoreSdk|Net45|Unsupported|) (file: string) =
         //.NET Core Sdk preview3+ replace project.json with fsproj
         //Easy way to detect new fsproj is to check the msbuild version of .fsproj
         //Post preview5 has (`Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk"`), use that
@@ -86,7 +86,7 @@ module ProjectRecognizer =
                         if isFSharpNetSdk line then FSharpNetSdk else NetCoreSdk
                     else
                         Net45
-        if Path.GetExtension file = ".json" then
+        if Path.GetExtension(file) = ".json" then
             NetCoreProjectJson // dotnet core preview 2 or earlier
         else
             File.ReadLines(file)

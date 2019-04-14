@@ -23,8 +23,8 @@ type SourceFilePath = string
 type FilePath = string
 type LineStr = string
 
-let isAScript fileName =
-    let ext = Path.GetExtension fileName
+let isAScript (fileName: string) =
+    let ext = Path.GetExtension(fileName)
     [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
 
 /// Determines if the current system is an Unix system.
