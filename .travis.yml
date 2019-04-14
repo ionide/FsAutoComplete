@@ -37,6 +37,6 @@ matrix:
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
 
   allow_failures:
-    - mono: latest
     - mono: weekly
+    - mono: 5.18.0 # https://travis-ci.community/t/unable-to-locate-package-referenceassemblies-pcl/2686
     - dotnet: 2.2.103
