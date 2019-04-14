@@ -1,5 +1,5 @@
 language: csharp
-dist: xenial # dotnet sdk 2.2 isn't installable on trusty due to https://travis-ci.community/t/dotnet-core-2-2/1216/12
+dist: bionic
 
 sudo: false
 
