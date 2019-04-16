@@ -649,6 +649,9 @@ module Types =
         /// The server provides goto definition support.
         DefinitionProvider: bool option
 
+        ///The server provides Goto Implementation support
+        ImplementationProvider :bool option
+
         /// The server provides goto type definition support.
         TypeDefinitionProvider: bool option
 
@@ -700,6 +703,7 @@ module Types =
                 SignatureHelpProvider = None
                 DefinitionProvider = None
                 TypeDefinitionProvider = None
+                ImplementationProvider = None
                 ReferencesProvider = None
                 DocumentHighlightProvider = None
                 DocumentSymbolProvider = None
