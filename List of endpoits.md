@@ -10,8 +10,8 @@
 * `textDocument/rename` - OK
 * `textDocument/definition` - OK
 * `textDocument/typeDefinition` - OK
-* `textDocument/implementation` - ?
-* `textDocument/codeAction` - TODO
+* `textDocument/implementation` - OK
+* `textDocument/codeAction` - OK (more or less)
 * `textDocument/codeLens `- OK
 * `codeLens/resolve` - OK
 * `textDocument/references` - OK

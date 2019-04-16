@@ -300,6 +300,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         RenameProvider = Some true
                         DefinitionProvider = Some true
                         TypeDefinitionProvider = Some true
+                        ImplementationProvider = Some true
                         ReferencesProvider = Some true
                         DocumentHighlightProvider = Some true
                         DocumentSymbolProvider = Some true
@@ -702,6 +703,30 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
                             Kind = None
                         })
+                        |> Some
+                        |> success
+                    | _ -> LspResult.notImplemented
+                return res
+            })
+
+    override x.TextDocumentImplementation(p) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.SymbolImplementationProject tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.SymbolUseImplementation (symbol, uses) ->
+                        uses
+                        |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
+                        |> GotoResult.Multiple
+                        |> Some
+                        |> success
+                    | CoreResponse.SymbolUseImplementationRange uses ->
+                        uses
+                        |> Array.map symbolUseRangeToLspLocation
+                        |> GotoResult.Multiple
                         |> Some
                         |> success
                     | _ -> LspResult.notImplemented
