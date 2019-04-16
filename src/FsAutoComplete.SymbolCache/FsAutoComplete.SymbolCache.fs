@@ -167,9 +167,8 @@ module Commands =
             |> Seq.collect id
             |> Seq.where (fun sm -> sm.SymbolFullName = symbolName && not sm.SymbolIsLocal && (sm.IsFromDispatchSlotImplementation || sm.IsFromType ))
             |> Seq.toList
-        let su : SymbolUseResponse = {Name = uses.[0].SymbolDisplayName; Uses = uses }
 
-        writeJson { Kind = "symbolimplementation"; Data = su }
+        writeJson uses
 
     let updateSymbols (onAdded : string -> SymbolUseRange[] -> unit) (req: SymbolCacheRequest) =
         state.AddOrUpdate(req.Filename, req.Uses, fun _ _ -> req.Uses)
