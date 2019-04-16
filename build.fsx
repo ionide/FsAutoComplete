@@ -241,11 +241,10 @@ Target "ReleaseArchive" (fun _ ->
     CleanDirs [ "bin/pkgs" ]
     ensureDirectory "bin/pkgs"
 
-    !! "bin/release/*.*"
+    !! "bin/release/**/*"
     |> Zip "bin/release" releaseArchive
 
-    !! "bin/release_netcore/*.*"
-    ++ "bin/release_netcore/runtimes/**"
+    !! "bin/release_netcore/**/*"
     |> Zip "bin/release_netcore" releaseArchiveNetCore
 )
 
