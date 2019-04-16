@@ -26,6 +26,7 @@ type CoreResponse =
     | WorkspaceLoad of finished: bool
     | Completion of decls: FSharpDeclarationListItem[] * includeKeywords: bool
     | SymbolUse of symbol: FSharpSymbolUse * uses: FSharpSymbolUse[]
+    | SymbolUseImplementation of symbol: FSharpSymbolUse * uses: FSharpSymbolUse[]
     | SignatureData of typ: string * parms: (string * string) list list
     | Help of data: string
     | Methods of meth: FSharpMethodGroup * commas: int
@@ -49,6 +50,7 @@ type CoreResponse =
     | Compile of errors: FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[] * code: int
     | Analyzer of messages: SDK.Message [] * file: string
     | SymbolUseRange of ranges: SymbolCache.SymbolUseRange[]
+    | SymbolUseImplementationRange of ranges: SymbolCache.SymbolUseRange[]
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -610,31 +612,32 @@ type Commands (serialize : Serializer) =
             symbols
             |> Array.where (fun (su: FSharpSymbolUse) -> su.IsFromDispatchSlotImplementation || (su.IsFromType && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.RangeAlternate )) )
 
-        tyRes.TryGetSymbolUse pos lineStr |> x.SerializeResultAsync (fun _ (sym, usages) ->
+        tyRes.TryGetSymbolUse pos lineStr |> x.MapResultAsync (fun (sym, usages) ->
             async {
                 let fsym = sym.Symbol
                 if fsym.IsPrivateToFile then
-                    return Response.symbolImplementation serialize (sym, filterSymbols usages)
+                    return CoreResponse.SymbolUseImplementation (sym, filterSymbols usages)
                 elif useSymbolCache then
                     let! res =  SymbolCache.getImplementation fsym.FullName
-                    if res = "ERROR" then
+                    match res with
+                    | None ->
                         if fsym.IsInternalToProject then
                             let opts = state.FileCheckOptions.[tyRes.FileName]
                             let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                            return Response.symbolUse serialize (sym, filterSymbols symbols )
+                            return CoreResponse.SymbolUseImplementation (sym, filterSymbols symbols )
                         else
                             let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
-                            return Response.symbolUse serialize (sym, filterSymbols symbols)
-                    else
-                        return res
+                            return CoreResponse.SymbolUseImplementation (sym, filterSymbols symbols)
+                    | Some res ->
+                        return CoreResponse.SymbolUseImplementationRange res
                 elif fsym.IsInternalToProject then
                     let opts = state.FileCheckOptions.[tyRes.FileName]
                     let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                    return Response.symbolUse serialize (sym, filterSymbols symbols )
+                    return CoreResponse.SymbolUseImplementation (sym, filterSymbols symbols )
                 else
                     let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
                     let symbols = filterSymbols symbols
-                    return Response.symbolUse serialize (sym, symbols )
+                    return CoreResponse.SymbolUseImplementation (sym, symbols )
             })
         |> x.AsCancellable (Path.GetFullPath fn)
 

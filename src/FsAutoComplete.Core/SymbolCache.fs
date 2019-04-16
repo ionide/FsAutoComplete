@@ -128,7 +128,11 @@ let getSymbols symbolName =
 
 let getImplementation symbolName =
     makePostRequest ("http://localhost:" + (string port) + "/getImplementation") symbolName
-
+    |> Async.map (fun n ->
+        try
+            Some <| JsonConvert.DeserializeObject<SymbolUseRange[]> n
+        with
+        | _ -> None)
 let buildProjectCache (serializer: Serializer) (opts: FSharpProjectOptions) =
     opts
     |> serializer

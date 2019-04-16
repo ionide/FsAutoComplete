@@ -559,6 +559,14 @@ module CommandResponse =
       }
     serialize { Kind = "symboluse"; Data = su }
 
+  let symbolUseImplementationRange (serialize : Serializer) (uses: SymbolUseRange[]) =
+    let symbol = uses.[0]
+    let su =
+      { Name = symbol.SymbolDisplayName
+        Uses = List.ofArray uses
+      }
+    serialize { Kind = "symbolimplementation"; Data = su }
+
   let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
     let pms =
       parms
@@ -768,6 +776,8 @@ module CommandResponse =
       completion s decls includeKeywords
     | CoreResponse.SymbolUse(symbol, uses) ->
       symbolUse s (symbol, uses)
+    | CoreResponse.SymbolUseImplementation(symbol, uses) ->
+      symbolImplementation s (symbol, uses)
     | CoreResponse.SignatureData(typ, parms) ->
       signatureData s (typ, parms)
     | CoreResponse.Help(data) ->
@@ -812,5 +822,7 @@ module CommandResponse =
       analyzer s (messages, file)
     | CoreResponse.SymbolUseRange(ranges) ->
       symbolUseRange s ranges
+    | CoreResponse.SymbolUseImplementationRange(ranges) ->
+      symbolUseImplementationRange s ranges
     | CoreResponse.InterfaceStub(generatedCode, insertPosition) ->
       interfaceStub s generatedCode insertPosition
