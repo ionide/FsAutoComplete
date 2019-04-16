@@ -245,6 +245,7 @@ Target "ReleaseArchive" (fun _ ->
     |> Zip "bin/release" releaseArchive
 
     !! "bin/release_netcore/*.*"
+    ++ "bin/release_netcore/runtimes/**"
     |> Zip "bin/release_netcore" releaseArchiveNetCore
 )
 
