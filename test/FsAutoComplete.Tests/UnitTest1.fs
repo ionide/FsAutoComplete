@@ -4,8 +4,8 @@ open NUnit.Framework
 open FsAutoComplete
 open FsAutoComplete.Parser
 
-[<TestClass>]
-type TestClass () =
+[<TestFixture>]
+type Tests () =
 
     [<SetUp>]
     member this.Setup () =
@@ -67,9 +67,11 @@ type TestClass () =
     [<Test>]
     [<Ignore("need to make this platform independent")>]
     member this.``should find fsc on Windows`` () =
-        Assert.That(Option.isSome Environment.fsc, "should find fsc.exe")
-        let (Some fsc) = Environment.fsc
-        Assert.That(fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
+        match Environment.fsc with
+        | None ->
+          Assert.Fail("should find fsc.exe")
+        | Some fsc ->
+          Assert.That(fsc.Contains("Microsoft SDKs"), "fsc.exe resolution failed")
 
     [<Test>]
     [<Ignore("Need to make this platform independent")>]
