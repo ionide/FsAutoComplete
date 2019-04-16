@@ -1,3 +1,5 @@
+#### 0.38.2
+
 #### 0.38.1 - 16.04.2019
 
 * fix packaging of zip releases [#373](https://github.com/fsharp/FsAutoComplete/issues/373) by [@TOTBWF](https://github.com/TOTBWF)
