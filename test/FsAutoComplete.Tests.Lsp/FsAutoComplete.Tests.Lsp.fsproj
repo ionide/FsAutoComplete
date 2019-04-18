@@ -1,8 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
     <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/FsAutoComplete/FsAutoComplete.fsproj">
+      <Name>FsAutoComplete.fsproj</Name>
+    </ProjectReference>
+    <ProjectReference Include="../../src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj">
+      <Name>FsAutoComplete.Core.fsproj</Name>
+    </ProjectReference>
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />

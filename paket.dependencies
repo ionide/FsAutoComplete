@@ -40,7 +40,6 @@ group Test
   nuget NUnit3TestAdapter 3.10.0
   nuget Microsoft.NET.Test.Sdk 15.8.0
   nuget Expecto
-  nuget OmniSharp.Extensions.LanguageClient
 
 group IntegrationTests
   framework: net461
