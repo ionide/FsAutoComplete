@@ -194,6 +194,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ -> ()
         ) |> subscriptions.Add
 
+    [<CompilerMessage("Should be used only in tests", 130)>]
+    member __.FileInit
+        with get() = fileInit
+        and set(value) = fileInit <- value
+
     member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()

@@ -10,8 +10,6 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
-let serverPath = Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "bin", "release_netcore", "fsautocomplete.dll")
-
 let createServer () =
   let client = FSharpLspClient (fun _ _ -> AsyncLspResult.success ())
   let commands = Commands(FsAutoComplete.JsonSerializer.writeJson)
@@ -186,40 +184,96 @@ let basicTests =
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     testList "Basic Tests" [
+      testList "Hover Tests" [
 
-      test "Hover Tests - simple symbol" {
-        let p : TextDocumentPositionParams =
-          { TextDocument = { Uri = filePathToUri path}
-            Position = { Line = 0; Character = 4}}
-        let res = server.TextDocumentHover p |> Async.RunSynchronously
-        match res with
-        | Result.Error e -> failwith "Request failed"
-        | Result.Ok None -> failwith "Request failed"
-        | Result.Ok (Some res) ->
-          let expected =
-            MarkedStrings
-              [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
-                  MarkedString.String ""
-                  MarkedString.String "*Full name: Script.t*"
-                  MarkedString.String "*Assembly: Script*"|]
+        test "Hover Tests - simple symbol" {
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = filePathToUri path}
+              Position = { Line = 0; Character = 4}}
+          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            let expected =
+              MarkedStrings
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
+                    MarkedString.String ""
+                    MarkedString.String "*Full name: Script.t*"
+                    MarkedString.String "*Assembly: Script*"|]
 
-          Expect.equal res.Contents expected "Hover test - simple symbol"
-      }
+            Expect.equal res.Contents expected "Hover test - simple symbol"
+        }
 
-      test "Hover Tests - let keyword" {
-        let p : TextDocumentPositionParams =
-          { TextDocument = { Uri = filePathToUri path}
-            Position = { Line = 0; Character = 2}}
-        let res = server.TextDocumentHover p |> Async.RunSynchronously
-        match res with
-        | Result.Error e -> failwith "Request failed"
-        | Result.Ok None -> failwith "Request failed"
-        | Result.Ok (Some res) ->
-          let expected =
-            MarkedStrings
-              [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
-                  MarkedString.String "Used to associate, or bind, a name to a value or function."|]
+        test "Hover Tests - let keyword" {
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = filePathToUri path}
+              Position = { Line = 0; Character = 2}}
+          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            let expected =
+              MarkedStrings
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
+                    MarkedString.String "Used to associate, or bind, a name to a value or function."|]
 
-          Expect.equal res.Contents expected "Hover test - let keyword"
-      }
+            Expect.equal res.Contents expected "Hover test - let keyword"
+        }
+
+        test "Hover Tests - out of position" {
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = filePathToUri path}
+              Position = { Line = 1; Character = 2}}
+          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> ()
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            failtest "Expected failure"
+        }
+      ]
+      testList "Document Symbol Tests" [
+        test "Document Symbol" {
+          let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
+          server.FileInit <- true
+          let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+
+            Expect.equal res.Length 2 "Document Symbol has all symbols"
+        }
+      ]
+      testList "Code Lens Tests" [
+        test "Get Code Lens" {
+          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+
+            Expect.equal res.Length 1 "Get Code Lens has all locations"
+        }
+
+        test "Resolve Code Lens" {
+          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            let cl = res.[0]
+            let res = server.CodeLensResolve cl |> Async.RunSynchronously
+            match res with
+            | Result.Error e -> failtest "Request failed"
+            | Result.Ok cl ->
+              Expect.equal cl.Command.Value.Title "int" "Code Lens contains signature"
+        }
+      ]
+
+
     ])
