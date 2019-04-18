@@ -1805,6 +1805,7 @@ let private ignoreNotification = async.Return(())
 open Types
 open System.Text
 open Newtonsoft.Json.Linq
+open Newtonsoft.Json.Linq
 
 [<AbstractClass>]
 type LspClient() =
@@ -2124,6 +2125,8 @@ module Server =
     }
 
     let deserialize<'t> (token: JToken) = token.ToObject<'t>(jsonSerializer)
+
+    let serialize<'t> (o: 't) = JToken.FromObject(o, jsonSerializer)
 
     let requestHandling<'param, 'result, 'server when 'server :> LspServer> (run: 'server -> 'param -> AsyncLspResult<'result>): RequestHandling<'server> =
         let tokenRun (lspServer: 'server) (paramsToken: JToken option): AsyncLspResult<JToken option> =

@@ -13,7 +13,7 @@ open System.Text
 module FcsRange = FSharp.Compiler.Range
 
 [<AutoOpen>]
-module internal Conversions =
+module Conversions =
     module Lsp = LanguageServerProtocol.Types
 
     let protocolPosToPos (pos: Lsp.Position): FcsRange.pos =

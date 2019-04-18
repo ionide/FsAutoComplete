@@ -5,4 +5,6 @@ open FsAutoComplete.Tests.Lsp
 
 [<EntryPoint>]
 let main args =
-  runTestsWithArgs defaultConfig args tests
+  let res = runTestsInAssembly defaultConfig args
+  let _ = System.Console.ReadKey()
+  res
