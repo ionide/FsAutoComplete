@@ -1,4 +1,4 @@
-﻿module FsAutoComplete.Tests.Lsp
+module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -240,5 +240,80 @@ let documentSymbolTest =
           Expect.equal res.Length 15 "Document Symbol has all symbols"
           Expect.exists res (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class) "Document symbol contains given symbol"
         }
+    ]
+  )
+
+//Tests for getting autocomplete
+let autocompleteTest () =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
+  serverTest path defaultConfigDto (fun server ->
+    let path = Path.Combine(path, "Script.fsx")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    testList "Autocomplete Tests" [
+      test "Get Autocomplete module members" {
+        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+                                     Position = { Line = 8; Character = 2}
+                                     Context = None }
+        server.FileInit <- true
+        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+
+          Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
+          Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
+          Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
+        }
+
+      test "Get Autocomplete namespace" {
+        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+                                     Position = { Line = 10; Character = 2}
+                                     Context = None }
+        server.FileInit <- true
+        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+
+          // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
+          Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
+
+        }
+
+      test "Get Autocomplete namespace members" {
+        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+                                     Position = { Line = 12; Character = 7}
+                                     Context = None }
+        server.FileInit <- true
+        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+
+          // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
+          Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
+
+        }
+
+      test "Get Autocomplete module doublebackticked members" {
+        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+                                     Position = { Line = 14; Character = 18}
+                                     Context = None }
+        server.FileInit <- true
+        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+
+          Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
+          Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
+
+        }
+
     ]
   )
