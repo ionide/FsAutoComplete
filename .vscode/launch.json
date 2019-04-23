@@ -29,6 +29,16 @@
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
+            "name": "LSP tests",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build_lsp_tests",
+            "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/netcoreapp2.1/FsAutoComplete.Tests.Lsp.dll",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+        },
+        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach",
