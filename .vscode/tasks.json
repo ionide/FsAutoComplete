@@ -23,6 +23,14 @@
             "problemMatcher": [
                 "$msCompile"
             ]
+        },
+        {
+            "taskName": "build_lsp_tests",
+            "type": "shell",
+            "command": "dotnet build test/FsAutoComplete.Tests.Lsp",
+            "problemMatcher": [
+                "$msCompile"
+            ]
         }
     ]
 }
