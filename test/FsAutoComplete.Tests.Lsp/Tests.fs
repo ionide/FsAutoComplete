@@ -218,3 +218,27 @@ let codeLensTest =
         }
     ]
   )
+
+[<Tests>]
+//Tests for getting document symbols
+let documentSymbolTest =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
+  serverTest path defaultConfigDto (fun server ->
+    let path = Path.Combine(path, "Script.fsx")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    testList "Document Symbols Tests" [
+      test "Get Document Symbols" {
+        let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
+        server.FileInit <- true
+        let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+
+          Expect.equal res.Length 15 "Document Symbol has all symbols"
+          Expect.exists res (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class) "Document symbol contains given symbol"
+        }
+    ]
+  )
