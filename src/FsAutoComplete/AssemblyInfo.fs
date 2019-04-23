@@ -5,15 +5,15 @@ open System.Reflection
 [<assembly: AssemblyTitleAttribute("FsAutoComplete")>]
 [<assembly: AssemblyProductAttribute("FsAutoComplete")>]
 [<assembly: AssemblyDescriptionAttribute("A command line tool for interfacing with FSharp.Compiler.Service over a pipe.")>]
-[<assembly: AssemblyVersionAttribute("0.39.0")>]
-[<assembly: AssemblyFileVersionAttribute("0.39.0")>]
-[<assembly: AssemblyMetadataAttribute("githash","cf0d91f3d6247c38e59d192e30e2fe054bd97f9b")>]
+[<assembly: AssemblyVersionAttribute("0.38.2")>]
+[<assembly: AssemblyFileVersionAttribute("0.38.2")>]
+[<assembly: AssemblyMetadataAttribute("githash","cea81b172d1ed111a6b70f3ed801e700491f14a0")>]
 do ()
 
 module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FsAutoComplete"
     let [<Literal>] AssemblyProduct = "FsAutoComplete"
     let [<Literal>] AssemblyDescription = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
-    let [<Literal>] AssemblyVersion = "0.39.0"
-    let [<Literal>] AssemblyFileVersion = "0.39.0"
-    let [<Literal>] AssemblyMetadata_githash = "cf0d91f3d6247c38e59d192e30e2fe054bd97f9b"
+    let [<Literal>] AssemblyVersion = "0.38.2"
+    let [<Literal>] AssemblyFileVersion = "0.38.2"
+    let [<Literal>] AssemblyMetadata_githash = "cea81b172d1ed111a6b70f3ed801e700491f14a0"

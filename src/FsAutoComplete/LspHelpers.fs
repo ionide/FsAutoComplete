@@ -334,13 +334,13 @@ module Markdown =
                 let rec loop res : string =
                     match regex.Match res with
                     | m when m.Success ->
-                        let [| firstGroup |], otherGroups =
+                        let firstGroup, otherGroups =
                             m.Groups
                             |> Seq.cast<Group>
                             |> Seq.map (fun g -> g.Value)
                             |> Seq.toArray
                             |> Array.splitAt 1
-                        loop <| res.Replace(firstGroup, formatter otherGroups)
+                        loop <| res.Replace(firstGroup.[0], formatter otherGroups)
                     | _ -> res
                 loop res
             ) str
