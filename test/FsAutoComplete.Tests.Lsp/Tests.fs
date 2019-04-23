@@ -1,4 +1,4 @@
-module FsAutoComplete.Tests.Lsp
+﻿module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -159,3 +159,62 @@ let basicTests =
 
 
     ])
+
+[<Tests>]
+//Tests for getting and resolving code(line) lenses with enabled reference code lenses
+let codeLensTest =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
+  serverTest path {defaultConfigDto with EnableBackgroundSymbolCache = Some true; EnableReferenceCodeLens = Some true} (fun server ->
+    let path = Path.Combine(path, "Script.fsx")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    testList "Code Lens Tests" [
+      test "Get Code Lens" {
+          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+
+            Expect.equal res.Length 18 "Get Code Lens has all locations"
+        }
+      test "Resolve Code Lens" {
+          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some result) ->
+            let cl = result.[0]
+            let res = server.CodeLensResolve cl |> Async.RunSynchronously
+            let cl = result.[9]
+            let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
+            match res, res2 with
+            | Result.Ok cl, Result.Ok cl2 ->
+              //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
+              Expect.equal cl2.Command.Value.Title "string -> unit" "Code Lens contains signature"
+
+            | _ -> failtest "Request failed"
+        }
+
+      test "Resolve Code Lens 2" {
+          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> failtest "Request failed"
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some result) ->
+            let cl = result.[3]
+            let res = server.CodeLensResolve cl |> Async.RunSynchronously
+            let cl = result.[12]
+            let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
+            match res, res2 with
+            | Result.Ok cl, Result.Ok cl2 ->
+              //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
+              Expect.equal cl2.Command.Value.Title "unit -> (int64 -> System.DateTime)" "Code Lens contains signature"
+
+            | _ -> failtest "Request failed"
+        }
+    ]
+  )
