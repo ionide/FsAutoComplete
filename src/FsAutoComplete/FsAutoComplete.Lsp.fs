@@ -193,8 +193,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             with
             | _ -> ()
         ) |> subscriptions.Add
-
-    [<CompilerMessage("Should be used only in tests", 130)>]
     member __.FileInit
         with get() = fileInit
         and set(value) = fileInit <- value
