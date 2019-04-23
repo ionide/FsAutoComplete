@@ -1,4 +1,4 @@
-module FsAutoComplete.Tests.Lsp
+﻿module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -9,10 +9,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 
-
-
-[<Tests>]
-let tests =
+let initTests () =
   test "InitTest" {
     let server = createServer()
 
@@ -57,9 +54,8 @@ let tests =
   }
 
 
-[<Tests>]
 //Tests for basic operations like hover, getting document symbols or code lens on simple file
-let basicTests =
+let basicTests () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
   serverTest path defaultConfigDto (fun server ->
     let path = Path.Combine(path, "Script.fsx")
@@ -160,9 +156,8 @@ let basicTests =
 
     ])
 
-[<Tests>]
 //Tests for getting and resolving code(line) lenses with enabled reference code lenses
-let codeLensTest =
+let codeLensTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
   serverTest path {defaultConfigDto with EnableBackgroundSymbolCache = Some true; EnableReferenceCodeLens = Some true} (fun server ->
     let path = Path.Combine(path, "Script.fsx")
@@ -219,9 +214,8 @@ let codeLensTest =
     ]
   )
 
-[<Tests>]
 //Tests for getting document symbols
-let documentSymbolTest =
+let documentSymbolTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
   serverTest path defaultConfigDto (fun server ->
     let path = Path.Combine(path, "Script.fsx")
@@ -317,3 +311,16 @@ let autocompleteTest () =
 
     ]
   )
+
+[<Tests>]
+let tests =
+  let parametriezed =
+    testList "All Tests" [
+      yield initTests ()
+      yield basicTests ()
+      yield codeLensTest ()
+      yield documentSymbolTest ()
+      yield autocompleteTest ()
+    ]
+
+  testSequenced parametriezed
