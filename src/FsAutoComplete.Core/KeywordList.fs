@@ -1,6 +1,6 @@
 ﻿namespace FsAutoComplete
 
-module internal KeywordList =
+module KeywordList =
 
     let private keywordDescriptions =
         FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription
