@@ -319,13 +319,7 @@ let autocompleteTest () =
 let renameTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
   serverTest path defaultConfigDto (fun (server, event) ->
-    let e =
-      event.Publish
-      |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
-      |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
-      |> Event.filter (fun o -> o.Content.Contains "workspaceLoad" && o.Content.Contains "finished")
-      |> Async.AwaitEvent
-      |> Async.RunSynchronously
+    do waitForWorkspaceFinishedParsing event
     let pathTest = Path.Combine(path, "Test.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
@@ -336,7 +330,7 @@ let renameTest () =
     testList "Rename Tests" [
       test "Rename from usage" {
         let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
-                                 Position = { Line = 7; Character = 13}
+                                 Position = { Line = 7; Character = 12}
                                  NewName = "y" }
         server.FileInit <- true
         let res = server.TextDocumentRename p |> Async.RunSynchronously
@@ -348,9 +342,9 @@ let renameTest () =
           | None -> failtest "No changes"
           | Some result ->
             //TODO
-            // Expect.equal result.Length 1 "Rename has all changes"
-            // Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
-            // Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Tets.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
+            Expect.equal result.Length 1 "Rename has all changes"
+            Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
+            Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Tets.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
       }
     ]
