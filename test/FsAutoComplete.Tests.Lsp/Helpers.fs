@@ -131,3 +131,12 @@ let loadDocument path : TextDocumentItem =
     LanguageId = "fsharp"
     Version = 0
     Text = File.ReadAllText path  }
+
+let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
+  event.Publish
+  |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
+  |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
+  |> Event.filter (fun o -> o.Content.Contains "workspaceLoad" && o.Content.Contains "finished")
+  |> Async.AwaitEvent
+  |> Async.RunSynchronously
+  |> ignore
