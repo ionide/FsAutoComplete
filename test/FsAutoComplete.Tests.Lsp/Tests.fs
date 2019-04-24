@@ -312,15 +312,11 @@ let autocompleteTest () =
     ]
   )
 
-[<Tests>]
 let tests =
-  let parametriezed =
-    testList "All Tests" [
-      yield initTests ()
-      yield basicTests ()
-      yield codeLensTest ()
-      yield documentSymbolTest ()
-      yield autocompleteTest ()
-    ]
-
-  testSequenced parametriezed
+   [
+    initTests
+    basicTests
+    codeLensTest
+    documentSymbolTest
+    autocompleteTest
+  ]
