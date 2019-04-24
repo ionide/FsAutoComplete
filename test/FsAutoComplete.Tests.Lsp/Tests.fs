@@ -9,9 +9,10 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 
+///Test for initialization of the server
 let initTests () =
   test "InitTest" {
-    let server = createServer()
+    let (server, event) = createServer()
 
     let p : InitializeParams =
       { ProcessId = Some 1
@@ -54,10 +55,10 @@ let initTests () =
   }
 
 
-//Tests for basic operations like hover, getting document symbols or code lens on simple file
+///Tests for basic operations like hover, getting document symbols or code lens on simple file
 let basicTests () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
-  serverTest path defaultConfigDto (fun server ->
+  serverTest path defaultConfigDto (fun (server, event) ->
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
@@ -156,10 +157,10 @@ let basicTests () =
 
     ])
 
-//Tests for getting and resolving code(line) lenses with enabled reference code lenses
+///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-  serverTest path {defaultConfigDto with EnableBackgroundSymbolCache = Some true; EnableReferenceCodeLens = Some true} (fun server ->
+  serverTest path {defaultConfigDto with EnableBackgroundSymbolCache = Some true; EnableReferenceCodeLens = Some true} (fun (server, event) ->
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
@@ -187,6 +188,7 @@ let codeLensTest () =
             let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
             match res, res2 with
             | Result.Ok cl, Result.Ok cl2 ->
+              //TODO
               //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
               Expect.equal cl2.Command.Value.Title "string -> unit" "Code Lens contains signature"
 
@@ -206,6 +208,7 @@ let codeLensTest () =
             let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
             match res, res2 with
             | Result.Ok cl, Result.Ok cl2 ->
+              //TODO
               //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
               Expect.equal cl2.Command.Value.Title "unit -> (int64 -> System.DateTime)" "Code Lens contains signature"
 
@@ -214,10 +217,10 @@ let codeLensTest () =
     ]
   )
 
-//Tests for getting document symbols
+///Tests for getting document symbols
 let documentSymbolTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
-  serverTest path defaultConfigDto (fun server ->
+  serverTest path defaultConfigDto (fun (server, event) ->
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
@@ -237,10 +240,10 @@ let documentSymbolTest () =
     ]
   )
 
-//Tests for getting autocomplete
+///Tests for getting autocomplete
 let autocompleteTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
-  serverTest path defaultConfigDto (fun server ->
+  serverTest path defaultConfigDto (fun (server, event) ->
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
@@ -271,7 +274,7 @@ let autocompleteTest () =
         | Result.Error e -> failtest "Request failed"
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
-
+          //TODO
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
@@ -287,7 +290,7 @@ let autocompleteTest () =
         | Result.Error e -> failtest "Request failed"
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
-
+          //TODO
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
@@ -312,6 +315,48 @@ let autocompleteTest () =
     ]
   )
 
+///Rename tests
+let renameTest () =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
+  serverTest path defaultConfigDto (fun (server, event) ->
+    let e =
+      event.Publish
+      |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
+      |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
+      |> Event.filter (fun o -> o.Content.Contains "workspaceLoad" && o.Content.Contains "finished")
+      |> Async.AwaitEvent
+      |> Async.RunSynchronously
+    let pathTest = Path.Combine(path, "Test.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    let path = Path.Combine(path, "Program.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    testList "Rename Tests" [
+      test "Rename from usage" {
+        let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
+                                 Position = { Line = 7; Character = 13}
+                                 NewName = "y" }
+        server.FileInit <- true
+        let res = server.TextDocumentRename p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res.DocumentChanges with
+          | None -> failtest "No changes"
+          | Some result ->
+            //TODO
+            // Expect.equal result.Length 1 "Rename has all changes"
+            // Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
+            // Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Tets.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
+            ()
+      }
+    ]
+  )
+
+///Global list of tests
 let tests =
    [
     initTests
@@ -319,4 +364,5 @@ let tests =
     codeLensTest
     documentSymbolTest
     autocompleteTest
+    renameTest
   ]
