@@ -11,10 +11,11 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
 let createServer () =
-  let client = FSharpLspClient (fun _ _ -> AsyncLspResult.success ())
+  let event = Event<string * obj> ()
+  let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
   let commands = Commands(FsAutoComplete.JsonSerializer.writeJson)
   let server = FsharpLspServer(commands, client)
-  server
+  server, event
 
 let defaultConfigDto : FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
@@ -108,7 +109,7 @@ let clientCaps : ClientCapabilities =
     Experimental = None}
 
 let serverTest path (config: FSharpConfigDto) ts  : Test=
-  let server = createServer()
+  let server, event = createServer()
 
   let p : InitializeParams =
       { ProcessId = Some 1
@@ -121,7 +122,7 @@ let serverTest path (config: FSharpConfigDto) ts  : Test=
   let result = server.Initialize p |> Async.RunSynchronously
   match result with
   | Result.Ok res ->
-    ts server
+    ts (server, event)
   | Result.Error e ->
     failwith "Initialization failed"
 
