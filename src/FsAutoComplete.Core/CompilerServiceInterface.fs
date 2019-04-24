@@ -494,8 +494,8 @@ type FSharpCompilerServiceChecker() =
     with get() = disableInMemoryProjectReferences
     and set(value) = disableInMemoryProjectReferences <- value
 
-  member __.GetDependingProjects file (options : seq<string * FSharpProjectOptions>) =
-    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
+  member __.GetDependingProjects (file: FilePath) (options : seq<string * FSharpProjectOptions>) =
+    let project = options |> Seq.tryFind (fun (k,_) -> k.ToUpperInvariant() = file.ToUpperInvariant())
     project |> Option.map (fun (_, option) ->
       option, [
         yield! options
