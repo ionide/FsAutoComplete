@@ -370,6 +370,88 @@ let renameTest () =
     ]
   )
 
+
+///GoTo tests
+let gotoTest () =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+  serverTest path defaultConfigDto (fun (server, event) ->
+    do waitForWorkspaceFinishedParsing event
+    let definitionPath = Path.Combine(path, "Definition.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    let path = Path.Combine(path, "Library.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    testList "GoTo Tests" [
+      test "Go-to-definition" {
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = filePathToUri path}
+            Position = { Line = 2; Character = 29}}
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.equal res.Range { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 16 }} "Result should have correct range"
+      }
+
+      test "Go-to-definition on custom type binding" {
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = filePathToUri path}
+            Position = { Line = 4; Character = 24}}
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.equal res.Range { Start = {Line = 6; Character = 4 }; End = {Line = 6; Character = 19 }} "Result should have correct range"
+      }
+
+      test "Go-to-type-definition" {
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = filePathToUri path}
+            Position = { Line = 4; Character = 24}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
+      }
+
+      test "Go-to-implementation-on-interface-definition" {
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = filePathToUri definitionPath}
+            Position = { Line = 8; Character = 11}}
+        let res = server.TextDocumentImplementation p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtest "Request failed"
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Single res -> failtest "Should be multiple GotoResult"
+          | GotoResult.Multiple res ->
+            // TODO???
+            // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 7; Character = 8 }; End = {Line = 7; Character = 30 }}) "First result should be in Library.fs"
+            // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
+            ()
+        }
+    ]
+  )
+
 ///Global list of tests
 let tests =
    [
@@ -379,4 +461,5 @@ let tests =
     documentSymbolTest
     autocompleteTest
     renameTest
+    gotoTest
   ]
