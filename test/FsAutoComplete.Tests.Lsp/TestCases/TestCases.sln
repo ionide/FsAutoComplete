@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "RenameTest", "RenameTest\RenameTest.fsproj", "{7174003D-2A6C-490F-9D01-1A053624DF39}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GoToTests", "GoToTests\GoToTests.fsproj", "{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,17 @@ Global
 		{7174003D-2A6C-490F-9D01-1A053624DF39}.Release|x64.Build.0 = Release|Any CPU
 		{7174003D-2A6C-490F-9D01-1A053624DF39}.Release|x86.ActiveCfg = Release|Any CPU
 		{7174003D-2A6C-490F-9D01-1A053624DF39}.Release|x86.Build.0 = Release|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Debug|x64.Build.0 = Debug|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Debug|x86.Build.0 = Debug|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Release|x64.ActiveCfg = Release|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Release|x64.Build.0 = Release|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Release|x86.ActiveCfg = Release|Any CPU
+		{B227EB2B-5CED-4E4C-82AE-8CDDB926D465}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
