@@ -6,11 +6,6 @@ open System.Text.RegularExpressions
 open FSharp.Compiler.SourceCodeServices
 open UntypedAstUtils
 
-[<NoComparison>]
-type SymbolUse =
-    { SymbolUse: FSharpSymbolUse
-      IsUsed: bool
-      FullNames: Idents[] }
 
 [<AutoOpen>]
 module TypedAstUtils =
@@ -112,6 +107,44 @@ module TypedAstExtensionHelpers =
         member x.TryGetMembersFunctionsAndValues =
             Option.attempt (fun _ -> x.MembersFunctionsAndValues) |> Option.getOrElse ([||] :> _)
 
+        member x.TryGetFullNameWithUnderScoreTypes() =
+            try
+                let name = String.Join(".", x.AccessPath, x.DisplayName)
+                if x.GenericParameters.Count > 0 then
+                    Some (name + "<" + String.concat "," (x.GenericParameters |> Seq.map (fun gp -> gp.DisplayName)) + ">")
+                else Some name
+            with _ -> None
+
+        member x.UnAnnotate() =
+            let rec realEntity (s:FSharpEntity) =
+                if s.IsFSharpAbbreviation
+                then realEntity s.AbbreviatedType.TypeDefinition
+                else s
+            realEntity x
+
+        member x.InheritanceDepth() =
+            let rec loop (ent:FSharpEntity) l =
+                match ent.BaseType with
+                | Some bt -> loop (bt.TypeDefinition.UnAnnotate()) l + 1
+                | None -> l
+            loop x 0
+
+        //TODO: Do we need to unannotate like above?
+        member x.AllBaseTypes =
+            let rec allBaseTypes (entity:FSharpEntity) =
+                [
+                    match entity.TryFullName with
+                    | Some _ ->
+                        match entity.BaseType with
+                        | Some bt ->
+                            yield bt
+                            if bt.HasTypeDefinition then
+                                yield! allBaseTypes bt.TypeDefinition
+                        | _ -> ()
+                    | _ -> ()
+                ]
+            allBaseTypes x
+
     type FSharpMemberOrFunctionOrValue with
         // FullType may raise exceptions (see https://github.com/fsharp/fsharp/issues/307).
         member x.FullTypeSafe = Option.attempt (fun _ -> x.FullType)
@@ -136,251 +169,90 @@ module TypedAstExtensionHelpers =
                      Array.append (enclosingEntityFullName.Split '.') [| x.CompiledName |])
             else None
 
+        member x.IsConstructor = x.CompiledName = ".ctor"
+
+        member x.IsOperatorOrActivePattern =
+            let name = x.DisplayName
+            if name.StartsWith "( " && name.EndsWith " )" && name.Length > 4
+            then name.Substring (2, name.Length - 4) |> String.forall (fun c -> c <> ' ')
+            else false
+
+        member x.EnclosingEntitySafe =
+            try
+                x.DeclaringEntity
+            with :? InvalidOperationException -> None
+
     type FSharpAssemblySignature with
         member x.TryGetEntities() = try x.Entities :> _ seq with _ -> Seq.empty
 
-[<AutoOpen>]
-module TypedAstPatterns =
-
-    let private attributeSuffixLength = "Attribute".Length
-
-    let (|Entity|_|) (symbol : FSharpSymbolUse) : (FSharpEntity * (* cleanFullNames *) string list) option =
-        match symbol.Symbol with
-        | :? FSharpEntity as ent ->
-            // strip generic parameters count suffix (List`1 => List)
-            let cleanFullName =
-                // `TryFullName` for type aliases is always `None`, so we have to make one by our own
-                if ent.IsFSharpAbbreviation then
-                    [ent.AccessPath + "." + ent.DisplayName]
-                else
-                    ent.TryFullName
-                    |> Option.toList
-                    |> List.map (fun fullName ->
-                        if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
-                            fullName.[0..fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
-                        else fullName)
-
-            let cleanFullNames =
-                cleanFullName
-                |> List.collect (fun cleanFullName ->
-                    if ent.IsAttributeType then
-                        [cleanFullName; cleanFullName.[0..cleanFullName.Length - attributeSuffixLength - 1]] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
-                    else [cleanFullName]
-                    )
-            Some (ent, cleanFullNames)
-        | _ -> None
-
-    let (|AbbreviatedType|_|) (entity: FSharpEntity) =
-        if entity.IsFSharpAbbreviation then Some entity.AbbreviatedType
-        else None
-
-    let (|TypeWithDefinition|_|) (ty: FSharpType) =
-        if ty.HasTypeDefinition then Some ty.TypeDefinition
-        else None
-
-    let rec getEntityAbbreviatedType (entity: FSharpEntity) =
-        if entity.IsFSharpAbbreviation then
-            match entity.AbbreviatedType with
-            | TypeWithDefinition def -> getEntityAbbreviatedType def
-            | abbreviatedType -> entity, Some abbreviatedType
-        else entity, None
-
-    let rec getAbbreviatedType (fsharpType: FSharpType) =
-        if fsharpType.IsAbbreviation then
-            getAbbreviatedType fsharpType.AbbreviatedType
-        else fsharpType
-
-    let (|Attribute|_|) (entity: FSharpEntity) =
-        let isAttribute (entity: FSharpEntity) =
-            let getBaseType (entity: FSharpEntity) =
-                try
-                    match entity.BaseType with
-                    | Some (TypeWithDefinition def) -> Some def
-                    | _ -> None
-                with _ -> None
-
-            let rec isAttributeType (ty: FSharpEntity option) =
-                match ty with
-                | None -> false
-                | Some ty ->
-                    match ty.TryGetFullName() with
-                    | None -> false
-                    | Some fullName ->
-                        fullName = "System.Attribute" || isAttributeType (getBaseType ty)
-            isAttributeType (Some entity)
-        if isAttribute entity then Some() else None
-
-    let (|ValueType|_|) (e: FSharpEntity) =
-        if e.IsEnum || e.IsValueType || hasAttribute<MeasureAnnotatedAbbreviationAttribute> e.Attributes then Some()
-        else None
-
-    let (|Class|_|) (original: FSharpEntity, abbreviated: FSharpEntity, _) =
-        if abbreviated.IsClass
-#if NO_EXTENSIONTYPING
-           && original.IsFSharpAbbreviation then Some()
-#else
-           && (not abbreviated.IsStaticInstantiation || original.IsFSharpAbbreviation) then Some()
-#endif
-        else None
-
-    let (|Record|_|) (e: FSharpEntity) = if e.IsFSharpRecord then Some() else None
-    let (|UnionType|_|) (e: FSharpEntity) = if e.IsFSharpUnion then Some() else None
-    let (|Delegate|_|) (e: FSharpEntity) = if e.IsDelegate then Some() else None
-    let (|FSharpException|_|) (e: FSharpEntity) = if e.IsFSharpExceptionDeclaration then Some() else None
-    let (|Interface|_|) (e: FSharpEntity) = if e.IsInterface then Some() else None
-    let (|AbstractClass|_|) (e: FSharpEntity) =
-        if hasAttribute<AbstractClassAttribute> e.Attributes then Some() else None
-
-    let (|FSharpType|_|) (e: FSharpEntity) =
-        if e.IsDelegate || e.IsFSharpExceptionDeclaration || e.IsFSharpRecord || e.IsFSharpUnion
-            || e.IsInterface || e.IsMeasure
-            || (e.IsFSharp && e.IsOpaque && not e.IsFSharpModule && not e.IsNamespace) then Some()
-        else None
-
-    let (|ProvidedType|_|) (e: FSharpEntity) =
-#if NO_EXTENSIONTYPING
-        None
-#else
-        if (e.IsProvided || e.IsProvidedAndErased || e.IsProvidedAndGenerated) && e.CompiledName = e.DisplayName then
-            Some()
-        else None
-#endif
-
-    let (|ByRef|_|) (e: FSharpEntity) = if e.IsByRef then Some() else None
-    let (|Array|_|) (e: FSharpEntity) = if e.IsArrayType then Some() else None
-    let (|FSharpModule|_|) (entity: FSharpEntity) = if entity.IsFSharpModule then Some() else None
-
-    let (|Namespace|_|) (entity: FSharpEntity) = if entity.IsNamespace then Some() else None
-    let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) =
-#if NO_EXTENSIONTYPING
-        None
-#else
-        if entity.IsProvidedAndErased then Some() else None
-#endif
-
-    let (|Enum|_|) (entity: FSharpEntity) = if entity.IsEnum then Some() else None
-
-    let (|Tuple|_|) (ty: FSharpType option) =
-        ty |> Option.bind (fun ty -> if ty.IsTupleType then Some() else None)
-
-    let (|RefCell|_|) (ty: FSharpType) =
-        match getAbbreviatedType ty with
-        | TypeWithDefinition def when
-            def.IsFSharpRecord && def.FullName = "Microsoft.FSharp.Core.FSharpRef`1" -> Some()
-        | _ -> None
-
-    let (|FunctionType|_|) (ty: FSharpType) =
-        if ty.IsFunctionType then Some()
-        else None
-
-    let (|Pattern|_|) (symbol: FSharpSymbol) =
-        match symbol with
-        | :? FSharpUnionCase
-        | :? FSharpActivePatternCase -> Some()
-        | _ -> None
-
-    /// Field (field, fieldAbbreviatedType)
-    let (|Field|_|) (symbol: FSharpSymbol) =
-        match symbol with
-        | :? FSharpField as field -> Some (field, getAbbreviatedType field.FieldType)
-        | _ -> None
-
-    let (|MutableVar|_|) (symbol: FSharpSymbol) =
-        let isMutable =
-            match symbol with
-            | :? FSharpField as field -> field.IsMutable && not field.IsLiteral
-            | :? FSharpMemberOrFunctionOrValue as func -> func.IsMutable
+    type FSharpSymbol with
+        member this.IsPrivateToFile =
+            match this with
+            | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember
+            | :? FSharpEntity as m -> m.Accessibility.IsPrivate
+            | :? FSharpGenericParameter -> true
+            | :? FSharpUnionCase as m -> m.Accessibility.IsPrivate
+            | :? FSharpField as m -> m.Accessibility.IsPrivate
             | _ -> false
-        if isMutable then Some() else None
 
-    /// Entity (originalEntity, abbreviatedEntity, abbreviatedType)
-    let (|FSharpEntity|_|) (symbol: FSharpSymbol) =
-        match symbol with
-        | :? FSharpEntity as entity ->
-            let abbreviatedEntity, abbreviatedType = getEntityAbbreviatedType entity
-            Some (entity, abbreviatedEntity, abbreviatedType)
-        | _ -> None
+        member this.IsInternalToProject =
+            match this with
+            | :? FSharpParameter -> true
+            | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember || not m.Accessibility.IsPublic
+            | :? FSharpEntity as m -> not m.Accessibility.IsPublic
+            | :? FSharpGenericParameter -> true
+            | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
+            | :? FSharpField as m -> not m.Accessibility.IsPublic
+            | _ -> false
 
-    let (|Parameter|_|) (symbol: FSharpSymbol) =
-        match symbol with
-        | :? FSharpParameter -> Some()
-        | _ -> None
+        member x.XmlDocSig =
+            match x with
+            | :? FSharpMemberOrFunctionOrValue as func -> func.XmlDocSig
+            | :? FSharpEntity as fse -> fse.XmlDocSig
+            | :? FSharpField as fsf -> fsf.XmlDocSig
+            | :? FSharpUnionCase as fsu -> fsu.XmlDocSig
+            | :? FSharpActivePatternCase as apc -> apc.XmlDocSig
+            | :? FSharpGenericParameter -> ""
+            | _ -> ""
 
-    let (|UnionCase|_|) (e: FSharpSymbol) =
-        match e with
-        | :? FSharpUnionCase as uc -> Some uc
-        | _ -> None
+        member x.XmlDoc =
+            match x with
+            | :? FSharpMemberOrFunctionOrValue as func -> func.XmlDoc
+            | :? FSharpEntity as fse -> fse.XmlDoc
+            | :? FSharpField as fsf -> fsf.XmlDoc
+            | :? FSharpUnionCase as fsu -> fsu.XmlDoc
+            | :? FSharpActivePatternCase as apc -> apc.XmlDoc
+            | :? FSharpGenericParameter as gp -> gp.XmlDoc
+            | _ -> ResizeArray() :> Collections.Generic.IList<_>
 
-    let (|RecordField|_|) (e: FSharpSymbol) =
-        match e with
-        | :? FSharpField as field ->
-            match field.DeclaringEntity with
-            | Some entity when entity.IsFSharpRecord -> Some field
-            | Some _
-            | None -> None
-        | _ -> None
+    type FSharpSymbolUse with
+        member this.IsPrivateToFile =
+            let isPrivate =
+                match this.Symbol with
+                | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember || m.Accessibility.IsPrivate
+                | :? FSharpEntity as m -> m.Accessibility.IsPrivate
+                | :? FSharpGenericParameter -> true
+                | :? FSharpUnionCase as m -> m.Accessibility.IsPrivate
+                | :? FSharpField as m -> m.Accessibility.IsPrivate
+                | _ -> false
 
-    let (|ActivePatternCase|_|) (symbol: FSharpSymbol) =
-        match symbol with
-        | :? FSharpActivePatternCase as case -> Some case
-        | _ -> None
+            let declarationLocation =
+                match this.Symbol.SignatureLocation with
+                | Some x -> Some x
+                | _ ->
+                    match this.Symbol.DeclarationLocation with
+                    | Some x -> Some x
+                    | _ -> this.Symbol.ImplementationLocation
 
-    /// Func (memberFunctionOrValue, fullType)
-    let (|MemberFunctionOrValue|_|) (symbol: FSharpSymbol) =
-        match symbol with
-        | :? FSharpMemberOrFunctionOrValue as func -> Some func
-        | _ -> None
+            let declaredInTheFile =
+                match declarationLocation with
+                | Some declRange -> declRange.FileName = this.RangeAlternate.FileName
+                | _ -> false
 
-    /// Constructor (enclosingEntity)
-    let (|Constructor|_|) (func: FSharpMemberOrFunctionOrValue) =
-        match func.CompiledName with
-        | ".ctor" | ".cctor" -> Some func.DeclaringEntity
-        | _ -> None
+            isPrivate && declaredInTheFile
 
-    let (|Function|_|) excluded (func: FSharpMemberOrFunctionOrValue) =
-        match func.FullTypeSafe |> Option.map getAbbreviatedType with
-        | Some typ when typ.IsFunctionType
-                       && not func.IsPropertyGetterMethod
-                       && not func.IsPropertySetterMethod
-                       && not excluded
-                       && not (isOperator func.DisplayName) -> Some()
-        | _ -> None
 
-    let (|ExtensionMember|_|) (func: FSharpMemberOrFunctionOrValue) =
-        if func.IsExtensionMember then Some() else None
-
-    let (|Event|_|) (func: FSharpMemberOrFunctionOrValue) =
-        if func.IsEvent then Some () else None
-
-module UnusedDeclarations =
-    open System.Collections.Generic
-
-    let symbolUseComparer =
-        { new IEqualityComparer<FSharpSymbolUse> with
-              member __.Equals (x, y) = x.Symbol.IsEffectivelySameAs y.Symbol
-              member __.GetHashCode x = x.Symbol.GetHashCode() }
-
-    let getSingleDeclarations (symbolsUses: SymbolUse[]): FSharpSymbol[] =
-        let symbols = Dictionary<FSharpSymbolUse, int>(symbolUseComparer)
-
-        for symbolUse in symbolsUses do
-            match symbols.TryGetValue symbolUse.SymbolUse with
-            | true, count -> symbols.[symbolUse.SymbolUse] <- count + 1
-            | _ -> symbols.[symbolUse.SymbolUse] <- 1
-
-        symbols
-        |> Seq.choose (fun (KeyValue(symbolUse, count)) ->
-            match symbolUse.Symbol with
-            | UnionCase _ when isSymbolLocalForProject symbolUse.Symbol -> Some symbolUse.Symbol
-            // Determining that a record, DU or module is used anywhere requires
-            // inspecting all their enclosed entities (fields, cases and func / vals)
-            // for usefulness, which is too expensive to do. Hence we never gray them out.
-            | FSharpEntity ((Record | UnionType | Interface | FSharpModule), _, _ | Class) -> None
-            // FCS returns inconsistent results for override members; we're skipping these symbols.
-            | MemberFunctionOrValue func when func.IsOverrideOrExplicitInterfaceImplementation -> None
-            // Usage of DU case parameters does not give any meaningful feedback; we never gray them out.
-            | Parameter -> None
-            | _ when count = 1 && symbolUse.IsFromDefinition && isSymbolLocalForProject symbolUse.Symbol ->
-                    Some symbolUse.Symbol
-                | _ -> None)
-        |> Seq.toArray
+    type FSharpGenericParameterMemberConstraint with
+        member x.IsProperty =
+            (x.MemberIsStatic && x.MemberArgumentTypes.Count = 0) ||
+            (not x.MemberIsStatic && x.MemberArgumentTypes.Count = 1)

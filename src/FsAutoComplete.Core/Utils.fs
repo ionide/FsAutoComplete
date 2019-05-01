@@ -5,6 +5,7 @@ open System.IO
 open System.Collections.Concurrent
 open System.Diagnostics
 open System
+open FSharp.Compiler.SourceCodeServices
 
 type ResultOrString<'a> = Result<'a, string>
 
@@ -96,6 +97,15 @@ let normalizeDirSeparators (path: string) =
   | '\\' -> path.Replace('/', '\\')
   | '/' -> path.Replace('\\', '/')
   | _ -> path
+
+let projectOptionsToParseOptions checkOptions =
+//TODO: Investigate why sometimes SourceFiles are not filled
+  let files =
+    match checkOptions.SourceFiles with
+    | [||] -> checkOptions.OtherOptions |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
+    | x -> x
+
+  { FSharpParsingOptions.Default with SourceFiles = files}
 
 [<RequireQualifiedAccess>]
 module Option =
