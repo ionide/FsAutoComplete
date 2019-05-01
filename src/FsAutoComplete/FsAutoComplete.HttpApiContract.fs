@@ -9,4 +9,5 @@ type PositionRequest = {FileName : string; Line : int; Column : int; Filter : st
 type FileRequest = {FileName : string}
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
 type WorkspaceLoadRequest = {Files : string array; DisableInMemoryProjectReferences: bool}
+type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
 type QuitRequest() = class end

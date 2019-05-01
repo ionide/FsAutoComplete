@@ -37,6 +37,7 @@ type CoreResponse =
     | Declarations of decls: (FSharpNavigationTopLevelDeclaration * string) []
     | ToolTip of tip: FSharpToolTipText<string> * signature: string * footer: string * typeDoc: string option
     | FormattedDocumentation of tip: FSharpToolTipText<string> * signature: (string * (string [] * string [] * string [])) * footer: string * cn: string
+    | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * signature: (string * (string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
     | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
     | Lint of file: string * warnings: LintWarning.Warning list
@@ -75,6 +76,7 @@ type Commands (serialize : Serializer) =
     let mutable notifyErrorsInBackground = true
     let mutable useSymbolCache = false
     let mutable lastVersionChecked = -1
+    let mutable lastCheckResult : ParseAndCheckResults option = None
     let mutable isWorkspaceReady = false
 
     let notify = Event<NotificationEvent>()
@@ -274,6 +276,9 @@ type Commands (serialize : Serializer) =
     member __.LastVersionChecked
         with get() = lastVersionChecked
 
+    member __.LastCheckResult
+        with get() = lastCheckResult
+
     member __.UseSymbolCache
         with get() = useSymbolCache
         and set(value) = useSymbolCache <- value
@@ -330,6 +335,7 @@ type Commands (serialize : Serializer) =
                             do fileParsed.Trigger parseResult
                             do fileInProjectChecked.Trigger file
                             do lastVersionChecked <- version
+                            do lastCheckResult <- Some parseAndCheck
                             do fileChecked.Trigger (parseAndCheck, fileName, version)
                             let errors = Array.append results.Errors parseResult.Errors
                             if colorizations then
@@ -510,7 +516,7 @@ type Commands (serialize : Serializer) =
     member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
         async {
             let getAllSymbols () =
-                if includeExternal then tyRes.GetAllEntities() else []
+                if includeExternal then tyRes.GetAllEntities true else []
             let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
             return
                 match res with
@@ -554,7 +560,10 @@ type Commands (serialize : Serializer) =
     member x.FormattedDocumentation (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetFormattedDocumentation pos lineStr
         |> x.MapResult CoreResponse.FormattedDocumentation
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+
+    member x.FormattedDocumentationForSymbol (tyRes : ParseAndCheckResults) (xmlSig: string) (assembly: string) =
+        tyRes.TryGetFormattedDocumentationForSymbol xmlSig assembly
+        |> x.MapResult CoreResponse.FormattedDocumentationForSymbol
 
     member x.Typesig (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetToolTip pos lineStr
@@ -714,7 +723,7 @@ type Commands (serialize : Serializer) =
             | Some sym ->
 
 
-            let entities = tyRes.GetAllEntities ()
+            let entities = tyRes.GetAllEntities true
 
             let isAttribute = entityKind = EntityKind.Attribute
             let entities =

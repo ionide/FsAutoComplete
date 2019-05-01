@@ -180,6 +180,9 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 })
             path "/tooltip" >=> positionHandler (fun data tyRes lineStr _ -> commands.ToolTip tyRes (mkPos data.Line data.Column) lineStr)
             path "/documentation" >=> positionHandler (fun data tyRes lineStr _ -> commands.FormattedDocumentation tyRes (mkPos data.Line data.Column) lineStr)
+            path "/documentationForSymbol" >=> handler (fun (data: DocumentationForSymbolReuqest) ->
+                let tyRes = commands.LastCheckResult.Value
+                commands.FormattedDocumentationForSymbol tyRes data.XmlSig data.Assembly)
             path "/signature" >=> positionHandler (fun data tyRes lineStr _ -> commands.Typesig tyRes (mkPos data.Line data.Column) lineStr)
             path "/symboluseproject" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolUseProject tyRes (mkPos data.Line data.Column) lineStr)
             path "/symbolimplementation" >=> positionHandler (fun data tyRes lineStr _ -> commands.SymbolImplementationProject tyRes (mkPos data.Line data.Column) lineStr)

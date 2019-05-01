@@ -251,6 +251,57 @@ type ParseAndCheckResults
             return Ok (tip, signature, footer, cn)
   }
 
+  member x.TryGetFormattedDocumentationForSymbol (xmlSig: string) (assembly: string) = async {
+    let entities = x.GetAllEntities false
+    let entsTmp = entities |> List.filter (fun e ->
+      try
+      e.Symbol.XmlDocSig.StartsWith "T:" && e.Symbol.Assembly.SimpleName = "FSharp.Core"
+
+      with
+      | _ -> false)
+    let z = entsTmp.Length
+    let ent =
+      entities |> List.tryFind (fun e ->
+        let check = (e.Symbol.XmlDocSig = xmlSig && e.Symbol.Assembly.SimpleName = assembly)
+        if not check then
+          match e.Symbol with
+          | FSharpEntity (_, abrvEnt, _) ->
+            abrvEnt.XmlDocSig = xmlSig && abrvEnt.Assembly.SimpleName = assembly
+          | _ -> false
+        else
+          true
+      )
+    let ent =
+      match ent with
+      | Some ent -> Some ent
+      | None ->
+        entities |> List.tryFind (fun e ->
+          let check = (e.Symbol.XmlDocSig = xmlSig)
+          if not check then
+            match e.Symbol with
+            | FSharpEntity (_, abrvEnt, _) ->
+              abrvEnt.XmlDocSig = xmlSig
+            | _ -> false
+          else
+            true
+        )
+
+    match ent with
+    | None -> return Error "No matching symbol information"
+    | Some symbol ->
+      match DocumentationFormatter.getTooltipDetailsFromSymbol symbol.Symbol with
+      | None ->
+        let e = DateTime.Now
+        //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+        return Error "No tooltip information"
+      | Some (signature, footer, cn) ->
+          let e = DateTime.Now
+          //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
+          return Ok (symbol.Symbol.XmlDocSig, symbol.Symbol.Assembly.FileName |> Option.getOrElse "", signature, footer, cn)
+
+
+  }
+
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
     async {
         let s = DateTime.Now
@@ -389,7 +440,7 @@ type ParseAndCheckResults
     with :? TimeoutException -> return None
   }
 
-  member __.GetAllEntities () =
+  member __.GetAllEntities (publicOnly: bool) : AssemblySymbol list =
       try
         let s = DateTime.Now
         let res = [
@@ -404,7 +455,7 @@ type ParseAndCheckResults
                         // get Content.Entities from it.
 
           for fileName, signatures in assembliesByFileName do
-            let contentType = Public // it's always Public for now since we don't support InternalsVisibleTo attribute yet
+            let contentType = if publicOnly then Public else Full
             let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
             yield! content
         ]
