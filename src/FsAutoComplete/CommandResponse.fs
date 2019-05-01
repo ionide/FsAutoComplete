@@ -643,6 +643,10 @@ module CommandResponse =
     let data = TipFormatter.formatDocumentation tip signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "formattedDocumentation"; Data = data }
 
+  let formattedDocumentationForSymbol (serialize : Serializer) xml assembly (signature, footer, cn) =
+    let data = TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
+    serialize { Kind = "formattedDocumentation"; Data = data }
+
   let typeSig (serialize : Serializer) (tip) =
     let data = TipFormatter.extractSignature tip
     serialize { Kind = "typesig"; Data = data }
@@ -798,6 +802,8 @@ module CommandResponse =
       toolTip s (tip, signature, footer, typeDoc)
     | CoreResponse.FormattedDocumentation(tip, signature, footer, cn) ->
       formattedDocumentation s (tip, signature, footer, cn)
+    | CoreResponse.FormattedDocumentationForSymbol(xml, assembly, signature, footer, cn) ->
+      formattedDocumentationForSymbol s xml assembly (signature, footer, cn)
     | CoreResponse.TypeSig(tip) ->
       typeSig s tip
     | CoreResponse.CompilerLocation(fcs, fsi, msbuild) ->

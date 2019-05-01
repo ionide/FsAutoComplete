@@ -302,6 +302,11 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", [||],[||], [||], error, "", "")]
         | _ -> None)
 
+let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions)) : string * (string [] * string [] * string [])) (footer : string) (cn: string) =
+    let xmlDoc =  FSharpXmlDoc.XmlDocFileSignature(assembly, xmlSig)
+    let comment = buildFormatComment xmlDoc true None
+    [[(signature, constructors, fields, functions, comment, footer, cn)]]
+
 let extractSignature (FSharpToolTipText tips) =
     let getSignature (str: string) =
         let nlpos = str.IndexOfAny([|'\r';'\n'|])
