@@ -570,9 +570,9 @@ let tryFindUnionDefinitionFromPos (codeGenService: CodeGenerationService) pos do
 
         let! superficialTypeDefinition =
             match symbolUse.Symbol with
-            | TypedAstPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
+            | SymbolPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
                 Some case.ReturnType.TypeDefinition
-            | TypedAstPatterns.FSharpEntity(entity, _, _) -> Some entity
+            | SymbolPatterns.FSharpEntity(entity, _, _) -> Some entity
             | _ -> None
 
         let! realTypeDefinition =

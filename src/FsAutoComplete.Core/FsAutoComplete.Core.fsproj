@@ -19,7 +19,7 @@
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
-    <Compile Include="Extensions.fs" />
+    <Compile Include="TypedAstPatterns.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Environment.fs" />
     <Compile Include="NETFrameworkInfoProvider.fs" />
