@@ -14,6 +14,8 @@ module DocumentationFormatter =
 
     let mutable lastDisplayContext : FSharpDisplayContext = FSharpDisplayContext.Empty
 
+    let emptyTypeTip = [||],[||],[||],[||], [||]
+
     /// Concat two strings with a space between if both a and b are not IsNullOrWhiteSpace
     let internal (++) (a:string) (b:string) =
         match String.IsNullOrEmpty a, String.IsNullOrEmpty b with
@@ -439,6 +441,15 @@ module DocumentationFormatter =
             |> Option.getOrElse ""
         sprintf "active pattern %s: %s" apc.Name findVal
 
+    and getAttributeSignature displayContext (attr: FSharpAttribute) =
+        let name = formatLink attr.AttributeType.DisplayName attr.AttributeType.XmlDocSig attr.AttributeType.Assembly.SimpleName
+        let attr =
+            attr.ConstructorArguments
+            |> Seq.map (snd >> string)
+            |> String.concat ", "
+
+        sprintf "%s(%s)" (fst name) attr
+
 
     and getEntitySignature displayContext (fse: FSharpEntity) =
         let modifier =
@@ -462,6 +473,7 @@ module DocumentationFormatter =
             " =\n  |" ++
             (fse.FSharpFields
             |> Seq.filter (fun f -> not f.IsCompilerGenerated)
+            |> Seq.sortBy (fun f -> match f.LiteralValue with | None -> -1 | Some lv -> Int32.Parse (string lv) )
             |> Seq.map (fun field -> match field.LiteralValue with
                                      | Some lv -> field.Name + " = " + (string lv)
                                      | None -> field.Name )
@@ -500,6 +512,24 @@ module DocumentationFormatter =
             let funcs =
                 fse.MembersFunctionsAndValues
                 |> Seq.filter (fun n -> n.Accessibility.IsPublic && (not n.IsConstructor) ) //TODO: If defined in same project as current scope then show also internals
+                |> Seq.sortWith (fun n1 n2 ->
+                    let modifierScore (f : FSharpMemberOrFunctionOrValue) =
+                        if f.IsProperty then
+                            if f.IsInstanceMember then
+                                if f.IsDispatchSlot then 9 else 1
+                            else 8
+                        elif f.IsMember then
+                            if f.IsInstanceMember then
+                                if f.IsDispatchSlot then 11 else 2
+                            else 10
+                        else 3
+                    let n1Score = modifierScore n1
+                    let n2Score = modifierScore n2
+                    if n1Score = n2Score then
+                        n1.DisplayName.CompareTo n2.DisplayName
+                    else
+                        n1Score.CompareTo n2Score
+                )
                 |> Seq.groupBy (fun n -> n.FullName)
                 |> Seq.collect (fun (_,v) ->
                     match v |> Seq.tryFind (fun f -> f.IsProperty) with
@@ -515,7 +545,17 @@ module DocumentationFormatter =
                         ])
                 |> Seq.toArray
 
-            constrc, fields, funcs
+            let interfaces =
+                fse.DeclaredInterfaces
+                |> Seq.map (fun inf -> fst (format displayContext inf) )
+                |> Seq.toArray
+
+            let attrs =
+                fse.Attributes
+                |> Seq.map (getAttributeSignature displayContext)
+                |> Seq.toArray
+
+            constrc, fields, funcs, interfaces, attrs
 
         let typeDisplay =
             let name =
@@ -543,9 +583,9 @@ module DocumentationFormatter =
             else
                 basicName
 
-        if fse.IsFSharpUnion then (typeDisplay + uniontip ()), ([||], [||], [||])
-        elif fse.IsEnum then (typeDisplay + enumtip ()), ([||], [||], [||])
-        elif fse.IsDelegate then (typeDisplay + delegateTip ()), ([||], [||], [||])
+        if fse.IsFSharpUnion then (typeDisplay + uniontip ()), typeTip ()
+        elif fse.IsEnum then (typeDisplay + enumtip ()), emptyTypeTip
+        elif fse.IsDelegate then (typeDisplay + delegateTip ()), emptyTypeTip
         else typeDisplay, typeTip ()
 
 
@@ -609,6 +649,18 @@ module DocumentationFormatter =
         let cn = compiledNameType symbol
         lastDisplayContext <- symbol.DisplayContext
         match symbol with
+        | SymbolUse.TypeAbbreviation (fse) ->
+            try
+                let parent = fse.GetAbbriviatedParent()
+                match parent with
+                | FSharpEntity (ent, _, _) ->
+                    let signature = getEntitySignature symbol.DisplayContext ent
+                    Some(signature, footerForType' parent, cn)
+                | _ ->
+                    None
+            with _ ->
+                None
+
         | SymbolUse.Entity (fse,_) ->
             try
                 let signature = getEntitySignature symbol.DisplayContext fse
@@ -621,61 +673,61 @@ module DocumentationFormatter =
             | Some ent when ent.IsValueType || ent.IsEnum ->
                   //ValueTypes
                   let signature = getFuncSignature symbol.DisplayContext func
-                  Some((signature, ([||], [||], [||])), footerForType symbol, cn)
+                  Some((signature, emptyTypeTip), footerForType symbol, cn)
             | _ ->
                   //ReferenceType constructor
                   let signature = getFuncSignature symbol.DisplayContext func
-                  Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+                  Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.Operator func ->
             let signature = getFuncSignature symbol.DisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.Pattern func ->
             //Active pattern or operator
             let signature = getFuncSignature symbol.DisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.Property prop ->
             let signature = getFuncSignature symbol.DisplayContext prop
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.ClosureOrNestedFunction func ->
             //represents a closure or nested function
             let signature = getFuncSignature symbol.DisplayContext func
-            Some((signature, ([||], [||], [||])), footerForType symbol, cn)
+            Some((signature, emptyTypeTip), footerForType symbol, cn)
 
         | SymbolUse.Function func ->
             let signature = getFuncSignature symbol.DisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.Val func ->
             //val name : Type
             let signature = getValSignature symbol.DisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.Field fsf ->
             let signature = getFieldSignature symbol.DisplayContext fsf
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.UnionCase uc ->
             let signature = getUnioncaseSignature symbol.DisplayContext uc
-            Some((signature, ([||], [||], [||])), footerForType symbol, cn)
+            Some((signature, emptyTypeTip), footerForType symbol, cn)
 
         | SymbolUse.ActivePatternCase apc ->
             let signature = getAPCaseSignature symbol.DisplayContext apc
-            Some((signature, ([||], [||], [||])),  footerForType symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType symbol, cn)
 
         | SymbolUse.ActivePattern ap ->
             let signature = getFuncSignature symbol.DisplayContext ap
-            Some((signature, ([||], [||], [||])), footerForType symbol, cn)
+            Some((signature, emptyTypeTip), footerForType symbol, cn)
 
         | SymbolUse.GenericParameter gp ->
             let signature =
                 sprintf "%s (requires %s)"
                     (if gp.IsSolveAtCompileTime then "^" + gp.Name else "'" + gp.Name)
                     (formatGenericParameter false symbol.DisplayContext gp)
-            Some((signature, ([||], [||], [||])), footerForType symbol, cn)
+            Some((signature, emptyTypeTip), footerForType symbol, cn)
 
         | _ ->
             None
@@ -697,45 +749,45 @@ module DocumentationFormatter =
             | Some ent when ent.IsValueType || ent.IsEnum ->
                     //ValueTypes
                     let signature = getFuncSignature lastDisplayContext func
-                    Some((signature, ([||], [||], [||])), footerForType' symbol, cn)
+                    Some((signature, emptyTypeTip), footerForType' symbol, cn)
             | _ ->
                     //ReferenceType constructor
                     let signature = getFuncSignature lastDisplayContext func
-                    Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+                    Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
         | SymbolPatterns.Operator func ->
             let signature = getFuncSignature lastDisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
         | Property prop ->
             let signature = getFuncSignature lastDisplayContext prop
-            Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
         | ClosureOrNestedFunction func ->
             //represents a closure or nested function
             let signature = getFuncSignature lastDisplayContext func
-            Some((signature, ([||], [||], [||])), footerForType' symbol, cn)
+            Some((signature, emptyTypeTip), footerForType' symbol, cn)
 
         | Function func ->
             let signature = getFuncSignature lastDisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
         | Val func ->
             //val name : Type
             let signature = getValSignature lastDisplayContext func
-            Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
         | Field (fsf, _) ->
             let signature = getFieldSignature lastDisplayContext fsf
-            Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
         | UnionCase uc ->
             let signature = getUnioncaseSignature lastDisplayContext uc
-            Some((signature, ([||], [||], [||])), footerForType' symbol, cn)
+            Some((signature, emptyTypeTip), footerForType' symbol, cn)
 
         | ActivePatternCase apc ->
             let signature = getAPCaseSignature lastDisplayContext apc
-            Some((signature, ([||], [||], [||])),  footerForType' symbol, cn)
+            Some((signature, emptyTypeTip),  footerForType' symbol, cn)
 
 
         | GenericParameter gp ->
@@ -743,7 +795,7 @@ module DocumentationFormatter =
                 sprintf "%s (requires %s)"
                     (if gp.IsSolveAtCompileTime then "^" + gp.Name else "'" + gp.Name)
                     (formatGenericParameter false lastDisplayContext gp)
-            Some((signature, ([||], [||], [||])), footerForType' symbol, cn)
+            Some((signature, emptyTypeTip), footerForType' symbol, cn)
 
         | _ ->
             None

@@ -183,6 +183,12 @@ let private xmlDocCache = Collections.Concurrent.ConcurrentDictionary<string, Ma
 
 let private getXmlDoc dllFile =
     let xmlFile = Path.ChangeExtension(dllFile, ".xml")
+    //Workaround for netstandard.dll
+    let xmlFile =
+      if xmlFile.Contains "packages" && xmlFile.Contains  "netstandard.library" && xmlFile.Contains "netstandard2.0" then
+        Path.Combine(Path.GetDirectoryName(xmlFile), "netstandard.xml")
+      else
+        xmlFile
     if xmlDocCache.ContainsKey xmlFile then
       Some xmlDocCache.[xmlFile]
     else
@@ -202,12 +208,13 @@ let private getXmlDoc dllFile =
         xmlDocCache.AddOrUpdate(xmlFile, Map.empty, fun _ _ -> Map.empty) |> ignore
         try
           let cnt = File.ReadAllText actualXmlFile
-        //   let cnt =
-        //     if actualXmlFile.Contains "netstandard.xml" then
-        //         let cnt = Regex.Replace(cnt,"""(<p .*?>)+(.*)(<\/?p>)*""", "$2")
-        //         cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
-        //     else
-        //         cnt
+          //Workaround for netstandard xmlDoc
+          let cnt =
+            if actualXmlFile.Contains "netstandard.xml" then
+                let cnt = Regex.Replace(cnt,"""(<p .*?>)+(.*)(<\/?p>)*""", "$2")
+                cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
+            else
+                cnt
           use stringReader = new StringReader(cnt)
           use reader = XmlReader.Create stringReader
           let xmlDoc = readXmlDoc reader 0 Map.empty
@@ -285,7 +292,7 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
 
-let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fields, functions)) : string * (string [] * string [] * string [])) (footer : string) (cn: string) =
+let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fields, functions, interfaces, attrs)) : string * (string [] * string [] * string []* string[]* string[])) (footer : string) (cn: string) =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
@@ -298,14 +305,14 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
-                (signature, constructors, fields, functions, comment, footer, cn)))
-        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", [||],[||], [||], error, "", "")]
+                (signature, constructors, fields, functions, interfaces, attrs, comment, footer, cn)))
+        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", [||],[||], [||], [||], [||], error, "", "")]
         | _ -> None)
 
-let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions)) : string * (string [] * string [] * string [])) (footer : string) (cn: string) =
+let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions, interfaces, attrs)) : string * (string [] * string [] * string [] * string[]* string[])) (footer : string) (cn: string) =
     let xmlDoc =  FSharpXmlDoc.XmlDocFileSignature(assembly, xmlSig)
     let comment = buildFormatComment xmlDoc true None
-    [[(signature, constructors, fields, functions, comment, footer, cn)]]
+    [[(signature, constructors, fields, functions, interfaces, attrs, comment, footer, cn)]]
 
 let extractSignature (FSharpToolTipText tips) =
     let getSignature (str: string) =
