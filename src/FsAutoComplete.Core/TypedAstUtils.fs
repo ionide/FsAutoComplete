@@ -186,6 +186,14 @@ module TypedAstExtensionHelpers =
         member x.TryGetEntities() = try x.Entities :> _ seq with _ -> Seq.empty
 
     type FSharpSymbol with
+
+        member this.GetAbbriviatedParent () =
+            match this with
+            | :? FSharpEntity as m ->
+                if m.IsFSharpAbbreviation then m.AbbreviatedType.TypeDefinition.GetAbbriviatedParent ()
+                else this
+            | _ -> this
+
         member this.IsPrivateToFile =
             match this with
             | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember

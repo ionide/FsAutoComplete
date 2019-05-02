@@ -205,7 +205,6 @@ type ParseAndCheckResults
   }
 
   member __.TryGetFormattedDocumentation (pos: pos) (lineStr: LineStr) = async {
-    let s = DateTime.Now
     match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident"
     | Some(col,identIsland) ->
@@ -222,44 +221,29 @@ type ParseAndCheckResults
                            |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
              match keyword with
              | Some tip ->
-              let e = DateTime.Now
-              //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
-              return Ok (tip, (ident, (([||], [||], [||]))), "", "")
+              return Ok (Some tip, None, (ident, (DocumentationFormatter.emptyTypeTip)), "", "")
              | None ->
-              let e = DateTime.Now
-              //printfn "[Debug] documentation took %fms" (e-s).TotalMilliseconds
               return Error "No tooltip information"
           | _ ->
-            let e = DateTime.Now
-            //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
             return Error "No documentation information"
       | _ ->
       match symbol with
       | None ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
         return Error "No documentation information"
       | Some symbol ->
         match DocumentationFormatter.getTooltipDetailsFromSymbolUse symbol with
         | None ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
           return Error "No documentation information"
         | Some (signature, footer, cn) ->
-            let e = DateTime.Now
-            //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
-            return Ok (tip, signature, footer, cn)
+            match symbol with
+            | SymbolUse.TypeAbbreviation symbol ->
+              return Ok (None, Some (symbol.GetAbbriviatedParent().XmlDocSig, symbol.GetAbbriviatedParent().Assembly.FileName |> Option.getOrElse ""), signature, footer, cn)
+            | _ ->
+              return Ok (Some tip, None, signature, footer, cn)
   }
 
   member x.TryGetFormattedDocumentationForSymbol (xmlSig: string) (assembly: string) = async {
     let entities = x.GetAllEntities false
-    let entsTmp = entities |> List.filter (fun e ->
-      try
-      e.Symbol.XmlDocSig.StartsWith "T:" && e.Symbol.Assembly.SimpleName = "FSharp.Core"
-
-      with
-      | _ -> false)
-    let z = entsTmp.Length
     let ent =
       entities |> List.tryFind (fun e ->
         let check = (e.Symbol.XmlDocSig = xmlSig && e.Symbol.Assembly.SimpleName = assembly)
@@ -291,15 +275,9 @@ type ParseAndCheckResults
     | Some symbol ->
       match DocumentationFormatter.getTooltipDetailsFromSymbol symbol.Symbol with
       | None ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
         return Error "No tooltip information"
       | Some (signature, footer, cn) ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetFormattedDocumentation took %fms" (e-s).TotalMilliseconds
-          return Ok (symbol.Symbol.XmlDocSig, symbol.Symbol.Assembly.FileName |> Option.getOrElse "", signature, footer, cn)
-
-
+          return Ok (symbol.Symbol.XmlDocSig, symbol.Symbol.Assembly.FileName |> Option.getOrElse "", symbol.Symbol.XmlDoc |> Seq.toList , signature, footer, cn)
   }
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
