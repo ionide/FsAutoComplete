@@ -270,14 +270,31 @@ type ParseAndCheckResults
             true
         )
 
-    match ent with
+    let symbol =
+      match ent with
+      | Some ent -> Some ent.Symbol
+      | None ->
+        entities |> List.tryPick (fun e ->
+          match e.Symbol with
+          | FSharpEntity (ent, _, _) ->
+            match ent.MembersFunctionsAndValues |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
+            | Some e -> Some (e :> FSharpSymbol)
+            | None ->
+              match  ent.FSharpFields |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
+              | Some e -> Some (e :> FSharpSymbol)
+              | None -> None
+          | _ ->
+            None
+        )
+
+    match symbol with
     | None -> return Error "No matching symbol information"
     | Some symbol ->
-      match DocumentationFormatter.getTooltipDetailsFromSymbol symbol.Symbol with
+      match DocumentationFormatter.getTooltipDetailsFromSymbol symbol with
       | None ->
         return Error "No tooltip information"
       | Some (signature, footer, cn) ->
-          return Ok (symbol.Symbol.XmlDocSig, symbol.Symbol.Assembly.FileName |> Option.getOrElse "", symbol.Symbol.XmlDoc |> Seq.toList , signature, footer, cn)
+          return Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.getOrElse "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
   }
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
