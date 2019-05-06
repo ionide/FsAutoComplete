@@ -194,7 +194,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/help" >=> positionHandler (fun data tyRes line _   -> commands.Help tyRes (mkPos data.Line data.Column) line)
             path "/compilerlocation" >=> fun httpCtx ->
                 async {
-                    let res = commands.CompilerLocation() |> List.toArray |> Json.toJson
+                    let res = commands.CompilerLocation() |> List.map (CommandResponse.serialize writeJson) |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/lint" >=> handler (fun (data: FileRequest) -> commands.Lint data.FileName)
