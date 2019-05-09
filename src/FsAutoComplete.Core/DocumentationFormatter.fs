@@ -14,7 +14,7 @@ module DocumentationFormatter =
 
     let mutable lastDisplayContext : FSharpDisplayContext = FSharpDisplayContext.Empty
 
-    let emptyTypeTip = [||],[||],[||],[||], [||]
+    let emptyTypeTip = [||],[||],[||],[||], [||], [||]
 
     /// Concat two strings with a space between if both a and b are not IsNullOrWhiteSpace
     let internal (++) (a:string) (b:string) =
@@ -458,7 +458,7 @@ module DocumentationFormatter =
             | a when a.IsPrivate -> "private "
             | _ -> ""
 
-        let typeName =
+        let typeName (fse: FSharpEntity) =
             match fse with
             | _ when fse.IsFSharpModule -> "module"
             | _ when fse.IsEnum         -> "enum"
@@ -555,7 +555,14 @@ module DocumentationFormatter =
                 |> Seq.map (getAttributeSignature displayContext)
                 |> Seq.toArray
 
-            constrc, fields, funcs, interfaces, attrs
+            let types =
+                fse.NestedEntities
+                |> Seq.filter (fun ne -> not ne.IsNamespace )
+                |> Seq.map (fun ne -> (typeName ne) ++ fst (formatLink ne.DisplayName ne.XmlDocSig ne.Assembly.SimpleName ))
+                |> Seq.toArray
+
+
+            constrc, fields, funcs, interfaces, attrs, types
 
         let typeDisplay =
             let name =
@@ -575,7 +582,7 @@ module DocumentationFormatter =
                     fse.DisplayName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
                 else fse.DisplayName
 
-            let basicName = modifier + typeName ++ name
+            let basicName = modifier + (typeName fse) ++ name
 
             if fse.IsFSharpAbbreviation then
                 let unannotatedType = fse.UnAnnotate()
@@ -594,13 +601,26 @@ module DocumentationFormatter =
         try
             match entity with
             | SymbolUse.MemberFunctionOrValue m ->
-                sprintf "Full name: %s\nAssembly: %s" m.FullName m.Assembly.SimpleName
+                match m.DeclaringEntity with
+                | None -> sprintf "Full name: %s\nAssembly: %s" m.FullName m.Assembly.SimpleName
+                | Some e ->
+                    let link = fst (formatLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
+                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" m.FullName link m.Assembly.SimpleName
 
             | SymbolUse.Entity (c, _) ->
-                sprintf "Full name: %s\nAssembly: %s" c.FullName c.Assembly.SimpleName
+                match c.DeclaringEntity with
+                | None -> sprintf "Full name: %s\nAssembly: %s" c.FullName c.Assembly.SimpleName
+                | Some e ->
+                    let link = fst (formatLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
+                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" c.FullName link c.Assembly.SimpleName
+
 
             | SymbolUse.Field f ->
-                sprintf "Full name: %s\nAssembly: %s" f.FullName f.Assembly.SimpleName
+                match f.DeclaringEntity with
+                | None -> sprintf "Full name: %s\nAssembly: %s" f.FullName f.Assembly.SimpleName
+                | Some e ->
+                    let link = fst (formatLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
+                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" f.FullName link f.Assembly.SimpleName
 
             | SymbolUse.ActivePatternCase ap ->
                 sprintf "Full name: %s\nAssembly: %s" ap.FullName ap.Assembly.SimpleName

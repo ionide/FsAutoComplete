@@ -36,8 +36,8 @@ type CoreResponse =
     | FindTypeDeclaration of range: range
     | Declarations of decls: (FSharpNavigationTopLevelDeclaration * string) []
     | ToolTip of tip: FSharpToolTipText<string> * signature: string * footer: string * typeDoc: string option
-    | FormattedDocumentation of tip: FSharpToolTipText<string> option * xmlSig: (string * string) option * signature: (string * (string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
-    | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
+    | FormattedDocumentation of tip: FSharpToolTipText<string> option * xmlSig: (string * string) option * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
+    | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
     | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
     | Lint of file: string * warnings: LintWarning.Warning list

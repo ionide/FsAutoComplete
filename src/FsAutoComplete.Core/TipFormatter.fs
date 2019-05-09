@@ -292,7 +292,7 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
 
-let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fields, functions, interfaces, attrs)) : string * (string [] * string [] * string []* string[]* string[])) (footer : string) (cn: string) =
+let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fields, functions, interfaces, attrs, ts)) : string * (string [] * string [] * string []* string[]* string[]* string[])) (footer : string) (cn: string) =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
@@ -305,14 +305,14 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
-                (signature, constructors, fields, functions, interfaces, attrs, comment, footer, cn)))
-        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", [||],[||], [||], [||], [||], error, "", "")]
+                (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)))
+        | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", [||],[||], [||], [||], [||], [||], error, "", "")]
         | _ -> None)
 
-let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions, interfaces, attrs)) : string * (string [] * string [] * string [] * string[]* string[])) (footer : string) (cn: string) =
+let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions, interfaces, attrs, ts)) : string * (string [] * string [] * string [] * string[]* string[]* string[])) (footer : string) (cn: string) =
     let xmlDoc =  FSharpXmlDoc.XmlDocFileSignature(assembly, xmlSig)
     let comment = buildFormatComment xmlDoc true None
-    [[(signature, constructors, fields, functions, interfaces, attrs, comment, footer, cn)]]
+    [[(signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)]]
 
 let extractSignature (FSharpToolTipText tips) =
     let getSignature (str: string) =

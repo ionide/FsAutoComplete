@@ -150,6 +150,7 @@ module CommandResponse =
       Functions: string list
       Interfaces: string list
       Attributes: string list
+      Types: string list
       Signature: string
       Comment: string
       Footer: string
@@ -645,16 +646,16 @@ module CommandResponse =
     let data =
       match tip, xmlSig  with
       | Some tip, _ ->
-        TipFormatter.formatDocumentation tip signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
+        TipFormatter.formatDocumentation tip signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs,ts, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Types = ts |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
       | _, Some (xml, assembly) ->
-        TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
+        TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs,ts, m,f, cn) -> {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Types = ts |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
       | _ -> failwith "Shouldn't happen"
     serialize { Kind = "formattedDocumentation"; Data = data }
 
   let formattedDocumentationForSymbol (serialize : Serializer) xml assembly (xmlDoc : string list) (signature, footer, cn) =
-    let data = TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs, m,f, cn) ->
+    let data = TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs, ts, m,f, cn) ->
       let m = if String.IsNullOrWhiteSpace m then xmlDoc |> String.concat "\n" else m
-      {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
+      {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Types = ts |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "formattedDocumentation"; Data = data }
 
   let typeSig (serialize : Serializer) (tip) =
