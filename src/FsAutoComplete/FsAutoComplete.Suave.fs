@@ -145,7 +145,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {
                     let! errors = commands.DeclarationsInProjects ()
-                    let res = errors |> List.toArray |> Json.toJson
+                    let res = errors |> List.map (CommandResponse.serialize writeJson) |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> commands.Helptext data.Symbol |> async.Return)
@@ -214,7 +214,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         do! commands.BuildBackgroundSymbolsCache()
                     with
                     | _ -> ()
-                    let res = [ CommandResponse.info writeJson "Building background cache started"] |> List.toArray |> Json.toJson
+                    let res = [ CommandResponse.info writeJson "Building background cache started"]  |> List.toArray |> Json.toJson
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/enableSymbolCache" >=> fun httpCtx ->
