@@ -7,6 +7,7 @@ open System.Threading
 open Priority_Queue
 open FSharp.Compiler.Range
 open FSharp.Analyzers.SDK
+open System.Collections.Concurrent
 
 type DeclName = string
 type CompletionNamespaceInsert = string * int * int * string
@@ -23,6 +24,7 @@ type State =
     mutable CurrentAST: FSharp.Compiler.Ast.ParsedInput option
 
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
+    ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
     BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
     Analyzers: ConcurrentDictionary<FilePath, Analyzer list>
@@ -42,6 +44,7 @@ type State =
       CompletionNamespaceInsert = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
+      ParseResults = ConcurrentDictionary()
       BackgroundProjects = SimplePriorityQueue<_, _>()
       WorkspaceRoot = Environment.CurrentDirectory
       Analyzers = ConcurrentDictionary()
