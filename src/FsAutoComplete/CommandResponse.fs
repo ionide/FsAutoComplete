@@ -344,6 +344,10 @@ module CommandResponse =
     Names: SimplifiedNameData []
   }
 
+  type RangesAtPositions = {
+    Ranges: Range.range list list
+  }
+
   type WorkspacePeekResponse = {
     Found: WorkspacePeekFound list
   }
@@ -747,6 +751,10 @@ module CommandResponse =
     }
     serialize { Kind = "simpifiedNames"; Data = data}
 
+  let rangesAtPosition (serialize : Serializer) data =
+    let data = {Ranges = data}
+    serialize {Kind = "rangesAtPosition"; Data = data}
+
   let compile (serialize : Serializer) (errors,code) =
     serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
 
@@ -843,3 +851,4 @@ module CommandResponse =
       symbolUseImplementationRange s ranges
     | CoreResponse.InterfaceStub(generatedCode, insertPosition) ->
       interfaceStub s generatedCode insertPosition
+    | CoreResponse.RangesAtPositions(ranges) -> rangesAtPosition s ranges

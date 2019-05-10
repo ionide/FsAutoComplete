@@ -679,6 +679,501 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
     //debug "%A" idents
     result
 
+/// Gives all ranges for current position
+let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range list =
+    let mutable result = []
+
+
+    let addIfInside (ran : range) =
+        let addToResult r =
+            result <- r::result
+
+        let isInside (ran : range) =
+            Range.rangeContainsPos ran r
+
+        if isInside ran then addToResult ran
+
+
+
+    let rec walkImplFileInput (ParsedImplFileInput(_, _, _, _, _, moduleOrNamespaceList, _)) =
+        List.iter walkSynModuleOrNamespace moduleOrNamespaceList
+
+    and walkSynModuleOrNamespace (SynModuleOrNamespace(_, _, _, decls, _, attrs, _, r)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+        List.iter walkSynModuleDecl decls
+
+    and walkAttribute (attr: SynAttribute) =
+        addIfInside attr.Range
+        walkExpr attr.ArgExpr
+
+    and walkTyparDecl (SynTyparDecl.TyparDecl (attrs, typar)) =
+        List.iter walkAttribute attrs
+        walkTypar typar
+
+    and walkTypeConstraint = function
+        | SynTypeConstraint.WhereTyparIsValueType (t, r)
+        | SynTypeConstraint.WhereTyparIsReferenceType (t, r)
+        | SynTypeConstraint.WhereTyparIsUnmanaged (t, r)
+        | SynTypeConstraint.WhereTyparSupportsNull (t, r)
+        | SynTypeConstraint.WhereTyparIsComparable (t, r)
+        | SynTypeConstraint.WhereTyparIsEquatable (t, r) ->
+            addIfInside r
+            walkTypar t
+        | SynTypeConstraint.WhereTyparDefaultsToType (t, ty, r)
+        | SynTypeConstraint.WhereTyparSubtypeOfType (t, ty, r) ->
+            addIfInside r
+            walkTypar t; walkType ty
+        | SynTypeConstraint.WhereTyparIsEnum (t, ts, r)
+        | SynTypeConstraint.WhereTyparIsDelegate (t, ts, r) ->
+            addIfInside r
+            walkTypar t; List.iter walkType ts
+        | SynTypeConstraint.WhereTyparSupportsMember (ts, sign, r) ->
+            addIfInside r
+            List.iter walkType ts; walkMemberSig sign
+
+    and walkPat = function
+        | SynPat.Tuple (_, pats, r)
+        | SynPat.ArrayOrList (_, pats, r)
+        | SynPat.Ands (pats, r) ->
+            addIfInside r
+            List.iter walkPat pats
+        | SynPat.Named (pat, ident, _, _, r) ->
+            addIfInside r
+            walkPat pat
+        | SynPat.Typed (pat, t, r) ->
+            addIfInside r
+            walkPat pat
+            walkType t
+        | SynPat.Attrib (pat, attrs, r) ->
+            addIfInside r
+            walkPat pat
+            List.iter walkAttribute attrs
+        | SynPat.Or (pat1, pat2, r) ->
+            addIfInside r
+            List.iter walkPat [pat1; pat2]
+        | SynPat.LongIdent (ident, _, typars, ConstructorPats pats, _, r) ->
+            addIfInside r
+            typars
+            |> Option.iter (fun (SynValTyparDecls (typars, _, constraints)) ->
+                    List.iter walkTyparDecl typars
+                    List.iter walkTypeConstraint constraints)
+            List.iter walkPat pats
+        | SynPat.Paren (pat, r) ->
+            addIfInside r
+            walkPat pat
+        | SynPat.IsInst (t, r) ->
+            addIfInside r
+            walkType t
+        | SynPat.QuoteExpr(e, r) ->
+            addIfInside r
+            walkExpr e
+        | SynPat.Const(_, r) -> addIfInside r
+        | SynPat.Wild(r) -> addIfInside r
+        | SynPat.Record(_, r) -> addIfInside r
+        | SynPat.Null(r) -> addIfInside r
+        | SynPat.OptionalVal(_, r) -> addIfInside r
+        | SynPat.DeprecatedCharRange(_, _, r) -> addIfInside r
+        | SynPat.InstanceMember(_, _, _, accessibility, r) -> addIfInside r
+        | SynPat.FromParseError(_, r) ->addIfInside r
+
+    and walkTypar (Typar (_, _, _)) = ()
+
+    and walkBinding (SynBinding.Binding (_, _, _, _, attrs, _, _, pat, returnInfo, e, r, _)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+        walkPat pat
+        walkExpr e
+        returnInfo |> Option.iter (fun (SynBindingReturnInfo (t, r, _)) -> addIfInside r; walkType t)
+
+    and walkInterfaceImpl (InterfaceImpl(_, bindings, r)) =
+        addIfInside r
+        List.iter walkBinding bindings
+
+    and walkIndexerArg = function
+        | SynIndexerArg.One e -> walkExpr e
+        | SynIndexerArg.Two (e1, e2) -> List.iter walkExpr [e1; e2]
+
+    and walkType = function
+        | SynType.Array (_, t, r)
+        | SynType.HashConstraint (t, r)
+        | SynType.MeasurePower (t, _, r) ->
+            addIfInside r
+            walkType t
+        | SynType.Fun (t1, t2, r)
+        | SynType.MeasureDivide (t1, t2, r) ->
+            addIfInside r
+            walkType t1; walkType t2
+        | SynType.App (ty, _, types, _, _, _, r) ->
+            addIfInside r
+            walkType ty; List.iter walkType types
+        | SynType.LongIdentApp (_, _, _, types, _, _, r) ->
+            addIfInside r
+            List.iter walkType types
+        | SynType.Tuple (_, ts, r) ->
+            addIfInside r
+            ts |> List.iter (fun (_, t) -> walkType t)
+        | SynType.WithGlobalConstraints (t, typeConstraints, r) ->
+            addIfInside r
+            walkType t; List.iter walkTypeConstraint typeConstraints
+        | SynType.LongIdent(longDotId) -> ()
+        | SynType.AnonRecd(isStruct, typeNames, r) -> addIfInside r
+        | SynType.Var(genericName, r) -> addIfInside r
+        | SynType.Anon(r) -> addIfInside r
+        | SynType.StaticConstant(constant, r) -> addIfInside r
+        | SynType.StaticConstantExpr(expr, r) -> addIfInside r
+        | SynType.StaticConstantNamed(expr, _, r) -> addIfInside r
+
+
+    and walkClause (Clause (pat, e1, e2, r, _)) =
+        addIfInside r
+        walkPat pat
+        walkExpr e2
+        e1 |> Option.iter walkExpr
+
+    and walkSimplePats = function
+        | SynSimplePats.SimplePats (pats, r) ->
+            addIfInside r
+            List.iter walkSimplePat pats
+        | SynSimplePats.Typed (pats, ty, r) ->
+            addIfInside r
+            walkSimplePats pats
+            walkType ty
+
+    and walkExpr = function
+        | SynExpr.Typed (e, _, r) ->
+            addIfInside r
+            walkExpr e
+        | SynExpr.Paren (e, _, _, r)
+        | SynExpr.Quote (_, _, e, _, r)
+        | SynExpr.InferredUpcast (e, r)
+        | SynExpr.InferredDowncast (e, r)
+        | SynExpr.AddressOf (_, e, _, r)
+        | SynExpr.DoBang (e, r)
+        | SynExpr.YieldOrReturn (_, e, r)
+        | SynExpr.ArrayOrListOfSeqExpr (_, e, r)
+        | SynExpr.CompExpr (_, _, e, r)
+        | SynExpr.Do (e, r)
+        | SynExpr.Assert (e, r)
+        | SynExpr.Lazy (e, r)
+        | SynExpr.YieldOrReturnFrom (_, e, r) ->
+            addIfInside r
+            walkExpr e
+        | SynExpr.Lambda (_, _, pats, e, r) ->
+            addIfInside r
+            walkSimplePats pats
+            walkExpr e
+        | SynExpr.New (_, t, e, r)
+        | SynExpr.TypeTest (e, t, r)
+        | SynExpr.Upcast (e, t, r)
+        | SynExpr.Downcast (e, t, r) ->
+            addIfInside r
+            walkExpr e; walkType t
+        | SynExpr.Tuple (_, es, _, _)
+        | Sequentials es -> List.iter walkExpr es //TODO??
+        | SynExpr.ArrayOrList (_, es, r) ->
+            addIfInside r
+            List.iter walkExpr es
+        | SynExpr.App (_, _, e1, e2, r)
+        | SynExpr.TryFinally (e1, e2, r, _, _)
+        | SynExpr.While (_, e1, e2, r) ->
+            addIfInside r
+            List.iter walkExpr [e1; e2]
+        | SynExpr.Record (_, _, fields, r) ->
+            addIfInside r
+            fields |> List.iter (fun ((ident, _), e, _) ->
+                        e |> Option.iter walkExpr)
+        | SynExpr.ObjExpr(ty, argOpt, bindings, ifaces, _, r) ->
+            addIfInside r
+            argOpt |> Option.iter (fun (e, ident) ->
+                walkExpr e)
+            walkType ty
+            List.iter walkBinding bindings
+            List.iter walkInterfaceImpl ifaces
+        | SynExpr.For (_, ident, e1, _, e2, e3, r) ->
+            addIfInside r
+            List.iter walkExpr [e1; e2; e3]
+        | SynExpr.ForEach (_, _, _, pat, e1, e2, r) ->
+            addIfInside r
+            walkPat pat
+            List.iter walkExpr [e1; e2]
+        | SynExpr.MatchLambda (_, _, synMatchClauseList, _, r) ->
+            addIfInside r
+            List.iter walkClause synMatchClauseList
+        | SynExpr.Match (_, e, synMatchClauseList, r) ->
+            addIfInside r
+            walkExpr e
+            List.iter walkClause synMatchClauseList
+        | SynExpr.TypeApp (e, _, tys, _, _, tr, r) ->
+            addIfInside tr
+            addIfInside r
+            List.iter walkType tys; walkExpr e
+        | SynExpr.LetOrUse (_, _, bindings, e, r) ->
+            addIfInside r
+            List.iter walkBinding bindings; walkExpr e
+        | SynExpr.TryWith (e, _, clauses, r, _, _, _) ->
+            addIfInside r
+            List.iter walkClause clauses;  walkExpr e
+        | SynExpr.IfThenElse (e1, e2, e3, _, _, _, r) ->
+            addIfInside r
+            List.iter walkExpr [e1; e2]
+            e3 |> Option.iter walkExpr
+        | SynExpr.LongIdentSet (ident, e, r)
+        | SynExpr.DotGet (e, _, ident, r) ->
+            addIfInside r
+            walkExpr e
+        | SynExpr.DotSet (e1, idents, e2, r) ->
+            addIfInside r
+            walkExpr e1
+            walkExpr e2
+        | SynExpr.DotIndexedGet (e, args, _, r) ->
+            addIfInside r
+            walkExpr e
+            List.iter walkIndexerArg args
+        | SynExpr.DotIndexedSet (e1, args, e2, _, _, r) ->
+            addIfInside r
+            walkExpr e1
+            List.iter walkIndexerArg args
+            walkExpr e2
+        | SynExpr.NamedIndexedPropertySet (ident, e1, e2, r) ->
+            addIfInside r
+            List.iter walkExpr [e1; e2]
+        | SynExpr.DotNamedIndexedPropertySet (e1, ident, e2, e3, r) ->
+            addIfInside r
+            List.iter walkExpr [e1; e2; e3]
+        | SynExpr.JoinIn (e1, _, e2, r) ->
+            addIfInside r
+            List.iter walkExpr [e1; e2]
+        | SynExpr.LetOrUseBang (_, _, _, pat, e1, e2, r) ->
+            addIfInside r
+            walkPat pat
+            List.iter walkExpr [e1; e2]
+        | SynExpr.TraitCall (ts, sign, e, r) ->
+            addIfInside r
+            List.iter walkTypar ts
+            walkMemberSig sign
+            walkExpr e
+        | SynExpr.Const (SynConst.Measure(_, m), r) ->
+            addIfInside r
+            walkMeasure m
+        | SynExpr.Const (_, r) ->
+            addIfInside r
+        | SynExpr.AnonRecd(isStruct, copyInfo, recordFields, r) -> addIfInside r
+        | SynExpr.Sequential(seqPoint, isTrueSeq, expr1, expr2, r) -> ()
+        | SynExpr.Ident(_) -> ()
+        | SynExpr.LongIdent(isOptional, longDotId, altNameRefCell, r) -> addIfInside r
+        | SynExpr.Set(_, _, r) -> addIfInside r
+        | SynExpr.Null(r) -> addIfInside r
+        | SynExpr.ImplicitZero(r) -> addIfInside r
+        | SynExpr.MatchBang(matchSeqPoint, expr, clauses, r) -> addIfInside r
+        | SynExpr.LibraryOnlyILAssembly(_, _, _, _, r) -> addIfInside r
+        | SynExpr.LibraryOnlyStaticOptimization(_, _, _, r) -> addIfInside r
+        | SynExpr.LibraryOnlyUnionCaseFieldGet(expr, longId, _, r) -> addIfInside r
+        | SynExpr.LibraryOnlyUnionCaseFieldSet(_, longId, _, _, r) -> addIfInside r
+        | SynExpr.ArbitraryAfterError(debugStr, r) -> addIfInside r
+        | SynExpr.FromParseError(expr, r) -> addIfInside r
+        | SynExpr.DiscardAfterMissingQualificationAfterDot(_, r) -> addIfInside r
+        | SynExpr.Fixed(expr, r) -> addIfInside r
+
+    and walkMeasure = function
+        | SynMeasure.Product (m1, m2, r)
+        | SynMeasure.Divide (m1, m2, r) ->
+            addIfInside r
+            walkMeasure m1; walkMeasure m2
+        | SynMeasure.Named (longIdent, r) -> addIfInside r
+        | SynMeasure.Seq (ms, r) ->
+            addIfInside r
+            List.iter walkMeasure ms
+        | SynMeasure.Power (m, _, r) ->
+            addIfInside r
+            walkMeasure m
+        | SynMeasure.Var (ty, r) ->
+            addIfInside r
+            walkTypar ty
+        | SynMeasure.One
+        | SynMeasure.Anon _ -> ()
+
+    and walkSimplePat = function
+        | SynSimplePat.Attrib (pat, attrs, r) ->
+            addIfInside r
+            walkSimplePat pat
+            List.iter walkAttribute attrs
+        | SynSimplePat.Typed(pat, t, r) ->
+            addIfInside r
+            walkSimplePat pat
+            walkType t
+        | SynSimplePat.Id(ident, altNameRefCell, isCompilerGenerated, isThisVar, isOptArg, r) -> addIfInside r
+
+
+    and walkField (SynField.Field(attrs, _, _, t, _, _, _, r)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+        walkType t
+
+    and walkValSig (SynValSig.ValSpfn(attrs, _, _, t, SynValInfo(argInfos, argInfo), _, _, _, _, _, r)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+        walkType t
+        argInfo :: (argInfos |> List.concat)
+        |> List.map (fun (SynArgInfo(attrs, _, _)) -> attrs)
+        |> List.concat
+        |> List.iter walkAttribute
+
+    and walkMemberSig = function
+        | SynMemberSig.Inherit (t, r)
+        | SynMemberSig.Interface(t, r) ->
+            addIfInside r
+            walkType t
+        | SynMemberSig.Member(vs, _, r) ->
+            addIfInside r
+            walkValSig vs
+        | SynMemberSig.ValField(f, r) ->
+            addIfInside r
+            walkField f
+        | SynMemberSig.NestedType(SynTypeDefnSig.TypeDefnSig (info, repr, memberSigs, _), r) ->
+            addIfInside r
+            let isTypeExtensionOrAlias =
+                match repr with
+                | SynTypeDefnSigRepr.Simple(SynTypeDefnSimpleRepr.TypeAbbrev _, _)
+                | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.TyconAbbrev, _, _)
+                | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.TyconAugmentation, _, _) -> true
+                | _ -> false
+            walkComponentInfo isTypeExtensionOrAlias info
+            walkTypeDefnSigRepr repr
+            List.iter walkMemberSig memberSigs
+
+    and walkMember = function
+        | SynMemberDefn.AbstractSlot (valSig, _, r) ->
+            addIfInside r
+            walkValSig valSig
+        | SynMemberDefn.Member (binding, r) ->
+            addIfInside r
+            walkBinding binding
+        | SynMemberDefn.ImplicitCtor (_, attrs, pats, _, r) ->
+            addIfInside r
+            List.iter walkAttribute attrs
+            List.iter walkSimplePat pats
+        | SynMemberDefn.ImplicitInherit (t, e, _, r) ->
+            addIfInside r
+            walkType t; walkExpr e
+        | SynMemberDefn.LetBindings (bindings, _, _, r) ->
+            addIfInside r
+            List.iter walkBinding bindings
+        | SynMemberDefn.Interface (t, members, r) ->
+            addIfInside r
+            walkType t
+            members |> Option.iter (List.iter walkMember)
+        | SynMemberDefn.Inherit (t, _, r) ->
+            addIfInside r
+            walkType t
+        | SynMemberDefn.ValField (field, r) ->
+            addIfInside r
+            walkField field
+        | SynMemberDefn.NestedType (tdef, _, r) ->
+            addIfInside r
+            walkTypeDefn tdef
+        | SynMemberDefn.AutoProperty (attrs, _, _, t, _, _, _, _, e, _, r) ->
+            addIfInside r
+            List.iter walkAttribute attrs
+            Option.iter walkType t
+            walkExpr e
+        | SynMemberDefn.Open(longId, r) -> addIfInside r
+
+    and walkEnumCase (EnumCase(attrs, _, _, _, r)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+
+    and walkUnionCaseType = function
+        | SynUnionCaseType.UnionCaseFields fields -> List.iter walkField fields
+        | SynUnionCaseType.UnionCaseFullType (t, _) -> walkType t
+
+    and walkUnionCase (SynUnionCase.UnionCase (attrs, _, t, _, _, r)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+        walkUnionCaseType t
+
+    and walkTypeDefnSimple = function
+        | SynTypeDefnSimpleRepr.Enum (cases, r) ->
+            addIfInside r
+            List.iter walkEnumCase cases
+        | SynTypeDefnSimpleRepr.Union (_, cases, r) ->
+            addIfInside r
+            List.iter walkUnionCase cases
+        | SynTypeDefnSimpleRepr.Record (_, fields, r) ->
+            addIfInside r
+            List.iter walkField fields
+        | SynTypeDefnSimpleRepr.TypeAbbrev (_, t, r) ->
+            addIfInside r
+            walkType t
+        | SynTypeDefnSimpleRepr.General(_, _, _, _, _, _, _, r) -> addIfInside r
+        | SynTypeDefnSimpleRepr.LibraryOnlyILAssembly(_, r) -> addIfInside r
+        | SynTypeDefnSimpleRepr.None(r) -> addIfInside r
+        | SynTypeDefnSimpleRepr.Exception(_) -> ()
+
+    and walkComponentInfo isTypeExtensionOrAlias (ComponentInfo(attrs, typars, constraints, longIdent, _, _, _, r)) =
+        addIfInside r
+        List.iter walkAttribute attrs
+        List.iter walkTyparDecl typars
+        List.iter walkTypeConstraint constraints
+
+    and walkTypeDefnRepr = function
+        | SynTypeDefnRepr.ObjectModel (_, defns, r) ->
+            addIfInside r
+            List.iter walkMember defns
+        | SynTypeDefnRepr.Simple(defn, r) ->
+            addIfInside r
+            walkTypeDefnSimple defn
+        | SynTypeDefnRepr.Exception _ -> ()
+
+    and walkTypeDefnSigRepr = function
+        | SynTypeDefnSigRepr.ObjectModel (_, defns, _) -> List.iter walkMemberSig defns
+        | SynTypeDefnSigRepr.Simple(defn, _) -> walkTypeDefnSimple defn
+        | SynTypeDefnSigRepr.Exception _ -> ()
+
+    and walkTypeDefn (TypeDefn (info, repr, members, r)) =
+        addIfInside r
+        let isTypeExtensionOrAlias =
+            match repr with
+            | SynTypeDefnRepr.ObjectModel (SynTypeDefnKind.TyconAugmentation, _, _)
+            | SynTypeDefnRepr.ObjectModel (SynTypeDefnKind.TyconAbbrev, _, _)
+            | SynTypeDefnRepr.Simple (SynTypeDefnSimpleRepr.TypeAbbrev _, _) -> true
+            | _ -> false
+        walkComponentInfo isTypeExtensionOrAlias info
+        walkTypeDefnRepr repr
+        List.iter walkMember members
+
+    and walkSynModuleDecl (decl: SynModuleDecl) =
+        match decl with
+        | SynModuleDecl.NamespaceFragment fragment -> walkSynModuleOrNamespace fragment
+        | SynModuleDecl.NestedModule (info, _, modules, _, r) ->
+            addIfInside r
+            walkComponentInfo false info
+            List.iter walkSynModuleDecl modules
+        | SynModuleDecl.Let (_, bindings, r) ->
+            addIfInside r
+            List.iter walkBinding bindings
+        | SynModuleDecl.DoExpr (_, expr, r) ->
+            addIfInside r
+            walkExpr expr
+        | SynModuleDecl.Types (types, r) ->
+            addIfInside r
+            List.iter walkTypeDefn types
+        | SynModuleDecl.Attributes (attrs, r) ->
+            addIfInside r
+            List.iter walkAttribute attrs
+        | SynModuleDecl.ModuleAbbrev(ident, longId, r) -> addIfInside r
+        | SynModuleDecl.Exception(_, r) -> addIfInside r
+        | SynModuleDecl.Open(longDotId, r) -> addIfInside r
+        | SynModuleDecl.HashDirective(_, r) -> addIfInside r
+
+    match input with
+    | Some (ParsedInput.ImplFile input) ->
+            walkImplFileInput input
+    | _ -> ()
+    //debug "%A" idents
+    result
+
+
 let getLongIdentAt ast pos =
     let idents = getLongIdents (Some ast)
     match idents.TryGetValue pos with

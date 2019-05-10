@@ -52,6 +52,7 @@ type CoreResponse =
     | Analyzer of messages: SDK.Message [] * file: string
     | SymbolUseRange of ranges: SymbolCache.SymbolUseRange[]
     | SymbolUseImplementationRange of ranges: SymbolCache.SymbolUseRange[]
+    | RangesAtPositions of ranges: range list list
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -113,6 +114,7 @@ type Commands (serialize : Serializer) =
     do fileParsed.Publish.Add (fun parseRes ->
        let decls = parseRes.GetNavigationItems().Declarations
        state.NavigationDeclarations.[parseRes.FileName] <- decls
+       state.ParseResults.[parseRes.FileName] <- parseRes
     )
 
     do checker.FileChecked.Add (fun (n,_) ->
@@ -983,6 +985,23 @@ type Commands (serialize : Serializer) =
                     notify.Trigger (NotificationEvent.UnusedOpens res)
                     return [ res ]
         } |> x.AsCancellable file
+
+
+    member x.GetRangesAtPosition file positions =
+        let file = Path.GetFullPath file
+        let parseResult = state.ParseResults.TryFind file
+        match parseResult with
+        | None -> [ CoreResponse.InfoRes "Cached typecheck results not yet available"]
+        | Some pr ->
+            positions |> List.map (fun x ->
+                UntypedAstUtils.getRangesAtPosition pr.ParseTree x
+            )
+            |> CoreResponse.RangesAtPositions
+            |> List.singleton
+
+
+
+
 
     member x.Compile projectFileName = async {
         let projectFileName = Path.GetFullPath projectFileName
