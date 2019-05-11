@@ -2,19 +2,11 @@
 #r @"packages/build/FAKE/tools/FakeLib.dll"
 
 open Fake
-open Fake.Git
 open Fake.ReleaseNotesHelper
-open Fake.UserInputHelper
-open Fake.ZipHelper
-open Fake.Testing
-open Fake.AssemblyInfoFile
-open Fake.Testing
 open System
 open System.IO
-open System.Text.RegularExpressions
 
 let project = "FsAutoComplete"
-let summary = "A command line tool for interfacing with FSharp.Compiler.Service over a pipe."
 
 // Read additional information from the release notes document
 let releaseNotesData =
@@ -244,32 +236,6 @@ Target "LspTest" (fun _ ->
   DotNetCli.RunCommand id "run -p \"./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj\""
 )
 
-// Target "UnitTest" (fun _ ->
-//     trace "Running Unit tests."
-//     !! testAssemblies
-//     |> NUnit3 (fun p ->
-//         { p with
-//             ShadowCopy = true
-//             TimeOut = TimeSpan.FromMinutes 10.
-//             OutputDir = "TestResults.xml" })
-//     trace "Done Unit tests."
-// )
-
-
-
-Target "AssemblyInfo" (fun _ ->
-  let fileName = "src" </> project </> "AssemblyInfo.fs"
-  let githash = Information.getCurrentSHA1 ""
-
-  CreateFSharpAssemblyInfo fileName
-    [ Attribute.Title project
-      Attribute.Product project
-      Attribute.Description summary
-      Attribute.Version release.AssemblyVersion
-      Attribute.FileVersion release.AssemblyVersion
-      Attribute.Metadata("githash", githash) ]
-)
-
 Target "ReleaseArchive" (fun _ ->
     CleanDirs [ "bin/pkgs" ]
     ensureDirectory "bin/pkgs"
@@ -322,8 +288,6 @@ Target "All" id
 Target "Release" id
 Target "BuildDebug" id
 
-"AssemblyInfo" ==> "BuildDebug"
-
 "BuildDebug"
   ==> "Build"
   ==> "IntegrationTest"
@@ -331,9 +295,6 @@ Target "BuildDebug" id
 "BuildDebug"
   ==> "Build"
   ==> "LspTest"
-
-// "UnitTest" ==> "Test"
-
 
 "LocalRelease" ==> "IntegrationTestStdioMode" ==> "IntegrationTest"
 "LocalRelease" ==> "IntegrationTestHttpMode" ==> "IntegrationTest"
