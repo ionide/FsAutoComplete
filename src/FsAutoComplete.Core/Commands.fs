@@ -109,14 +109,13 @@ type Commands (serialize : Serializer) =
 
         let values = results?values.AsArray()
         
-        let createResult (values) =
-            let v = values
+        let createResult (v: JsonValue) =
             let info2 = v?api?name
             //return a list of strings
             let infonamespace = info2?``namespace``.AsString()
             let infoclass = info2?class_name.AsString()
             let infomethod = info2?id.AsString()
-            let finalresp = infonamespace + infoclass + infomethod
+            let finalresp = infoclass + "." + infomethod
             finalresp 
 
         values
@@ -337,8 +336,7 @@ type Commands (serialize : Serializer) =
         x.MapResultAsync ((fun x -> successToString x |> async.Return), ?failureToString = failureToString)
 
     member x.Fsdn (querystr) = async {
-            printfn "hi! tried to do fsdn from commands"
-            let results = fsdn querystr
+            let results = fsdn querystr 
             return [ Response.fsdn serialize results ]
         }
 
