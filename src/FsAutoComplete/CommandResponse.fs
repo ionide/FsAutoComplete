@@ -861,3 +861,4 @@ module CommandResponse =
     | CoreResponse.InterfaceStub(generatedCode, insertPosition) ->
       interfaceStub s generatedCode insertPosition
     | CoreResponse.RangesAtPositions(ranges) -> rangesAtPosition s ranges
+    | CoreResponse.Fsdn(functions) -> fsdn s functions

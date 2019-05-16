@@ -55,6 +55,7 @@ type CoreResponse =
     | SymbolUseRange of ranges: SymbolCache.SymbolUseRange[]
     | SymbolUseImplementationRange of ranges: SymbolCache.SymbolUseRange[]
     | RangesAtPositions of ranges: range list list
+    | Fsdn of string list
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -334,7 +335,7 @@ type Commands (serialize : Serializer) =
 
     member x.Fsdn (querystr) = async {
             let results = fsdn querystr 
-            return [ Response.fsdn serialize results ]
+            return [ CoreResponse.Fsdn results ]
         }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
