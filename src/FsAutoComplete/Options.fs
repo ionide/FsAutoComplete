@@ -4,22 +4,6 @@
 namespace FsAutoComplete
 
 open System
-open System.Diagnostics
-open System.Reflection
-
-module Version =
-
-  type private T = class end
-
-  open System.Reflection
-
-  let string () =
-    let assemblies = typeof<T>.Assembly.GetCustomAttributes(typeof<AssemblyInformationalVersionAttribute>, true)
-    match assemblies with
-    | [| x |] ->
-      let assembly = x :?> AssemblyInformationalVersionAttribute
-      assembly.InformationalVersion
-    | _ -> ""
 
 module Options =
 

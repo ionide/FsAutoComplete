@@ -41,7 +41,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           match commandQueue.Take() with
           | Started ->
               return [
-                  CoreResponse.InfoRes (sprintf "git commit sha: %s" <| commands.GetGitHash);
+                  CoreResponse.InfoRes (sprintf "git commit sha: %s" (commands.GetGitHash ()))
                   CoreResponse.InfoRes (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
                ]
           | Parse (file, kind, lines) ->

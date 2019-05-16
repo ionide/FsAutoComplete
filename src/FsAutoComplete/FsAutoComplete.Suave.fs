@@ -260,7 +260,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
     match args.TryGetResult (<@ Options.CLIArguments.HostPID @>) with
     | Some pid ->
         serverConfig.logger.log Logging.LogLevel.Info (fun _ ->
-            Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" <| commands.GetGitHash ) |> ignore
+            Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" (commands.GetGitHash ()) ) |> ignore
             Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
         )
         Debug.zombieCheckWithHostPID (fun () -> exit 0) pid

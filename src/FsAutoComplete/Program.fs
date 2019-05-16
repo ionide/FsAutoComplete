@@ -26,7 +26,8 @@ let entry args =
 
       results.TryGetResult(<@ Options.CLIArguments.Version @>)
       |> Option.iter (fun _ ->
-          printfn "FsAutoComplete %s" (Version.string())
+          let version = Version.info ()
+          printfn "FsAutoComplete %s (git sha %s)" (version.Version) (version.GitSha)
           exit 0 )
 
       results.TryGetResult(<@ Options.CLIArguments.Commands @>)

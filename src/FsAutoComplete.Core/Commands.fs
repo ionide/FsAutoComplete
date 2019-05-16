@@ -250,12 +250,6 @@ type Commands (serialize : Serializer) =
         |> parseFilesInTheBackground
         |> Async.Start
 
-    let getGitHash () =
-        Assembly.GetEntryAssembly().GetCustomAttributes(typeof<AssemblyMetadataAttribute>, true)
-        |> Seq.cast<AssemblyMetadataAttribute>
-        |> Seq.map (fun (m) -> m.Key,m.Value)
-        |> Seq.tryPick (fun (x,y) -> if x = "githash" && not (String.IsNullOrWhiteSpace(y)) then Some y else None )
-
     member __.Notify = notify.Publish
 
     member __.WorkspaceReady = workspaceReady.Publish
@@ -1052,11 +1046,9 @@ type Commands (serialize : Serializer) =
     member x.EnableSymbolCache () =
         x.UseSymbolCache <- true
 
-    member x.GetGitHash =
-        let hash = getGitHash()
-        match hash with
-        | Some hash -> hash
-        | None -> ""
+    member x.GetGitHash () =
+        let version = Version.info ()
+        version.GitSha
 
     member __.Quit () =
         async {

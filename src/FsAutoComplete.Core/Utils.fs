@@ -582,3 +582,32 @@ module Patterns =
         | null -> None
         | _ when str.Contains pat -> Some str
         | _ -> None
+
+
+module Version =
+
+  open System.Reflection
+
+  type VersionInfo = { Version: string; GitSha: string }
+
+  let private informationalVersion () =
+    let assemblies = typeof<VersionInfo>.Assembly.GetCustomAttributes(typeof<AssemblyInformationalVersionAttribute>, true)
+    match assemblies with
+    | [| x |] ->
+      let assembly = x :?> AssemblyInformationalVersionAttribute
+      assembly.InformationalVersion
+    | _ -> ""
+
+  let info () =
+    // it's in the format VERSION+GITSHA
+    // like 1.2.3+01989f5dc405661d639d48ee1d1804c0b331ca63
+
+    let v = informationalVersion ()
+
+    let version, sha =
+        match v.Split [| '+' |] with
+        | [| v; sha |] -> v, sha
+        | [| v |] -> v, ""
+        | _ -> "", ""
+
+    { VersionInfo.Version = version; GitSha = sha }
