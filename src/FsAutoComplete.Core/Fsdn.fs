@@ -16,7 +16,7 @@ let query (querystr:string) =
           "complement=enabled"
           "language=fsharp"
           "single_letter_as_variable=enabled"
-          "limit=500"
+          "limit=50"
         ]
         |> String.concat "&"
 
