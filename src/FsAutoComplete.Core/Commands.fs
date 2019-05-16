@@ -1,7 +1,4 @@
 namespace FsAutoComplete
-#if INTERACTIVE
-#r "/home/nikita/.nuget/packages/fsharp.data/3.0.1/lib/net45/FSharp.Data.dll"
-#endif
 
 open System
 open System.IO
