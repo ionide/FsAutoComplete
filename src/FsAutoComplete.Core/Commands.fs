@@ -12,8 +12,6 @@ open Utils
 open System.Reflection
 open FSharp.Compiler.Range
 open FSharp.Analyzers
-open FSharp.Data
-open FSharp.Data.JsonExtensions
 
 [<RequireQualifiedAccess>]
 type CoreResponse =
@@ -84,41 +82,6 @@ type Commands (serialize : Serializer) =
     let mutable isWorkspaceReady = false
 
     let notify = Event<NotificationEvent>()
-
-    let fsdn (querystr:string) = 
-        let queryString =
-            [ "query=" + querystr
-              "exclusion="
-              "respect_name_difference=enabled"
-              "greedy_matching=enabled"
-              "ignore_parameter_style=enabled"
-              "ignore_case=enabled"
-              "substring=enabled"
-              "swap_order=enabled"
-              "complement=enabled"
-              "language=fsharp"
-              "single_letter_as_variable=enabled"
-              "limit=500"
-            ]
-            |> String.concat "&"
-
-        let req = Http.RequestString( "https://fsdn.azurewebsites.net/api/search?" + queryString )
-        let results = JsonValue.Parse(req)
-
-        let values = results?values.AsArray()
-        
-        let createResult (v: JsonValue) =
-            let info2 = v?api?name
-            //return a list of strings
-            let infonamespace = info2?``namespace``.AsString()
-            let infoclass = info2?class_name.AsString()
-            let infomethod = info2?id.AsString()
-            let finalresp = infoclass + "." + infomethod
-            finalresp 
-
-        values
-        |> Array.map createResult
-        |> Array.toList    
 
     let workspaceReady = Event<unit>()
 
@@ -334,7 +297,7 @@ type Commands (serialize : Serializer) =
         x.MapResultAsync ((fun x -> successToString x |> async.Return), ?failureToString = failureToString)
 
     member x.Fsdn (querystr) = async {
-            let results = fsdn querystr 
+            let results = Fsdn.query querystr 
             return [ CoreResponse.Fsdn results ]
         }
 
