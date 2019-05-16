@@ -13,4 +13,5 @@ type FileRequest = {FileName : string}
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
 type WorkspaceLoadRequest = {Files : string array; DisableInMemoryProjectReferences: bool}
 type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
+type FsdnRequest = {Signature : string}
 type QuitRequest() = class end

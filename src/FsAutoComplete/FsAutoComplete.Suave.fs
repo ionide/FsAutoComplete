@@ -149,6 +149,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                     return! Response.response HttpCode.HTTP_200 res httpCtx
                 }
             path "/helptext" >=> handler (fun (data : HelptextRequest) -> commands.Helptext data.Symbol |> async.Return)
+            path "/fsdn" >=> handler (fun (data : FsdnRequest) -> commands.Fsdn data.Signature )
             path "/completion" >=> handler (fun (data : CompletionRequest) -> async {
                 let file = Path.GetFullPath data.FileName
                 match commands.TryGetFileCheckerOptionsWithLines file with

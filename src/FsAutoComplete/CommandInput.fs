@@ -40,6 +40,7 @@ type Command =
   | RegisterAnalyzer of string
   | Started
   | Quit
+  | Fsdn of string
 
 module CommandInput =
   /// Parse 'quit' command
@@ -164,6 +165,14 @@ module CommandInput =
       let! files = many parseFilename
       return WorkspaceLoad (files |> Array.ofList) }
 
+  let fsdn = parser {
+      let! _ = string "fsdn "
+      let! _ = char '"'
+      let! querystr = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      return (Fsdn querystr)
+      }
+
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
     let! f = (string "completion " |> Parser.map (fun _ -> Completion)) <|>
@@ -222,7 +231,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parsing.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> fsdn <|> error
       let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

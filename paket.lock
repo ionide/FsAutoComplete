@@ -6,7 +6,7 @@ NUGET
       FSharp.Core (>= 4.0.0.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
       FSharp.Core (>= 4.3.2) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       System.Configuration.ConfigurationManager (>= 4.4) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-    Dapper (1.60.5)
+    Dapper (1.60.6)
       System.Data.SqlClient (>= 4.4) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
       System.Reflection.Emit.Lightweight (>= 4.3) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
       System.Reflection.TypeExtensions (>= 4.4) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
@@ -36,6 +36,9 @@ NUGET
       FSharp.Core (>= 4.6.2) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net461)) (&& (== netstandard2.0) (>= net461))
       System.ValueTuple (>= 4.4) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net461)) (&& (== netstandard2.0) (>= net461))
     FSharp.Core (4.6.2) - redirects: force
+    FSharp.Data (3.0.1)
+      FSharp.Core (>= 4.0.0.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
+      FSharp.Core (>= 4.3.4) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
     FSharpLint.Core (0.10.8)
       Dotnet.ProjInfo (>= 0.31)
       FParsec (>= 1.0.3)
