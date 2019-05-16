@@ -36,5 +36,5 @@ let query (querystr:string) =
 
     values
     |> Array.map createResult
-    |> Array.toList    
+    |> Array.toList
 
