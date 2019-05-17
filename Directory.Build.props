@@ -1,6 +1,10 @@
 <Project>
 
   <PropertyGroup>
+    <Title>FsAutoComplete</Title>
+    <Product>FsAutoComplete</Product>
+    <Description>A command line tool for interfacing with FSharp.Compiler.Service over a pipe.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
