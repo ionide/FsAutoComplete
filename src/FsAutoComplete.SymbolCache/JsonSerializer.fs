@@ -52,15 +52,6 @@ module private JsonSerializerConverters =
     writer.WriteValue(range.EndLine)
     writer.WriteEndObject()
 
-  let projectOutputTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
-    let s =
-        match value with
-        | CommandResponse.ProjectOutputType.Library -> "lib"
-        | CommandResponse.ProjectOutputType.Exe -> "exe"
-        | CommandResponse.ProjectOutputType.Custom(x) -> x.ToLower()
-    serializer.Serialize(writer, s)
-
-
   let internal jsonConverters =
 
     let writeOnlyConverter (f: JsonWriter -> 'T -> JsonSerializer -> unit) (canConvert: Type -> Type -> bool) =
@@ -90,8 +81,7 @@ module private JsonSerializerConverters =
 
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
-       OptionConverter() :> JsonConverter
-       writeOnlyConverter projectOutputTypeWriter sameDU |]
+       OptionConverter() :> JsonConverter |]
 
 module JsonSerializer =
 
