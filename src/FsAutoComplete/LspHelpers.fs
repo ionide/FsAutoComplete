@@ -461,6 +461,7 @@ type WorkspaceLoadParms = {
 }
 
 type FSharpConfigDto = {
+    AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
     WorkspaceExcludedDirs: string [] option
     KeywordsAutocomplete: bool option
@@ -480,6 +481,7 @@ type FSharpConfigDto = {
 }
 
 type FSharpConfig = {
+    AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
     WorkspaceExcludedDirs: string []
     KeywordsAutocomplete: bool
@@ -500,6 +502,7 @@ type FSharpConfig = {
 with
     static member Default =
         {
+            AutomaticWorkspaceInit = false
             WorkspaceModePeekDeepLevel = 2
             WorkspaceExcludedDirs = [||]
             KeywordsAutocomplete = false
@@ -520,6 +523,7 @@ with
 
     static member FromDto(dto: FSharpConfigDto) =
         {
+            AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel 2
             WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs [||]
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
@@ -540,6 +544,7 @@ with
 
     member x.AddDto(dto: FSharpConfigDto) =
         {
+            AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel x.WorkspaceModePeekDeepLevel
             WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs x.WorkspaceExcludedDirs
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete

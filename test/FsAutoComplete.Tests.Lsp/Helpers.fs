@@ -33,7 +33,8 @@ let defaultConfigDto : FSharpConfigDto =
     EnableReferenceCodeLens = None
     EnableAnalyzers = None
     AnalyzersPath = None
-    DisableInMemoryProjectReferences = None}
+    DisableInMemoryProjectReferences = None
+    AutomaticWorkspaceInit = Some true}
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}

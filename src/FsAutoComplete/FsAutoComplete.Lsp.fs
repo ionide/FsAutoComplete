@@ -243,9 +243,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         config <- c
         // Debug.print "Config: %A" c
 
-        match p.RootPath with
-        | None -> ()
-        | Some p ->
+        match p.RootPath, c.AutomaticWorkspaceInit with
+        | None, _
+        | _, false -> ()
+        | Some p, true ->
             async {
                 let! peek = commands.WorkspacePeek p config.WorkspaceModePeekDeepLevel (List.ofArray config.WorkspaceExcludedDirs)
 
@@ -1247,7 +1248,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return ()
     }
 
-    member x.FSharpSignature(p) =
+    member x.FSharpSignature(p: TextDocumentPositionParams) =
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.Typesig tyRes pos lineStr
@@ -1264,7 +1265,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
         )
 
-    member x.FSharpSignatureData(p) =
+    member x.FSharpSignatureData(p: TextDocumentPositionParams) =
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SignatureData tyRes pos lineStr
@@ -1359,6 +1360,22 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.FSharpWorkspacePeek(p: FsAutoComplete.HttpApiContract.WorkspacePeekRequest) = async {
+        let! res = commands.WorkspacePeek p.Directory p.Deep (p.ExcludedDirs |> List.ofArray)
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.WorkspacePeek found ->
+                { Content =  CommandResponse.workspacePeek FsAutoComplete.JsonSerializer.writeJson found }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+
+
+    }
+
     member __.FSharpProject(p) = async {
         let fn = p.Project.GetFilePath()
         let! res = commands.Project fn false ignore
@@ -1374,6 +1391,76 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.FSharpFsdn(p: ProjectParms) = async {
+        let! res = commands.Fsdn p.Project.Uri
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Fsdn (funcs) ->
+                { Content = CommandResponse.fsdn FsAutoComplete.JsonSerializer.writeJson funcs }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
+    member x.FSharpHelp(p: TextDocumentPositionParams) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.Help tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.Help(t) ->
+                        { Content =  CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+        )
+
+    member x.FSharpDocumentation(p: TextDocumentPositionParams) =
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.FormattedDocumentation tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.FormattedDocumentation(tip, xml, signature, footer, cm) ->
+                        { Content =  CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson (tip, xml, signature, footer, cm) }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+        )
+
+
+    member x.FSharpDocumentationSymbol(p: FsAutoComplete.HttpApiContract.DocumentationForSymbolReuqest) =
+        match commands.LastCheckResult with
+        | None -> AsyncLspResult.internalError "error"
+        | Some tyRes ->
+            async {
+                let! res = commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.FormattedDocumentationForSymbol (xml, assembly, doc, signature, footer, cn) ->
+                        { Content = CommandResponse.formattedDocumentationForSymbol FsAutoComplete.JsonSerializer.writeJson xml assembly doc (signature, footer, cn) }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+
+
+
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -1383,11 +1470,17 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/signature" (requestHandling (fun s p -> s.FSharpSignature(p) ))
         |> Map.add "fsharp/signatureData" (requestHandling (fun s p -> s.FSharpSignatureData(p) ))
         |> Map.add "fsharp/lineLens" (requestHandling (fun s p -> s.FSharpLineLense(p) ))
-        |> Map.add "lineLens/resolve" (requestHandling (fun s p -> s.LineLensResolve(p) ))
         |> Map.add "fsharp/compilerLocation" (requestHandling (fun s p -> s.FSharpCompilerLocation(p) ))
         |> Map.add "fsharp/compile" (requestHandling (fun s p -> s.FSharpCompile(p) ))
         |> Map.add "fsharp/workspaceLoad" (requestHandling (fun s p -> s.FSharpWorkspaceLoad(p) ))
+        |> Map.add "fsharp/workspacePeek" (requestHandling (fun s p -> s.FSharpWorkspacePeek(p) ))
         |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))
+        |> Map.add "fsharp/fsdn" (requestHandling (fun s p -> s.FSharpFsdn(p) ))
+        |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
+        |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
+        |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
+
+
 
     LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FsharpLspServer(commands, lspClient))
 
