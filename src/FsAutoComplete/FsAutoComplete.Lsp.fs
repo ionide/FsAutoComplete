@@ -55,8 +55,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let mutable config = FSharpConfig.Default
 
 
-
-
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
 
@@ -80,7 +78,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 ()
             else
                 let doc = p.TextDocument
-                let filePath = Uri(doc.Uri).LocalPath
+                let filePath = doc.GetFilePath()
                 let contentChange = p.ContentChanges |> Seq.tryLast
                 match contentChange, doc.Version with
                 | Some contentChange, Some version ->
@@ -341,7 +339,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             do! commands.WorkspaceReady |> Async.AwaitEvent
 
         let doc = p.TextDocument
-        let filePath = Uri(doc.Uri).LocalPath
+        let filePath = doc. GetFilePath()
         let content = doc.Text.Split('\n')
 
         do! (commands.Parse filePath content doc.Version |> Async.Ignore)
@@ -368,7 +366,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Debug.print "Background parsing disabled"
         else
             let doc = p.TextDocument
-            let filePath = Uri(doc.Uri).LocalPath
+            let filePath = doc.GetFilePath()
             do! (commands.ParseAndCheckProjectsInBackgroundForFile filePath |> Async.Ignore)
             ()
     }
@@ -378,7 +376,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
         let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
         let doc = p.TextDocument
-        let file = Uri(doc.Uri).LocalPath
+        let file = doc.GetFilePath()
         let pos = p.GetFcsPos()
         let! res =
             match commands.TryGetFileCheckerOptionsWithLines file with
@@ -1101,7 +1099,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     do! workspaceInited.Publish |> Async.AwaitEvent
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
-                let file = Uri(data.[0]).LocalPath
+                let file = Uri(data.[0]).LocalPath.TrimStart('/')
                 Debug.print "Position request: %s at %A" file pos
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with

@@ -291,7 +291,7 @@ type Commands (serialize : Serializer) =
         x.MapResultAsync ((fun x -> successToString x |> async.Return), ?failureToString = failureToString)
 
     member x.Fsdn (querystr) = async {
-            let results = Fsdn.query querystr 
+            let results = Fsdn.query querystr
             return [ CoreResponse.Fsdn results ]
         }
 
@@ -308,14 +308,25 @@ type Commands (serialize : Serializer) =
                 [cld])
 
     member private x.CancelQueue (filename : SourceFilePath) =
+        let filename = Path.GetFullPath filename
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
 
-    member x.TryGetRecentTypeCheckResultsForFile = checker.TryGetRecentCheckResultsForFile
+    member x.TryGetRecentTypeCheckResultsForFile(file, opts) =
+        let file = Path.GetFullPath file
+        checker.TryGetRecentCheckResultsForFile(file, opts)
 
-    member x.CheckFileInProject = checker.ParseAndCheckFileInProject'
+    member x.CheckFileInProject(file, version,source,opts) =
+        let file = Path.GetFullPath file
+        checker.ParseAndCheckFileInProject'(file, version, source, opts)
 
-    member x.TryGetFileCheckerOptionsWithLinesAndLineStr = state.TryGetFileCheckerOptionsWithLinesAndLineStr
-    member x.TryGetFileCheckerOptionsWithLines = state.TryGetFileCheckerOptionsWithLines
+    member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) =
+        let file = Path.GetFullPath file
+        state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos)
+
+    member x.TryGetFileCheckerOptionsWithLines(file) =
+        let file = Path.GetFullPath file
+        state.TryGetFileCheckerOptionsWithLines file
+
     member x.Files = state.Files
 
     member x.TryGetFileVersion = state.TryGetFileVersion
@@ -370,6 +381,7 @@ type Commands (serialize : Serializer) =
         } |> x.AsCancellable file
 
     member x.ParseAndCheckProjectsInBackgroundForFile file = async {
+        let file = Path.GetFullPath file
         match checker.GetDependingProjects file (state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray) with
         | Some (p, projs) ->
             state.EnqueueProjectForBackgroundParsing(p, 0)
@@ -380,6 +392,7 @@ type Commands (serialize : Serializer) =
     }
 
     member x.ParseProjectsForFile file = async {
+        let file = Path.GetFullPath file
         let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray)
         return
             match res with
@@ -517,6 +530,7 @@ type Commands (serialize : Serializer) =
 
     member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
         async {
+            let fileName = Path.GetFullPath fileName
             let getAllSymbols () =
                 if includeExternal then tyRes.GetAllEntities true else []
             let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
@@ -668,8 +682,6 @@ type Commands (serialize : Serializer) =
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.Lint (file: SourceFilePath) =
-
-
         let file = Path.GetFullPath file
         async {
             let res =
@@ -1016,6 +1028,7 @@ type Commands (serialize : Serializer) =
     }
 
     member __.BuildSymbolCacheForProject proj =
+        let proj = Path.GetFullPath proj
         match state.Projects.TryFind proj with
         | None -> ()
         | Some pr ->
@@ -1027,7 +1040,6 @@ type Commands (serialize : Serializer) =
 
     member __.BuildBackgroundSymbolsCache () =
         async {
-            let start = DateTime.Now
             SymbolCache.startCache state.WorkspaceRoot
             do! Async.Sleep 100
             let r =
