@@ -243,6 +243,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         config <- c
         // Debug.print "Config: %A" c
 
+        if config.EnableBackgroundSymbolCache then
+            commands.EnableSymbolCache()
+
+            commands.BuildBackgroundSymbolsCache ()
+            |> Async.Start
+
         match p.RootPath, c.AutomaticWorkspaceInit with
         | None, _
         | _, false -> ()
@@ -284,11 +290,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         //TODO: Above case always picks solution with most projects, should be changed
                         ()
                 | _ -> ()
-                if config.EnableBackgroundSymbolCache then
-                    commands.EnableSymbolCache()
 
-                    commands.BuildBackgroundSymbolsCache ()
-                    |> Async.Start
 
                 return ()
             } |> Async.Start
