@@ -480,6 +480,10 @@ type FSharpConfigDto = {
     DisableInMemoryProjectReferences: bool option
 }
 
+type FSharpConfigRequest = {
+    FSharp: FSharpConfigDto
+}
+
 type FSharpConfig = {
     AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int

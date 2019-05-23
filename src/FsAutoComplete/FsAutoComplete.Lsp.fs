@@ -1239,11 +1239,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceDidChangeConfiguration(p) = async {
-        let c =
+        let dto =
             p.Settings
-            |> Server.deserialize<FSharpConfigDto>
-            |> config.AddDto
-
+            |> Server.deserialize<FSharpConfigRequest>
+        let c = config.AddDto dto.FSharp
         config <- c
         return ()
     }
