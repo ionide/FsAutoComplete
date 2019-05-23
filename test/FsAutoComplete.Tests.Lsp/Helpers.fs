@@ -19,7 +19,7 @@ let createServer () =
 
 let defaultConfigDto : FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
-    WorkspaceExcludedDirs = None
+    ExcludeProjectDirectories = None
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
     Linter = None
@@ -34,7 +34,10 @@ let defaultConfigDto : FSharpConfigDto =
     EnableAnalyzers = None
     AnalyzersPath = None
     DisableInMemoryProjectReferences = None
-    AutomaticWorkspaceInit = Some true}
+    AutomaticWorkspaceInit = Some true
+    InterfaceStubGeneration = None
+    InterfaceStubGenerationObjectIdentifier = None
+    InterfaceStubGenerationMethodBody = None}
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}

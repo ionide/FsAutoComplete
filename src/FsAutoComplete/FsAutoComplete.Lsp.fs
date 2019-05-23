@@ -1035,32 +1035,36 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         else
             async.Return []
 
-    override x.TextDocumentCodeAction(p) = async {
+    override x.TextDocumentCodeAction(p) =
         let fn = p.TextDocument.GetFilePath()
-        let lines = commands.Files.[fn].Lines
-        let! unusedOpensActions = x.GetUnusedOpensCodeActions fn p
-        let! resolveNamespaceActions = x.GetResolveNamespaceActions fn p
-        let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
-        let! unusedActions = x.GetUnusedCodeAction fn p lines
-        let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
-        let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
-        let! linterActions = x.GetLinterCodeAction fn p
+        match commands.TryGetFileCheckerOptionsWithLines fn with
+        | ResultOrString.Error s ->
+            AsyncLspResult.internalError s
+        | ResultOrString.Ok (opts, lines) ->
+        async {
+            let! unusedOpensActions = x.GetUnusedOpensCodeActions fn p
+            let! resolveNamespaceActions = x.GetResolveNamespaceActions fn p
+            let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
+            let! unusedActions = x.GetUnusedCodeAction fn p lines
+            let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
+            let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
+            let! linterActions = x.GetLinterCodeAction fn p
 
 
-        let res =
-            [|
-                yield! unusedOpensActions
-                yield! resolveNamespaceActions
-                yield! errorSuggestionActions
-                yield! unusedActions
-                yield! newKeywordAction
-                yield! duCaseActions
-                yield! linterActions
-            |]
+            let res =
+                [|
+                    yield! unusedOpensActions
+                    yield! resolveNamespaceActions
+                    yield! errorSuggestionActions
+                    yield! unusedActions
+                    yield! newKeywordAction
+                    yield! duCaseActions
+                    yield! linterActions
+                |]
 
 
-        return res |> TextDocumentCodeActionResult.CodeActions |> Some |> success
-    }
+            return res |> TextDocumentCodeActionResult.CodeActions |> Some |> success
+        }
 
     override __.TextDocumentCodeLens(p) = async {
         let fn = p.TextDocument.GetFilePath()
