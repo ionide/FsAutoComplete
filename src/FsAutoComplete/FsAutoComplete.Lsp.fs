@@ -248,7 +248,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | _, false -> ()
         | Some p, true ->
             async {
-                let! peek = commands.WorkspacePeek p config.WorkspaceModePeekDeepLevel (List.ofArray config.WorkspaceExcludedDirs)
+                let! peek = commands.WorkspacePeek p config.WorkspaceModePeekDeepLevel (List.ofArray config.ExcludeProjectDirectories)
 
                 match peek.[0] with
                 | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

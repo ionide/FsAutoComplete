@@ -463,11 +463,14 @@ type WorkspaceLoadParms = {
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
-    WorkspaceExcludedDirs: string [] option
+    ExcludeProjectDirectories: string [] option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     Linter: bool option
     RecordStubGeneration: bool option
+    InterfaceStubGeneration: bool option
+    InterfaceStubGenerationObjectIdentifier: string option
+    InterfaceStubGenerationMethodBody: string option
     UnusedOpensAnalyzer: bool option
     UnusedDeclarationsAnalyzer: bool option
     SimplifyNameAnalyzer: bool option
@@ -487,11 +490,14 @@ type FSharpConfigRequest = {
 type FSharpConfig = {
     AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
-    WorkspaceExcludedDirs: string []
+    ExcludeProjectDirectories: string []
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     Linter: bool
     RecordStubGeneration: bool
+    InterfaceStubGeneration: bool
+    InterfaceStubGenerationObjectIdentifier: string
+    InterfaceStubGenerationMethodBody: string
     UnusedOpensAnalyzer: bool
     UnusedDeclarationsAnalyzer: bool
     SimplifyNameAnalyzer: bool
@@ -508,11 +514,14 @@ with
         {
             AutomaticWorkspaceInit = false
             WorkspaceModePeekDeepLevel = 2
-            WorkspaceExcludedDirs = [||]
+            ExcludeProjectDirectories = [||]
             KeywordsAutocomplete = false
             ExternalAutocomplete = false
             Linter = false
             RecordStubGeneration = false
+            InterfaceStubGeneration = false
+            InterfaceStubGenerationObjectIdentifier = "this"
+            InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
             UnusedOpensAnalyzer = false
             UnusedDeclarationsAnalyzer = false
             SimplifyNameAnalyzer = false
@@ -529,11 +538,14 @@ with
         {
             AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel 2
-            WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs [||]
+            ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories [||]
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
             Linter = defaultArg dto.Linter false
             RecordStubGeneration = defaultArg dto.RecordStubGeneration false
+            InterfaceStubGeneration = defaultArg dto.InterfaceStubGeneration false
+            InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier "this"
+            InterfaceStubGenerationMethodBody = defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
             UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer false
             UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
             SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
@@ -550,11 +562,14 @@ with
         {
             AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel x.WorkspaceModePeekDeepLevel
-            WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs x.WorkspaceExcludedDirs
+            ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories x.ExcludeProjectDirectories
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
             Linter = defaultArg dto.Linter x.Linter
             RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration
+            InterfaceStubGeneration = defaultArg dto.InterfaceStubGeneration x.InterfaceStubGeneration
+            InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier x.InterfaceStubGenerationObjectIdentifier
+            InterfaceStubGenerationMethodBody = defaultArg dto.InterfaceStubGenerationMethodBody x.InterfaceStubGenerationMethodBody
             UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer x.UnusedOpensAnalyzer
             UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
             SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer
