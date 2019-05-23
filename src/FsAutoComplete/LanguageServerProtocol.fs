@@ -1778,9 +1778,7 @@ module LspResult =
         Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, s))
 
     let internalError<'a> (s: string): LspResult<'a> =
-        FsAutoComplete.Debug.print "Internal error: %s" s
-        // Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s))
-        Result.Ok (Unchecked.defaultof<'a>)
+        Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s))
 
     let notImplemented<'a> : LspResult<'a> =
         Result.Error (JsonRpc.Error.MethodNotFound)
@@ -1793,9 +1791,7 @@ module AsyncLspResult =
         async.Return (Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, s)))
 
     let internalError s : AsyncLspResult<_> =
-        FsAutoComplete.Debug.print "Internal error: %s" s
-        async.Return (Result.Ok (Unchecked.defaultof<'a>))
-        //async.Return (Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s)))
+        async.Return (Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s)))
 
     let notImplemented<'a> : AsyncLspResult<'a> =
         async.Return (Result.Error (JsonRpc.Error.MethodNotFound))
