@@ -584,25 +584,8 @@ type FSharpCompilerServiceChecker() =
 
   }
 
-  member __.CheckProjectInBackground = checker.CheckProjectInBackground
 
-  member x.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
-    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
-    match project with
-    | None -> async {return ResultOrString.Error "Project for current file not found"}
-    | Some (name, option) ->
-      async {
-        match x.GetDependingProjects file options with
-        | None -> return ResultOrString.Error "Project for current file not found"
-        | Some (p, projs) ->
-        let! results =
-          [ yield p; yield! projs]
-          |> Seq.map (clearProjectReferecnes >> checker.ParseAndCheckProject)
-          |> Async.Parallel
-        let! currentResult =  checker.ParseAndCheckProject (clearProjectReferecnes option)
-        let res = [| yield currentResult; yield! results |]
-        return Ok res
-      }
+  member __.CheckProjectInBackground = checker.CheckProjectInBackground
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
     let opt = clearProjectReferecnes opt

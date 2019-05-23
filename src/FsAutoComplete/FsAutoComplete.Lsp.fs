@@ -58,18 +58,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
 
-    let getRecentTypeCheckResultsForFile file =
-        match commands.TryGetFileCheckerOptionsWithLines file with
-        | ResultOrString.Error s ->
-            Result.Error (sprintf "Can't get filecheck options with lines: %s" s)
-        | ResultOrString.Ok (options, lines) ->
-            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
-            match tyResOpt with
-            | None ->
-                Result.Error "Cached typecheck results not yet available"
-            | Some tyRes ->
-                Ok (options, lines, tyRes)
-
     let parseFile (p: DidChangeTextDocumentParams) =
 
         async {

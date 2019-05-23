@@ -391,17 +391,6 @@ type Commands (serialize : Serializer) =
         return [CoreResponse.Errors ([||], "") ]
     }
 
-    member x.ParseProjectsForFile file = async {
-        let file = Path.GetFullPath file
-        let! res = checker.ParseProjectsForFile(file, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray)
-        return
-            match res with
-            | ResultOrString.Error e -> [CoreResponse.ErrorRes e]
-            | ResultOrString.Ok results ->
-                let errors = results |> Array.collect (fun r -> r.Errors)
-                [ CoreResponse.Errors (errors, file)]
-    }
-
     member private __.ToProjectCache (opts, extraInfo, projectFiles, logMap) =
         let outFileOpt =
             match extraInfo.ProjectSdkType with
@@ -1026,17 +1015,6 @@ type Commands (serialize : Serializer) =
             let! errors,code = checker.Compile(proj.Options.OtherOptions)
             return [ CoreResponse.Compile (errors,code)]
     }
-
-    member __.BuildSymbolCacheForProject proj =
-        let proj = Path.GetFullPath proj
-        match state.Projects.TryFind proj with
-        | None -> ()
-        | Some pr ->
-            match pr.Response with
-            | None -> ()
-            | Some r ->
-                SymbolCache.buildProjectCache serialize r.Options
-                |> Async.Start
 
     member __.BuildBackgroundSymbolsCache () =
         async {
