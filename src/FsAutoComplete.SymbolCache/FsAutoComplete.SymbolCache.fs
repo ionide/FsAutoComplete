@@ -11,9 +11,7 @@ open System
 open FsAutoComplete.Utils
 open SymbolCache
 open System.IO
-open Microsoft.Data.Sqlite
-open Dapper
-open System.Data
+
 open Suave.Logging
 
 
@@ -31,40 +29,12 @@ let state = ConcurrentDictionary<string, SymbolUseRange[]>()
 
 type private PersistentStateMessage =
     | Save of file : string * symbols : SymbolUseRange[]
+    | FillStateForFile of file : string
     | FillState
 
+
 type PersistentState (dir) =
-    let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir
-
-    let dir = Path.Combine(dir, ".ionide")
-    do if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
-    let dbPath = Path.Combine(dir, "symbolCache.db")
-    let dbExists = File.Exists dbPath
-    let connection = new SqliteConnection(connectionString)
-
-    do if not dbExists then
-        let fs = File.Create(dbPath)
-        fs.Close()
-        let cmd = "CREATE TABLE Symbols(
-            FileName TEXT,
-            StartLine INT,
-            StartColumn INT,
-            EndLine INT,
-            EndColumn INT,
-            IsFromDefinition BOOLEAN,
-            IsFromAttribute BOOLEAN,
-            IsFromComputationExpression BOOLEAN,
-            IsFromDispatchSlotImplementation BOOLEAN,
-            IsFromPattern BOOLEAN,
-            IsFromType BOOLEAN,
-            SymbolFullName TEXT,
-            SymbolDisplayName TEXT,
-            SymbolIsLocal BOOLEAN
-        )"
-
-        connection.Execute(cmd)
-        |> ignore
-
+    let connection = SymbolCache.PersistenCacheImpl.initializeCache dir
 
     let agent = MailboxProcessor.Start <| fun mb ->
         let rec loop () = async {
@@ -72,19 +42,7 @@ type PersistentState (dir) =
             match msg with
             | Save (file, sugs) ->
                 try
-                    let d = DateTime.Now
-                    printfn "[Debug] Updating DB for %s" file
-                    if connection.State <> ConnectionState.Open then connection.Open()
-                    use tx = connection.BeginTransaction()
-                    let delCmd = sprintf "DELETE FROM Symbols WHERE FileName=\"%s\"" file
-                    let inserCmd =
-                        sprintf "INSERT INTO SYMBOLS(FileName, StartLine, StartColumn, EndLine, EndColumn, IsFromDefinition, IsFromAttribute, IsFromComputationExpression, IsFromDispatchSlotImplementation, IsFromPattern, IsFromType, SymbolFullName, SymbolDisplayName, SymbolIsLocal) VALUES
-                        (@FileName, @StartLine, @StartColumn, @EndLine, @EndColumn, @IsFromDefinition, @IsFromAttribute, @IsFromComputationExpression, @IsFromDispatchSlotImplementation, @IsFromPattern, @IsFromType, @SymbolFullName, @SymbolDisplayName, @SymbolIsLocal)"
-                    connection.Execute(delCmd, transaction = tx) |> ignore
-                    connection.Execute(inserCmd, sugs, transaction = tx) |> ignore
-                    tx.Commit()
-                    let e = DateTime.Now
-                    printfn "[Debug] Updating DB took %fms" (e-d).TotalMilliseconds
+                    PersistenCacheImpl.insert connection file sugs
                 with
                 | ex ->
                     printfn "%s" ex.Message
@@ -92,20 +50,23 @@ type PersistentState (dir) =
                 return! loop()
             | FillState ->
                 try
-                    printfn "[Debug] Loading initial state"
-                    let d = DateTime.Now
-                    if connection.State <> ConnectionState.Open then connection.Open()
-                    let q = "SELECT * FROM SYMBOLS"
-                    let res = connection.Query<SymbolUseRange>(q)
-                    res
+                    PersistenCacheImpl.loadAll connection
                     |> Seq.groupBy (fun r -> r.FileName)
                     |> Seq.iter (fun (fn, lst) ->
                         let sms = lst |> Seq.toArray
                         state.AddOrUpdate(fn, sms, fun _ _ -> sms) |> ignore
                     )
-                    let e = DateTime.Now
-                    printfn "Loaded initial state in %fms" (e-d).TotalMilliseconds
-
+                with
+                | ex ->
+                    printfn "%s" ex.Message
+                    printfn "%s" ex.StackTrace
+                return! loop()
+            | FillStateForFile fn ->
+                try
+                    let sms =
+                        PersistenCacheImpl.loadFile connection fn
+                        |> Seq.toArray
+                    state.AddOrUpdate(fn, sms, fun _ _ -> sms) |> ignore
                 with
                 | ex ->
                     printfn "%s" ex.Message
@@ -115,10 +76,8 @@ type PersistentState (dir) =
         loop ()
 
     member __.Save(file, sugs) = Save (file, sugs) |> agent.Post
+    member __.Load(file) = FillStateForFile file |> agent.Post
     member __.Initialize () = agent.Post FillState
-
-
-
 
 
 type BackgroundFSharpCompilerServiceChecker() =
@@ -139,7 +98,6 @@ module Commands =
 
     let buildCacheForProject (onAdded : string -> SymbolUseRange[] -> unit) opts =
         async {
-            let start = DateTime.Now
             let! res = checker.CheckProject(opts)
             let! results = res.GetAllUsesOfAllSymbols()
             results
@@ -148,8 +106,6 @@ module Commands =
                 let sms = symbols |> Array.map (SymbolCache.fromSymbolUse)
                 state.AddOrUpdate(fn, sms, fun _ _ -> sms) |> onAdded fn
             )
-            let e = DateTime.Now
-            printfn "Project %s took %fms" opts.ProjectFileName (e-start).TotalMilliseconds
         } |> Async.RunSynchronously
 
     let getSymbols symbolName =
@@ -169,10 +125,6 @@ module Commands =
             |> Seq.toList
 
         writeJson uses
-
-    let updateSymbols (onAdded : string -> SymbolUseRange[] -> unit) (req: SymbolCacheRequest) =
-        state.AddOrUpdate(req.Filename, req.Uses, fun _ _ -> req.Uses)
-        |> onAdded req.Filename
 
 
 let start port dir =
@@ -232,7 +184,7 @@ let start port dir =
                 try
                     let d = DateTime.Now
                     let req = getResourceFromReq<SymbolCacheRequest> httpCtx.request
-                    do Commands.updateSymbols (fun fn syms -> pS.Save(fn,syms) ) req
+                    do pS.Load req.Filename
                     let e = DateTime.Now
                     printfn "[Debug] /updateSymbols request took %fms" (e-d).TotalMilliseconds
                     Response.response HttpCode.HTTP_200 [||] httpCtx

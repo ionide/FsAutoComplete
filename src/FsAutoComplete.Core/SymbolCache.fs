@@ -9,6 +9,88 @@ open System.Net
 open System.IO
 open Newtonsoft.Json
 
+[<CLIMutable>]
+type SymbolUseRange = {
+    FileName: string
+    StartLine: int
+    StartColumn: int
+    EndLine: int
+    EndColumn: int
+    IsFromDefinition: bool
+    IsFromAttribute : bool
+    IsFromComputationExpression : bool
+    IsFromDispatchSlotImplementation : bool
+    IsFromPattern : bool
+    IsFromType : bool
+    SymbolFullName: string
+    SymbolDisplayName: string
+    SymbolIsLocal: bool
+}
+
+
+module PersistenCacheImpl =
+    open Microsoft.Data.Sqlite
+    open Dapper
+    open System.Data
+
+    let mutable connection : SqliteConnection option = None
+
+    let insert (connection: SqliteConnection) file (sugs: SymbolUseRange[]) =
+        if connection.State <> ConnectionState.Open then connection.Open()
+        use tx = connection.BeginTransaction()
+        let delCmd = sprintf "DELETE FROM Symbols WHERE FileName=\"%s\"" file
+        let inserCmd =
+            sprintf "INSERT INTO SYMBOLS(FileName, StartLine, StartColumn, EndLine, EndColumn, IsFromDefinition, IsFromAttribute, IsFromComputationExpression, IsFromDispatchSlotImplementation, IsFromPattern, IsFromType, SymbolFullName, SymbolDisplayName, SymbolIsLocal) VALUES
+            (@FileName, @StartLine, @StartColumn, @EndLine, @EndColumn, @IsFromDefinition, @IsFromAttribute, @IsFromComputationExpression, @IsFromDispatchSlotImplementation, @IsFromPattern, @IsFromType, @SymbolFullName, @SymbolDisplayName, @SymbolIsLocal)"
+        connection.Execute(delCmd, transaction = tx) |> ignore
+        connection.Execute(inserCmd, sugs, transaction = tx) |> ignore
+        tx.Commit()
+
+    let loadAll (connection: SqliteConnection) =
+        if connection.State <> ConnectionState.Open then connection.Open()
+        let q = "SELECT * FROM SYMBOLS"
+        let res = connection.Query<SymbolUseRange>(q)
+        res
+
+    let loadFile (connection: SqliteConnection) file =
+        if connection.State <> ConnectionState.Open then connection.Open()
+        let q = sprintf "SELECT * FROM SYMBOLS WHERE FileName=\"%s\"" file
+        let res = connection.Query<SymbolUseRange>(q)
+        res
+
+    let initializeCache dir =
+        let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir
+
+        let dir = Path.Combine(dir, ".ionide")
+        do if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
+        let dbPath = Path.Combine(dir, "symbolCache.db")
+        let dbExists = File.Exists dbPath
+        let connection = new SqliteConnection(connectionString)
+
+        do if not dbExists then
+            let fs = File.Create(dbPath)
+            fs.Close()
+            let cmd = "CREATE TABLE Symbols(
+                FileName TEXT,
+                StartLine INT,
+                StartColumn INT,
+                EndLine INT,
+                EndColumn INT,
+                IsFromDefinition BOOLEAN,
+                IsFromAttribute BOOLEAN,
+                IsFromComputationExpression BOOLEAN,
+                IsFromDispatchSlotImplementation BOOLEAN,
+                IsFromPattern BOOLEAN,
+                IsFromType BOOLEAN,
+                SymbolFullName TEXT,
+                SymbolDisplayName TEXT,
+                SymbolIsLocal BOOLEAN
+            )"
+
+            connection.Execute(cmd)
+            |> ignore
+        connection
+
 let makePostRequest (url : string) (requestBody : string) =
     let req = WebRequest.CreateHttp url
     req.CookieContainer <- new CookieContainer()
@@ -30,28 +112,11 @@ let makePostRequest (url : string) (requestBody : string) =
 
 let mutable port = 0
 
-[<CLIMutable>]
-type SymbolUseRange = {
-    FileName: string
-    StartLine: int
-    StartColumn: int
-    EndLine: int
-    EndColumn: int
-    IsFromDefinition: bool
-    IsFromAttribute : bool
-    IsFromComputationExpression : bool
-    IsFromDispatchSlotImplementation : bool
-    IsFromPattern : bool
-    IsFromType : bool
-    SymbolFullName: string
-    SymbolDisplayName: string
-    SymbolIsLocal: bool
-}
 
 type SymbolCacheRequest = {
     Filename: string
-    Uses: SymbolUseRange[]
 }
+
 let p =
     let t = typeof<SymbolCacheRequest>
     Path.GetDirectoryName t.Assembly.Location
@@ -62,6 +127,7 @@ let pid =
 
 let startCache (dir : string) =
     port <- Random().Next(9000,9999)
+    PersistenCacheImpl.connection <- Some (PersistenCacheImpl.initializeCache dir)
     let si = ProcessStartInfo()
     si.RedirectStandardOutput <- true
     si.RedirectStandardError <- true
@@ -105,11 +171,14 @@ let fromSymbolUse (su : FSharpSymbolUse) =
 
 
 let sendSymbols (serializer: Serializer) fn (symbols: FSharpSymbolUse[]) =
-    let request =
+    let sus =
         symbols
         |> Array.map(fromSymbolUse)
-        |> fun n -> {Filename = fn; Uses = n}
-        |> serializer
+
+    PersistenCacheImpl.connection
+    |> Option.iter (fun con -> PersistenCacheImpl.insert con fn sus )
+
+    let request = serializer {Filename = fn}
 
     try
         makePostRequest ("http://localhost:" + (string port) + "/updateSymbols") request
