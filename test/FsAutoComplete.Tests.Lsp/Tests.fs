@@ -460,6 +460,6 @@ let tests =
     codeLensTest
     documentSymbolTest
     autocompleteTest
-    renameTest
-    gotoTest
+    //renameTest
+    //gotoTest
   ]
