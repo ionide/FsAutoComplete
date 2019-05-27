@@ -2017,7 +2017,7 @@ type LspServer() =
     abstract member DocumentLinkResolve: DocumentLink -> AsyncLspResult<DocumentLink>
     default __.DocumentLinkResolve(_) = notImplemented
 
-    /// The document color request is sent from the client to the server to list all color refereces
+    /// The document color request is sent from the client to the server to list all color references
     /// found in a given text document. Along with the range, a color value in RGB is returned.
     abstract member TextDocumentDocumentColor: DocumentColorParams -> AsyncLspResult<ColorInformation[]>
     default __.TextDocumentDocumentColor(_) = notImplemented

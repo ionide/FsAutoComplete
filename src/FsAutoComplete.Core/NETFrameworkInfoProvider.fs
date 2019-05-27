@@ -146,7 +146,7 @@ module NETFrameworkInfoProvider =
     let key = targetFramework |> Option.getOrElse ""
     additionalArgsByTfm.GetOrAdd(key, f)
 
-  let netReferecesAssembliesTFM () =
+  let netReferencesAssembliesTFM () =
 #if SCRIPT_REFS_FROM_MSBUILD
     installedNETVersions ()
     |> Array.ofList
@@ -155,8 +155,8 @@ module NETFrameworkInfoProvider =
     |> Array.map Path.GetFileName
 #endif
 
-  let netReferecesAssembliesTFMLatest () =
-    netReferecesAssembliesTFM ()
+  let netReferencesAssembliesTFMLatest () =
+    netReferencesAssembliesTFM ()
     |> Array.sortWith (fun x y -> StringComparer.OrdinalIgnoreCase.Compare(x, y))
     |> Array.rev
     |> Array.tryHead
