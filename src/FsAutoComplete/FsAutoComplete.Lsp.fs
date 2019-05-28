@@ -373,6 +373,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.TextDocumentCompletion(p) = async {
         Debug.print "[LSP call] TextDocumentCompletion"
+        Debug.print "[LSP call] TextDocumentCompletion - context: %A" p.Context
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
         let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
         let doc = p.TextDocument
@@ -385,7 +386,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let line = p.Position.Line
                 let col = p.Position.Character
                 let lineStr = lines.[line]
-                let word = lineStr.Substring(0, col) //TODO
+                let word = lineStr.Substring(0, col)
                 let ok = line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
                 if not ok then
                     AsyncLspResult.internalError "not ok"
@@ -410,9 +411,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             match p.Context with
                             | None -> commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
                             | Some ctx ->
-                                if ctx.triggerKind = CompletionTriggerKind.Invoked || (ctx.triggerCharacter = Some ".") then
-                                    let f = String.concat "\n" lines
-                                    commands.CheckFileInProject(file, commands.LastVersionChecked + 1, f, options)
+                                //ctx.triggerKind = CompletionTriggerKind.Invoked ||
+                                if  (ctx.triggerCharacter = Some ".") then
+                                    commands.TryGetLatestTypeCheckResultsForFile(file, options)
                                 else
                                     commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
 

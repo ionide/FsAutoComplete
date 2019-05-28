@@ -316,6 +316,7 @@ type Commands (serialize : Serializer) =
         let file = Path.GetFullPath file
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
+        Debug.print "[Commands] TryGetLatestTypeCheckResultsForFile - %s; State - %A; Checked - %A" file stateVersion checkedVersion
         match stateVersion, checkedVersion with
         | Some sv, Some cv when cv < sv ->
             x.FileChecked
