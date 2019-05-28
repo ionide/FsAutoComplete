@@ -74,7 +74,6 @@ type Commands (serialize : Serializer) =
     let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
-    let fileInProjectChecked = Event<SourceFilePath>()
     let mutable notifyErrorsInBackground = true
     let mutable useSymbolCache = false
     let mutable lastVersionChecked = -1
@@ -86,9 +85,6 @@ type Commands (serialize : Serializer) =
     let workspaceReady = Event<unit>()
 
     let fileStateSet = Event<unit>()
-
-    //TODO: Thread safe version
-    let mutable fileStateWaiting = false
 
     let rec backgroundChecker () =
         async {
@@ -110,12 +106,13 @@ type Commands (serialize : Serializer) =
         }
 
     do fileParsed.Publish.Add (fun parseRes ->
-       let decls = parseRes.GetNavigationItems().Declarations
-       state.NavigationDeclarations.[parseRes.FileName] <- decls
-       state.ParseResults.[parseRes.FileName] <- parseRes
+        let decls = parseRes.GetNavigationItems().Declarations
+        state.NavigationDeclarations.[parseRes.FileName] <- decls
+        state.ParseResults.[parseRes.FileName] <- parseRes
     )
 
     do checker.FileChecked.Add (fun (n,_) ->
+        Debug.print "[Commands - checker events] File checked - %s" n
         async {
             try
                 let opts = state.FileCheckOptions.[n]
@@ -172,6 +169,7 @@ type Commands (serialize : Serializer) =
 
     do checker.ProjectChecked.Add(fun (o, _) ->
         if notifyErrorsInBackground then
+            Debug.print "[Commands - checker events] Project checked - %s" o
             state.FileCheckOptions.ToArray()
             |> Array.tryPick(fun (KeyValue(_, v)) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
             |> Option.iter ( state.BackgroundProjects.TryRemove >> ignore)
@@ -263,9 +261,6 @@ type Commands (serialize : Serializer) =
         with get() = notifyErrorsInBackground
         and set(value) = notifyErrorsInBackground <- value
 
-    member __.FileStateWaiting
-        with get() = fileStateWaiting
-        and set(value) = fileStateWaiting <- value
 
     member __.LastVersionChecked
         with get() = lastVersionChecked
@@ -276,6 +271,9 @@ type Commands (serialize : Serializer) =
     member __.UseSymbolCache
         with get() = useSymbolCache
         and set(value) = useSymbolCache <- value
+
+    member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version) =
+        state.AddFileText(file, lines, version)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse>, ?failureToString: string -> CoreResponse) =
         Async.bind <| function
@@ -312,6 +310,31 @@ type Commands (serialize : Serializer) =
         let file = Path.GetFullPath file
         checker.TryGetRecentCheckResultsForFile(file, opts)
 
+    ///Gets recent type check results, waiting for the results of in-progress type checking
+    /// if version of file in memory is grater than last type checked version
+    member x.TryGetLatestTypeCheckResultsForFile(file, opts) =
+        let file = Path.GetFullPath file
+        let stateVersion = state.TryGetFileVersion file
+        let checkedVersion = state.TryGetLastCheckedVersion file
+        match stateVersion, checkedVersion with
+        | Some sv, Some cv when cv < sv ->
+            x.FileChecked
+            |> Event.filter (fun (_,n,_) -> n = file )
+            |> Event.map ignore
+            |> Async.AwaitEvent
+            |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file, opts))
+        | Some _, None
+        | None, Some _ ->
+            x.FileChecked
+            |> Event.filter (fun (_,n,_) -> n = file )
+            |> Event.map ignore
+            |> Async.AwaitEvent
+            |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file, opts))
+        | _ ->
+            x.TryGetRecentTypeCheckResultsForFile(file, opts)
+            |> async.Return
+
+
     member x.CheckFileInProject(file, version,source,opts) =
         let file = Path.GetFullPath file
         checker.ParseAndCheckFileInProject'(file, version, source, opts)
@@ -343,9 +366,9 @@ type Commands (serialize : Serializer) =
                             let parseResult = parseAndCheck.GetParseResults
                             let results = parseAndCheck.GetCheckResults
                             do fileParsed.Trigger parseResult
-                            do fileInProjectChecked.Trigger file
                             do lastVersionChecked <- version
                             do lastCheckResult <- Some parseAndCheck
+                            do state.SetLastCheckedVersion fileName version
                             do fileChecked.Trigger (parseAndCheck, fileName, version)
                             let errors = Array.append results.Errors parseResult.Errors
                             if colorizations then
@@ -358,7 +381,6 @@ type Commands (serialize : Serializer) =
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
-                x.FileStateWaiting <- false
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
             else
@@ -372,7 +394,6 @@ type Commands (serialize : Serializer) =
                         state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
-                x.FileStateWaiting <- false
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
@@ -506,12 +527,16 @@ type Commands (serialize : Serializer) =
                     | Some s -> Some s
                 [CoreResponse.HelpText (sym, tip, n)]
 
+
+
+
     member x.CompilerLocation () = [CoreResponse.CompilerLocation (Environment.fsc, Environment.fsi, Environment.msbuild)]
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
     member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
         async {
+
             let fileName = Path.GetFullPath fileName
             let getAllSymbols () =
                 if includeExternal then tyRes.GetAllEntities true else []

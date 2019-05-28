@@ -15,6 +15,7 @@ type CompletionNamespaceInsert = string * int * int * string
 type State =
   {
     Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
+    LastCheckedVersion: ConcurrentDictionary<SourceFilePath, int>
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
 
@@ -36,6 +37,7 @@ type State =
 
   static member Initial =
     { Files = ConcurrentDictionary()
+      LastCheckedVersion = ConcurrentDictionary()
       FileCheckOptions = ConcurrentDictionary()
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
@@ -66,6 +68,11 @@ type State =
     x.Files.TryFind file
     |> Option.bind (fun f -> f.Version)
 
+  member x.TryGetLastCheckedVersion (file: SourceFilePath) : int option =
+    let file = Utils.normalizePath file
+
+    x.LastCheckedVersion.TryFind file
+
   member x.SetFileVersion (file: SourceFilePath) (version: int) =
     x.Files.TryFind file
     |> Option.iter (fun n ->
@@ -73,11 +80,19 @@ type State =
       x.Files.[file] <- fileState
     )
 
+  member x.SetLastCheckedVersion (file: SourceFilePath) (version: int) =
+    x.LastCheckedVersion.[file] <- version
+
   member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts, version) =
     let file = Utils.normalizePath file
     let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
     x.FileCheckOptions.[file] <- opts
+
+  member x.AddFileText(file: SourceFilePath, lines: LineStr[], version) =
+    let file = Utils.normalizePath file
+    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
+    x.Files.[file] <- fileState
 
   member x.AddCancellationToken(file : SourceFilePath, token: CancellationTokenSource) =
     x.CancellationTokens.AddOrUpdate(file, [token], fun _ lst -> token::lst)

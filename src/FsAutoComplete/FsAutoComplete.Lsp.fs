@@ -48,8 +48,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
     let mutable workspaceInit = false
     let workspaceInited = Event<unit>()
-    let mutable fileInit = false
-    let fileInited = Event<unit>()
     let subscriptions = ResizeArray<IDisposable>()
 
     let mutable config = FSharpConfig.Default
@@ -179,9 +177,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             with
             | _ -> ()
         ) |> subscriptions.Add
-    member __.FileInit
-        with get() = fileInit
-        and set(value) = fileInit <- value
 
     member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
@@ -327,13 +322,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.TextDocumentDidOpen(p) = async {
         Debug.print "[LSP call] TextDocumentDidOpen"
-        commands.FileStateWaiting <- true
         if not commands.IsWorkspaceReady then
             do! commands.WorkspaceReady |> Async.AwaitEvent
 
         let doc = p.TextDocument
         let filePath = doc. GetFilePath()
         let content = doc.Text.Split('\n')
+        commands.SetFileContent(filePath, content, Some doc.Version)
 
         do! (commands.Parse filePath content doc.Version |> Async.Ignore)
         workspaceInit <- true
@@ -348,7 +343,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.TextDocumentDidChange(p) = async {
         Debug.print "[LSP call] TextDocumentDidChange"
-        commands.FileStateWaiting <- true
+        let doc = p.TextDocument
+        let filePath = doc.GetFilePath()
+        let contentChange = p.ContentChanges |> Seq.tryLast
+        match contentChange, doc.Version with
+        | Some contentChange, Some version ->
+            if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
+                let content = contentChange.Text.Split('\n')
+                commands.SetFileContent(filePath, content, Some version)
+            else ()
+        | _ -> ()
+
         parseFileDebuncer.Bounce p
     }
 
@@ -380,8 +385,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let line = p.Position.Line
                 let col = p.Position.Character
                 let lineStr = lines.[line]
-                let word = lineStr.Substring(0, col)
-                let ok = line <= lines.Length && line >= 1 && col <= lineStr.Length + 1 && col >= 1
+                let word = lineStr.Substring(0, col) //TODO
+                let ok = line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
                 if not ok then
                     AsyncLspResult.internalError "not ok"
                 elif (lineStr.StartsWith "#" && (FsAutoComplete.KeywordList.hashDirectives |> List.exists (fun (n,_) -> n.StartsWith word ) || word.Contains "\n" )) then
@@ -742,8 +747,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override __.TextDocumentDocumentSymbol(p) = async {
         Debug.print "[LSP call] TextDocumentDocumentSymbol"
         let fn = p.TextDocument.GetFilePath()
-        if not fileInit then
-            do! fileInited.Publish |> Async.AwaitEvent
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
             match res.[0] with
@@ -1075,10 +1078,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override __.TextDocumentCodeLens(p) = async {
         Debug.print "[LSP call] TextDocumentCodeLens"
         let fn = p.TextDocument.GetFilePath()
-        if commands.FileStateWaiting then
-            do! commands.FileStateSet.Publish |> Async.AwaitEvent
-            fileInited.Trigger ()
-            fileInit <- true
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
             match res.[0] with
@@ -1122,43 +1121,25 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         {p with Command = Some cmd} |> success |> async.Return
                     | ResultOrString.Ok (options, _, lineStr) ->
                         try
-                            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
-                            match tyResOpt with
-                            | None ->
-                                async {
-                                    do! commands.FileChecked
-                                        |> Event.filter (fun (_,n,_) -> n = file )
-                                        |> Event.map ignore
-                                        |> Async.AwaitEvent
-
-                                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
-                                    return!
-                                        match tyResOpt with
-                                        | None ->
-                                            Debug.print "[LSP] CodeLensResolve - Cached typecheck results not yet available"
-                                            let cmd = {Title = "No typecheck results"; Command = None; Arguments = None}
-                                            {p with Command = Some cmd} |> success |> async.Return
-                                        | Some tyRes ->
-                                            async {
-                                                let! r = Async.Catch (f arg pos tyRes lineStr data.[1] file)
-                                                match r with
-                                                | Choice1Of2 r -> return r
-                                                | Choice2Of2 e ->
-                                                    Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
-                                                    let cmd = {Title = ""; Command = None; Arguments = None}
-                                                    return {p with Command = Some cmd} |> success
-                                            }
-                                }
-                            | Some tyRes ->
-                                async {
-                                    let! r = Async.Catch (f arg pos tyRes lineStr data.[1] file)
-                                    match r with
-                                    | Choice1Of2 r -> return r
-                                    | Choice2Of2 e ->
-                                        Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
-                                        let cmd = {Title = ""; Command = None; Arguments = None}
-                                        return {p with Command = Some cmd} |> success
-                                }
+                            async {
+                                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file, options)
+                                return!
+                                    match tyResOpt with
+                                    | None ->
+                                        Debug.print "[LSP] CodeLensResolve - Cached typecheck results not yet available"
+                                        let cmd = {Title = "No typecheck results"; Command = None; Arguments = None}
+                                        {p with Command = Some cmd} |> success |> async.Return
+                                    | Some tyRes ->
+                                        async {
+                                            let! r = Async.Catch (f arg pos tyRes lineStr data.[1] file)
+                                            match r with
+                                            | Choice1Of2 r -> return r
+                                            | Choice2Of2 e ->
+                                                Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
+                                                let cmd = {Title = ""; Command = None; Arguments = None}
+                                                return {p with Command = Some cmd} |> success
+                                        }
+                            }
                         with e ->
                             Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
                             let cmd = {Title = ""; Command = None; Arguments = None}
@@ -1250,12 +1231,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceDidChangeConfiguration(p) = async {
-        Debug.print "[LSP call] WorkspaceDidChangeConfiguration"
         let dto =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>
         let c = config.AddDto dto.FSharp
         config <- c
+        Debug.print "[LSP call] WorkspaceDidChangeConfiguration:\n %A" c
+        commands.NotifyErrorsInBackground <- not c.MinimizeBackgroundParsing
         return ()
     }
 
@@ -1298,9 +1280,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FSharpLineLense(p) = async {
         Debug.print "[LSP call] FSharpLineLense"
         let fn = p.Project.GetFilePath()
-        if commands.FileStateWaiting then
-            do! commands.FileStateSet.Publish |> Async.AwaitEvent
-            commands.FileStateSet.Trigger ()
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
             match res.[0] with

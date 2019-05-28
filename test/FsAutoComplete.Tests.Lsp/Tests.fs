@@ -116,7 +116,6 @@ let basicTests () =
       testList "Document Symbol Tests" [
         test "Document Symbol" {
           let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
-          server.FileInit <- true
           let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtest "Request failed"
@@ -227,7 +226,6 @@ let documentSymbolTest () =
     testList "Document Symbols Tests" [
       test "Get Document Symbols" {
         let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
-        server.FileInit <- true
         let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -252,7 +250,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -268,7 +265,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -284,7 +280,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -300,7 +295,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -332,7 +326,6 @@ let renameTest () =
         let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
                                  Position = { Line = 7; Character = 12}
                                  NewName = "y" }
-        server.FileInit <- true
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -351,7 +344,6 @@ let renameTest () =
         let p : RenameParams = { TextDocument = { Uri = filePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
-        server.FileInit <- true
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
