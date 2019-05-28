@@ -264,7 +264,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" (commands.GetGitHash ()) ) |> ignore
             Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
         )
-        Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
+        ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 
     startWebServer serverConfig app
