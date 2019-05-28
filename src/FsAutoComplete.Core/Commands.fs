@@ -336,9 +336,6 @@ type Commands (serialize : Serializer) =
             |> async.Return
 
 
-    member x.CheckFileInProject(file, version,source,opts) =
-        let file = Path.GetFullPath file
-        checker.ParseAndCheckFileInProject'(file, version, source, opts)
 
     member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) =
         let file = Path.GetFullPath file
