@@ -33,7 +33,6 @@ type private Context = {
 }
 
 let private clauseIsCandidateForCodeGen (cursorPos: pos) (clause: SynMatchClause) =
-    //printfn "Checking pos (%+A) inside clause (%+A)..." cursorPos clause
     let rec patIsCandidate (pat: SynPat) =
         match pat with
         | SynPat.Paren(innerPat, _)

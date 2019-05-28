@@ -128,7 +128,6 @@ module Lexer =
             | SymbolLookupKind.ByLongIdent ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
-        //printfn "Filtered tokens: %+A" tokensUnderCursor
         match lookupKind with
         | SymbolLookupKind.ByLongIdent ->
             // Try to find start column of the long identifiers

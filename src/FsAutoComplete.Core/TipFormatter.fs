@@ -170,8 +170,6 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize : int) (acc: Map
         indentationSize, acc |> Map.add key (XmlDocMember(doc, indentationSize, xli.LinePosition - 3)) |> Some
       with
       | ex ->
-        // printfn "%s" ex.Message
-        // printfn "%s" ex.StackTrace
         indentationSize, Some acc
     | _ -> indentationSize, Some acc
 
@@ -221,8 +219,6 @@ let private getXmlDoc dllFile =
           xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, fun _ _ -> xmlDoc) |> ignore
           Some xmlDoc
         with ex ->
-        //   printfn "%s" ex.Message
-        //   printfn "%s" ex.StackTrace
           None  // TODO: Remove the empty map from cache to try again in the next request?
 
 // --------------------------------------------------------------------------------------

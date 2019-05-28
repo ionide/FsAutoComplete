@@ -62,7 +62,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         async {
             if not commands.IsWorkspaceReady then
-                Debug.print "Workspace not ready"
+                Debug.print "[LSP] ParseFile - Workspace not ready"
                 ()
             else
                 let doc = p.TextDocument
@@ -79,9 +79,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
                         if config.SimplifyNameAnalyzer then do! (commands.GetSimplifiedNames filePath |> Async.Ignore)
                     else
-                        Debug.print "Parse not started, received partial change"
+                        Debug.print "[LSP] ParseFile - Parse not started, received partial change"
                 | _ ->
-                    Debug.print "Found no change for %s" filePath
+                    Debug.print "[LSP] ParseFile - Found no change for %s" filePath
                     ()
         } |> Async.Start
 
@@ -187,19 +187,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath()
-            Debug.print "Position request: %s at %A" file pos
+            Debug.print "[LSP] PositionHandler - Position request: %s at %A" file pos
 
             return!
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                 | ResultOrString.Error s ->
-                    Debug.print "Getting file checker options failed: %s" s
+                    Debug.print "[LSP] PositionHandler - Getting file checker options failed: %s" s
                     AsyncLspResult.internalError s
                 | ResultOrString.Ok (options, lines, lineStr) ->
                     try
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None ->
-                            Debug.print "Cached typecheck results not yet available"
+                            Debug.print "[LSP] PositionHandler - Cached typecheck results not yet available"
                             AsyncLspResult.internalError "Cached typecheck results not yet available"
                         | Some tyRes ->
                             async {
@@ -207,11 +207,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 match r with
                                 | Choice1Of2 r -> return r
                                 | Choice2Of2 e ->
-                                    Debug.print "Operation failed: %s" e.Message
+                                    Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
                                     return LspResult.internalError e.Message
                             }
                     with e ->
-                        Debug.print "Operation failed: %s" e.Message
+                        Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
                         AsyncLspResult.internalError e.Message
         }
 
@@ -352,9 +352,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     //TODO: Investigate if this should be done at all
     override __.TextDocumentDidSave(p) = async {
         if not commands.IsWorkspaceReady then
-            Debug.print "Workspace not ready"
+            Debug.print "[LSP] DidSave - Workspace not ready"
         elif config.MinimizeBackgroundParsing then
-            Debug.print "Background parsing disabled"
+            Debug.print "[LSP] DidSave - Background parsing disabled"
         else
             let doc = p.TextDocument
             let filePath = doc.GetFilePath()
@@ -1095,11 +1095,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
                 let file = Uri(data.[0]).LocalPath.TrimStart('/')
-                Debug.print "Position request: %s at %A" file pos
+                Debug.print "[LSP] CodeLensResolve - Position request: %s at %A" file pos
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
-                        Debug.print "Getting file checker options failed: %s" s
+                        Debug.print "[LSP] CodeLensResolve - Getting file checker options failed: %s" s
                         let cmd = {Title = "No options"; Command = None; Arguments = None}
                         {p with Command = Some cmd} |> success |> async.Return
                     | ResultOrString.Ok (options, _, lineStr) ->
@@ -1117,7 +1117,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     return!
                                         match tyResOpt with
                                         | None ->
-                                            Debug.print "Cached typecheck results not yet available"
+                                            Debug.print "[LSP] CodeLensResolve - Cached typecheck results not yet available"
                                             let cmd = {Title = "No typecheck results"; Command = None; Arguments = None}
                                             {p with Command = Some cmd} |> success |> async.Return
                                         | Some tyRes ->
@@ -1126,7 +1126,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                                 match r with
                                                 | Choice1Of2 r -> return r
                                                 | Choice2Of2 e ->
-                                                    Debug.print "Operation failed: %s" e.Message
+                                                    Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
                                                     let cmd = {Title = ""; Command = None; Arguments = None}
                                                     return {p with Command = Some cmd} |> success
                                             }
@@ -1137,12 +1137,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     match r with
                                     | Choice1Of2 r -> return r
                                     | Choice2Of2 e ->
-                                        Debug.print "Operation failed: %s" e.Message
+                                        Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
                                         let cmd = {Title = ""; Command = None; Arguments = None}
                                         return {p with Command = Some cmd} |> success
                                 }
                         with e ->
-                            Debug.print "Operation failed: %s" e.Message
+                            Debug.print "[LSP] CodeLensResolve - Operation failed: %s" e.Message
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success |> async.Return
             }
@@ -1155,7 +1155,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let res =
                         match res.[0] with
                         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                            Debug.print "Error: %s" msg
+                            Debug.print "[LSP] CodeLensResolve - error: %s" msg
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
                         | CoreResponse.SignatureData (typ, parms) ->
@@ -1163,7 +1163,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             let cmd = {Title = formatted; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
                         | _ ->
-                            Debug.print "Other"
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
                     return res
@@ -1172,7 +1171,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let res =
                         match res.[0] with
                         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                            Debug.print "Error: %s" msg
+                            Debug.print "[LSP] CodeLensResolve - error: %s" msg
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
                         | CoreResponse.SymbolUse (sym, uses) ->
@@ -1209,7 +1208,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             let cmd = {Title = formatted; Command = Some "fsharp.showReferences"; Arguments = Some args}
                             {p with Command = Some cmd} |> success
                         | _ ->
-                            Debug.print "Other"
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
                     return res
@@ -1483,9 +1481,9 @@ let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
         Debug.output <- stderr
     try
         let result = startCore commands
-        Debug.print "Ending LSP mode with %A" result
+        Debug.print "[LSP] Start - Ending LSP mode with %A" result
         int result
     with
     | ex ->
-        Debug.print "LSP mode crashed with %A" ex
+        Debug.print "[LSP] Start - LSP mode crashed with %A" ex
         3
