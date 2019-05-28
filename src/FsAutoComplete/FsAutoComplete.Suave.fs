@@ -165,9 +165,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         let c = lineStr.[col - 2]
                         let! tyResOpt =
                             if c = '.' then
-                                let f = String.concat "\n" lines
                                 if commands.LastVersionChecked >= data.Version then
-                                    commands.CheckFileInProject(file, data.Version, f, options)
+                                    commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
                                 else
                                     commands.FileChecked
                                     |> Event.filter (fun (_, name, version) -> name = file && version = data.Version)
