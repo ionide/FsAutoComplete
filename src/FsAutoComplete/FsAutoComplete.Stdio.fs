@@ -125,7 +125,7 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     let commandQueue = new BlockingCollection<Command>(10)
 
     args.TryGetResult(<@ Options.CLIArguments.HostPID @>)
-    |> Option.iter (Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit)))
+    |> Option.iter (ProcessWatcher.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit)))
 
     try
         async {
