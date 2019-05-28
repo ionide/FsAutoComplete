@@ -217,7 +217,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     override __.Initialize(p) = async {
-        // Debug.print "Initialize"
+        Debug.print "[LSP call] Initialize"
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
@@ -321,10 +321,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.Initialized(p) = async {
+        Debug.print "[LSP call] Initialized"
         return ()
     }
 
     override __.TextDocumentDidOpen(p) = async {
+        Debug.print "[LSP call] TextDocumentDidOpen"
         commands.FileStateWaiting <- true
         if not commands.IsWorkspaceReady then
             do! commands.WorkspaceReady |> Async.AwaitEvent
@@ -345,12 +347,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentDidChange(p) = async {
+        Debug.print "[LSP call] TextDocumentDidChange"
         commands.FileStateWaiting <- true
         parseFileDebuncer.Bounce p
     }
 
     //TODO: Investigate if this should be done at all
     override __.TextDocumentDidSave(p) = async {
+        Debug.print "[LSP call] TextDocumentDidSave"
         if not commands.IsWorkspaceReady then
             Debug.print "[LSP] DidSave - Workspace not ready"
         elif config.MinimizeBackgroundParsing then
@@ -363,7 +367,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentCompletion(p) = async {
-
+        Debug.print "[LSP call] TextDocumentCompletion"
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
         let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
         let doc = p.TextDocument
@@ -456,6 +460,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.CompletionItemResolve(ci) = async {
+        Debug.print "[LSP call] CompletionItemResolve"
         let res = commands.Helptext ci.InsertText.Value
         let res =
             match res.[0] with
@@ -474,6 +479,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override x.TextDocumentSignatureHelp(p) =
+        Debug.print "[LSP call] TextDocumentSignatureHelp"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.Methods tyRes  pos lines
@@ -514,6 +520,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     override x.TextDocumentHover(p) =
+        Debug.print "[LSP call] TextDocumentHover"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.ToolTip tyRes pos lineStr
@@ -567,6 +574,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentRename(p) =
+        Debug.print "[LSP call] TextDocumentRename"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolUseProject tyRes pos lineStr
@@ -624,6 +632,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentDefinition(p) =
+        Debug.print "[LSP call] TextDocumentDefinition"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 //TODO: Add #load reference
@@ -642,6 +651,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentTypeDefinition(p) =
+        Debug.print "[LSP call] TextDocumentTypeDefinition"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.FindTypeDeclaration tyRes pos lineStr
@@ -659,6 +669,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentReferences(p) =
+        Debug.print "[LSP call] TextDocumentRefrences"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolUseProject tyRes pos lineStr
@@ -681,6 +692,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentDocumentHighlight(p) =
+        Debug.print "[LSP call] TextDocumentDocumentHighlight"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolUse tyRes pos lineStr
@@ -702,6 +714,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentImplementation(p) =
+        Debug.print "[LSP call] TextDocumentImplementation"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolImplementationProject tyRes pos lineStr
@@ -727,6 +740,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     override __.TextDocumentDocumentSymbol(p) = async {
+        Debug.print "[LSP call] TextDocumentDocumentSymbol"
         let fn = p.TextDocument.GetFilePath()
         if not fileInit then
             do! fileInited.Publish |> Async.AwaitEvent
@@ -747,6 +761,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceSymbol(p) = async {
+        Debug.print "[LSP call] WorkspaceSymbol"
         let! res = commands.DeclarationsInProjects ()
         let res =
             match res.[0] with
@@ -1026,6 +1041,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async.Return []
 
     override x.TextDocumentCodeAction(p) =
+        Debug.print "[LSP call] TextDocumentCodeAction"
         let fn = p.TextDocument.GetFilePath()
         match commands.TryGetFileCheckerOptionsWithLines fn with
         | ResultOrString.Error s ->
@@ -1057,6 +1073,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
     override __.TextDocumentCodeLens(p) = async {
+        Debug.print "[LSP call] TextDocumentCodeLens"
         let fn = p.TextDocument.GetFilePath()
         if commands.FileStateWaiting then
             do! commands.FileStateSet.Publish |> Async.AwaitEvent
@@ -1088,6 +1105,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.CodeLensResolve(p) =
+        Debug.print "[LSP call] CodeLensResolve"
         let handler f (arg: CodeLens) =
             async {
                 if not workspaceInit then
@@ -1215,6 +1233,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         ) p
 
     override __.WorkspaceDidChangeWatchedFiles(p) = async {
+        Debug.print "[LSP call] WorkspaceDidChangeWatchedFiles"
         p.Changes
         |> Array.iter (fun c ->
             if c.Type = FileChangeType.Deleted then
@@ -1231,6 +1250,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceDidChangeConfiguration(p) = async {
+        Debug.print "[LSP call] WorkspaceDidChangeConfiguration"
         let dto =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>
@@ -1240,6 +1260,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member x.FSharpSignature(p: TextDocumentPositionParams) =
+        Debug.print "[LSP call] FSharpSignature"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.Typesig tyRes pos lineStr
@@ -1257,6 +1278,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member x.FSharpSignatureData(p: TextDocumentPositionParams) =
+        Debug.print "[LSP call] FSharpSignatureData"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SignatureData tyRes pos lineStr
@@ -1274,6 +1296,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member __.FSharpLineLense(p) = async {
+        Debug.print "[LSP call] FSharpLineLense"
         let fn = p.Project.GetFilePath()
         if commands.FileStateWaiting then
             do! commands.FileStateSet.Publish |> Async.AwaitEvent
@@ -1291,6 +1314,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member x.LineLensResolve(p) =
+        Debug.print "[LSP call] LineLensResolve"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SignatureData tyRes pos lineStr
@@ -1308,6 +1332,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member __.FSharpCompilerLocation(p) = async {
+        Debug.print "[LSP call] FSharpCompilerLocation"
         let res = commands.CompilerLocation ()
         let res =
             match res.[0] with
@@ -1322,6 +1347,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpCompile(p) = async {
+        Debug.print "[LSP call] FSharpCompile"
         let fn = p.Project.GetFilePath()
         let! res = commands.Compile fn
         let res =
@@ -1337,6 +1363,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpWorkspaceLoad(p) = async {
+        Debug.print "[LSP call] FSharpWorkspaceLoad"
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
         let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences
         let res =
@@ -1352,6 +1379,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpWorkspacePeek(p: FsAutoComplete.HttpApiContract.WorkspacePeekRequest) = async {
+        Debug.print "[LSP call] FSharpWorkspacePeek"
         let! res = commands.WorkspacePeek p.Directory p.Deep (p.ExcludedDirs |> List.ofArray)
         let res =
             match res.[0] with
@@ -1368,6 +1396,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpProject(p) = async {
+        Debug.print "[LSP call] FSharpProject"
         let fn = p.Project.GetFilePath()
         let! res = commands.Project fn false ignore
         let res =
@@ -1383,6 +1412,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpFsdn(p: ProjectParms) = async {
+        Debug.print "[LSP call] FSharpFsdn"
         let! res = commands.Fsdn p.Project.Uri
         let res =
             match res.[0] with
@@ -1397,6 +1427,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member x.FSharpHelp(p: TextDocumentPositionParams) =
+        Debug.print "[LSP call] FSharpHelp"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.Help tyRes pos lineStr
@@ -1414,6 +1445,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member x.FSharpDocumentation(p: TextDocumentPositionParams) =
+        Debug.print "[LSP call] FSharpDocumentation"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.FormattedDocumentation tyRes pos lineStr
@@ -1432,6 +1464,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     member x.FSharpDocumentationSymbol(p: FsAutoComplete.HttpApiContract.DocumentationForSymbolReuqest) =
+        Debug.print "[LSP call] FSharpDocumentationSymbol"
         match commands.LastCheckResult with
         | None -> AsyncLspResult.internalError "error"
         | Some tyRes ->
