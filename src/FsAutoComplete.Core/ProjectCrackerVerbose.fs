@@ -42,14 +42,12 @@ module ProjectCrackerVerbose =
                     Utils.Convert DateTime.Now opts
                 else
                     raise e
-          //printfn "from cracker: %A" p
           match p.SourceFiles, p.OtherOptions, logMap |> Map.isEmpty with
           | [| |], [| |], false ->
             //HACK project cracker has failed
             //  ref https://github.com/fsharp/FSharp.Compiler.Service/issues/804
             //  the ProjectCracker.GetProjectOptionsFromProjectFileLogged doesnt throw, just return an
             //  uninitalized FSharpProjectOptions and some log, who contains the exception
-            printfn "MAP: %A" logMap
             let logs =
                 logMap
                 |> Map.toArray

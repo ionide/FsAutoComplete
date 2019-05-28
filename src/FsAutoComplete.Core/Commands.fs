@@ -94,12 +94,9 @@ type Commands (serialize : Serializer) =
         async {
             try
                 let opt = state.BackgroundProjects.First
-                // printfn "1. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
-                // printfn "BACKGROUND CHECKER - PARSING STARTED: %s" (opt.ProjectFileName)
                 checker.CheckProjectInBackground opt
             with
             | _ ->
-                // printfn "BACKGROUND CHECKER - NO PROJECTS"
                 ()
         } |> Async.Start
 
@@ -212,7 +209,7 @@ type Commands (serialize : Serializer) =
                     // is raised, who can be ignored
                     ()
                 | ex ->
-                    printfn "Failed to parse file '%s' exn %A" file ex
+                    Debug.print "[Commands] Failed to parse file '%s' exn %A" file ex
             ) }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
@@ -386,7 +383,6 @@ type Commands (serialize : Serializer) =
         | Some (p, projs) ->
             state.EnqueueProjectForBackgroundParsing(p, 0)
             projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
-            // printfn "3. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
         | None -> ()
         return [CoreResponse.Errors ([||], "") ]
     }
@@ -416,7 +412,6 @@ type Commands (serialize : Serializer) =
 
     member x.Project projectFileName verbose onChange = async {
         let projectFileName = Path.GetFullPath projectFileName
-        //printfn "project path: %s" projectFileName
         let project =
             match state.Projects.TryFind projectFileName with
             | Some prj -> prj
@@ -424,7 +419,6 @@ type Commands (serialize : Serializer) =
                 let proj = new Project(projectFileName, onChange)
                 state.Projects.[projectFileName] <- proj
                 proj
-        //printfn "project:\n%A" project
         let projResponse =
             match project.Response with
             | Some response ->
@@ -437,7 +431,6 @@ type Commands (serialize : Serializer) =
                 | Result.Error error ->
                     project.Response <- None
                     Result.Error error
-        //printfn "Project response: %A" projResponse
         return
             match projResponse with
             | Result.Ok (projectFileName, response) ->

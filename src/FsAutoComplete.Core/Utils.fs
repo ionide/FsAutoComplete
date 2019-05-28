@@ -557,8 +557,6 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
 
     p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
-    // printfn "running: %s %s" psi.FileName psi.Arguments
-
     p.Start() |> ignore
     p.BeginOutputReadLine()
     p.BeginErrorReadLine()

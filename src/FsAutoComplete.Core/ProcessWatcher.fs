@@ -38,7 +38,7 @@ module ProcessWatcher =
       watch hostProcess (fun _ -> quit ())
     with
     | e ->
-      printfn "Host process ID %i not found: %s" pid e.Message
+      Debug.print "[Process Watcher] Host process ID %i not found: %s" pid e.Message
       // If the process dies before we get here then request shutdown
       // immediately
       quit ()
