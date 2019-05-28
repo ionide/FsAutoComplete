@@ -19,7 +19,6 @@ type ParseAndCheckResults
     ) =
 
   member __.TryGetMethodOverrides (lines: LineStr[]) (pos: pos) = async {
-    let s = DateTime.Now
     // Find the starting point, ideally right after the first '('
     let lineCutoff = pos.Line - 6
     let commas, line, col =
@@ -55,7 +54,6 @@ type ParseAndCheckResults
     return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
-    let s = DateTime.Now
     match Parsing.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
