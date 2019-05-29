@@ -179,6 +179,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ -> ()
         ) |> subscriptions.Add
 
+    ///Helper function for handling Position requests using **recent** type check results
     member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()
@@ -206,6 +207,42 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
                                     return LspResult.internalError e.Message
                             }
+                    with e ->
+                        Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
+                        AsyncLspResult.internalError e.Message
+        }
+
+    ///Helper function for handling Position requests using **latest** type check results
+    member x.positionHandlerWithLatest<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
+        async {
+            let pos = arg.GetFcsPos()
+            let file = arg.GetFilePath()
+            Debug.print "[LSP] PositionHandler - Position request: %s at %A" file pos
+
+            return!
+                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                | ResultOrString.Error s ->
+                    Debug.print "[LSP] PositionHandler - Getting file checker options failed: %s" s
+                    AsyncLspResult.internalError s
+                | ResultOrString.Ok (options, lines, lineStr) ->
+                    try
+                        async {
+                        let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file, options)
+                        return!
+                            match tyResOpt with
+                            | None ->
+                                Debug.print "[LSP] PositionHandler - Cached typecheck results not yet available"
+                                AsyncLspResult.internalError "Cached typecheck results not yet available"
+                            | Some tyRes ->
+                                async {
+                                    let! r = Async.Catch (f arg pos tyRes lineStr lines)
+                                    match r with
+                                    | Choice1Of2 r -> return r
+                                    | Choice2Of2 e ->
+                                        Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
+                                        return LspResult.internalError e.Message
+                                }
+                        }
                     with e ->
                         Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
                         AsyncLspResult.internalError e.Message
@@ -299,7 +336,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         CompletionProvider =
                             Some {
                                 ResolveProvider = Some true
-                                TriggerCharacters = Some ([| "."; "'"; "," |])
+                                TriggerCharacters = Some ([| "."; "'"; |])
                             }
                         CodeLensProvider = Some {
                             CodeLensOptions.ResolveProvider = Some true
@@ -488,7 +525,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override x.TextDocumentSignatureHelp(p) =
         Debug.print "[LSP call] TextDocumentSignatureHelp"
-        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+        p |> x.positionHandlerWithLatest (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.Methods tyRes  pos lines
                 let res =

@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Options.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="CommandInput.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />

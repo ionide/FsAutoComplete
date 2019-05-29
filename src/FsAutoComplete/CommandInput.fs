@@ -230,9 +230,9 @@ module CommandInput =
     match inputString with
     | null -> Quit
     | input ->
-      let reader = Parsing.createForwardStringReader input 0
+      let reader = Parser.createForwardStringReader input 0
       let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> fsdn <|> error
-      let cmd = reader |> Parsing.getFirst cmds
+      let cmd = reader |> Parser.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->
           let lines = readInput [] |> Array.ofList
