@@ -71,28 +71,6 @@
 {
   "Kind": "method",
   "Data": {
-    "Name": "NewObjectType",
-    "CurrentParameter": 0,
-    "Overloads": [
-      {
-        "Tip": [
-          [
-            {
-              "Signature": "new : unit -> FileTwo.NewObjectType",
-              "Comment": ""
-            }
-          ]
-        ],
-        "TypeText": ": FileTwo.NewObjectType",
-        "Parameters": [],
-        "IsStaticArguments": false
-      }
-    ]
-  }
-}
-{
-  "Kind": "method",
-  "Data": {
     "Name": "Terrific",
     "CurrentParameter": 0,
     "Overloads": [
