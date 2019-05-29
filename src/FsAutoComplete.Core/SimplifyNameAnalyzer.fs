@@ -4,6 +4,7 @@ namespace FsAutoComplete
 open FsAutoComplete
 
 module SimplifyNameDiagnosticAnalyzer =
+    open FSharp.Compiler
     open FSharp.Compiler.SourceCodeServices
     open FSharp.Compiler.Range
 
@@ -18,15 +19,14 @@ module SimplifyNameDiagnosticAnalyzer =
                 |> Array.Parallel.map (fun symbolUse ->
                     let lineStr = source.[symbolUse.RangeAlternate.StartLine - 1].ToString()
                     // for `System.DateTime.Now` it returns ([|"System"; "DateTime"|], "Now")
-                    let plid, name = Parsing.findLongIdentsAndResidue (symbolUse.RangeAlternate.EndColumn - 1, lineStr)
+                    let partialName = QuickParse.GetPartialLongNameEx(lineStr, symbolUse.RangeAlternate.EndColumn - 1)
                     // `symbolUse.RangeAlternate.Start` does not point to the start of plid, it points to start of `name`,
                     // so we have to calculate plid's start ourselves.
-                    let plidStartCol = symbolUse.RangeAlternate.EndColumn - name.Length - (getPlidLength plid)
-                    symbolUse, plid, plidStartCol, name)
+                    let plidStartCol = symbolUse.RangeAlternate.EndColumn - partialName.PartialIdent.Length - (getPlidLength partialName.QualifyingIdents)
+                    symbolUse, partialName.QualifyingIdents, plidStartCol, partialName.PartialIdent)
                 |> Array.filter (fun (_, plid, _, name) -> name <> "" && not (List.isEmpty plid))
                 |> Array.groupBy (fun (symbolUse, _, plidStartCol, _) -> symbolUse.RangeAlternate.StartLine, plidStartCol)
                 |> Array.map (fun (_, xs) -> xs |> Array.maxBy (fun (symbolUse, _, _, _) -> symbolUse.RangeAlternate.EndColumn))
-
             for symbolUse, plid, plidStartCol, name in symbolUses do
                 if not symbolUse.IsFromDefinition then
                     let posAtStartOfName =

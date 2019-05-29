@@ -971,7 +971,6 @@ type Commands (serialize : Serializer) =
 
     member x.GetSimplifiedNames file =
         let file = Path.GetFullPath file
-
         async {
             match state.TryGetFileCheckerOptionsWithLines file with
             | Error s ->  return [CoreResponse.ErrorRes s]
