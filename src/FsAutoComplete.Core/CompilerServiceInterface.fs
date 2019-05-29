@@ -46,7 +46,7 @@ type ParseAndCheckResults
       | newPos -> newPos
     let testPos = mkPos pos.Line (pos.Column - 1)
     // Get the parameter locations
-    let paramLocations = parseResults.FindNoteworthyParamInfoLocations testPos
+    let paramLocations = parseResults.FindNoteworthyParamInfoLocations pos
     match paramLocations with
     | None -> return ResultOrString.Error "Could not find parameter locations"
     | Some nwpl ->
