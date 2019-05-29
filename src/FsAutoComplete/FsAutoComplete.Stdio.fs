@@ -19,9 +19,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
 
             let msgText =
                 match msg with
-                | NotificationEvent.ParseError x -> Some x
                 | NotificationEvent.Workspace x -> Some x
-                | NotificationEvent.AnalyzerMessage x -> Some x
                 | _ -> None
 
             msgText |> Option.iter Console.WriteLine
