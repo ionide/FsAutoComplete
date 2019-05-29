@@ -28,7 +28,6 @@
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />
     <Compile Include="FileSystem.fs" />
-    <Compile Include="Parser.fs" />
     <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="FscArguments.fs" />
     <Compile Include="ProjectCrackerProjectJson.fs" />

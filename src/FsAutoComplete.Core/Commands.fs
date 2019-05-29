@@ -729,7 +729,7 @@ type Commands (serialize : Serializer) =
             match tyRes.GetAST with
             | None -> return [CoreResponse.InfoRes "Parsed Tree not avaliable"]
             | Some parsedTree ->
-            match Parsing.findLongIdents(pos.Column, line) with
+            match Lexer.findLongIdents(pos.Column, line) with
             | None -> return [CoreResponse.InfoRes "Ident not found"]
             | Some (_,idents) ->
             match UntypedParseImpl.GetEntityKind(pos, parsedTree)  with

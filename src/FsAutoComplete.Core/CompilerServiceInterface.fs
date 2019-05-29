@@ -5,6 +5,7 @@ open System.IO
 open FSharp.Compiler.SourceCodeServices
 open Utils
 open FSharp.Compiler.Range
+open FSharp.Compiler
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -19,9 +20,9 @@ type ParseAndCheckResults
     ) =
 
   member __.TryGetMethodOverrides (lines: LineStr[]) (pos: pos) = async {
-    // Find the starting point, ideally right after the first '('
-    let lineCutoff = pos.Line - 6
-    let commas, line, col =
+    // Find the number of `,` in the current signature
+    let commas, _, _ =
+      let lineCutoff = pos.Line - 6
       let rec prevPos (line,col) =
         match line, col with
         | 1, 1
@@ -43,18 +44,19 @@ type ParseAndCheckResults
       match loop 0 0 (prevPos(pos.Line, pos.Column)) with
       | _, 1, 1 -> 0, pos.Line, pos.Column
       | newPos -> newPos
-
-    let lineStr = lines.[line - 1]
-    match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
-    | None ->
-      return ResultOrString.Error "Could not find ident at this location"
-    | Some identIsland ->
-
-    let! meth = checkResults.GetMethods(line, col, lineStr, Some identIsland)
-    return Ok(meth, commas) }
+    let testPos = mkPos pos.Line (pos.Column - 1)
+    // Get the parameter locations
+    let paramLocations = parseResults.FindNoteworthyParamInfoLocations pos
+    match paramLocations with
+    | None -> return ResultOrString.Error "Could not find parameter locations"
+    | Some nwpl ->
+      let names = nwpl.LongId
+      let lidEnd = nwpl.LongIdEndLocation
+      let! meth = checkResults.GetMethods(lidEnd.Line, lidEnd.Column, "", Some names)
+      return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
 
@@ -72,7 +74,7 @@ type ParseAndCheckResults
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None ->
       return Error "Cannot find ident at this location"
     | Some(col,identIsland) ->
@@ -99,7 +101,7 @@ type ParseAndCheckResults
   }
 
   member __.TryGetToolTip (pos: pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
@@ -124,7 +126,7 @@ type ParseAndCheckResults
   }
 
   member __.TryGetToolTipEnhanced (pos: pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
@@ -160,7 +162,7 @@ type ParseAndCheckResults
   }
 
   member __.TryGetFormattedDocumentation (pos: pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident"
     | Some(col,identIsland) ->
 
@@ -254,7 +256,7 @@ type ParseAndCheckResults
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None ->
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
@@ -270,7 +272,7 @@ type ParseAndCheckResults
 
   member __.TryGetSignatureData (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None ->
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
@@ -305,7 +307,7 @@ type ParseAndCheckResults
 
   member __.TryGetF1Help (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
