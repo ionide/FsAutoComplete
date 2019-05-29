@@ -97,7 +97,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 n.Range.Start.Line
             )
             |> Seq.toArray
-        Debug.print "[LSP] Send Diag - %A" diags
         {Uri = uri; Diagnostics = diags}
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
