@@ -137,7 +137,7 @@ type Commands (serialize : Serializer) =
             with
             | _ -> ()
         }
-        |> if notifyErrorsInBackground then Async.Start else ignore
+        |> Async.Start
 
         async {
             try

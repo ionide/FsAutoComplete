@@ -97,6 +97,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 n.Range.Start.Line
             )
             |> Seq.toArray
+        Debug.print "[LSP] Send Diag - %A" diags
         {Uri = uri; Diagnostics = diags}
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
@@ -104,6 +105,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     do
         commands.Notify.Subscribe(fun n ->
             try
+                Debug.print "[LSP] Notify - %A" n
                 match n with
                 | NotificationEvent.Workspace ws ->
                     let ws = CommandResponse.serialize JsonSerializer.writeJson ws
