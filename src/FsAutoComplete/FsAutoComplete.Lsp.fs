@@ -429,8 +429,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                         decls
                                         |> Array.mapi (fun id d ->
                                             let code =
-                                                if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then d.Name else
-                                                PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                                                if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then d.Name
+                                                elif d.NamespaceToOpen.IsSome then d.Name
+                                                else PrettyNaming.QuoteIdentifierIfNeeded d.Name
                                             let label =
                                                 match d.NamespaceToOpen with
                                                 | Some no -> sprintf "%s (open %s)" d.Name no
