@@ -46,8 +46,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let mutable clientCapabilities: ClientCapabilities option = None
     let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
     let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
-    let mutable workspaceInit = false
-    let workspaceInited = Event<unit>()
     let subscriptions = ResizeArray<IDisposable>()
 
     let mutable config = FSharpConfig.Default
@@ -220,28 +218,28 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Debug.print "[LSP] PositionHandler - Position request: %s at %A" file pos
 
             return!
-                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
-                | ResultOrString.Error s ->
-                    Debug.print "[LSP] PositionHandler - Getting file checker options failed: %s" s
-                    AsyncLspResult.internalError s
-                | ResultOrString.Ok (options, lines, lineStr) ->
                     try
                         async {
-                        let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file, options)
+                        let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
                         return!
                             match tyResOpt with
                             | None ->
                                 Debug.print "[LSP] PositionHandler - Cached typecheck results not yet available"
                                 AsyncLspResult.internalError "Cached typecheck results not yet available"
                             | Some tyRes ->
-                                async {
-                                    let! r = Async.Catch (f arg pos tyRes lineStr lines)
-                                    match r with
-                                    | Choice1Of2 r -> return r
-                                    | Choice2Of2 e ->
-                                        Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
-                                        return LspResult.internalError e.Message
-                                }
+                                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                                | ResultOrString.Error s ->
+                                    Debug.print "[LSP] PositionHandler - Getting file checker options failed: %s" s
+                                    AsyncLspResult.internalError s
+                                | ResultOrString.Ok (options, lines, lineStr) ->
+                                    async {
+                                        let! r = Async.Catch (f arg pos tyRes lineStr lines)
+                                        match r with
+                                        | Choice1Of2 r -> return r
+                                        | Choice2Of2 e ->
+                                            Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
+                                            return LspResult.internalError e.Message
+                                    }
                         }
                     with e ->
                         Debug.print "[LSP] PositionHandler - Operation failed: %s" e.Message
@@ -360,17 +358,18 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.TextDocumentDidOpen(p) = async {
         Debug.print "[LSP call] TextDocumentDidOpen"
-        if not commands.IsWorkspaceReady then
-            do! commands.WorkspaceReady |> Async.AwaitEvent
-
         let doc = p.TextDocument
         let filePath = doc. GetFilePath()
         let content = doc.Text.Split('\n')
         commands.SetFileContent(filePath, content, Some doc.Version)
 
+
+        if not commands.IsWorkspaceReady then
+            do! commands.WorkspaceReady |> Async.AwaitEvent
+            Debug.print "[LSP call] TextDocumentDidOpen - workspace ready"
+
         do! (commands.Parse filePath content doc.Version |> Async.Ignore)
-        workspaceInit <- true
-        workspaceInited.Trigger ()
+
         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
         if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
@@ -451,7 +450,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             | Some ctx ->
                                 //ctx.triggerKind = CompletionTriggerKind.Invoked ||
                                 if  (ctx.triggerCharacter = Some ".") then
-                                    commands.TryGetLatestTypeCheckResultsForFile(file, options)
+                                    commands.TryGetLatestTypeCheckResultsForFile(file)
                                 else
                                     commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
 
@@ -1147,8 +1146,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         Debug.print "[LSP call] CodeLensResolve"
         let handler f (arg: CodeLens) =
             async {
-                if not workspaceInit then
-                    do! workspaceInited.Publish |> Async.AwaitEvent
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
                 let file = Uri(data.[0]).LocalPath.TrimStart('/')
@@ -1162,7 +1159,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     | ResultOrString.Ok (options, _, lineStr) ->
                         try
                             async {
-                                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file, options)
+                                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
                                 return!
                                     match tyResOpt with
                                     | None ->

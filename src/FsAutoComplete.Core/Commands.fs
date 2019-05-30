@@ -257,10 +257,10 @@ type Commands (serialize : Serializer) =
     member __.IsWorkspaceReady
         with get() = isWorkspaceReady
         and set(value) = isWorkspaceReady <- value
+
     member __.NotifyErrorsInBackground
         with get() = notifyErrorsInBackground
         and set(value) = notifyErrorsInBackground <- value
-
 
     member __.LastVersionChecked
         with get() = lastVersionChecked
@@ -311,8 +311,9 @@ type Commands (serialize : Serializer) =
         checker.TryGetRecentCheckResultsForFile(file, opts)
 
     ///Gets recent type check results, waiting for the results of in-progress type checking
-    /// if version of file in memory is grater than last type checked version
-    member x.TryGetLatestTypeCheckResultsForFile(file, opts) =
+    /// if version of file in memory is grater than last type checked version.
+    /// It also waits if there are no FSharpProjectOptions avaliable for given file
+    member x.TryGetLatestTypeCheckResultsForFile(file) =
         let file = Path.GetFullPath file
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
@@ -323,17 +324,26 @@ type Commands (serialize : Serializer) =
             |> Event.filter (fun (_,n,_) -> n = file )
             |> Event.map ignore
             |> Async.AwaitEvent
-            |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file, opts))
+            |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
         | Some _, None
         | None, Some _ ->
             x.FileChecked
             |> Event.filter (fun (_,n,_) -> n = file )
             |> Event.map ignore
             |> Async.AwaitEvent
-            |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file, opts))
+            |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
         | _ ->
-            x.TryGetRecentTypeCheckResultsForFile(file, opts)
-            |> async.Return
+            match state.TryGetFileCheckerOptionsWithLines(file) with
+            | ResultOrString.Ok (opts, _ ) ->
+                x.TryGetRecentTypeCheckResultsForFile(file, opts)
+                |> async.Return
+            | ResultOrString.Error _ ->
+                x.FileChecked
+                |> Event.filter (fun (_,n,_) -> n = file )
+                |> Event.map ignore
+                |> Async.AwaitEvent
+                |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
+
 
 
 
@@ -462,7 +472,16 @@ type Commands (serialize : Serializer) =
     member x.Declarations file lines version = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithSource file, lines with
-        | ResultOrString.Error s, None -> return [CoreResponse.ErrorRes s]
+        | ResultOrString.Error s, None ->
+            match state.TryGetFileSource file with
+            | ResultOrString.Error s -> return [CoreResponse.ErrorRes s]
+            | ResultOrString.Ok l ->
+                let text = String.concat "\n" l
+                let files = Array.singleton file
+                let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
+                let! decls = checker.GetDeclarations(file, text, parseOptions, version)
+                let decls = decls |> Array.map (fun a -> a,file)
+                return [CoreResponse.Declarations decls]
         | ResultOrString.Error _, Some l ->
             let text = String.concat "\n" l
             let files = Array.singleton file
