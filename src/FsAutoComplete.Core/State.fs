@@ -135,6 +135,12 @@ type State =
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) -> Ok (opts, String.concat "\n" lines)
 
+  member x.TryGetFileSource(file: SourceFilePath) : ResultOrString<string[]> =
+    let file = Utils.normalizePath file
+    match x.Files.TryFind(file) with
+    | None -> ResultOrString.Error (sprintf "File '%s' not parsed" file)
+    | Some f -> Ok (f.Lines)
+
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos : pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
