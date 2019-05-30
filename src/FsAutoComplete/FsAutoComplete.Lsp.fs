@@ -1227,7 +1227,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 JToken.FromObject locs
                             |]
 
-                            let cmd = {Title = formatted; Command = Some "editor.action.showReferences"; Arguments = Some args}
+                            let cmd = {Title = formatted; Command = Some "fsharp.showReferences"; Arguments = Some args}
                             {p with Command = Some cmd} |> success
                         | CoreResponse.SymbolUseRange (uses) ->
                             let formatted =
