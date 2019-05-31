@@ -1422,6 +1422,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | CoreResponse.Project (fn, files, outFile, refs, logMap, extra, adds) ->
                 { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson (fn, files, outFile, refs, logMap, extra, adds) }
                 |> success
+            | CoreResponse.ProjectError er ->
+                { Content =  CommandResponse.projectError FsAutoComplete.JsonSerializer.writeJson er }
+                |> success
             | _ -> LspResult.notImplemented
 
         return res
