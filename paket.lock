@@ -41,7 +41,7 @@ NUGET
       FSharp.Core (>= 4.3.4) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
     FSharp.Json (0.3.7)
       FSharp.Core (>= 4.3.4) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-    FSharpLint.Core (0.12)
+    FSharpLint.Core (0.12.1)
       Dotnet.ProjInfo (>= 0.31)
       FParsec (>= 1.0.3)
       FSharp.Compiler.Service (>= 29.0)
