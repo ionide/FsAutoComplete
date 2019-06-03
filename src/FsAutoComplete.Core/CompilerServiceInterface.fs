@@ -446,7 +446,7 @@ type FSharpCompilerServiceChecker() =
     FSharpChecker.Create(
       projectCacheSize = 200,
       keepAllBackgroundResolutions = true,
-      keepAssemblyContents = true)
+      keepAssemblyContents = false)
 
   do checker.ImplicitlyStartBackgroundWork <- true
 
