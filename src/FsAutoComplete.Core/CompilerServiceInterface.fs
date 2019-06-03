@@ -538,10 +538,10 @@ type FSharpCompilerServiceChecker() =
   member __.ProjectChecked =
     checker.ProjectChecked
 
-  member __.ParseFile(fn, source, opts) =
+  member __.ParseFile(fn, source, fpo) =
     logDebug "[Checker] ParseFile - %s" fn
     let source = SourceText.ofString source
-    checker.ParseFile(fn, source, opts)
+    checker.ParseFile(fn, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
