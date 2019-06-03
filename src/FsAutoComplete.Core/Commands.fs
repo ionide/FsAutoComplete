@@ -71,7 +71,6 @@ type Commands (serialize : Serializer) =
 
     let checker = FSharpCompilerServiceChecker()
     let state = State.Initial
-    let fsharpLintConfig = ConfigurationManager.ConfigurationManager()
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
     let mutable notifyErrorsInBackground = true
@@ -721,11 +720,46 @@ type Commands (serialize : Serializer) =
                         | None -> [ CoreResponse.InfoRes "Something went wrong during parsing"]
                         | Some tree ->
                             try
-                                fsharpLintConfig.LoadConfigurationForProject file
-                                let opts = fsharpLintConfig.GetConfigurationForProject (file)
-                                let res =
+                                let loadXmlConfig projectFilePath =
+                                    match FSharpLint.Application.XmlConfiguration.tryLoadConfigurationForProject projectFilePath with
+                                    | None -> Result.Ok None
+                                    | Some xmlConfig ->
+                                        { ConfigurationManager.Configuration.conventions = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertConventions
+                                          ConfigurationManager.Configuration.formatting = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertFormatting
+                                          ConfigurationManager.Configuration.hints = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertHints
+                                          ConfigurationManager.Configuration.ignoreFiles = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertIgnoreFiles
+                                          ConfigurationManager.Configuration.typography = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertTypography }
+                                        |> Some
+                                        |> Result.Ok
+                                let loadJsonConfig projectFilePath =
+                                    match FSharpLint.Application.ConfigurationManagement.loadConfigurationForProject projectFilePath with
+                                    | ConfigurationManagement.ConfigurationResult.Success config ->
+                                        Result.Ok config
+                                    | ConfigurationManagement.ConfigurationResult.Failure errors ->
+                                        Result.Error errors
+                                let fsharpLintConfig =
+                                    // first we check if exists xml config (backward compatibility)
+                                    // after that if exists json config
+                                    match loadXmlConfig file with
+                                    | Result.Ok (Some config) ->
+                                        Result.Ok config
+                                    | Result.Ok None
+                                    | Result.Error _ ->
+                                        //TODO log xml config error
+                                        match loadJsonConfig file with
+                                        | Result.Ok config ->
+                                            Result.Ok config
+                                        | Result.Error e ->
+                                            Result.Error e
+
+                                let opts =
+                                    match fsharpLintConfig with
+                                    | Result.Ok config -> Some config
+                                    | Result.Error _ -> None
+
+                                let res = 
                                     Lint.lintParsedSource
-                                        { Lint.OptionalLintParameters.Default with Configuration = Some opts}
+                                        { Lint.OptionalLintParameters.Default with Configuration = opts}
                                         { Ast = tree
                                           Source = source
                                           TypeCheckResults = Some tyRes.GetCheckResults }
