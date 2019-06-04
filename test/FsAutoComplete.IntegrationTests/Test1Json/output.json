@@ -318,8 +318,8 @@
         "Range": {
           "StartColumn": 1,
           "StartLine": 1,
-          "EndColumn": 1,
-          "EndLine": 16
+          "EndColumn": 6,
+          "EndLine": 15
         },
         "BodyRange": {
           "StartColumn": 1,
@@ -700,8 +700,8 @@
         "Range": {
           "StartColumn": 1,
           "StartLine": 3,
-          "EndColumn": 1,
-          "EndLine": 7
+          "EndColumn": 24,
+          "EndLine": 6
         },
         "BodyRange": {
           "StartColumn": 1,
