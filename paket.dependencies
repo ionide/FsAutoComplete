@@ -7,8 +7,8 @@ storage: none
 github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
 nuget Argu ~> 5.2.0
-nuget FSharp.Compiler.Service ~> 28.0
-nuget FSharp.Compiler.Service.ProjectCracker ~> 28.0 framework:net461, condition:net461
+nuget FSharp.Compiler.Service ~> 29.0
+nuget FSharp.Compiler.Service.ProjectCracker ~> 29.0 framework:net461, condition:net461
 nuget Dotnet.ProjInfo ~> 0.31.0
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler 3.2.0.3856
@@ -16,7 +16,7 @@ nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Suave
-nuget FSharpLint.Core 0.10.8
+nuget FSharpLint.Core 0.12.1
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..

@@ -6,6 +6,7 @@ open FSharp.Compiler.SourceCodeServices
 open Utils
 open FSharp.Compiler.Range
 open FSharp.Compiler
+open FSharp.Compiler.Text
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -487,7 +488,7 @@ type FSharpCompilerServiceChecker() =
       ])
 
   member __.GetProjectOptionsFromScript(file, source) = async {
-
+    let source = SourceText.ofString source
 #if SCRIPT_REFS_FROM_MSBUILD
 
     let targetFramework = NETFrameworkInfoProvider.netReferencesAssembliesTFMLatest ()
@@ -539,11 +540,13 @@ type FSharpCompilerServiceChecker() =
 
   member __.ParseFile(fn, source, fpo) =
     logDebug "[Checker] ParseFile - %s" fn
+    let source = SourceText.ofString source
     checker.ParseFile(fn, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       logDebug "[Checker] ParseAndCheckFileInProject - %s" filePath
+      let source = SourceText.ofString source
       let options = clearProjectReferecnes options
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
@@ -561,6 +564,7 @@ type FSharpCompilerServiceChecker() =
   member __.ParseAndCheckFileInProject'(filePath, version, source, options) =
     async {
       logDebug "[Checker] ParseAndCheckFileInProject2 - %s" filePath
+      let source = SourceText.ofString source
       let options = clearProjectReferecnes options
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
@@ -575,8 +579,9 @@ type FSharpCompilerServiceChecker() =
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     logDebug "[Checker] TryGetRecentCheckResultsForFile - %s" file
+    let source = source |> Option.map SourceText.ofString
     let options = clearProjectReferecnes options
-    checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
+    checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
   member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
@@ -599,6 +604,7 @@ type FSharpCompilerServiceChecker() =
 
   member __.GetDeclarations (fileName, source, options, version) = async {
     logDebug "[Checker] GetDeclarations - %s" fileName
+    let source = SourceText.ofString source
     let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }

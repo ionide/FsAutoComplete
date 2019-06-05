@@ -683,7 +683,19 @@ module CommandResponse =
     serialize { Kind = kind; Data = data }
 
   let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
-    let data = warnings |> List.toArray
+
+    /// strip the fsharp lint warning code, in the format `FS01234: info"`
+    let removeLinterCode (s: string) =
+      let index = s.IndexOf(":")
+      if index > 0 && (index + 2) < s.Length then
+        s.Substring(index + 2)
+      else
+        s
+
+    let data =
+      warnings
+      |> List.map (fun w -> { w with Info = removeLinterCode w.Info })
+      |> List.toArray
 
     serialize { Kind = "lint"; Data = data }
 
