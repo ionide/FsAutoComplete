@@ -211,21 +211,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
             path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray) data.DisableInMemoryProjectReferences)
             path "/compile" >=> handler (fun (data : ProjectRequest) -> commands.Compile data.FileName)
-            path "/buildBackgroundSymbolCache" >=> fun httpCtx ->
-                async {
-                    try
-                        do! commands.BuildBackgroundSymbolsCache()
-                    with
-                    | _ -> ()
-                    let res = [ CommandResponse.info writeJson "Building background cache started"]  |> List.toArray |> Json.toJson
-                    return! Response.response HttpCode.HTTP_200 res httpCtx
-                }
-            path "/enableSymbolCache" >=> fun httpCtx ->
-                try
-                    do commands.EnableSymbolCache()
-                with _ -> ()
-                let res = [ CommandResponse.info writeJson "Background symbol cache started"] |> List.toArray |> Json.toJson
-                Response.response HttpCode.HTTP_200 res httpCtx
             path "/registerAnalyzer" >=> handler (fun (data : FileRequest) ->
                 try
                     commands.LoadAnalyzers data.FileName
@@ -262,5 +247,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 
+    let workspaceDir = System.Environment.CurrentDirectory
+    commands.StartBackgroundService workspaceDir
     startWebServer serverConfig app
     0

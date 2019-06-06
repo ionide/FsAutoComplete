@@ -1,8 +1,0 @@
-System.ValueTuple condition:net461
-FSharp.Compiler.Service
-Newtonsoft.Json
-Suave
-FSharp.Core
-Dapper
-Microsoft.Data.Sqlite
-Microsoft.SourceLink.GitHub

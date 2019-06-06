@@ -28,7 +28,7 @@ type SymbolUseRange = {
 }
 
 
-module PersistenCacheImpl =
+module private PersistenCacheImpl =
     open Microsoft.Data.Sqlite
     open Dapper
     open System.Data
@@ -58,6 +58,18 @@ module PersistenCacheImpl =
         let res = connection.Query<SymbolUseRange>(q)
         res
 
+    let loadSymbolUses (connection: SqliteConnection) file =
+        if connection.State <> ConnectionState.Open then connection.Open()
+        let q = sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false" file
+        let res = connection.QueryAsync<SymbolUseRange>(q)
+        res |> Async.AwaitTask |> Async.map (Seq.toArray)
+
+    let loadImplementations (connection: SqliteConnection) file =
+        if connection.State <> ConnectionState.Open then connection.Open()
+        let q = sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false AND (IsFromDispatchSlotImplementation=true OR IsFromType=true)" file
+        let res = connection.QueryAsync<SymbolUseRange>(q)
+        res |> Async.AwaitTask |> Async.map (Seq.toArray)
+
     let initializeCache dir =
         let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir
 
@@ -65,7 +77,7 @@ module PersistenCacheImpl =
         do if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
         let dbPath = Path.Combine(dir, "symbolCache.db")
         let dbExists = File.Exists dbPath
-        let connection = new SqliteConnection(connectionString)
+        let conn = new SqliteConnection(connectionString)
 
         do if not dbExists then
             let fs = File.Create(dbPath)
@@ -87,71 +99,10 @@ module PersistenCacheImpl =
                 SymbolIsLocal BOOLEAN
             )"
 
-            connection.Execute(cmd)
+            conn.Execute(cmd)
             |> ignore
-        connection
-
-let makePostRequest (url : string) (requestBody : string) =
-    let req = WebRequest.CreateHttp url
-    req.CookieContainer <- new CookieContainer()
-    req.Method <- "POST"
-    req.ProtocolVersion <- HttpVersion.Version10
-    let postBytes = requestBody |> System.Text.Encoding.ASCII.GetBytes
-    req.ContentLength <- postBytes.LongLength
-    req.ContentType <- "application/json; charset=utf-8"
-    async{
-        use! reqStream = req.GetRequestStreamAsync() |> Async.AwaitTask
-        do! reqStream.WriteAsync(postBytes, 0, postBytes.Length) |> Async.AwaitIAsyncResult |> Async.Ignore
-        reqStream.Close()
-        use! res = req.AsyncGetResponse()
-        use stream = res.GetResponseStream()
-        use reader = new StreamReader(stream)
-        let! rdata = reader.ReadToEndAsync() |> Async.AwaitTask
-        return rdata
-    }
-
-let mutable port = 0
-
-
-type SymbolCacheRequest = {
-    Filename: string
-}
-
-let p =
-    let t = typeof<SymbolCacheRequest>
-    Path.GetDirectoryName t.Assembly.Location
-
-let pid =
-    Process.GetCurrentProcess().Id
-
-
-let startCache (dir : string) =
-    port <- Random().Next(9000,9999)
-    PersistenCacheImpl.connection <- Some (PersistenCacheImpl.initializeCache dir)
-    let si = ProcessStartInfo()
-    si.RedirectStandardOutput <- true
-    si.RedirectStandardError <- true
-    si.UseShellExecute <- false
-
-    #if DOTNET_SPAWN
-    si.FileName <- "dotnet"
-    si.Arguments <- Path.Combine(p, "fsautocomplete.symbolcache.dll") + " " + (string port) + " " + (string pid) + " " + (if dir.Contains " " then sprintf "\"%s\"" dir else dir)
-    #else
-    if Utils.runningOnMono then
-        si.FileName <- "mono"
-        si.Arguments <- Path.Combine(p, "fsautocomplete.symbolcache.exe") + " " + (string port) + " " + (string pid) + " " + (if dir.Contains " " then sprintf "\"%s\"" dir else dir)
-    else
-        si.FileName <- Path.Combine(p, "fsautocomplete.symbolcache.exe")
-        si.Arguments <- (string port) + " " + (string pid) + " " + (if dir.Contains " " then sprintf "\"%s\"" dir else dir)
-    #endif
-
-    let proc = Process.Start(si)
-    // proc.OutputDataReceived.Add (fun e -> fprintf stderr "[Symbol Cache]: %s" e.Data)
-    // proc.ErrorDataReceived.Add (fun e -> fprintf stderr  "[Symbol Cache]: %s" e.Data)
-    proc.BeginOutputReadLine();
-    proc.BeginErrorReadLine();
-    ()
-
+        connection <- Some conn
+        conn
 
 let fromSymbolUse (su : FSharpSymbolUse) =
     {   StartLine = su.RangeAlternate.StartLine
@@ -169,41 +120,30 @@ let fromSymbolUse (su : FSharpSymbolUse) =
         SymbolDisplayName = su.Symbol.DisplayName
         SymbolIsLocal = su.Symbol.IsPrivateToFile  }
 
+let initCache dir =
+    PersistenCacheImpl.initializeCache dir
+    |> ignore
 
-let sendSymbols (serializer: Serializer) fn (symbols: FSharpSymbolUse[]) =
-    let sus =
-        symbols
-        |> Array.map(fromSymbolUse)
+let updateSymbols fn (symbols: FSharpSymbolUse[]) =
+    let sus = symbols |> Array.map(fromSymbolUse)
 
     PersistenCacheImpl.connection
     |> Option.iter (fun con -> PersistenCacheImpl.insert con fn sus )
 
-    let request = serializer {Filename = fn}
-
-    try
-        makePostRequest ("http://localhost:" + (string port) + "/updateSymbols") request
-        |> Async.Ignore
-        |> Async.Start
-    with _ -> ()
-    ()
-
 let getSymbols symbolName =
-    makePostRequest ("http://localhost:" + (string port) + "/getSymbols") symbolName
-    |> Async.map (fun n ->
-        try
-            Some (JsonConvert.DeserializeObject<SymbolUseRange[]> n)
-        with
-        | _ -> None)
+    async {
+        match PersistenCacheImpl.connection with
+        | Some conn ->
+            let! res = PersistenCacheImpl.loadSymbolUses conn symbolName
+            return Some res
+        | None -> return None
+    }
 
 let getImplementation symbolName =
-    makePostRequest ("http://localhost:" + (string port) + "/getImplementation") symbolName
-    |> Async.map (fun n ->
-        try
-            Some (JsonConvert.DeserializeObject<SymbolUseRange[]> n)
-        with
-        | _ -> None)
-let buildProjectCache (serializer: Serializer) (opts: FSharpProjectOptions) =
-    opts
-    |> serializer
-    |> makePostRequest ("http://localhost:" + (string port) + "/buildCacheForProject")
-    |> Async.Ignore
+    async {
+        match PersistenCacheImpl.connection with
+        | Some conn ->
+            let! res = PersistenCacheImpl.loadImplementations conn symbolName
+            return Some res
+        | None -> return None
+    }

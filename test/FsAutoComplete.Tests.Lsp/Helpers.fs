@@ -13,7 +13,7 @@ open FsAutoComplete.LspHelpers
 let createServer () =
   let event = Event<string * obj> ()
   let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
-  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson)
+  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false)
   let server = FsharpLspServer(commands, client)
   server, event
 

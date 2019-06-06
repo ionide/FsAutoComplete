@@ -253,7 +253,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.Initialize(p) = async {
         Debug.print "[LSP call] Initialize"
-        commands.StartBackgroundService ()
+        let workspaceDir = defaultArg p.RootPath (Environment.CurrentDirectory)
+        commands.StartBackgroundService (workspaceDir)
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
@@ -266,12 +267,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         config <- c
         // Debug.print "Config: %A" c
-
-        if config.EnableBackgroundSymbolCache then
-            commands.EnableSymbolCache()
-
-            commands.BuildBackgroundSymbolsCache ()
-            |> Async.Start
 
         match p.RootPath, c.AutomaticWorkspaceInit with
         | None, _
@@ -1276,7 +1271,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let c = config.AddDto dto.FSharp
         config <- c
         Debug.print "[LSP call] WorkspaceDidChangeConfiguration:\n %A" c
-        commands.NotifyErrorsInBackground <- not c.MinimizeBackgroundParsing
         return ()
     }
 

@@ -9,6 +9,7 @@ open LanguageServerProtocol
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
+open FsAutoComplete
 
 type UpdateFileParms = {
     File: string
@@ -73,13 +74,6 @@ module Helpers =
         else
             "file:///" + (uri.ToString()).TrimStart('/')
 
-[<AutoOpen>]
-module Exts =
-    type ConcurrentDictionary<'key, 'value> with
-        member x.TryFind key =
-            match x.TryGetValue key with
-            | true, value -> Some value
-            | _ -> None
 
 //source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
 type Debounce<'a>(timeout, fn) =
@@ -138,6 +132,12 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
                     let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
                     do! client.SendDiagnostics msg
+                    async {
+                        let! symbols = res.GetAllUsesOfAllSymbolsInFile()
+                        SymbolCache.updateSymbols file symbols
+                        return ()
+                    } |> Async.Start
+
                     return ()
             | _ ->
                 do! client.Notifiy {Value = sprintf "Couldn't find state %s" file }

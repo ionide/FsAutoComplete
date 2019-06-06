@@ -33,7 +33,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
-    <ProjectReference Include="..\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
   </ItemGroup>
@@ -53,13 +52,21 @@
   </ItemGroup>
 
   <Target Name="CopySymbolCacheJsonToOutputDir"
+  <Target Name="CopyProjectCrackerToolExeToOutputDir"
+          AfterTargets="ComputeFilesToPublish"
+          Condition=" '$(TargetFramework)' == 'net461' ">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/$(OutputPath)FSharp.Compiler.Service.ProjectCrackerTool.exe"
+                             RelativePath="FSharp.Compiler.Service.ProjectCrackerTool.exe" />
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/$(OutputPath)FSharp.Compiler.Service.ProjectCrackerTool.exe.config"
+                             RelativePath="FSharp.Compiler.Service.ProjectCrackerTool.exe.config" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyBackgroundServiceJsonToOutputDir"
           AfterTargets="ComputeFilesToPublish"
           Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.deps.json"
-                             RelativePath="fsautocomplete.symbolcache.deps.json" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.runtimeconfig.json"
-                             RelativePath="fsautocomplete.symbolcache.runtimeconfig.json" />
       <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.deps.json"
                              RelativePath="fsautocomplete.backgroundservices.deps.json" />
       <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.runtimeconfig.json"

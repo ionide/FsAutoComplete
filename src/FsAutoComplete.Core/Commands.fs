@@ -75,7 +75,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
     let mutable notifyErrorsInBackground = true
-    let mutable useSymbolCache = false
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
     let mutable isWorkspaceReady = false
@@ -85,16 +84,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let workspaceReady = Event<unit>()
 
     let fileStateSet = Event<unit>()
-
-
-    let updateSymbolUsesCache (filename: FilePath) (check: FSharpCheckFileResults) =
-        async {
-            try
-                let! symbols = check.GetAllUsesOfAllSymbolsInFile()
-                SymbolCache.sendSymbols serialize filename symbols
-            with
-            | _ -> ()
-        }
 
     do BackgroundServices.messageRecived.Publish.Add (fun n ->
        match n with
@@ -159,9 +148,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             with
             | _ -> ()
         } |> Async.Start
-
-        updateSymbolUsesCache file parseAndCheck.GetCheckResults
-        |> if useSymbolCache then Async.Start else ignore
     )
 
 
@@ -253,19 +239,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         with get() = isWorkspaceReady
         and set(value) = isWorkspaceReady <- value
 
-    member __.NotifyErrorsInBackground
-        with get() = notifyErrorsInBackground
-        and set(value) = notifyErrorsInBackground <- value
-
     member __.LastVersionChecked
         with get() = lastVersionChecked
 
     member __.LastCheckResult
         with get() = lastCheckResult
-
-    member __.UseSymbolCache
-        with get() = useSymbolCache
-        and set(value) = useSymbolCache <- value
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version) =
         state.AddFileText(file, lines, version)
@@ -619,7 +597,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let fsym = sym.Symbol
                 if fsym.IsPrivateToFile then
                     return CoreResponse.SymbolUse (sym, usages)
-                elif useSymbolCache then
+                elif backgroundServiceEnabled then
                     let! res =  SymbolCache.getSymbols fsym.FullName
                     match res with
                     | None ->
@@ -653,7 +631,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let fsym = sym.Symbol
                 if fsym.IsPrivateToFile then
                     return CoreResponse.SymbolUseImplementation (sym, filterSymbols usages)
-                elif useSymbolCache then
+                elif backgroundServiceEnabled then
                     let! res =  SymbolCache.getImplementation fsym.FullName
                     match res with
                     | None ->
@@ -1107,34 +1085,17 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             return [ CoreResponse.Compile (errors,code)]
     }
 
-    member __.BuildBackgroundSymbolsCache () =
-        async {
-            SymbolCache.startCache state.WorkspaceRoot
-            do! Async.Sleep 100
-            let r =
-                state.Projects.Values
-                |> Seq.fold (fun acc n ->
-                    let s =
-                        match n.Response with
-                        | None -> async.Return ()
-                        | Some r ->
-                            SymbolCache.buildProjectCache serialize r.Options
-                    acc |> Async.bind (fun _ -> s )
-                    ) (async.Return ())
-            do! r
-        }
-
     member __.LoadAnalyzers (path: string) = async {
         let analyzers = Analyzers.loadAnalyzers path
         state.Analyzers.AddOrUpdate(path, (fun _ -> analyzers), (fun _ _ -> analyzers)) |> ignore
         return [CoreResponse.InfoRes (sprintf "%d Analyzers registered" analyzers.Length) ]
     }
 
-    member x.EnableSymbolCache () =
-        x.UseSymbolCache <- true
 
-    member __.StartBackgroundService () =
-        BackgroundServices.start ()
+    member __.StartBackgroundService (workspaceDir) =
+        if backgroundServiceEnabled then
+            SymbolCache.initCache workspaceDir
+            BackgroundServices.start ()
 
     member x.GetGitHash () =
         let version = Version.info ()
