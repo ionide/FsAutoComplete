@@ -74,7 +74,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let state = State.Initial
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
-    let mutable notifyErrorsInBackground = true
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
     let mutable isWorkspaceReady = false
@@ -1090,7 +1089,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         state.Analyzers.AddOrUpdate(path, (fun _ -> analyzers), (fun _ _ -> analyzers)) |> ignore
         return [CoreResponse.InfoRes (sprintf "%d Analyzers registered" analyzers.Length) ]
     }
-
 
     member __.StartBackgroundService (workspaceDir) =
         if backgroundServiceEnabled then
