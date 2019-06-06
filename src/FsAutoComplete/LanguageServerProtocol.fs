@@ -136,6 +136,7 @@ module Types =
     }
 
     type ITextDocumentIdentifier =
+        /// Warning: normalize this member by UrlDecoding it before use
         abstract member Uri : DocumentUri with get
 
     type TextDocumentIdentifier =
