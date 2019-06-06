@@ -132,6 +132,23 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 return ()
         }
 
+    let getDependingProjects (file: FilePath) =
+        let project = state.FileCheckOptions.TryFind file
+        match project with
+        | None -> []
+        | Some s ->
+            state.FileCheckOptions
+            |> Seq.map (fun kv -> kv.Value)
+            |> Seq.distinctBy (fun o -> o.ProjectFileName)
+            |> Seq.filter (fun o ->
+                o.ReferencedProjects
+                |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName)
+                |> Array.contains s.ProjectFileName )
+            |> Seq.toList
+
+
+
+
     let reactor = MailboxProcessor.Start(fun agent ->
         let rec recieveLast last =
             async {
@@ -143,30 +160,52 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     return last
             }
 
-        let rec loop lst = async {
+        let rec loop (isFromSave,lst) = async {
             let! msg = recieveLast None
             match msg, lst with
+            //Empty
             | None, [] ->
-                do! Async.Sleep 500
-                return! loop []
+                do! Async.Sleep 300
+                return! loop (false, [])
+            //Empty
+            | Some (_,_,[]), [] ->
+                do! Async.Sleep 300
+                return! loop (false, [])
+            //No request we just continue
             | None, x::xs ->
                 do! typecheckFile None x
-                return! loop xs
-            | Some (fn,(x::xs)), _ ->
+                return! loop (isFromSave, xs)
+
+            //We've ended processing request we start new
+            | Some(saveRequest,fn, x::xs), [] ->
                 do! typecheckFile (Some fn) x
-                return! loop xs
-            | Some (fn,[]), x::xs ->
+                return! loop (saveRequest, xs)
+
+            //If incoming is normal update and current is from save request we continue current
+            | Some (false,_,_), x::xs when isFromSave  ->
+                do! typecheckFile None x
+                return! loop (isFromSave, xs)
+
+            //If incoming is normal and previous was normal
+            | Some (false,fn,(x::xs)), _ ->
                 do! typecheckFile (Some fn) x
-                return! loop xs
-            | Some (fn,[]), [] ->
-                do! Async.Sleep 500
-                return! loop []
+                return! loop (false, xs)
+
+            //If incoming request is from save we always start it
+            | Some(true, fn, (x::xs)), _ ->
+                do! typecheckFile (Some fn) x
+                return! loop (true, xs)
+
+            //If incoming request doesn't contain any list we just continue previous one
+            | Some (_,fn,[]), x::xs ->
+                do! typecheckFile (Some fn) x
+                return! loop (isFromSave, xs)
         }
 
-        loop []
+        loop (false, [])
     )
 
-    let bouncer = Debounce(400, reactor.Post)
+    let bouncer = Debounce(500, reactor.Post)
 
 
     member __.UpdateTextFile(p: UpdateFileParms) =
@@ -176,7 +215,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let vf = {Lines = p.Content.Split( [|'\n' |] ); Touched = DateTime.Now; Version = Some p.Version  }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore
             let filesToCheck = getListOfFilesForProjectChecking file
-            bouncer.Bounce (file,filesToCheck)
+            bouncer.Bounce (false, file,filesToCheck)
             return LspResult.success ()
         }
 
@@ -198,8 +237,19 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     member __.FileSaved(p: FileParms) =
         async {
-            let file = IO.Path.GetFileName p.File
-            do! client.Notifiy {Value = sprintf "File Save %s" file}
+            let file = Utils.normalizePath p.File
+
+            do! client.Notifiy {Value = sprintf "File Saved %s " file }
+
+            let projects = getDependingProjects file
+            let filesToCheck =
+                [
+                    yield! getListOfFilesForProjectChecking file
+                    yield! projects |> Seq.collect (fun o ->
+                        o.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+                    )
+                ]
+            bouncer.Bounce (true, file,filesToCheck)
             return LspResult.success ()
         }
 
