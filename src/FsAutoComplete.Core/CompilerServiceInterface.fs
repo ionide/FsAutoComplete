@@ -394,7 +394,6 @@ type ParseAndCheckResults
 
   member __.GetAllSymbolUsesInFile () = checkResults.GetAllUsesOfAllSymbolsInFile()
 
-
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
@@ -406,7 +405,7 @@ type Version = int
 type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let checker =
     FSharpChecker.Create(
-      projectCacheSize = 200,
+      projectCacheSize = (if backgroundServiceEnabled then 3 else 200),
       keepAllBackgroundResolutions = not backgroundServiceEnabled,
       keepAssemblyContents = false)
 
@@ -460,11 +459,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     return projOptions
   }
 
-
-  member __.CheckProjectInBackground (fpo: FSharpProjectOptions) =
-    logDebug "[Checker] CheckProjectInBackground - %s" fpo.ProjectFileName
-    checker.CheckProjectInBackground fpo
-
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
     logDebug "[Checker] GetBackgroundCheckResultsForFileInProject - %s" fn
     let opt = clearProjectReferecnes opt
@@ -473,9 +467,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.FileChecked =
     checker.FileChecked
-
-  member __.ProjectChecked =
-    checker.ProjectChecked
 
   member __.ParseFile(fn, source, fpo) =
     logDebug "[Checker] ParseFile - %s" fn
@@ -498,22 +489,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
           | Choice2Of2 e -> ResultOrString.Error e.Message
-    }
-
-  member __.ParseAndCheckFileInProject'(filePath, version, source, options) =
-    async {
-      logDebug "[Checker] ParseAndCheckFileInProject2 - %s" filePath
-      let source = SourceText.ofString source
-      let options = clearProjectReferecnes options
-      let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
-      return
-          match res with
-          | Choice1Of2 (pr,cr) ->
-            match cr with
-            | FSharpCheckFileAnswer.Aborted -> None
-            | FSharpCheckFileAnswer.Succeeded cr -> Some  (ParseAndCheckResults (pr, cr, entityCache))
-          | Choice2Of2 e -> None
     }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
