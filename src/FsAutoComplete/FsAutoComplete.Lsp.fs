@@ -397,11 +397,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         Debug.print "[LSP call] TextDocumentDidSave"
         if not commands.IsWorkspaceReady then
             Debug.print "[LSP] DidSave - Workspace not ready"
-        elif config.MinimizeBackgroundParsing then
-            Debug.print "[LSP] DidSave - Background parsing disabled"
         else
             let doc = p.TextDocument
             let filePath = doc.GetFilePath()
+
+            //Parsing projects on file save puts too much pressure on CPU -
+            //even if it isn't blocking main functionalities due to being in background process
+            //just plain CPU and memory usage is probably too high to enable this at all
+            //Investigate more.
+
+            //commands.ProcessProjectsInBackground filePath
             ()
     }
 

@@ -168,7 +168,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         | None when File.Exists(file) ->
                             let ctn = File.ReadAllLines file
                             state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn; Version = None }
-                            BackgroundServices.updateFile(file, ctn |> String.concat "\n", 0)
+                            if backgroundServiceEnabled then BackgroundServices.updateFile(file, ctn |> String.concat "\n", 0)
                             Some (ctn)
                         | None -> None
                     match sourceOpt with
@@ -246,7 +246,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version) =
         state.AddFileText(file, lines, version)
-        BackgroundServices.updateFile(file, lines |> String.concat "\n", defaultArg version 0)
+        if backgroundServiceEnabled then BackgroundServices.updateFile(file, lines |> String.concat "\n", defaultArg version 0)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse>, ?failureToString: string -> CoreResponse) =
         Async.bind <| function
@@ -418,7 +418,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     |> Result.map (fun (opts, optsDPW, projectFiles, logMap) -> x.ToProjectCache(opts, optsDPW.ExtraProjectInfo, projectFiles, logMap) )
                 match projectCached with
                 | Result.Ok (projectFileName, response) ->
-                    BackgroundServices.updateProject(projectFileName, response.Options)
+                    if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, response.Options)
                     project.Response <- Some response
                     Result.Ok (projectFileName, response)
                 | Result.Error error ->
@@ -934,7 +934,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 |> notify.Trigger
             | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
-                BackgroundServices.updateProject(projectFileName, opts)
+                if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
                 projectLoadedSuccessfully projectFileName response
                 CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
                 |> NotificationEvent.Workspace
@@ -1094,6 +1094,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         if backgroundServiceEnabled then
             SymbolCache.initCache workspaceDir
             BackgroundServices.start ()
+
+    member __.ProcessProjectsInBackground (file) =
+        if backgroundServiceEnabled then
+            BackgroundServices.saveFile file
 
     member x.GetGitHash () =
         let version = Version.info ()
