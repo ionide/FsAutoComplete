@@ -7,6 +7,7 @@ open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open LanguageServerProtocol
 open FSharp.Compiler
+open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open FsAutoComplete
@@ -108,7 +109,8 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             do! client.Notifiy {Value = sprintf "Typechecking %s" file }
             match state.Files.TryFind file, state.FileCheckOptions.TryFind file with
             | Some vf, Some opts ->
-                let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, vf.Lines |> String.concat "\n", opts)
+                let txt = vf.Lines |> String.concat "\n"
+                let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
                 match cr with
                 | FSharpCheckFileAnswer.Aborted ->
                     do! client.Notifiy {Value = sprintf "Typechecking aborted %s" file }
