@@ -75,22 +75,7 @@ module Helpers =
             "file:///" + (uri.ToString()).TrimStart('/')
 
 
-//source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
-type Debounce<'a>(timeout, fn) =
-    let debounce fn timeout = MailboxProcessor<'a>.Start(fun agent ->
-        let rec loop ida idb arg = async {
-            let! r = agent.TryReceive(timeout)
-            match r with
-            | Some arg -> return! loop ida (idb + 1) (Some arg)
-            | None when ida <> idb -> fn arg.Value; return! loop idb idb None
-            | None -> return! loop ida idb arg
-        }
-        loop 0 0 None)
 
-    let mailbox = debounce fn timeout
-
-    /// Calls the function, after debouncing has been applied.
-    member __.Bounce(arg) = mailbox.Post(arg)
 
 type FsacClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()
@@ -118,7 +103,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             |> Array.map (fun n -> (Utils.normalizePath n))
             |> Array.toList
 
-    let typecheckFile file =
+    let typecheckFile ignoredFile file =
         async {
             do! client.Notifiy {Value = sprintf "Typechecking %s" file }
             match state.Files.TryFind file, state.FileCheckOptions.TryFind file with
@@ -129,16 +114,19 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     do! client.Notifiy {Value = sprintf "Typechecking aborted %s" file }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
-                    let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
-                    let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
-                    do! client.SendDiagnostics msg
-                    async {
-                        let! symbols = res.GetAllUsesOfAllSymbolsInFile()
-                        SymbolCache.updateSymbols file symbols
-                        return ()
-                    } |> Async.Start
+                    match ignoredFile with
+                    | Some fn when fn = file -> return ()
+                    | _ ->
+                        let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
+                        let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
+                        do! client.SendDiagnostics msg
+                        async {
+                            let! symbols = res.GetAllUsesOfAllSymbolsInFile()
+                            SymbolCache.updateSymbols file symbols
+                            return ()
+                        } |> Async.Start
 
-                    return ()
+                        return ()
             | _ ->
                 do! client.Notifiy {Value = sprintf "Couldn't find state %s" file }
                 return ()
@@ -162,15 +150,15 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 do! Async.Sleep 500
                 return! loop []
             | None, x::xs ->
-                do! typecheckFile x
+                do! typecheckFile None x
                 return! loop xs
-            | Some (x::xs), _ ->
-                do! typecheckFile x
+            | Some (fn,(x::xs)), _ ->
+                do! typecheckFile (Some fn) x
                 return! loop xs
-            | Some [], x::xs ->
-                do! typecheckFile x
+            | Some (fn,[]), x::xs ->
+                do! typecheckFile (Some fn) x
                 return! loop xs
-            | Some [], [] ->
+            | Some (fn,[]), [] ->
                 do! Async.Sleep 500
                 return! loop []
         }
@@ -188,7 +176,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let vf = {Lines = p.Content.Split( [|'\n' |] ); Touched = DateTime.Now; Version = Some p.Version  }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore
             let filesToCheck = getListOfFilesForProjectChecking file
-            bouncer.Bounce filesToCheck
+            bouncer.Bounce (file,filesToCheck)
             return LspResult.success ()
         }
 
