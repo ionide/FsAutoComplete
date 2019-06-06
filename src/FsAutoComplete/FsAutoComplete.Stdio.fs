@@ -9,8 +9,6 @@ module Response = CommandResponse
 let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
-    commands.NotifyErrorsInBackground <- false
-
     // use a mailboxprocess to queue the send of notifications
     use agent = MailboxProcessor.Start ((fun inbox ->
         let rec messageLoop () = async {
