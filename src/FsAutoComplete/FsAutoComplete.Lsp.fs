@@ -170,6 +170,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let ntf = {Content = msg}
                     lspClient.NotifyCancelledRequest ntf
                     |> Async.Start
+                | NotificationEvent.Diagnostics(p) ->
+                    p
+                    |> lspClient.TextDocumentPublishDiagnostics
+                    |> Async.Start
                 | _ ->
                     //TODO: Add analyzer support
                     ()
@@ -249,6 +253,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.Initialize(p) = async {
         Debug.print "[LSP call] Initialize"
+        commands.StartBackgroundService ()
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities

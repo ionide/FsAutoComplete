@@ -31,6 +31,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.SymbolCache"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LanguageServerProtocol", "src\LanguageServerProtocol\LanguageServerProtocol.fsproj", "{093CFF4E-C533-41FE-BAA1-474151C8BBB7}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.BackgroundServices", "src\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj", "{775C1714-AD5F-4A4C-B613-0AE08F51E17A}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{443E0B8D-9AD0-436E-A331-E8CC12965F07}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{60D13105-E260-4495-BD63-6FCBC033A97D}"
@@ -71,6 +73,10 @@ Global
 		{093CFF4E-C533-41FE-BAA1-474151C8BBB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{093CFF4E-C533-41FE-BAA1-474151C8BBB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{093CFF4E-C533-41FE-BAA1-474151C8BBB7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
