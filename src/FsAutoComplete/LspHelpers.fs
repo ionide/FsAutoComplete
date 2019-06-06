@@ -88,14 +88,13 @@ module Conversions =
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
 
     type TextDocumentIdentifier with
-        member doc.GetFilePath() = Uri(doc.Uri).LocalPath.TrimStart('/')
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
 
     type VersionedTextDocumentIdentifier with
-        member doc.GetFilePath() = Uri(doc.Uri).LocalPath.TrimStart('/')
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
 
     type TextDocumentItem with
-        member doc.GetFilePath() = Uri(doc.Uri).LocalPath.TrimStart('/')
-
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
 
     type ITextDocumentPositionParams with
         member p.GetFilePath() = p.TextDocument.GetFilePath()
