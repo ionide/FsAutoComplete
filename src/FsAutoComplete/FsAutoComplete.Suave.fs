@@ -140,7 +140,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 return r :: res
                 })
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
-            path "/projectsInBackground" >=> handler (fun (data : FileRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {

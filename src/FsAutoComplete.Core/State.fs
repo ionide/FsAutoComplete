@@ -27,7 +27,6 @@ type State =
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
-    BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
     Analyzers: ConcurrentDictionary<FilePath, Analyzer list>
 
     mutable WorkspaceRoot: string
@@ -47,7 +46,6 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ParseResults = ConcurrentDictionary()
-      BackgroundProjects = SimplePriorityQueue<_, _>()
       WorkspaceRoot = Environment.CurrentDirectory
       Analyzers = ConcurrentDictionary()
       ColorizationOutput = false }
@@ -150,12 +148,3 @@ type State =
                pos.Column <= lines.[pos.Line - 1].Length + 1 && pos.Column >= 1
       if not ok then ResultOrString.Error "Position is out of range"
       else Ok (opts, lines, lines.[pos.Line - 1])
-
-  member x.EnqueueProjectForBackgroundParsing(opts: FSharpProjectOptions, priority: int) =
-    if x.BackgroundProjects.Contains opts then
-      match x.BackgroundProjects.TryGetPriority opts with
-      | true, pr when pr > priority -> x.BackgroundProjects.TryUpdatePriority (opts, priority) |> ignore
-      | false, _ -> x.BackgroundProjects.Enqueue(opts, priority)
-      | _ -> ()
-    else
-      x.BackgroundProjects.Enqueue(opts, priority)

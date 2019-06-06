@@ -379,8 +379,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
         if config.UnusedDeclarationsAnalyzer then do! (commands.GetUnusedDeclarations filePath |> Async.Ignore)
         if config.SimplifyNameAnalyzer then do! (commands.GetSimplifiedNames filePath |> Async.Ignore)
-        if not config.MinimizeBackgroundParsing then do! (commands.ParseAndCheckProjectsInBackgroundForFile filePath |> Async.Ignore)
-
     }
 
     override __.TextDocumentDidChange(p) = async {
@@ -409,7 +407,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         else
             let doc = p.TextDocument
             let filePath = doc.GetFilePath()
-            do! (commands.ParseAndCheckProjectsInBackgroundForFile filePath |> Async.Ignore)
             ()
     }
 

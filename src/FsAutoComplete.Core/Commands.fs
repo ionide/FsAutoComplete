@@ -402,16 +402,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
 
-    member x.ParseAndCheckProjectsInBackgroundForFile file = async {
-        let file = Path.GetFullPath file
-        match checker.GetDependingProjects file (state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray) with
-        | Some (p, projs) ->
-            state.EnqueueProjectForBackgroundParsing(p, 0)
-            projs |> Seq.iter (fun p -> state.EnqueueProjectForBackgroundParsing (p,1))
-        | None -> ()
-        return [CoreResponse.Errors ([||], "") ]
-    }
-
     member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projectFiles, logMap) =
         let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
@@ -755,7 +745,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                                     | Result.Ok config -> Some config
                                     | Result.Error _ -> None
 
-                                let res = 
+                                let res =
                                     Lint.lintParsedSource
                                         { Lint.OptionalLintParameters.Default with Configuration = opts}
                                         { Ast = tree
