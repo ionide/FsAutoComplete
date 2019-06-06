@@ -45,11 +45,13 @@
     <Compile Include="RecordStubGenerator.fs" />
     <Compile Include="InterfaceStubGenerator.fs" />
     <Compile Include="SymbolCache.fs" />
+    <Compile Include="BackgroundServices.fs" />
     <Compile Include="Fsdn.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

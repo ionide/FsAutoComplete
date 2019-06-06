@@ -106,8 +106,8 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
                 File.GetLastWriteTimeUtc projectFile
             else
                 DateTime.MinValue
-            
-        let projectAssetsTime = 
+
+        let projectAssetsTime =
             if File.Exists projectAssetsFile then
                 File.GetLastWriteTimeUtc projectAssetsFile
             else
@@ -163,7 +163,7 @@ type Project (projectFile, onChange: ProjectFilePath -> unit) =
     do propsfsw.Created.Add (fun x -> agent.Post (Changed (File.GetLastWriteTimeUtc x.FullPath)))
     do propsfsw.Deleted.Add (fun _ -> agent.Post (Changed (DateTime.UtcNow)))
 
-    do propsfsw.EnableRaisingEvents <- true    
+    do propsfsw.EnableRaisingEvents <- true
 
     member __.Response with get() = agent.PostAndReply GetResponse
                         and set r = agent.Post (SetResponse r)

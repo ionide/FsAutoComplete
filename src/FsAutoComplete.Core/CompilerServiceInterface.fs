@@ -403,14 +403,14 @@ type ParseAndCheckResults
 
 type Version = int
 
-type FSharpCompilerServiceChecker() =
+type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = true,
+      keepAllBackgroundResolutions = not backgroundServiceEnabled,
       keepAssemblyContents = false)
 
-  do checker.ImplicitlyStartBackgroundWork <- true
+  do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
 
   do checker.BeforeBackgroundFileCheck.Add ignore
   let fixFileName path =

@@ -66,10 +66,11 @@ type NotificationEvent =
     | UnusedDeclarations of CoreResponse
     | SimplifyNames of CoreResponse
     | Canceled of CoreResponse
+    | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
 
-type Commands (serialize : Serializer) =
+type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
-    let checker = FSharpCompilerServiceChecker()
+    let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
@@ -85,15 +86,6 @@ type Commands (serialize : Serializer) =
 
     let fileStateSet = Event<unit>()
 
-    let rec backgroundChecker () =
-        async {
-            try
-                let opt = state.BackgroundProjects.First
-                checker.CheckProjectInBackground opt
-            with
-            | _ ->
-                ()
-        } |> Async.Start
 
     let updateSymbolUsesCache (filename: FilePath) (check: FSharpCheckFileResults) =
         async {
@@ -104,24 +96,31 @@ type Commands (serialize : Serializer) =
             | _ -> ()
         }
 
+    do BackgroundServices.messageRecived.Publish.Add (fun n ->
+       match n with
+       | BackgroundServices.Diagnostics d -> notify.Trigger (NotificationEvent.Diagnostics d)
+    )
+
     do fileParsed.Publish.Add (fun parseRes ->
         let decls = parseRes.GetNavigationItems().Declarations
         state.NavigationDeclarations.[parseRes.FileName] <- decls
         state.ParseResults.[parseRes.FileName] <- parseRes
     )
 
-    do checker.FileChecked.Add (fun (n,_) ->
-        Debug.print "[Commands - checker events] File checked - %s" n
-        async {
-            try
-                let opts = state.FileCheckOptions.[n]
-                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                fileChecked.Trigger (res, res.FileName, -1)
-            with
-            | _ -> ()
-        } |> Async.Start
-    )
+    do if not backgroundServiceEnabled then
+            checker.FileChecked.Add (fun (n,_) ->
+                Debug.print "[Commands - checker events] File checked - %s" n
+                async {
+                    try
+                        let opts = state.FileCheckOptions.[n]
+                        let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                        fileChecked.Trigger (res, res.FileName, -1)
+                    with
+                    | _ -> ()
+                } |> Async.Start
+            )
 
+    //Triggered by `FSharpChecker.FileChecked` if background service is disabled; and by `Parse` command
     do fileChecked.Publish.Add (fun (parseAndCheck, file, version) ->
         async {
             try
@@ -166,14 +165,6 @@ type Commands (serialize : Serializer) =
     )
 
 
-    do checker.ProjectChecked.Add(fun (o, _) ->
-        if notifyErrorsInBackground then
-            Debug.print "[Commands - checker events] Project checked - %s" o
-            state.FileCheckOptions.ToArray()
-            |> Array.tryPick(fun (KeyValue(_, v)) -> if v.ProjectFileName = Path.GetFullPath o then Some v else None )
-            |> Option.iter ( state.BackgroundProjects.TryRemove >> ignore)
-            backgroundChecker () ) //When one project finished, start new one
-
     let normalizeOptions (opts : FSharpProjectOptions) =
         { opts with
             SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
@@ -192,6 +183,7 @@ type Commands (serialize : Serializer) =
                         | None when File.Exists(file) ->
                             let ctn = File.ReadAllLines file
                             state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn; Version = None }
+                            BackgroundServices.updateFile(file, ctn |> String.concat "\n", 0)
                             Some (ctn)
                         | None -> None
                     match sourceOpt with
@@ -256,7 +248,6 @@ type Commands (serialize : Serializer) =
 
     member __.FileChecked = fileChecked.Publish
 
-    member __.FileStateSet = fileStateSet
 
     member __.IsWorkspaceReady
         with get() = isWorkspaceReady
@@ -278,6 +269,7 @@ type Commands (serialize : Serializer) =
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version) =
         state.AddFileText(file, lines, version)
+        BackgroundServices.updateFile(file, lines |> String.concat "\n", defaultArg version 0)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse>, ?failureToString: string -> CoreResponse) =
         Async.bind <| function
@@ -459,6 +451,7 @@ type Commands (serialize : Serializer) =
                     |> Result.map (fun (opts, optsDPW, projectFiles, logMap) -> x.ToProjectCache(opts, optsDPW.ExtraProjectInfo, projectFiles, logMap) )
                 match projectCached with
                 | Result.Ok (projectFileName, response) ->
+                    BackgroundServices.updateProject(projectFileName, response.Options)
                     project.Response <- Some response
                     Result.Ok (projectFileName, response)
                 | Result.Error error ->
@@ -974,6 +967,7 @@ type Commands (serialize : Serializer) =
                 |> notify.Trigger
             | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
+                BackgroundServices.updateProject(projectFileName, opts)
                 projectLoadedSuccessfully projectFileName response
                 CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
                 |> NotificationEvent.Workspace
@@ -1111,10 +1105,6 @@ type Commands (serialize : Serializer) =
             |> CoreResponse.RangesAtPositions
             |> List.singleton
 
-
-
-
-
     member x.Compile projectFileName = async {
         let projectFileName = Path.GetFullPath projectFileName
         match state.Projects.TryFind projectFileName with
@@ -1152,6 +1142,9 @@ type Commands (serialize : Serializer) =
 
     member x.EnableSymbolCache () =
         x.UseSymbolCache <- true
+
+    member __.StartBackgroundService () =
+        BackgroundServices.start ()
 
     member x.GetGitHash () =
         let version = Version.info ()

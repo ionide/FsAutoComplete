@@ -34,6 +34,7 @@
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
   </ItemGroup>
 
@@ -59,6 +60,10 @@
                              RelativePath="fsautocomplete.symbolcache.deps.json" />
       <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.runtimeconfig.json"
                              RelativePath="fsautocomplete.symbolcache.runtimeconfig.json" />
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.deps.json"
+                             RelativePath="fsautocomplete.backgroundservices.deps.json" />
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.runtimeconfig.json"
+                             RelativePath="fsautocomplete.backgroundservices.runtimeconfig.json" />
     </ItemGroup>
   </Target>
 

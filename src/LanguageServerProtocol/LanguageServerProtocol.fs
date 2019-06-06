@@ -2376,7 +2376,11 @@ module Client =
         let sender = MailboxProcessor<string>.Start(fun inbox ->
             let rec loop () = async {
                 let! str = inbox.Receive()
-                inputStream |> Option.iter (fun input -> LowLevel.write input.BaseStream str)
+                inputStream |> Option.iter (fun input ->
+                    // fprintfn stderr "[CLIENT] Writing: %s" str
+                    LowLevel.write input.BaseStream str
+                    input.BaseStream.Flush()
+                    )
                 // do! Async.Sleep 1000
                 return! loop ()
             }
@@ -2437,8 +2441,10 @@ module Client =
             async {
                 let si = ProcessStartInfo()
                 si.RedirectStandardOutput <- true
+                si.RedirectStandardInput <- true
                 si.RedirectStandardError <- true
                 si.UseShellExecute <- false
+                si.WorkingDirectory <- Environment.CurrentDirectory
                 si.FileName <- exec
                 si.Arguments <- args
                 let proc = Process.Start(si)
@@ -2446,14 +2452,12 @@ module Client =
                 outuptStream <- Some (proc.StandardOutput)
 
                 let mutable quit = false
+                let outStream = proc.StandardOutput.BaseStream
                 while not quit do
                     try
-                        match outuptStream with
-                        | Some output ->
-                            let _, notificationString = LowLevel.read output.BaseStream
-                            messageHanlder notificationString
-                        | None ->
-                            ()
+                        let _, notificationString = LowLevel.read outStream
+                        // fprintfn stderr "[CLIENT] READING: %s" notificationString
+                        messageHanlder notificationString
                     with
                     | :? EndOfStreamException ->
                         quit <- true
