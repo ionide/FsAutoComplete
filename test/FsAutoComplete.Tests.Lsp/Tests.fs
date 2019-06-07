@@ -159,7 +159,7 @@ let basicTests () =
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-  serverTest path {defaultConfigDto with EnableBackgroundSymbolCache = Some true; EnableReferenceCodeLens = Some true} (fun (server, event) ->
+  serverTest path {defaultConfigDto with EnableReferenceCodeLens = Some true} (fun (server, event) ->
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously

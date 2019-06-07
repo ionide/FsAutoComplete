@@ -1130,7 +1130,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "signature")
                     |> Array.collect id
                 let res2 =
-                    if config.EnableReferenceCodeLens && config.EnableBackgroundSymbolCache then
+                    if config.EnableReferenceCodeLens then
                         decls
                         |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "reference")
                         |> Array.collect id
@@ -1501,9 +1501,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                 return res
             }
-
-
-
 
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
