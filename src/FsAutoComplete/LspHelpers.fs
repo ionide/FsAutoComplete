@@ -482,8 +482,6 @@ type FSharpConfigDto = {
     UnusedDeclarationsAnalyzer: bool option
     SimplifyNameAnalyzer: bool option
     ResolveNamespaces: bool option
-    MinimizeBackgroundParsing: bool option
-    EnableBackgroundSymbolCache: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
     AnalyzersPath: string [] option
@@ -509,8 +507,6 @@ type FSharpConfig = {
     UnusedDeclarationsAnalyzer: bool
     SimplifyNameAnalyzer: bool
     ResolveNamespaces: bool
-    MinimizeBackgroundParsing: bool
-    EnableBackgroundSymbolCache: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
     AnalyzersPath: string []
@@ -533,8 +529,6 @@ with
             UnusedDeclarationsAnalyzer = false
             SimplifyNameAnalyzer = false
             ResolveNamespaces = false
-            MinimizeBackgroundParsing = false
-            EnableBackgroundSymbolCache = false
             EnableReferenceCodeLens = false
             EnableAnalyzers = false
             AnalyzersPath = [||]
@@ -557,8 +551,6 @@ with
             UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
             SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
             ResolveNamespaces = defaultArg dto.ResolveNamespaces false
-            MinimizeBackgroundParsing = defaultArg dto.MinimizeBackgroundParsing false
-            EnableBackgroundSymbolCache = defaultArg dto.EnableBackgroundSymbolCache false
             EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
             EnableAnalyzers = defaultArg dto.EnableAnalyzers false
             AnalyzersPath = defaultArg dto.AnalyzersPath [||]
@@ -581,8 +573,6 @@ with
             UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
             SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer
             ResolveNamespaces = defaultArg dto.ResolveNamespaces x.ResolveNamespaces
-            MinimizeBackgroundParsing = defaultArg dto.MinimizeBackgroundParsing x.MinimizeBackgroundParsing
-            EnableBackgroundSymbolCache = defaultArg dto.EnableBackgroundSymbolCache x.EnableBackgroundSymbolCache
             EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
             EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
             AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
