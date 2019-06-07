@@ -7,43 +7,12 @@ open System.IO
 
 module FscArguments =
 
-  let outType rsp =
-      match List.tryPick (chooseByPrefix "--target:") rsp with
-      | Some "library" -> ProjectOutputType.Library
-      | Some "exe" -> ProjectOutputType.Exe
-      | Some v -> ProjectOutputType.Custom v
-      | None -> ProjectOutputType.Exe // default if arg is not passed to fsc
-
-  let private outputFileArg = ["--out:"; "-o:"]
-
-  let private makeAbs projDir (f: string) =
-      if Path.IsPathRooted f then f else Path.Combine(projDir, f)
-
-  let outputFile projDir rsp =
-      rsp
-      |> List.tryPick (chooseByPrefix2 outputFileArg)
-      |> Option.map (makeAbs projDir)
-
   let isCompileFile (s:string) =
       s.EndsWith(".fs") || s.EndsWith (".fsi")
-
-  let compileFiles =
-      //TODO filter the one without initial -
-      List.filter isCompileFile
 
   let references =
       //TODO valid also --reference:
       List.choose (chooseByPrefix "-r:")
-
-  let useFullPaths projDir (s: string) =
-    match s |> splitByPrefix2 outputFileArg with
-    | Some (prefix, v) ->
-        prefix + (v |> makeAbs projDir)
-    | None ->
-        if isCompileFile s then
-            s |> makeAbs projDir |> Path.GetFullPath
-        else
-            s
 
 (*
 

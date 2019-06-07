@@ -403,45 +403,6 @@ type ParseAndCheckResults
 
 type Version = int
 
-module FSharpCompilerServiceCheckerHelper =
-
-  let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
-
-  let ensureCorrectFSharpCore (options: string[]) =
-    let fsharpCores, others = Array.partition isFSharpCore options
-
-    // ensure that there is only one fsharpcore ref provided
-    let fsharpCoreRef =
-      match fsharpCores with
-      | [||] -> sprintf "-r:%s" Environment.fsharpCore
-      | [| ref |] -> ref
-      | refs -> Array.head refs
-
-    [| yield fsharpCoreRef
-       yield! others |]
-
-#if SCRIPT_REFS_FROM_MSBUILD
-#else
-  let ensureCorrectVersions (options: string[]) =
-    if Utils.runningOnMono then options
-    else
-      match Environment.referenceAssembliesPath (), NETFrameworkInfoProvider.netReferencesAssembliesTFMLatest () with
-      | _, None -> options
-      | Some referenceAssembliesPath, Some version ->
-        let oldRef = referenceAssembliesPath </> "v4.0"
-        let newRef = referenceAssembliesPath </> version
-
-        let fsharpCoreRef = options |> Seq.find isFSharpCore
-
-        let newOptions =
-          options
-          |> Seq.filter (not << isFSharpCore)
-          |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
-        [| yield fsharpCoreRef
-           yield! newOptions |]
-      | None, _ -> options
-#endif
-
 type FSharpCompilerServiceChecker() =
   let checker =
     FSharpChecker.Create(
@@ -468,10 +429,14 @@ type FSharpCompilerServiceChecker() =
   let clearProjectReferecnes (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
-  let logDebug fmt =
+  let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
 
+  let logDebug fmt =
     if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
     Debug.print fmt
+
+  member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
+    Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
 
   member __.DisableInMemoryProjectReferences
     with get() = disableInMemoryProjectReferences
@@ -488,37 +453,11 @@ type FSharpCompilerServiceChecker() =
       ])
 
   member __.GetProjectOptionsFromScript(file, source) = async {
-    let source = SourceText.ofString source
-#if SCRIPT_REFS_FROM_MSBUILD
+    let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
 
-    let targetFramework = NETFrameworkInfoProvider.netReferencesAssembliesTFMLatest ()
+    let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
 
-    let additionaRefs =
-      NETFrameworkInfoProvider.additionalArgumentsBy targetFramework
-      |> Array.ofList
-
-    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
-
-    let opts =
-      rawOptions.OtherOptions
-      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
-
-    let opts =
-      opts
-      |> Array.distinct
-
-    return { rawOptions with OtherOptions = opts }
-#else
-    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
-
-    let opts =
-      rawOptions.OtherOptions
-      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
-      |> FSharpCompilerServiceCheckerHelper.ensureCorrectVersions
-
-    return { rawOptions with OtherOptions = opts }
-#endif
-
+    return projOptions
   }
 
 
