@@ -71,9 +71,9 @@ module Helpers =
                 uri.Append((int c).ToString("X2")) |> ignore
 
         if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-            "file:" + uri.ToString()
+            Uri ("file:" + uri.ToString())
         else
-            "file:///" + (uri.ToString()).TrimStart('/')
+            Uri ("file:///" + (uri.ToString()).TrimStart('/'))
 
 
 

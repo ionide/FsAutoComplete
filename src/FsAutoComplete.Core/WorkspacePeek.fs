@@ -20,7 +20,7 @@ and SolutionItem = {
     }
 and SolutionItemKind =
     | MsbuildFormat of SolutionItemMsbuildConfiguration list
-    | Folder of (SolutionItem list) * (string list)
+    | Folder of childProjects: SolutionItem list * looseFiles: string list
     | Unsupported
     | Unknown
 and SolutionItemMsbuildConfiguration = {
@@ -31,10 +31,10 @@ and SolutionItemMsbuildConfiguration = {
 
 [<RequireQualifiedAccess>]
 type Interesting =
-| Solution of string * SolutionData
-| Directory of string * string list
+| Solution of solutionFilePath: string * data: SolutionData
+| Directory of directoryPath: string * projectFiles: string list
 
-let tryParseSln (slnFilePath: string) = 
+let tryParseSln (slnFilePath: string) =
     let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
         let slnDir = Path.GetDirectoryName slnFilePath
         let makeAbsoluteFromSlnDir =

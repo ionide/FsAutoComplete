@@ -126,7 +126,7 @@ module Types =
         End: Position
     }
 
-    type DocumentUri = string
+    type DocumentUri = Uri
 
     /// Represents a location inside a resource, such as a line inside a text file.
     type Location = {
@@ -134,17 +134,11 @@ module Types =
         Range: Range
     }
 
-    type ITextDocumentIdentifier =
-        /// Warning: normalize this member by UrlDecoding it before use
-        abstract member Uri : DocumentUri with get
-
     type TextDocumentIdentifier =
         {
             /// The text document's URI.
             Uri: DocumentUri
         }
-        interface ITextDocumentIdentifier with
-            member this.Uri with get() = this.Uri
 
     type VersionedTextDocumentIdentifier =
         {
@@ -158,8 +152,6 @@ module Types =
             /// truth (as speced with document content ownership)
             Version: int option
         }
-        interface ITextDocumentIdentifier with
-            member this.Uri with get() = this.Uri
 
     type SymbolKind =
     | File = 1

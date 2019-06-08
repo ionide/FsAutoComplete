@@ -14,6 +14,52 @@ open Newtonsoft.Json.Linq
 open LspHelpers
 module FcsRange = FSharp.Compiler.Range
 
+
+/// Holder for types of responses for custom LS commands
+module LSP =
+    /// same as the data types from the WorkspacePeek.fs file, but with any LSP-specifica modifications applied
+    /// ie. string filepaths to file uris
+    module WorkspacePeek =
+        type SolutionData = {
+            Items: SolutionItem list
+            Configurations: WorkspacePeek.SolutionConfiguration list // no customizations for this type yet
+        } with
+            static member fromDomain (d: FsAutoComplete.WorkspacePeek.SolutionData) =
+                { Items = d.Items |> List.map SolutionItem.fromDomain
+                  Configurations = d.Configurations }
+        and SolutionItem = {
+            Guid: Guid
+            Name: DocumentUri
+            Kind: SolutionItemKind
+        } with
+            static member fromDomain (d: FsAutoComplete.WorkspacePeek.SolutionItem) =
+                { Guid = d.Guid
+                  Name = Uri d.Name
+                  Kind = SolutionItemKind.fromDomain d.Kind }
+        and SolutionItemKind =
+            | MsbuildFormat of WorkspacePeek.SolutionItemMsbuildConfiguration list
+            | Folder of childProjects: SolutionItem list * looseFiles: DocumentUri list
+            | Unsupported
+            | Unknown
+            with
+                static member fromDomain (d: FsAutoComplete.WorkspacePeek.SolutionItemKind) =
+                    match d with
+                    | WorkspacePeek.SolutionItemKind.MsbuildFormat formats -> MsbuildFormat formats
+                    | WorkspacePeek.SolutionItemKind.Folder(children, looseFiles) -> Folder(children |> List.map SolutionItem.fromDomain, looseFiles |> List.map Uri)
+                    | WorkspacePeek.SolutionItemKind.Unsupported -> Unsupported
+                    | WorkspacePeek.SolutionItemKind.Unknown -> Unknown
+
+        type Interesting =
+        | Solution of solutionFilePath: DocumentUri * data: SolutionData
+        | Directory of directoryPath: DocumentUri * projectFiles: DocumentUri list
+        with
+            static member fromDomain (d: FsAutoComplete.WorkspacePeek.Interesting) =
+                match d with
+                | WorkspacePeek.Interesting.Directory(dirPath, projects) -> Directory (Uri dirPath, projects |> List.map Uri)
+                | WorkspacePeek.Interesting.Solution(solutionPath, data) -> Solution(Uri solutionPath, SolutionData.fromDomain data)
+
+
+
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()
 
@@ -1151,7 +1197,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async {
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
-                let file = (normalizeDocumentUri data.[0]).LocalPath
+                let file = (data.[0] |> Uri |> normalizeDocumentUri).LocalPath
                 Debug.print "[LSP] CodeLensResolve - Position request: %s at %A" file pos
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
@@ -1404,13 +1450,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
             | CoreResponse.WorkspacePeek found ->
-                { Content =  CommandResponse.workspacePeek FsAutoComplete.JsonSerializer.writeJson found }
-                |> success
+                LspResult.success (found |> List.map LSP.WorkspacePeek.Interesting.fromDomain)
             | _ -> LspResult.notImplemented
 
         return res
-
-
     }
 
     member __.FSharpProject(p) = async {
@@ -1434,7 +1477,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member __.FSharpFsdn(p: ProjectParms) = async {
         Debug.print "[LSP call] FSharpFsdn"
-        let! res = commands.Fsdn p.Project.Uri
+        let! res = commands.Fsdn p.Project.Uri.LocalPath
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

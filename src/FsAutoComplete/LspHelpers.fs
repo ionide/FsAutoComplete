@@ -54,9 +54,9 @@ module Conversions =
                 uri.Append((int c).ToString("X2")) |> ignore
 
         if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-            "file:" + uri.ToString()
+            Uri("file:" + uri.ToString())
         else
-            "file:///" + (uri.ToString()).TrimStart('/')
+            Uri("file:///" + (uri.ToString()).TrimStart('/'))
 
     let fcsRangeToLspLocation(range: FSharp.Compiler.Range.range): Lsp.Location =
         let fileUri = filePathToUri range.FileName
@@ -89,8 +89,8 @@ module Conversions =
 
     /// Sometimes the DocumentUris that are given are escaped and so Windows-specific LocalPath resolution fails.
     /// To fix this, we normalize the uris by unescaping them.
-    let inline normalizeDocumentUri (docUri: string) =
-        docUri
+    let inline normalizeDocumentUri (docUri: Uri) =
+        docUri.AbsoluteUri // the absoluteUri is the raw value
         |> System.Net.WebUtility.UrlDecode
         |> Uri
 
@@ -148,7 +148,7 @@ module Conversions =
         let map (decl: FSharpNavigationDeclarationItem): CodeLens =
             {
                 Command = None
-                Data = Some (Newtonsoft.Json.Linq.JToken.FromObject [|uri; typ |] )
+                Data = Some (Newtonsoft.Json.Linq.JToken.FromObject [|string uri; typ |] )
                 Range = fcsRangeToLsp decl.Range
             }
         topLevel.Nested

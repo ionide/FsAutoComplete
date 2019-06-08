@@ -335,8 +335,8 @@ let renameTest () =
           | None -> failtest "No changes"
           | Some result ->
             Expect.equal result.Length 2 "Rename has all changes"
-            Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
-            Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
+            Expect.exists result (fun n -> (string n.TextDocument.Uri).Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
+            Expect.exists result (fun n -> (string n.TextDocument.Uri).Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
       }
 
@@ -388,7 +388,7 @@ let gotoTest () =
           match res with
           | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
           | GotoResult.Single res ->
-            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.stringContains (string res.Uri) "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 16 }} "Result should have correct range"
       }
 
@@ -404,7 +404,7 @@ let gotoTest () =
           match res with
           | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
           | GotoResult.Single res ->
-            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.stringContains (string res.Uri) "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 6; Character = 4 }; End = {Line = 6; Character = 19 }} "Result should have correct range"
       }
 
@@ -420,7 +420,7 @@ let gotoTest () =
           match res with
           | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
           | GotoResult.Single res ->
-            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.stringContains (string res.Uri) "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
       }
 
