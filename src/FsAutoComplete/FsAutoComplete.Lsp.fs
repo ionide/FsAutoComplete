@@ -946,9 +946,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
         p |> x.IfDiagnostic "Incomplete pattern matches on this expression. For example" (fun d ->
             async {
-                let line = d.Range.Start.Line + 2
-                let col = lines.[line - 1].IndexOf('|') + 3
-                let pos = FcsRange.mkPos (line + 1) (col + 1)
+                let caseLine = d.Range.Start.Line + 1
+                let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
+                let pos = FcsRange.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
                 let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetUnionPatternMatchCases tyRes pos lines line)
                 let res =
                     match res.[0] with
