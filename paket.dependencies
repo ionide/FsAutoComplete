@@ -23,6 +23,7 @@ nuget System.ValueTuple redirects:force, condition:net461 // workaround for olde
 nuget Dapper
 nuget Microsoft.Data.Sqlite
 nuget FSharp.Analyzers.SDK
+nuget System.Configuration.ConfigurationManager
 
 nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true
 

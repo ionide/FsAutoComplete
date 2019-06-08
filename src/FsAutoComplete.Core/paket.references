@@ -11,3 +11,4 @@ Microsoft.SourceLink.GitHub
 FSharp.Data
 Dapper
 Microsoft.Data.Sqlite
+System.Configuration.ConfigurationManager

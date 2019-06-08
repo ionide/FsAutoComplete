@@ -5,3 +5,4 @@ Newtonsoft.Json
 Suave
 FSharp.Core
 Microsoft.SourceLink.GitHub
+System.Configuration.ConfigurationManager
