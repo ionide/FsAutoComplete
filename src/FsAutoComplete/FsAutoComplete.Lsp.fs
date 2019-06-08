@@ -857,7 +857,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | None -> async.Return []
         | Some d -> handler d
 
-    member private __.CreateFix uri fn title (d: Diagnostic) range replacement  =
+    member private __.CreateFix uri fn title (d: Diagnostic option) range replacement  =
         let e =
             {
                 Range = range
@@ -877,7 +877,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         { CodeAction.Title = title
           Kind = Some "quickfix"
-          Diagnostics = Some [| d |]
+          Diagnostics = d |> Option.map Array.singleton
           Edit = we
           Command = None}
 
@@ -888,7 +888,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     Start = {Line = d.Range.Start.Line - 1; Character = 1000}
                     End = {Line = d.Range.End.Line; Character = d.Range.End.Character}
                 }
-                let action = x.CreateFix p.TextDocument.Uri fn "Remove unused open" d range ""
+                let action = x.CreateFix p.TextDocument.Uri fn "Remove unused open" (Some d) range ""
                 async.Return [action])
         else
             async.Return []
@@ -904,7 +904,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     else
                         "``" + s + "``"
                 let title = sprintf "Replace with %s" s
-                let action = x.CreateFix p.TextDocument.Uri fn title d d.Range s
+                let action = x.CreateFix p.TextDocument.Uri fn title (Some d) d.Range s
                 action)
             |> Array.toList
             |> async.Return
@@ -913,7 +913,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member private x.GetNewKeywordSuggestionCodeAction fn p lines =
         p |> x.IfDiagnostic "It is recommended that objects supporting the IDisposable interface are created using the syntax" (fun d ->
             let s = "new " + getText lines d.Range
-            x.CreateFix p.TextDocument.Uri fn "Add new" d d.Range s
+            x.CreateFix p.TextDocument.Uri fn "Add new" (Some d) d.Range s
             |> List.singleton
             |> async.Return
         )
@@ -923,8 +923,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let s = "_"
             let s2 = "_" + getText lines d.Range
             [
-                x.CreateFix p.TextDocument.Uri fn "Replace with _" d d.Range s
-                x.CreateFix p.TextDocument.Uri fn "Prefix with _" d d.Range s2
+                x.CreateFix p.TextDocument.Uri fn "Replace with _" (Some d) d.Range s
+                x.CreateFix p.TextDocument.Uri fn "Prefix with _" (Some d) d.Range s2
             ] |> async.Return
         )
 
@@ -938,7 +938,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 match lst |> Seq.tryFind (fun (r, te) -> r = d.Range) with
                 | None -> async.Return []
                 | Some (r, te) ->
-                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) d te.Range te.NewText
+                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
                     |> List.singleton
                     |> async.Return
         )
@@ -958,12 +958,32 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             End = fcsPosToLsp position
                         }
                         let text = text.Replace("$1", "failwith \"Not Implemented\"")
-                        [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" d range text ]
+                        [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text ]
                     | _ ->
                         []
                 return res
             }
         )
+
+    member private x.GetInterfaceStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
+        async {
+            let pos = protocolPosToPos p.Range.Start
+            let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetInterfaceStub tyRes pos lines line)
+            let res =
+                match res.[0] with
+                | CoreResponse.InterfaceStub (text, position) ->
+                    let range = {
+                        Start = fcsPosToLsp position
+                        End = fcsPosToLsp position
+                    }
+                    let text =
+                        text.Replace("$objectIdent", config.InterfaceStubGenerationObjectIdentifier)
+                            .Replace("$methodBody", config.InterfaceStubGenerationMethodBody)
+                    [x.CreateFix p.TextDocument.Uri fn "Generate interface stubs" None range text ]
+                | _ ->
+                    []
+            return res
+        }
 
     member private x.GetResolveNamespaceActions fn (p: CodeActionParams) =
         let insertLine line lineStr =
@@ -1100,6 +1120,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
             let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
             let! linterActions = x.GetLinterCodeAction fn p
+            let! interfaceGenerator = x.GetInterfaceStubCodeAction fn p lines
 
 
             let res =
@@ -1111,6 +1132,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     yield! newKeywordAction
                     yield! duCaseActions
                     yield! linterActions
+                    yield! interfaceGenerator
                 |]
 
 
