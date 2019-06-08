@@ -833,18 +833,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         async.Return []
                     | ResultOrString.Ok (options, lines, lineStr) ->
                         try
-                            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
-                            match tyResOpt with
-                            | None ->
-                                async.Return []
-                            | Some tyRes ->
-                                async {
-                                    let! r = Async.Catch (f tyRes lineStr lines)
-                                    match r with
-                                    | Choice1Of2 r -> return r
-                                    | Choice2Of2 e ->
-                                        return []
-                                }
+                            async {
+                                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
+                                match tyResOpt with
+                                | None ->
+                                    return []
+                                | Some tyRes ->
+                                        let! r = Async.Catch (f tyRes lineStr lines)
+                                        match r with
+                                        | Choice1Of2 r -> return r
+                                        | Choice2Of2 e ->
+                                            return []
+
+                            }
                         with e ->
                             async.Return []
             }
@@ -997,7 +998,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ -> l
 
         if config.ResolveNamespaces then
-            p |> x.IfDiagnostic "Unused open statement" (fun d ->
+            p |> x.IfDiagnostic "is not defined" (fun d ->
                 async {
                     let pos = protocolPosToPos d.Range.Start
                     return!
