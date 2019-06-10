@@ -67,6 +67,20 @@ module LspJsonConverters =
             if isNull value then FSharpValue.MakeUnion(cases.[0], [||])
             else FSharpValue.MakeUnion(cases.[1], [|value|])
 
+    type EscapedUriConverter() =
+        inherit JsonConverter()
+
+        override __.CanConvert (t) = typeof<Uri> = t
+        override __.WriteJson(writer, value, serializer) =
+            let u = value :?> Uri
+            serializer.Serialize(writer, u.OriginalString)
+
+        override __.ReadJson(reader, t, _existingValue, _serializer) =
+            let uriString = reader.ReadAsString()
+            let unencodedUriString = System.Net.WebUtility.UrlDecode uriString
+            Uri unencodedUriString :> _
+
+
 module Types =
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
@@ -2104,6 +2118,7 @@ module Server =
         let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
         result.Converters.Add(OptionConverter())
         result.Converters.Add(ErasedUnionConverter())
+        result.Converters.Add(EscapedUriConverter())
         result.ContractResolver <- CamelCasePropertyNamesContractResolver()
         result
 
@@ -2335,6 +2350,7 @@ module Client =
             let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
             result.Converters.Add(OptionConverter())
             result.Converters.Add(ErasedUnionConverter())
+            result.Converters.Add(EscapedUriConverter())
             result.ContractResolver <- CamelCasePropertyNamesContractResolver()
             result
 
