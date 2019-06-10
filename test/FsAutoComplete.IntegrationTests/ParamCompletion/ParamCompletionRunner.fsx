@@ -19,7 +19,6 @@ p.project "Test1.fsproj"
 p.parse "FileTwo.fs"
 p.parse "Program.fs"
 p.methods "Program.fs" "let testval = FileTwo.NewObjectType()" 9 36
-p.methods "Program.fs" "let testval = FileTwo.NewObjectType()" 9 37
 p.methods "Program.fs" "let val3 = testval.Terrific(val2, 'c')" 13 30
 p.methods "Program.fs" "let val3 = testval.Terrific(val2, 'c')" 13 35
 p.methods "Program.fs" "let val4 = MyDateTime.Parse(\\\"hello\\\")" 15 34

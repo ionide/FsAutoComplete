@@ -2,7 +2,7 @@
   "Kind": "error",
   "Data": {
     "Code": 101,
-    "Message": "Could not load project <absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj in ProjectCollection. Available tools: [<absolute path lists>] Message: The project file could not be loaded. '>' is an unexpected token. The expected token is '='. Line 7, position 21. StackTrace:    at FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.projectInstanceFromFullPath@76(FSharpList`1 properties, ProjectCollection engine, String fsprojFullPath)\n   at FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.CrackProjectUsingNewBuildAPI[a](String fsprojFile, FSharpList`1 properties, FSharpOption`1 logOpt)\n   at FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.FSharpProjectFileInfo..ctor(String fsprojFileName, FSharpOption`1 properties, FSharpOption`1 enableLogging)\n   at FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.getOptions@396(Boolean enableLogging, FSharpList`1 properties, Dictionary`2 cache, String file)\n   at FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.getOptions(String file, Boolean enableLogging, FSharpList`1 properties)\n   at FSharp.Compiler.SourceCodeServices.ProjectCrackerTool.ProjectCrackerTool.crackOpen(String[] argv)",
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj' parsing failed",
     "AdditionalData": {
       "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj"
     }

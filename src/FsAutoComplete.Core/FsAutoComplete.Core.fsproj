@@ -11,10 +11,11 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
-    <DefineConstants>NO_EXTENSIONTYPING;NO_PROJECTCRACKER;SCRIPT_REFS_FROM_MSBUILD;SUAVE_2;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
+    <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
@@ -27,12 +28,8 @@
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />
     <Compile Include="FileSystem.fs" />
-    <Compile Include="Parser.fs" />
     <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="FscArguments.fs" />
-    <Compile Include="ProjectCrackerProjectJson.fs" />
-    <Compile Include="ProjectCrackerDotnetSdk.fs" />
-    <Compile Include="ProjectCrackerVerbose.fs" Condition="$(TargetFramework) == 'net461'"/>
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />
@@ -48,11 +45,13 @@
     <Compile Include="RecordStubGenerator.fs" />
     <Compile Include="InterfaceStubGenerator.fs" />
     <Compile Include="SymbolCache.fs" />
+    <Compile Include="BackgroundServices.fs" />
     <Compile Include="Fsdn.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

@@ -9,8 +9,6 @@ module Response = CommandResponse
 let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
-    commands.NotifyErrorsInBackground <- false
-
     // use a mailboxprocess to queue the send of notifications
     use agent = MailboxProcessor.Start ((fun inbox ->
         let rec messageLoop () = async {
@@ -19,9 +17,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
 
             let msgText =
                 match msg with
-                | NotificationEvent.ParseError x -> Some x
                 | NotificationEvent.Workspace x -> Some x
-                | NotificationEvent.AnalyzerMessage x -> Some x
                 | _ -> None
 
             msgText |> Option.iter Console.WriteLine
@@ -125,7 +121,7 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     let commandQueue = new BlockingCollection<Command>(10)
 
     args.TryGetResult(<@ Options.CLIArguments.HostPID @>)
-    |> Option.iter (Debug.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit)))
+    |> Option.iter (ProcessWatcher.zombieCheckWithHostPID (fun () -> commandQueue.Add(Command.Quit)))
 
     try
         async {

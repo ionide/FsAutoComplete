@@ -128,7 +128,6 @@ module Lexer =
             | SymbolLookupKind.ByLongIdent ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
-        //printfn "Filtered tokens: %+A" tokensUnderCursor
         match lookupKind with
         | SymbolLookupKind.ByLongIdent ->
             // Try to find start column of the long identifiers
@@ -195,3 +194,37 @@ module Lexer =
         with _ ->
             //LoggingService.LogInfo (sprintf "Getting lex symbols failed with %O" e)
             None
+
+    let inline private tryGetLexerSymbolIslands sym =
+        match sym.Text with
+        | "" -> None
+        | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
+
+    // Parsing - find the identifier around the current location
+    // (we look for full identifier in the backward direction, but only
+    // for a short identifier forward - this means that when you hover
+    // 'B' in 'A.B.C', you will get intellisense for 'A.B' module)
+    let findIdents col lineStr lookupType =
+        if lineStr = "" then None
+        else
+            getSymbol 0 col lineStr lookupType [||]
+            |> Option.bind tryGetLexerSymbolIslands
+
+    let findLongIdents (col, lineStr) =
+        findIdents col lineStr SymbolLookupKind.Fuzzy
+
+    let findLongIdentsAndResidue (col, lineStr:string) =
+        let lineStr = lineStr.Substring(0, System.Math.Max(0,col))
+
+        match getSymbol 0 col lineStr SymbolLookupKind.ByLongIdent [||] with
+        | Some sym ->
+            match sym.Text with
+            | "" -> [], ""
+            | text ->
+                let res = text.Split '.' |> List.ofArray |> List.rev
+                if lineStr.[col - 1] = '.' then res |> List.rev, ""
+                else
+                    match res with
+                    | head :: tail -> tail |> List.rev, head
+                    | [] -> [], ""
+        | _ -> [], ""

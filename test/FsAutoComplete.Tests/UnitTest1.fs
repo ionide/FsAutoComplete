@@ -14,9 +14,9 @@ type Tests () =
     [<Test>]
     member this.Test1 () =
         let input = "project \"sample1/c1/c1.fsproj\""
-        let reader = FsAutoComplete.Parsing.createForwardStringReader input 0
+        let reader = Parser.createForwardStringReader input 0
         let cmds = CommandInput.project <|> CommandInput.error
-        let cmd = reader |> Parsing.getFirst cmds
+        let cmd = reader |> Parser.getFirst cmds
         Assert.IsTrue((cmd = Command.Project("sample1/c1/c1.fsproj", false)), sprintf "but was %A" cmd)
 
     [<Test>]
@@ -36,7 +36,7 @@ type Tests () =
     [<Test>]
     member this. ``activePatternCracking`` () =
       let lineStr = "let (|Zero|Succ|) n = if n = 0 then Zero else Succ(n-1)"
-      match Parsing.findLongIdents(8, lineStr) with
+      match Lexer.findLongIdents(8, lineStr) with
       | None -> Assert.Fail()
       | Some (col, _idents) ->
 
@@ -48,7 +48,7 @@ type Tests () =
 
     [<Test>]
     member this.``symbolicOperatorCracking`` () =
-      match Parsing.findLongIdents(0, "|<>|") with
+      match Lexer.findLongIdents(0, "|<>|") with
       | None -> Assert.Fail()
       | Some (col, idents) ->
 
@@ -58,7 +58,7 @@ type Tests () =
 
     [<Test>]
     member this.``normalCracking`` () =
-      match Parsing.findLongIdents(15, "First.Second.Third") with
+      match Lexer.findLongIdents(15, "First.Second.Third") with
       | None -> Assert.Fail()
       | Some (col, idents) ->
          Assert.AreEqual(18, col)

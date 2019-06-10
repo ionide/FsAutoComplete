@@ -140,7 +140,6 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 return r :: res
                 })
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
-            path "/projectsInBackground" >=> handler (fun (data : FileRequest) -> commands.ParseAndCheckProjectsInBackgroundForFile data.FileName)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {
@@ -165,9 +164,8 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                         let c = lineStr.[col - 2]
                         let! tyResOpt =
                             if c = '.' then
-                                let f = String.concat "\n" lines
                                 if commands.LastVersionChecked >= data.Version then
-                                    commands.CheckFileInProject(file, data.Version, f, options)
+                                    commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
                                 else
                                     commands.FileChecked
                                     |> Event.filter (fun (_, name, version) -> name = file && version = data.Version)
@@ -213,29 +211,11 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             path "/workspacePeek" >=> handler (fun (data : WorkspacePeekRequest) -> commands.WorkspacePeek data.Directory data.Deep (data.ExcludedDirs |> List.ofArray))
             path "/workspaceLoad" >=> handler (fun (data : WorkspaceLoadRequest) -> commands.WorkspaceLoad ignore (data.Files |> List.ofArray) data.DisableInMemoryProjectReferences)
             path "/compile" >=> handler (fun (data : ProjectRequest) -> commands.Compile data.FileName)
-            path "/buildBackgroundSymbolCache" >=> fun httpCtx ->
-                async {
-                    try
-                        do! commands.BuildBackgroundSymbolsCache()
-                    with
-                    | _ -> ()
-                    let res = [ CommandResponse.info writeJson "Building background cache started"]  |> List.toArray |> Json.toJson
-                    return! Response.response HttpCode.HTTP_200 res httpCtx
-                }
-            path "/enableSymbolCache" >=> fun httpCtx ->
-                try
-                    do commands.EnableSymbolCache()
-                with _ -> ()
-                let res = [ CommandResponse.info writeJson "Background symbol cache started"] |> List.toArray |> Json.toJson
-                Response.response HttpCode.HTTP_200 res httpCtx
             path "/registerAnalyzer" >=> handler (fun (data : FileRequest) ->
                 try
                     commands.LoadAnalyzers data.FileName
                 with
                 | ex ->
-                    // printfn "EXCEPTION: %A" ex.Message
-                    // printfn "EXCEPTION: %A" ex.StackTrace
-                    // printfn "EXCEPTION: %A" ex.Source
                     reraise ()
                 )
             path "/quit" >=> handler (fun (_data: QuitRequest) ->
@@ -264,8 +244,10 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
             Logging.Message.event Logging.LogLevel.Info (sprintf "git commit sha: %s" (commands.GetGitHash ()) ) |> ignore
             Logging.Message.event Logging.LogLevel.Info (sprintf "tracking host PID %i" pid)
         )
-        Debug.zombieCheckWithHostPID (fun () -> exit 0) pid
+        ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
     | None -> ()
 
+    let workspaceDir = System.Environment.CurrentDirectory
+    commands.StartBackgroundService workspaceDir
     startWebServer serverConfig app
     0

@@ -1,0 +1,6 @@
+Newtonsoft.Json
+FSharp.Core
+Microsoft.SourceLink.GitHub
+FSharp.Compiler.Service
+Dapper
+Microsoft.Data.Sqlite

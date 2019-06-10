@@ -13,15 +13,14 @@
     <Platform>x64</Platform>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Debug.fs" />
     <Compile Include="Options.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="CommandInput.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="FsAutoComplete.Stdio.fs" />
     <Compile Include="FsAutoComplete.HttpApiContract.fs" />
     <Compile Include="FsAutoComplete.Suave.fs" />
-    <Compile Include="LanguageServerProtocol.fs" />
     <Compile Include="LspHelpers.fs" />
     <Compile Include="FsAutoComplete.Lsp.fs" />
     <Compile Include="Program.fs" />
@@ -34,7 +33,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
-    <ProjectReference Include="..\FsAutoComplete.SymbolCache\FsAutoComplete.SymbolCache.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
+    <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
   </ItemGroup>
 
   <!-- bundle the net461 exe inside the .net core tool package -->
@@ -51,25 +51,14 @@
     </Content>
   </ItemGroup>
 
-  <Target Name="CopyProjectCrackerToolExeToOutputDir"
-          AfterTargets="ComputeFilesToPublish"
-          Condition=" '$(TargetFramework)' == 'net461' ">
-    <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/$(OutputPath)FSharp.Compiler.Service.ProjectCrackerTool.exe"
-                             RelativePath="FSharp.Compiler.Service.ProjectCrackerTool.exe" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/$(OutputPath)FSharp.Compiler.Service.ProjectCrackerTool.exe.config"
-                             RelativePath="FSharp.Compiler.Service.ProjectCrackerTool.exe.config" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="CopySymbolCacheJsonToOutputDir"
+  <Target Name="CopyBackgroundServiceJsonToOutputDir"
           AfterTargets="ComputeFilesToPublish"
           Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.deps.json"
-                             RelativePath="fsautocomplete.symbolcache.deps.json" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.SymbolCache\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.symbolcache.runtimeconfig.json"
-                             RelativePath="fsautocomplete.symbolcache.runtimeconfig.json" />
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.deps.json"
+                             RelativePath="fsautocomplete.backgroundservices.deps.json" />
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.runtimeconfig.json"
+                             RelativePath="fsautocomplete.backgroundservices.runtimeconfig.json" />
     </ItemGroup>
   </Target>
 

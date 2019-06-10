@@ -52,16 +52,7 @@ module Debug =
     while not(System.Diagnostics.Debugger.IsAttached) do
       System.Threading.Thread.Sleep(100)
 
-  let zombieCheckWithHostPID quit pid =
-    try
-      let hostProcess = System.Diagnostics.Process.GetProcessById(pid)
-      ProcessWatcher.watch hostProcess (fun _ -> quit ())
-    with
-    | e ->
-      printfn "Host process ID %i not found: %s" pid e.Message
-      // If the process dies before we get here then request shutdown
-      // immediately
-      quit ()
+
 
   let inline flush () =
     if verbose then
