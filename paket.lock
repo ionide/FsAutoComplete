@@ -1,7 +1,7 @@
 STORAGE: NONE
 RESTRICTION: || (== net461) (== netcoreapp2.1) (== netstandard2.0)
 NUGET
-  remote: https://www.nuget.org/api/v2
+  remote: https://api.nuget.org/v3/index.json
     Argu (5.2)
       FSharp.Core (>= 4.0.0.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
       FSharp.Core (>= 4.3.2) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
@@ -24,10 +24,10 @@ NUGET
       Dotnet.ProjInfo.Workspace (>= 0.35)
       FSharp.Compiler.Service (>= 29.0)
       FSharp.Core (>= 4.6.2)
-    Fake.Core.Context (5.13.7) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+    Fake.Core.Context (5.14.0-alpha.1085) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.3.4)
-    Fake.Runtime (5.13.7)
-      Fake.Core.Context (>= 5.13.7) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+    Fake.Runtime (5.14.0-alpha.1085)
+      Fake.Core.Context (>= 5.14.0-alpha.1085) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Compiler.Service (>= 28.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.6.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Microsoft.DotNet.PlatformAbstractions (>= 2.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
@@ -453,14 +453,14 @@ GITHUB
 GROUP Build
 RESTRICTION: == net45
 NUGET
-  remote: https://www.nuget.org/api/v2
+  remote: https://api.nuget.org/v3/index.json
     FAKE (4.64.17)
 
 GROUP IntegrationTests
 GENERATE-LOAD-SCRIPTS: ON
 RESTRICTION: == net461
 NUGET
-  remote: https://www.nuget.org/api/v2
+  remote: https://api.nuget.org/v3/index.json
     Argu (5.2)
       FSharp.Core (>= 4.0.0.1)
     FSharp.Core (4.6.2)
@@ -482,7 +482,7 @@ NUGET
 GROUP SourceLink
 STORAGE: NONE
 NUGET
-  remote: https://www.nuget.org/api/v2
+  remote: https://api.nuget.org/v3/index.json
     SourceLink.Create.CommandLine (2.7.4)
     SourceLink.Embed.PaketFiles (2.7.4)
 
@@ -490,7 +490,7 @@ GROUP Test
 STORAGE: NONE
 RESTRICTION: || (== net461) (== netcoreapp2.0) (== netcoreapp2.1) (== netstandard2.0)
 NUGET
-  remote: https://www.nuget.org/api/v2
+  remote: https://api.nuget.org/v3/index.json
     Expecto (8.10.1)
       FSharp.Core (>= 4.3.4)
       Mono.Cecil (>= 0.10.3)
@@ -549,7 +549,7 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.0) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.0) (== netcoreapp2.1) (== netstandard2.0)
     Microsoft.Win32.Registry (4.5) - restriction: || (&& (== net461) (>= netcoreapp1.0)) (== netcoreapp2.0) (== netcoreapp2.1) (&& (== netstandard2.0) (>= netcoreapp1.0))
-      System.Memory (>= 4.5) - restriction: || (&& (== net461) (< net46) (>= netstandard2.0)) (&& (== net461) (>= netcoreapp2.0)) (&& (== net461) (>= uap10.1)) (== netcoreapp2.0) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
+      System.Memory (>= 4.5) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net46) (>= netstandard2.0)) (&& (== net461) (>= netcoreapp2.0)) (&& (== net461) (>= uap10.1)) (== netcoreapp2.0) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
       System.Security.AccessControl (>= 4.5)
       System.Security.Principal.Windows (>= 4.5)
     Mono.Cecil (0.10.4)
