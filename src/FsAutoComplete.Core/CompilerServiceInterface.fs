@@ -455,23 +455,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
     let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
 
-    let config =
-      Fake.Runtime.FakeRuntime.createConfigSimple
-        Fake.Runtime.Trace.VerboseLevel.Verbose [] file [] true false
-    let prepared = Fake.Runtime.FakeRuntime.prepareFakeScript config
-    let isFakeScript = prepared.DependencyType <> Fake.Runtime.FakeRuntime.PreparedDependencyType.DefaultDependencies
-    if not isFakeScript then return projOptions
-    else
+    match FakeSupport.detectFakeScript file with
+    | None -> return projOptions
+    | Some (config, prepared) ->
       try
-        let prov = Fake.Runtime.FakeRuntime.restoreAndCreateCachingProvider prepared
-        let context, cache = Fake.Runtime.CoreCache.prepareContext config prov
-        // We can call context.Config.CompileOptions.AsArgs after next update
-        let args = context.Config.CompileOptions.AsArgs
-        let args =
-          args |> Seq.toList
-          |> List.filter (fun arg -> arg <> "--")
-        let newArgs = "--simpleresolution" :: "--targetprofile:netstandard" :: "--nowin32manifest" :: args
-        return { projOptions with OtherOptions = List.toArray newArgs }
+        return { projOptions with OtherOptions = FakeSupport.getProjectOptions config prepared }
       with e ->
         printfn "[FSharpChecker] Error in FAKE script support: %O" e
         return projOptions
