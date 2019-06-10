@@ -26,11 +26,13 @@ module FakeSupport =
 
   let detectFakeScript (file) =
     setupLogging()
-    let config = FakeRuntime.createConfigSimple Verbose [] file [] true false
-    let prepared = FakeRuntime.prepareFakeScript config
-    let isFakeScript = prepared.DependencyType <> FakeRuntime.PreparedDependencyType.DefaultDependencies
-    
-    if isFakeScript then Some (config, prepared) else None
+    if not (System.IO.File.Exists file) then None
+    else
+      let config = FakeRuntime.createConfigSimple Verbose [] file [] true false
+      let prepared = FakeRuntime.prepareFakeScript config
+      let isFakeScript = prepared.DependencyType <> FakeRuntime.PreparedDependencyType.DefaultDependencies
+      
+      if isFakeScript then Some (config, prepared) else None
 
   let getProjectOptions (config) (prepared) =
     setupLogging()
