@@ -569,8 +569,6 @@ type FSharpCompilerServiceChecker() =
     let opts =
       opts
       |> Array.distinct
-
-    return { rawOptions with OtherOptions = opts }
 #else
     let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
 
@@ -578,10 +576,31 @@ type FSharpCompilerServiceChecker() =
       rawOptions.OtherOptions
       |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
       |> FSharpCompilerServiceCheckerHelper.ensureCorrectVersions
-
-    return { rawOptions with OtherOptions = opts }
 #endif
 
+    let config =
+      Fake.Runtime.FakeRuntime.createConfigSimple
+        Fake.Runtime.Trace.VerboseLevel.Verbose [] file [] true false
+    // will not call paket after next update
+    let prepared = Fake.Runtime.FakeRuntime.prepareFakeScript config
+    let isFakeScript = prepared.DependencyType <> Fake.Runtime.FakeRuntime.PreparedDependencyType.DefaultDependencies
+    if not isFakeScript then return { rawOptions with OtherOptions = opts }
+    else
+      // soon there will be public apis and getProp can be removed...
+      let getProp (n:string) (t:obj) : 't =
+        let bf = System.Reflection.BindingFlags.Instance ||| System.Reflection.BindingFlags.NonPublic
+        t.GetType().GetProperty(n, bf).GetMethod.Invoke(t, [||]) :?> 't
+
+      // Will be broken after next update, replace with `Fake.Runtime.FakeRuntime.restoreAndCreateCachingProvider prepared`
+      let prov = getProp "_CachingProvider" prepared
+      let context, cache = Fake.Runtime.CoreCache.prepareContext config prov
+      // We can call context.Config.CompileOptions.AsArgs after next update
+      let args : string [] = getProp "AsArgs" (getProp "FsiOptions" context.Config.CompileOptions)
+      let args =
+        args |> Seq.toList
+        |> List.filter (fun arg -> arg <> "--")
+      let newArgs = "--simpleresolution" :: "--targetprofile:netstandard" :: "--nowin32manifest" :: args
+      return { rawOptions with OtherOptions = List.toArray newArgs }
   }
 
   member __.CheckProjectInBackground = checker.CheckProjectInBackground

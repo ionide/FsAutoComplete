@@ -15,6 +15,7 @@ nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
+nuget Fake.Runtime
 nuget Suave
 nuget FSharpLint.Core 0.10.8
 nuget FSharp.Core redirects:force
