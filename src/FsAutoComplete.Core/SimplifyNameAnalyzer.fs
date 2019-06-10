@@ -16,13 +16,18 @@ module SimplifyNameDiagnosticAnalyzer =
                 symbolUses
                 |> Array.filter (fun symbolUse -> not symbolUse.IsFromOpenStatement)
                 |> Array.Parallel.map (fun symbolUse ->
+
                     let lineStr = source.[symbolUse.RangeAlternate.StartLine - 1].ToString()
-                    // for `System.DateTime.Now` it returns ([|"System"; "DateTime"|], "Now")
-                    let plid, name = Parsing.findLongIdentsAndResidue (symbolUse.RangeAlternate.EndColumn - 1, lineStr)
-                    // `symbolUse.RangeAlternate.Start` does not point to the start of plid, it points to start of `name`,
-                    // so we have to calculate plid's start ourselves.
-                    let plidStartCol = symbolUse.RangeAlternate.EndColumn - name.Length - (getPlidLength plid)
-                    symbolUse, plid, plidStartCol, name)
+                    if symbolUse.RangeAlternate.EndLine <> symbolUse.RangeAlternate.StartLine then
+                        // Problem: EndColumn > lineStr.Length -> logic needs to account for multiple lines..
+                        symbolUse, [], 0, ""
+                    else
+                        // for `System.DateTime.Now` it returns ([|"System"; "DateTime"|], "Now")
+                        let plid, name = Parsing.findLongIdentsAndResidue (symbolUse.RangeAlternate.EndColumn - 1, lineStr)
+                        // `symbolUse.RangeAlternate.Start` does not point to the start of plid, it points to start of `name`,
+                        // so we have to calculate plid's start ourselves.
+                        let plidStartCol = symbolUse.RangeAlternate.EndColumn - name.Length - (getPlidLength plid)
+                        symbolUse, plid, plidStartCol, name)
                 |> Array.filter (fun (_, plid, _, name) -> name <> "" && not (List.isEmpty plid))
                 |> Array.groupBy (fun (symbolUse, _, plidStartCol, _) -> symbolUse.RangeAlternate.StartLine, plidStartCol)
                 |> Array.map (fun (_, xs) -> xs |> Array.maxBy (fun (symbolUse, _, _, _) -> symbolUse.RangeAlternate.EndColumn))

@@ -92,15 +92,16 @@ type Commands (serialize : Serializer) =
 
     let rec backgroundChecker () =
         async {
-            try
-                let opt = state.BackgroundProjects.First
-                // printfn "1. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
-                // printfn "BACKGROUND CHECKER - PARSING STARTED: %s" (opt.ProjectFileName)
-                checker.CheckProjectInBackground opt
-            with
-            | _ ->
-                // printfn "BACKGROUND CHECKER - NO PROJECTS"
-                ()
+            if state.BackgroundProjects.Count > 0 then
+                try
+                    let opt = state.BackgroundProjects.First
+                    // printfn "1. BACKGROUND QUEUE: %A" (state.BackgroundProjects |> Seq.map (fun n -> n.ProjectFileName))
+                    // printfn "BACKGROUND CHECKER - PARSING STARTED: %s" (opt.ProjectFileName)
+                    checker.CheckProjectInBackground opt
+                with
+                | _ ->
+                    // printfn "BACKGROUND CHECKER - NO PROJECTS"
+                    ()
         } |> Async.Start
 
     let updateSymbolUsesCache (filename: FilePath) (check: FSharpCheckFileResults) =
@@ -121,9 +122,11 @@ type Commands (serialize : Serializer) =
     do checker.FileChecked.Add (fun (n,_) ->
         async {
             try
-                let opts = state.FileCheckOptions.[n]
-                let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                fileChecked.Trigger (res, res.FileName, -1)
+                match state.FileCheckOptions.TryGetValue(n) with
+                | true, opts ->
+                    let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                    fileChecked.Trigger (res, res.FileName, -1)
+                | _ -> ()
             with
             | _ -> ()
         } |> Async.Start

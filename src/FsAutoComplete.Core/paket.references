@@ -4,6 +4,7 @@ FSharpLint.Core
 Sln
 Dotnet.ProjInfo
 Newtonsoft.Json
+Fake.Runtime
 OptimizedPriorityQueue
 ICSharpCode.Decompiler
 FSharp.Analyzers.SDK
