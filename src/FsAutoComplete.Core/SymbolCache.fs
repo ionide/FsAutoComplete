@@ -35,7 +35,7 @@ module private PersistenCacheImpl =
 
     let mutable connection : SqliteConnection option = None
 
-    let insert (connection: SqliteConnection) file (sugs: SymbolUseRange[]) =
+    let insertHelper (connection: SqliteConnection) file (sugs: SymbolUseRange[]) =
         if connection.State <> ConnectionState.Open then connection.Open()
         use tx = connection.BeginTransaction()
         let delCmd = sprintf "DELETE FROM Symbols WHERE FileName=\"%s\"" file
@@ -45,6 +45,18 @@ module private PersistenCacheImpl =
         connection.Execute(delCmd, transaction = tx) |> ignore
         connection.Execute(inserCmd, sugs, transaction = tx) |> ignore
         tx.Commit()
+
+    let insertQueue = MailboxProcessor.Start(fun agent ->
+        let loop () = async {
+            let! (con, file, symbols) = agent.Receive()
+            insertHelper con file symbols
+            return ()
+        }
+        loop ()
+    )
+
+    let insert = insertQueue.Post
+
 
     let loadAll (connection: SqliteConnection) =
         if connection.State <> ConnectionState.Open then connection.Open()
@@ -128,7 +140,7 @@ let updateSymbols fn (symbols: FSharpSymbolUse[]) =
     let sus = symbols |> Array.map(fromSymbolUse)
 
     PersistenCacheImpl.connection
-    |> Option.iter (fun con -> PersistenCacheImpl.insert con fn sus )
+    |> Option.iter (fun con -> PersistenCacheImpl.insert(con,fn,sus) )
 
 let getSymbols symbolName =
     async {
