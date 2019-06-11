@@ -76,8 +76,6 @@ module Helpers =
             "file:///" + (uri.ToString()).TrimStart('/')
 
 
-
-
 type FsacClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()
 
@@ -96,13 +94,14 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     let getListOfFilesForProjectChecking file =
         match state.FileCheckOptions.TryFind file with
-        | None -> []
+        | None -> None
         | Some opts ->
             let sf = opts.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
             sf
             |> Array.skipWhile (fun n -> (Utils.normalizePath n) <> (Utils.normalizePath file))
             |> Array.map (fun n -> (Utils.normalizePath n))
             |> Array.toList
+            |> Some
 
     let typecheckFile ignoredFile file =
         async {
@@ -116,18 +115,17 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     do! client.Notifiy {Value = sprintf "Typechecking aborted %s" file }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
+                    async {
+                            let! symbols = res.GetAllUsesOfAllSymbolsInFile()
+                            SymbolCache.updateSymbols file symbols
+                            return ()
+                    } |> Async.Start
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
                     | _ ->
                         let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
                         let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
                         do! client.SendDiagnostics msg
-                        async {
-                            let! symbols = res.GetAllUsesOfAllSymbolsInFile()
-                            SymbolCache.updateSymbols file symbols
-                            return ()
-                        } |> Async.Start
-
                         return ()
             | _ ->
                 do! client.Notifiy {Value = sprintf "Couldn't find state %s" file }
@@ -217,6 +215,8 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let vf = {Lines = p.Content.Split( [|'\n' |] ); Touched = DateTime.Now; Version = Some p.Version  }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore
             let filesToCheck = getListOfFilesForProjectChecking file
+            do! client.Notifiy {Value = sprintf "Files to check %A" filesToCheck }
+            let filesToCheck = defaultArg filesToCheck []
             bouncer.Bounce (false, file,filesToCheck)
             return LspResult.success ()
         }
@@ -225,7 +225,11 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         async {
 
 
-            let sf = p.Options.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+            let sf =
+                if Array.isEmpty p.Options.SourceFiles then
+                    p.Options.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+                else
+                    p.Options.SourceFiles
 
             sf
             |> Seq.iter (fun f ->
@@ -246,9 +250,12 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let projects = getDependingProjects file
             let filesToCheck =
                 [
-                    yield! getListOfFilesForProjectChecking file
+                    yield! defaultArg (getListOfFilesForProjectChecking file) []
                     yield! projects |> Seq.collect (fun o ->
-                        o.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+                        if Array.isEmpty o.SourceFiles then
+                            o.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+                        else
+                            o.SourceFiles
                     )
                 ]
             bouncer.Bounce (true, file,filesToCheck)
