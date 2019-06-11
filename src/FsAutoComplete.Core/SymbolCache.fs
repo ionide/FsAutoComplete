@@ -47,10 +47,10 @@ module private PersistenCacheImpl =
         tx.Commit()
 
     let insertQueue = MailboxProcessor.Start(fun agent ->
-        let loop () = async {
+        let rec loop () = async {
             let! (con, file, symbols) = agent.Receive()
             insertHelper con file symbols
-            return ()
+            return! loop ()
         }
         loop ()
     )
