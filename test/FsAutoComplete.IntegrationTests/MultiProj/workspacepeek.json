@@ -9,7 +9,7 @@
           "Items": [
             {
               "Guid": "b9fef411-5f4d-4021-9a20-fb6597faa915",
-              "Name": "docs",
+              "Name": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Sample/docs",
               "Kind": {
                 "Kind": "folder",
                 "Data": {
@@ -33,7 +33,7 @@
             },
             {
               "Guid": "7fe228f9-217e-41a8-924d-f9dfedfdd2b4",
-              "Name": "Tests",
+              "Name": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Sample/Tests",
               "Kind": {
                 "Kind": "folder",
                 "Data": {
