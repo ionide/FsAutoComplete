@@ -45,7 +45,8 @@ module LSP =
                 static member fromDomain (d: FsAutoComplete.WorkspacePeek.SolutionItemKind) =
                     match d with
                     | WorkspacePeek.SolutionItemKind.MsbuildFormat formats -> MsbuildFormat formats
-                    | WorkspacePeek.SolutionItemKind.Folder(children, looseFiles) -> Folder(children |> List.map SolutionItem.fromDomain, looseFiles |> List.map Uri)
+                    | WorkspacePeek.SolutionItemKind.Folder(children, looseFiles) ->
+                        Folder(children |> List.map SolutionItem.fromDomain, looseFiles |> List.map (sprintf "file://%s" >> Uri))
                     | WorkspacePeek.SolutionItemKind.Unsupported -> Unsupported
                     | WorkspacePeek.SolutionItemKind.Unknown -> Unknown
 
@@ -1197,7 +1198,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async {
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
-                let file = (data.[0] |> Uri |> normalizeDocumentUri).LocalPath
+                let file = (data.[0] |> Uri).LocalPath
                 Debug.print "[LSP] CodeLensResolve - Position request: %s at %A" file pos
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
@@ -1426,7 +1427,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpWorkspaceLoad(p) = async {
+    member __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) = async {
         Debug.print "[LSP call] FSharpWorkspaceLoad"
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
         let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences

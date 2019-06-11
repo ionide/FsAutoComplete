@@ -60,7 +60,7 @@ let tryParseSln (slnFilePath: string) =
                         item.FolderFiles
                         |> Seq.map makeAbsoluteFromSlnDir
                         |> List.ofSeq
-                    item.ProjectName, SolutionItemKind.Folder (children, files)
+                    item.ProjectName |> makeAbsoluteFromSlnDir, SolutionItemKind.Folder (children, files)
                 | Microsoft.Build.Construction.SolutionProjectType.EtpSubProject
                 | Microsoft.Build.Construction.SolutionProjectType.WebDeploymentProject
                 | Microsoft.Build.Construction.SolutionProjectType.WebProject ->

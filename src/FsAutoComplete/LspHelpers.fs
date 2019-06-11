@@ -87,22 +87,14 @@ module Conversions =
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
 
-    /// Sometimes the DocumentUris that are given are escaped and so Windows-specific LocalPath resolution fails.
-    /// To fix this, we normalize the uris by unescaping them.
-    let inline normalizeDocumentUri (docUri: Uri) =
-        docUri.AbsoluteUri // the absoluteUri is the raw value
-        |> System.Net.WebUtility.UrlDecode
-        |> Uri
-
-
     type TextDocumentIdentifier with
-        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+        member doc.GetFilePath() = doc.Uri.LocalPath
 
     type VersionedTextDocumentIdentifier with
-        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+        member doc.GetFilePath() = doc.Uri.LocalPath
 
     type TextDocumentItem with
-        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+        member doc.GetFilePath() = doc.Uri.LocalPath
 
     type ITextDocumentPositionParams with
         member p.GetFilePath() = p.TextDocument.GetFilePath()
