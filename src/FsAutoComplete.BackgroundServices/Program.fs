@@ -280,5 +280,6 @@ module Program =
         let fs = FileSystem(originalFs, state.Files.TryFind)
         AbstractIL.Internal.Library.Shim.FileSystem <- fs
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
+        SymbolCache.initCache (Environment.CurrentDirectory)
         let _ = startCore()
         0
