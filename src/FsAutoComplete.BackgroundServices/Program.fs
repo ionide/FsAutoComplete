@@ -89,6 +89,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
 
     let checker = FSharpChecker.Create(projectCacheSize = 200, keepAllBackgroundResolutions = false)
+    let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
 
     do checker.ImplicitlyStartBackgroundWork <- false
 
@@ -100,7 +101,23 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     let getListOfFilesForProjectChecking file =
         match state.FileCheckOptions.TryFind file with
-        | None -> None
+        | None ->
+            if file.EndsWith ".fsx" then
+                state.Files.TryFind file |> Option.map (fun st ->
+                    async {
+                        let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
+                        let! opts = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, st.Lines |> String.concat "\n")
+                        let sf = getFilesFromOpts opts
+
+                        return
+                            sf
+                            |> Array.skipWhile (fun n -> (Utils.normalizePath n) <> (Utils.normalizePath file))
+                            |> Array.map (fun n -> (Utils.normalizePath n))
+                            |> Array.toList
+                    }
+                )
+            else
+                None
         | Some opts ->
             let sf = getFilesFromOpts opts
 
@@ -108,6 +125,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             |> Array.skipWhile (fun n -> (Utils.normalizePath n) <> (Utils.normalizePath file))
             |> Array.map (fun n -> (Utils.normalizePath n))
             |> Array.toList
+            |> async.Return
             |> Some
 
     let typecheckFile ignoredFile file =
@@ -116,6 +134,28 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             match state.Files.TryFind file, state.FileCheckOptions.TryFind file with
             | Some vf, Some opts ->
                 let txt = vf.Lines |> String.concat "\n"
+                let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
+                match cr with
+                | FSharpCheckFileAnswer.Aborted ->
+                    do! client.Notifiy {Value = sprintf "Typechecking aborted %s" file }
+                    return ()
+                | FSharpCheckFileAnswer.Succeeded res ->
+                    async {
+                            let! symbols = res.GetAllUsesOfAllSymbolsInFile()
+                            SymbolCache.updateSymbols file symbols
+                            return ()
+                    } |> Async.Start
+                    match ignoredFile with
+                    | Some fn when fn = file -> return ()
+                    | _ ->
+                        let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
+                        let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
+                        do! client.SendDiagnostics msg
+                        return ()
+            | Some vf, None when file.EndsWith ".fsx" ->
+                let txt = vf.Lines |> String.concat "\n"
+                let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
+                let! opts = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, txt)
                 let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
                 match cr with
                 | FSharpCheckFileAnswer.Aborted ->
@@ -221,9 +261,8 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let file = Utils.normalizePath p.File
             let vf = {Lines = p.Content.Split( [|'\n' |] ); Touched = DateTime.Now; Version = Some p.Version  }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore
-            let filesToCheck = getListOfFilesForProjectChecking file
+            let! filesToCheck = defaultArg (getListOfFilesForProjectChecking file) (async.Return [])
             do! client.Notifiy {Value = sprintf "Files to check %A" filesToCheck }
-            let filesToCheck = defaultArg filesToCheck []
             bouncer.Bounce (false, file,filesToCheck)
             return LspResult.success ()
         }
@@ -251,9 +290,10 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             do! client.Notifiy {Value = sprintf "File Saved %s " file }
 
             let projects = getDependingProjects file
+            let! filesToCheck = defaultArg (getListOfFilesForProjectChecking file) (async.Return [])
             let filesToCheck =
                 [
-                    yield! defaultArg (getListOfFilesForProjectChecking file) []
+                    yield! filesToCheck
                     yield! projects |> Seq.collect getFilesFromOpts
                 ]
             bouncer.Bounce (true, file,filesToCheck)

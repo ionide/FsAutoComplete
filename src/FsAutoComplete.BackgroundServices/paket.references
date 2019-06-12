@@ -4,3 +4,5 @@ Microsoft.SourceLink.GitHub
 FSharp.Compiler.Service
 Dapper
 Microsoft.Data.Sqlite
+Dotnet.ProjInfo
+Dotnet.ProjInfo.Workspace.FCS
