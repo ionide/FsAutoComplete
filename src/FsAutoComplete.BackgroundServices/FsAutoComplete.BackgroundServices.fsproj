@@ -18,6 +18,8 @@
     <Compile Include="..\FsAutoComplete.Core\UntypedAstUtils.fs" />
     <Compile Include="..\FsAutoComplete.Core\TypedAstUtils.fs" />
     <Compile Include="..\FsAutoComplete.Core\FileSystem.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Environment.fs" />
+    <Compile Include="..\FsAutoComplete.Core\NETFrameworkInfoProvider.fs" />
     <Compile Include="..\FsAutoComplete.Core\SymbolCache.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
