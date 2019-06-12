@@ -928,6 +928,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             ] |> async.Return
         )
 
+    member private x.GetRedundantQualfierCodeAction fn p =
+        p |> x.IfDiagnostic "This qualifier is redundant" (fun d ->
+            [
+                x.CreateFix p.TextDocument.Uri fn "Remove redundant qualifier" (Some d) d.Range ""
+            ] |> async.Return
+        )
+
     member private x.GetLinterCodeAction fn p =
         p |> x.IfDiagnostic "Lint:" (fun d ->
             let uri = filePathToUri fn
@@ -1117,6 +1124,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! resolveNamespaceActions = x.GetResolveNamespaceActions fn p
             let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
             let! unusedActions = x.GetUnusedCodeAction fn p lines
+            let! redundantActions = x.GetRedundantQualfierCodeAction fn p
             let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
             let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
             let! linterActions = x.GetLinterCodeAction fn p
@@ -1133,6 +1141,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     yield! duCaseActions
                     yield! linterActions
                     yield! interfaceGenerator
+                    yield! redundantActions
                 |]
 
 
