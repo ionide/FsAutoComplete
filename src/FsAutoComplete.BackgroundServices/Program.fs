@@ -92,11 +92,18 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     do checker.ImplicitlyStartBackgroundWork <- false
 
+    let getFilesFromOpts (opts: FSharpProjectOptions) =
+        if Array.isEmpty opts.SourceFiles then
+            opts.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+        else
+            opts.SourceFiles
+
     let getListOfFilesForProjectChecking file =
         match state.FileCheckOptions.TryFind file with
         | None -> None
         | Some opts ->
-            let sf = opts.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
+            let sf = getFilesFromOpts opts
+
             sf
             |> Array.skipWhile (fun n -> (Utils.normalizePath n) <> (Utils.normalizePath file))
             |> Array.map (fun n -> (Utils.normalizePath n))
@@ -225,11 +232,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         async {
 
 
-            let sf =
-                if Array.isEmpty p.Options.SourceFiles then
-                    p.Options.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
-                else
-                    p.Options.SourceFiles
+            let sf = getFilesFromOpts p.Options
 
             sf
             |> Seq.iter (fun f ->
@@ -251,12 +254,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let filesToCheck =
                 [
                     yield! defaultArg (getListOfFilesForProjectChecking file) []
-                    yield! projects |> Seq.collect (fun o ->
-                        if Array.isEmpty o.SourceFiles then
-                            o.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
-                        else
-                            o.SourceFiles
-                    )
+                    yield! projects |> Seq.collect getFilesFromOpts
                 ]
             bouncer.Bounce (true, file,filesToCheck)
             return LspResult.success ()
