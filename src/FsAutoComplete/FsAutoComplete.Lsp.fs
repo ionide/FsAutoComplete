@@ -635,8 +635,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             |> Array.map(fun (fileName, symbols) ->
                                 let edits =
                                     symbols |> Array.map (fun sym ->
+                                        let range = fcsRangeToLsp sym.RangeAlternate
+                                        let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.Symbol.DisplayName.Length }}
                                         {
-                                            Range = fcsRangeToLsp sym.RangeAlternate
+                                            Range = range
                                             NewText = p.NewName
                                         }
                                     )
@@ -657,8 +659,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             |> Array.map(fun (fileName, symbols) ->
                                 let edits =
                                     symbols |> Array.map (fun sym ->
+                                        let range = symbolUseRangeToLsp sym
+                                        let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.SymbolDisplayName.Length }}
+
                                         {
-                                            Range = symbolUseRangeToLsp sym
+                                            Range = range
                                             NewText = p.NewName
                                         }
                                     )
