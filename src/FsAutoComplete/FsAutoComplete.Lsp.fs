@@ -133,8 +133,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
 
-                    let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+                    let diags = decls |> Array.map(fun (n, t) ->
+                        {Diagnostic.Range = fcsRangeToLsp n; Code = (if t then Some "1" else None); Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -920,12 +920,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member private x.GetUnusedCodeAction fn p lines =
         p |> x.IfDiagnostic "is unused" (fun d ->
-            let s = "_"
-            let s2 = "_" + getText lines d.Range
-            [
-                x.CreateFix p.TextDocument.Uri fn "Replace with _" (Some d) d.Range s
-                x.CreateFix p.TextDocument.Uri fn "Prefix with _" (Some d) d.Range s2
-            ] |> async.Return
+            match d.Code with
+            | None ->
+                let s = "_"
+                let s2 = "_" + getText lines d.Range
+                [
+                    x.CreateFix p.TextDocument.Uri fn "Replace with _" (Some d) d.Range s
+                    x.CreateFix p.TextDocument.Uri fn "Prefix with _" (Some d) d.Range s2
+                ] |> async.Return
+            | Some _ ->
+                [
+                    x.CreateFix p.TextDocument.Uri fn "Replace with __" (Some d) d.Range "__"
+                ] |> async.Return
+
         )
 
     member private x.GetRedundantQualfierCodeAction fn p =
