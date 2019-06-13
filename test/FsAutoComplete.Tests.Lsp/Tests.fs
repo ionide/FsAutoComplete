@@ -369,13 +369,49 @@ let gotoTest () =
   serverTest path defaultConfigDto (fun (server, event) ->
     do waitForWorkspaceFinishedParsing event
     let definitionPath = Path.Combine(path, "Definition.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath}
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath }
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    let externalPath = Path.Combine(path, "External.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument externalPath }
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
 
     let path = Path.Combine(path, "Library.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     testList "GoTo Tests" [
+      testAsync "Go-to-definition on external symbol (System.Net.HttpWebRequest)" {
+        let p : TextDocumentPositionParams = {
+          TextDocument = { Uri = filePathToUri externalPath }
+          Position = { Line = 4; Character = 30 }
+        }
+
+        let! res = server.TextDocumentDefinition p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+        | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup") ->
+          failtest "Should not generate the startup dummy file"
+        | Result.Ok (Some (GotoResult.Single r)) ->
+          Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
+          Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
+          () // should
+      }
+
+      testAsync "Go-to-definition on external namespace (System.Net) should error when going to a namespace " {
+        let p : TextDocumentPositionParams = {
+          TextDocument = { Uri = filePathToUri externalPath }
+          Position = { Line = 2; Character = 15 }
+        }
+
+        let! res = server.TextDocumentDefinition p
+        match res with
+        | Result.Error e ->
+          Expect.equal "Could not find declaration" e.Message "Should report failure for navigating to a namespace"
+        | Result.Ok r -> failtestf "Declaration request should not work on a namespace, instead we got %A" r
+      }
+
       test "Go-to-definition" {
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri path}
@@ -452,6 +488,6 @@ let tests =
     codeLensTest
     documentSymbolTest
     autocompleteTest
-    //renameTest
-    //gotoTest
+    renameTest
+    gotoTest
   ]

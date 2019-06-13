@@ -66,6 +66,7 @@ type ParseAndCheckResults
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ ->
         return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range ->
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
