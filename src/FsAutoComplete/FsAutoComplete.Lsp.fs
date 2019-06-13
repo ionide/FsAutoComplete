@@ -989,8 +989,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let pos = protocolPosToPos p.Range.Start
             let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetInterfaceStub tyRes pos lines line)
             let res =
-                match res.[0] with
-                | CoreResponse.InterfaceStub (text, position) ->
+                match res with
+                | CoreResponse.InterfaceStub (text, position)::_ ->
                     let range = {
                         Start = fcsPosToLsp position
                         End = fcsPosToLsp position
