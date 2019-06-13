@@ -519,7 +519,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let (si, comment) = (TipFormatter.formatTip tip) |> List.collect id |> List.head
                 //TODO: Add insert namespace
                 let d = Documentation.Markup (markdown comment)
-                {ci with Detail = Some name; Documentation = Some d  }
+                {ci with Detail = Some si; Documentation = Some d  }
             | _ -> ci
         return success res
     }
