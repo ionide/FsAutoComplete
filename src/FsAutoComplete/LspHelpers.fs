@@ -477,7 +477,10 @@ type FSharpConfigDto = {
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     Linter: bool option
+    UnionCaseStubGeneration: bool option
+    UnionCaseStubGenerationBody: string option
     RecordStubGeneration: bool option
+    RecordStubGenerationBody: string option
     InterfaceStubGeneration: bool option
     InterfaceStubGenerationObjectIdentifier: string option
     InterfaceStubGenerationMethodBody: string option
@@ -502,7 +505,10 @@ type FSharpConfig = {
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     Linter: bool
+    UnionCaseStubGeneration: bool
+    UnionCaseStubGenerationBody: string
     RecordStubGeneration: bool
+    RecordStubGenerationBody: string
     InterfaceStubGeneration: bool
     InterfaceStubGenerationObjectIdentifier: string
     InterfaceStubGenerationMethodBody: string
@@ -524,7 +530,10 @@ with
             KeywordsAutocomplete = false
             ExternalAutocomplete = false
             Linter = false
+            UnionCaseStubGeneration = false
+            UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
             RecordStubGeneration = false
+            RecordStubGenerationBody = "failwith \"Not Implemented\""
             InterfaceStubGeneration = false
             InterfaceStubGenerationObjectIdentifier = "this"
             InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
@@ -546,7 +555,10 @@ with
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
             Linter = defaultArg dto.Linter false
+            UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration false
+            UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody "failwith \"Not Implemented\""
             RecordStubGeneration = defaultArg dto.RecordStubGeneration false
+            RecordStubGenerationBody = defaultArg dto.RecordStubGenerationBody "failwith \"Not Implemented\""
             InterfaceStubGeneration = defaultArg dto.InterfaceStubGeneration false
             InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier "this"
             InterfaceStubGenerationMethodBody = defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
@@ -568,7 +580,10 @@ with
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
             Linter = defaultArg dto.Linter x.Linter
+            UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration x.UnionCaseStubGeneration
+            UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody x.UnionCaseStubGenerationBody
             RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration
+            RecordStubGenerationBody = defaultArg dto.RecordStubGenerationBody x.RecordStubGenerationBody
             InterfaceStubGeneration = defaultArg dto.InterfaceStubGeneration x.InterfaceStubGeneration
             InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier x.InterfaceStubGenerationObjectIdentifier
             InterfaceStubGenerationMethodBody = defaultArg dto.InterfaceStubGenerationMethodBody x.InterfaceStubGenerationMethodBody

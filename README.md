@@ -134,7 +134,10 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 * `FSharp.keywordsAutocomplete` - provides keywords in autocomplete list, recommended default value: `true`
 * `FSharp.ExternalAutocomplete` - provides autocomplete for symbols from not opened namespaces/modules, insert `open` on accept, recommended default value: `false`
 * `FSharp.Linter` - enables FSharpLint integration, provides additional warnings and code action fixes, recommended default value: `true`
+* `FSharp.UnionCaseStubGeneration` - enables code action to generate pattern matching cases, recommended default value: `true`
+* `FSharp.UnionCaseStubGenerationBody` - defines dummy body used by pattern matching generator, recommended default value: `"failwith \"Not Implemented\""`
 * `FSharp.RecordStubGeneration` - enables code action to generate record stub, recommended default value: `true`
+* `FSharp.RecordStubGenerationBody` - defines dummy body used by record stub generator, recommended default value: `"failwith \"Not Implemented\""`
 * `FSharp.InterfaceStubGeneration` - enables code action to generate interface stub, recommended default value: `true`
 * `FSharp.InterfaceStubGenerationObjectIdentifier` - defines object identifier used by interface stub generator,recommended default value: `"this"`
 * `FSharp.InterfaceStubGenerationMethodBody` - defines dummy body used by interface stub generator, recommended default value: `"failwith \"Not Implemented\""`

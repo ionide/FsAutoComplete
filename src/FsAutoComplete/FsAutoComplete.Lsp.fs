@@ -965,43 +965,70 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
         p |> x.IfDiagnostic "Incomplete pattern matches on this expression. For example" (fun d ->
             async {
-                let caseLine = d.Range.Start.Line + 1
-                let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
-                let pos = FcsRange.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
-                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetUnionPatternMatchCases tyRes pos lines line)
-                let res =
-                    match res.[0] with
-                    | CoreResponse.UnionCase (text, position) ->
-                        let range = {
-                            Start = fcsPosToLsp position
-                            End = fcsPosToLsp position
-                        }
-                        let text = text.Replace("$1", "failwith \"Not Implemented\"")
-                        [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text ]
-                    | _ ->
-                        []
-                return res
+                if config.UnionCaseStubGeneration then
+                    let caseLine = d.Range.Start.Line + 1
+                    let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
+                    let pos = FcsRange.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
+                    let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetUnionPatternMatchCases tyRes pos lines line)
+                    let res =
+                        match res.[0] with
+                        | CoreResponse.UnionCase (text, position) ->
+                            let range = {
+                                Start = fcsPosToLsp position
+                                End = fcsPosToLsp position
+                            }
+                            let text = text.Replace("$1", config.UnionCaseStubGenerationBody)
+                            [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text ]
+                        | _ ->
+                            []
+                    return res
+                else
+                    return []
             }
         )
 
     member private x.GetInterfaceStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
         async {
-            let pos = protocolPosToPos p.Range.Start
-            let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetInterfaceStub tyRes pos lines line)
-            let res =
-                match res with
-                | CoreResponse.InterfaceStub (text, position)::_ ->
-                    let range = {
-                        Start = fcsPosToLsp position
-                        End = fcsPosToLsp position
-                    }
-                    let text =
-                        text.Replace("$objectIdent", config.InterfaceStubGenerationObjectIdentifier)
-                            .Replace("$methodBody", config.InterfaceStubGenerationMethodBody)
-                    [x.CreateFix p.TextDocument.Uri fn "Generate interface stubs" None range text ]
-                | _ ->
-                    []
-            return res
+            if config.InterfaceStubGeneration then
+                let pos = protocolPosToPos p.Range.Start
+                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetInterfaceStub tyRes pos lines line)
+                let res =
+                    match res with
+                    | CoreResponse.InterfaceStub (text, position)::_ ->
+                        let range = {
+                            Start = fcsPosToLsp position
+                            End = fcsPosToLsp position
+                        }
+                        let text =
+                            text.Replace("$objectIdent", config.InterfaceStubGenerationObjectIdentifier)
+                                .Replace("$methodBody", config.InterfaceStubGenerationMethodBody)
+                        [x.CreateFix p.TextDocument.Uri fn "Generate interface stubs" None range text ]
+                    | _ ->
+                        []
+                return res
+            else
+                return []
+        }
+
+    member private x.GetRecordStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
+        async {
+            if config.RecordStubGeneration then
+                let pos = protocolPosToPos p.Range.Start
+                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetRecordStub tyRes pos lines line)
+                let res =
+                    match res with
+                    | CoreResponse.RecordStub (text, position)::_ ->
+                        let range = {
+                            Start = fcsPosToLsp position
+                            End = fcsPosToLsp position
+                        }
+                        let text = text.Replace("$1", config.RecordStubGenerationBody)
+                        [x.CreateFix p.TextDocument.Uri fn "Generate record stubs" None range text ]
+                    | _ ->
+                        []
+                return res
+            else
+                return []
         }
 
     member private x.GetResolveNamespaceActions fn (p: CodeActionParams) =
@@ -1141,6 +1168,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
             let! linterActions = x.GetLinterCodeAction fn p
             let! interfaceGenerator = x.GetInterfaceStubCodeAction fn p lines
+            let! recordGenerator = x.GetRecordStubCodeAction fn p lines
 
 
             let res =
@@ -1153,6 +1181,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     yield! duCaseActions
                     yield! linterActions
                     yield! interfaceGenerator
+                    yield! recordGenerator
                     yield! redundantActions
                 |]
 
