@@ -1439,7 +1439,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpWorkspacePeek(p: FsAutoComplete.HttpApiContract.WorkspacePeekRequest) = async {
+    member __.FSharpWorkspacePeek(p: WorkspacePeekRequest) = async {
         Debug.print "[LSP call] FSharpWorkspacePeek"
         let! res = commands.WorkspacePeek p.Directory p.Deep (p.ExcludedDirs |> List.ofArray)
         let res =
@@ -1527,7 +1527,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
 
-    member x.FSharpDocumentationSymbol(p: FsAutoComplete.HttpApiContract.DocumentationForSymbolReuqest) =
+    member x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
         Debug.print "[LSP call] FSharpDocumentationSymbol"
         match commands.LastCheckResult with
         | None -> AsyncLspResult.internalError "error"
