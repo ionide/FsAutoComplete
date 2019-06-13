@@ -453,10 +453,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.GetProjectOptionsFromScript(file, source) = async {
     let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
-
     let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
 
-    return projOptions
+    match FakeSupport.detectFakeScript file with
+    | None -> return projOptions
+    | Some (config, prepared) ->
+      try
+        return { projOptions with OtherOptions = FakeSupport.getProjectOptions config prepared }
+      with e ->
+        printfn "[FSharpChecker] Error in FAKE script support: %O" e
+        return projOptions
   }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =

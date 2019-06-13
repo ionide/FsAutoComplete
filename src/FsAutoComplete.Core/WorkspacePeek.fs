@@ -110,6 +110,7 @@ let private partitionByChoice3 =
     Array.fold foldBy ([],[],[])
 
 let peek (rootDir: string) deep (excludedDirs: string list) =
+    if isNull rootDir then [] else
     let dirInfo = DirectoryInfo(rootDir)
 
     //TODO accept glob list to ignore

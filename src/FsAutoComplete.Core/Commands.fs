@@ -100,9 +100,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 Debug.print "[Commands - checker events] File checked - %s" n
                 async {
                     try
-                        let opts = state.FileCheckOptions.[n]
-                        let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                        fileChecked.Trigger (res, res.FileName, -1)
+                        match state.FileCheckOptions.TryGetValue(n) with
+                        | true, opts ->
+                            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                            fileChecked.Trigger (res, res.FileName, -1)
+                        | _ -> ()
                     with
                     | _ -> ()
                 } |> Async.Start
