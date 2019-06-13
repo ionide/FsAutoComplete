@@ -467,6 +467,9 @@ type WorkspaceLoadParms = {
     TextDocuments: TextDocumentIdentifier []
 }
 
+type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
+type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option

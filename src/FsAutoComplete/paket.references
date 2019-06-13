@@ -2,7 +2,6 @@ System.ValueTuple condition:net461
 FSharp.Compiler.Service
 Argu
 Newtonsoft.Json
-Suave
 FSharp.Core
 Microsoft.SourceLink.GitHub
 System.Configuration.ConfigurationManager
