@@ -88,7 +88,7 @@ type FsacClient(sendServerRequest: ClientNotificationSender) =
 type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
 
-    let checker = FSharpChecker.Create(projectCacheSize = 200, keepAllBackgroundResolutions = false)
+    let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false)
     let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
 
     do checker.ImplicitlyStartBackgroundWork <- false
