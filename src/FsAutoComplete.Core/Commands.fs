@@ -117,8 +117,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
                 let checkErrors = parseAndCheck.GetParseResults.Errors
                 let parseErrors = parseAndCheck.GetCheckResults.Errors
-                let errors = Array.append checkErrors parseErrors
-
+                let errors =
+                    Array.append checkErrors parseErrors
+                    |> Array.distinct
                 CoreResponse.Errors (errors, file)
                 |> NotificationEvent.ParseError
                 |> notify.Trigger
