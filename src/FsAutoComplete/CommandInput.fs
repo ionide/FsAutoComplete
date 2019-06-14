@@ -41,6 +41,7 @@ type Command =
   | Started
   | Quit
   | Fsdn of string
+  | DotnetNewList of string
 
 module CommandInput =
   /// Parse 'quit' command
@@ -172,6 +173,13 @@ module CommandInput =
       let! _ = char '"'
       return (Fsdn querystr)
       }
+  let dotnetnewlist = parser {
+      let! _ = string "dotnet "
+      let! _ = char '"'
+      let! filterstr = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      return (DotnetNewList filterstr)
+  }
 
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
   let completionTipOrDecl = parser {
@@ -230,9 +238,9 @@ module CommandInput =
     match inputString with
     | null -> Quit
     | input ->
-      let reader = Parser.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> fsdn <|> error
-      let cmd = reader |> Parser.getFirst cmds
+      let reader = Parsing.createForwardStringReader input 0
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> fsdn <|> dotnetnewlist <|> error
+      let cmd = reader |> Parsing.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->
           let lines = readInput [] |> Array.ofList
