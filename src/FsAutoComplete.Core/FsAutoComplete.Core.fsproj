@@ -1,10 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Prefer32Bit>false</Prefer32Bit>
+    <Platform>x64</Platform>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
     <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
   </PropertyGroup>
@@ -12,6 +17,7 @@
     <Compile Include="Debug.fs" />
     <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="Utils.fs" />
@@ -30,7 +36,7 @@
     <Compile Include="FscArguments.fs" />
     <Compile Include="ProjectCrackerProjectJson.fs" />
     <Compile Include="ProjectCrackerDotnetSdk.fs" />
-    <Compile Include="ProjectCrackerVerbose.fs" />
+    <Compile Include="ProjectCrackerVerbose.fs" Condition="$(TargetFramework) == 'net461'"/>
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />
@@ -57,4 +63,5 @@
     <ProjectReference Include="..\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
+
 </Project>
