@@ -85,9 +85,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     let notify = Event<NotificationEvent>()
 
-   // let dotnetnewlist (filterstr : string) =
-
-
     let workspaceReady = Event<unit>()
 
     let fileStateSet = Event<unit>()
