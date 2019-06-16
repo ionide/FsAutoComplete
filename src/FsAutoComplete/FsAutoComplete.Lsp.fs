@@ -1607,7 +1607,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
-        |> Map.add "fake/targets" (requestHandling (fun s p -> s.FakeTargets(p) ))
+        |> Map.add "fsharp/fakeTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
 
 
 
