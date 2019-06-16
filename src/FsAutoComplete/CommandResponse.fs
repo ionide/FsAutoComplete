@@ -657,6 +657,14 @@ module CommandResponse =
         })
      serialize { Kind = "declarations"; Data = decls' }
 
+  let fakeTargets (serialize : Serializer) (targets : (FakeSupport.Target) []) =
+     //let decls' =
+     // targets |> Array.map (fun (d, fn) ->
+     //   { Declaration = Declaration.OfDeclarationItem (d.Declaration, fn);
+     //     Nested = d.Nested |> Array.map ( fun a -> Declaration.OfDeclarationItem(a,fn))
+     //   })
+     serialize { Kind = "fakeTargets"; Data = targets }
+   
   let toolTip (serialize : Serializer) (tip, signature, footer, typeDoc) =
     let data = TipFormatter.formatTipEnhanced tip signature footer typeDoc |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
@@ -844,6 +852,8 @@ module CommandResponse =
       findTypeDeclaration s range
     | CoreResponse.Declarations(decls) ->
       declarations s decls
+    | CoreResponse.FakeTargets(targets) ->
+      fakeTargets s targets
     | CoreResponse.ToolTip(tip, signature, footer, typeDoc) ->
       toolTip s (tip, signature, footer, typeDoc)
     | CoreResponse.FormattedDocumentation(tip, xmlSig, signature, footer, cn) ->

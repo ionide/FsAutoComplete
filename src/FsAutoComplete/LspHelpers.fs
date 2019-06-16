@@ -470,6 +470,8 @@ type WorkspaceLoadParms = {
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
 type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
 
+type FakeTargetsRequest = {FileName : string; FakeContext : FakeSupport.FakeContext; }
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
