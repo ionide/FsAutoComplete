@@ -35,6 +35,7 @@ type CoreResponse =
     | FindDeclaration of result: FindDeclarationResult
     | FindTypeDeclaration of range: range
     | Declarations of decls: (FSharpNavigationTopLevelDeclaration * string) []
+    | FakeTargets of result: FakeSupport.Target []
     | ToolTip of tip: FSharpToolTipText<string> * signature: string * footer: string * typeDoc: string option
     | FormattedDocumentation of tip: FSharpToolTipText<string> option * xmlSig: (string * string) option * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
@@ -468,6 +469,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             let decls = decls |> Array.map (fun a -> a,file)
             return [CoreResponse.Declarations decls]
+    }
+
+    member x.FakeTargets file ctx = async {
+        let file = Path.GetFullPath file
+        let! targets = FakeSupport.getTargets file ctx
+        return [CoreResponse.FakeTargets targets]
     }
 
     member x.DeclarationsInProjects () = async {

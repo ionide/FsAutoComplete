@@ -141,6 +141,7 @@ let start (commands: Commands) (args: ParseResults<Options.CLIArguments>) =
                 })
             path "/project" >=> handler (fun (data : ProjectRequest) -> commands.Project data.FileName false ignore)
             path "/declarations" >=> handler (fun (data : DeclarationsRequest) -> commands.Declarations data.FileName (Some data.Lines) (Some data.Version) )
+            path "/fakeTargets" >=> handler (fun (data : FakeTargetsRequest) -> commands.FakeTargets data.FileName data.FakeContext )
             path "/declarationsProjects" >=> fun httpCtx ->
                 async {
                     let! errors = commands.DeclarationsInProjects ()
