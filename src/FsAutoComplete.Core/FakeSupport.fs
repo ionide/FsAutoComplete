@@ -6,7 +6,7 @@ open System
 open System.IO
 open System.IO.Compression
 open System.Net
-open FSharpLint.Rules.Helper.SourceLength
+open Newtonsoft.Json.Linq
 
 module FakeSupport =
   let private downloadUri = Uri "https://github.com/fsharp/FAKE/releases/latest/download/fake-dotnetcore-portable.zip"
@@ -148,7 +148,7 @@ module FakeSupport =
     else
       let targets =
         lines
-        |> Seq.filter (fun l -> l <> null)
+        |> Seq.filter (isNull >> not)
         |> Seq.skip 1
         |> Seq.map (fun line ->
           let targetName = line.Trim()
@@ -159,6 +159,47 @@ module FakeSupport =
             Description = "To see a description, upgrade Fake.Core.Target to 5.15" })
         |> Seq.toArray
       return targets
+  }
+
+  let private getTargetsJson (file:string) (ctx:FakeContext) : Async<Target []> = async {
+    // with --write-info support
+    let! rt = getFakeRuntime ctx.PortableFakeRuntime
+    let lines = ResizeArray<_>()
+    let fileName = Path.GetFileName file
+    let resultsFile = Path.GetTempFileName()
+    try
+      let workingDir = Path.GetDirectoryName file
+      let fakeArgs = sprintf "-s run \"%s\" -- --write-info \"%s\"" fileName resultsFile
+      let args = sprintf "\"%s\" %s" rt fakeArgs
+      let exitCode, _ = Utils.runProcess (lines.Add) workingDir ctx.DotNetRuntime args
+      if exitCode <> 0 then
+        return [| errorTarget file (sprintf "Running Script 'fake %s' failed (%d)" fakeArgs exitCode) "We tried to retrieve the targets but your script failed" |]
+      else
+        let jsonStr = File.ReadAllText resultsFile
+        let jobj = JObject.Parse jsonStr
+
+        let parseDecl (t:JToken) =
+            { File = string t.["file"]; Line = int t.["line"]; Column = int t.["column"] }
+        let parseDep (t:JToken) =
+            { Name = string t.["name"]; Declaration = parseDecl t.["declaration"] }
+        let parseArray parseItem (a:JToken) =
+            (a :?> JArray)
+            |> Seq.map parseItem
+            |> Seq.toArray
+        let parseTarget (t:JToken) =
+            { Name = string t.["name"]
+              Declaration = parseDecl t.["declaration"]
+              HardDependencies = parseArray parseDep t.["hardDependencies"]
+              SoftDependencies = parseArray parseDep t.["softDependencies"]
+              Description = string t.["description"] }
+        let jTargets = jobj.["targets"] :?> JArray
+        let targets =
+          jTargets
+          |> Seq.map parseTarget
+          |> Seq.toArray
+        return targets
+    finally
+      try File.Delete resultsFile with e -> ()     
   }      
 
   let private getTargetsVersion (context:Runners.FakeContext) : Version option =
@@ -182,6 +223,7 @@ module FakeSupport =
       return [| errorTarget file "not a FAKE 5 script" "This file is not a valid FAKE 5 script" |]
 
     | Some (config, prepared) ->
+      // TODO: Cache targets until file is modified?
       let! rt = getFakeRuntime ctx.PortableFakeRuntime
       let prov = FakeRuntime.restoreAndCreateCachingProvider prepared
       let context, cache = CoreCache.prepareContext config prov
@@ -193,7 +235,7 @@ module FakeSupport =
         return targets
       | Some v ->
         // Use newer logic
-        let! targets = getTargetsLegacy file ctx
+        let! targets = getTargetsJson file ctx
         return targets
   }
     
