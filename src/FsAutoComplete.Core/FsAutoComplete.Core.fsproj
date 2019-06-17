@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="Utils.fs" />
+    <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
