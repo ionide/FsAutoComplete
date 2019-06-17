@@ -38,7 +38,8 @@ let defaultConfigDto : FSharpConfigDto =
     AutomaticWorkspaceInit = Some true
     InterfaceStubGeneration = None
     InterfaceStubGenerationObjectIdentifier = None
-    InterfaceStubGenerationMethodBody = None}
+    InterfaceStubGenerationMethodBody = None
+    LineLens = None}
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}

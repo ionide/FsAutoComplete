@@ -470,6 +470,11 @@ type WorkspaceLoadParms = {
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
 type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
 
+type LineLensConfig = {
+    Enabled: string
+    Prefix: string
+}
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
@@ -492,6 +497,7 @@ type FSharpConfigDto = {
     EnableAnalyzers: bool option
     AnalyzersPath: string [] option
     DisableInMemoryProjectReferences: bool option
+    LineLens: LineLensConfig option
 }
 
 type FSharpConfigRequest = {
@@ -520,6 +526,7 @@ type FSharpConfig = {
     EnableAnalyzers: bool
     AnalyzersPath: string []
     DisableInMemoryProjectReferences: bool
+    LineLens: LineLensConfig
 }
 with
     static member Default =
@@ -545,6 +552,10 @@ with
             EnableAnalyzers = false
             AnalyzersPath = [||]
             DisableInMemoryProjectReferences = false
+            LineLens = {
+                Enabled = "never"
+                Prefix =""
+            }
         }
 
     static member FromDto(dto: FSharpConfigDto) =
@@ -570,6 +581,10 @@ with
             EnableAnalyzers = defaultArg dto.EnableAnalyzers false
             AnalyzersPath = defaultArg dto.AnalyzersPath [||]
             DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
+            LineLens = {
+                Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
+                Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
+            }
         }
 
     member x.AddDto(dto: FSharpConfigDto) =
@@ -595,4 +610,8 @@ with
             EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
             AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
             DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
+            LineLens = {
+                Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) x.LineLens.Enabled
+                Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
+            }
         }
