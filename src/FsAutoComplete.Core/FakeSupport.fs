@@ -5,11 +5,16 @@ open Fake.Runtime.Trace
 open System
 open System.IO
 open System.IO.Compression
+open System.Threading.Tasks
 open System.Net
 open Newtonsoft.Json.Linq
 
 module FakeSupport =
-  let private downloadUri = Uri "https://github.com/fsharp/FAKE/releases/latest/download/fake-dotnetcore-portable.zip"
+  let private compatibleFakeVersion = "5.15.0"
+
+  let private fakeDownloadUri version =
+    sprintf "https://github.com/fsharp/FAKE/releases/download/%s/fake-dotnetcore-portable.zip" version
+    |> Uri
 
   let downloadAndExtract (uri:Uri) directory = async {
     use client = new WebClient()
@@ -30,31 +35,42 @@ module FakeSupport =
       return fakeDll
     else    
       do! downloadAndExtract uri directory
+      if not (File.Exists fakeDll) then
+        failwithf "No 'fake.dll' in '%s' after downloading fake" directory
       return fakeDll
   }
 
   let mutable private fakeDll = None
   let private locker = obj()
   let private getFakeRuntimeAsTask() =
+    let installRuntime () =
+      // use ~/.fsac if possible
+      let usersDir = Environment.GetFolderPath Environment.SpecialFolder.UserProfile
+      let fsac = System.IO.Path.Combine(usersDir, ".fsac")
+      if not (Directory.Exists fsac) then Directory.CreateDirectory fsac |> ignore
+      let runtimeDir = Path.Combine(fsac, "fake", compatibleFakeVersion)
+      if not (Directory.Exists runtimeDir) then Directory.CreateDirectory runtimeDir |> ignore
+      let downloadUri = fakeDownloadUri compatibleFakeVersion
+      let t = downloadAndGetFakeDll downloadUri runtimeDir |> Async.StartAsTask
+      t
+
+    let checkAndReturn (s:Task<string>) =
+      if s.IsCompleted && not (File.Exists s.Result) then installRuntime()
+      else s
     match fakeDll with
     | None ->
       lock locker (fun _ ->
         match fakeDll with
         | None ->
-          // use ~/.fsac if possible
-          let usersDir = Environment.GetFolderPath Environment.SpecialFolder.UserProfile
-          let fsac = System.IO.Path.Combine(usersDir, ".fsac")
-          if not (Directory.Exists fsac) then Directory.CreateDirectory fsac |> ignore
-          let runtimeDir = Path.Combine(fsac, "fake")
-          if not (Directory.Exists runtimeDir) then Directory.CreateDirectory runtimeDir |> ignore
-          let t = downloadAndGetFakeDll downloadUri runtimeDir |> Async.StartAsTask
+          let t = installRuntime ()
           fakeDll <- Some t
           t
-        | Some s -> s
+        | Some s -> checkAndReturn s
       )
-    | Some s -> s
+    | Some s -> checkAndReturn s
   
-  let getFakeRuntime (runtimeDir) = getFakeRuntimeAsTask runtimeDir |> Async.AwaitTask  
+  let getFakeRuntime () =
+      getFakeRuntimeAsTask () |> Async.AwaitTask  
 
   type Declaration =
       { File : string
