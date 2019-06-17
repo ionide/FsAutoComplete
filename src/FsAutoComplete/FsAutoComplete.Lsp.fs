@@ -37,6 +37,9 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     member __.NotifyCancelledRequest (p: PlainNotification) =
         sendServerRequest "fsharp/notifyCancel" (box p) |> Async.Ignore
 
+    member __.NotifyFileParsed (p: PlainNotification) =
+        sendServerRequest "fsharp/fileParsed" (box p) |> Async.Ignore
+
     // TODO: Add the missing notifications
     // TODO: Implement requests
 
@@ -104,6 +107,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             try
                 Debug.print "[LSP] Notify - %A" n
                 match n with
+                | NotificationEvent.FileParsed fn ->
+                    {Content = fn}
+                    |> lspClient.NotifyFileParsed
+                    |> Async.Start
                 | NotificationEvent.Workspace ws ->
                     let ws = CommandResponse.serialize JsonSerializer.writeJson ws
 
@@ -634,14 +641,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             |> Array.groupBy (fun sym -> sym.FileName)
                             |> Array.map(fun (fileName, symbols) ->
                                 let edits =
-                                    symbols |> Array.map (fun sym ->
+                                    symbols
+                                    |> Array.map (fun sym ->
                                         let range = fcsRangeToLsp sym.RangeAlternate
                                         let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.Symbol.DisplayName.Length }}
                                         {
                                             Range = range
                                             NewText = p.NewName
-                                        }
-                                    )
+                                        })
+                                    |> Array.distinct
                                 {
                                     TextDocument =
                                         {
@@ -658,15 +666,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             |> Array.groupBy (fun sym -> sym.FileName)
                             |> Array.map(fun (fileName, symbols) ->
                                 let edits =
-                                    symbols |> Array.map (fun sym ->
+                                    symbols
+                                    |> Array.map (fun sym ->
                                         let range = symbolUseRangeToLsp sym
                                         let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.SymbolDisplayName.Length }}
 
                                         {
                                             Range = range
                                             NewText = p.NewName
-                                        }
-                                    )
+                                        })
+                                    |> Array.distinct
                                 {
                                     TextDocument =
                                         {
@@ -1036,7 +1045,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             {
                 Range = {
                     Start = {Line = line; Character = 0}
-                    End = {Line = line; Character = 100}
+                    End = {Line = line; Character = 0}
                 }
                 NewText = lineStr
             }
@@ -1194,26 +1203,31 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let fn = p.TextDocument.GetFilePath()
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
-            match res.[0] with
-            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                LspResult.internalError msg
-            | CoreResponse.Declarations (decls) ->
-                let res =
-                    decls
-                    |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "signature")
-                    |> Array.collect id
-                let res2 =
-                    if config.EnableReferenceCodeLens then
+            if config.LineLens.Enabled <> "replaceCodeLens" then
+                match res.[0] with
+                | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                    LspResult.internalError msg
+                | CoreResponse.Declarations (decls) ->
+                    let res =
                         decls
-                        |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "reference")
+                        |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "signature")
                         |> Array.collect id
-                    else
-                        [||]
+                    let res2 =
+                        if config.EnableReferenceCodeLens then
+                            decls
+                            |> Array.map (fst >> getCodeLensInformation p.TextDocument.Uri "reference")
+                            |> Array.collect id
+                        else
+                            [||]
 
-                [| yield! res2; yield! res |]
+                    [| yield! res2; yield! res |]
+                    |> Some
+                    |> success
+                | _ -> LspResult.notImplemented
+            else
+                [| |]
                 |> Some
                 |> success
-            | _ -> LspResult.notImplemented
         return res
     }
 
@@ -1372,7 +1386,37 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member x.FSharpSignatureData(p: TextDocumentPositionParams) =
         Debug.print "[LSP call] FSharpSignatureData"
-        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+        let handler f (arg: TextDocumentPositionParams) =
+            async {
+                let pos = FcsRange.mkPos (p.Position.Line) (p.Position.Character + 2)
+                let file = IO.Path.GetFullPath (p.TextDocument.Uri)
+                Debug.print "[LSP] FSharpSignatureData - Position request: %s at %A" file pos
+                return!
+                    match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                    | ResultOrString.Error s ->
+                        AsyncLspResult.internalError "No options"
+                    | ResultOrString.Ok (options, _, lineStr) ->
+                        try
+                            async {
+                                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
+                                return!
+                                    match tyResOpt with
+                                    | None ->
+                                        AsyncLspResult.internalError "No typecheck results"
+                                    | Some tyRes ->
+                                        async {
+                                            let! r = Async.Catch (f arg pos tyRes lineStr)
+                                            match r with
+                                            | Choice1Of2 r -> return r
+                                            | Choice2Of2 e ->
+                                                return LspResult.internalError e.Message
+                                        }
+                            }
+                        with e ->
+                            AsyncLspResult.internalError e.Message
+            }
+
+        p |> handler (fun p pos tyRes lineStr ->
             async {
                 let! res = commands.SignatureData tyRes pos lineStr
                 let res =

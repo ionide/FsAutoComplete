@@ -69,6 +69,7 @@ type NotificationEvent =
     | SimplifyNames of CoreResponse
     | Canceled of CoreResponse
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
+    | FileParsed of string
 
 type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
@@ -116,6 +117,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     do fileChecked.Publish.Add (fun (parseAndCheck, file, version) ->
         async {
             try
+                NotificationEvent.FileParsed file
+                |> notify.Trigger
 
                 let checkErrors = parseAndCheck.GetParseResults.Errors
                 let parseErrors = parseAndCheck.GetCheckResults.Errors
