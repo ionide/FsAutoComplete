@@ -1036,7 +1036,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             {
                 Range = {
                     Start = {Line = line; Character = 0}
-                    End = {Line = line; Character = 100}
+                    End = {Line = line; Character = 0}
                 }
                 NewText = lineStr
             }
