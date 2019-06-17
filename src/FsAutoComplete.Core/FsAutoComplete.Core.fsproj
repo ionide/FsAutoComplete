@@ -20,8 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
-    <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
@@ -35,9 +35,6 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="FscArguments.fs" />
-    <Compile Include="ProjectCrackerProjectJson.fs" />
-    <Compile Include="ProjectCrackerDotnetSdk.fs" />
-    <Compile Include="ProjectCrackerVerbose.fs" Condition="$(TargetFramework) == 'net461'"/>
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />
