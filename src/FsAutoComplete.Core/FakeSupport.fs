@@ -250,7 +250,7 @@ module FakeSupport =
       match getTargetsVersion context with
       | None ->
         return [| errorTarget file "No Fake.Core.Target dependency" "This file a valid FAKE 5 script, but doesn't use Fake.Core.Target" |]
-      | Some v when v <= Version(5, 15, 0, 0) ->
+      | Some v when v < Version(5, 15) ->
         let! targets = getTargetsLegacy file ctx
         return targets
       | Some v ->
