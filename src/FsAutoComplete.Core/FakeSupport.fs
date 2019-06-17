@@ -169,14 +169,22 @@ module FakeSupport =
       let targets =
         lines
         |> Seq.filter (isNull >> not)
-        |> Seq.skip 1
-        |> Seq.map (fun line ->
-          let targetName = line.Trim()
-          { Name = targetName
-            HardDependencies = [| dep |]
-            SoftDependencies = [||]
-            Declaration = decl
-            Description = "To see a description, upgrade Fake.Core.Target to 5.15" })
+        |> Seq.choose (fun line ->
+          // heuristic
+          if line.StartsWith "   " then
+            let targetNameAndDesc = line.Substring(3)
+            // If people use ' - ' in their target name we are lost...
+            let splitIdx = targetNameAndDesc.IndexOf(" - ")
+            let targetName =
+              if splitIdx > 0 then targetNameAndDesc.Substring(0, splitIdx)
+              else targetNameAndDesc
+            { Name = targetName
+              HardDependencies = [| dep |]
+              SoftDependencies = [||]
+              Declaration = decl
+              Description = "To see a description, upgrade Fake.Core.Target to 5.15" }
+            |> Some
+          else None)
         |> Seq.toArray
       return targets
   }
