@@ -169,11 +169,6 @@ module FakeSupport =
     let resultsFile = Path.GetTempFileName()
     try
       let workingDir = Path.GetDirectoryName file
-      // delete .dll and .pdb file in order to have proper fsiargs.      
-      let fnNoExt = Path.GetFileNameWithoutExtension file
-      let fakeDir = Path.Combine(workingDir, ".fake", fileName)
-      Directory.EnumerateFiles (fakeDir, fnNoExt + "*")
-          |> Seq.iter File.Delete
       let fakeArgs = sprintf "-s run --fsiargs \"--debug:portable --optimize-\" \"%s\" -- --write-info \"%s\"" fileName resultsFile
       let args = sprintf "\"%s\" %s" rt fakeArgs
       let exitCode, _ = Utils.runProcess (lines.Add) workingDir ctx.DotNetRuntime args
