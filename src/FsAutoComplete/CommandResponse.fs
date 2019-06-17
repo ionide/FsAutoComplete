@@ -657,14 +657,6 @@ module CommandResponse =
         })
      serialize { Kind = "declarations"; Data = decls' }
 
-  let fakeTargets (serialize : Serializer) (targets : (FakeSupport.Target) []) =
-     //let decls' =
-     // targets |> Array.map (fun (d, fn) ->
-     //   { Declaration = Declaration.OfDeclarationItem (d.Declaration, fn);
-     //     Nested = d.Nested |> Array.map ( fun a -> Declaration.OfDeclarationItem(a,fn))
-     //   })
-     serialize { Kind = "fakeTargets"; Data = targets }
-   
   let toolTip (serialize : Serializer) (tip, signature, footer, typeDoc) =
     let data = TipFormatter.formatTipEnhanced tip signature footer typeDoc |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "tooltip"; Data = data }
@@ -811,6 +803,12 @@ module CommandResponse =
       |> Seq.toList
     serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
 
+  let fakeTargets (serialize : Serializer) (targets : (FakeSupport.Target) []) =
+     serialize { Kind = "fakeTargets"; Data = targets }
+  
+  let fakeRuntime (serialize : Serializer) (runtimePath : string) =
+     serialize { Kind = "fakeRuntime"; Data = runtimePath }
+
   let serialize (s: Serializer) = function
     | CoreResponse.InfoRes(text) ->
       info s text
@@ -852,8 +850,6 @@ module CommandResponse =
       findTypeDeclaration s range
     | CoreResponse.Declarations(decls) ->
       declarations s decls
-    | CoreResponse.FakeTargets(targets) ->
-      fakeTargets s targets
     | CoreResponse.ToolTip(tip, signature, footer, typeDoc) ->
       toolTip s (tip, signature, footer, typeDoc)
     | CoreResponse.FormattedDocumentation(tip, xmlSig, signature, footer, cn) ->
@@ -890,3 +886,7 @@ module CommandResponse =
       interfaceStub s generatedCode insertPosition
     | CoreResponse.RangesAtPositions(ranges) -> rangesAtPosition s ranges
     | CoreResponse.Fsdn(functions) -> fsdn s functions
+    | CoreResponse.FakeTargets(targets) ->
+      fakeTargets s targets
+    | CoreResponse.FakeRuntime(runtimePath) ->
+      fakeRuntime s runtimePath

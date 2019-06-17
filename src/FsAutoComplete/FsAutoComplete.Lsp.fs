@@ -1589,6 +1589,20 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.FakeRuntimePath(p) = async {
+        Debug.print "[LSP call] FakeRuntime"
+        let! res = commands.FakeRuntime ()
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.FakeRuntime (runtimePath) ->
+                { Content = CommandResponse.fakeRuntime FsAutoComplete.JsonSerializer.writeJson runtimePath }
+                |> success
+            | _ -> LspResult.notImplemented
+        return res
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -1607,7 +1621,8 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
-        |> Map.add "fsharp/fakeTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
+        |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
+        |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
 
 
 

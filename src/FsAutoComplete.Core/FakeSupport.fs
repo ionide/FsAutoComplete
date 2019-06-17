@@ -33,22 +33,27 @@ module FakeSupport =
       return fakeDll
   }
 
-  let mutable fakeDll = None
-  let locker = obj()
-  let getFakeRuntimeAsTask(runtimeDir:string) =
+  let mutable private fakeDll = None
+  let private locker = obj()
+  let private getFakeRuntimeAsTask() =
     match fakeDll with
     | None ->
       lock locker (fun _ ->
         match fakeDll with
         | None ->
-          if not (Directory.Exists runtimeDir) then
-            Directory.CreateDirectory runtimeDir |> ignore
+          // use ~/.fsac if possible
+          let usersDir = Environment.GetFolderPath Environment.SpecialFolder.UserProfile
+          let fsac = System.IO.Path.Combine(usersDir, ".fsac")
+          if not (Directory.Exists fsac) then Directory.CreateDirectory fsac |> ignore
+          let runtimeDir = Path.Combine(fsac, "fake")
+          if not (Directory.Exists runtimeDir) then Directory.CreateDirectory runtimeDir |> ignore
           let t = downloadAndGetFakeDll downloadUri runtimeDir |> Async.StartAsTask
           fakeDll <- Some t
           t
         | Some s -> s
       )
     | Some s -> s
+  
   let getFakeRuntime (runtimeDir) = getFakeRuntimeAsTask runtimeDir |> Async.AwaitTask  
 
   type Declaration =
@@ -57,8 +62,7 @@ module FakeSupport =
         Column : int }
 
   type FakeContext =
-      { DotNetRuntime : string
-        PortableFakeRuntime : string }
+      { DotNetRuntime : string }
 
   /// a target dependency, either a hard or a soft dependency.
   type Dependency =
@@ -136,7 +140,7 @@ module FakeSupport =
     let dep =
         { Name = "To see dependencies, upgrade Fake.Core.Target to 5.15"
           Declaration = decl }
-    let! rt = getFakeRuntime ctx.PortableFakeRuntime
+    let! rt = getFakeRuntime ()
     let lines = ResizeArray<_>()
     let fileName = Path.GetFileName file
     let workingDir = Path.GetDirectoryName file
@@ -163,7 +167,7 @@ module FakeSupport =
 
   let private getTargetsJson (file:string) (ctx:FakeContext) : Async<Target []> = async {
     // with --write-info support
-    let! rt = getFakeRuntime ctx.PortableFakeRuntime
+    let! rt = getFakeRuntime ()
     let lines = ResizeArray<_>()
     let fileName = Path.GetFileName file
     let resultsFile = Path.GetTempFileName()
@@ -224,7 +228,7 @@ module FakeSupport =
 
     | Some (config, prepared) ->
       // TODO: Cache targets until file is modified?
-      let! rt = getFakeRuntime ctx.PortableFakeRuntime
+      let! rt = getFakeRuntime ()
       let prov = FakeRuntime.restoreAndCreateCachingProvider prepared
       let context, cache = CoreCache.prepareContext config prov
       match getTargetsVersion context with
