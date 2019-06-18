@@ -150,12 +150,9 @@ module FakeSupport =
   let private getTargetsLegacy (file:string) (ctx:FakeContext) : Async<Target []> = async {
     // pre Fake.Core.Targets upgrade
     let decl = 
-        { File = file
+        { File = null
           Line = 0
           Column = 0 }
-    let dep =
-        { Name = "To see dependencies, upgrade Fake.Core.Target to 5.15"
-          Declaration = decl }
     let! rt = getFakeRuntime ()
     let lines = ResizeArray<_>()
     let fileName = Path.GetFileName file
@@ -175,14 +172,14 @@ module FakeSupport =
             let targetNameAndDesc = line.Substring(3)
             // If people use ' - ' in their target name we are lost...
             let splitIdx = targetNameAndDesc.IndexOf(" - ")
-            let targetName =
-              if splitIdx > 0 then targetNameAndDesc.Substring(0, splitIdx)
-              else targetNameAndDesc
+            let targetName, description =
+              if splitIdx > 0 then targetNameAndDesc.Substring(0, splitIdx), targetNameAndDesc.Substring(splitIdx + 3)
+              else targetNameAndDesc, ""
             { Name = targetName
-              HardDependencies = [| dep |]
+              HardDependencies = [||]
               SoftDependencies = [||]
               Declaration = decl
-              Description = "To see a description, upgrade Fake.Core.Target to 5.15" }
+              Description = description }
             |> Some
           else None)
         |> Seq.toArray
@@ -244,11 +241,21 @@ module FakeSupport =
       |> Option.map (fun a -> a.Version)
     targetVersion
 
-  let getTargets (file:string) (ctx:FakeContext) : Async<Target []> = async {
+  type GetTargetsWarningOrErrorType =
+    | NoFakeScript = 1
+    | MissingFakeCoreTargets = 2
+    // Most likely due to missing `Target.initEnvironment()`
+    | MissingNavigationInfo = 4
+    | FakeCoreTargetsOlderThan5_15 = 3
+
+  type GetTargetsResult = { WarningsAndErrors : GetTargetsWarningOrErrorType []; Targets : Target [] }
+
+
+  let getTargets (file:string) (ctx:FakeContext) : Async<GetTargetsResult> = async {
     setupLogging()
     match detectFakeScript file with
     | None ->
-      return [| errorTarget file "not a FAKE 5 script" "This file is not a valid FAKE 5 script" |]
+      return { WarningsAndErrors = [|GetTargetsWarningOrErrorType.NoFakeScript|]; Targets = [||] }// Ok [| errorTarget file "not a FAKE 5 script" "This file is not a valid FAKE 5 script" |]
 
     | Some (config, prepared) ->
       // TODO: Cache targets until file is modified?
@@ -257,13 +264,18 @@ module FakeSupport =
       let context, cache = CoreCache.prepareContext config prov
       match getTargetsVersion context with
       | None ->
-        return [| errorTarget file "No Fake.Core.Target dependency" "This file a valid FAKE 5 script, but doesn't use Fake.Core.Target" |]
+        return { WarningsAndErrors = [|GetTargetsWarningOrErrorType.MissingFakeCoreTargets|]; Targets = [||] }
       | Some v when v < Version(5, 15) ->
         let! targets = getTargetsLegacy file ctx
-        return targets
+        return { WarningsAndErrors = [|GetTargetsWarningOrErrorType.FakeCoreTargetsOlderThan5_15|]; Targets = targets }
       | Some v ->
         // Use newer logic
         let! targets = getTargetsJson file ctx
-        return targets
+        let warnings =
+          if targets.Length > 0 then
+            if isNull targets.[0].Declaration.File then [|GetTargetsWarningOrErrorType.MissingNavigationInfo|]
+            else [||]
+          else [||]
+        return { WarningsAndErrors = warnings; Targets = targets }
   }
     

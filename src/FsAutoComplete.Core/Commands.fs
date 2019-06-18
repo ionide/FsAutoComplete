@@ -54,7 +54,7 @@ type CoreResponse =
     | SymbolUseImplementationRange of ranges: SymbolCache.SymbolUseRange[]
     | RangesAtPositions of ranges: range list list
     | Fsdn of string list
-    | FakeTargets of result: FakeSupport.Target []
+    | FakeTargets of result: FakeSupport.GetTargetsResult
     | FakeRuntime of runtimePath: string
     
 [<RequireQualifiedAccess>]

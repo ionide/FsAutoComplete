@@ -803,8 +803,8 @@ module CommandResponse =
       |> Seq.toList
     serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
 
-  let fakeTargets (serialize : Serializer) (targets : (FakeSupport.Target) []) =
-     serialize { Kind = "fakeTargets"; Data = targets }
+  let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
+     serialize targets
   
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
