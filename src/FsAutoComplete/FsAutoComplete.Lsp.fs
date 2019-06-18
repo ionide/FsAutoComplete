@@ -260,8 +260,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.Initialize(p) = async {
         Debug.print "[LSP call] Initialize"
-        let workspaceDir = defaultArg p.RootPath (Environment.CurrentDirectory)
-        commands.StartBackgroundService (workspaceDir)
+        commands.StartBackgroundService p.RootPath
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities

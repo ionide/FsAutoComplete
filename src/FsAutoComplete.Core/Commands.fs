@@ -1096,9 +1096,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return [CoreResponse.InfoRes (sprintf "%d Analyzers registered" analyzers.Length) ]
     }
 
-    member __.StartBackgroundService (workspaceDir) =
-        if backgroundServiceEnabled then
-            SymbolCache.initCache workspaceDir
+    member __.StartBackgroundService (workspaceDir : string option) =
+        if backgroundServiceEnabled && workspaceDir.IsSome then
+            SymbolCache.initCache workspaceDir.Value
             BackgroundServices.start ()
 
     member __.ProcessProjectsInBackground (file) =
