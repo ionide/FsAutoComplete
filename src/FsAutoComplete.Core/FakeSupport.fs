@@ -195,7 +195,9 @@ module FakeSupport =
     let resultsFile = Path.GetTempFileName()
     try
       let workingDir = Path.GetDirectoryName file
-      let fakeArgs = sprintf "-s run --fsiargs \"--debug:portable --optimize-\" \"%s\" -- --write-info \"%s\"" fileName resultsFile
+      // the nocache option is needed because if a script only changes whitespace,
+      // FAKE is clever enough to not recompile
+      let fakeArgs = sprintf "-s run --nocache --fsiargs \"--debug:portable --optimize-\" \"%s\" -- --write-info \"%s\"" fileName resultsFile
       let args = sprintf "\"%s\" %s" rt fakeArgs
       let exitCode, _ = Utils.runProcess (lines.Add) workingDir ctx.DotNetRuntime args
       if exitCode <> 0 then
