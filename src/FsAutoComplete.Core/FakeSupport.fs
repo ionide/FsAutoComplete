@@ -8,6 +8,7 @@ open System.IO.Compression
 open System.Threading.Tasks
 open System.Net
 open Newtonsoft.Json.Linq
+open Newtonsoft.Json.Linq
 
 module FakeSupport =
   let private compatibleFakeVersion = "5.15.0"
@@ -202,9 +203,11 @@ module FakeSupport =
       else
         let jsonStr = File.ReadAllText resultsFile
         let jobj = JObject.Parse jsonStr
-
+        let parseStringWithNull (t:JToken) =
+            if isNull t || t.Type = JTokenType.Null then null
+            else string t 
         let parseDecl (t:JToken) =
-            { File = string t.["file"]; Line = int t.["line"]; Column = int t.["column"] }
+            { File = parseStringWithNull t.["file"]; Line = int t.["line"]; Column = int t.["column"] }
         let parseDep (t:JToken) =
             { Name = string t.["name"]; Declaration = parseDecl t.["declaration"] }
         let parseArray parseItem (a:JToken) =
