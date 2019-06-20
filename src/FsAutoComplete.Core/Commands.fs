@@ -54,7 +54,9 @@ type CoreResponse =
     | SymbolUseImplementationRange of ranges: SymbolCache.SymbolUseRange[]
     | RangesAtPositions of ranges: range list list
     | Fsdn of string list
-
+    | FakeTargets of result: FakeSupport.GetTargetsResult
+    | FakeRuntime of runtimePath: string
+    
 [<RequireQualifiedAccess>]
 type NotificationEvent =
     | ParseError of CoreResponse
@@ -1113,3 +1115,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         async {
             return [ CoreResponse.InfoRes "quitting..." ]
         }
+
+    member x.FakeTargets file ctx = async {
+        let file = Path.GetFullPath file
+        let! targets = FakeSupport.getTargets file ctx
+        return [CoreResponse.FakeTargets targets]
+    }
+
+    member x.FakeRuntime () = async {
+        let! runtimePath = FakeSupport.getFakeRuntime ()
+        return [CoreResponse.FakeRuntime runtimePath]
+    }

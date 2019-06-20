@@ -803,6 +803,12 @@ module CommandResponse =
       |> Seq.toList
     serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
 
+  let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
+     serialize targets
+  
+  let fakeRuntime (serialize : Serializer) (runtimePath : string) =
+     serialize { Kind = "fakeRuntime"; Data = runtimePath }
+
   let serialize (s: Serializer) = function
     | CoreResponse.InfoRes(text) ->
       info s text
@@ -880,3 +886,7 @@ module CommandResponse =
       interfaceStub s generatedCode insertPosition
     | CoreResponse.RangesAtPositions(ranges) -> rangesAtPosition s ranges
     | CoreResponse.Fsdn(functions) -> fsdn s functions
+    | CoreResponse.FakeTargets(targets) ->
+      fakeTargets s targets
+    | CoreResponse.FakeRuntime(runtimePath) ->
+      fakeRuntime s runtimePath

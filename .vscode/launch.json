@@ -5,24 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": ".NET Core mode http (debug)",
+            "name": ".NET Core mode lsp (debug)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build_debug_netcore",
             "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/netcoreapp2.1/fsautocomplete.dll",
-            "args": ["--mode", "http"],
+            "args": ["--mode", "lsp"],
             "cwd": "${workspaceFolder}",
             "console": "internalConsole",
             "stopAtEntry": false,
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
-            "name": ".NET mode http (debug)",
+            "name": ".NET mode lsp (debug)",
             "type": "clr",
             "request": "launch",
             "preLaunchTask": "build_debug_net",
             "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net461/fsautocomplete.exe",
-            "args": ["--mode", "http"],
+            "args": ["--mode", "lsp"],
             "cwd": "${workspaceFolder}",
             "console": "internalConsole",
             "stopAtEntry": false,
