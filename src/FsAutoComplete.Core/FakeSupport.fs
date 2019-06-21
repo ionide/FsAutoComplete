@@ -11,7 +11,7 @@ open Newtonsoft.Json.Linq
 open Newtonsoft.Json.Linq
 
 module FakeSupport =
-  let private compatibleFakeVersion = "5.15.0"
+  let private compatibleFakeVersion = "5.15.1-alpha.1104"
 
   let private fakeDownloadUri version =
     sprintf "https://github.com/fsharp/FAKE/releases/download/%s/fake-dotnetcore-portable.zip" version
@@ -114,14 +114,18 @@ module FakeSupport =
       loggingSetup <- true
 
   let detectFakeScript (file) =
-    setupLogging()
-    if not (System.IO.File.Exists file) then None
+    if not (System.IO.File.Exists file) || not (file.EndsWith ".fsx") then None
     else
-      let config = FakeRuntime.createConfigSimple Verbose [] file [] true false
-      let prepared = FakeRuntime.prepareFakeScript config
-      let isFakeScript = prepared.DependencyType <> FakeRuntime.PreparedDependencyType.DefaultDependencies
-      
-      if isFakeScript then Some (config, prepared) else None
+      setupLogging()
+      let config = 
+        { FakeRuntime.createConfigSimple Verbose [] file [] true false with
+            // This prevents `Paket.Core` to overwrite `Paket.Restore.targets`
+            UseSimpleRestore = true }
+      // the `tryPrepareFakeScript` function will not write anything to the FileSystem if the script is not a FAKE script.        
+      let maybePrepared = FakeRuntime.tryPrepareFakeScript config
+      match maybePrepared with
+      | FakeRuntime.TryPrepareInfo.Prepared prepared -> Some (config, prepared)
+      | _ -> None
 
   let getProjectOptions (config) (prepared) =
     setupLogging()
