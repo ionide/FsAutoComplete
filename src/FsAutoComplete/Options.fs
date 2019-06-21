@@ -87,7 +87,6 @@ module Options =
           Debug.verbose <- true
       | AttachDebugger ->
           System.Diagnostics.Debugger.Launch() |> ignore<bool>
-          System.Diagnostics.Debugger.Break()
       | Logfile s ->
           try
             Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
