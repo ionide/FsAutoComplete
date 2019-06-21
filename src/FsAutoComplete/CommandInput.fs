@@ -174,7 +174,7 @@ module CommandInput =
       return (Fsdn querystr)
       }
   let dotnetnewlist = parser {
-      let! _ = string "dotnet "
+      let! _ = string "dotnetnewlist "
       let! _ = char '"'
       let! filterstr = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
