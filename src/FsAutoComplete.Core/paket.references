@@ -1,11 +1,15 @@
 FSharp.Compiler.Service
-FSharp.Compiler.Service.ProjectCracker condition:net461
 FSharpLint.Core
 Sln
 Dotnet.ProjInfo
+Dotnet.ProjInfo.Workspace.FCS
 Newtonsoft.Json
+Fake.Runtime
 OptimizedPriorityQueue
 ICSharpCode.Decompiler
 FSharp.Analyzers.SDK
 Microsoft.SourceLink.GitHub
 FSharp.Data
+Dapper
+Microsoft.Data.Sqlite
+System.Configuration.ConfigurationManager

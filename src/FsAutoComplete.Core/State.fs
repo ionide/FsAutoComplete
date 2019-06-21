@@ -15,6 +15,7 @@ type CompletionNamespaceInsert = string * int * int * string
 type State =
   {
     Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
+    LastCheckedVersion: ConcurrentDictionary<SourceFilePath, int>
     FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
     Projects : ConcurrentDictionary<ProjectFilePath, Project>
 
@@ -26,7 +27,6 @@ type State =
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
-    BackgroundProjects: SimplePriorityQueue<FSharpProjectOptions, int>
     Analyzers: ConcurrentDictionary<FilePath, Analyzer list>
 
     mutable WorkspaceRoot: string
@@ -36,6 +36,7 @@ type State =
 
   static member Initial =
     { Files = ConcurrentDictionary()
+      LastCheckedVersion = ConcurrentDictionary()
       FileCheckOptions = ConcurrentDictionary()
       Projects = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
@@ -45,7 +46,6 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ParseResults = ConcurrentDictionary()
-      BackgroundProjects = SimplePriorityQueue<_, _>()
       WorkspaceRoot = Environment.CurrentDirectory
       Analyzers = ConcurrentDictionary()
       ColorizationOutput = false }
@@ -66,6 +66,11 @@ type State =
     x.Files.TryFind file
     |> Option.bind (fun f -> f.Version)
 
+  member x.TryGetLastCheckedVersion (file: SourceFilePath) : int option =
+    let file = Utils.normalizePath file
+
+    x.LastCheckedVersion.TryFind file
+
   member x.SetFileVersion (file: SourceFilePath) (version: int) =
     x.Files.TryFind file
     |> Option.iter (fun n ->
@@ -73,11 +78,19 @@ type State =
       x.Files.[file] <- fileState
     )
 
+  member x.SetLastCheckedVersion (file: SourceFilePath) (version: int) =
+    x.LastCheckedVersion.[file] <- version
+
   member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts, version) =
     let file = Utils.normalizePath file
     let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
     x.FileCheckOptions.[file] <- opts
+
+  member x.AddFileText(file: SourceFilePath, lines: LineStr[], version) =
+    let file = Utils.normalizePath file
+    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
+    x.Files.[file] <- fileState
 
   member x.AddCancellationToken(file : SourceFilePath, token: CancellationTokenSource) =
     x.CancellationTokens.AddOrUpdate(file, [token], fun _ lst -> token::lst)
@@ -120,6 +133,12 @@ type State =
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) -> Ok (opts, String.concat "\n" lines)
 
+  member x.TryGetFileSource(file: SourceFilePath) : ResultOrString<string[]> =
+    let file = Utils.normalizePath file
+    match x.Files.TryFind(file) with
+    | None -> ResultOrString.Error (sprintf "File '%s' not parsed" file)
+    | Some f -> Ok (f.Lines)
+
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos : pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
     let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
@@ -129,12 +148,3 @@ type State =
                pos.Column <= lines.[pos.Line - 1].Length + 1 && pos.Column >= 1
       if not ok then ResultOrString.Error "Position is out of range"
       else Ok (opts, lines, lines.[pos.Line - 1])
-
-  member x.EnqueueProjectForBackgroundParsing(opts: FSharpProjectOptions, priority: int) =
-    if x.BackgroundProjects.Contains opts then
-      match x.BackgroundProjects.TryGetPriority opts with
-      | true, pr when pr > priority -> x.BackgroundProjects.TryUpdatePriority (opts, priority) |> ignore
-      | false, _ -> x.BackgroundProjects.Enqueue(opts, priority)
-      | _ -> ()
-    else
-      x.BackgroundProjects.Enqueue(opts, priority)

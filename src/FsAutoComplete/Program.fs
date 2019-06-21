@@ -12,10 +12,6 @@ let entry args =
     try
       System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
-      let commands = Commands(writeJson)
-      let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-      let fs = FileSystem(originalFs, commands.Files.TryFind)
-      AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
       let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
 
@@ -37,11 +33,19 @@ let entry args =
 
       Options.apply results
 
+      let backgroundServiceEnabled =
+        results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
+
+
+      let commands = Commands(writeJson, backgroundServiceEnabled)
+      let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
+      let fs = FileSystem(originalFs, commands.Files.TryFind)
+      AbstractIL.Internal.Library.Shim.FileSystem <- fs
+
+
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
           FsAutoComplete.Stdio.start commands results
-      | Options.TransportMode.Http ->
-          FsAutoComplete.Suave.start commands results
       | Options.TransportMode.Lsp ->
           FsAutoComplete.Lsp.start commands results
     with

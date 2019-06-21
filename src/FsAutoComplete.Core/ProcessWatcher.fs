@@ -31,3 +31,14 @@ module ProcessWatcher =
     else
         proc.EnableRaisingEvents <- true
         proc.Exited |> Event.add (fun _ -> onExitCallback proc)
+
+  let zombieCheckWithHostPID quit pid =
+    try
+      let hostProcess = System.Diagnostics.Process.GetProcessById(pid)
+      watch hostProcess (fun _ -> quit ())
+    with
+    | e ->
+      Debug.print "[Process Watcher] Host process ID %i not found: %s" pid e.Message
+      // If the process dies before we get here then request shutdown
+      // immediately
+      quit ()

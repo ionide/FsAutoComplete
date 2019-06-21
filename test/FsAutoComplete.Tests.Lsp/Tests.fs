@@ -116,7 +116,6 @@ let basicTests () =
       testList "Document Symbol Tests" [
         test "Document Symbol" {
           let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
-          server.FileInit <- true
           let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtest "Request failed"
@@ -160,7 +159,7 @@ let basicTests () =
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest () =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-  serverTest path {defaultConfigDto with EnableBackgroundSymbolCache = Some true; EnableReferenceCodeLens = Some true} (fun (server, event) ->
+  serverTest path {defaultConfigDto with EnableReferenceCodeLens = Some true} (fun (server, event) ->
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
@@ -227,7 +226,6 @@ let documentSymbolTest () =
     testList "Document Symbols Tests" [
       test "Get Document Symbols" {
         let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
-        server.FileInit <- true
         let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -252,7 +250,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -268,7 +265,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -284,7 +280,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -300,7 +295,6 @@ let autocompleteTest () =
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
-        server.FileInit <- true
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -332,7 +326,6 @@ let renameTest () =
         let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
                                  Position = { Line = 7; Character = 12}
                                  NewName = "y" }
-        server.FileInit <- true
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -351,7 +344,6 @@ let renameTest () =
         let p : RenameParams = { TextDocument = { Uri = filePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
-        server.FileInit <- true
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtest "Request failed"
@@ -377,13 +369,49 @@ let gotoTest () =
   serverTest path defaultConfigDto (fun (server, event) ->
     do waitForWorkspaceFinishedParsing event
     let definitionPath = Path.Combine(path, "Definition.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath}
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath }
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    let externalPath = Path.Combine(path, "External.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument externalPath }
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
 
     let path = Path.Combine(path, "Library.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     testList "GoTo Tests" [
+      testAsync "Go-to-definition on external symbol (System.Net.HttpWebRequest)" {
+        let p : TextDocumentPositionParams = {
+          TextDocument = { Uri = filePathToUri externalPath }
+          Position = { Line = 4; Character = 30 }
+        }
+
+        let! res = server.TextDocumentDefinition p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+        | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup") ->
+          failtest "Should not generate the startup dummy file"
+        | Result.Ok (Some (GotoResult.Single r)) ->
+          Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
+          Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
+          () // should
+      }
+
+      testAsync "Go-to-definition on external namespace (System.Net) should error when going to a namespace " {
+        let p : TextDocumentPositionParams = {
+          TextDocument = { Uri = filePathToUri externalPath }
+          Position = { Line = 2; Character = 15 }
+        }
+
+        let! res = server.TextDocumentDefinition p
+        match res with
+        | Result.Error e ->
+          Expect.equal "Could not find declaration" e.Message "Should report failure for navigating to a namespace"
+        | Result.Ok r -> failtestf "Declaration request should not work on a namespace, instead we got %A" r
+      }
+
       test "Go-to-definition" {
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri path}

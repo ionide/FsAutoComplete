@@ -2,7 +2,7 @@
   "Kind": "error",
   "Data": {
     "Code": 101,
-    "Message": "MSBuild failed with exitCode 1 Working Directory: '<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1' Exe Path: 'msbuild' Args: '<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj /p:CopyBuildOutputToOutputDirectory=false /p:UseCommonOutputDirectory=true /p:BuildingInsideVisualStudio=true /p:ShouldUnsetParentConfigurationAndPlatform=true /t:Build /p:_Inspect_CoreCompilePropsOldSdk_OutFile=<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/obj/Test1.fsproj.proj-info.targets'.\nwriting helper target file in '<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj(7,21): error MSB4025: The project file could not be loaded. '>' is an unexpected token. The expected token is '='. Line 7, position 21.\n\n",
+    "Message": "Project file '<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj' parsing failed",
     "AdditionalData": {
       "Project": "<absolute path removed>/FsAutoComplete.IntegrationTests/OldSdk/sample3/l1/Test1.fsproj"
     }

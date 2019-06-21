@@ -1,40 +1,41 @@
 version 5.201.1
 
 framework: net461, netstandard2.0, netcoreapp2.1
-source https://www.nuget.org/api/v2/
+source https://api.nuget.org/v3/index.json
 storage: none
 
 github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
 
 nuget Argu ~> 5.2.0
-nuget FSharp.Compiler.Service ~> 28.0
-nuget FSharp.Compiler.Service.ProjectCracker ~> 28.0 framework:net461, condition:net461
-nuget Dotnet.ProjInfo ~> 0.31.0
+nuget FSharp.Compiler.Service ~> 29.0
+nuget Dotnet.ProjInfo ~> 0.35.0
+nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.35.0
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
-nuget Suave
-nuget FSharpLint.Core 0.10.8
+nuget Fake.Runtime prerelease
+nuget FSharpLint.Core 0.12.1
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
 nuget Dapper
 nuget Microsoft.Data.Sqlite
 nuget FSharp.Analyzers.SDK
+nuget System.Configuration.ConfigurationManager
 
 nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true
 
 group Build
   framework: net45
-  source https://www.nuget.org/api/v2/
+  source https://api.nuget.org/v3/index.json
 
   nuget FAKE ~> 4
 
 group Test
   framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
   storage: none
 
   nuget NUnit 3.10.1
@@ -44,7 +45,7 @@ group Test
 
 group IntegrationTests
   framework: net461
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
   generate_load_scripts: true
 
   nuget Http.fs
@@ -56,6 +57,6 @@ group IntegrationTests
 
 group SourceLink
   storage: none
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
   nuget SourceLink.Create.CommandLine 2.7.4
   nuget SourceLink.Embed.PaketFiles 2.7.4

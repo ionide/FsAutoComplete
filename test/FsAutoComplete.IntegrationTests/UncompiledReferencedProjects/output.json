@@ -15,9 +15,7 @@
       "<absolute path removed>/mscorlib.dll"
     ],
     "Logs": {
-      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj": "",
-      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1A.fsproj": "",
-      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/Project1B.fsproj": ""
+      "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fsproj": ""
     },
     "OutputType": "exe",
     "Info": {

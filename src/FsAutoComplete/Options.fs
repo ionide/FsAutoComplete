@@ -49,7 +49,6 @@ module Options =
 
   type TransportMode =
       | Stdio
-      | Http
       | Lsp
 
   type CLIArguments =
@@ -63,6 +62,7 @@ module Options =
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | Mode of TransportMode
       | Port of tcp_port:int
+      | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -77,6 +77,7 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | Port _ -> "the listening port."
                   | Mode _ -> "the transport type."
+                  | BackgroundServiceEnabled -> "enable background service"
 
   let apply (args: ParseResults<CLIArguments>) =
 
@@ -99,6 +100,7 @@ module Options =
       | Commands
       | Version
       | WaitForDebugger
+      | BackgroundServiceEnabled
       | HostPID _
       | Mode _
       | Port _ ->

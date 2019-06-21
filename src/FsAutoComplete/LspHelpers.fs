@@ -87,8 +87,22 @@ module Conversions =
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
 
+    /// Sometimes the DocumentUris that are given are escaped and so Windows-specific LocalPath resolution fails.
+    /// To fix this, we normalize the uris by unescaping them.
+    let inline normalizeDocumentUri (docUri: string) =
+        docUri
+        |> System.Net.WebUtility.UrlDecode
+        |> Uri
+
+
     type TextDocumentIdentifier with
-        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
+        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+
+    type VersionedTextDocumentIdentifier with
+        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+
+    type TextDocumentItem with
+        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
 
     type ITextDocumentPositionParams with
         member p.GetFilePath() = p.TextDocument.GetFilePath()
@@ -453,117 +467,152 @@ type WorkspaceLoadParms = {
     TextDocuments: TextDocumentIdentifier []
 }
 
+type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
+type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
+
+type FakeTargetsRequest = {FileName : string; FakeContext : FakeSupport.FakeContext; }
+type LineLensConfig = {
+    Enabled: string
+    Prefix: string
+}
+
 type FSharpConfigDto = {
+    AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
-    WorkspaceExcludedDirs: string [] option
+    ExcludeProjectDirectories: string [] option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     Linter: bool option
+    UnionCaseStubGeneration: bool option
+    UnionCaseStubGenerationBody: string option
     RecordStubGeneration: bool option
+    RecordStubGenerationBody: string option
+    InterfaceStubGeneration: bool option
+    InterfaceStubGenerationObjectIdentifier: string option
+    InterfaceStubGenerationMethodBody: string option
     UnusedOpensAnalyzer: bool option
     UnusedDeclarationsAnalyzer: bool option
     SimplifyNameAnalyzer: bool option
     ResolveNamespaces: bool option
-    MinimizeBackgroundParsing: bool option
-    EnableBackgroundSymbolCache: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
     AnalyzersPath: string [] option
     DisableInMemoryProjectReferences: bool option
+    LineLens: LineLensConfig option
+}
+
+type FSharpConfigRequest = {
+    FSharp: FSharpConfigDto
 }
 
 type FSharpConfig = {
+    AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
-    WorkspaceExcludedDirs: string []
+    ExcludeProjectDirectories: string []
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     Linter: bool
+    UnionCaseStubGeneration: bool
+    UnionCaseStubGenerationBody: string
     RecordStubGeneration: bool
+    RecordStubGenerationBody: string
+    InterfaceStubGeneration: bool
+    InterfaceStubGenerationObjectIdentifier: string
+    InterfaceStubGenerationMethodBody: string
     UnusedOpensAnalyzer: bool
     UnusedDeclarationsAnalyzer: bool
     SimplifyNameAnalyzer: bool
     ResolveNamespaces: bool
-    MinimizeBackgroundParsing: bool
-    EnableBackgroundSymbolCache: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
     AnalyzersPath: string []
     DisableInMemoryProjectReferences: bool
+    LineLens: LineLensConfig
 }
 with
     static member Default =
         {
+            AutomaticWorkspaceInit = false
             WorkspaceModePeekDeepLevel = 2
-            WorkspaceExcludedDirs = [||]
+            ExcludeProjectDirectories = [||]
             KeywordsAutocomplete = false
             ExternalAutocomplete = false
             Linter = false
+            UnionCaseStubGeneration = false
+            UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
             RecordStubGeneration = false
+            RecordStubGenerationBody = "failwith \"Not Implemented\""
+            InterfaceStubGeneration = false
+            InterfaceStubGenerationObjectIdentifier = "this"
+            InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
             UnusedOpensAnalyzer = false
             UnusedDeclarationsAnalyzer = false
             SimplifyNameAnalyzer = false
             ResolveNamespaces = false
-            MinimizeBackgroundParsing = false
-            EnableBackgroundSymbolCache = false
             EnableReferenceCodeLens = false
             EnableAnalyzers = false
             AnalyzersPath = [||]
             DisableInMemoryProjectReferences = false
+            LineLens = {
+                Enabled = "never"
+                Prefix =""
+            }
         }
 
     static member FromDto(dto: FSharpConfigDto) =
         {
+            AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel 2
-            WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs [||]
+            ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories [||]
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
             Linter = defaultArg dto.Linter false
+            UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration false
+            UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody "failwith \"Not Implemented\""
             RecordStubGeneration = defaultArg dto.RecordStubGeneration false
+            RecordStubGenerationBody = defaultArg dto.RecordStubGenerationBody "failwith \"Not Implemented\""
+            InterfaceStubGeneration = defaultArg dto.InterfaceStubGeneration false
+            InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier "this"
+            InterfaceStubGenerationMethodBody = defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
             UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer false
             UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
             SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
             ResolveNamespaces = defaultArg dto.ResolveNamespaces false
-            MinimizeBackgroundParsing = defaultArg dto.MinimizeBackgroundParsing false
-            EnableBackgroundSymbolCache = defaultArg dto.EnableBackgroundSymbolCache false
             EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
             EnableAnalyzers = defaultArg dto.EnableAnalyzers false
             AnalyzersPath = defaultArg dto.AnalyzersPath [||]
             DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
+            LineLens = {
+                Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
+                Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
+            }
         }
 
     member x.AddDto(dto: FSharpConfigDto) =
         {
+            AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel x.WorkspaceModePeekDeepLevel
-            WorkspaceExcludedDirs = defaultArg dto.WorkspaceExcludedDirs x.WorkspaceExcludedDirs
+            ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories x.ExcludeProjectDirectories
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
             Linter = defaultArg dto.Linter x.Linter
+            UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration x.UnionCaseStubGeneration
+            UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody x.UnionCaseStubGenerationBody
             RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration
+            RecordStubGenerationBody = defaultArg dto.RecordStubGenerationBody x.RecordStubGenerationBody
+            InterfaceStubGeneration = defaultArg dto.InterfaceStubGeneration x.InterfaceStubGeneration
+            InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier x.InterfaceStubGenerationObjectIdentifier
+            InterfaceStubGenerationMethodBody = defaultArg dto.InterfaceStubGenerationMethodBody x.InterfaceStubGenerationMethodBody
             UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer x.UnusedOpensAnalyzer
             UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
             SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer
             ResolveNamespaces = defaultArg dto.ResolveNamespaces x.ResolveNamespaces
-            MinimizeBackgroundParsing = defaultArg dto.MinimizeBackgroundParsing x.MinimizeBackgroundParsing
-            EnableBackgroundSymbolCache = defaultArg dto.EnableBackgroundSymbolCache x.EnableBackgroundSymbolCache
             EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
             EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
             AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
             DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
+            LineLens = {
+                Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) x.LineLens.Enabled
+                Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
+            }
         }
-
-//source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
-type Debounce<'a>(timeout, fn) =
-    let debounce fn timeout = MailboxProcessor<'a>.Start(fun agent ->
-        let rec loop ida idb arg = async {
-            let! r = agent.TryReceive(timeout)
-            match r with
-            | Some arg -> return! loop ida (idb + 1) (Some arg)
-            | None when ida <> idb -> fn arg.Value; return! loop idb idb None
-            | None -> return! loop ida idb arg
-        }
-        loop 0 0 None)
-
-    let mailbox = debounce fn timeout
-
-    /// Calls the function, after debouncing has been applied.
-    member __.Bounce(arg) = mailbox.Post(arg)

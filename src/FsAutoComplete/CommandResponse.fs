@@ -128,6 +128,10 @@ module CommandResponse =
       Info: ProjectResponseInfo
       AdditionalInfo: Map<string, string>
     }
+  and ProjectOutputType =
+    | Library
+    | Exe
+    | Custom of string
 
   type OverloadDescription =
     {
@@ -430,14 +434,12 @@ module CommandResponse =
     let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
     serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: ExtraProjectInfoData), additionals) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
-      | ProjectSdkType.Verbose _ ->
+      | Dotnet.ProjInfo.Workspace.ProjectSdkType.Verbose _ ->
         ProjectResponseInfo.Verbose
-      | ProjectSdkType.ProjectJson ->
-        ProjectResponseInfo.ProjectJson
-      | ProjectSdkType.DotnetSdk info ->
+      | Dotnet.ProjInfo.Workspace.ProjectSdkType.DotnetSdk info ->
         ProjectResponseInfo.DotnetSdk {
           IsTestProject = info.IsTestProject
           Configuration = info.Configuration
@@ -460,7 +462,11 @@ module CommandResponse =
         Output = match outFileOpt with Some x -> x | None -> "null"
         References = List.sortBy IO.Path.GetFileName references
         Logs = logMap
-        OutputType = extra.ProjectOutputType
+        OutputType =
+          match extra.ProjectOutputType with
+          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Library -> Library
+          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Exe -> Exe
+          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
         AdditionalInfo = additionals }
     serialize { Kind = "project"; Data = projectData }
@@ -683,7 +689,19 @@ module CommandResponse =
     serialize { Kind = kind; Data = data }
 
   let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
-    let data = warnings |> List.toArray
+
+    /// strip the fsharp lint warning code, in the format `FS01234: info"`
+    let removeLinterCode (s: string) =
+      let index = s.IndexOf(":")
+      if index > 0 && (index + 2) < s.Length then
+        s.Substring(index + 2)
+      else
+        s
+
+    let data =
+      warnings
+      |> List.map (fun w -> { w with Info = removeLinterCode w.Info })
+      |> List.toArray
 
     serialize { Kind = "lint"; Data = data }
 
@@ -785,6 +803,12 @@ module CommandResponse =
       |> Seq.toList
     serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
 
+  let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
+     serialize targets
+  
+  let fakeRuntime (serialize : Serializer) (runtimePath : string) =
+     serialize { Kind = "fakeRuntime"; Data = runtimePath }
+
   let serialize (s: Serializer) = function
     | CoreResponse.InfoRes(text) ->
       info s text
@@ -862,3 +886,7 @@ module CommandResponse =
       interfaceStub s generatedCode insertPosition
     | CoreResponse.RangesAtPositions(ranges) -> rangesAtPosition s ranges
     | CoreResponse.Fsdn(functions) -> fsdn s functions
+    | CoreResponse.FakeTargets(targets) ->
+      fakeTargets s targets
+    | CoreResponse.FakeRuntime(runtimePath) ->
+      fakeRuntime s runtimePath

@@ -1,11 +1,7 @@
 module LanguageServerProtocol
 
-open FsAutoComplete.Utils // For Result<_,_>
 open System.Diagnostics
 
-let private traceFn format =
-    // FsAutoComplete.Debug.print format
-    Printf.ksprintf (fun s -> System.Diagnostics.Trace.WriteLine("LSP: " + s)) format
 
 [<AutoOpen>]
 module LspJsonConverters =
@@ -139,6 +135,7 @@ module Types =
     }
 
     type ITextDocumentIdentifier =
+        /// Warning: normalize this member by UrlDecoding it before use
         abstract member Uri : DocumentUri with get
 
     type TextDocumentIdentifier =
@@ -1777,7 +1774,7 @@ module LspResult =
     let invalidParams s : LspResult<_> =
         Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, s))
 
-    let internalError s : LspResult<_> =
+    let internalError<'a> (s: string): LspResult<'a> =
         Result.Error (JsonRpc.Error.Create(JsonRpc.ErrorCodes.internalError, s))
 
     let notImplemented<'a> : LspResult<'a> =
@@ -2017,7 +2014,7 @@ type LspServer() =
     abstract member DocumentLinkResolve: DocumentLink -> AsyncLspResult<DocumentLink>
     default __.DocumentLinkResolve(_) = notImplemented
 
-    /// The document color request is sent from the client to the server to list all color refereces
+    /// The document color request is sent from the client to the server to list all color references
     /// found in a given text document. Along with the range, a color value in RGB is returned.
     abstract member TextDocumentDocumentColor: DocumentColorParams -> AsyncLspResult<ColorInformation[]>
     default __.TextDocumentDocumentColor(_) = notImplemented
@@ -2215,7 +2212,7 @@ module Server =
         ]
         |> Map.ofList
 
-    let handleRequest<'server when 'server :> LspServer> (requestHandlings : Map<string,RequestHandling<'server>>) (request: JsonRpc.Request) (lspServer: 'server): Async<JsonRpc.Response option> =
+    let handleRequest<'server when 'server :> LspServer>  (requestHandlings : Map<string,RequestHandling<'server>>) (request: JsonRpc.Request) (lspServer: 'server): Async<JsonRpc.Response option> =
         async {
             let mutable methodCallResult = Result.Error (Error.MethodNotFound)
             match requestHandlings |> Map.tryFind request.Method with
@@ -2225,7 +2222,6 @@ module Server =
                     methodCallResult <- result
                 with
                 | ex ->
-                    FsAutoComplete.Debug.print "Exception %O in call to %s" ex request.Method
                     methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
             | None -> ()
 
@@ -2239,9 +2235,11 @@ module Server =
             | None ->
                 match methodCallResult with
                 | Result.Ok (Some ok) ->
-                    traceFn "Provided response %A to notification %s but it is ignored" ok request.Method
+                    // FsAutoComplete.Debug.print "[LSP-Internals] Provided response %A to notification %s but it is ignored" ok request.Method
+                    ()
                 | Result.Error err ->
-                    traceFn "Failed with %A to notification %s but it is ignored" err request.Method
+                    // FsAutoComplete.Debug.print "[LSP-Internals] Failed with %A to notification %s but it is ignored" err request.Method
+                    ()
                 | _ ->
                     ()
                 return None
@@ -2260,7 +2258,7 @@ module Server =
         | ErrorStreamClosed = 2
 
     let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: ClientNotificationSender -> 'a) (serverCreator: 'a -> 'b) =
-        traceFn "Starting up !"
+        // FsAutoComplete.Debug.print "[LSP-Internals] Starting up !"
 
         let sender = MailboxProcessor<string>.Start(fun inbox ->
             let rec loop () = async {
@@ -2308,7 +2306,7 @@ module Server =
         while not quit do
             try
                 let _, requestString = LowLevel.read input
-                traceFn "Received: %s" requestString
+                // FsAutoComplete.Debug.print "[LSP-Internals] Received: %s" requestString
 
                 match handleClientRequest requestString with
                 | RequestHandlingResult.WasShutdown -> shutdownReceived <- true
@@ -2318,14 +2316,153 @@ module Server =
                 | RequestHandlingResult.Normal -> ()
             with
             | :? EndOfStreamException ->
-                FsAutoComplete.Debug.print "Client closed the input stream"
+                // FsAutoComplete.Debug.print "[LSP-Internals] Client closed the input stream"
                 quit <- true
             | ex ->
-                FsAutoComplete.Debug.print "%O" ex
+                ()
+                // FsAutoComplete.Debug.print "[LSP-Internals] %O" ex
 
-        traceFn "Ended"
+        // FsAutoComplete.Debug.print "[LSP-Internals] Ended"
 
         match shutdownReceived, quitReceived with
         | true, true -> LspCloseReason.RequestedByClient
         | false, true -> LspCloseReason.ErrorExitWithoutShutdown
         | _ -> LspCloseReason.ErrorStreamClosed
+
+module Client =
+    open System
+    open System.IO
+    open Newtonsoft.Json
+    open Newtonsoft.Json.Linq
+    open Newtonsoft.Json.Serialization
+
+    open Types
+    open JsonRpc
+
+    let internal jsonSettings =
+            let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
+            result.Converters.Add(OptionConverter())
+            result.Converters.Add(ErasedUnionConverter())
+            result.ContractResolver <- CamelCasePropertyNamesContractResolver()
+            result
+
+    let internal jsonSerializer = JsonSerializer.Create(jsonSettings)
+
+    let internal deserialize (token: JToken) = token.ToObject<'t>(jsonSerializer)
+
+    let internal serialize (o: 't) = JToken.FromObject(o, jsonSerializer)
+
+    type NotificationHandler = {
+        Run: JToken -> Async<JToken option>
+    }
+
+    let notificationHandling<'p, 'r> (handler: 'p -> Async<'r option>) : NotificationHandler =
+        let run (token: JToken) =
+            async {
+                try
+                    let p = token.ToObject<'p>(jsonSerializer)
+                    let! res = handler p
+                    return res |> Option.map (fun n -> JToken.FromObject(n, jsonSerializer))
+                with
+                | _ -> return None
+            }
+        {Run = run}
+
+    type Client(exec: string, args: string, notificationHandlings: Map<string, NotificationHandler>) =
+
+        let mutable outuptStream : StreamReader option = None
+        let mutable inputStream : StreamWriter option = None
+
+        let sender = MailboxProcessor<string>.Start(fun inbox ->
+            let rec loop () = async {
+                let! str = inbox.Receive()
+                inputStream |> Option.iter (fun input ->
+                    // fprintfn stderr "[CLIENT] Writing: %s" str
+                    LowLevel.write input.BaseStream str
+                    input.BaseStream.Flush()
+                    )
+                // do! Async.Sleep 1000
+                return! loop ()
+            }
+            loop ())
+
+        let handleRequest (request: JsonRpc.Request) =
+            async {
+                let mutable methodCallResult = None
+                match notificationHandlings |> Map.tryFind request.Method with
+                | Some handling ->
+                    try
+                        match request.Params with
+                        | None -> ()
+                        | Some prms ->
+                            let! result = handling.Run prms
+                            methodCallResult <- result
+                    with
+                    | ex ->
+                        methodCallResult <- None
+                | None -> ()
+
+                match request.Id with
+                | Some _ ->
+                    match methodCallResult with
+                    | Some ok ->
+                        return Some (JsonRpc.Response.Success(request.Id, Some ok))
+                    | None ->
+                        return None
+                | None ->
+                    match methodCallResult with
+                    | Some ok->
+                        // FsAutoComplete.Debug.print "[LSP-Internals] Provided response %A to notification %s but it is ignored" ok request.Method
+                        return Some (JsonRpc.Response.Success(None, Some ok))
+                    | None ->
+                        return None
+            }
+
+        let messageHanlder str =
+            let request = JsonConvert.DeserializeObject<JsonRpc.Request>(str, jsonSettings)
+            async {
+                let! result = handleRequest request
+                match result with
+                | Some response ->
+                    let responseString = JsonConvert.SerializeObject(response, jsonSettings)
+                    sender.Post(responseString)
+                | None -> ()
+            }
+            |> Async.StartAsTask
+            |> ignore
+
+        member __.SendRequest (rpcMethod: string) (requestObj: obj) =
+            let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
+            let req = JsonRpc.Request.Create(rpcMethod, serializedResponse)
+            let reqString = JsonConvert.SerializeObject(req, jsonSettings)
+            sender.Post(reqString)
+
+        member __.Start() =
+            async {
+                let si = ProcessStartInfo()
+                si.RedirectStandardOutput <- true
+                si.RedirectStandardInput <- true
+                si.RedirectStandardError <- true
+                si.UseShellExecute <- false
+                si.WorkingDirectory <- Environment.CurrentDirectory
+                si.FileName <- exec
+                si.Arguments <- args
+                let proc = Process.Start(si)
+                inputStream <- Some (proc.StandardInput)
+                outuptStream <- Some (proc.StandardOutput)
+
+                let mutable quit = false
+                let outStream = proc.StandardOutput.BaseStream
+                while not quit do
+                    try
+                        let _, notificationString = LowLevel.read outStream
+                        // fprintfn stderr "[CLIENT] READING: %s" notificationString
+                        messageHanlder notificationString
+                    with
+                    | :? EndOfStreamException ->
+                        quit <- true
+                    | ex ->
+                        ()
+
+                return ()
+            } |> Async.Start

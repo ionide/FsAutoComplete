@@ -5,6 +5,8 @@ open System.IO
 open FSharp.Compiler.SourceCodeServices
 open Utils
 open FSharp.Compiler.Range
+open FSharp.Compiler
+open FSharp.Compiler.Text
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -19,10 +21,9 @@ type ParseAndCheckResults
     ) =
 
   member __.TryGetMethodOverrides (lines: LineStr[]) (pos: pos) = async {
-    let s = DateTime.Now
-    // Find the starting point, ideally right after the first '('
-    let lineCutoff = pos.Line - 6
-    let commas, line, col =
+    // Find the number of `,` in the current signature
+    let commas, _, _ =
+      let lineCutoff = pos.Line - 6
       let rec prevPos (line,col) =
         match line, col with
         | 1, 1
@@ -44,23 +45,19 @@ type ParseAndCheckResults
       match loop 0 0 (prevPos(pos.Line, pos.Column)) with
       | _, 1, 1 -> 0, pos.Line, pos.Column
       | newPos -> newPos
-
-    let lineStr = lines.[line - 1]
-    match Parsing.findLongIdentsAtGetMethodsTrigger(col - 1, lineStr) with
-    | None ->
-      let e = DateTime.Now
-      //printfn "[Debug] TryGetMethodOverrides took %fms" (e-s).TotalMilliseconds
-      return ResultOrString.Error "Could not find ident at this location"
-    | Some identIsland ->
-
-    let! meth = checkResults.GetMethods(line, col, lineStr, Some identIsland)
-    let e = DateTime.Now
-    //printfn "[Debug] TryGetMethodOverrides took %fms" (e-s).TotalMilliseconds
-    return Ok(meth, commas) }
+    let testPos = mkPos pos.Line (pos.Column - 1)
+    // Get the parameter locations
+    let paramLocations = parseResults.FindNoteworthyParamInfoLocations pos
+    match paramLocations with
+    | None -> return ResultOrString.Error "Could not find parameter locations"
+    | Some nwpl ->
+      let names = nwpl.LongId
+      let lidEnd = nwpl.LongIdEndLocation
+      let! meth = checkResults.GetMethods(lidEnd.Line, lidEnd.Column, "", Some names)
+      return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
-    let s = DateTime.Now
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
 
@@ -68,34 +65,24 @@ type ParseAndCheckResults
 
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
         return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryFindDeclaration took %fms" (e-s).TotalMilliseconds
         return Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym)
                 |> Option.map (fun extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec))
                 |> Option.getOrElse (ResultOrString.Error "External declaration not resolved")
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {
-    let s = DateTime.Now
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None ->
-      let e = DateTime.Now
-      //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
       return Error "Cannot find ident at this location"
     | Some(col,identIsland) ->
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
       match symbol with
       | None ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
         return Error "Cannot find symbol at this locaion"
       | Some sym ->
         let r =
@@ -109,19 +96,14 @@ type ParseAndCheckResults
           | _ -> None
         match r with
         | Some r when File.Exists r.FileName ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
           return (Ok r)
         | _ ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryFindTypeDeclaration took %fms" (e-s).TotalMilliseconds
           return Error "No type information for the symbol at this location"
 
   }
 
   member __.TryGetToolTip (pos: pos) (lineStr: LineStr) = async {
-    let s = DateTime.Now
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
@@ -136,26 +118,17 @@ type ParseAndCheckResults
                |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
                |> function
                | Some tip ->
-                let e = DateTime.Now
-                //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
                 Ok tip
                | None ->
-                let e = DateTime.Now
-                //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
                 ResultOrString.Error "No tooltip information"
             | _ ->
-              let e = DateTime.Now
-              //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
               ResultOrString.Error "No tooltip information"
         | _ ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetToolTip took %fms" (e-s).TotalMilliseconds
           Ok(tip)
   }
 
   member __.TryGetToolTipEnhanced (pos: pos) (lineStr: LineStr) = async {
-    let s = DateTime.Now
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
 
@@ -171,41 +144,27 @@ type ParseAndCheckResults
                            |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
              match keyword with
              | Some tip ->
-              let e = DateTime.Now
-              //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
               return Ok (tip, ident, "", None)
              | None ->
-              let e = DateTime.Now
-              //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
               return Error "No tooltip information"
           | _ ->
-            let e = DateTime.Now
-            //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
             return Error "No tooltip information"
       | _ ->
       match symbol with
       | None ->
-        let e = DateTime.Now
-        //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
         return Error "No tooltip information"
       | Some symbol ->
 
         match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
         | None ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
           return Error "No tooltip information"
         | Some (signature, footer) ->
-            let e = DateTime.Now
             let typeDoc = getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
-
-
-            //printfn "[Debug] TryGetToolTipEnhanced took %fms" (e-s).TotalMilliseconds
             return Ok (tip, signature, footer, typeDoc)
   }
 
   member __.TryGetFormattedDocumentation (pos: pos) (lineStr: LineStr) = async {
-    match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident"
     | Some(col,identIsland) ->
 
@@ -299,42 +258,30 @@ type ParseAndCheckResults
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
     async {
-        let s = DateTime.Now
-        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
         | None ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
 
         let! symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
-        let e = DateTime.Now
-        //printfn "[Debug] TryGetSymbolUse took %fms" (e-s).TotalMilliseconds
         return Ok (symboluse, symboluses) }
 
   member __.TryGetSignatureData (pos: pos) (lineStr: LineStr) =
     async {
-        let s = DateTime.Now
-        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
         | None ->
-          let e = DateTime.Now
-          //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
           return (ResultOrString.Error "No symbol information found")
         | Some symboluse ->
           let fsym = symboluse.Symbol
@@ -343,8 +290,6 @@ type ParseAndCheckResults
 
             let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
             if symbol.IsPropertyGetterMethod then
-                let e = DateTime.Now
-                //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
                 return Ok(typ, [])
             else
               let parms =
@@ -355,22 +300,16 @@ type ParseAndCheckResults
               // as parameters.
               match parms with
               | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) ->
-                let e = DateTime.Now
-                //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
                 return Ok(typ, [ [ ("unit", "unit") ] ])
               | _ ->
-                let e = DateTime.Now
-                //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
                 return Ok(typ, parms)
           | _ ->
-            let e = DateTime.Now
-            //printfn "[Debug] TryGetSignatureData took %fms" (e-s).TotalMilliseconds
             return (ResultOrString.Error "Not a member, function or value" )
     }
 
   member __.TryGetF1Help (pos: pos) (lineStr: LineStr) =
     async {
-        match Parsing.findLongIdents(pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
@@ -381,7 +320,6 @@ type ParseAndCheckResults
 
   member __.TryGetCompletions (pos: pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
     try
-      let s = DateTime.Now
       let longName = FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 2)
       let residue = longName.PartialIdent
 
@@ -429,15 +367,12 @@ type ParseAndCheckResults
 
 
       let shouldKeywords = decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
-      let e = DateTime.Now
-      //printfn "[Debug] TryGetCompletions took %fms" (e-s).TotalMilliseconds
       return Some (decls, residue, shouldKeywords)
     with :? TimeoutException -> return None
   }
 
   member __.GetAllEntities (publicOnly: bool) : AssemblySymbol list =
       try
-        let s = DateTime.Now
         let res = [
           yield! AssemblyContentProvider.getAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
           let ctx = checkResults.ProjectContext
@@ -454,14 +389,11 @@ type ParseAndCheckResults
             let content = AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
             yield! content
         ]
-        let e = DateTime.Now
-        //printfn "[Debug] GetAllEntities took %fms" (e-s).TotalMilliseconds
         res
       with
       | _ -> []
 
   member __.GetAllSymbolUsesInFile () = checkResults.GetAllUsesOfAllSymbolsInFile()
-
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
   member __.GetAST = parseResults.ParseTree
@@ -471,53 +403,14 @@ type ParseAndCheckResults
 
 type Version = int
 
-module FSharpCompilerServiceCheckerHelper =
-
-  let isFSharpCore (s : string) = s.EndsWith "FSharp.Core.dll"
-
-  let ensureCorrectFSharpCore (options: string[]) =
-    let fsharpCores, others = Array.partition isFSharpCore options
-
-    // ensure that there is only one fsharpcore ref provided
-    let fsharpCoreRef =
-      match fsharpCores with
-      | [||] -> sprintf "-r:%s" Environment.fsharpCore
-      | [| ref |] -> ref
-      | refs -> Array.head refs
-
-    [| yield fsharpCoreRef
-       yield! others |]
-
-#if SCRIPT_REFS_FROM_MSBUILD
-#else
-  let ensureCorrectVersions (options: string[]) =
-    if Utils.runningOnMono then options
-    else
-      match Environment.referenceAssembliesPath (), NETFrameworkInfoProvider.netReferecesAssembliesTFMLatest () with
-      | _, None -> options
-      | Some referenceAssembliesPath, Some version ->
-        let oldRef = referenceAssembliesPath </> "v4.0"
-        let newRef = referenceAssembliesPath </> version
-
-        let fsharpCoreRef = options |> Seq.find isFSharpCore
-
-        let newOptions =
-          options
-          |> Seq.filter (not << isFSharpCore)
-          |> Seq.map (fun (s : string) -> s.Replace(oldRef, newRef) )
-        [| yield fsharpCoreRef
-           yield! newOptions |]
-      | None, _ -> options
-#endif
-
-type FSharpCompilerServiceChecker() =
+type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let checker =
     FSharpChecker.Create(
-      projectCacheSize = 200,
-      keepAllBackgroundResolutions = true,
-      keepAssemblyContents = true)
+      projectCacheSize = (if backgroundServiceEnabled then 3 else 200),
+      keepAllBackgroundResolutions = not backgroundServiceEnabled,
+      keepAssemblyContents = false)
 
-  do checker.ImplicitlyStartBackgroundWork <- true
+  do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
 
   do checker.BeforeBackgroundFileCheck.Add ignore
   let fixFileName path =
@@ -536,6 +429,15 @@ type FSharpCompilerServiceChecker() =
   let clearProjectReferecnes (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
+  let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
+
+  let logDebug fmt =
+    if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
+    Debug.print fmt
+
+  member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
+    Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
+
   member __.DisableInMemoryProjectReferences
     with get() = disableInMemoryProjectReferences
     and set(value) = disableInMemoryProjectReferences <- value
@@ -551,60 +453,21 @@ type FSharpCompilerServiceChecker() =
       ])
 
   member __.GetProjectOptionsFromScript(file, source) = async {
+    let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
+    let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
 
-#if SCRIPT_REFS_FROM_MSBUILD
-
-    let targetFramework = NETFrameworkInfoProvider.netReferecesAssembliesTFMLatest ()
-
-    let additionaRefs =
-      NETFrameworkInfoProvider.additionalArgumentsBy targetFramework
-      |> Array.ofList
-
-    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source, otherFlags = additionaRefs, assumeDotNetFramework = true)
-
-    let opts =
-      rawOptions.OtherOptions
-      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
-
-    let opts =
-      opts
-      |> Array.distinct
-
-    return { rawOptions with OtherOptions = opts }
-#else
-    let! (rawOptions, _) = checker.GetProjectOptionsFromScript(file, source)
-
-    let opts =
-      rawOptions.OtherOptions
-      |> FSharpCompilerServiceCheckerHelper.ensureCorrectFSharpCore
-      |> FSharpCompilerServiceCheckerHelper.ensureCorrectVersions
-
-    return { rawOptions with OtherOptions = opts }
-#endif
-
+    match FakeSupport.detectFakeScript file with
+    | None -> return projOptions
+    | Some (config, prepared) ->
+      try
+        return { projOptions with OtherOptions = FakeSupport.getProjectOptions config prepared }
+      with e ->
+        printfn "[FSharpChecker] Error in FAKE script support: %O" e
+        return projOptions
   }
 
-  member __.CheckProjectInBackground = checker.CheckProjectInBackground
-
-  member x.ParseProjectsForFile(file, options : seq<string * FSharpProjectOptions> ) =
-    let project = options |> Seq.tryFind (fun (k,_) -> k = file)
-    match project with
-    | None -> async {return ResultOrString.Error "Project for current file not found"}
-    | Some (name, option) ->
-      async {
-        match x.GetDependingProjects file options with
-        | None -> return ResultOrString.Error "Project for current file not found"
-        | Some (p, projs) ->
-        let! results =
-          [ yield p; yield! projs]
-          |> Seq.map (clearProjectReferecnes >> checker.ParseAndCheckProject)
-          |> Async.Parallel
-        let! currentResult =  checker.ParseAndCheckProject (clearProjectReferecnes option)
-        let res = [| yield currentResult; yield! results |]
-        return Ok res
-      }
-
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
+    logDebug "[Checker] GetBackgroundCheckResultsForFileInProject - %s" fn
     let opt = clearProjectReferecnes opt
     checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
@@ -612,14 +475,15 @@ type FSharpCompilerServiceChecker() =
   member __.FileChecked =
     checker.FileChecked
 
-  member __.ProjectChecked =
-    checker.ProjectChecked
-
-  member __.ParseFile =
-    checker.ParseFile
+  member __.ParseFile(fn, source, fpo) =
+    logDebug "[Checker] ParseFile - %s" fn
+    let source = SourceText.ofString source
+    checker.ParseFile(fn, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
+      logDebug "[Checker] ParseAndCheckFileInProject - %s" filePath
+      let source = SourceText.ofString source
       let options = clearProjectReferecnes options
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
@@ -634,26 +498,15 @@ type FSharpCompilerServiceChecker() =
           | Choice2Of2 e -> ResultOrString.Error e.Message
     }
 
-  member __.ParseAndCheckFileInProject'(filePath, version, source, options) =
-    async {
-      let options = clearProjectReferecnes options
-      let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
-      return
-          match res with
-          | Choice1Of2 (pr,cr) ->
-            match cr with
-            | FSharpCheckFileAnswer.Aborted -> None
-            | FSharpCheckFileAnswer.Succeeded cr -> Some  (ParseAndCheckResults (pr, cr, entityCache))
-          | Choice2Of2 e -> None
-    }
-
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
+    logDebug "[Checker] TryGetRecentCheckResultsForFile - %s" file
+    let source = source |> Option.map SourceText.ofString
     let options = clearProjectReferecnes options
-    checker.TryGetRecentCheckResultsForFile(file, options, ?source=source)
+    checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
   member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
+    logDebug "[Checker] GetUsesOfSymbol - %s" file
     let projects = x.GetDependingProjects file options
     return!
       match projects with
@@ -671,6 +524,8 @@ type FSharpCompilerServiceChecker() =
   }
 
   member __.GetDeclarations (fileName, source, options, version) = async {
+    logDebug "[Checker] GetDeclarations - %s" fileName
+    let source = SourceText.ofString source
     let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }

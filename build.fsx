@@ -29,9 +29,8 @@ let integrationTests =
   !! (integrationTestDir + "/**/*Runner.fsx")
   -- (integrationTestDir + "/DotNetSdk*/*.*")
 
-type Mode = HttpMode | StdioMode
 type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
-type IntegrationTestConfig = { Mode: Mode; Runtime: FSACRuntime }
+type IntegrationTestConfig = {Runtime: FSACRuntime }
 
 let (|AnyNetcoreRuntime|_|) r =
   match r with
@@ -43,35 +42,28 @@ let isTestSkipped cfg (fn: string) =
   let file = Path.GetFileName(fn)
   let dir = Path.GetFileName(Path.GetDirectoryName(fn))
 
-  match cfg.Runtime, cfg.Mode, dir, file with
+  match cfg.Runtime, dir, file with
   // known difference. On mono the error message from msbuild is different and not normalized
-  | _, _, "OldSdk", "InvalidProjectFileRunner.fsx" when isMono ->
+  | _, "OldSdk", "InvalidProjectFileRunner.fsx" when isMono ->
     Some "known difference. On mono the error message from msbuild is different and not normalized"
   // stdio and http
-  | _, _, "ProjectCache", "Runner.fsx" ->
+  | _, "Test1Json", "Test1JsonRunner.fsx" ->
+    Some "flaky, the Range sometimes finish at start of newline other times at end of line"
+  | _, "ProjectCache", "Runner.fsx" ->
     Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
-  | _, _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
+  | _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
     match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
     | true, _ -> None //always run it on windows
     | false, "1" -> None //force run on mono
     | false, _ -> Some "not supported on this mono version" //by default skipped on mono
 //  | _, _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
-  | AnyNetcoreRuntime, _, "OldSdk", "InvalidProjectFileRunner.fsx" when not(isWindows) ->
+  | AnyNetcoreRuntime, "OldSdk", "InvalidProjectFileRunner.fsx" when not(isWindows) ->
     Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
-  // http
-  | _, HttpMode, "RobustCommands", "NoSuchCommandRunner.fsx" ->
-    Some "invalid command is 404 in http"
-  | _, HttpMode, "Colorizations", "Runner.fsx" ->
-    Some "not supported in http"
-  | _, HttpMode, "OutOfRange", "OutOfRangeRunner.fsx" ->
-    Some "dunno why diverge"
-  | _, HttpMode, "ProjectReload", "Runner.fsx" ->
-    Some "probably ok, is a notification"
   // .net core based fsac
-  | AnyNetcoreRuntime, _, "NoFSharpCoreReference", "Runner.fsx" ->
+  | AnyNetcoreRuntime, "NoFSharpCoreReference", "Runner.fsx" ->
     Some "know failure, the FSharp.Core is not added if not in the fsc args list"
   // known difference, the FSharp.Core of script is different so are xmldoc
-  | AnyNetcoreRuntime, _, "Tooltips", "Runner.fsx" ->
+  | AnyNetcoreRuntime, "Tooltips", "Runner.fsx" ->
     Some "known difference, the FSharp.Core of script is different so are xmldoc"
   // by default others are enabled
   | _ -> None
@@ -84,16 +76,12 @@ let runIntegrationTest cfg (fn: string) : bool =
     tracefn "Skipped '%s' reason: %s"  fn msg
     true
   | None ->
-    let mode =
-      match cfg.Mode with
-      | HttpMode -> "--define:FSAC_TEST_HTTP"
-      | StdioMode -> ""
     let framework =
       match cfg.Runtime with
       | FSACRuntime.NET -> "net461"
       | FSACRuntime.NETCoreSCD
       | FSACRuntime.NETCoreFDD -> "netcoreapp2.1"
-    let fsiArgs = sprintf "%s %s -- -pub -f %s -c %s" mode fn framework configuration
+    let fsiArgs = sprintf "%s -- -pub -f %s -c %s" fn framework configuration
     let fsiPath = FSIHelper.fsiPath
     tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
     let testExecution =
@@ -123,10 +111,7 @@ let runIntegrationTest cfg (fn: string) : bool =
         for msg in msgs do
           traceError msg.Message
         let isWebEx = msgs |> List.exists (fun m -> m.Message.Contains("System.Net.WebException"))
-        if isWebEx then
-          true // ignore failure on web ex, like connection refused
-        else
-          false
+        isWebEx
       else
         true
 
@@ -174,13 +159,7 @@ let runall cfg =
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
 
-    [ @".paket/load/net471/IntegrationTests/Http.fs.fsx"
-      @".paket/load/net471/IntegrationTests/Argu.fsx"
-      @".paket/load/net471/IntegrationTests/System.Net.WebSockets.Client.fsx"
-      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.X509Certificates.fsx"
-      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Algorithms.fsx"
-      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Encoding.fsx"
-      @".paket/load/net471/IntegrationTests/System.Security.Cryptography.Primitives.fsx" ]
+    [ @".paket/load/net471/IntegrationTests/Argu.fsx" ]
     |> List.iter applyPaketLoadScriptWorkaround
 
     trace "Running Integration tests..."
@@ -205,35 +184,23 @@ let runall cfg =
 
 Target "IntegrationTestStdioMode" (fun _ ->
   trace "== Integration tests (stdio/net) =="
-  let cfg = { Mode = StdioMode; Runtime = NET }
+  let cfg = { Runtime = NET }
   listAll cfg
   runall cfg
 )
 
-Target "IntegrationTestHttpMode" (fun _ ->
-  trace "== Integration tests (http/net) =="
-  let cfg = { Mode = HttpMode; Runtime = NET }
-  listAll cfg
-  runall cfg
-)
 
 Target "IntegrationTestStdioModeNetCore" (fun _ ->
   trace "== Integration tests (stdio/netcore) =="
-  let cfg = { Mode = StdioMode; Runtime = NETCoreFDD }
+  let cfg = { Runtime = NETCoreFDD }
   listAll cfg
   runall cfg
 )
 
-Target "IntegrationTestHttpModeNetCore" (fun _ ->
-  trace "== Integration tests (http/netcore) =="
-  let cfg = { Mode = HttpMode; Runtime = NETCoreFDD }
-  listAll cfg
-  runall cfg
-)
 
 Target "LspTest" (fun _ ->
   DotNetCli.Restore (fun r -> {r with WorkingDir = "./test/FsAutoComplete.Tests.Lsp/TestCases/"})
-  DotNetCli.RunCommand id "run -p \"./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj\""
+  DotNetCli.RunCommand id "run -c Release --no-build -p \"./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj\""
 )
 
 Target "ReleaseArchive" (fun _ ->
@@ -297,9 +264,7 @@ Target "BuildDebug" id
   ==> "LspTest"
 
 "LocalRelease" ==> "IntegrationTestStdioMode" ==> "IntegrationTest"
-"LocalRelease" ==> "IntegrationTestHttpMode" ==> "IntegrationTest"
 "LocalRelease" ==> "IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
-"LocalRelease" ==> "IntegrationTestHttpModeNetCore" ==> "IntegrationTest"
 
 "LspTest" ==> "Test"
 "IntegrationTest" ==> "Test"

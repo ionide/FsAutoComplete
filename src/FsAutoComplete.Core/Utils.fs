@@ -31,7 +31,7 @@ let isAScript (fileName: string) =
 /// Determines if the current system is an Unix system.
 /// See http://www.mono-project.com/docs/faq/technical/#how-to-detect-the-execution-platform
 let isUnix =
-#if NETSTANDARD1_6
+#if NETSTANDARD2_0
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
         System.Runtime.InteropServices.OSPlatform.Linux) ||
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
@@ -42,7 +42,7 @@ let isUnix =
 
 /// Determines if the current system is a MacOs system
 let isMacOS =
-#if NETSTANDARD1_6
+#if NETSTANDARD2_0
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
         System.Runtime.InteropServices.OSPlatform.OSX)
 #else
@@ -53,7 +53,7 @@ let isMacOS =
 
 /// Determines if the current system is a Linux system
 let isLinux =
-#if NETSTANDARD1_6
+#if NETSTANDARD2_0
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
         System.Runtime.InteropServices.OSPlatform.Linux)
 #else
@@ -62,20 +62,13 @@ let isLinux =
 
 /// Determines if the current system is a Windows system
 let isWindows =
-#if NETSTANDARD1_6
+#if NETSTANDARD2_0
     System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
         System.Runtime.InteropServices.OSPlatform.Windows)
 #else
     match System.Environment.OSVersion.Platform with
     | PlatformID.Win32NT | PlatformID.Win32S | PlatformID.Win32Windows | PlatformID.WinCE -> true
     | _ -> false
-#endif
-
-let runningOnNetCore =
-#if NETSTANDARD1_6
-    true
-#else
-    false
 #endif
 
 let runningOnMono =
@@ -557,8 +550,6 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
 
     p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
-    // printfn "running: %s %s" psi.FileName psi.Arguments
-
     p.Start() |> ignore
     p.BeginOutputReadLine()
     p.BeginErrorReadLine()
@@ -611,3 +602,20 @@ module Version =
         | _ -> "", ""
 
     { VersionInfo.Version = version; GitSha = sha }
+
+//source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
+type Debounce<'a>(timeout, fn) =
+    let debounce fn timeout = MailboxProcessor<'a>.Start(fun agent ->
+        let rec loop ida idb arg = async {
+            let! r = agent.TryReceive(timeout)
+            match r with
+            | Some arg -> return! loop ida (idb + 1) (Some arg)
+            | None when ida <> idb -> fn arg.Value; return! loop idb idb None
+            | None -> return! loop ida idb arg
+        }
+        loop 0 0 None)
+
+    let mailbox = debounce fn timeout
+
+    /// Calls the function, after debouncing has been applied.
+    member __.Bounce(arg) = mailbox.Post(arg)

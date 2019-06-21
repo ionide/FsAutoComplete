@@ -13,27 +13,33 @@ open FsAutoComplete.LspHelpers
 let createServer () =
   let event = Event<string * obj> ()
   let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
-  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson)
+  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false)
   let server = FsharpLspServer(commands, client)
   server, event
 
 let defaultConfigDto : FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
-    WorkspaceExcludedDirs = None
+    ExcludeProjectDirectories = None
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
     Linter = None
+    UnionCaseStubGeneration = None
+    UnionCaseStubGenerationBody = None
     RecordStubGeneration = None
+    RecordStubGenerationBody = None
     UnusedOpensAnalyzer = None
     UnusedDeclarationsAnalyzer = None
     SimplifyNameAnalyzer = None
     ResolveNamespaces = None
-    MinimizeBackgroundParsing = None
-    EnableBackgroundSymbolCache = None
     EnableReferenceCodeLens = None
     EnableAnalyzers = None
     AnalyzersPath = None
-    DisableInMemoryProjectReferences = None}
+    DisableInMemoryProjectReferences = None
+    AutomaticWorkspaceInit = Some true
+    InterfaceStubGeneration = None
+    InterfaceStubGenerationObjectIdentifier = None
+    InterfaceStubGenerationMethodBody = None
+    LineLens = None}
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}
@@ -114,7 +120,7 @@ let serverTest path (config: FSharpConfigDto) ts  : Test=
   let p : InitializeParams =
       { ProcessId = Some 1
         RootPath = Some path
-        RootUri = None
+        RootUri = Some (sprintf "file://%s" path)
         InitializationOptions = Some (Server.serialize config)
         Capabilities = Some clientCaps
         trace = None}

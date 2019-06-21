@@ -1,10 +1,6 @@
 image:
   - Visual Studio 2017
 
-install:
-  - ps: Invoke-WebRequest -Uri "https://download.microsoft.com/download/9/B/B/9BB1309E-1A8F-4A47-A6C5-ECF76672A3B3/BuildTools_Full.exe" -OutFile "BuildTools_Full.exe"
-  - BuildTools_Full.exe /Quiet /Silent /Full
-
 build_script:
   - cmd: build.cmd All
 
