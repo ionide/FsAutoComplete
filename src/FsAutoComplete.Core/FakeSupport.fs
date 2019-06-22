@@ -237,12 +237,7 @@ module FakeSupport =
   }      
 
   let private getTargetsVersion (context:Runners.FakeContext) : Version option =
-
-    // soon there will be public apis and getProp can be removed...
-    let getProp (n:string) (t:obj) : 't =
-      let bf = System.Reflection.BindingFlags.Instance ||| System.Reflection.BindingFlags.NonPublic
-      t.GetType().GetProperty(n, bf).GetMethod.Invoke(t, [||]) :?> 't
-    let runtimeDeps : Runners.AssemblyInfo list = getProp "RuntimeDependencies" context.Config.RuntimeOptions
+    let runtimeDeps : Runners.AssemblyInfo list = context.Config.RuntimeOptions.RuntimeDependencies
     let targetVersion =
       runtimeDeps
       |> Seq.map (fun r -> System.Reflection.AssemblyName(r.FullName))
