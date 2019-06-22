@@ -15,7 +15,7 @@ nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
-nuget Fake.Runtime prerelease
+nuget Fake.Runtime 5.15.1-alpha.1104
 nuget FSharpLint.Core 0.12.1
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
