@@ -54,6 +54,7 @@ module Options =
   type CLIArguments =
       | Version
       | [<AltCommandLine("-v")>] Verbose
+      | AttachDebugger
       | [<EqualsAssignment; AltCommandLine("-l")>] Logfile of path:string
       | VFilter of filter:string
       | Commands
@@ -67,6 +68,7 @@ module Options =
               member s.Usage =
                   match s with
                   | Version -> "display versioning information"
+                  | AttachDebugger -> "launch the system debugger and break."
                   | Verbose -> "enable verbose mode"
                   | Logfile _ -> "send verbose output to specified log file"
                   | VFilter _ -> "apply a comma-separated {FILTER} to verbose output"
@@ -83,6 +85,8 @@ module Options =
       match arg with
       | Verbose ->
           Debug.verbose <- true
+      | AttachDebugger ->
+          System.Diagnostics.Debugger.Launch() |> ignore<bool>
       | Logfile s ->
           try
             Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
