@@ -1431,6 +1431,24 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
         )
 
+    member x.FSharpDocumentationGenerator(p: TextDocumentPositionParams) =
+        Debug.print "[LSP call] FSharpDocumentationGenerator"
+        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
+            async {
+                let! res = commands.SignatureData tyRes pos lineStr
+                let res =
+                    match res.[0] with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        LspResult.internalError msg
+                    | CoreResponse.SignatureData (typ, parms) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                        |> success
+                    | _ -> LspResult.notImplemented
+
+                return res
+            }
+        )
+
     member __.FSharpLineLense(p) = async {
         Debug.print "[LSP call] FSharpLineLense"
         let fn = p.Project.GetFilePath()
@@ -1617,7 +1635,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                 return res
             }
-    
+
     member __.FakeTargets(p:FakeTargetsRequest) = async {
         Debug.print "[LSP call] FakeTargets"
         let! res = commands.FakeTargets (p.FileName) (p.FakeContext)
@@ -1654,6 +1672,7 @@ let startCore (commands: Commands) =
         defaultRequestHandlings<FsharpLspServer> ()
         |> Map.add "fsharp/signature" (requestHandling (fun s p -> s.FSharpSignature(p) ))
         |> Map.add "fsharp/signatureData" (requestHandling (fun s p -> s.FSharpSignatureData(p) ))
+        |> Map.add "fsharp/documentationGenerator" (requestHandling (fun s p -> s.FSharpDocumentationGenerator(p) ))
         |> Map.add "fsharp/lineLens" (requestHandling (fun s p -> s.FSharpLineLense(p) ))
         |> Map.add "fsharp/compilerLocation" (requestHandling (fun s p -> s.FSharpCompilerLocation(p) ))
         |> Map.add "fsharp/compile" (requestHandling (fun s p -> s.FSharpCompile(p) ))
