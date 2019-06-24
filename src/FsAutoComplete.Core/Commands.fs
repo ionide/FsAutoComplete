@@ -58,7 +58,7 @@ type CoreResponse =
     | FakeTargets of result: FakeSupport.GetTargetsResult
     | FakeRuntime of runtimePath: string
     | DotnetNewList of Template list
-    | DotnetNewGetDetails of DetailedTemplate list
+    | DotnetNewGetDetails of DetailedTemplate 
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =

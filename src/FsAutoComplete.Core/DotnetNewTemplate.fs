@@ -88,9 +88,14 @@ module DotnetNewTemplate =
     |> List.filter (fun (t, strings) ->  strings |> List.exists (isMatch userInput)) // check if a keyword match the user string
     |> List.map (fun (t,strings) -> t)  // return the template
 
-  //let getDetails (t : Template) : DetailedTemplate list =
   let dotnetnewgetDetails (userInput : string) =
-    templateDetails ()
-    |> List.map (fun t -> t, extractDetailedString t)
-    |> List.filter (fun (t,strings) -> strings |> List.exists (nameMatch userInput))
-    |> List.map (fun (t,strings) -> t)
+    let Templates =
+      templateDetails ()
+      |> List.map (fun t -> t, extractDetailedString t)
+      |> List.filter (fun (t,strings) -> strings |> List.exists (nameMatch userInput))
+      |> List.map (fun (t,strings) -> t)
+    
+    match Templates with 
+    | [] -> failwithf "No template exists with name : %s" userInput
+    | [x] -> x
+    | _ -> failwithf "Multiple templates found : \n%A" Templates

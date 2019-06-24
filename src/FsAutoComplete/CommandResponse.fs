@@ -417,7 +417,7 @@ module CommandResponse =
   }
 
   type DotnetNewGetDetailsResponse = {
-    Detailed : DotnetNewTemplate.DetailedTemplate list
+    Detailed : DotnetNewTemplate.DetailedTemplate 
   }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
@@ -609,7 +609,7 @@ module CommandResponse =
     let data = { DotnetNewListResponse.Installed = installedTemplate }
     serialize { Kind = "dotnetnewlist"; Data = data }
 
-  let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate list) =
+  let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate) =
     let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }
     serialize { Kind = "dotnetnewgetDetails"; Data = data }
 
