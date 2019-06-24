@@ -7,6 +7,7 @@ open FSharpLint.Application
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
 open FsAutoComplete.InterfaceStubGenerator
+open FsAutoComplete.DotnetNewTemplate
 open System.Threading
 open Utils
 open System.Reflection
@@ -56,7 +57,8 @@ type CoreResponse =
     | Fsdn of string list
     | FakeTargets of result: FakeSupport.GetTargetsResult
     | FakeRuntime of runtimePath: string
-    
+    | DotnetNewList of Template list
+
 [<RequireQualifiedAccess>]
 type NotificationEvent =
     | ParseError of CoreResponse
@@ -269,6 +271,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member x.Fsdn (querystr) = async {
             let results = Fsdn.query querystr
             return [ CoreResponse.Fsdn results ]
+        }
+
+    member x.DotnetNewList (filterstr) = async {
+            let results = DotnetNewTemplate.dotnetnewlist filterstr
+            return [ CoreResponse.DotnetNewList results ]
         }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =

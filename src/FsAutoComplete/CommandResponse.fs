@@ -412,6 +412,9 @@ module CommandResponse =
     Functions: string list
   }
 
+  type DotnetNewListResponse = {
+    Installed : DotnetNewTemplate.Template list
+  }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
@@ -597,6 +600,10 @@ module CommandResponse =
   let fsdn (serialize : Serializer) (functions : string list) =
     let data = { FsdnResponse.Functions = functions }
     serialize { Kind = "fsdn"; Data = data }
+
+  let dotnetnewlist (serialize : Serializer) (installedTemplate : DotnetNewTemplate.Template list) =
+    let data = { DotnetNewListResponse.Installed = installedTemplate }
+    serialize { Kind = "dotnetnewlist"; Data = data }
 
   let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"
@@ -890,3 +897,4 @@ module CommandResponse =
       fakeTargets s targets
     | CoreResponse.FakeRuntime(runtimePath) ->
       fakeRuntime s runtimePath
+    | CoreResponse.DotnetNewList (installedTemplate) -> dotnetnewlist s installedTemplate
