@@ -58,6 +58,7 @@ type CoreResponse =
     | FakeTargets of result: FakeSupport.GetTargetsResult
     | FakeRuntime of runtimePath: string
     | DotnetNewList of Template list
+    | DotnetNewGetDetails of DetailedTemplate list
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -278,6 +279,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             return [ CoreResponse.DotnetNewList results ]
         }
 
+    member x.DotnetNewGetDetails (filterstr) = async {
+            let results = DotnetNewTemplate.dotnetnewgetDetails filterstr
+            return [ CoreResponse.DotnetNewGetDetails results ]
+        }
+    
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
         let cts = new CancellationTokenSource()
         state.AddCancellationToken(filename, cts)

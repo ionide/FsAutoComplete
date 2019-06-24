@@ -93,6 +93,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | Error msg -> return commands.Error msg
           | Fsdn querystr -> return! commands.Fsdn (querystr)
           | DotnetNewList filterstr -> return! commands.DotnetNewList (filterstr)
+          | DotnetNewGetDetails filterstr -> return! commands.DotnetNewGetDetails (filterstr)
           | Quit ->
               quit <- true
               return! commands.Quit()
