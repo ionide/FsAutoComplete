@@ -476,6 +476,8 @@ type LineLensConfig = {
     Prefix: string
 }
 
+type FsdnRequest = { Query: string }
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option

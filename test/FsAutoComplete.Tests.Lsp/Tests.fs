@@ -480,6 +480,28 @@ let gotoTest () =
     ]
   )
 
+let fsdnTest () =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
+  serverTest path defaultConfigDto (fun (server, event) ->
+    do waitForWorkspaceFinishedParsing event
+
+    testList "FSDN Tests" [
+      testAsync "FSDN on list" {
+        let p : FsdnRequest = {
+            Query = "('a -> 'b) -> 'a list -> 'b list"
+        }
+
+        let! res = server.FSharpFsdn p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok n ->
+          Expect.stringContains n.Content "List.map" (sprintf "the List.map is a valid response, but was %A" n)
+          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.FsdnResponse>>(n.Content)
+          Expect.equal r.Kind "fsdn" (sprintf "fsdn response, but was %A, from json %A" r n)
+          Expect.contains r.Data.Functions "List.map" (sprintf "the List.map is a valid response, but was %A, from json %A" r n)
+      }
+    ])
+
 ///Global list of tests
 let tests =
    [
@@ -490,4 +512,5 @@ let tests =
     autocompleteTest
     renameTest
     gotoTest
+    fsdnTest
   ]
