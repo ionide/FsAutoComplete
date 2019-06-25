@@ -89,13 +89,13 @@ module DotnetNewTemplate =
     |> List.map (fun (t,strings) -> t)  // return the template
 
   let dotnetnewgetDetails (userInput : string) =
-    let Templates =
+    let templates =
       templateDetails ()
       |> List.map (fun t -> t, extractDetailedString t)
       |> List.filter (fun (t,strings) -> strings |> List.exists (nameMatch userInput))
       |> List.map (fun (t,strings) -> t)
     
-    match Templates with 
+    match templates with 
     | [] -> failwithf "No template exists with name : %s" userInput
     | [x] -> x
-    | _ -> failwithf "Multiple templates found : \n%A" Templates
+    | _ -> failwithf "Multiple templates found : \n%A" templates
