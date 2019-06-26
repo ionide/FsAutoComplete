@@ -115,21 +115,6 @@ let runIntegrationTest cfg (fn: string) : bool =
       else
         true
 
-let applyPaketLoadScriptWorkaround paketLoadScript =
-    trace "apply workaround for bug https://github.com/fsprojects/Paket/issues/2868"
-    let includeFile = Path.Combine(__SOURCE_DIRECTORY__ , paketLoadScript)
-    trace (sprintf "File '%s' contents:" includeFile)
-    File.ReadAllLines(includeFile)
-    |> Array.iter (trace)
-    trace "apply fix"
-    File.ReadAllLines(includeFile)
-    |> Array.map (fun s -> s.Replace("../../../../src/FsAutoComplete.Core.VerboseSdkHelper/.paket/load/net461/IntegrationTests/", ""))
-    |> fun lines -> File.WriteAllLines(includeFile, lines)
-    trace (sprintf "File '%s' contents:" includeFile)
-    File.ReadAllLines(includeFile)
-    |> Array.iter (trace)
-    trace "applied workaround"
-
 let listAll cfg =
   let willRun, willSkip =
     integrationTests
@@ -158,9 +143,6 @@ let runall cfg =
         Git.CommandHelper.runGitCommand "." (sprintf "git checkout -- %s" integrationTestDir)
       out |> Seq.iter (printfn "%s")
       printfn "Done: %s" (ok.ToString())
-
-    [ @".paket/load/net471/IntegrationTests/Argu.fsx" ]
-    |> List.iter applyPaketLoadScriptWorkaround
 
     trace "Running Integration tests..."
     let runOk =

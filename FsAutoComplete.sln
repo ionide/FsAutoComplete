@@ -1,6 +1,7 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2035
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.452
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{1BE8AF57-B314-4C92-82A9-64CD9B7A4990}"
 	ProjectSection(SolutionItems) = preProject
@@ -21,21 +22,19 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E1A34828
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete", "src\FsAutoComplete\FsAutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete", "src\FsAutoComplete\FsAutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Core.VerboseSdkHelper", "src\FsAutoComplete.Core.VerboseSdkHelper\FsAutoComplete.Core.VerboseSdkHelper.fsproj", "{385ECB13-18AA-4EC6-BB10-494A7F450A75}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "LanguageServerProtocol", "src\LanguageServerProtocol\LanguageServerProtocol.fsproj", "{093CFF4E-C533-41FE-BAA1-474151C8BBB7}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LanguageServerProtocol", "src\LanguageServerProtocol\LanguageServerProtocol.fsproj", "{093CFF4E-C533-41FE-BAA1-474151C8BBB7}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.BackgroundServices", "src\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj", "{775C1714-AD5F-4A4C-B613-0AE08F51E17A}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.BackgroundServices", "src\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj", "{775C1714-AD5F-4A4C-B613-0AE08F51E17A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{443E0B8D-9AD0-436E-A331-E8CC12965F07}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{60D13105-E260-4495-BD63-6FCBC033A97D}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{60D13105-E260-4495-BD63-6FCBC033A97D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.Tests.Lsp", "test\FsAutoComplete.Tests.Lsp\FsAutoComplete.Tests.Lsp.fsproj", "{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Tests.Lsp", "test\FsAutoComplete.Tests.Lsp\FsAutoComplete.Tests.Lsp.fsproj", "{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,18 +50,6 @@ Global
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E4786F3-4566-44E1-8787-91790007F0F6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{385ECB13-18AA-4EC6-BB10-494A7F450A75}.Release|Any CPU.Build.0 = Release|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{093CFF4E-C533-41FE-BAA1-474151C8BBB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{093CFF4E-C533-41FE-BAA1-474151C8BBB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{093CFF4E-C533-41FE-BAA1-474151C8BBB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -71,18 +58,26 @@ Global
 		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60D13105-E260-4495-BD63-6FCBC033A97D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60D13105-E260-4495-BD63-6FCBC033A97D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60D13105-E260-4495-BD63-6FCBC033A97D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60D13105-E260-4495-BD63-6FCBC033A97D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{60D13105-E260-4495-BD63-6FCBC033A97D} = {443E0B8D-9AD0-436E-A331-E8CC12965F07}
+		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7} = {443E0B8D-9AD0-436E-A331-E8CC12965F07}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {1C4EE83B-632A-4929-8C96-38F14254229E}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = FsAutoComplete\FsAutoComplete.fsproj
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{60D13105-E260-4495-BD63-6FCBC033A97D} = {443E0B8D-9AD0-436E-A331-E8CC12965F07}
-		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7} = {443E0B8D-9AD0-436E-A331-E8CC12965F07}
 	EndGlobalSection
 EndGlobal
