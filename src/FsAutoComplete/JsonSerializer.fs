@@ -143,3 +143,5 @@ module private JsonSerializerConverters =
 module JsonSerializer =
 
   let writeJson(o: obj) = JsonConvert.SerializeObject(o, JsonSerializerConverters.jsonConverters)
+
+  let readJson<'T>(s: string) = JsonConvert.DeserializeObject<'T>(s, JsonSerializerConverters.jsonConverters)

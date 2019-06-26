@@ -1565,9 +1565,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpFsdn(p: ProjectParms) = async {
+    member __.FSharpFsdn(p: FsdnRequest) = async {
         Debug.print "[LSP call] FSharpFsdn"
-        let! res = commands.Fsdn p.Project.Uri
+        let! res = commands.Fsdn p.Query
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
