@@ -5,3 +5,7 @@ Newtonsoft.Json
 FSharp.Core
 Microsoft.SourceLink.GitHub
 System.Configuration.ConfigurationManager
+FSharpLint.Core
+Dotnet.ProjInfo
+Dotnet.ProjInfo.Workspace.FCS
+FSharp.Analyzers.SDK

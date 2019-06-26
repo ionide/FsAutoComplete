@@ -35,19 +35,20 @@
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
   </ItemGroup>
 
-  <!-- bundle the net461 exe inside the .net core tool package -->
+  <!-- do not bundle the net461 exe inside the .net core tool package -->
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <TargetFrameworks></TargetFrameworks>
     <TargetFramework>netcoreapp2.1</TargetFramework>
+    <AssemblyName>dotnet-fsautocomplete</AssemblyName>
+    <PackageId>fsautocomplete</PackageId>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(PackAsTool)' == 'true' ">
-    <Content Include="$(RepoDir)/bin/release/*">
-      <Pack>true</Pack>
-      <PackagePath>tools\net461\any\%(Filename)%(Extension)</PackagePath>
-      <Visible>true</Visible>
-    </Content>
-  </ItemGroup>
+  <!-- workaround for not being able to make Backend and Domain as inlined in a complete way https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
+  <!-- <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+    </ItemGroup>
+  </Target> -->
 
   <Target Name="CopyBackgroundServiceJsonToOutputDir"
           AfterTargets="ComputeFilesToPublish"
