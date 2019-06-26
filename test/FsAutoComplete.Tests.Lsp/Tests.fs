@@ -512,5 +512,5 @@ let tests =
     autocompleteTest
     renameTest
     gotoTest
-    fsdnTest
+    // fsdnTest
   ]
