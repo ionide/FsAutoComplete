@@ -42,6 +42,7 @@ type Command =
   | Quit
   | Fsdn of string
   | DotnetNewList of string
+  | DotnetNewGetDetails of string
 
 module CommandInput =
   /// Parse 'quit' command
@@ -173,12 +174,21 @@ module CommandInput =
       let! _ = char '"'
       return (Fsdn querystr)
       }
+
   let dotnetnewlist = parser {
       let! _ = string "dotnetnewlist "
       let! _ = char '"'
       let! filterstr = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
       return (DotnetNewList filterstr)
+  }
+      
+  let dotnetnewgetDetails = parser {
+      let! _ = string "dotnetnewgetDetails "
+      let! _ = char '"'
+      let! filterstr = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      return (DotnetNewGetDetails filterstr)
   }
 
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
@@ -239,7 +249,7 @@ module CommandInput =
     | null -> Quit
     | input ->
       let reader = Parser.createForwardStringReader input 0
-      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> fsdn <|> dotnetnewlist <|> error
+      let cmds = compilerlocation <|> helptext <|> declarations <|> lint <|> registerAnalyzer <|> unusedDeclarations <|> simplifiedNames <|> unusedOpens <|> parse <|> project <|> completionTipOrDecl <|> quit <|> colorizations <|> workspacePeek <|> workspaceLoad <|> fsdn <|> dotnetnewlist <|> dotnetnewgetDetails <|> error
       let cmd = reader |> Parser.getFirst cmds
       match cmd with
       | Parse (filename,kind,_) ->

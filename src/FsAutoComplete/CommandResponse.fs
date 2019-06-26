@@ -416,6 +416,10 @@ module CommandResponse =
     Installed : DotnetNewTemplate.Template list
   }
 
+  type DotnetNewGetDetailsResponse = {
+    Detailed : DotnetNewTemplate.DetailedTemplate 
+  }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -604,6 +608,10 @@ module CommandResponse =
   let dotnetnewlist (serialize : Serializer) (installedTemplate : DotnetNewTemplate.Template list) =
     let data = { DotnetNewListResponse.Installed = installedTemplate }
     serialize { Kind = "dotnetnewlist"; Data = data }
+
+  let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate) =
+    let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }
+    serialize { Kind = "dotnetnewgetDetails"; Data = data }
 
   let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"
@@ -898,3 +906,5 @@ module CommandResponse =
     | CoreResponse.FakeRuntime(runtimePath) ->
       fakeRuntime s runtimePath
     | CoreResponse.DotnetNewList (installedTemplate) -> dotnetnewlist s installedTemplate
+    | CoreResponse.DotnetNewGetDetails (detailedTemplate) -> 
+      dotnetnewgetDetails s detailedTemplate
