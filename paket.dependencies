@@ -4,8 +4,6 @@ framework: net461, netstandard2.0, netcoreapp2.1
 source https://api.nuget.org/v3/index.json
 storage: none
 
-github Microsoft/visualfsharp:Visual-Studio-2017-Version-15.4 src/fsharp/FSharp.Build/Fsc.fs
-
 nuget Argu ~> 5.2.0
 nuget FSharp.Compiler.Service ~> 29.0
 nuget Dotnet.ProjInfo ~> 0.35.0

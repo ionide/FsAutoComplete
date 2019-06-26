@@ -449,9 +449,6 @@ NUGET
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime.Handles (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.1) (== netstandard2.0)
     System.ValueTuple (4.5) - condition: net461, redirects: force
-GITHUB
-  remote: Microsoft/visualfsharp
-    src/fsharp/FSharp.Build/Fsc.fs (cc1b137bc17f401a0cc669ff8fc598714d0fe652)
 GROUP Build
 RESTRICTION: == net45
 NUGET
