@@ -7,5 +7,5 @@ build_script:
 test: off
 
 artifacts:
-  - path: bin\pkgs\*.zip
+  - path: bin\pkgs\*
     name: pkgs
