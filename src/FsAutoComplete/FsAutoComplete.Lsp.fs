@@ -1580,6 +1580,21 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.FSharpDotnetNewList(p: DotnetNewListRequest) = async {
+        Debug.print "[LSP call] FSharpDotnetNewList"
+        let! res = commands.DotnetNewList p.Query
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.DotnetNewList (funcs) ->
+                { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+    
     member x.FSharpHelp(p: TextDocumentPositionParams) =
         Debug.print "[LSP call] FSharpHelp"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
@@ -1680,6 +1695,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/workspacePeek" (requestHandling (fun s p -> s.FSharpWorkspacePeek(p) ))
         |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))
         |> Map.add "fsharp/fsdn" (requestHandling (fun s p -> s.FSharpFsdn(p) ))
+        |> Map.add "fsharp/dotnetnewlist" (requestHandling (fun s p -> s.FSharpDotnetNewList(p) ))
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
