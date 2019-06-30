@@ -1,5 +1,6 @@
 module FsAutoComplete.Workspace
 
+open Dotnet.ProjInfo.Workspace
 open ProjectRecognizer
 open System.IO
 
@@ -17,14 +18,10 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBind
         | NetCoreSdk ->
             loader.LoadProjects [projectFileName]
 
-            match fcsBinder.GetProjectOptions (projectFileName) with
-            | Some po ->
-                // same useless log to remain compatible with tests baseline
+            fcsBinder.GetProjectOptions (projectFileName)
+            |> Result.map (fun po ->
                 let logMap = [ projectFileName, "" ] |> Map.ofList
-
-                Result.Ok (po, List.ofArray po.SourceFiles, logMap)
-            | None -> 
-                Error (GenericError(projectFileName, (sprintf "Project file '%s' parsing failed" projectFileName)))
+                po, List.ofArray po.SourceFiles, logMap)
         | NetCoreProjectJson ->
             Error (GenericError(projectFileName, (sprintf "Project file '%s' format project.json not supported" projectFileName)))
         | FSharpNetSdk ->
@@ -60,14 +57,14 @@ let loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = asy
     for project in projects do
         match project.Response with
         | Some res ->
-            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Files, res.Log))
+            onLoaded (FsAutoComplete.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Files, res.Log))
         | None ->
             project.FileName
             |> parseProject' (loader, fcsBinder)
             |> function
                | Ok (opts, optsDPW, projectFiles, logMap) ->
-                   onLoaded (WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
+                   onLoaded (FsAutoComplete.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
                | Error error ->
-                   onLoaded (WorkspaceProjectState.Failed (project.FileName, error))
+                   onLoaded (FsAutoComplete.WorkspaceProjectState.Failed (project.FileName, error))
 
     }

@@ -987,7 +987,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 Some (WorkspaceProjectState.Loading path)
             | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap) ->
                 match fcsBinder.GetProjectOptions(opts.ProjectFileName) with
-                | Some fcsOpts ->
+                | Ok fcsOpts ->
                     match Workspace.extractOptionsDPW fcsOpts with
                     | Ok optsDPW ->
                         let view = projViewer.Render optsDPW
@@ -995,21 +995,16 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                             view.Items
                             |> List.map (fun item ->
                                 match item with
-                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile path -> path)
+                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (path,_) -> path)
 
                         Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
                     | Error _ ->
                         None //TODO not ignore the error
-                | None ->
+                | Error _ ->
                     //TODO notify C# project too
                     None
             | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Failed (path, e) ->
-                let error =
-                    match e with
-                    | Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors.ProjectNotRestored s ->
-                        GetProjectOptionsErrors.ProjectNotRestored s
-                    | Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors.GenericError (a, b) ->
-                        GetProjectOptionsErrors.GenericError (a,b)
+                let error = e
                 Some (WorkspaceProjectState.Failed (path, error))
 
         loader.Notifications.Add(fun (_, arg) ->

@@ -8,7 +8,6 @@ open System.IO.Compression
 open System.Threading.Tasks
 open System.Net
 open Newtonsoft.Json.Linq
-open Newtonsoft.Json.Linq
 
 module FakeSupport =
   let private compatibleFakeVersion = "5.15.1-alpha.1104"
@@ -114,7 +113,7 @@ module FakeSupport =
       loggingSetup <- true
 
   let detectFakeScript (file) =
-    if not (System.IO.File.Exists file) || not (file.EndsWith ".fsx") then None
+    if not (File.Exists file) || not (file.EndsWith ".fsx") then None
     else
       setupLogging()
       let config = 
