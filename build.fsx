@@ -181,8 +181,7 @@ Target "IntegrationTestStdioModeNetCore" (fun _ ->
 
 
 Target "LspTest" (fun _ ->
-  DotNetCli.Restore (fun r -> {r with WorkingDir = "./test/FsAutoComplete.Tests.Lsp/TestCases/"})
-  DotNetCli.RunCommand id "run -c Release --no-build -p \"./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj\""
+  DotNetCli.RunCommand id """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests"""
 )
 
 Target "ReleaseArchive" (fun _ ->
