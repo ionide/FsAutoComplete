@@ -91,7 +91,7 @@ let normalizeDirSeparators (path: string) =
   | '/' -> path.Replace('\\', '/')
   | _ -> path
 
-let projectOptionsToParseOptions checkOptions =
+let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 //TODO: Investigate why sometimes SourceFiles are not filled
   let files =
     match checkOptions.SourceFiles with
