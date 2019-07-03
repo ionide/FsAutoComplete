@@ -8,9 +8,13 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
+open Expecto.Logging
+open Expecto.Logging.Message
+
+let logger = Expecto.Logging.Log.create "LSPTests"
 
 ///Test for initialization of the server
-let initTests () =
+let initTests =
   test "InitTest" {
     let (server, event) = createServer()
 
@@ -56,22 +60,29 @@ let initTests () =
 
 
 ///Tests for basic operations like hover, getting document symbols or code lens on simple file
-let basicTests () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
-  serverTest path defaultConfigDto (fun (server, event) ->
+let basicTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
+    let (server, event) = serverInitialize path defaultConfigDto
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    testList "Basic Tests" [
-      testList "Hover Tests" [
+    (server, path)
+    )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
 
-        test "Hover Tests - simple symbol" {
+  testSequenced <| testList "Basic Tests" [
+      testSequenced <| testList "Hover Tests" [
+
+        testCase "Hover Tests - simple symbol" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = filePathToUri path}
               Position = { Line = 0; Character = 4}}
           let res = server.TextDocumentHover p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
             let expected =
@@ -82,15 +93,15 @@ let basicTests () =
                     MarkedString.String "*Assembly: Script*"|]
 
             Expect.equal res.Contents expected "Hover test - simple symbol"
-        }
+        ))
 
-        test "Hover Tests - let keyword" {
+        testCase "Hover Tests - let keyword" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = filePathToUri path}
               Position = { Line = 0; Character = 2}}
           let res = server.TextDocumentHover p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
             let expected =
@@ -99,9 +110,9 @@ let basicTests () =
                     MarkedString.String "Used to associate, or bind, a name to a value or function."|]
 
             Expect.equal res.Contents expected "Hover test - let keyword"
-        }
+        ))
 
-        test "Hover Tests - out of position" {
+        testCase "Hover Tests - out of position" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = filePathToUri path}
               Position = { Line = 1; Character = 2}}
@@ -111,74 +122,80 @@ let basicTests () =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
             failtest "Expected failure"
-        }
+        ))
       ]
-      testList "Document Symbol Tests" [
-        test "Document Symbol" {
+      testSequenced <| testList "Document Symbol Tests" [
+        testCase "Document Symbol" (serverTest (fun server path ->
           let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
             Expect.equal res.Length 2 "Document Symbol has all symbols"
-        }
+        ))
       ]
-      testList "Code Lens Tests" [
-        test "Get Code Lens" {
+      testSequenced <| testList "Code Lens Tests" [
+        testCase "Get Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
             Expect.equal res.Length 1 "Get Code Lens has all locations"
-        }
+        ))
 
-        test "Resolve Code Lens" {
+        testCase "Resolve Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
             let cl = res.[0]
             let res = server.CodeLensResolve cl |> Async.RunSynchronously
             match res with
-            | Result.Error e -> failtest "Request failed"
+            | Result.Error e -> failtestf "Request failed: %A" e
             | Result.Ok cl ->
               Expect.equal cl.Command.Value.Title "int" "Code Lens contains signature"
-        }
+        ))
       ]
 
-
-    ])
+  ]
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
-let codeLensTest () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-  serverTest path {defaultConfigDto with EnableReferenceCodeLens = Some true} (fun (server, event) ->
+let codeLensTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
+    let (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true}
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    testList "Code Lens Tests" [
-      test "Get Code Lens" {
+    (server, path)
+  )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
+
+  testSequenced <| testList "Code Lens Tests" [
+      testCase "Get Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
             Expect.equal res.Length 18 "Get Code Lens has all locations"
-        }
-      test "Resolve Code Lens" {
+      ))
+      testCase "Resolve Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some result) ->
             let cl = result.[0]
@@ -191,14 +208,14 @@ let codeLensTest () =
               //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
               Expect.equal cl2.Command.Value.Title "string -> unit" "Code Lens contains signature"
 
-            | _ -> failtest "Request failed"
-        }
+            | e -> failtestf "Request failed: %A" e
+      ))
 
-      test "Resolve Code Lens 2" {
+      testCase "Resolve Code Lens 2" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
-          | Result.Error e -> failtest "Request failed"
+          | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some result) ->
             let cl = result.[3]
@@ -211,108 +228,128 @@ let codeLensTest () =
               //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
               Expect.equal cl2.Command.Value.Title "unit -> (int64 -> System.DateTime)" "Code Lens contains signature"
 
-            | _ -> failtest "Request failed"
-        }
-    ]
-  )
+            | e -> failtestf "Request failed: %A" e
+      ))
+  ]
 
 ///Tests for getting document symbols
-let documentSymbolTest () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
-  serverTest path defaultConfigDto (fun (server, event) ->
+let documentSymbolTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
+    let (server, event) = serverInitialize path defaultConfigDto
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    testList "Document Symbols Tests" [
-      test "Get Document Symbols" {
+    (server, path)
+  )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
+
+  testSequenced <| testList "Document Symbols Tests" [
+      testCase "Get Document Symbols" (serverTest (fun server path ->
         let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
         let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
 
           Expect.equal res.Length 15 "Document Symbol has all symbols"
           Expect.exists res (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class) "Document symbol contains given symbol"
-        }
-    ]
-  )
+      ))
+  ]
 
 ///Tests for getting autocomplete
-let autocompleteTest () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
-  serverTest path defaultConfigDto (fun (server, event) ->
+let autocompleteTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
+    let (server, event) = serverInitialize path defaultConfigDto
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    testList "Autocomplete Tests" [
-      test "Get Autocomplete module members" {
+    (server, path)
+  )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
+
+  testSequenced <| testList "Autocomplete Tests" [
+      testCase "Get Autocomplete module members" (serverTest (fun server path ->
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
 
           Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
-        }
+      ))
 
-      test "Get Autocomplete namespace" {
+      testCase "Get Autocomplete namespace" (serverTest (fun server path ->
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           //TODO
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
-        }
+      ))
 
-      test "Get Autocomplete namespace members" {
+      testCase "Get Autocomplete namespace members" (serverTest (fun server path ->
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           //TODO
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
-        }
+      ))
 
-      test "Get Autocomplete module doublebackticked members" {
+      testCase "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
 
           Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
 
-        }
+      ))
 
-    ]
-  )
+  ]
+
+let logDotnetRestore section line =
+  if not (String.IsNullOrWhiteSpace(line)) then
+    logger.info (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
 
 ///Rename tests
-let renameTest () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
-  serverTest path defaultConfigDto (fun (server, event) ->
+let renameTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
+
+    Utils.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
+    |> expectExitCodeZero
+
+    let (server, event) = serverInitialize path defaultConfigDto
     do waitForWorkspaceFinishedParsing event
     let pathTest = Path.Combine(path, "Test.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
@@ -321,14 +358,20 @@ let renameTest () =
     let path = Path.Combine(path, "Program.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    testList "Rename Tests" [
-      test "Rename from usage" {
+    (server, path, pathTest)
+  )
+  let serverTest f () =
+    let (server, path, pathTest) = serverStart.Value
+    f server path pathTest
+
+  testSequenced <| testList "Rename Tests" [
+      testCase "Rename from usage" (serverTest (fun server path _ ->
         let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
                                  Position = { Line = 7; Character = 12}
                                  NewName = "y" }
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           match res.DocumentChanges with
@@ -338,15 +381,15 @@ let renameTest () =
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
-      }
+      ))
 
-      test "Rename from definition" {
+      testCase "Rename from definition" (serverTest (fun server path pathTest ->
         let p : RenameParams = { TextDocument = { Uri = filePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           match res.DocumentChanges with
@@ -357,16 +400,19 @@ let renameTest () =
             // Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
             // Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
-      }
+      ))
 
-    ]
-  )
-
+  ]
 
 ///GoTo tests
-let gotoTest () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
-  serverTest path defaultConfigDto (fun (server, event) ->
+let gotoTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+
+    Utils.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
+    |> expectExitCodeZero
+
+    let (server, event) = serverInitialize path defaultConfigDto
     do waitForWorkspaceFinishedParsing event
     let definitionPath = Path.Combine(path, "Definition.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath }
@@ -379,14 +425,21 @@ let gotoTest () =
     let path = Path.Combine(path, "Library.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    testList "GoTo Tests" [
-      testAsync "Go-to-definition on external symbol (System.Net.HttpWebRequest)" {
+
+    (server, path, externalPath, definitionPath)
+  )
+  let serverTest f () =
+    let (server, path, externalPath, definitionPath) = serverStart.Value
+    f server path externalPath definitionPath
+
+  testSequenced <| testList "GoTo Tests" [
+      testCase "Go-to-definition on external symbol (System.Net.HttpWebRequest)" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams = {
           TextDocument = { Uri = filePathToUri externalPath }
           Position = { Line = 4; Character = 30 }
         }
 
-        let! res = server.TextDocumentDefinition p
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -397,28 +450,28 @@ let gotoTest () =
           Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
           Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
           () // should
-      }
+      ))
 
-      testAsync "Go-to-definition on external namespace (System.Net) should error when going to a namespace " {
+      testCase "Go-to-definition on external namespace (System.Net) should error when going to a namespace " (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams = {
           TextDocument = { Uri = filePathToUri externalPath }
           Position = { Line = 2; Character = 15 }
         }
 
-        let! res = server.TextDocumentDefinition p
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
         | Result.Error e ->
           Expect.equal "Could not find declaration" e.Message "Should report failure for navigating to a namespace"
         | Result.Ok r -> failtestf "Declaration request should not work on a namespace, instead we got %A" r
-      }
+      ))
 
-      test "Go-to-definition" {
+      testCase "Go-to-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri path}
             Position = { Line = 2; Character = 29}}
         let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           match res with
@@ -426,15 +479,15 @@ let gotoTest () =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 16 }} "Result should have correct range"
-      }
+      ))
 
-      test "Go-to-definition on custom type binding" {
+      testCase "Go-to-definition on custom type binding" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri path}
             Position = { Line = 4; Character = 24}}
         let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           match res with
@@ -442,15 +495,15 @@ let gotoTest () =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 6; Character = 4 }; End = {Line = 6; Character = 19 }} "Result should have correct range"
-      }
+      ))
 
-      test "Go-to-type-definition" {
+      testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri path}
             Position = { Line = 4; Character = 24}}
         let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           match res with
@@ -458,15 +511,15 @@ let gotoTest () =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
-      }
+      ))
 
-      test "Go-to-implementation-on-interface-definition" {
+      testCase "Go-to-implementation-on-interface-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri definitionPath}
             Position = { Line = 8; Character = 11}}
         let res = server.TextDocumentImplementation p |> Async.RunSynchronously
         match res with
-        | Result.Error e -> failtest "Request failed"
+        | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
         | Result.Ok (Some res) ->
           match res with
@@ -476,22 +529,26 @@ let gotoTest () =
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 7; Character = 8 }; End = {Line = 7; Character = 30 }}) "First result should be in Library.fs"
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
             ()
-        }
-    ]
+      ))
+  ]
+
+let fsdnTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
+    let (server, event) = serverInitialize path defaultConfigDto
+    waitForWorkspaceFinishedParsing event
+    server
   )
+  let serverTest f () =
+    f serverStart.Value
 
-let fsdnTest () =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
-  serverTest path defaultConfigDto (fun (server, event) ->
-    do waitForWorkspaceFinishedParsing event
-
-    testList "FSDN Tests" [
-      testAsync "FSDN on list" {
+  testList "FSDN Tests" [
+      testCase "FSDN on list" (serverTest (fun server ->
         let p : FsdnRequest = {
             Query = "('a -> 'b) -> 'a list -> 'b list"
         }
 
-        let! res = server.FSharpFsdn p
+        let res = server.FSharpFsdn p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok n ->
@@ -499,12 +556,12 @@ let fsdnTest () =
           let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.FsdnResponse>>(n.Content)
           Expect.equal r.Kind "fsdn" (sprintf "fsdn response, but was %A, from json %A" r n)
           Expect.contains r.Data.Functions "List.map" (sprintf "the List.map is a valid response, but was %A, from json %A" r n)
-      }
-    ])
+      ))
+  ]
 
 ///Global list of tests
 let tests =
-   [
+   testSequenced <| testList "lsp" [
     initTests
     basicTests
     codeLensTest
@@ -512,5 +569,5 @@ let tests =
     autocompleteTest
     renameTest
     gotoTest
-    // fsdnTest
-  ]
+    fsdnTest
+  ] 
