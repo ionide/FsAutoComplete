@@ -458,9 +458,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
     match FakeSupport.detectFakeScript file with
     | None -> return projOptions
-    | Some (config, prepared) ->
+    | Some (detectionInfo) ->
       try
-        return { projOptions with OtherOptions = FakeSupport.getProjectOptions config prepared }
+        return { projOptions with OtherOptions = FakeSupport.getProjectOptions detectionInfo }
       with e ->
         printfn "[FSharpChecker] Error in FAKE script support: %O" e
         return projOptions
