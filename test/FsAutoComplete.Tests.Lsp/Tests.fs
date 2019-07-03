@@ -69,8 +69,8 @@ let basicTests =
     let (server, path) = serverStart.Value
     f server path
 
-  testList "Basic Tests" [
-      testList "Hover Tests" [
+  testSequenced <| testList "Basic Tests" [
+      testSequenced <| testList "Hover Tests" [
 
         testCase "Hover Tests - simple symbol" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
@@ -120,7 +120,7 @@ let basicTests =
             failtest "Expected failure"
         ))
       ]
-      testList "Document Symbol Tests" [
+      testSequenced <| testList "Document Symbol Tests" [
         testCase "Document Symbol" (serverTest (fun server path ->
           let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
@@ -132,7 +132,7 @@ let basicTests =
             Expect.equal res.Length 2 "Document Symbol has all symbols"
         ))
       ]
-      testList "Code Lens Tests" [
+      testSequenced <| testList "Code Lens Tests" [
         testCase "Get Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
@@ -176,7 +176,7 @@ let codeLensTest =
     let (server, path) = serverStart.Value
     f server path
 
-  testList "Code Lens Tests" [
+  testSequenced <| testList "Code Lens Tests" [
       testCase "Get Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
@@ -242,7 +242,7 @@ let documentSymbolTest =
     let (server, path) = serverStart.Value
     f server path
 
-  testList "Document Symbols Tests" [
+  testSequenced <| testList "Document Symbols Tests" [
       testCase "Get Document Symbols" (serverTest (fun server path ->
         let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
         let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
@@ -270,7 +270,7 @@ let autocompleteTest =
     let (server, path) = serverStart.Value
     f server path
 
-  testList "Autocomplete Tests" [
+  testSequenced <| testList "Autocomplete Tests" [
       testCase "Get Autocomplete module members" (serverTest (fun server path ->
         let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
                                      Position = { Line = 8; Character = 2}
@@ -356,7 +356,7 @@ let renameTest =
     let (server, path, pathTest) = serverStart.Value
     f server path pathTest
 
-  testList "Rename Tests" [
+  testSequenced <| testList "Rename Tests" [
       testCase "Rename from usage" (serverTest (fun server path _ ->
         let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
                                  Position = { Line = 7; Character = 12}
@@ -425,7 +425,7 @@ let gotoTest =
     let (server, path, externalPath, definitionPath) = serverStart.Value
     f server path externalPath definitionPath
 
-  testList "GoTo Tests" [
+  testSequenced <| testList "GoTo Tests" [
       testCase "Go-to-definition on external symbol (System.Net.HttpWebRequest)" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams = {
           TextDocument = { Uri = filePathToUri externalPath }
@@ -554,7 +554,7 @@ let fsdnTest =
 
 ///Global list of tests
 let tests =
-   testList "lsp" [
+   testSequenced <| testList "lsp" [
     initTests
     basicTests
     codeLensTest
@@ -563,4 +563,4 @@ let tests =
     renameTest
     gotoTest
     fsdnTest
-  ]
+  ] 
