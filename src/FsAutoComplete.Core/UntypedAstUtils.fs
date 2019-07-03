@@ -31,6 +31,15 @@ let (|ConstructorPats|) = function
 let (|AllAttrs|) (attrs: SynAttributes) =
     attrs |> List.collect (fun attrList -> attrList.Attributes)
 
+/// A pattern that collects all patterns from a `SynSimplePats` into a single flat list
+let (|AllSimplePats|) (pats: SynSimplePats) =
+    let rec loop acc pat =
+        match pat with
+        | SynSimplePats.SimplePats (pats,_) -> acc @ pats
+        | SynSimplePats.Typed(pats,_,_) -> loop acc pats
+
+    loop [] pats
+
 /// Returns all Idents and LongIdents found in an untyped AST.
 let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, Idents> =
     let identsByEndPos = Dictionary<Range.pos, Idents>()
@@ -287,7 +296,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
     and walkMember = function
         | SynMemberDefn.AbstractSlot (valSig, _, _) -> walkValSig valSig
         | SynMemberDefn.Member (binding, _) -> walkBinding binding
-        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, pats, _, _) ->
+        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _) ->
             List.iter walkAttribute attrs
             List.iter walkSimplePat pats
         | SynMemberDefn.ImplicitInherit (t, e, _, _) -> walkType t; walkExpr e
@@ -602,7 +611,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
     and walkMember = function
         | SynMemberDefn.AbstractSlot (valSig, _, _) -> walkValSig valSig
         | SynMemberDefn.Member (binding, _) -> walkBinding binding
-        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, pats, _, _) ->
+        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _) ->
             List.iter walkAttribute attrs
             List.iter walkSimplePat pats
         | SynMemberDefn.ImplicitInherit (t, e, _, _) -> walkType t; walkExpr e
@@ -1050,7 +1059,7 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         | SynMemberDefn.Member (binding, r) ->
             addIfInside r
             walkBinding binding
-        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, pats, _, r) ->
+        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, r) ->
             addIfInside r
             List.iter walkAttribute attrs
             List.iter walkSimplePat pats
@@ -2267,7 +2276,7 @@ module Printf =
 
         and walkMember = function
             | SynMemberDefn.Member (binding, _) -> walkBinding binding
-            | SynMemberDefn.ImplicitCtor (_, _, pats, _, _) -> List.iter walkSimplePat pats
+            | SynMemberDefn.ImplicitCtor (_, _, AllSimplePats pats, _, _) -> List.iter walkSimplePat pats
             | SynMemberDefn.ImplicitInherit (t, e, _, _) -> walkType t; walkExpr e
             | SynMemberDefn.LetBindings (bindings, _, _, _) -> List.iter walkBinding bindings
             | SynMemberDefn.Interface (t, members, _) ->
