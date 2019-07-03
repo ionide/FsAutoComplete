@@ -8,6 +8,10 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
+open Expecto.Logging
+open Expecto.Logging.Message
+
+let logger = Expecto.Logging.Log.create "LSPTests"
 
 ///Test for initialization of the server
 let initTests =
@@ -333,12 +337,16 @@ let autocompleteTest =
 
   ]
 
+let logDotnetRestore section line =
+  if not (String.IsNullOrWhiteSpace(line)) then
+    logger.info (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
+
 ///Rename tests
 let renameTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
 
-    Utils.runProcess (printfn "%s") path "dotnet" "restore"
+    Utils.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
     |> expectExitCodeZero
 
     let (server, event) = serverInitialize path defaultConfigDto
@@ -396,13 +404,12 @@ let renameTest =
 
   ]
 
-
 ///GoTo tests
 let gotoTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-    Utils.runProcess (printfn "%s") path "dotnet" "restore"
+    Utils.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
     |> expectExitCodeZero
 
     let (server, event) = serverInitialize path defaultConfigDto

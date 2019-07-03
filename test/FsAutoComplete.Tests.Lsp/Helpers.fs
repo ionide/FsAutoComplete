@@ -10,6 +10,8 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let logger = Expecto.Logging.Log.create "LSPTests"
+
 let createServer () =
   let event = Event<string * obj> ()
   let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
