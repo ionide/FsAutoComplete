@@ -590,6 +590,39 @@ let uriTests =
 
 
 
+let dotnetnewgetDetailsTest () =
+  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
+  serverTest path defaultConfigDto (fun (server, event) ->
+    do waitForWorkspaceFinishedParsing event
+
+    testList "DotnetNewGetDetails Tests" [
+      testAsync "DotnetNewGetDetails on list" {
+        let p : DotnetNewGetDetailsRequest = {
+            Query = "Console Application"
+        }
+
+        let sampleTemplate : DotnetNewTemplate.DetailedTemplate = { TemplateName = "Console Application";
+                                                                    Author = "Microsoft";
+                                                                    TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
+                                                                    Options = 
+                                                                    [ { ParameterName = "--no-restore";
+                                                                        ShortName = "";
+                                                                        ParameterType = DotnetNewTemplate.TemplateParameterType.Bool;
+                                                                        ParameterDescription = "If specified, skips the automatic restore of the project on create.";
+                                                                        DefaultValue = "false / (*) true" }
+                                                                    ] }
+
+        let! res = server.FSharpDotnetNewGetDetails p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok n ->
+          Expect.stringContains n.Content "Console Application" (sprintf "the Console Application is a valid response, but was %A" n)
+          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.DotnetNewGetDetailsResponse>>(n.Content)
+          Expect.equal r.Kind "dotnetnewgetDetails" (sprintf "dotnetnewgetDetails response, but was %A, from json %A" r n)
+          Expect.contains r.Data.Detailed sampleTemplate (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+      }
+    ])
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
