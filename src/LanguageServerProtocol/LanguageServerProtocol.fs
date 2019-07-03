@@ -9,16 +9,12 @@ module LspJsonConverters =
     open Newtonsoft.Json
     open System
     open System.Collections.Generic
+    open System.Collections.Concurrent
 
-    let inline memorise f =
-        let d = Dictionary<_, _>()
+    let inline memorise (f: 'a -> 'b) : ('a -> 'b) =
+        let d = ConcurrentDictionary<'a, 'b>()
         fun key ->
-            match d.TryGetValue(key) with
-            | (true, v) -> v
-            | (false, _) ->
-                let result = f key
-                d.[key] <- result
-                result
+            d.GetOrAdd(key, f)
 
     type ErasedUnionAttribute() =
         inherit Attribute()
