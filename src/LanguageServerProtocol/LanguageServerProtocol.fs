@@ -2443,7 +2443,13 @@ module Client =
                 si.WorkingDirectory <- Environment.CurrentDirectory
                 si.FileName <- exec
                 si.Arguments <- args
-                let proc = Process.Start(si)
+                let proc =
+                    try
+                        Process.Start(si)
+                    with ex ->
+                        let newEx = System.Exception(sprintf "%s on %s" ex.Message exec, ex)
+                        raise newEx
+
                 inputStream <- Some (proc.StandardInput)
                 outuptStream <- Some (proc.StandardOutput)
 
