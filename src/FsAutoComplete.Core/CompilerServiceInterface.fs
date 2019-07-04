@@ -408,7 +408,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     FSharpChecker.Create(
       projectCacheSize = (if backgroundServiceEnabled then 3 else 200),
       keepAllBackgroundResolutions = not backgroundServiceEnabled,
-      keepAssemblyContents = false)
+      keepAssemblyContents = false,
+      suggestNamesForErrors = true)
 
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
 
