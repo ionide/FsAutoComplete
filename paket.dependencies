@@ -23,7 +23,7 @@ nuget Microsoft.Data.Sqlite
 nuget FSharp.Analyzers.SDK
 nuget System.Configuration.ConfigurationManager
 
-nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true
+nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true, strategy:min
 
 group Build
   framework: net45
