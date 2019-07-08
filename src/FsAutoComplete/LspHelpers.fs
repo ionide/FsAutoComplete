@@ -40,6 +40,8 @@ module Conversions =
             End = { Line = range.EndLine - 1; Character = range.EndColumn - 1 }
         }
 
+    /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
+    /// modified slightly to not rely on the System.Path members because they vary per-platform
     let filePathToUri (filePath: string): DocumentUri =
         let uri = StringBuilder(filePath.Length)
         for c in filePath do
@@ -47,7 +49,10 @@ module Conversions =
                 c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
                 c > '\xFF' then
                 uri.Append(c) |> ignore
-            else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
+            // handle windows path separator chars.
+            // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
+            // logic to work cross-platform (for tests)
+            else if c = '\\' then
                 uri.Append('/') |> ignore
             else
                 uri.Append('%') |> ignore
@@ -87,22 +92,14 @@ module Conversions =
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
 
-    /// Sometimes the DocumentUris that are given are escaped and so Windows-specific LocalPath resolution fails.
-    /// To fix this, we normalize the uris by unescaping them.
-    let inline normalizeDocumentUri (docUri: string) =
-        docUri
-        |> System.Net.WebUtility.UrlDecode
-        |> Uri
-
-
     type TextDocumentIdentifier with
-        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
 
     type VersionedTextDocumentIdentifier with
-        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
 
     type TextDocumentItem with
-        member doc.GetFilePath() = (normalizeDocumentUri doc.Uri).LocalPath
+        member doc.GetFilePath() = Uri(doc.Uri).LocalPath
 
     type ITextDocumentPositionParams with
         member p.GetFilePath() = p.TextDocument.GetFilePath()
