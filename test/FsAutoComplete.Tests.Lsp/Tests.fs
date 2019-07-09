@@ -598,12 +598,16 @@ let dotnetnewTest =
   let serverTest f () =
     f serverStart.Value
 
-  ftestList "DotnetNew Tests" [
+  testList "DotnetNew Tests" [
       testCase "DotnetNewList on list" (serverTest (fun server ->
         let p : DotnetNewListRequest = {
             Query = "Console Application"
         }
 
+        let sampleTemplate : DotnetNewTemplate.Template = { Name = "Console Application";
+                                               ShortName = "console";
+                                               Language = [ DotnetNewTemplate.TemplateLanguage.CSharp; DotnetNewTemplate.TemplateLanguage.FSharp; DotnetNewTemplate.TemplateLanguage.VB ];
+                                               Tags = ["Common"; "Console"] }
 
         let res = server.FSharpDotnetNewList p |> Async.RunSynchronously
         match res with
