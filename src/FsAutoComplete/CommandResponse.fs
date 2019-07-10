@@ -324,6 +324,7 @@ module CommandResponse =
   type SignatureData = {
     OutputType : string
     Parameters : Parameter list list
+    Generics : string list
   }
 
   type UnusedDeclaration = {
@@ -417,7 +418,7 @@ module CommandResponse =
   }
 
   type DotnetNewGetDetailsResponse = {
-    Detailed : DotnetNewTemplate.DetailedTemplate 
+    Detailed : DotnetNewTemplate.DetailedTemplate
   }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
@@ -592,11 +593,11 @@ module CommandResponse =
       }
     serialize { Kind = "symbolimplementation"; Data = su }
 
-  let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
+  let signatureData (serialize : Serializer) ((typ, parms, generics) : string * ((string * string) list list) * string list) =
     let pms =
       parms
       |> List.map (List.map (fun (n, t) -> { Name= n; Type = t }))
-    serialize { Kind = "signatureData"; Data = { Parameters = pms; OutputType = typ } }
+    serialize { Kind = "signatureData"; Data = { Parameters = pms; OutputType = typ; Generics = generics } }
 
   let help (serialize : Serializer) (data : string) =
     serialize { Kind = "help"; Data = data }
@@ -820,7 +821,7 @@ module CommandResponse =
 
   let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
      serialize targets
-  
+
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
 
@@ -849,8 +850,8 @@ module CommandResponse =
       symbolUse s (symbol, uses)
     | CoreResponse.SymbolUseImplementation(symbol, uses) ->
       symbolImplementation s (symbol, uses)
-    | CoreResponse.SignatureData(typ, parms) ->
-      signatureData s (typ, parms)
+    | CoreResponse.SignatureData(typ, parms, generics) ->
+      signatureData s (typ, parms, generics)
     | CoreResponse.Help(data) ->
       help s data
     | CoreResponse.Methods(meth, commas) ->
@@ -906,5 +907,5 @@ module CommandResponse =
     | CoreResponse.FakeRuntime(runtimePath) ->
       fakeRuntime s runtimePath
     | CoreResponse.DotnetNewList (installedTemplate) -> dotnetnewlist s installedTemplate
-    | CoreResponse.DotnetNewGetDetails (detailedTemplate) -> 
+    | CoreResponse.DotnetNewGetDetails (detailedTemplate) ->
       dotnetnewgetDetails s detailedTemplate

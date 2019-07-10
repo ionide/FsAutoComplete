@@ -28,7 +28,7 @@ type CoreResponse =
     | Completion of decls: FSharpDeclarationListItem[] * includeKeywords: bool
     | SymbolUse of symbol: FSharpSymbolUse * uses: FSharpSymbolUse[]
     | SymbolUseImplementation of symbol: FSharpSymbolUse * uses: FSharpSymbolUse[]
-    | SignatureData of typ: string * parms: (string * string) list list
+    | SignatureData of typ: string * parms: (string * string) list list * generics : string list
     | Help of data: string
     | Methods of meth: FSharpMethodGroup * commas: int
     | Errors of errors: FSharpErrorInfo[] * file: string
@@ -58,7 +58,7 @@ type CoreResponse =
     | FakeTargets of result: FakeSupport.GetTargetsResult
     | FakeRuntime of runtimePath: string
     | DotnetNewList of Template list
-    | DotnetNewGetDetails of DetailedTemplate 
+    | DotnetNewGetDetails of DetailedTemplate
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -283,7 +283,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             let results = DotnetNewTemplate.dotnetnewgetDetails filterstr
             return [ CoreResponse.DotnetNewGetDetails results ]
         }
-    
+
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
         let cts = new CancellationTokenSource()
         state.AddCancellationToken(filename, cts)

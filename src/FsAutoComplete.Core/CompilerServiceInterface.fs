@@ -287,22 +287,27 @@ type ParseAndCheckResults
           let fsym = symboluse.Symbol
           match fsym with
           | :? FSharpMemberOrFunctionOrValue as symbol ->
-
             let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
             if symbol.IsPropertyGetterMethod then
-                return Ok(typ, [])
+                return Ok(typ, [], [])
             else
               let parms =
                 symbol.CurriedParameterGroups
                 |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
                 |> Seq.toList
+              let generics =
+                symbol.GenericParameters
+                |> Seq.map (fun generic ->
+                    generic.Name
+                )
+                |> Seq.toList
               // Abstract members and abstract member overrides with one () parameter seem have a list with an empty list
               // as parameters.
               match parms with
               | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) ->
-                return Ok(typ, [ [ ("unit", "unit") ] ])
+                return Ok(typ, [ [ ("unit", "unit") ] ], [])
               | _ ->
-                return Ok(typ, parms)
+                return Ok(typ, parms, generics)
           | _ ->
             return (ResultOrString.Error "Not a member, function or value" )
     }
