@@ -1282,7 +1282,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             Debug.print "[LSP] CodeLensResolve - error: %s" msg
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
-                        | CoreResponse.SignatureData (typ, parms) ->
+                        | CoreResponse.SignatureData (typ, parms, _) ->
                             let formatted = SigantureData.formatSignature typ parms
                             let cmd = {Title = formatted; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
@@ -1422,8 +1422,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match res.[0] with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
-                    | CoreResponse.SignatureData (typ, parms) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                    | CoreResponse.SignatureData (typ, parms, generics) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
                         |> success
                     | _ -> LspResult.notImplemented
 
@@ -1440,8 +1440,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match res.[0] with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
-                    | CoreResponse.SignatureData (typ, parms) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                    | CoreResponse.SignatureData (typ, parms, generics) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
                         |> success
                     | _ -> LspResult.notImplemented
 
@@ -1473,8 +1473,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match res.[0] with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
-                    | CoreResponse.SignatureData(typ, parms) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                    | CoreResponse.SignatureData(typ, parms, generics) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
                         |> success
                     | _ -> LspResult.notImplemented
 
