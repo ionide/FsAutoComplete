@@ -99,3 +99,13 @@ module DotnetNewTemplate =
     | [] -> failwithf "No template exists with name : %s" userInput
     | [x] -> x
     | _ -> failwithf "Multiple templates found : \n%A" templates
+
+  let dotnetnewCreateCli (templateShortName : string) (parameterList : (string * obj) list) : (string,string) =
+    let result1 = "dotnet "
+    let str = "new " + templateShortName
+
+    // let plist =
+    //   parameterList
+    //   |> 
+
+    ("a", "b")
