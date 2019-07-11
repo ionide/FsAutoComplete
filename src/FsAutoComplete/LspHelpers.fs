@@ -475,6 +475,10 @@ type LineLensConfig = {
 
 type FsdnRequest = { Query: string }
 
+type DotnetNewListRequest = { Query: string }
+
+type DotnetNewGetDetailsRequest = { Query: string }
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option

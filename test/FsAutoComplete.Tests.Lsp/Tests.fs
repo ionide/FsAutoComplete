@@ -587,8 +587,67 @@ let uriTests =
     testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
     testList "fileName to uri tests" (samples |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
  ]
+ 
+let dotnetnewTest =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
+    let (server, event) = serverInitialize path defaultConfigDto
+    waitForWorkspaceFinishedParsing event
+    server
+  )
+  let serverTest f () =
+    f serverStart.Value
 
+  testList "DotnetNew Tests" [
+      testCase "DotnetNewList on list" (serverTest (fun server ->
+        let p : DotnetNewListRequest = {
+            Query = "Console Application"
+        }
 
+        let sampleTemplate : DotnetNewTemplate.Template = { Name = "Console Application";
+                                               ShortName = "console";
+                                               Language = [ DotnetNewTemplate.TemplateLanguage.CSharp; DotnetNewTemplate.TemplateLanguage.FSharp; DotnetNewTemplate.TemplateLanguage.VB ];
+                                               Tags = ["Common"; "Console"] }
+
+        let res = server.FSharpDotnetNewList p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok n ->
+          Expect.stringContains n.Content "Console Application" (sprintf "the Console Application is a valid response, but was %A" n)
+          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.DotnetNewListResponse>>(n.Content)
+          Expect.equal r.Kind "dotnetnewlist" (sprintf "dotnetnewlist response, but was %A, from json %A" r n)
+          Expect.equal r.Data.Installed.[0].Name sampleTemplate.Name (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+          Expect.equal r.Data.Installed.[0].Language sampleTemplate.Language (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+      ))
+
+      testCase "DotnetNewGetDetails on list" (serverTest (fun server ->
+        let p : DotnetNewGetDetailsRequest = {
+            Query = "Console Application"
+        }
+
+        let sampleTemplate : DotnetNewTemplate.DetailedTemplate = { TemplateName = "Console Application";
+                                                                    Author = "Microsoft";
+                                                                    TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
+                                                                    Options = 
+                                                                    [ { ParameterName = "--no-restore";
+                                                                        ShortName = "";
+                                                                        ParameterType = DotnetNewTemplate.TemplateParameterType.Bool;
+                                                                        ParameterDescription = "If specified, skips the automatic restore of the project on create.";
+                                                                        DefaultValue = "false / (*) true" }
+                                                                    ] }
+
+        let res = server.FSharpDotnetNewGetDetails p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok n ->
+          Expect.stringContains n.Content "Console Application" (sprintf "the Console Application is a valid response, but was %A" n)
+          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.DotnetNewGetDetailsResponse>>(n.Content)
+          Expect.equal r.Kind "dotnetnewgetDetails" (sprintf "dotnetnewgetDetails response, but was %A, from json %A" r n)
+          Expect.equal r.Data.Detailed.TemplateName sampleTemplate.TemplateName (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+          Expect.equal r.Data.Detailed.Options.[0].ParameterName sampleTemplate.Options.[0].ParameterName (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+          Expect.equal r.Data.Detailed.Options.[0].ParameterType sampleTemplate.Options.[0].ParameterType (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+      ))
+    ]
 
 ///Global list of tests
 let tests =
@@ -602,4 +661,5 @@ let tests =
     gotoTest
     fsdnTest
     uriTests
+    dotnetnewTest
   ] 
