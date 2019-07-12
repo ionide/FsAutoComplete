@@ -561,8 +561,8 @@ let fsdnTest =
 
 let uriTests =
   let verifyUri (given: string) (expectedLocal: string) = test (sprintf "roundtrip '%s' -> '%s'" given expectedLocal) {
-    let givenU = Uri given
-    Expect.equal givenU.LocalPath expectedLocal (sprintf "LocalPath of '%s' should be '%s'" given expectedLocal)
+    let actual = LspHelpers.Conversions.fileUriToLocalPath given
+    Expect.equal actual expectedLocal (sprintf "LocalPath of '%s' should be '%s'" given expectedLocal)
   }
 
   let convertRawPathToUri (rawPath: string) (expectedPath: string) = test (sprintf "convert '%s' -> '%s'" rawPath expectedPath) {
@@ -581,9 +581,10 @@ let uriTests =
       "file:///Users/carlyrae/oss/f%23test", "/Users/carlyrae/oss/f#test" // escaped chars, unix-style
       "file:///C:/carly rae/oss/f%23test", "C:\\carly rae\\oss\\f#test" // spaces and escaped chars, windows-style
       "file:///Users/carly rae/oss/f%23test", "/Users/carly rae/oss/f#test" // spaces and escaped chars, unix-style
+      "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs"
     ]
 
-  testList "Uri tests"[
+  ftestList "Uri tests"[
     testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
     testList "fileName to uri tests" (samples |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
  ]
