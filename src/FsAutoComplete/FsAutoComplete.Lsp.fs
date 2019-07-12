@@ -1236,7 +1236,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async {
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
-                let file = (Uri data.[0]).LocalPath
+                let file = fileUriToLocalPath data.[0]
                 Debug.print "[LSP] CodeLensResolve - Position request: %s at %A" file pos
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
