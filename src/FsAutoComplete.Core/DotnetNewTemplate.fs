@@ -100,7 +100,7 @@ module DotnetNewTemplate =
     | [x] -> x
     | _ -> failwithf "Multiple templates found : \n%A" templates
 
-  let dotnetnewCreateCli (templateShortName : string) (parameterList : (string * obj) list) : (string,string) =
+  let dotnetnewCreateCli (templateShortName : string) (parameterList : (string * obj) list) : (string * string) =
     let result1 = "dotnet "
     let str = "new " + templateShortName
 
