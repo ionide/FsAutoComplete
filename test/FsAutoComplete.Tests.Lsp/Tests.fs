@@ -561,8 +561,8 @@ let fsdnTest =
 
 let uriTests =
   let verifyUri (given: string) (expectedLocal: string) = test (sprintf "roundtrip '%s' -> '%s'" given expectedLocal) {
-    let givenU = Uri given
-    Expect.equal givenU.LocalPath expectedLocal (sprintf "LocalPath of '%s' should be '%s'" given expectedLocal)
+    let actual = LspHelpers.Conversions.fileUriToLocalPath given
+    Expect.equal actual expectedLocal (sprintf "LocalPath of '%s' should be '%s'" given expectedLocal)
   }
 
   let convertRawPathToUri (rawPath: string) (expectedPath: string) = test (sprintf "convert '%s' -> '%s'" rawPath expectedPath) {
@@ -573,14 +573,15 @@ let uriTests =
   }
 
   let samples =
-    [ "file:///C:/foo/bar/baz", "C:\\foo\\bar\\baz"
-      "file:///C:/foo/bar bar/baz", "C:\\foo\\bar bar\\baz" // spaces, windows-style
-      "file:///Users/bob jones/foo/bar", "/Users/bob jones/foo/bar" // spaces, unix-style
+    [ "file:///C%3A/foo/bar/baz", "C:/foo/bar/baz"
+      "file:///C%3A/foo/bar bar/baz", "C:/foo/bar bar/baz" // spaces, windows-root
+      "file:///Users/bob jones/foo/bar", "/Users/bob jones/foo/bar" // spaces, unix-root
       "file:///Users/bobjones/foo/bar", "/Users/bobjones/foo/bar"
-      "file:///C:/f%23/bar/baz", "C:\\f#\\bar\\baz" // escaped chars, windows style
-      "file:///Users/carlyrae/oss/f%23test", "/Users/carlyrae/oss/f#test" // escaped chars, unix-style
-      "file:///C:/carly rae/oss/f%23test", "C:\\carly rae\\oss\\f#test" // spaces and escaped chars, windows-style
-      "file:///Users/carly rae/oss/f%23test", "/Users/carly rae/oss/f#test" // spaces and escaped chars, unix-style
+      "file:///C%3A/f%23/bar/baz", "C:/f#/bar/baz" // escaped chars, windows-root
+      "file:///Users/carlyrae/oss/f%23test", "/Users/carlyrae/oss/f#test" // escaped chars, unix-root
+      "file:///C%3A/carly rae/oss/f%23test", "C:/carly rae/oss/f#test" // spaces and escaped chars, windows-root
+      "file:///Users/carly rae/oss/f%23test", "/Users/carly rae/oss/f#test" // spaces and escaped chars, unix-root
+      "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs"
     ]
 
   testList "Uri tests"[
