@@ -296,42 +296,105 @@ module Markdown =
 
     open System.Text.RegularExpressions
 
-    let internal stringReplacePatterns =
-        [ "&lt;", "<"
-          "&gt;", ">"
-          "&quot;", "\""
-          "&apos;", "'"
-          "&amp;", "&"
-          "<summary>", "**Description**\n\n"
-          "</summary>", "\n"
-          "<para>", "\n"
-          "</para>", "\n"
-          "<remarks>", ""
-          "</remarks>", "\n" ]
+    let extractTextFromQuote (quotedText : string) =
+        quotedText.Substring(1, quotedText.Length - 2)
 
-    let internal regexReplacePatterns =
+    let internal convertHTMLEntities (docComment : string) =
+        [
+            "&lt;", "<"
+            "&gt;", ">"
+            "&quot;", "\""
+            "&apos;", "'"
+            "&amp;", "&"
+            "&nbsp;", " "
+        ]
+        |> List.fold (fun (res : string) (oldValue, newValue) ->
+            res.Replace(oldValue, newValue)
+        ) docComment
+
+    let internal convertXMLTagsToMarkdown (docComment : string) =
         let r pat = Regex(pat, RegexOptions.IgnoreCase)
 
-        let code (strings : string array) =
-            let str = strings.[0]
-            if str.Contains("\n") then
-                "```forceNoHighlight" + str + "```"
-            else
-                "`" + str + "`"
-        let returns = Array.item 0 >> sprintf "\n**Returns**\n\n%s"
+        let codeBlock (groups : GroupCollection) =
+            let code = groups.[3].Value
 
-        let param (s : string[]) = sprintf "* `%s`: %s"(s.[0].Substring(1, s.[0].Length - 2)) s.[1]
+            let lang =
+                if groups.[2].Success then
+                    groups.[2].Value
+                else
+                    "forceNoHighlight"
 
-        [ r"<c>((?:(?!<c>)(?!<\/c>)[\s\S])*)<\/c>", code
-          r"""<see\s+cref=(?:'[^']*'|"[^"]*")>((?:(?!<\/see>)[\s\S])*)<\/see>""", code
-          r"""<param\s+name=('[^']*'|"[^"]*")>((?:(?!<\/param>)[\s\S])*)<\/param>""", param
-          r"""<typeparam\s+name=('[^']*'|"[^"]*")>((?:(?!<\/typeparam>)[\s\S])*)<\/typeparam>""", param
-          r"""<exception\s+cref=('[^']*'|"[^"]*")>((?:(?!<\/exception>)[\s\S])*)<\/exception>""", param
-          r"""<a\s+href=('[^']*'|"[^"]*")>((?:(?!<\/a>)[\s\S])*)<\/a>""", fun s -> (s.[0].Substring(1, s.[0].Length - 2))
-          r"<returns>((?:(?!<\/returns>)[\s\S])*)<\/returns>", returns ]
+            sprintf "```%s\n%s\n```" lang code
+
+        let inlinedCode (groups : GroupCollection) =
+            let str = groups.[1].Value
+            "`" + str + "`"
+
+        let listItemTextAndDescription (groups : GroupCollection) =
+            let typ = extractTextFromQuote groups.[1].Value
+            let description = groups.[2].Value
+
+            sprintf "* `%s`: %s" typ description
+
+        let paramOrTypeParamRef (groups : GroupCollection) =
+            let typ = extractTextFromQuote groups.[1].Value
+
+            sprintf "`%s`" typ
+
+        let seealso (groups : GroupCollection) =
+            let typ = extractTextFromQuote groups.[1].Value
+
+            sprintf "* `%s`" typ
+
+        let see (groups : GroupCollection) =
+            let typ = extractTextFromQuote groups.[1].Value
+
+            sprintf "`%s`" typ
+
+        let anchor (groups : GroupCollection) =
+            let content = extractTextFromQuote groups.[2].Value
+            let href = groups.[1].Value
+
+            sprintf "[%s](%s)" content href
+
+        let paragraph (groups : GroupCollection) =
+            let content = groups.[1].Value
+
+            sprintf "\n%s\n" content
+
+        [
+            r"<summary>((?:(?!<\/summary>)[\s\S])*)<\/summary>", paragraph
+            r"<para>((?:(?!<\/para>)[\s\S])*)<\/para>", paragraph
+            r"<remarks>((?:(?!<\/remarks>)[\s\S])*)<\/remarks>", paragraph
+            r"<example>((?:(?!<\/example>)[\s\S])*)<\/example>", paragraph
+            r"<returns>((?:(?!<\/returns>)[\s\S])*)<\/returns>", paragraph
+            r"<c>((?:(?!<c>)(?!<\/c>)[\s\S])*)<\/c>", inlinedCode
+            r"""<code(\s+lang="([a-z]+)"){0,1}>((?:(?!<code>)(?!<\/code>)[\s\S])*)<\/code>""", codeBlock
+            r"""<see\s+cref=('[^']*'|"[^"]*")\/>""", see
+            r"""<seealso\s+cref=('[^']*'|"[^"]*")\/>""", seealso
+            r"""<param\s+name=('[^']*'|"[^"]*")>((?:(?!<\/param>)[\s\S])*)<\/param>""", listItemTextAndDescription
+            r"""<paramref\s+name=('[^']*'|"[^"]*")\/>""", paramOrTypeParamRef
+            r"""<typeparam\s+name=('[^']*'|"[^"]*")>((?:(?!<\/typeparam>)[\s\S])*)<\/typeparam>""", listItemTextAndDescription
+            r"""<typeparamref\s+name=('[^']*'|"[^"]*")\/>""", paramOrTypeParamRef
+            r"""<exception\s+cref=('[^']*'|"[^"]*")>((?:(?!<\/exception>)[\s\S])*)<\/exception>""", listItemTextAndDescription
+            r"""<a\s+href=('[^']*'|"[^"]*")>((?:(?!<\/a>)[\s\S])*)<\/a>""", anchor
+        ]
+        |> List.fold (fun (res : string) (regex : Regex, formatter : GroupCollection -> string) ->
+            // repeat replacing with same pattern to handle nested tags, like `<c>..<c>..</c>..</c>`
+            let rec loop (res : string) : string =
+                match regex.Match res with
+                | m when m.Success ->
+                    loop <| res.Replace(m.Groups.[0].Value, formatter m.Groups)
+                | _ ->
+                    res
+            loop res
+        ) docComment
+
 
     /// Helpers to create a new section in the markdown comment
-    let internal suffixXmlKey (tag : string) (value : string) (str : string) =
+    let internal createSectionIfNeeded (tag : string) (sectionName : string) (str : string) =
+        let valueToInsert = sprintf "\n**%s**\n\n" sectionName
+
         match str.IndexOf(tag) with
         | x when x <> -1 ->
             let insertAt =
@@ -339,46 +402,25 @@ module Markdown =
                     x - 1
                 else
                     x
-            str.Insert(insertAt, value)
+            str.Insert(insertAt, valueToInsert)
         | _ -> str
 
-    let internal suffixTypeparam = suffixXmlKey "<typeparam" "\n**Type parameters**\n\n"
-
-    let internal suffixException = suffixXmlKey "<exception" "\n**Exceptions**\n\n"
-
-    let internal suffixParam = suffixXmlKey "<param" "\n**Parameters**\n\n"
 
     /// Replaces XML tags with Markdown equivalents.
     /// List of standard tags: https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/xml-documentation
-    let internal replaceXml (str : string) : string =
-        let str =
-            str
-            |> suffixTypeparam
-            |> suffixException
-            |> suffixParam
-
-        let res =
-            regexReplacePatterns
-            |> List.fold (fun res (regex : Regex, formatter : string[] -> string) ->
-                // repeat replacing with same pattern to handle nested tags, like `<c>..<c>..</c>..</c>`
-                let rec loop res : string =
-                    match regex.Match res with
-                    | m when m.Success ->
-                        let firstGroup, otherGroups =
-                            m.Groups
-                            |> Seq.cast<Group>
-                            |> Seq.map (fun g -> g.Value)
-                            |> Seq.toArray
-                            |> Array.splitAt 1
-                        loop <| res.Replace(firstGroup.[0], formatter otherGroups)
-                    | _ -> res
-                loop res
-            ) str
-
-        stringReplacePatterns
-        |> List.fold (fun (res : string) (oldValue, newValue) ->
-            res.Replace(oldValue, newValue)
-        ) res
+    let internal replaceXml (docComment : string) : string =
+        docComment
+        // Prepare the sections if needed
+        |> createSectionIfNeeded "<typeparam" "Type parameters"
+        |> createSectionIfNeeded "<exception" "Exceptions"
+        // The space after `<param` is significant don't remove it. It prevents capturing `<paramref`
+        |> createSectionIfNeeded "<param " "Parameters"
+        |> createSectionIfNeeded "<seealso" "See also"
+        |> createSectionIfNeeded "<summary" "Description"
+        |> createSectionIfNeeded "<returns" "Returns"
+        |> convertXMLTagsToMarkdown
+        // Convert HTML entities
+        |> convertHTMLEntities
 
     let internal normalizeLeadingSpace (content : string) =
         content
