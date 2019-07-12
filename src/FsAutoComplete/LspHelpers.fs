@@ -94,14 +94,20 @@ module Conversions =
 
     /// a test that checks if the start of the line is a windows-style drive string, for example
     /// /d:, /c:, /z:, etc.
-    let private windowsStyleDriveLetterMatcher =
-        System.Text.RegularExpressions.Regex(@"^/[a-zA-Z]+\:")
+    let isWindowsStyleDriveLetterMatch (s: string) =
+        match s.[0..2].ToCharArray() with
+        | [| |]
+        | [| _ |]
+        | [| _; _ |] -> false
+        // 26 windows drive letters allowed, only
+        | [| '/'; c; ':' |] when Char.IsLetter c -> true
+        | _ -> false
 
     /// handles unifying the local-path logic for windows and non-windows paths,
     /// without doing a check based on what the current system's OS is.
     let fileUriToLocalPath (u: DocumentUri) =
         let initialLocalPath = Uri(u).LocalPath
-        if windowsStyleDriveLetterMatcher.IsMatch initialLocalPath
+        if isWindowsStyleDriveLetterMatch initialLocalPath
         then initialLocalPath.TrimStart('/')
         else initialLocalPath
 
