@@ -46,7 +46,7 @@ module Conversions =
         let uri = StringBuilder(filePath.Length)
         for c in filePath do
             if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
+                c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
                 c > '\xFF' then
                 uri.Append(c) |> ignore
             // handle windows path separator chars.
@@ -92,8 +92,18 @@ module Conversions =
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
 
+    /// a test that checks if the start of the line is a windows-style drive string, for example
+    /// /d:, /c:, /z:, etc.
+    let private windowsStyleDriveLetterMatcher =
+        System.Text.RegularExpressions.Regex(@"^/[a-zA-Z]+\:")
+
+    /// handles unifying the local-path logic for windows and non-windows paths,
+    /// without doing a check based on what the current system's OS is.
     let fileUriToLocalPath (u: DocumentUri) =
-        Uri(u).LocalPath
+        let initialLocalPath = Uri(u).LocalPath
+        if windowsStyleDriveLetterMatcher.IsMatch initialLocalPath
+        then initialLocalPath.TrimStart('/')
+        else initialLocalPath
 
     type TextDocumentIdentifier with
         member doc.GetFilePath() = fileUriToLocalPath doc.Uri
