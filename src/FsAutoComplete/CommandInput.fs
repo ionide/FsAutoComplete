@@ -197,7 +197,7 @@ module CommandInput =
       let! _ = char '"'
       let! templateShortName = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
-      let! parameterList = [| |]
+      let parameterList = [ ]
       return DotnetNewCreateCli (templateShortName, parameterList)
   }
 
