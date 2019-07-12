@@ -428,6 +428,11 @@ module CommandResponse =
     Detailed : DotnetNewTemplate.DetailedTemplate
   }
 
+  type DotnetNewCreateCliResponse = {
+    CommandName : string
+    ParameterStr : string
+  }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -629,6 +634,11 @@ module CommandResponse =
   let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate) =
     let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }
     serialize { Kind = "dotnetnewgetDetails"; Data = data }
+
+  let dotnetnewCreateCli (serialize : Serializer) (commandName : string, parameterStr : string) =
+    serialize { Kind = "dotnetnewCreateCli"; 
+                Data = { CommandName = commandName
+                         ParameterStr = parameterStr} }
 
   let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"
@@ -913,3 +923,4 @@ module CommandResponse =
     | CoreResponse.DotnetNewList (installedTemplate) -> dotnetnewlist s installedTemplate
     | CoreResponse.DotnetNewGetDetails (detailedTemplate) ->
       dotnetnewgetDetails s detailedTemplate
+    | CoreResponse.DotnetNewCreateCli (commandName,parameterStr) -> dotnetnewCreateCli s (commandName, parameterStr)

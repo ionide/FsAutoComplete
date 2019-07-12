@@ -58,6 +58,7 @@ type CoreResponse =
     | FakeRuntime of runtimePath: string
     | DotnetNewList of Template list
     | DotnetNewGetDetails of DetailedTemplate
+    | DotnetNewCreateCli of commandName: string * parameterStr: string
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -282,6 +283,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member x.DotnetNewGetDetails (filterstr) = async {
             let results = DotnetNewTemplate.dotnetnewgetDetails filterstr
             return [ CoreResponse.DotnetNewGetDetails results ]
+        }
+
+    member x.DotnetNewCreateCli (templateShortName : string) (parameterStr : (string * obj) list) = async {
+            let results = DotnetNewTemplate.dotnetnewCreateCli templateShortName parameterStr
+            return [ CoreResponse.DotnetNewCreateCli results ]
         }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
