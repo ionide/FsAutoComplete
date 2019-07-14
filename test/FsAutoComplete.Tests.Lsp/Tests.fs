@@ -709,6 +709,8 @@ let projectScriptContextTests =
     let projectFileUri = Path.Combine(projectDir, "ProjectScriptTest.fsproj") |> Uri |> string
 
     let serverStart = lazy (
+        Utils.runProcess (logDotnetRestore "ProjectScriptTest") projectDir "dotnet" "restore"
+        |> expectExitCodeZero
         let (server, event) = serverInitialize projectDir defaultConfigDto
         waitForWorkspaceFinishedParsing event
         server
