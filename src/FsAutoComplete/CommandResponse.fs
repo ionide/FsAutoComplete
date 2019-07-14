@@ -442,6 +442,13 @@ module CommandResponse =
     InterpreterOptions: string list
   }
 
+
+  type FileScriptContextResponse = {
+    FilePath: string
+    ScriptLines: string list
+    InterpreterOptions: string list
+  }
+
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
   let errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -872,7 +879,10 @@ module CommandResponse =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
 
   let projectScriptContext (serialize: Serializer) (projectFile: string) (scriptLines: string list) (interpreterOptions: string list) =
-    serialize { Kind = "projectFileContext"; Data = { ProjectFile = projectFile; ScriptLines = scriptLines; InterpreterOptions = interpreterOptions } }
+    serialize { Kind = "projectScriptContext"; Data = { ProjectFile = projectFile; ScriptLines = scriptLines; InterpreterOptions = interpreterOptions } }
+
+  let fileScriptContext (serialize: Serializer) (filePath: string) (scriptLines: string list) (interpreterOptions: string list) =
+    serialize { Kind = "fileScriptContext"; Data = { FilePath = filePath; ScriptLines = scriptLines; InterpreterOptions = interpreterOptions } }
 
   let serialize (s: Serializer) = function
     | CoreResponse.InfoRes(text) ->
@@ -961,3 +971,5 @@ module CommandResponse =
     | CoreResponse.DotnetNewCreateCli (commandName,parameterStr) -> dotnetnewCreateCli s (commandName, parameterStr)
     | CoreResponse.ProjectScriptContext (projectFile, scriptLines, interpreterOptions) ->
       projectScriptContext s projectFile scriptLines interpreterOptions
+    | CoreResponse.FileScriptContext (filePath, scriptLines, interpreterOptions) ->
+      fileScriptContext s filePath scriptLines interpreterOptions

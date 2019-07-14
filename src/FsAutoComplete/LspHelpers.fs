@@ -488,7 +488,9 @@ type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
 
 type FakeTargetsRequest = {FileName : string; FakeContext : FakeSupport.FakeContext; }
 
-type ProjectScriptContextRequest = { Project: TextDocumentIdentifier }
+type ProjectScriptContextRequest = { Project: DocumentUri }
+
+type FileScriptContextRequest = { File: DocumentUri }
 
 type LineLensConfig = {
     Enabled: string

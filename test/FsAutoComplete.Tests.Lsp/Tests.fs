@@ -704,7 +704,7 @@ let dotnetnewTest =
       ))
     ]
 
-let projectScriptContextTests =
+let scriptContextTests =
     let projectDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ProjectScriptTest")
     let projectFileUri = Path.Combine(projectDir, "ProjectScriptTest.fsproj") |> Uri |> string
 
@@ -717,20 +717,39 @@ let projectScriptContextTests =
     )
     let serverTest f () = f serverStart.Value
 
-    testList "ProjectScriptContext tests" [
-        testCase "Can retrieve script content for project"  (serverTest (fun server ->
-            let res = server.ProjectScriptContext({ Project = { Uri = projectFileUri } }) |> Async.RunSynchronously
-            match res with
-            | Result.Error e -> failtestf "Request failed: %A" e
-            | Result.Ok { Content = content } ->
-                let payload = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.ProjectScriptContextResponse>>(content)
-                Expect.contains payload.Data.InterpreterOptions "--define:FOO" "Should have define from project file"
+    testList "Script context tests" [
+        testList "Project script context" [
+            testCase "Contains nuget references"  (serverTest (fun server ->
+                let res = server.ProjectScriptContext({ Project = projectFileUri }) |> Async.RunSynchronously
+                match res with
+                | Result.Error e -> failtestf "Request failed: %A" e
+                | Result.Ok { Content = content } ->
+                    let payload = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.ProjectScriptContextResponse>>(content)
+                    Expect.contains payload.Data.InterpreterOptions "--define:FOO" "Should have define from project file"
 
-                payload.Data.InterpreterOptions
-                |> Seq.tryFind (fun r -> r.Contains "StackExchange.Redis.dll")
-                |> Option.defaultWith (fun () -> failwith "Expected to find redis dependency in script options")
-                |> ignore
-        ))
+                    payload.Data.InterpreterOptions
+                    |> Seq.tryFind (fun r -> r.Contains "StackExchange.Redis.dll")
+                    |> Option.defaultWith (fun () -> failwith "Expected to find redis dependency in script options")
+                    |> ignore
+            ))
+        ]
+        testList "File script context" [
+            testCase "Contains files that come before target file" (serverTest (fun server ->
+                let targetFile = Path.Combine(projectDir, "Program.fs") |> Uri |> string
+                let res = server.FileScriptContext({ File = targetFile }) |> Async.RunSynchronously
+                match res with
+                | Result.Error e -> failtestf "Request failed: %A" e
+                | Result.Ok { Content = content } ->
+                    let payload = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.FileScriptContextResponse>>(content)
+
+                    let loads =
+                        payload.Data.InterpreterOptions
+                        |> List.filter (fun r -> r.StartsWith "--load:")
+
+                    Expect.hasLength loads 2 "Should have loaded other files in the project (including auto-generated assemblyinfos)"
+                    Expect.stringEnds (List.last loads) "Domain.fs" "Should have loaded the domain file"
+            ))
+        ]
     ]
 
 ///Global list of tests
@@ -746,5 +765,5 @@ let tests =
     fsdnTest
     uriTests
     dotnetnewTest
-    projectScriptContextTests
+    scriptContextTests
   ]

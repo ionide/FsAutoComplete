@@ -59,7 +59,8 @@ type CoreResponse =
     | DotnetNewList of Template list
     | DotnetNewGetDetails of DetailedTemplate
     | DotnetNewCreateCli of commandName: string * parameterStr: string
-    | ProjectScriptContext of projectFileName: string * scriptLines: string list * fsiOptions: string list
+    | ProjectScriptContext of projectFile: string * scriptLines: string list * fsiOptions: string list
+    | FileScriptContext of file: string * scriptLines: string list * fsiOptions: string list
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -921,14 +922,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             state.Projects.[projectFileName] <- proj
 
         let projectLoadedSuccessfully projectFileName response =
-            let project =
-                match state.Projects.TryFind projectFileName with
-                | Some prj -> prj
-                | None ->
-                    let proj = new Project(projectFileName, onChange)
-                    state.Projects.[projectFileName] <- proj
-                    proj
-
+            let project = state.Projects.AddOrUpdate(projectFileName, (fun _ -> new Project(projectFileName, onChange)), (fun key existing -> existing))
             project.Response <- Some response
 
             onProjectLoaded projectFileName response
@@ -1122,15 +1116,29 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.GetChecker () = checker.GetFSharpChecker()
 
-    member x.ProjectScriptContext (projectFile: ProjectFilePath) =
-        async {
-            match state.Projects.TryFind projectFile with
-            | Some project ->
-                match project.Response with
+    member x.ProjectScriptContext (projectFile: ProjectFilePath) = async {
+        match state.Projects.TryFind projectFile with
+        | Some project ->
+            match project.Response with
+            | Some projectInfo ->
+                let script, options = ScriptContext.makeForProject projectInfo
+                return CoreResponse.ProjectScriptContext (projectFile, script, options)
+            | None -> return CoreResponse.ErrorRes (sprintf "No project info for project '%s'" projectFile)
+        | None ->
+            return CoreResponse.ErrorRes (sprintf "Project '%s' could not be found" projectFile)
+    }
+
+    member x.FileScriptContext (file: string) = async {
+        match state.TryGetFileCheckerOptionsWithSource file with
+        | ResultOrString.Error e ->
+            return CoreResponse.ErrorRes e
+        | Ok (projectOptions, _fileLines) ->
+            match state.Projects.TryFind projectOptions.ProjectFileName with
+            | Some projectInfo ->
+                match projectInfo.Response with
                 | Some projectInfo ->
-                    let script, options = ScriptContext.makeForProject projectInfo
-                    return CoreResponse.ProjectScriptContext (projectFile, script, options)
-                | None -> return CoreResponse.ErrorRes (sprintf "No project info for project '%s'" projectFile)
-            | None ->
-                return CoreResponse.ErrorRes (sprintf "Project '%s' could not be found" projectFile)
-        }
+                    let script, fsiOptions = ScriptContext.makeForFileInProject file projectInfo
+                    return CoreResponse.FileScriptContext (file, script, fsiOptions)
+                | None -> return CoreResponse.ErrorRes (sprintf "No project info for project '%s'" projectOptions.ProjectFileName)
+            | None -> return CoreResponse.ErrorRes (sprintf "No project info for project '%s'" projectOptions.ProjectFileName)
+    }

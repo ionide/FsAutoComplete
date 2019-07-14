@@ -128,7 +128,6 @@ type State =
       | Some opts -> Ok (opts, volFile.Lines)
 
   member x.TryGetFileCheckerOptionsWithSource(file: SourceFilePath) : ResultOrString<FSharpProjectOptions * string> =
-    let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) -> Ok (opts, String.concat "\n" lines)
@@ -140,7 +139,6 @@ type State =
     | Some f -> Ok (f.Lines)
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: SourceFilePath, pos : pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
-    let file = Utils.normalizePath file
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) ->

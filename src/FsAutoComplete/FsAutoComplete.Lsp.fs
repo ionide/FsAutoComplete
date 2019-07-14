@@ -1519,7 +1519,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
         )
 
-    member __.FSharpLineLense(p) = async {
+    member __.FSharpLineLense(p: ProjectParms) = async {
         Debug.print "[LSP call] FSharpLineLense"
         let fn = p.Project.GetFilePath()
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
@@ -1567,7 +1567,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpCompile(p) = async {
+    member __.FSharpCompile(p: ProjectParms) = async {
         Debug.print "[LSP call] FSharpCompile"
         let fn = p.Project.GetFilePath()
         let! res = commands.Compile fn
@@ -1766,12 +1766,25 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member __.ProjectScriptContext(r: ProjectScriptContextRequest) = async {
         Debug.print "[LSP call] ProjectScriptContext"
-        match! commands.ProjectScriptContext(r.Project.GetFilePath()) with
+        match! commands.ProjectScriptContext(fileUriToLocalPath r.Project) with
         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
             return LspResult.internalError msg
         | CoreResponse.ProjectScriptContext (projectFile, scriptLines, fsiOpts) ->
             return
                 { Content = CommandResponse.projectScriptContext FsAutoComplete.JsonSerializer.writeJson projectFile scriptLines fsiOpts }
+                |> LspResult.success
+        | _ ->
+            return LspResult.notImplemented
+    }
+
+    member __.FileScriptContext(r: FileScriptContextRequest) = async {
+        Debug.print "[LSP call] ProjectScriptContext"
+        match! commands.FileScriptContext (fileUriToLocalPath r.File) with
+        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+            return LspResult.internalError msg
+        | CoreResponse.FileScriptContext (filePath, scriptLines, fsiOpts) ->
+            return
+                { Content = CommandResponse.fileScriptContext FsAutoComplete.JsonSerializer.writeJson filePath scriptLines fsiOpts }
                 |> LspResult.success
         | _ ->
             return LspResult.notImplemented
@@ -1801,6 +1814,7 @@ let startCore (commands: Commands) =
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
         |> Map.add "fsi/projectScriptContext" (requestHandling (fun s p -> s.ProjectScriptContext(p) ))
+        |> Map.add "fsi/fileScriptContext" (requestHandling (fun s p -> s.FileScriptContext(p) ))
 
 
 
