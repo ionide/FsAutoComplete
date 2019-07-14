@@ -435,6 +435,12 @@ module CommandResponse =
     CommandName : string
     ParameterStr : string
   }
+  
+  type ProjectScriptContextResponse = {
+    ProjectFile: string
+    ScriptLines: string list
+    InterpreterOptions: string list
+  }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
 
@@ -865,6 +871,9 @@ module CommandResponse =
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
 
+  let projectScriptContext (serialize: Serializer) (projectFile: string) (scriptLines: string list) (interpreterOptions: string list) =
+    serialize { Kind = "projectFileContext"; Data = { ProjectFile = projectFile; ScriptLines = scriptLines; InterpreterOptions = interpreterOptions } }
+
   let serialize (s: Serializer) = function
     | CoreResponse.InfoRes(text) ->
       info s text
@@ -950,3 +959,5 @@ module CommandResponse =
     | CoreResponse.DotnetNewGetDetails (detailedTemplate) ->
       dotnetnewgetDetails s detailedTemplate
     | CoreResponse.DotnetNewCreateCli (commandName,parameterStr) -> dotnetnewCreateCli s (commandName, parameterStr)
+    | CoreResponse.ProjectScriptContext (projectFile, scriptLines, interpreterOptions) ->
+      projectScriptContext s projectFile scriptLines interpreterOptions

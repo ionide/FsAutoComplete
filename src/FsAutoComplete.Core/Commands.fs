@@ -59,6 +59,7 @@ type CoreResponse =
     | DotnetNewList of Template list
     | DotnetNewGetDetails of DetailedTemplate
     | DotnetNewCreateCli of commandName: string * parameterStr: string
+    | ProjectScriptContext of projectFileName: string * scriptLines: string list * fsiOptions: string list
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -1120,3 +1121,29 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member x.GetChecker () = checker.GetFSharpChecker()
+
+    member x.ProjectScriptContext (projectFile: ProjectFilePath) = async {
+        match state.Projects.TryFind projectFile with
+        | Some project ->
+            match project.Response with
+            | Some projectInfo ->
+                // TODO: TFM differences?
+                let dllReferences =
+                    projectInfo.References
+                    |> List.map (sprintf "--reference:%s")
+                let otherOptions =
+                    projectInfo.Options.OtherOptions |> List.ofArray
+
+                // TODO: check referenced projects and figure out
+                // a) what their output dll path is
+                // b) if it's built or not.
+                // if not built, throw an error?
+                let referencedProjects = []
+
+                let allFSIOptions =
+                    dllReferences @ otherOptions @ referencedProjects
+                return CoreResponse.ProjectScriptContext (projectFile, [], allFSIOptions)
+            | None -> return CoreResponse.ErrorRes (sprintf "No project info for project '%s'" projectFile)
+        | None ->
+            return CoreResponse.ErrorRes (sprintf "Project '%s' could not be found" projectFile)
+    }

@@ -1616,7 +1616,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     }
 
-    member __.FSharpProject(p) = async {
+    member __.FSharpProject(p: ProjectParms) = async {
         Debug.print "[LSP call] FSharpProject"
         let fn = p.Project.GetFilePath()
         let! res = commands.Project fn false ignore config.ScriptTFM
@@ -1764,6 +1764,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.ProjectScriptContext(r: ProjectScriptContextRequest) = async {
+        Debug.print "[LSP call] ProjectScriptContext"
+        match! commands.ProjectScriptContext(r.Project.GetFilePath()) with
+        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+            return LspResult.internalError msg
+        | CoreResponse.ProjectScriptContext (projectFile, scriptLines, fsiOpts) ->
+            return
+                { Content = CommandResponse.projectScriptContext FsAutoComplete.JsonSerializer.writeJson projectFile scriptLines fsiOpts }
+                |> LspResult.success
+        | _ ->
+            return LspResult.notImplemented
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -1787,6 +1800,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
+        |> Map.add "fsi/projectScriptContext" (requestHandling (fun s p -> s.ProjectScriptContext(p) ))
 
 
 

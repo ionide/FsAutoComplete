@@ -487,6 +487,9 @@ type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string
 type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
 
 type FakeTargetsRequest = {FileName : string; FakeContext : FakeSupport.FakeContext; }
+
+type ProjectScriptContextRequest = { Project: TextDocumentIdentifier }
+
 type LineLensConfig = {
     Enabled: string
     Prefix: string
