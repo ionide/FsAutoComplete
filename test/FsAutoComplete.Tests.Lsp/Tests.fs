@@ -704,6 +704,33 @@ let dotnetnewTest =
       ))
     ]
 
+let projectScriptContextTests =
+    let projectDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ProjectScriptTest")
+    let projectFileUri = Path.Combine(projectDir, "ProjectScriptTest.fsproj") |> Uri |> string
+
+    let serverStart = lazy (
+        let (server, event) = serverInitialize projectDir defaultConfigDto
+        waitForWorkspaceFinishedParsing event
+        server
+    )
+    let serverTest f () = f serverStart.Value
+
+    testList "ProjectScriptContext tests" [
+        testCase "Can retrieve script content for project"  (serverTest (fun server ->
+            let res = server.ProjectScriptContext({ Project = { Uri = projectFileUri } }) |> Async.RunSynchronously
+            match res with
+            | Result.Error e -> failtestf "Request failed: %A" e
+            | Result.Ok { Content = content } ->
+                let payload = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.ProjectScriptContextResponse>>(content)
+                Expect.contains payload.Data.InterpreterOptions "--define:FOO" "Should have define from project file"
+
+                payload.Data.InterpreterOptions
+                |> Seq.tryFind (fun r -> r.Contains "StackExchange.Redis.dll")
+                |> Option.defaultWith (fun () -> failwith "Expected to find redis dependency in script options")
+                |> ignore
+        ))
+    ]
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -717,4 +744,5 @@ let tests =
     fsdnTest
     uriTests
     dotnetnewTest
+    projectScriptContextTests
   ]

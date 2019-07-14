@@ -37,3 +37,4 @@ fsautocomplete.suave.zip
 .idea/
 /.vs/
 msbuild.binlog
+.vscode
