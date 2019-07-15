@@ -263,7 +263,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         | -1 -> "unknown", None, w
         | n ->
             let code = w.Info.[0..n-1]
-            code, pageForLint code, { w with Info = w.Info.Substring(n+1) }
+            code, pageForLint code, { w with Info = w.Info.Substring(n+1).Trim() }
 
     member __.Notify = notify.Publish
 
