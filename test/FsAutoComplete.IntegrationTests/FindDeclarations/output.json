@@ -22,6 +22,20 @@
       "SdkType": "verbose",
       "Data": {}
     },
+    "Items": [
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/FileTwo.fs",
+        "VirtualPath": "FileTwo.fs",
+        "Metadata": {}
+      },
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/FindDeclarations/Program.fs",
+        "VirtualPath": "Program.fs",
+        "Metadata": {}
+      }
+    ],
     "AdditionalInfo": {}
   }
 }

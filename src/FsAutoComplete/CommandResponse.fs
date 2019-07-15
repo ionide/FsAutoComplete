@@ -126,12 +126,20 @@ module CommandResponse =
       Logs: Map<string, string>
       OutputType: ProjectOutputType
       Info: ProjectResponseInfo
+      Items: List<ProjectResponseItem>
       AdditionalInfo: Map<string, string>
     }
   and ProjectOutputType =
     | Library
     | Exe
     | Custom of string
+  and ProjectResponseItem =
+    {
+      Name: string
+      FilePath: string
+      VirtualPath: string
+      Metadata: Map<string, string>
+    }
 
   type OverloadDescription =
     {
@@ -442,7 +450,7 @@ module CommandResponse =
     let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
     serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), additionals) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), projectItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
       | Dotnet.ProjInfo.Workspace.ProjectSdkType.Verbose _ ->
@@ -464,6 +472,14 @@ module CommandResponse =
             | _ -> None
           IsPublishable = info.IsPublishable
         }
+    let mapItemResponse (p: Dotnet.ProjInfo.Workspace.ProjectViewerItem) : ProjectResponseItem =
+      match p with
+      | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (fullpath, extraInfo) ->
+        { ProjectResponseItem.Name = "Compile"
+          ProjectResponseItem.FilePath = fullpath
+          ProjectResponseItem.VirtualPath = extraInfo.Link
+          ProjectResponseItem.Metadata = Map.empty }
+
     let projectData =
       { Project = projectFileName
         Files = projectFiles
@@ -476,6 +492,7 @@ module CommandResponse =
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Exe -> Exe
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
+        Items = projectItems |> List.map mapItemResponse
         AdditionalInfo = additionals }
     serialize { Kind = "project"; Data = projectData }
 
@@ -834,8 +851,8 @@ module CommandResponse =
       helpText s (name, tip, additionalEdit)
     | CoreResponse.HelpTextSimple(name, tip) ->
       helpTextSimple s (name, tip)
-    | CoreResponse.Project(projectFileName, projectFiles, outFileOpt, references, logMap, extra, additionals) ->
-      project s (projectFileName, projectFiles, outFileOpt, references, logMap, extra, additionals)
+    | CoreResponse.Project(projectFileName, projectFiles, outFileOpt, references, logMap, extra, projectItems, additionals) ->
+      project s (projectFileName, projectFiles, outFileOpt, references, logMap, extra, projectItems, additionals)
     | CoreResponse.ProjectError(errorDetails) ->
       projectError s errorDetails
     | CoreResponse.ProjectLoading(projectFileName) ->

@@ -21,6 +21,20 @@
       "SdkType": "verbose",
       "Data": {}
     },
+    "Items": [
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Ops.fs",
+        "VirtualPath": "Ops.fs",
+        "Metadata": {}
+      },
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj1/Program.fs",
+        "VirtualPath": "Program.fs",
+        "Metadata": {}
+      }
+    ],
     "AdditionalInfo": {}
   }
 }
@@ -226,6 +240,20 @@
       "SdkType": "verbose",
       "Data": {}
     },
+    "Items": [
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Core.fs",
+        "VirtualPath": "Core.fs",
+        "Metadata": {}
+      },
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/MultiProj/Proj2/Program.fs",
+        "VirtualPath": "Program.fs",
+        "Metadata": {}
+      }
+    ],
     "AdditionalInfo": {}
   }
 }

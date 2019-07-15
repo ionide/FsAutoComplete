@@ -20,6 +20,14 @@
       "SdkType": "verbose",
       "Data": {}
     },
+    "Items": [
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectReload/Program.fs",
+        "VirtualPath": "Program.fs",
+        "Metadata": {}
+      }
+    ],
     "AdditionalInfo": {}
   }
 }
@@ -45,6 +53,14 @@
       "SdkType": "verbose",
       "Data": {}
     },
+    "Items": [
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/ProjectReload/Program.fs",
+        "VirtualPath": "Program.fs",
+        "Metadata": {}
+      }
+    ],
     "AdditionalInfo": {}
   }
 }
