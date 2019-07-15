@@ -39,7 +39,7 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBind
                     let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
                     let view = projViewer.Render optsDPW
 
-                    Result.Ok (po, view.Items, logMap)
+                    Result.Ok (po, optsDPW, view.Items, logMap)
             | None -> 
                 Error (GenericError(projectFileName, (sprintf "Project file '%s' parsing failed" projectFileName)))
         | NetCoreProjectJson ->
@@ -52,11 +52,6 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBind
 let private parseProject' (loader, fcsBinder) projectFileName =
     projectFileName
     |> getProjectOptions (loader, fcsBinder)
-    |> Result.bind (fun (fcsOpts, projViewerItems, logMap) ->
-        match extractOptionsDPW fcsOpts with
-        | Ok optsDPW ->
-            Ok (fcsOpts, optsDPW, projViewerItems, logMap)
-        | Error x -> Error x)
 
 let parseProject (loader, fcsBinder) projectFileName =
     projectFileName
