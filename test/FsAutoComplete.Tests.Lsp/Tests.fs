@@ -370,7 +370,7 @@ let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Ev
 
 ///Rename tests
 let renameTest =
-  let serverStart () =
+  let serverStart = lazy (
     let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
 
     dotnetCleanup testDir
@@ -397,10 +397,10 @@ let renameTest =
 
     m.WaitOne() |> ignore
 
-    (server, path, pathTest)
+    (server, path, pathTest) )
 
   let serverTest f () =
-    let (server, path, pathTest) = serverStart ()
+    let (server, path, pathTest) = serverStart.Value
     f server path pathTest
 
   testSequenced <| testList "Rename Tests" [
