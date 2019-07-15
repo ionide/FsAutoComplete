@@ -995,7 +995,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                             view.Items
                             |> List.map (fun item ->
                                 match item with
-                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile path -> path)
+                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (path, _) -> path)
 
                         Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
                     | Error _ ->
