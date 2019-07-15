@@ -7,7 +7,6 @@ open Newtonsoft.Json
 
 type ProjectCrackerCache = {
     Options : FSharpProjectOptions
-    Files : string list
     OutFile : string option
     References : string list
     Log : Map<string, string>

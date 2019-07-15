@@ -226,10 +226,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         } |> Async.Start
 
     let onProjectLoaded projectFileName (response: ProjectCrackerCache) =
-        for file in response.Files do
+        for file in response.Items |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p) do
             state.FileCheckOptions.[file] <- normalizeOptions response.Options
 
-        response.Files
+        response.Items
+        |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
         |> parseFilesInTheBackground
         |> Async.Start
 
@@ -403,19 +404,20 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projViewerItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, logMap) =
         let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
-        let projectFiles =
+        let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath
+        let projViewerItemsNormalized =
             projViewerItems
-            |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-            |> List.map (Path.GetFullPath >> Utils.normalizePath)
+            |> List.map (function
+                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, c) ->
+                    Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(fullPathNormalized p, c))
 
         let cached = {
             ProjectCrackerCache.Options = opts
-            Files = projectFiles
             OutFile = outFileOpt
             References = references
             Log = logMap
             ExtraInfo = extraInfo
-            Items = projViewerItems
+            Items = projViewerItemsNormalized
         }
 
         (opts.ProjectFileName, cached)
@@ -453,7 +455,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             match projResponse with
             | Result.Ok (projectFileName, response) ->
                 onProjectLoaded projectFileName response
-                [ CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, [ (*ENRICO*) ], Map.empty) ]
+                let responseFiles =
+                    response.Items
+                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+                [ CoreResponse.Project (projectFileName, responseFiles, response.OutFile, response.References, response.Log, response.ExtraInfo, response.Items, Map.empty) ]
             | Result.Error error ->
                 [ CoreResponse.ProjectError error ]
     }
@@ -961,7 +966,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
                 if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
                 projectLoadedSuccessfully projectFileName response
-                CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, projectFiles, Map.empty)
+
+                let responseFiles =
+                    response.Items
+                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+
+                CoreResponse.Project (projectFileName, responseFiles, response.OutFile, response.References, response.Log, response.ExtraInfo, projectFiles, Map.empty)
                 |> NotificationEvent.Workspace
                 |> notify.Trigger
             | WorkspaceProjectState.Failed (projectFileName, error) ->
