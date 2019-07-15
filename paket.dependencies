@@ -6,8 +6,8 @@ storage: none
 
 nuget Argu ~> 5.2.0
 nuget FSharp.Compiler.Service ~> 30.0
-nuget Dotnet.ProjInfo ~> 0.35.0
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.35.0
+nuget Dotnet.ProjInfo ~> 0.36.0
+nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.36.0
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
