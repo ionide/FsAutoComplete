@@ -339,36 +339,77 @@ let autocompleteTest =
 
 let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
-    logger.info (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
+    logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
+
+let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<string * obj>) =
+
+  let found =
+    files
+    |> List.map (fun s -> s, false)
+    |> fun x ->
+        let d = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>()
+        x
+        |> List.iter (fun (k,v) -> d.AddOrUpdate(k, v, (fun x y -> y)) |> ignore)
+        d
+
+  event.Publish
+  |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
+  |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+  |> Event.add (fun n -> 
+      let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
+
+      if Array.isEmpty n.Diagnostics then // no errors
+        found.AddOrUpdate(filename, true, (fun x y -> true)) |> ignore
+
+      let fileUnderWatchStatus = found.ToArray() |> Array.map (fun kv -> kv.Value)
+
+      if (not (fileUnderWatchStatus |> Seq.contains false)) then
+        logger.debug (eventX "all parsed without error, signaling...")
+        m.Set() |> ignore
+      )
 
 ///Rename tests
 let renameTest =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
+  let serverStart () =
+    let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
 
-    Utils.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
+    dotnetCleanup testDir
+
+    Utils.runProcess (logDotnetRestore "RenameTest") testDir "dotnet" "restore"
     |> expectExitCodeZero
 
-    let (server, event) = serverInitialize path defaultConfigDto
+    let m = new System.Threading.ManualResetEvent(false)
+
+    let (server, event) = serverInitialize testDir defaultConfigDto
+
+    event |> waitForParsed m ["Test.fs"; "Program.fs"]
+
+    let pathTest = Path.Combine(testDir, "Test.fs")
+    let path = Path.Combine(testDir, "Program.fs")
+
     do waitForWorkspaceFinishedParsing event
-    let pathTest = Path.Combine(path, "Test.fs")
+
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
 
-    let path = Path.Combine(path, "Program.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    m.WaitOne() |> ignore
+
     (server, path, pathTest)
-  )
+
   let serverTest f () =
-    let (server, path, pathTest) = serverStart.Value
+    let (server, path, pathTest) = serverStart ()
     f server path pathTest
 
   testSequenced <| testList "Rename Tests" [
       testCase "Rename from usage" (serverTest (fun server path _ ->
+
         let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
                                  Position = { Line = 7; Character = 12}
                                  NewName = "y" }
+
         let res = server.TextDocumentRename p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
@@ -409,6 +450,8 @@ let gotoTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
+    dotnetCleanup path
+
     Utils.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
     |> expectExitCodeZero
 
@@ -425,6 +468,8 @@ let gotoTest =
     let path = Path.Combine(path, "Library.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    logger.debug (eventX "finished start up")
 
     (server, path, externalPath, definitionPath)
   )
@@ -567,7 +612,6 @@ let uriTests =
 
   let convertRawPathToUri (rawPath: string) (expectedPath: string) = test (sprintf "convert '%s' -> '%s'" rawPath expectedPath) {
     let createdFilePath = filePathToUri rawPath
-    printfn "created %s for %s" createdFilePath rawPath
     let createdUri = createdFilePath |> Uri |> string
     Expect.equal createdUri expectedPath (sprintf "converting raw path '%s' should generate a Uri with LocalPath '%s'" createdFilePath expectedPath)
   }

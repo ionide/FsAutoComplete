@@ -116,8 +116,17 @@ let clientCaps : ClientCapabilities =
     TextDocument = Some textCaps
     Experimental = None}
 
+open Expecto.Logging
+open Expecto.Logging.Message
+
+let logEvent n =
+  logger.debug (eventX "event: {e}" >> setField "e" n)
+
 let serverInitialize path (config: FSharpConfigDto) =
   let server, event = createServer()
+
+  event.Publish
+  |> Event.add logEvent
 
   let p : InitializeParams =
       { ProcessId = Some 1
@@ -154,3 +163,9 @@ let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
 
 let expectExitCodeZero (exitCode, _) =
   Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
+
+let dotnetCleanup baseDir =
+  ["obj"; "bin"]
+  |> List.map (fun f -> Path.Combine(baseDir, f))
+  |> List.filter Directory.Exists
+  |> List.iter (fun path -> Directory.Delete(path, true))

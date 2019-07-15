@@ -181,7 +181,7 @@ Target "IntegrationTestStdioModeNetCore" (fun _ ->
 
 
 Target "LspTest" (fun _ ->
-  DotNetCli.RunCommand id """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests"""
+  DotNetCli.RunCommand id """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
 )
 
 Target "ReleaseArchive" (fun _ ->
