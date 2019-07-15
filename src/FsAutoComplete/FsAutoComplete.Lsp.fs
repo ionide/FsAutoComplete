@@ -1554,8 +1554,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.Project (fn, files, outFile, refs, logMap, extra, adds) ->
-                { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson (fn, files, outFile, refs, logMap, extra, adds) }
+            | CoreResponse.Project (fn, files, outFile, refs, logMap, extra, projItems, adds) ->
+                { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson (fn, files, outFile, refs, logMap, extra, projItems, adds) }
                 |> success
             | CoreResponse.ProjectError er ->
                 { Content =  CommandResponse.projectError FsAutoComplete.JsonSerializer.writeJson er }

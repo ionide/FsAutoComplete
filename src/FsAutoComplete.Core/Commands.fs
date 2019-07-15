@@ -20,7 +20,7 @@ type CoreResponse =
     | ErrorRes of text: string
     | HelpText of name: string * tip: FSharpToolTipText * additionalEdit: (string * int * int * string) option
     | HelpTextSimple of name: string * tip: string
-    | Project of projectFileName: ProjectFilePath * projectFiles: List<SourceFilePath> * outFileOpt : string option * references : ProjectFilePath list * logMap : Map<string,string> * extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * additionals : Map<string,string>
+    | Project of projectFileName: ProjectFilePath * projectFiles: List<SourceFilePath> * outFileOpt : string option * references : ProjectFilePath list * logMap : Map<string,string> * extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * projectItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list * additionals : Map<string,string>
     | ProjectError of errorDetails: GetProjectOptionsErrors
     | ProjectLoading of projectFileName: ProjectFilePath
     | WorkspacePeek of found: WorkspacePeek.Interesting list
@@ -449,7 +449,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             match projResponse with
             | Result.Ok (projectFileName, response) ->
                 onProjectLoaded projectFileName response
-                [ CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty) ]
+                [ CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, [ (*ENRICO*) ], Map.empty) ]
             | Result.Error error ->
                 [ CoreResponse.ProjectError error ]
     }
@@ -957,7 +957,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
                 if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
                 projectLoadedSuccessfully projectFileName response
-                CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
+                CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, [ (*ENRICO*) ], Map.empty)
                 |> NotificationEvent.Workspace
                 |> notify.Trigger
             | WorkspaceProjectState.Failed (projectFileName, error) ->
