@@ -161,15 +161,30 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
                     let fs =
-                        warnings |> List.choose (fun n ->
+                        warnings |> List.choose (fun (code,url, n) ->
                             n.Fix
                             |> Option.map (fun f -> (fcsRangeToLsp n.Range), {Range = fcsRangeToLsp f.FromRange; NewText = f.ToText})
                         )
 
                     fixes.[uri] <- fs
                     let diags =
-                        warnings |> List.map(fun (n: Warning) ->
-                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = Some [||]; Tags = None })
+                        warnings |> List.map(fun (code, url, (n: Warning)) ->
+                            // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
+                            // neither the Message or the RelatedInformation structures support markdown.
+
+                            // let message =
+                            //     match url with
+                            //     | None -> n.Info
+                            //     | Some url -> sprintf "%s Find out more at the F# Lint [docs](%s)" n.Info url // no period between because fsharplint adds that already
+                            let range = fcsRangeToLsp n.Range
+                            { Diagnostic.Range = range
+                              Code = Some code
+                              Severity = Some DiagnosticSeverity.Information
+                              Source = "F# Linter"
+                              Message = n.Info
+                              RelatedInformation = None
+                              Tags = None }
+                        )
                         |> List.toArray
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri

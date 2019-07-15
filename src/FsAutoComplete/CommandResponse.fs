@@ -704,21 +704,9 @@ module CommandResponse =
   let message (serialize : Serializer) (kind: string, data: 'a) =
     serialize { Kind = kind; Data = data }
 
-  let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
+  let lint (serialize : Serializer) (warnings : (string * string option * LintWarning.Warning) list) =
 
-    /// strip the fsharp lint warning code, in the format `FS01234: info"`
-    let removeLinterCode (s: string) =
-      let index = s.IndexOf(":")
-      if index > 0 && (index + 2) < s.Length then
-        s.Substring(index + 2)
-      else
-        s
-
-    let data =
-      warnings
-      |> List.map (fun w -> { w with Info = removeLinterCode w.Info })
-      |> List.toArray
-
+    let data = warnings |> List.map (fun (_,_,w) -> w) |> List.toArray
     serialize { Kind = "lint"; Data = data }
 
 

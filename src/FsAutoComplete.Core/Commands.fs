@@ -41,7 +41,7 @@ type CoreResponse =
     | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
     | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
-    | Lint of file: string * warnings: LintWarning.Warning list
+    | Lint of file: string * warningsWithCodes: (string * string option * LintWarning.Warning) list
     | ResolveNamespaces of word: string * opens: (string * string * InsertContext * bool) list * qualifies: (string * string) list
     | UnionCase of text: string * position: pos
     | RecordStub of text: string * position: pos
@@ -237,6 +237,33 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         let config = Dotnet.ProjInfo.Workspace.LoaderConfig.Default Environment.msbuildLocator
         let loader = Dotnet.ProjInfo.Workspace.Loader.Create(config)
         loader, checker.CreateFCSBinder(NETFrameworkInfoProvider.netFWInfo, loader)
+
+    let pageForLint (code: string) =
+        let codeNumber = code.Substring (2) |> int
+        match codeNumber with
+        | 1 | 2 | 3 -> Some "http://fsprojects.github.io/FSharpLint/TupleFormatting.html"
+        | 4 | 5 | 6 | 7 -> Some "http://fsprojects.github.io/FSharpLint/PatternMatchFormatting.html"
+        | 8 | 9 -> Some "http://fsprojects.github.io/FSharpLint/Spacing.html"
+        | 10 (* | 11 (not present?) *) | 12 -> Some "http://fsprojects.github.io/FSharpLint/Formatting.html"
+        | 13 | 14 | 15 -> Some "http://fsprojects.github.io/FSharpLint/Conventions.html"
+        | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 -> Some "http://fsprojects.github.io/FSharpLint/SourceLength.html"
+        | 34 | 35 -> Some "http://fsprojects.github.io/FSharpLint/FunctionReimplementation.html"
+        | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 -> Some "http://fsprojects.github.io/FSharpLint/NameConventions.html"
+        | 51 | 52 | 53 | 54 -> Some "http://fsprojects.github.io/FSharpLint/NumberOfItems.html"
+        | 55 | 56 | 57 | 58 -> Some "http://fsprojects.github.io/FSharpLint/Binding.html"
+        | 60 | 61 | 62 | 63 | 64 -> Some "http://fsprojects.github.io/FSharpLint/Typography.html"
+        | _ -> None
+
+
+    /// lint warnings come to us with the lint identifier as part of the info message,
+    /// so we parse and split that out here for processing later.
+    /// In addition we add the url to the matching help page for fsharplint
+    let enrichLintWarning (w: LintWarning.Warning) =
+        match w.Info.IndexOf ":" with
+        | -1 -> "unknown", None, w
+        | n ->
+            let code = w.Info.[0..n-1]
+            code, pageForLint code, { w with Info = w.Info.Substring(n+1) }
 
     member __.Notify = notify.Publish
 
@@ -753,7 +780,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                                     match res with
                                     | LintResult.Failure _ -> [ CoreResponse.InfoRes "Something went wrong, linter failed"]
                                     | LintResult.Success warnings ->
-                                        let res = CoreResponse.Lint (file,warnings)
+                                        let splitWarnings = warnings |> List.map enrichLintWarning
+                                        let res = CoreResponse.Lint (file, splitWarnings)
                                         notify.Trigger (NotificationEvent.Lint res)
                                         [ res ]
 
