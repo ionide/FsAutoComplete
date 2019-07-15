@@ -400,11 +400,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
 
-    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projectFiles: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, logMap) =
+    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projViewerItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, logMap) =
         let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
         let projectFiles =
-            projectFiles
+            projViewerItems
             |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
             |> List.map (Path.GetFullPath >> Utils.normalizePath)
 
@@ -415,6 +415,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             References = references
             Log = logMap
             ExtraInfo = extraInfo
+            Items = projViewerItems
         }
 
         (opts.ProjectFileName, cached)

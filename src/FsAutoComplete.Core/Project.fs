@@ -11,6 +11,7 @@ type ProjectCrackerCache = {
     OutFile : string option
     References : string list
     Log : Map<string, string>
+    Items: Dotnet.ProjInfo.Workspace.ProjectViewerItem list
     ExtraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData
 }
 
