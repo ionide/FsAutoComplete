@@ -22,6 +22,14 @@
       "SdkType": "verbose",
       "Data": {}
     },
+    "Items": [
+      {
+        "Name": "Compile",
+        "FilePath": "<absolute path removed>/FsAutoComplete.IntegrationTests/UncompiledReferencedProjects/MultiProject1.fs",
+        "VirtualPath": "MultiProject1.fs",
+        "Metadata": {}
+      }
+    ],
     "AdditionalInfo": {}
   }
 }
