@@ -8,30 +8,6 @@ type DPW_ProjectSdkType = Dotnet.ProjInfo.Workspace.ProjectSdkType
 type DPW_ProjectOutputType = Dotnet.ProjInfo.Workspace.ProjectOutputType
 type DPW_ExtraProjectInfoData = Dotnet.ProjInfo.Workspace.ExtraProjectInfoData
 
-let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: SourceFilePath) =
-    if not (File.Exists projectFileName) then
-        Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
-    else
-        match projectFileName with
-        | Net45
-        | NetCoreSdk ->
-            loader.LoadProjects [projectFileName]
-
-            match fcsBinder.GetProjectOptions (projectFileName) with
-            | Some po ->
-                // same useless log to remain compatible with tests baseline
-                let logMap = [ projectFileName, "" ] |> Map.ofList
-
-                Result.Ok (po, List.ofArray po.SourceFiles, logMap)
-            | None -> 
-                Error (GenericError(projectFileName, (sprintf "Project file '%s' parsing failed" projectFileName)))
-        | NetCoreProjectJson ->
-            Error (GenericError(projectFileName, (sprintf "Project file '%s' format project.json not supported" projectFileName)))
-        | FSharpNetSdk ->
-            Error (GenericError(projectFileName, (sprintf "Project file '%s' using FSharp.NET.Sdk not supported" projectFileName)))
-        | Unsupported ->
-            Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
-
 let extractOptionsDPW (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOptions) =
     match opts.ExtraProjectInfo with
     | None ->
@@ -43,19 +19,42 @@ let extractOptionsDPW (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOpt
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
-let private emptyLink =
-     // TODO ENRICO REMOVE
-    { Dotnet.ProjInfo.Workspace.ProjectViewerItemConfig.Link = "" }
+let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: SourceFilePath) =
+    if not (File.Exists projectFileName) then
+        Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
+    else
+        match projectFileName with
+        | Net45
+        | NetCoreSdk ->
+            loader.LoadProjects [projectFileName]
+
+            match fcsBinder.GetProjectOptions (projectFileName) with
+            | Some po ->
+                match extractOptionsDPW po with
+                | Error e -> Error e
+                | Ok optsDPW ->
+                    // same useless log to remain compatible with tests baseline
+                    let logMap = [ projectFileName, "" ] |> Map.ofList
+
+                    let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
+                    let view = projViewer.Render optsDPW
+
+                    Result.Ok (po, view.Items, logMap)
+            | None -> 
+                Error (GenericError(projectFileName, (sprintf "Project file '%s' parsing failed" projectFileName)))
+        | NetCoreProjectJson ->
+            Error (GenericError(projectFileName, (sprintf "Project file '%s' format project.json not supported" projectFileName)))
+        | FSharpNetSdk ->
+            Error (GenericError(projectFileName, (sprintf "Project file '%s' using FSharp.NET.Sdk not supported" projectFileName)))
+        | Unsupported ->
+            Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
 
 let private parseProject' (loader, fcsBinder) projectFileName =
     projectFileName
     |> getProjectOptions (loader, fcsBinder)
-    |> Result.bind (fun (fcsOpts, projectFiles, logMap) ->
+    |> Result.bind (fun (fcsOpts, projViewerItems, logMap) ->
         match extractOptionsDPW fcsOpts with
         | Ok optsDPW ->
-            let projViewerItems =
-                projectFiles
-                |> List.map (fun p -> Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, emptyLink))
             Ok (fcsOpts, optsDPW, projViewerItems, logMap)
         | Error x -> Error x)
 
@@ -68,10 +67,7 @@ let loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = asy
     for project in projects do
         match project.Response with
         | Some res ->
-            let projViewerItems =
-                res.Files
-                |> List.map (fun p -> Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, emptyLink))
-            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, projViewerItems, res.Log))
+            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
         | None ->
             project.FileName
             |> parseProject' (loader, fcsBinder)
