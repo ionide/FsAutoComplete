@@ -43,12 +43,20 @@ let extractOptionsDPW (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOpt
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
+let private emptyLink =
+     // TODO ENRICO REMOVE
+    { Dotnet.ProjInfo.Workspace.ProjectViewerItemConfig.Link = "" }
+
 let private parseProject' (loader, fcsBinder) projectFileName =
     projectFileName
     |> getProjectOptions (loader, fcsBinder)
     |> Result.bind (fun (fcsOpts, projectFiles, logMap) ->
         match extractOptionsDPW fcsOpts with
-        | Ok optsDPW -> Ok (fcsOpts, optsDPW, projectFiles, logMap)
+        | Ok optsDPW ->
+            let projViewerItems =
+                projectFiles
+                |> List.map (fun p -> Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, emptyLink))
+            Ok (fcsOpts, optsDPW, projViewerItems, logMap)
         | Error x -> Error x)
 
 let parseProject (loader, fcsBinder) projectFileName =
@@ -60,13 +68,16 @@ let loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = asy
     for project in projects do
         match project.Response with
         | Some res ->
-            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Files, res.Log))
+            let projViewerItems =
+                res.Files
+                |> List.map (fun p -> Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, emptyLink))
+            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, projViewerItems, res.Log))
         | None ->
             project.FileName
             |> parseProject' (loader, fcsBinder)
             |> function
-               | Ok (opts, optsDPW, projectFiles, logMap) ->
-                   onLoaded (WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
+               | Ok (opts, optsDPW, projViewerItems, logMap) ->
+                   onLoaded (WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
                | Error error ->
                    onLoaded (WorkspaceProjectState.Failed (project.FileName, error))
 

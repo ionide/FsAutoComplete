@@ -400,10 +400,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
 
-    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projectFiles, logMap) =
+    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projectFiles: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, logMap) =
         let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
-        let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
+        let projectFiles =
+            projectFiles
+            |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+            |> List.map (Path.GetFullPath >> Utils.normalizePath)
 
         let cached = {
             ProjectCrackerCache.Options = opts
@@ -957,7 +960,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
                 if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
                 projectLoadedSuccessfully projectFileName response
-                CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, [ (*ENRICO*) ], Map.empty)
+                CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, projectFiles, Map.empty)
                 |> NotificationEvent.Workspace
                 |> notify.Trigger
             | WorkspaceProjectState.Failed (projectFileName, error) ->
@@ -993,9 +996,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         let view = projViewer.Render optsDPW
                         let projectFiles =
                             view.Items
-                            |> List.map (fun item ->
-                                match item with
-                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (path, _) -> path)
 
                         Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
                     | Error _ ->
