@@ -4,7 +4,6 @@ open System
 
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
-open FSharpLint.Application
 open System.Text.RegularExpressions
 open FSharp.Analyzers
 open FsAutoComplete.WorkspacePeek
@@ -704,9 +703,9 @@ module CommandResponse =
   let message (serialize : Serializer) (kind: string, data: 'a) =
     serialize { Kind = kind; Data = data }
 
-  let lint (serialize : Serializer) (warnings : (string * string option * LintWarning.Warning) list) =
+  let lint (serialize : Serializer) (warnings : Lint.EnrichedLintWarning list) =
 
-    let data = warnings |> List.map (fun (_,_,w) -> w) |> List.toArray
+    let data = warnings |> List.map (fun w -> w.Warning) |> List.toArray
     serialize { Kind = "lint"; Data = data }
 
 

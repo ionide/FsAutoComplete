@@ -161,27 +161,24 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
                     let fs =
-                        warnings |> List.choose (fun (code,url, n) ->
-                            n.Fix
-                            |> Option.map (fun f -> (fcsRangeToLsp n.Range), {Range = fcsRangeToLsp f.FromRange; NewText = f.ToText})
+                        warnings |> List.choose (fun w ->
+                            w.Warning.Fix
+                            |> Option.map (fun f ->
+                                let range = fcsRangeToLsp w.Warning.Range
+                                range, {Range = range; NewText = f.ToText})
                         )
 
                     fixes.[uri] <- fs
                     let diags =
-                        warnings |> List.map(fun (code, url, (n: Warning)) ->
+                        warnings |> List.map(fun w ->
                             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
                             // neither the Message or the RelatedInformation structures support markdown.
-
-                            // let message =
-                            //     match url with
-                            //     | None -> n.Info
-                            //     | Some url -> sprintf "%s Find out more at the F# Lint [docs](%s)" n.Info url // no period between because fsharplint adds that already
-                            let range = fcsRangeToLsp n.Range
+                            let range = fcsRangeToLsp w.Warning.Range
                             { Diagnostic.Range = range
-                              Code = Some code
+                              Code = w.Code |> Option.map (sprintf "FS%04d") // '04' says to pad with '0' up to '4' digits in width. (we're recreating the F#Lint display numbers here)
                               Severity = Some DiagnosticSeverity.Information
                               Source = "F# Linter"
-                              Message = n.Info
+                              Message = w.Warning.Info
                               RelatedInformation = None
                               Tags = None }
                         )
