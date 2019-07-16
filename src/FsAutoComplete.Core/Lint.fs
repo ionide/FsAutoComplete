@@ -42,6 +42,7 @@ let pageForLint (code: int) =
     | 51 | 52 | 53 | 54 -> Some "http://fsprojects.github.io/FSharpLint/NumberOfItems.html"
     | 55 | 56 | 57 | 58 -> Some "http://fsprojects.github.io/FSharpLint/Binding.html"
     | 60 | 61 | 62 | 63 | 64 -> Some "http://fsprojects.github.io/FSharpLint/Typography.html"
+    | 65 -> Some "http://fsprojects.github.io/FSharpLint/Hints.html"
     | _ -> None
 
 /// lint warnings come to us with the lint identifier as part of the info message,
