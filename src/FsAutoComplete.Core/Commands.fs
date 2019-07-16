@@ -3,7 +3,6 @@ namespace FsAutoComplete
 open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
-open FSharpLint.Application
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
 open FsAutoComplete.InterfaceStubGenerator
@@ -41,7 +40,7 @@ type CoreResponse =
     | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
     | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
-    | Lint of file: string * warnings: LintWarning.Warning list
+    | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | ResolveNamespaces of word: string * opens: (string * string * InsertContext * bool) list * qualifies: (string * string) list
     | UnionCase of text: string * position: pos
     | RecordStub of text: string * position: pos
@@ -702,74 +701,32 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member x.Lint (file: SourceFilePath) =
         let file = Path.GetFullPath file
         async {
-            let res =
-                match state.TryGetFileCheckerOptionsWithSource file with
-                | Error s -> [CoreResponse.ErrorRes s]
-                | Ok (options, source) ->
-                    let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
+            match state.TryGetFileCheckerOptionsWithSource file with
+            | Error s -> return [CoreResponse.ErrorRes s]
+            | Ok (options, source) ->
+                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
-                    match tyResOpt with
-                    | None -> [ CoreResponse.InfoRes "Cached typecheck results not yet available"]
-                    | Some tyRes ->
-                        match tyRes.GetAST with
-                        | None -> [ CoreResponse.InfoRes "Something went wrong during parsing"]
-                        | Some tree ->
-                            try
-                                let loadXmlConfig projectFilePath =
-                                    match FSharpLint.Application.XmlConfiguration.tryLoadConfigurationForProject projectFilePath with
-                                    | None -> Result.Ok None
-                                    | Some xmlConfig ->
-                                        { ConfigurationManager.Configuration.conventions = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertConventions
-                                          ConfigurationManager.Configuration.formatting = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertFormatting
-                                          ConfigurationManager.Configuration.hints = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertHints
-                                          ConfigurationManager.Configuration.ignoreFiles = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertIgnoreFiles
-                                          ConfigurationManager.Configuration.typography = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertTypography }
-                                        |> Some
-                                        |> Result.Ok
-                                let loadJsonConfig projectFilePath =
-                                    match FSharpLint.Application.ConfigurationManagement.loadConfigurationForProject projectFilePath with
-                                    | ConfigurationManagement.ConfigurationResult.Success config ->
-                                        Result.Ok config
-                                    | ConfigurationManagement.ConfigurationResult.Failure errors ->
-                                        Result.Error errors
-                                let fsharpLintConfig =
-                                    // first we check if exists xml config (backward compatibility)
-                                    // after that if exists json config
-                                    match loadXmlConfig file with
-                                    | Result.Ok (Some config) ->
-                                        Result.Ok config
-                                    | Result.Ok None
-                                    | Result.Error _ ->
-                                        //TODO log xml config error
-                                        match loadJsonConfig file with
-                                        | Result.Ok config ->
-                                            Result.Ok config
-                                        | Result.Error e ->
-                                            Result.Error e
+                match tyResOpt with
+                | None -> return [CoreResponse.InfoRes "Cached typecheck results not yet available"]
+                | Some tyRes ->
+                    match tyRes.GetAST with
+                    | None -> return [CoreResponse.InfoRes "Something went wrong during parsing"]
+                    | Some tree ->
+                        try
+                            let fsharpLintConfig = Lint.tryLoadConfiguration file
+                            let opts =
+                                match fsharpLintConfig with
+                                | Ok config -> Some config
+                                | Error _ -> None
 
-                                let opts =
-                                    match fsharpLintConfig with
-                                    | Result.Ok config -> Some config
-                                    | Result.Error _ -> None
-
-                                let res =
-                                    Lint.lintParsedSource
-                                        { Lint.OptionalLintParameters.Default with Configuration = opts}
-                                        { Ast = tree
-                                          Source = source
-                                          TypeCheckResults = Some tyRes.GetCheckResults }
-                                let res' =
-                                    match res with
-                                    | LintResult.Failure _ -> [ CoreResponse.InfoRes "Something went wrong, linter failed"]
-                                    | LintResult.Success warnings ->
-                                        let res = CoreResponse.Lint (file,warnings)
-                                        notify.Trigger (NotificationEvent.Lint res)
-                                        [ res ]
-
-                                res'
-                            with _ex ->
-                                [ CoreResponse.InfoRes "Something went wrong during linter"]
-            return res
+                            match Lint.lintWithConfiguration opts tree source tyRes.GetCheckResults with
+                            | Error e -> return [CoreResponse.InfoRes e]
+                            | Ok enrichedWarnings ->
+                                let res = CoreResponse.Lint (file, enrichedWarnings)
+                                notify.Trigger (NotificationEvent.Lint res)
+                                return [res]
+                        with _ex ->
+                            return [CoreResponse.InfoRes "Something went wrong during linter"]
         } |> x.AsCancellable file
 
     member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: pos) (line: LineStr) =
