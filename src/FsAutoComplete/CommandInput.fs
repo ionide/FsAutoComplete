@@ -192,12 +192,27 @@ module CommandInput =
       return (DotnetNewGetDetails filterstr)
   }
 
+  let rec parameterPairs pairs = function 
+      | [ ] -> pairs 
+      | [ loneValue ] -> pairs 
+      | key :: value :: rest -> 
+        let nextPairs = List.append pairs [ (key, value :> Object) ]
+        parameterPairs nextPairs rest 
+
   let dotnetnewCreateCli = parser {
       let! _ = string "dotnetnewCreateCli "
       let! _ = char '"'
       let! templateShortName = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
-      let parameterList = [ ]
+      let! _ = many (string " ")
+      let! _ = char '"' 
+      let! parameters = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+      let! _ = char '"'
+      let parameterList = 
+        parameters.Split(' ')
+        |> List.ofArray 
+        |> List.filter (String.IsNullOrWhiteSpace >> not)
+        |> parameterPairs []
       return DotnetNewCreateCli (templateShortName, parameterList)
   }
 
