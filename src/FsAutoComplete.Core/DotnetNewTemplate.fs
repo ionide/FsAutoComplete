@@ -117,5 +117,15 @@ module DotnetNewTemplate =
       parameterList 
       |> List.map ( fun (k,v) -> 
                let asString = convertObjToString v
-               k,v )
-    ("a", "b")//temporary return
+               k,asString )
+
+    let str2 =
+      plist 
+      |> List.map ( fun(k,v) -> 
+                let theString = k + " " + v
+                theString )
+      |> String.concat " " 
+
+    let result2 = str + " " + str2 
+
+    (result1,result2)
