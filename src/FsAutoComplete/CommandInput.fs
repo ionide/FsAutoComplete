@@ -205,15 +205,22 @@ module CommandInput =
       let! templateShortName = some (sat ((<>) '"')) |> Parser.map String.OfSeq
       let! _ = char '"'
       let! _ = many (string " ")
-      let! _ = char '"' 
-      let! parameters = some (sat ((<>) '"')) |> Parser.map String.OfSeq
-      let! _ = char '"'
-      let parameterList = 
-        parameters.Split(' ')
-        |> List.ofArray 
-        |> List.filter (String.IsNullOrWhiteSpace >> not)
+
+      let parameters =
+        parser {
+          let! _ = char '"'
+          let! param = some (sat ((<>) '"')) |> Parser.map String.OfSeq
+          let! _ = char '"'
+          let! _ = many (string " ")
+          return param
+        }
+      
+      let! parameterList = many parameters
+      let finalList = 
+        parameterList
         |> parameterPairs []
-      return DotnetNewCreateCli (templateShortName, parameterList)
+  
+      return DotnetNewCreateCli (templateShortName, finalList)
   }
 
   // Parse 'completion "<filename>" "<linestr>" <line> <col> [timeout]' command
