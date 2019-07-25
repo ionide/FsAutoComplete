@@ -694,7 +694,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                             let commentContent =
                                 comment
-                                |> Markdown.createCommentBlock
+                                // |> Markdown.createCommentBlock
                                 |> MarkedString.String
 
                             let footerContent =

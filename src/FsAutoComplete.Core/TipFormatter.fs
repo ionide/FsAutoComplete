@@ -13,7 +13,7 @@ module private Section =
 
     let inline nl<'T> = Environment.NewLine
 
-    let inline private addSection (name : string) (content : string) =
+    let inline addSection (name : string) (content : string) =
         if name <> "" then
             nl + nl
             + "**" + name + "**"
@@ -39,6 +39,125 @@ module private Section =
         else
             addSection name (content |> String.concat nl)
 
+module private Format =
+
+    type FormatterInfo =
+        {
+            Regex : Regex
+            Formatter : GroupCollection -> string
+        }
+
+    let private r pat = Regex(pat, RegexOptions.IgnoreCase)
+
+    let rec private applyFormatter (info : FormatterInfo) text =
+        Debug.print "applyFormatter text: %s" text
+        Debug.print "Regex: %s" (info.Regex.ToString())
+        match info.Regex.Match text with
+        | m when m.Success ->
+            text.Replace(m.Groups.[0].Value, info.Formatter m.Groups)
+            |> applyFormatter info
+        | _ ->
+            text
+
+    let private extractTextFromQuote (quotedText : string) =
+        quotedText.Substring(1, quotedText.Length - 2)
+
+    let private codeBlock =
+        {
+            Regex = r"""<\s?code(\s+lang\s?=\s?('[^']*'|"[^"]*")){0,1}\s?>((?:(?!<code>)(?!<\/code>)[\s\S])*)<\/code\s?>"""
+            Formatter =
+                fun groups ->
+                    let code = groups.[3].Value
+
+                    let lang =
+                        if groups.[2].Success then
+                            extractTextFromQuote groups.[2].Value
+                        else
+                            "forceNoHighlight"
+
+                    if code.StartsWith("\n") || code.StartsWith("\r\n") then
+                        sprintf "```%s%s\n```" lang code
+                    else
+                        sprintf "```%s\n%s\n```" lang code
+        }
+        |> applyFormatter
+
+    let private codeInline =
+        {
+            Regex = r"<c\s?>((?:(?!<c>)(?!<\/c>)[\s\S])*)<\/c\s?>"
+            Formatter  =
+                fun groups ->
+                    let str = groups.[1].Value
+                    "`" + str + "`"
+        }
+        |> applyFormatter
+
+    let private anchor =
+        {
+            Regex = r"""<?a\s+href\s?=\s?('[^']*'|"[^"]*")\s?>((?:(?!<\/a>)[\s\S])*)<\/a\s?>"""
+            Formatter =
+                fun groups ->
+                    let content = groups.[2].Value
+                    let href = extractTextFromQuote groups.[1].Value
+
+                    sprintf "[%s](%s)" content href
+        }
+        |> applyFormatter
+
+    let private paragraph =
+        {
+            Regex = r"<para\s?>((?:(?!<\/para>)[\s\S])*)<\/para\s?>"
+            Formatter =
+                fun groups ->
+                    let content = groups.[1].Value
+
+                    sprintf "\n%s\n" content
+        }
+        |> applyFormatter
+
+    let private see =
+        {
+            Regex = r"""<see\s+cref\s?=\s?('[^']*'|"[^"]*")\s?\/>"""
+            Formatter =
+                fun groups ->
+                    let typ = extractTextFromQuote groups.[1].Value
+
+                    sprintf "`%s`" typ
+        }
+        |> applyFormatter
+
+    let private paramRef =
+        {
+            Regex = r"""<paramref\s+name\s?=\s?('[^']*'|"[^"]*")\s?\/>"""
+            Formatter =
+                fun groups ->
+                    let typ = extractTextFromQuote groups.[1].Value
+
+                    sprintf "`%s`" typ
+        }
+        |> applyFormatter
+
+    let private typeParamRef =
+        {
+            Regex = r"""<typeparamref\s+name\s?=\s?('[^']*'|"[^"]*")\s?\/>"""
+            Formatter =
+                fun groups ->
+                    let typ = extractTextFromQuote groups.[1].Value
+
+                    sprintf "`%s`" typ
+        }
+        |> applyFormatter
+
+    let applyAll (text : string)=
+        text
+        |> paragraph
+        |> codeInline
+        |> codeBlock
+        |> see
+        |> paramRef
+        |> typeParamRef
+        |> anchor
+
 // TODO: Improve this parser. Is there any other XmlDoc parser available?
 type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset : int) =
     let nl = Environment.NewLine
@@ -48,15 +167,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         match node with
         | null -> null
         | _ ->
-            // Many definitions contain references like <paramref name="keyName" /> or <see cref="T:System.IO.IOException">
-            // Replace them by the attribute content (keyName and System.IO.Exception in the samples above)
-            // Put content in single quotes for possible formatting improvements on editor side.
-            let text = node.InnerXml.Replace("<para>", "\n\n")
-                                    .Replace("</para>", "\n")
-            let c = Regex.Replace(text, """<a href="(.*?)">(.*?)<\/a>""", "[$2]($1)" )
-            let c = Regex.Replace(c,"""<code.*?>(.*?)<\/code>""", "`$1`")
-            let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
-            let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
+            let c = Format.applyAll node.InnerXml
+
+            // let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
+            // let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
             let tableIndex = c.IndexOf("<table>")
             let s =
                 if tableIndex > 0 then
@@ -103,7 +217,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         |> Seq.cast<XmlNode>
 
     let rawSummary = doc.DocumentElement.ChildNodes.[0]
-    let rawPars = readChildren "param" doc
+    let rawParameters = readChildren "param" doc
     let rawRemarks = readRemarks doc
     let rawExceptions = readChildren "exception" doc
     let rawTypeParams = readChildren "typeparam" doc
@@ -111,18 +225,27 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         doc.DocumentElement.GetElementsByTagName "returns"
         |> Seq.cast<XmlNode>
         |> Seq.tryHead
-
+    let rawExamples =
+        doc.DocumentElement.GetElementsByTagName "example"
+        |> Seq.cast<XmlNode>
 
     let summary = readContentForTooltip rawSummary
-    let pars = rawPars |> Map.map (fun _ n -> readContentForTooltip n)
+    let parameters = rawParameters |> Map.map (fun _ n -> readContentForTooltip n)
     let remarks = rawRemarks |> Seq.map readContentForTooltip
     let exceptions = rawExceptions |> Map.map (fun _ n -> readContentForTooltip n)
     let typeParams = rawTypeParams |> Map.map (fun _ n -> readContentForTooltip n)
+    let examples = rawExamples |> Seq.map readContentForTooltip
     let returns = rawReturs |> Option.map readContentForTooltip
+    let seeAlso =
+        doc.DocumentElement.GetElementsByTagName "seealso"
+        |> Seq.cast<XmlNode>
+        |> Seq.map (fun node ->
+            "* `" + node.Attributes.[0].InnerText.Replace("T:","") + "`"
+        )
 
     override x.ToString() =
         summary + nl + nl +
-        (pars |> Seq.map (fun kv -> "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl) +
+        (parameters |> Seq.map (fun kv -> "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl) +
         (if exceptions.Count = 0 then ""
          else nl + nl + "Exceptions:" + nl +
                 (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
@@ -132,16 +255,18 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         + summary
         + Section.fromList "" remarks
         + Section.fromMap "Type parameters" typeParams
-        + Section.fromMap "Parameters" pars
+        + Section.fromMap "Parameters" parameters
         + Section.fromOption "Returns" returns
         + Section.fromMap "Exceptions" exceptions
+        + Section.fromList "Examples" examples
+        + Section.fromList "See also" seeAlso
 
     member __.ToDocumentationString() =
         "**Description**" + nl + nl
         + summary
         + Section.fromList "" remarks
         + Section.fromMap "Type parameters" typeParams
-        + Section.fromMap "Parameters" pars
+        + Section.fromMap "Parameters" parameters
         + Section.fromOption "Returns" returns
         + Section.fromMap "Exceptions" exceptions
 
@@ -165,11 +290,13 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize : int) (acc: Map
         use subReader = reader.ReadSubtree()
         let doc = XmlDocument()
         doc.Load(subReader)
+        Debug.print "Member: %s" key
         // - 3 : allow us to detect the last indentation position
         // This isn't intuitive but from my tests this is what works
         indentationSize, acc |> Map.add key (XmlDocMember(doc, indentationSize, xli.LinePosition - 3)) |> Some
       with
       | ex ->
+        Debug.print "%A" ex
         indentationSize, Some acc
     | _ -> indentationSize, Some acc
 
@@ -213,12 +340,16 @@ let private getXmlDoc dllFile =
                 cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
             else
                 cnt
+          Debug.print "File content:\n%s" cnt
           use stringReader = new StringReader(cnt)
           use reader = XmlReader.Create stringReader
+          Debug.print "#1"
           let xmlDoc = readXmlDoc reader 0 Map.empty
+          Debug.print "#2"
           xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, fun _ _ -> xmlDoc) |> ignore
           Some xmlDoc
         with ex ->
+          Debug.print "%A" ex
           None  // TODO: Remove the empty map from cache to try again in the next request?
 
 // --------------------------------------------------------------------------------------
@@ -226,9 +357,24 @@ let private getXmlDoc dllFile =
 // --------------------------------------------------------------------------------------
 let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) =
     match cmt with
-    | FSharpXmlDoc.Text s -> s
+    | FSharpXmlDoc.Text s ->
+        Debug.print "Text tooltip"
+        s
     | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
-        match getXmlDoc dllFile with
+        Debug.print "XmlDocFileSignature"
+        Debug.print "dllFile: %s" dllFile
+        Debug.print "memberName: %s" memberName
+        let xmlDoc = getXmlDoc dllFile
+        match xmlDoc with
+        | Some xmlDoc ->
+            Debug.print "Keys"
+            Map.iter (fun key _ ->
+                Debug.print "- %s" key
+            ) xmlDoc
+        | None ->
+            Debug.print "No xml doc found"
+
+        match xmlDoc with
         | Some doc when doc.ContainsKey memberName ->
             let typeDoc =
                 match typeDoc with
@@ -272,6 +418,7 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
         | _ -> None)
 
 let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) (typeDoc: string option) : (string * string * string) list list =
+    Debug.print "formatTipEnhanced"
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
