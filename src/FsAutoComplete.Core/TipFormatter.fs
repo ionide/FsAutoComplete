@@ -9,9 +9,9 @@ open System.Xml
 open System.Text.RegularExpressions
 open FSharp.Compiler.SourceCodeServices
 
-module private Section =
+let inline nl<'T> = Environment.NewLine
 
-    let inline nl<'T> = Environment.NewLine
+module private Section =
 
     let inline addSection (name : string) (content : string) =
         if name <> "" then
@@ -34,121 +34,171 @@ module private Section =
             addSection name content.Value
 
     let fromList (name : string) (content : string seq) =
-        if Seq.length content = 0 then
+        if Seq.isEmpty content then
             ""
         else
             addSection name (content |> String.concat nl)
 
 module private Format =
 
-    type FormatterInfo =
+    let tagPattern (tagName : string) =
+        sprintf """<%s\s*(?'attributes'[^>]+)?>(?'innerText'(?:(?!<%s>)(?!<\/%s>)[\s\S])*)<\/%s\s*>""" tagName tagName tagName tagName
+
+    type TagInfo =
         {
-            Regex : Regex
-            Formatter : GroupCollection -> string
+            InnerText : string
+            Attributes : Map<string, string>
         }
 
-    let private r pat = Regex(pat, RegexOptions.IgnoreCase)
+    type FormatterInfo =
+        {
+            TagName : string
+            Formatter : TagInfo -> string
+        }
 
-    let rec private applyFormatter (info : FormatterInfo) text =
-        Debug.print "applyFormatter text: %s" text
-        Debug.print "Regex: %s" (info.Regex.ToString())
-        match info.Regex.Match text with
-        | m when m.Success ->
-            text.Replace(m.Groups.[0].Value, info.Formatter m.Groups)
-            |> applyFormatter info
-        | _ ->
-            text
 
     let private extractTextFromQuote (quotedText : string) =
         quotedText.Substring(1, quotedText.Length - 2)
 
+    let private tryGetAttributes (attributes : Group) =
+        if attributes.Success then
+            let pattern = """(?'key'\S+)=(?'value''[^']*'|"[^"]*")"""
+            Regex.Matches(attributes.Value, pattern, RegexOptions.IgnoreCase)
+            |> Seq.cast<Match>
+            |> Seq.map (fun group ->
+                group.Groups.["key"].Value, extractTextFromQuote group.Groups.["value"].Value
+            )
+            |> Map.ofSeq
+        else
+            Map.empty
+
+    let extractInfo (groups : GroupCollection) =
+        {
+            InnerText = groups.["innerText"].Value
+            Attributes = tryGetAttributes groups.["attributes"]
+        }
+
+    let rec private applyFormatter (info : FormatterInfo) text =
+        let pattern = tagPattern info.TagName
+        match Regex.Match(text, pattern, RegexOptions.IgnoreCase) with
+        | m when m.Success ->
+            let replacement =
+                m.Groups
+                |> extractInfo
+                |> info.Formatter
+
+            text.Replace(m.Groups.[0].Value, replacement)
+            |> applyFormatter info
+        | _ ->
+            text
+
+
     let private codeBlock =
         {
-            Regex = r"""<\s?code(\s+lang\s?=\s?('[^']*'|"[^"]*")){0,1}\s?>((?:(?!<code>)(?!<\/code>)[\s\S])*)<\/code\s?>"""
+            TagName = "code"
             Formatter =
-                fun groups ->
-                    let code = groups.[3].Value
-
+                fun info ->
                     let lang =
-                        if groups.[2].Success then
-                            extractTextFromQuote groups.[2].Value
-                        else
+                        match Map.tryFind "lang" info.Attributes with
+                        | Some lang ->
+                            lang
+
+                        | None ->
                             "forceNoHighlight"
 
-                    if code.StartsWith("\n") || code.StartsWith("\r\n") then
-                        sprintf "```%s%s\n```" lang code
+                    if info.InnerText.Contains("\n")
+                        || info.InnerText.Contains("\r\n") then
+
+                        if info.InnerText.StartsWith("\n")
+                            || info.InnerText.StartsWith("\r\n") then
+
+                            sprintf "```%s%s\n```" lang info.InnerText
+
+                        else
+                            sprintf "```%s\n%s\n```" lang info.InnerText
+
                     else
-                        sprintf "```%s\n%s\n```" lang code
+                        sprintf "`%s`" info.InnerText
+
         }
         |> applyFormatter
 
     let private codeInline =
         {
-            Regex = r"<c\s?>((?:(?!<c>)(?!<\/c>)[\s\S])*)<\/c\s?>"
+            TagName = "c"
             Formatter  =
-                fun groups ->
-                    let str = groups.[1].Value
-                    "`" + str + "`"
+                fun info ->
+                    "`" + info.InnerText + "`"
         }
         |> applyFormatter
 
     let private anchor =
         {
-            Regex = r"""<?a\s+href\s?=\s?('[^']*'|"[^"]*")\s?>((?:(?!<\/a>)[\s\S])*)<\/a\s?>"""
+            TagName = "a"
             Formatter =
-                fun groups ->
-                    let content = groups.[2].Value
-                    let href = extractTextFromQuote groups.[1].Value
+                fun info ->
+                    let href =
+                        match Map.tryFind "href" info.Attributes with
+                        | Some href ->
+                            href
 
-                    sprintf "[%s](%s)" content href
+                        | None ->
+                            ""
+
+                    sprintf "[%s](%s)" info.InnerText href
         }
         |> applyFormatter
 
     let private paragraph =
         {
-            Regex = r"<para\s?>((?:(?!<\/para>)[\s\S])*)<\/para\s?>"
+            TagName = "para"
             Formatter =
-                fun groups ->
-                    let content = groups.[1].Value
-
-                    sprintf "\n%s\n" content
+                fun info ->
+                    nl + info.InnerText + nl
         }
         |> applyFormatter
 
     let private see =
         {
-            Regex = r"""<see\s+cref\s?=\s?('[^']*'|"[^"]*")\s?\/>"""
+            TagName = "see"
             Formatter =
-                fun groups ->
-                    let typ = extractTextFromQuote groups.[1].Value
-
-                    sprintf "`%s`" typ
+                fun info ->
+                    match Map.tryFind "cref" info.Attributes with
+                    | Some cref ->
+                        // TODO: Add config to generates command
+                        "`" + cref + "`"
+                    | None ->
+                        "`" + info.InnerText + "`"
         }
         |> applyFormatter
 
     let private paramRef =
         {
-            Regex = r"""<paramref\s+name\s?=\s?('[^']*'|"[^"]*")\s?\/>"""
+            TagName = "paramref"
             Formatter =
-                fun groups ->
-                    let typ = extractTextFromQuote groups.[1].Value
-
-                    sprintf "`%s`" typ
+                fun info ->
+                    match Map.tryFind "name" info.Attributes with
+                    | Some name ->
+                        "`" + name + "`"
+                    | None ->
+                        "`" + info.InnerText + "`"
         }
         |> applyFormatter
 
     let private typeParamRef =
         {
-            Regex = r"""<typeparamref\s+name\s?=\s?('[^']*'|"[^"]*")\s?\/>"""
+            TagName = "typeparamref"
             Formatter =
-                fun groups ->
-                    let typ = extractTextFromQuote groups.[1].Value
-
-                    sprintf "`%s`" typ
+                fun info ->
+                    match Map.tryFind "name" info.Attributes with
+                    | Some name ->
+                        "`" + name + "`"
+                    | None ->
+                        "`" + info.InnerText + "`"
         }
         |> applyFormatter
 
-    let applyAll (text : string)=
+    let private partialApply (text : string) =
         text
         |> paragraph
         |> codeInline
@@ -158,32 +208,21 @@ module private Format =
         |> typeParamRef
         |> anchor
 
-// TODO: Improve this parser. Is there any other XmlDoc parser available?
-type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset : int) =
-    let nl = Environment.NewLine
-    /// References used to detect if we should remove meaningless spaces
-    let tabsOffset = String.replicate (columnOffset + indentationSize) " "
-    let readContentForTooltip (node: XmlNode) =
-        match node with
-        | null -> null
-        | _ ->
-            let c = Format.applyAll node.InnerXml
-
-            // let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)">.*<\/\w+>""", "`$1`")
-            // let c = Regex.Replace(c,"""<\w+ \w+="(?:\w:){0,1}(.+?)" />""", "`$1`")
-            let tableIndex = c.IndexOf("<table>")
-            let s =
-                if tableIndex > 0 then
-                    let start = c.Substring(0, tableIndex)
-                    let table = c.Substring(tableIndex)
-                    let rows = Regex.Matches(c, "<th>").Count
-                    let table =
-                        table.Replace(nl, "")
+    let private convertTable =
+        {
+            TagName = "table"
+            Formatter =
+                fun info ->
+                    let tableContent = info.InnerText
+                    let rowCount = Regex.Matches(tableContent, "<th\s?>").Count
+                    let convertedTable =
+                        tableContent
+                            .Replace(nl, "")
                             .Replace("\n", "")
                             .Replace("<table>", "")
                             .Replace("</table>", "")
                             .Replace("<thead>", "")
-                            .Replace("</thead>", (String.replicate rows "| --- "))
+                            .Replace("</thead>", (String.replicate rowCount "| --- "))
                             .Replace("<tbody>", nl)
                             .Replace("</tbody>", "")
                             .Replace("<tr>", "")
@@ -192,12 +231,30 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
                             .Replace("</th>", "")
                             .Replace("<td>", "|")
                             .Replace("</td>", "")
-                    start + nl + nl + nl + nl + table
-                else
-                    c
+                        // Make a pass to convert XML tags inside the table
+                        |> partialApply
 
+                    nl + nl + convertedTable + nl
 
-            s.Replace("\r\n", "\n").Split('\n')
+        }
+        |> applyFormatter
+
+    let applyAll (text : string) =
+        text
+        |> partialApply
+        |> convertTable
+
+// TODO: Improve this parser. Is there any other XmlDoc parser available?
+type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset : int) =
+    /// References used to detect if we should remove meaningless spaces
+    let tabsOffset = String.replicate (columnOffset + indentationSize) " "
+    let readContentForTooltip (node: XmlNode) =
+        match node with
+        | null -> null
+        | _ ->
+            let content = Format.applyAll node.InnerXml
+
+            content.Replace("\r\n", "\n").Split('\n')
             |> Array.map(fun line ->
                 if not (String.IsNullOrWhiteSpace line) && line.StartsWith(tabsOffset) then
                     line.Substring(columnOffset + indentationSize)
@@ -221,7 +278,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     let rawRemarks = readRemarks doc
     let rawExceptions = readChildren "exception" doc
     let rawTypeParams = readChildren "typeparam" doc
-    let rawReturs =
+    let rawReturns =
         doc.DocumentElement.GetElementsByTagName "returns"
         |> Seq.cast<XmlNode>
         |> Seq.tryHead
@@ -235,7 +292,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     let exceptions = rawExceptions |> Map.map (fun _ n -> readContentForTooltip n)
     let typeParams = rawTypeParams |> Map.map (fun _ n -> readContentForTooltip n)
     let examples = rawExamples |> Seq.map readContentForTooltip
-    let returns = rawReturs |> Option.map readContentForTooltip
+    let returns = rawReturns |> Option.map readContentForTooltip
     let seeAlso =
         doc.DocumentElement.GetElementsByTagName "seealso"
         |> Seq.cast<XmlNode>
@@ -269,6 +326,8 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         + Section.fromMap "Parameters" parameters
         + Section.fromOption "Returns" returns
         + Section.fromMap "Exceptions" exceptions
+        + Section.fromList "Examples" examples
+        + Section.fromList "See also" seeAlso
 
 let rec private readXmlDoc (reader: XmlReader) (indentationSize : int) (acc: Map<string,XmlDocMember>) =
   let acc' =
@@ -290,13 +349,11 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize : int) (acc: Map
         use subReader = reader.ReadSubtree()
         let doc = XmlDocument()
         doc.Load(subReader)
-        Debug.print "Member: %s" key
         // - 3 : allow us to detect the last indentation position
         // This isn't intuitive but from my tests this is what works
         indentationSize, acc |> Map.add key (XmlDocMember(doc, indentationSize, xli.LinePosition - 3)) |> Some
       with
       | ex ->
-        Debug.print "%A" ex
         indentationSize, Some acc
     | _ -> indentationSize, Some acc
 
@@ -343,13 +400,10 @@ let private getXmlDoc dllFile =
           Debug.print "File content:\n%s" cnt
           use stringReader = new StringReader(cnt)
           use reader = XmlReader.Create stringReader
-          Debug.print "#1"
           let xmlDoc = readXmlDoc reader 0 Map.empty
-          Debug.print "#2"
           xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, fun _ _ -> xmlDoc) |> ignore
           Some xmlDoc
         with ex ->
-          Debug.print "%A" ex
           None  // TODO: Remove the empty map from cache to try again in the next request?
 
 // --------------------------------------------------------------------------------------
@@ -358,23 +412,9 @@ let private getXmlDoc dllFile =
 let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) =
     match cmt with
     | FSharpXmlDoc.Text s ->
-        Debug.print "Text tooltip"
         s
     | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
-        Debug.print "XmlDocFileSignature"
-        Debug.print "dllFile: %s" dllFile
-        Debug.print "memberName: %s" memberName
-        let xmlDoc = getXmlDoc dllFile
-        match xmlDoc with
-        | Some xmlDoc ->
-            Debug.print "Keys"
-            Map.iter (fun key _ ->
-                Debug.print "- %s" key
-            ) xmlDoc
-        | None ->
-            Debug.print "No xml doc found"
-
-        match xmlDoc with
+        match getXmlDoc dllFile with
         | Some doc when doc.ContainsKey memberName ->
             let typeDoc =
                 match typeDoc with
@@ -418,7 +458,6 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
         | _ -> None)
 
 let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) (typeDoc: string option) : (string * string * string) list list =
-    Debug.print "formatTipEnhanced"
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
