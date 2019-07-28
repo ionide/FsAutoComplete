@@ -428,6 +428,7 @@ module private Format =
                 // We make the assumption that an 'or' section should always be defined on a single line
                 // From testing against different 'or' block written by Microsoft it seems to be always the case
                 // By doing this assumption this allow us to correctly handle comments like:
+                //
                 // <block>
                 // Some text goes here
                 // </block>
@@ -436,12 +437,14 @@ module private Format =
                 // CaseB of the or section
                 // -or-
                 // CaseC of the or section
+                //
                 // The original comments is for `System.Uri("")`
                 // By making the assumption that an 'or' section is always single line this allows us the detact the "<block></block>" section
 
                 // orText is on a single line, we just add quotation syntax
                 if lastParagraphStartIndex = -1 then
                     sprintf ">    %s" orText
+
                 // orText is on multiple lines
                 // 1. We first extract the everything until the last line
                 // 2. We extract on the last line
@@ -710,7 +713,20 @@ let private getXmlDoc dllFile =
 let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) =
     match cmt with
     | FSharpXmlDoc.Text s ->
-        s
+        try
+            // We create a "fake" XML document in order to use the same parser for both libraries and user code
+            let xml = sprintf "<fake>%s</fake>" s
+            let doc = XmlDocument()
+            doc.LoadXml(xml)
+
+            let xmlDoc = XmlDocMember(doc, 4, 0)
+            xmlDoc.ToEnhancedString()
+
+        with
+            | ex ->
+                Debug.print "%A" ex
+                sprintf "An error occured when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found LSP output"
+
     | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
         match getXmlDoc dllFile with
         | Some doc when doc.ContainsKey memberName ->
