@@ -25,7 +25,23 @@ module private Section =
         if content.Count = 0 then
             ""
         else
-            addSection name (content |> Seq.map (fun kv -> "* `" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl)
+            content
+            |> Seq.map (fun kv ->
+                let text =
+                    if kv.Value.Contains("\n") then
+                        kv.Value.Split('\n')
+                        |> Seq.map (fun line ->
+                            "> " + line.TrimStart()
+                        )
+                        |> String.concat "\n"
+                        |> (+) nl // Start the quote block on a new line
+                    else
+                        kv.Value
+
+                "* `" + kv.Key + "`" + ": " + text
+            )
+            |> String.concat nl
+            |> addSection name
 
     let fromOption (name : string) (content : string option) =
         if content.IsNone then
@@ -42,83 +58,126 @@ module private Section =
 module private Format =
 
     let tagPattern (tagName : string) =
-        sprintf """<%s\s*(?'attributes'[^>]+)?>(?'innerText'(?:(?!<%s>)(?!<\/%s>)[\s\S])*)<\/%s\s*>""" tagName tagName tagName tagName
+        sprintf """(?'void_element'<%s(?'void_attributes'\s+[^\/>]+)?\/>)|(?'non_void_element'<%s(?'non_void_attributes'\s+[^>]+)?>(?'non_void_innerText'(?:(?!<%s>)(?!<\/%s>)[\s\S])*)<\/%s\s*>)""" tagName tagName tagName tagName tagName
 
     type TagInfo =
-        {
-            InnerText : string
-            Attributes : Map<string, string>
-        }
+        | VoidElement of attributes : Map<string, string>
+        | NonVoidElement of innerText : string * attributes : Map<string, string>
 
     type FormatterInfo =
         {
             TagName : string
-            Formatter : TagInfo -> string
+            Formatter : TagInfo -> string option
         }
-
 
     let private extractTextFromQuote (quotedText : string) =
         quotedText.Substring(1, quotedText.Length - 2)
 
-    let private tryGetAttributes (attributes : Group) =
+
+    let extractMemberText (text : string) =
+        let pattern = "(?'member_type'[a-z]{1}:)?(?'member_text'.*)"
+        let m = Regex.Match(text, pattern, RegexOptions.IgnoreCase)
+
+        if m.Groups.["member_text"].Success then
+            m.Groups.["member_text"].Value
+        else
+            text
+
+    let private getAttributes (attributes : Group) =
         if attributes.Success then
             let pattern = """(?'key'\S+)=(?'value''[^']*'|"[^"]*")"""
             Regex.Matches(attributes.Value, pattern, RegexOptions.IgnoreCase)
             |> Seq.cast<Match>
-            |> Seq.map (fun group ->
-                group.Groups.["key"].Value, extractTextFromQuote group.Groups.["value"].Value
+            |> Seq.map (fun m ->
+                m.Groups.["key"].Value, extractTextFromQuote m.Groups.["value"].Value
             )
             |> Map.ofSeq
         else
             Map.empty
 
-    let extractInfo (groups : GroupCollection) =
-        {
-            InnerText = groups.["innerText"].Value
-            Attributes = tryGetAttributes groups.["attributes"]
-        }
-
     let rec private applyFormatter (info : FormatterInfo) text =
         let pattern = tagPattern info.TagName
         match Regex.Match(text, pattern, RegexOptions.IgnoreCase) with
         | m when m.Success ->
-            let replacement =
-                m.Groups
-                |> extractInfo
-                |> info.Formatter
+            if m.Groups.["void_element"].Success then
+                let attributes = getAttributes m.Groups.["void_attributes"]
 
-            text.Replace(m.Groups.[0].Value, replacement)
-            |> applyFormatter info
+                let replacement =
+                    VoidElement attributes
+                    |> info.Formatter
+
+                match replacement with
+                | Some replacement ->
+                    text.Replace(m.Groups.["void_element"].Value, replacement)
+                    // Re-apply the formatter, because perhaps there is more
+                    // of the current tag to convert
+                    |> applyFormatter info
+
+                | None ->
+                    // The formatter wasn't able to convert the tag
+                    // Return as it is and don't re-apply the formatter
+                    // otherwise it will create an infinity loop
+                    text
+
+            else if m.Groups.["non_void_element"].Success then
+                let innerText = m.Groups.["non_void_innerText"].Value
+                let attributes = getAttributes m.Groups.["non_void_attributes"]
+
+                let replacement =
+                    NonVoidElement (innerText, attributes)
+                    |> info.Formatter
+
+                match replacement with
+                | Some replacement ->
+                    // Re-apply the formatter, because perhaps there is more
+                    // of the current tag to convert
+                    text.Replace(m.Groups.["non_void_element"].Value, replacement)
+                    |> applyFormatter info
+
+                | None ->
+                    // The formatter wasn't able to convert the tag
+                    // Return as it is and don't re-apply the formatter
+                    // otherwise it will create an infinity loop
+                    text
+            else
+                // Should not happend but like that we are sure to handle all possible cases
+                text
         | _ ->
             text
-
 
     let private codeBlock =
         {
             TagName = "code"
             Formatter =
-                fun info ->
+                function
+                | VoidElement _ ->
+                    None
+
+                | NonVoidElement (innerText, attributes) ->
                     let lang =
-                        match Map.tryFind "lang" info.Attributes with
+                        match Map.tryFind "lang" attributes with
                         | Some lang ->
                             lang
 
                         | None ->
                             "forceNoHighlight"
 
-                    if info.InnerText.Contains("\n")
-                        || info.InnerText.Contains("\r\n") then
+                    let formattedText =
+                        if innerText.Contains("\n")
+                            || innerText.Contains("\r\n") then
 
-                        if info.InnerText.StartsWith("\n")
-                            || info.InnerText.StartsWith("\r\n") then
+                            if innerText.StartsWith("\n")
+                                || innerText.StartsWith("\r\n") then
 
-                            sprintf "```%s%s\n```" lang info.InnerText
+                                sprintf "```%s%s\n```" lang innerText
+
+                            else
+                                sprintf "```%s\n%s\n```" lang innerText
 
                         else
-                            sprintf "```%s\n%s\n```" lang info.InnerText
+                            sprintf "`%s`" innerText
 
-                    else
-                        sprintf "`%s`" info.InnerText
+                    Some formattedText
 
         }
         |> applyFormatter
@@ -127,8 +186,12 @@ module private Format =
         {
             TagName = "c"
             Formatter  =
-                fun info ->
-                    "`" + info.InnerText + "`"
+                function
+                | VoidElement _ ->
+                    None
+                | NonVoidElement (innerText, _) ->
+                    "`" + innerText + "`"
+                    |> Some
         }
         |> applyFormatter
 
@@ -136,16 +199,21 @@ module private Format =
         {
             TagName = "a"
             Formatter =
-                fun info ->
+                function
+                | VoidElement _ ->
+                    None
+
+                | NonVoidElement (innerText, attributes) ->
                     let href =
-                        match Map.tryFind "href" info.Attributes with
+                        match Map.tryFind "href" attributes with
                         | Some href ->
                             href
 
                         | None ->
                             ""
 
-                    sprintf "[%s](%s)" info.InnerText href
+                    sprintf "[%s](%s)" innerText href
+                    |> Some
         }
         |> applyFormatter
 
@@ -153,70 +221,282 @@ module private Format =
         {
             TagName = "para"
             Formatter =
-                fun info ->
-                    nl + info.InnerText + nl
+                function
+                | VoidElement _ ->
+                    None
+
+                | NonVoidElement (innerText, _) ->
+                    nl + innerText + nl
+                    |> Some
+        }
+        |> applyFormatter
+
+    let private block =
+        {
+            TagName = "block"
+            Formatter  =
+                function
+                | VoidElement _ ->
+                    None
+
+                | NonVoidElement (innerText, _) ->
+                    nl + innerText + nl
+                    |> Some
         }
         |> applyFormatter
 
     let private see =
+        let getCRef (attributes : Map<string, string>) = Map.tryFind "cref" attributes
         {
             TagName = "see"
             Formatter =
-                fun info ->
-                    match Map.tryFind "cref" info.Attributes with
+                function
+                | VoidElement attributes ->
+                    match getCRef attributes with
                     | Some cref ->
                         // TODO: Add config to generates command
-                        "`" + cref + "`"
+                        "`" + extractMemberText cref + "`"
+                        |> Some
+
                     | None ->
-                        "`" + info.InnerText + "`"
+                        None
+
+                | NonVoidElement (innerText, attributes) ->
+                    if String.IsNullOrWhiteSpace innerText then
+                        match getCRef attributes with
+                        | Some cref ->
+                            // TODO: Add config to generates command
+                            "`" + extractMemberText cref + "`"
+                            |> Some
+
+                        | None ->
+                            None
+                    else
+                        "`" + innerText + "`"
+                        |> Some
+        }
+        |> applyFormatter
+
+    let private xref =
+        let getHRef (attributes : Map<string, string>) = Map.tryFind "href" attributes
+        {
+            TagName = "xref"
+            Formatter =
+                function
+                | VoidElement attributes ->
+                    match getHRef attributes with
+                    | Some href ->
+                        // TODO: Add config to generates command
+                        "`" + extractMemberText href + "`"
+                        |> Some
+
+                    | None ->
+                        None
+
+                | NonVoidElement (innerText, attributes) ->
+                    if String.IsNullOrWhiteSpace innerText then
+                        match getHRef attributes with
+                        | Some href ->
+                            // TODO: Add config to generates command
+                            "`" + extractMemberText href + "`"
+                            |> Some
+
+                        | None ->
+                            None
+                    else
+                        "`" + innerText + "`"
+                        |> Some
         }
         |> applyFormatter
 
     let private paramRef =
+        let getName (attributes : Map<string, string>) = Map.tryFind "name" attributes
+
         {
             TagName = "paramref"
             Formatter =
-                fun info ->
-                    match Map.tryFind "name" info.Attributes with
+                function
+                | VoidElement attributes ->
+                    match getName attributes with
                     | Some name ->
                         "`" + name + "`"
+                        |> Some
+
                     | None ->
-                        "`" + info.InnerText + "`"
+                        None
+
+                | NonVoidElement (innerText, attributes) ->
+                    if String.IsNullOrWhiteSpace innerText then
+                        match getName attributes with
+                        | Some name ->
+                            // TODO: Add config to generates command
+                            "`" + name + "`"
+                            |> Some
+
+                        | None ->
+                            None
+                    else
+                        "`" + innerText + "`"
+                        |> Some
+
         }
         |> applyFormatter
 
     let private typeParamRef =
+        let getName (attributes : Map<string, string>) = Map.tryFind "name" attributes
+
         {
             TagName = "typeparamref"
             Formatter =
-                fun info ->
-                    match Map.tryFind "name" info.Attributes with
+                function
+                | VoidElement attributes ->
+                    match getName attributes with
                     | Some name ->
                         "`" + name + "`"
+                        |> Some
+
                     | None ->
-                        "`" + info.InnerText + "`"
+                        None
+
+                | NonVoidElement (innerText, attributes) ->
+                    if String.IsNullOrWhiteSpace innerText then
+                        match getName attributes with
+                        | Some name ->
+                            // TODO: Add config to generates command
+                            "`" + name + "`"
+                            |> Some
+
+                        | None ->
+                            None
+                    else
+                        "`" + innerText + "`"
+                        |> Some
         }
         |> applyFormatter
 
-    let private partialApply (text : string) =
-        text
-        |> paragraph
-        |> codeInline
-        |> codeBlock
-        |> see
-        |> paramRef
-        |> typeParamRef
-        |> anchor
+    let private fixPortableClassLibrary (text : string) =
+        text.Replace(
+            "~/docs/standard/cross-platform/cross-platform-development-with-the-portable-class-library.md",
+            "https://docs.microsoft.com/en-gb/dotnet/standard/cross-platform/cross-platform-development-with-the-portable-class-library"
+        )
+
+    /// <summary>Handle Microsoft 'or' formatting blocks</summary>
+    /// <remarks>
+    /// <para>We don't use the formatter API here because we are not handling a "real XML element"</para>
+    /// <para>We don't use regex neither because I am not able to create one covering all the possible case</para>
+    /// <para>
+    /// There are 2 types of 'or' blocks:
+    ///
+    /// - Inlined: [...]  -or-  [...]  -or-  [...]
+    /// - Blocked:
+    /// [...]
+    /// -or-
+    /// [...]
+    /// -or-
+    /// [...]
+    /// </para>
+    /// <para>
+    /// This function can convert both styles. If an 'or' block is encounter the whole section will always result in a multiline output
+    /// </para>
+    /// <para>
+    /// If we pass any of the 2 previous example, it will generate the same Markdown string as a result (because they have the same number of 'or' section). The result will be:
+    /// </para>
+    /// <para>
+    /// >    [...]
+    ///
+    /// *or*
+    ///
+    /// >    [...]
+    ///
+    /// *or*
+    ///
+    /// >    [...]
+    /// </para>
+    /// </remarks>
+    let private handleMicrosoftOrList (text : string) =
+        let splitResult = text.Split([|"-or-"|], StringSplitOptions.RemoveEmptyEntries)
+
+        // If text doesn't contains any `-or-` then we just forward it
+        if Seq.length splitResult = 1 then
+            text
+        else
+            splitResult
+            |> Seq.map (fun orText ->
+                let orText = orText.Trim()
+                let lastParagraphStartIndex = orText.LastIndexOf("\n")
+
+                // We make the assumption that an 'or' section should always be defined on a single line
+                // From testing against different 'or' block written by Microsoft it seems to be always the case
+                // By doing this assumption this allow us to correctly handle comments like:
+                // <block>
+                // Some text goes here
+                // </block>
+                // CaseA of the or section
+                // -or-
+                // CaseB of the or section
+                // -or-
+                // CaseC of the or section
+                // The original comments is for `System.Uri("")`
+                // By making the assumption that an 'or' section is always single line this allows us the detact the "<block></block>" section
+
+                // orText is on a single line, we just add quotation syntax
+                if lastParagraphStartIndex = -1 then
+                    sprintf ">    %s" orText
+                // orText is on multiple lines
+                // 1. We first extract the everything until the last line
+                // 2. We extract on the last line
+                // 3. We return the start of the section and the end of the section marked using quotation
+                else
+                    let startText = orText.Substring(0, lastParagraphStartIndex)
+                    let endText =  orText.Substring(lastParagraphStartIndex)
+
+                    sprintf "%s\n>    %s" startText endText
+            )
+            // Force a new `-or-` paragraph between each orSection
+            // In markdown a new paragraph is define by using 2 empty lines
+            |> String.concat "\n\n*or*\n\n"
+
+    /// <summary>Remove all invalid 'or' block found</summary>
+    /// <remarks>
+    /// If an 'or' block is found between 2 elements then we remove it as we can't generate a valid markdown for it
+    ///
+    /// For example, <td> Some text -or- another text </td> cannot be converted into a multine string
+    /// and so we prefer to remove the 'or' block instead of having some weird markdown artefacts
+    ///
+    /// For now, we only consider text between <td></td> to be invalid
+    /// We can add more in the future if needed, but I want to keep this as minimal as possible to avoid capturing false positive
+    /// /<remarks>
+    let private removeInvalidOrBlock (text : string) =
+        let invalidOrBlockPattern = """<td(\s+[^>])*>(?'or_text'(?:(?!<td)[\s\S])*-or-(?:(?!<\/td)[\s\S])*)<\/td(\s+[^>])*>"""
+
+        Regex.Matches(text, invalidOrBlockPattern, RegexOptions.Multiline)
+        |> Seq.cast<Match>
+        |> Seq.fold (fun (state : string) (m : Match) ->
+            let orText = m.Groups.["or_text"]
+
+            if orText.Success then
+                let replacement =
+                    orText.Value.Replace("-or-", "or")
+
+                state.Replace(orText.Value, replacement)
+            else
+                state
+        ) text
+
 
     let private convertTable =
         {
             TagName = "table"
             Formatter =
-                fun info ->
-                    let tableContent = info.InnerText
-                    let rowCount = Regex.Matches(tableContent, "<th\s?>").Count
+                function
+                | VoidElement _ ->
+                    None
+
+                | NonVoidElement (innerText, _) ->
+
+                    let rowCount = Regex.Matches(innerText, "<th\s?>").Count
                     let convertedTable =
-                        tableContent
+                        innerText
                             .Replace(nl, "")
                             .Replace("\n", "")
                             .Replace("<table>", "")
@@ -231,18 +511,31 @@ module private Format =
                             .Replace("</th>", "")
                             .Replace("<td>", "|")
                             .Replace("</td>", "")
-                        // Make a pass to convert XML tags inside the table
-                        |> partialApply
 
                     nl + nl + convertedTable + nl
+                    |> Some
 
         }
         |> applyFormatter
 
     let applyAll (text : string) =
         text
-        |> partialApply
+        // Remove invalid syntax first
+        // It's easier to identify invalid patterns when no transformation has been done yet
+        |> removeInvalidOrBlock
+        // Start the transformation process
+        |> paragraph
+        |> block
+        |> codeInline
+        |> codeBlock
+        |> see
+        |> xref
+        |> paramRef
+        |> typeParamRef
+        |> anchor
         |> convertTable
+        |> fixPortableClassLibrary
+        |> handleMicrosoftOrList
 
 // TODO: Improve this parser. Is there any other XmlDoc parser available?
 type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset : int) =
@@ -252,9 +545,13 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         match node with
         | null -> null
         | _ ->
-            let content = Format.applyAll node.InnerXml
+            let content =
+                // Normale the EOL
+                // This make it easier to work with line splittig
+                node.InnerXml.Replace("\r\n", "\n")
+                |> Format.applyAll
 
-            content.Replace("\r\n", "\n").Split('\n')
+            content.Split('\n')
             |> Array.map(fun line ->
                 if not (String.IsNullOrWhiteSpace line) && line.StartsWith(tabsOffset) then
                     line.Substring(columnOffset + indentationSize)
@@ -266,7 +563,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     let readChildren name (doc: XmlDocument) =
         doc.DocumentElement.GetElementsByTagName name
         |> Seq.cast<XmlNode>
-        |> Seq.map (fun node -> node.Attributes.[0].InnerText.Replace("T:",""), node)
+        |> Seq.map (fun node -> Format.extractMemberText node.Attributes.[0].InnerText, node)
         |> Map.ofSeq
 
     let readRemarks (doc : XmlDocument) =
@@ -297,7 +594,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         doc.DocumentElement.GetElementsByTagName "seealso"
         |> Seq.cast<XmlNode>
         |> Seq.map (fun node ->
-            "* `" + node.Attributes.[0].InnerText.Replace("T:","") + "`"
+            "* `" + Format.extractMemberText node.Attributes.[0].InnerText + "`"
         )
 
     override x.ToString() =
@@ -397,7 +694,8 @@ let private getXmlDoc dllFile =
                 cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
             else
                 cnt
-          Debug.print "File content:\n%s" cnt
+
+        //   Debug.print "%s" cnt
           use stringReader = new StringReader(cnt)
           use reader = XmlReader.Create stringReader
           let xmlDoc = readXmlDoc reader 0 Map.empty
@@ -469,7 +767,7 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
                       buildFormatComment i.XmlDoc true typeDoc
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
-
+                Debug.print "%s" comment
                 (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
