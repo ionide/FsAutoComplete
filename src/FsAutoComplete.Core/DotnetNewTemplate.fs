@@ -82,6 +82,15 @@ module DotnetNewTemplate =
   let extractDetailedString (t : DetailedTemplate) =
     [t.TemplateName]
 
+  let convertObjToString (o: obj) : string =
+    let result =
+      match o with
+      | :? string as s -> sprintf "%s" s
+      | :? bool as s -> if s then "true" else "false"
+      | :? (string list) as str -> String.concat ", " (str|> List.map string)
+      | _ -> failwithf "The value %A is not supported as parameter" o
+    result
+
   let dotnetnewlist (userInput : string) =
     installedTemplates ()
     |> List.map (fun t -> t, extractString t) // extract keywords from the template
@@ -99,3 +108,24 @@ module DotnetNewTemplate =
     | [] -> failwithf "No template exists with name : %s" userInput
     | [x] -> x
     | _ -> failwithf "Multiple templates found : \n%A" templates
+
+  let dotnetnewCreateCli (templateShortName : string) (parameterList : (string * obj) list) : (string * string) =
+    let result1 = "dotnet "
+    let str = "new " + templateShortName
+    //parameterList = [("-n", "myApp");("-lang", "F#");("--no-restore", false)]
+    let plist =
+      parameterList 
+      |> List.map ( fun (k,v) -> 
+               let asString = convertObjToString v
+               k,asString )
+
+    let str2 =
+      plist 
+      |> List.map ( fun(k,v) -> 
+                let theString = k + " " + v
+                theString )
+      |> String.concat " " 
+
+    let result2 = str + " " + str2 
+
+    (result1,result2)

@@ -94,6 +94,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | Fsdn querystr -> return! commands.Fsdn (querystr)
           | DotnetNewList filterstr -> return! commands.DotnetNewList (filterstr)
           | DotnetNewGetDetails filterstr -> return! commands.DotnetNewGetDetails (filterstr)
+          | DotnetNewCreateCli (templateShortName, parameterList) -> return! commands.DotnetNewCreateCli templateShortName parameterList 
           | Quit ->
               quit <- true
               return! commands.Quit()
