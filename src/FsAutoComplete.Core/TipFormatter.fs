@@ -1,4 +1,4 @@
-// --------------------------------------------------------------------------------------
+﻿// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -716,7 +716,23 @@ let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) 
             let doc = XmlDocument()
             doc.LoadXml(xml)
 
-            let xmlDoc = XmlDocMember(doc, 4, 0)
+            // This try to mimic how we found the indentation size when working a real XML file
+            let rec findIndentationSize (lines : string list) =
+                match lines with
+                | head::tail ->
+                    let lesserThanIndex = head.IndexOf("<")
+                    if lesserThanIndex <> - 1 then
+                        lesserThanIndex
+                    else
+                        findIndentationSize tail
+                | [] -> 0
+
+            let indentationSize =
+                s.Replace("\r\n", "\n").Split('\n')
+                |> Array.toList
+                |> findIndentationSize
+
+            let xmlDoc = XmlDocMember(doc, indentationSize, 0)
             xmlDoc.ToEnhancedString()
 
         with
