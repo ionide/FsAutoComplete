@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -163,11 +163,9 @@ module private Format =
                             "forceNoHighlight"
 
                     let formattedText =
-                        if innerText.Contains("\n")
-                            || innerText.Contains("\r\n") then
+                        if innerText.Contains("\n") then
 
-                            if innerText.StartsWith("\n")
-                                || innerText.StartsWith("\r\n") then
+                            if innerText.StartsWith("\n") then
 
                                 sprintf "```%s%s\n```" lang innerText
 
@@ -698,7 +696,6 @@ let private getXmlDoc dllFile =
             else
                 cnt
 
-        //   Debug.print "%s" cnt
           use stringReader = new StringReader(cnt)
           use reader = XmlReader.Create stringReader
           let xmlDoc = readXmlDoc reader 0 Map.empty
