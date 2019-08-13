@@ -692,6 +692,43 @@ let dotnetnewTest =
           Expect.equal r.Data.Detailed.Options.[0].ParameterName sampleTemplate.Options.[0].ParameterName (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
           Expect.equal r.Data.Detailed.Options.[0].ParameterType sampleTemplate.Options.[0].ParameterType (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
       ))
+
+      testCase "DotnetNewCreateCli on list" (serverTest (fun server ->
+        let p : DotnetNewCreateCliRequest = {
+            ShortName = "console"
+            Parameters = [("-n", "myApp" :> Object);("-lang", "F#":> Object);("--no-restore", false:> Object)]
+        }
+
+        let cmdName = "dotnet "
+        let paramStr = "new console -n myApp -lang F# --no-restore false"
+
+        let sampleTemplate1 : DotnetNewTemplate.Template = { Name = "Console Application";
+                                               ShortName = "console";
+                                               Language = [ DotnetNewTemplate.TemplateLanguage.CSharp; DotnetNewTemplate.TemplateLanguage.FSharp; DotnetNewTemplate.TemplateLanguage.VB ];
+                                               Tags = ["Common"; "Console"] }
+
+        let sampleTemplate2 : DotnetNewTemplate.DetailedTemplate = { TemplateName = "Console Application";
+                                                                    Author = "Microsoft";
+                                                                    TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
+                                                                    Options = 
+                                                                    [ { ParameterName = "--no-restore";
+                                                                        ShortName = "";
+                                                                        ParameterType = DotnetNewTemplate.TemplateParameterType.Bool;
+                                                                        ParameterDescription = "If specified, skips the automatic restore of the project on create.";
+                                                                        DefaultValue = "false / (*) true" }
+                                                                    ] }
+
+        let res = server.FSharpDotnetNewCreateCli p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok n ->
+          Expect.stringContains n.Content "Console Application" (sprintf "the Console Application is a valid response, but was %A" n)
+          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.DotnetNewCreateCliResponse>>(n.Content)
+          Expect.equal r.Kind "dotnetnewCreateCli" (sprintf "dotnetnewCreateCli response, but was %A, from json %A" r n)
+          Expect.equal r.Data.CommandName cmdName (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+          Expect.equal r.Data.ParameterStr paramStr (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
+      ))
+
     ]
 
 ///Global list of tests

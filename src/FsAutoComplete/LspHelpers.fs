@@ -498,6 +498,8 @@ type DotnetNewListRequest = { Query: string }
 
 type DotnetNewGetDetailsRequest = { Query: string }
 
+type DotnetNewCreateCliRequest = { ShortName: string; Parameters : (string*obj) list }
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option

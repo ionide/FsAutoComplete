@@ -31,7 +31,11 @@ type Tests () =
         let cmd = CommandInput.parseCommand input
         Assert.IsTrue((cmd = WorkspaceLoad([| @"sample2/c2/c2.fsproj"; @"c:\sample2\c2\c2.fsproj" |])), sprintf "but was %A" cmd)
 
-
+    [<Test>]
+    member this.``dotnet new create cli`` () =
+        let input = "dotnetnewCreateCli \"console\" \"-n\" \"MyApp\" \"-lang\" \"F#\" \"--no-restore\" \"false\""
+        let cmd = CommandInput.parseCommand input
+        Assert.AreEqual((cmd = DotnetNewCreateCli(@"console", [(@"-n", @"MyApp" :> System.Object);(@"-lang",@"F#" :> System.Object);(@"--no-restore",false :> System.Object);])), sprintf "but was %A" cmd)
 
     [<Test>]
     member this. ``activePatternCracking`` () =
