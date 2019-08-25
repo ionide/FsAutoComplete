@@ -61,7 +61,6 @@ module Options =
       | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | Mode of TransportMode
-      | Port of tcp_port:int
       | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
       with
           interface IArgParserTemplate with
@@ -75,7 +74,6 @@ module Options =
                   | Commands -> "list the commands that this program understands"
                   | WaitForDebugger _ -> "wait for a debugger to attach to the process"
                   | HostPID _ -> "the Host process ID."
-                  | Port _ -> "the listening port."
                   | Mode _ -> "the transport type."
                   | BackgroundServiceEnabled -> "enable background service"
 
@@ -101,8 +99,7 @@ module Options =
       | WaitForDebugger
       | BackgroundServiceEnabled
       | HostPID _
-      | Mode _
-      | Port _ ->
+      | Mode _ ->
           ()
 
     args.GetAllResults()
