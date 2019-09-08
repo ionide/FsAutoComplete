@@ -1162,7 +1162,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                                   Command = None}
 
                                             )
-                                        [yield! quals; yield! ops]
+                                        [yield! ops; yield! quals; ]
                                     | _ -> []
                                 return res
                             }
@@ -1621,7 +1621,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         return res
     }
-    
+
     member x.FSharpHelp(p: TextDocumentPositionParams) =
         Debug.print "[LSP call] FSharpHelp"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
