@@ -5,16 +5,16 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 nuget Argu ~> 5.2.0
-nuget FSharp.Compiler.Service ~> 29.0
-nuget Dotnet.ProjInfo ~> 0.35.0
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.35.0
+nuget FSharp.Compiler.Service ~> 30.0
+nuget Dotnet.ProjInfo ~> 0.36.0
+nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.36.0
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler 3.2.0.3856
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
-nuget Fake.Runtime 5.15.1-alpha.1104
-nuget FSharpLint.Core 0.12.1
+nuget Fake.Runtime prerelease
+nuget FSharpLint.Core ~> 0.12.2
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
@@ -23,7 +23,7 @@ nuget Microsoft.Data.Sqlite
 nuget FSharp.Analyzers.SDK
 nuget System.Configuration.ConfigurationManager
 
-nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true
+nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true, strategy:min
 
 group Build
   framework: net45

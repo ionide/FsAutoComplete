@@ -10,6 +10,8 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let logger = Expecto.Logging.Log.create "LSPTests"
+
 let createServer () =
   let event = Event<string * obj> ()
   let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
@@ -114,8 +116,17 @@ let clientCaps : ClientCapabilities =
     TextDocument = Some textCaps
     Experimental = None}
 
-let serverTest path (config: FSharpConfigDto) ts  : Test=
+open Expecto.Logging
+open Expecto.Logging.Message
+
+let logEvent n =
+  logger.debug (eventX "event: {e}" >> setField "e" n)
+
+let serverInitialize path (config: FSharpConfigDto) =
   let server, event = createServer()
+
+  event.Publish
+  |> Event.add logEvent
 
   let p : InitializeParams =
       { ProcessId = Some 1
@@ -128,7 +139,7 @@ let serverTest path (config: FSharpConfigDto) ts  : Test=
   let result = server.Initialize p |> Async.RunSynchronously
   match result with
   | Result.Ok res ->
-    ts (server, event)
+    (server, event)
   | Result.Error e ->
     failwith "Initialization failed"
 
@@ -140,9 +151,21 @@ let loadDocument path : TextDocumentItem =
 
 let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
   event.Publish
+  |> Event.map (fun n -> System.Diagnostics.Debug.WriteLine(sprintf "n: %A" n); n)
   |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
   |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
-  |> Event.filter (fun o -> o.Content.Contains "workspaceLoad" && o.Content.Contains "finished")
+  |> Event.filter (fun o -> (o.Content.Contains "error") || (o.Content.Contains "workspaceLoad" && o.Content.Contains "finished"))
   |> Async.AwaitEvent
   |> Async.RunSynchronously
-  |> ignore
+  |> fun o ->
+        if o.Content.Contains """{"Kind":"error","""
+        then failtestf "error loading project: %A" o
+
+let expectExitCodeZero (exitCode, _) =
+  Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
+
+let dotnetCleanup baseDir =
+  ["obj"; "bin"]
+  |> List.map (fun f -> Path.Combine(baseDir, f))
+  |> List.filter Directory.Exists
+  |> List.iter (fun path -> Directory.Delete(path, true))

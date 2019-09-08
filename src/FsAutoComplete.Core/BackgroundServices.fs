@@ -53,7 +53,7 @@ let client =
     if Utils.runningOnMono then
         Client.Client("mono", Path.Combine(p, "fsautocomplete.backgroundservices.exe")+ " " + pid, notificationsHandler)
     else
-        Client.Client(Path.Combine(p, "fsautocomplete.backgroundservices.dll"), pid, notificationsHandler)
+        Client.Client(Path.Combine(p, "fsautocomplete.backgroundservices.exe"), pid, notificationsHandler)
     #endif
 
 let start () =

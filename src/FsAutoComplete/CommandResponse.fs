@@ -4,7 +4,6 @@ open System
 
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
-open FSharpLint.Application
 open System.Text.RegularExpressions
 open FSharp.Analyzers
 open FsAutoComplete.WorkspacePeek
@@ -129,12 +128,20 @@ module CommandResponse =
       Logs: Map<string, string>
       OutputType: ProjectOutputType
       Info: ProjectResponseInfo
+      Items: List<ProjectResponseItem>
       AdditionalInfo: Map<string, string>
     }
   and ProjectOutputType =
     | Library
     | Exe
     | Custom of string
+  and ProjectResponseItem =
+    {
+      Name: string
+      FilePath: string
+      VirtualPath: string
+      Metadata: Map<string, string>
+    }
 
   type OverloadDescription =
     {
@@ -327,6 +334,7 @@ module CommandResponse =
   type SignatureData = {
     OutputType : string
     Parameters : Parameter list list
+    Generics : string list
   }
 
   type UnusedDeclaration = {
@@ -420,7 +428,12 @@ module CommandResponse =
   }
 
   type DotnetNewGetDetailsResponse = {
-    Detailed : DotnetNewTemplate.DetailedTemplate 
+    Detailed : DotnetNewTemplate.DetailedTemplate
+  }
+
+  type DotnetNewCreateCliResponse = {
+    CommandName : string
+    ParameterStr : string
   }
 
   let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
@@ -445,7 +458,7 @@ module CommandResponse =
     let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
     serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), additionals) =
+  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), projectItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, additionals) =
     let projectInfo =
       match extra.ProjectSdkType with
       | Dotnet.ProjInfo.Workspace.ProjectSdkType.Verbose _ ->
@@ -467,6 +480,14 @@ module CommandResponse =
             | _ -> None
           IsPublishable = info.IsPublishable
         }
+    let mapItemResponse (p: Dotnet.ProjInfo.Workspace.ProjectViewerItem) : ProjectResponseItem =
+      match p with
+      | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (fullpath, extraInfo) ->
+        { ProjectResponseItem.Name = "Compile"
+          ProjectResponseItem.FilePath = fullpath
+          ProjectResponseItem.VirtualPath = extraInfo.Link
+          ProjectResponseItem.Metadata = Map.empty }
+
     let projectData =
       { Project = projectFileName
         Files = projectFiles
@@ -479,6 +500,7 @@ module CommandResponse =
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Exe -> Exe
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
+        Items = projectItems |> List.map mapItemResponse
         AdditionalInfo = additionals }
     serialize { Kind = "project"; Data = projectData }
 
@@ -618,11 +640,11 @@ module CommandResponse =
       }
     serialize { Kind = "symbolimplementation"; Data = su }
 
-  let signatureData (serialize : Serializer) ((typ, parms) : string * ((string * string) list list) ) =
+  let signatureData (serialize : Serializer) ((typ, parms, generics) : string * ((string * string) list list) * string list) =
     let pms =
       parms
       |> List.map (List.map (fun (n, t) -> { Name= n; Type = t }))
-    serialize { Kind = "signatureData"; Data = { Parameters = pms; OutputType = typ } }
+    serialize { Kind = "signatureData"; Data = { Parameters = pms; OutputType = typ; Generics = generics } }
 
   let help (serialize : Serializer) (data : string) =
     serialize { Kind = "help"; Data = data }
@@ -638,6 +660,11 @@ module CommandResponse =
   let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate) =
     let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }
     serialize { Kind = "dotnetnewgetDetails"; Data = data }
+
+  let dotnetnewCreateCli (serialize : Serializer) (commandName : string, parameterStr : string) =
+    serialize { Kind = "dotnetnewCreateCli"; 
+                Data = { CommandName = commandName
+                         ParameterStr = parameterStr} }
 
   let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
       serialize {  Kind = "method"
@@ -729,21 +756,9 @@ module CommandResponse =
   let message (serialize : Serializer) (kind: string, data: 'a) =
     serialize { Kind = kind; Data = data }
 
-  let lint (serialize : Serializer) (warnings : LintWarning.Warning list) =
+  let lint (serialize : Serializer) (warnings : Lint.EnrichedLintWarning list) =
 
-    /// strip the fsharp lint warning code, in the format `FS01234: info"`
-    let removeLinterCode (s: string) =
-      let index = s.IndexOf(":")
-      if index > 0 && (index + 2) < s.Length then
-        s.Substring(index + 2)
-      else
-        s
-
-    let data =
-      warnings
-      |> List.map (fun w -> { w with Info = removeLinterCode w.Info })
-      |> List.toArray
-
+    let data = warnings |> List.map (fun w -> w.Warning) |> List.toArray
     serialize { Kind = "lint"; Data = data }
 
 
@@ -846,7 +861,7 @@ module CommandResponse =
 
   let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
      serialize targets
-  
+
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
 
@@ -859,8 +874,8 @@ module CommandResponse =
       helpText s (name, tip, additionalEdit)
     | CoreResponse.HelpTextSimple(name, tip) ->
       helpTextSimple s (name, tip)
-    | CoreResponse.Project(projectFileName, projectFiles, outFileOpt, references, logMap, extra, additionals) ->
-      project s (projectFileName, projectFiles, outFileOpt, references, logMap, extra, additionals)
+    | CoreResponse.Project(projectFileName, projectFiles, outFileOpt, references, logMap, extra, projectItems, additionals) ->
+      project s (projectFileName, projectFiles, outFileOpt, references, logMap, extra, projectItems, additionals)
     | CoreResponse.ProjectError(errorDetails) ->
       projectError s errorDetails
     | CoreResponse.ProjectLoading(projectFileName) ->
@@ -875,8 +890,8 @@ module CommandResponse =
       symbolUse s (symbol, uses)
     | CoreResponse.SymbolUseImplementation(symbol, uses) ->
       symbolImplementation s (symbol, uses)
-    | CoreResponse.SignatureData(typ, parms) ->
-      signatureData s (typ, parms)
+    | CoreResponse.SignatureData(typ, parms, generics) ->
+      signatureData s (typ, parms, generics)
     | CoreResponse.Help(data) ->
       help s data
     | CoreResponse.Methods(meth, commas) ->
@@ -932,5 +947,6 @@ module CommandResponse =
     | CoreResponse.FakeRuntime(runtimePath) ->
       fakeRuntime s runtimePath
     | CoreResponse.DotnetNewList (installedTemplate) -> dotnetnewlist s installedTemplate
-    | CoreResponse.DotnetNewGetDetails (detailedTemplate) -> 
+    | CoreResponse.DotnetNewGetDetails (detailedTemplate) ->
       dotnetnewgetDetails s detailedTemplate
+    | CoreResponse.DotnetNewCreateCli (commandName,parameterStr) -> dotnetnewCreateCli s (commandName, parameterStr)

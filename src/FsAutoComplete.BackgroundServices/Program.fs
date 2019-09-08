@@ -57,14 +57,19 @@ module Helpers =
             Tags = None
         }
 
+    /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
+    /// modified slightly to not rely on the System.Path members because they vary per-platform
     let filePathToUri (filePath: string): DocumentUri =
         let uri = StringBuilder(filePath.Length)
         for c in filePath do
             if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                c = '+' || c = '/' || c = ':' || c = '.' || c = '-' || c = '_' || c = '~' ||
+                c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
                 c > '\xFF' then
                 uri.Append(c) |> ignore
-            else if c = Path.DirectorySeparatorChar || c = Path.AltDirectorySeparatorChar then
+            // handle windows path separator chars.
+            // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
+            // logic to work cross-platform (for tests)
+            else if c = '\\' then
                 uri.Append('/') |> ignore
             else
                 uri.Append('%') |> ignore
@@ -88,7 +93,7 @@ type FsacClient(sendServerRequest: ClientNotificationSender) =
 type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
 
-    let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false)
+    let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = true)
     let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
 
     do checker.ImplicitlyStartBackgroundWork <- false

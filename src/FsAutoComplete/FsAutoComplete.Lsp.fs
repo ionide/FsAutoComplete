@@ -161,15 +161,27 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
                     let fs =
-                        warnings |> List.choose (fun n ->
-                            n.Fix
-                            |> Option.map (fun f -> (fcsRangeToLsp n.Range), {Range = fcsRangeToLsp f.FromRange; NewText = f.ToText})
+                        warnings |> List.choose (fun w ->
+                            w.Warning.Fix
+                            |> Option.map (fun f ->
+                                let range = fcsRangeToLsp w.Warning.Range
+                                range, {Range = range; NewText = f.ToText})
                         )
 
                     fixes.[uri] <- fs
                     let diags =
-                        warnings |> List.map(fun (n: Warning) ->
-                            {Diagnostic.Range = fcsRangeToLsp n.Range; Code = None; Severity = Some DiagnosticSeverity.Information; Source = "F# Linter"; Message = "Lint: " + n.Info; RelatedInformation = Some [||]; Tags = None })
+                        warnings |> List.map(fun w ->
+                            // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
+                            // neither the Message or the RelatedInformation structures support markdown.
+                            let range = fcsRangeToLsp w.Warning.Range
+                            { Diagnostic.Range = range
+                              Code = w.Code |> Option.map (sprintf "FS%04d") // '04' says to pad with '0' up to '4' digits in width. (we're recreating the F#Lint display numbers here)
+                              Severity = Some DiagnosticSeverity.Information
+                              Source = "F# Linter"
+                              Message = w.Warning.Info
+                              RelatedInformation = None
+                              Tags = None }
+                        )
                         |> List.toArray
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -267,6 +279,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         let c =
             p.InitializationOptions
+            |> Option.bind (fun options -> if options.HasValues then Some options else None)
             |> Option.map Server.deserialize<FSharpConfigDto>
             |> Option.map FSharpConfig.FromDto
             |> Option.getOrElse FSharpConfig.Default
@@ -1150,7 +1163,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                                   Command = None}
 
                                             )
-                                        [yield! quals; yield! ops]
+                                        [yield! ops; yield! quals; ]
                                     | _ -> []
                                 return res
                             }
@@ -1236,7 +1249,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async {
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
-                let file = (normalizeDocumentUri data.[0]).LocalPath
+                let file = fileUriToLocalPath data.[0]
                 Debug.print "[LSP] CodeLensResolve - Position request: %s at %A" file pos
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
@@ -1282,7 +1295,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             Debug.print "[LSP] CodeLensResolve - error: %s" msg
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
-                        | CoreResponse.SignatureData (typ, parms) ->
+                        | CoreResponse.SignatureData (typ, parms, _) ->
                             let formatted = SigantureData.formatSignature typ parms
                             let cmd = {Title = formatted; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
@@ -1422,8 +1435,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match res.[0] with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
-                    | CoreResponse.SignatureData (typ, parms) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                    | CoreResponse.SignatureData (typ, parms, generics) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
                         |> success
                     | _ -> LspResult.notImplemented
 
@@ -1440,8 +1453,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match res.[0] with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
-                    | CoreResponse.SignatureData (typ, parms) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                    | CoreResponse.SignatureData (typ, parms, generics) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
                         |> success
                     | _ -> LspResult.notImplemented
 
@@ -1473,8 +1486,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match res.[0] with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
-                    | CoreResponse.SignatureData(typ, parms) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms) }
+                    | CoreResponse.SignatureData(typ, parms, generics) ->
+                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
                         |> success
                     | _ -> LspResult.notImplemented
 
@@ -1554,8 +1567,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.Project (fn, files, outFile, refs, logMap, extra, adds) ->
-                { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson (fn, files, outFile, refs, logMap, extra, adds) }
+            | CoreResponse.Project (fn, files, outFile, refs, logMap, extra, projItems, adds) ->
+                { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson (fn, files, outFile, refs, logMap, extra, projItems, adds) }
                 |> success
             | CoreResponse.ProjectError er ->
                 { Content =  CommandResponse.projectError FsAutoComplete.JsonSerializer.writeJson er }
@@ -1574,6 +1587,36 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 LspResult.internalError msg
             | CoreResponse.Fsdn (funcs) ->
                 { Content = CommandResponse.fsdn FsAutoComplete.JsonSerializer.writeJson funcs }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
+    member __.FSharpDotnetNewList(p: DotnetNewListRequest) = async {
+        Debug.print "[LSP call] FSharpDotnetNewList"
+        let! res = commands.DotnetNewList p.Query
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.DotnetNewList (funcs) ->
+                { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
+                |> success
+            | _ -> LspResult.notImplemented
+
+        return res
+    }
+
+    member __.FSharpDotnetNewGetDetails(p: DotnetNewGetDetailsRequest) = async {
+        Debug.print "[LSP call] FSharpDotnetNewGetDetails"
+        let! res = commands.DotnetNewGetDetails p.Query
+        let res =
+            match res.[0] with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.DotnetNewGetDetails (funcs) ->
+                { Content = CommandResponse.dotnetnewgetDetails FsAutoComplete.JsonSerializer.writeJson funcs }
                 |> success
             | _ -> LspResult.notImplemented
 
@@ -1680,6 +1723,8 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/workspacePeek" (requestHandling (fun s p -> s.FSharpWorkspacePeek(p) ))
         |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))
         |> Map.add "fsharp/fsdn" (requestHandling (fun s p -> s.FSharpFsdn(p) ))
+        |> Map.add "fsharp/dotnetnewlist" (requestHandling (fun s p -> s.FSharpDotnetNewList(p) ))
+        |> Map.add "fsharp/dotnetnewgetDetails" (requestHandling (fun s p -> s.FSharpDotnetNewGetDetails(p) ))
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))

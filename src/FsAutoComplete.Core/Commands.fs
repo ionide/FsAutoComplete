@@ -3,7 +3,6 @@ namespace FsAutoComplete
 open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
-open FSharpLint.Application
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
 open FsAutoComplete.InterfaceStubGenerator
@@ -20,7 +19,7 @@ type CoreResponse =
     | ErrorRes of text: string
     | HelpText of name: string * tip: FSharpToolTipText * additionalEdit: (string * int * int * string) option
     | HelpTextSimple of name: string * tip: string
-    | Project of projectFileName: ProjectFilePath * projectFiles: List<SourceFilePath> * outFileOpt : string option * references : ProjectFilePath list * logMap : Map<string,string> * extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * additionals : Map<string,string>
+    | Project of projectFileName: ProjectFilePath * projectFiles: List<SourceFilePath> * outFileOpt : string option * references : ProjectFilePath list * logMap : Map<string,string> * extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * projectItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list * additionals : Map<string,string>
     | ProjectError of errorDetails: GetProjectOptionsErrors
     | ProjectLoading of projectFileName: ProjectFilePath
     | WorkspacePeek of found: WorkspacePeek.Interesting list
@@ -28,7 +27,7 @@ type CoreResponse =
     | Completion of decls: FSharpDeclarationListItem[] * includeKeywords: bool
     | SymbolUse of symbol: FSharpSymbolUse * uses: FSharpSymbolUse[]
     | SymbolUseImplementation of symbol: FSharpSymbolUse * uses: FSharpSymbolUse[]
-    | SignatureData of typ: string * parms: (string * string) list list
+    | SignatureData of typ: string * parms: (string * string) list list * generics : string list
     | Help of data: string
     | Methods of meth: FSharpMethodGroup * commas: int
     | Errors of errors: FSharpErrorInfo[] * file: string
@@ -41,7 +40,7 @@ type CoreResponse =
     | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
     | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
-    | Lint of file: string * warnings: LintWarning.Warning list
+    | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | ResolveNamespaces of word: string * opens: (string * string * InsertContext * bool) list * qualifies: (string * string) list
     | UnionCase of text: string * position: pos
     | RecordStub of text: string * position: pos
@@ -58,7 +57,8 @@ type CoreResponse =
     | FakeTargets of result: FakeSupport.GetTargetsResult
     | FakeRuntime of runtimePath: string
     | DotnetNewList of Template list
-    | DotnetNewGetDetails of DetailedTemplate 
+    | DotnetNewGetDetails of DetailedTemplate
+    | DotnetNewCreateCli of commandName: string * parameterStr: string
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
@@ -127,7 +127,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let parseErrors = parseAndCheck.GetCheckResults.Errors
                 let errors =
                     Array.append checkErrors parseErrors
-                    |> Array.distinct
+                    |> Array.distinctBy (fun e -> e.Severity, e.ErrorNumber, e.StartLineAlternate, e.StartColumn, e.EndLineAlternate, e.EndColumn, e.Message)
                 CoreResponse.Errors (errors, file)
                 |> NotificationEvent.ParseError
                 |> notify.Trigger
@@ -226,10 +226,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         } |> Async.Start
 
     let onProjectLoaded projectFileName (response: ProjectCrackerCache) =
-        for file in response.Files do
+        for file in response.Items |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p) do
             state.FileCheckOptions.[file] <- normalizeOptions response.Options
 
-        response.Files
+        response.Items
+        |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
         |> parseFilesInTheBackground
         |> Async.Start
 
@@ -283,7 +284,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             let results = DotnetNewTemplate.dotnetnewgetDetails filterstr
             return [ CoreResponse.DotnetNewGetDetails results ]
         }
-    
+
+    member x.DotnetNewCreateCli (templateShortName : string) (parameterStr : (string * obj) list) = async {
+            let results = DotnetNewTemplate.dotnetnewCreateCli templateShortName parameterStr
+            return [ CoreResponse.DotnetNewCreateCli results ]
+        }
+
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse list>) =
         let cts = new CancellationTokenSource()
         state.AddCancellationToken(filename, cts)
@@ -400,18 +406,23 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
 
-    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projectFiles, logMap) =
+    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projViewerItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, logMap) =
         let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
-        let projectFiles = projectFiles |> List.map (Path.GetFullPath >> Utils.normalizePath)
+        let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath
+        let projViewerItemsNormalized =
+            projViewerItems
+            |> List.map (function
+                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, c) ->
+                    Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(fullPathNormalized p, c))
 
         let cached = {
             ProjectCrackerCache.Options = opts
-            Files = projectFiles
             OutFile = outFileOpt
             References = references
             Log = logMap
             ExtraInfo = extraInfo
+            Items = projViewerItemsNormalized
         }
 
         (opts.ProjectFileName, cached)
@@ -449,7 +460,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             match projResponse with
             | Result.Ok (projectFileName, response) ->
                 onProjectLoaded projectFileName response
-                [ CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty) ]
+                let responseFiles =
+                    response.Items
+                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+                [ CoreResponse.Project (projectFileName, responseFiles, response.OutFile, response.References, response.Log, response.ExtraInfo, response.Items, Map.empty) ]
             | Result.Error error ->
                 [ CoreResponse.ProjectError error ]
     }
@@ -693,74 +707,32 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member x.Lint (file: SourceFilePath) =
         let file = Path.GetFullPath file
         async {
-            let res =
-                match state.TryGetFileCheckerOptionsWithSource file with
-                | Error s -> [CoreResponse.ErrorRes s]
-                | Ok (options, source) ->
-                    let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
+            match state.TryGetFileCheckerOptionsWithSource file with
+            | Error s -> return [CoreResponse.ErrorRes s]
+            | Ok (options, source) ->
+                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
 
-                    match tyResOpt with
-                    | None -> [ CoreResponse.InfoRes "Cached typecheck results not yet available"]
-                    | Some tyRes ->
-                        match tyRes.GetAST with
-                        | None -> [ CoreResponse.InfoRes "Something went wrong during parsing"]
-                        | Some tree ->
-                            try
-                                let loadXmlConfig projectFilePath =
-                                    match FSharpLint.Application.XmlConfiguration.tryLoadConfigurationForProject projectFilePath with
-                                    | None -> Result.Ok None
-                                    | Some xmlConfig ->
-                                        { ConfigurationManager.Configuration.conventions = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertConventions
-                                          ConfigurationManager.Configuration.formatting = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertFormatting
-                                          ConfigurationManager.Configuration.hints = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertHints
-                                          ConfigurationManager.Configuration.ignoreFiles = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertIgnoreFiles
-                                          ConfigurationManager.Configuration.typography = xmlConfig |> FSharpLint.Application.XmlConfiguration.convertTypography }
-                                        |> Some
-                                        |> Result.Ok
-                                let loadJsonConfig projectFilePath =
-                                    match FSharpLint.Application.ConfigurationManagement.loadConfigurationForProject projectFilePath with
-                                    | ConfigurationManagement.ConfigurationResult.Success config ->
-                                        Result.Ok config
-                                    | ConfigurationManagement.ConfigurationResult.Failure errors ->
-                                        Result.Error errors
-                                let fsharpLintConfig =
-                                    // first we check if exists xml config (backward compatibility)
-                                    // after that if exists json config
-                                    match loadXmlConfig file with
-                                    | Result.Ok (Some config) ->
-                                        Result.Ok config
-                                    | Result.Ok None
-                                    | Result.Error _ ->
-                                        //TODO log xml config error
-                                        match loadJsonConfig file with
-                                        | Result.Ok config ->
-                                            Result.Ok config
-                                        | Result.Error e ->
-                                            Result.Error e
+                match tyResOpt with
+                | None -> return [CoreResponse.InfoRes "Cached typecheck results not yet available"]
+                | Some tyRes ->
+                    match tyRes.GetAST with
+                    | None -> return [CoreResponse.InfoRes "Something went wrong during parsing"]
+                    | Some tree ->
+                        try
+                            let fsharpLintConfig = Lint.tryLoadConfiguration file
+                            let opts =
+                                match fsharpLintConfig with
+                                | Ok config -> Some config
+                                | Error _ -> None
 
-                                let opts =
-                                    match fsharpLintConfig with
-                                    | Result.Ok config -> Some config
-                                    | Result.Error _ -> None
-
-                                let res =
-                                    Lint.lintParsedSource
-                                        { Lint.OptionalLintParameters.Default with Configuration = opts}
-                                        { Ast = tree
-                                          Source = source
-                                          TypeCheckResults = Some tyRes.GetCheckResults }
-                                let res' =
-                                    match res with
-                                    | LintResult.Failure _ -> [ CoreResponse.InfoRes "Something went wrong, linter failed"]
-                                    | LintResult.Success warnings ->
-                                        let res = CoreResponse.Lint (file,warnings)
-                                        notify.Trigger (NotificationEvent.Lint res)
-                                        [ res ]
-
-                                res'
-                            with _ex ->
-                                [ CoreResponse.InfoRes "Something went wrong during linter"]
-            return res
+                            match Lint.lintWithConfiguration opts tree source tyRes.GetCheckResults with
+                            | Error e -> return [CoreResponse.InfoRes e]
+                            | Ok enrichedWarnings ->
+                                let res = CoreResponse.Lint (file, enrichedWarnings)
+                                notify.Trigger (NotificationEvent.Lint res)
+                                return [res]
+                        with _ex ->
+                            return [CoreResponse.InfoRes "Something went wrong during linter"]
         } |> x.AsCancellable file
 
     member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: pos) (line: LineStr) =
@@ -957,7 +929,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
                 if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
                 projectLoadedSuccessfully projectFileName response
-                CoreResponse.Project (projectFileName, response.Files, response.OutFile, response.References, response.Log, response.ExtraInfo, Map.empty)
+
+                let responseFiles =
+                    response.Items
+                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+
+                CoreResponse.Project (projectFileName, responseFiles, response.OutFile, response.References, response.Log, response.ExtraInfo, projectFiles, Map.empty)
                 |> NotificationEvent.Workspace
                 |> notify.Trigger
             | WorkspaceProjectState.Failed (projectFileName, error) ->
@@ -991,13 +968,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     match Workspace.extractOptionsDPW fcsOpts with
                     | Ok optsDPW ->
                         let view = projViewer.Render optsDPW
-                        let projectFiles =
-                            view.Items
-                            |> List.map (fun item ->
-                                match item with
-                                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (path,_) -> path)
-
-                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
+                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap))
                     | Error _ ->
                         None //TODO not ignore the error
                 | Error _ ->

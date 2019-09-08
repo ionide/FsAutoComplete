@@ -91,7 +91,7 @@ let normalizeDirSeparators (path: string) =
   | '/' -> path.Replace('\\', '/')
   | _ -> path
 
-let projectOptionsToParseOptions checkOptions =
+let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 //TODO: Investigate why sometimes SourceFiles are not filled
   let files =
     match checkOptions.SourceFiles with
@@ -492,6 +492,15 @@ module String =
                 // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
                 yield String.Empty
         |]
+
+    type SplitResult =
+    | NoMatch
+    | Split of left: string * right: string
+
+    let splitAtChar (splitter: char) (s: string) =
+        match s.IndexOf splitter with
+        | -1 -> NoMatch
+        | n -> Split(s.[0..n-1], s.Substring(n+1))
 
 type ConcurrentDictionary<'key, 'value> with
     member x.TryFind key =

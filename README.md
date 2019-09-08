@@ -5,7 +5,7 @@
 
 The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or 'intellisense' features for editors.
 
-It can be hosted as command-line interface (`stdio` mode) or as http server (`http` mode), both using the same json protocol.
+It can be hosted as command-line interface (`stdio` mode) or using the Language Server Protocol (`lsp` mode).
 
 Currently it is used by:
 

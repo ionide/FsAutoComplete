@@ -230,7 +230,7 @@
     "Overloads": [
       [
         {
-          "Signature": "property Y.Another`Column: int",
+          "Signature": "property Y.Another`Column: int with get",
           "Comment": ""
         }
       ]
