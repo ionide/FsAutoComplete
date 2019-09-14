@@ -851,6 +851,29 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    override __.TextDocumentFormatting(p) = async {
+        // re-use existing untyped AST?
+
+        let doc = p.TextDocument
+        let fileName = doc.GetFilePath()
+        let source =
+            System.IO.File.ReadAllText(fileName) // TODO: how to properly get this?
+            |> Fantomas.SourceOrigin.SourceString
+        let parsingOptions: FSharpParsingOptions = failwith "???"
+        let checker : FSharpChecker = failwith "???"
+        let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(fileName,source, Fantomas.FormatConfig.FormatConfig.Default, parsingOptions, checker)
+        let range:Types.Range = failwith "total range of document?"
+        // compare formatted with original??
+        return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
+    }
+
+    override __.TextDocumentRangeFormatting(documentRangeFormattingParams) = async {
+        return failwith "meh"
+    }
+
+    override __.TextDocumentOnTypeFormatting(documentOnTypeFormattingParams) = async {
+        return failwith "Not sure why this one is necessary"
+    }
     member private x.HandleTypeCheckCodeAction file pos f =
         async {
                 return!
