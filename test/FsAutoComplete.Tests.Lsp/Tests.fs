@@ -501,6 +501,7 @@ let gotoTest =
         | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup") ->
           failtest "Should not generate the startup dummy file"
         | Result.Ok (Some (GotoResult.Single r)) ->
+          logger.debug (eventX "wrote external definition file to {location}" >> setField "location" r.Uri)
           Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
           Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
           () // should

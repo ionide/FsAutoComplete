@@ -9,7 +9,7 @@ nuget FSharp.Compiler.Service ~> 31.0
 nuget Dotnet.ProjInfo ~> 0.36.0
 nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.36.0
 nuget FSharp.Data 3.0.1
-nuget ICSharpCode.Decompiler 3.2.0.3856
+nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
