@@ -19,7 +19,10 @@ nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
 nuget Dapper
-nuget Microsoft.Data.Sqlite
+nuget Microsoft.Data.Sqlite 2.2.4
+nuget Microsoft.Data.Sqlite.Core 2.2.4
+nuget SQLitePCLRaw.bundle_green 1.1.14
+nuget SQLitePCLRaw.core 1.1.14
 nuget FSharp.Analyzers.SDK
 nuget System.Configuration.ConfigurationManager
 
