@@ -11,20 +11,20 @@ script:
 matrix:
   include:
     - mono: 5.18.0
-      dist: trusty
-      dotnet: 2.1.500
+      dist: xenial
+      dotnet: 2.1.801
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
     - mono: latest # => "stable release"
-      dist: trusty
-      dotnet: 2.1.500
+      dist: xenial
+      dotnet: 2.1.801
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
     - mono: weekly # => "latest commits"
-      dist: trusty
-      dotnet: 2.1.500
+      dist: xenial
+      dotnet: 2.1.801
       env:
         - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
         - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
