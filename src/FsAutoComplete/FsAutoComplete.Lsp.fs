@@ -871,10 +871,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let checker : FSharpChecker = commands.GetChecker()
             let! formatted =
                 Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
-                                                        Fantomas.SourceOrigin.SourceString source,
-                                                        Fantomas.FormatConfig.FormatConfig.Default,
-                                                        parsingOptions,
-                                                        checker)
+                                                           Fantomas.SourceOrigin.SourceString source,
+                                                           Fantomas.FormatConfig.FormatConfig.Default,
+                                                           parsingOptions,
+                                                           checker)
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
         | Result.Error er ->
