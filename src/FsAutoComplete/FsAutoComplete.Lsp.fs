@@ -852,18 +852,31 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentFormatting(p) = async {
-        // re-use existing untyped AST?
-
         let doc = p.TextDocument
         let fileName = doc.GetFilePath()
-        let source =
-            System.IO.File.ReadAllText(fileName) // TODO: how to properly get this?
-            |> Fantomas.SourceOrigin.SourceString
-        let parsingOptions: FSharpParsingOptions = failwithf "meh" //commands.P
+        let source, range =
+            let zero = { Line = 0; Character = 0 }
+            commands.Files.TryFind(p.TextDocument.Uri)
+            |> Option.map (fun { Lines = lines } ->
+                let endLine = Array.length lines - 1
+                let endCharacter =
+                    Array.tryLast lines
+                    |> Option.map (fun line -> line.Length - 1)
+                    |> Option.defaultValue 0
+                String.concat "\n" lines, { Start = zero; End = { Line = endLine; Character = endCharacter } }
+            )
+            |> Option.defaultValue (System.String.Empty, { Start = zero; End = zero })
+        let files = Array.singleton fileName
+
+        let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = files }
         let checker : FSharpChecker = commands.GetChecker()
-        let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(fileName,source, Fantomas.FormatConfig.FormatConfig.Default, parsingOptions, checker)
-        let range:Types.Range = failwith "total range of document?"
-        // compare formatted with original??
+        let! formatted =
+            Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
+                                                       Fantomas.SourceOrigin.SourceString source,
+                                                       Fantomas.FormatConfig.FormatConfig.Default,
+                                                       parsingOptions,
+                                                       checker)
+
         return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
     }
 
