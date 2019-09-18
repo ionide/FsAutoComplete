@@ -859,8 +859,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let source =
             System.IO.File.ReadAllText(fileName) // TODO: how to properly get this?
             |> Fantomas.SourceOrigin.SourceString
-        let parsingOptions: FSharpParsingOptions = failwith "???"
-        let checker : FSharpChecker = failwith "???"
+        let parsingOptions: FSharpParsingOptions = commands.P
+        let checker : FSharpChecker = commands.GetChecker()
         let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(fileName,source, Fantomas.FormatConfig.FormatConfig.Default, parsingOptions, checker)
         let range:Types.Range = failwith "total range of document?"
         // compare formatted with original??
