@@ -855,30 +855,30 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override __.TextDocumentFormatting(p) = async {
         let doc = p.TextDocument
         let fileName = doc.GetFilePath()
-        let source, range =
-            let zero = { Line = 0; Character = 0 }
-            commands.Files.TryFind(p.TextDocument.Uri)
-            |> Option.map (fun { Lines = lines } ->
+        match commands.TryGetFileCheckerOptionsWithLines fileName with
+        | Result.Ok (opts, lines) ->
+            let range =
+                let zero = { Line = 0; Character = 0 }
                 let endLine = Array.length lines - 1
                 let endCharacter =
                     Array.tryLast lines
-                    |> Option.map (fun line -> line.Length - 1)
+                    |> Option.map (fun line -> if line.Length = 0 then 0 else line.Length - 1)
                     |> Option.defaultValue 0
-                String.concat "\n" lines, { Start = zero; End = { Line = endLine; Character = endCharacter } }
-            )
-            |> Option.defaultValue (System.String.Empty, { Start = zero; End = zero })
-        let files = Array.singleton fileName
+                { Start = zero; End = { Line = endLine; Character = endCharacter } }
 
-        let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = files }
-        let checker : FSharpChecker = commands.GetChecker()
-        let! formatted =
-            Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
-                                                       Fantomas.SourceOrigin.SourceString source,
-                                                       Fantomas.FormatConfig.FormatConfig.Default,
-                                                       parsingOptions,
-                                                       checker)
+            let source = String.concat "\n" lines
+            let parsingOptions = Utils.projectOptionsToParseOptions opts
+            let checker : FSharpChecker = commands.GetChecker()
+            let! formatted =
+                Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
+                                                        Fantomas.SourceOrigin.SourceString source,
+                                                        Fantomas.FormatConfig.FormatConfig.Default,
+                                                        parsingOptions,
+                                                        checker)
 
-        return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
+            return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
+        | Result.Error er ->
+            return LspResult.notImplemented
     }
 
     override __.TextDocumentRangeFormatting(documentRangeFormattingParams) = async {
