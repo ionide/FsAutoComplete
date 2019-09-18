@@ -348,6 +348,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentSymbolProvider = Some true
                         WorkspaceSymbolProvider = Some true
                         DocumentFormattingProvider = Some true
+                        DocumentRangeFormattingProvider = Some true
                         SignatureHelpProvider = Some {
                             SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]
                         }
@@ -881,8 +882,27 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             return LspResult.notImplemented
     }
 
-    override __.TextDocumentRangeFormatting(documentRangeFormattingParams) = async {
-        return failwith "meh"
+    override __.TextDocumentRangeFormatting(p) = async {
+        let doc = p.TextDocument
+        let fileName = doc.GetFilePath()
+        match commands.TryGetFileCheckerOptionsWithLines fileName with
+        | Result.Ok (opts, lines) ->
+            let range = Fantomas.CodeFormatter.MakeRange(fileName, (p.Range.Start.Line + 1), (p.Range.Start.Character + 1), (p.Range.End.Line + 1), (p.Range.End.Character + 1))
+
+            let source = String.concat "\n" lines
+            let parsingOptions = Utils.projectOptionsToParseOptions opts
+            let checker : FSharpChecker = commands.GetChecker()
+            let! formatted =
+                Fantomas.CodeFormatter.FormatSelectionAsync(fileName,
+                                                            range,
+                                                            Fantomas.SourceOrigin.SourceString source,
+                                                            Fantomas.FormatConfig.FormatConfig.Default,
+                                                            parsingOptions,
+                                                            checker)
+
+            return LspResult.success(Some([| { Range = p.Range; NewText = formatted  } |]))
+        | Result.Error er ->
+            return LspResult.notImplemented
     }
 
     member private x.HandleTypeCheckCodeAction file pos f =
