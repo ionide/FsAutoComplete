@@ -165,18 +165,22 @@ let runall cfg =
     trace "Done Integration tests."
 
 Target "IntegrationTestStdioMode" (fun _ ->
-  trace "== Integration tests (stdio/net) =="
-  let cfg = { Runtime = NET }
-  listAll cfg
-  runall cfg
+  ignore()
+  // not doing these tests because they need to be migrated to LSP
+  // trace "== Integration tests (stdio/net) =="
+  // let cfg = { Runtime = NET }
+  // listAll cfg
+  // runall cfg
 )
 
 
 Target "IntegrationTestStdioModeNetCore" (fun _ ->
-  trace "== Integration tests (stdio/netcore) =="
-  let cfg = { Runtime = NETCoreFDD }
-  listAll cfg
-  runall cfg
+  ignore ()
+  // not doing these tests because they need to be migrated to LSP
+  // trace "== Integration tests (stdio/netcore) =="
+  // let cfg = { Runtime = NETCoreFDD }
+  // listAll cfg
+  // runall cfg
 )
 
 

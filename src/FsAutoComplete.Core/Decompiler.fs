@@ -5,10 +5,10 @@ open System.IO
 open FSharp.Compiler.SourceCodeServices
 open Utils
 open System.Text.RegularExpressions
-open Mono.Cecil
 open ICSharpCode.Decompiler.CSharp
 open ICSharpCode.Decompiler.CSharp.OutputVisitor
 open ICSharpCode.Decompiler
+open ICSharpCode.Decompiler.Metadata
 open ICSharpCode.Decompiler.TypeSystem
 open ICSharpCode.Decompiler.CSharp.Syntax
 open ICSharpCode.Decompiler.CSharp.Transforms
@@ -54,15 +54,16 @@ type TextWriterWithLocationFinder(tokenWriter:TextWriterTokenWriter, formattingP
 
     member __.MatchingLocation with get() = matchingLocation
 
-let decompileTypeAndFindLocation (typeSystem:DecompilerTypeSystem) (typeDefinition:ITypeDefinition) (symbol:ISymbol option) =
+let decompilerForFile (file: string) =
+    let settings = DecompilerSettings(CSharp.LanguageVersion.Latest, ThrowOnAssemblyResolveErrors = true)
+    let decompiler = CSharpDecompiler(file, settings)
+    decompiler.AstTransforms.Add(EscapeInvalidIdentifiers())
+    decompiler
+
+let decompileTypeAndFindLocation (decompiler: CSharpDecompiler) (typeDefinition:ITypeDefinition) (symbol:ISymbol option) =
     let sw = new StringWriter()
     let writerVisitor =
         TextWriterWithLocationFinder(TextWriterTokenWriter(sw), FormattingOptionsFactory.CreateSharpDevelop(), symbol)
-
-    let decompiler =
-        new CSharpDecompiler(typeSystem, new DecompilerSettings())
-
-    decompiler.AstTransforms.Add(new EscapeInvalidIdentifiers())
 
     let syntaxTree =
         typeDefinition.FullTypeName
@@ -71,14 +72,10 @@ let decompileTypeAndFindLocation (typeSystem:DecompilerTypeSystem) (typeDefiniti
     syntaxTree.AcceptVisitor(writerVisitor)
     sw.GetStringBuilder() |> string, writerVisitor.MatchingLocation
 
-let loadTypeSystem (assemblyPath:string) =
-    UniversalAssemblyResolver.LoadMainModule(assemblyPath,false, true)
-    |> DecompilerTypeSystem
-
-let resolveType (typeSystem:DecompilerTypeSystem) (typeName:string) =
+let resolveType (typeSystem: IDecompilerTypeSystem) (typeName:string) =
     typeName
     |> FullTypeName
-    |> typeSystem.MainAssembly.GetTypeDefinition
+    |> typeSystem.MainModule.GetTypeDefinition
 
 let rec formatExtTypeFullName externalType =
     match externalType with
@@ -137,13 +134,17 @@ let toSafeFileNameRegex =
     System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
 
 let toSafeFileName (typeDef:ITypeDefinition) =
-    let str = sprintf "%s %s.cs" typeDef.FullName typeDef.ParentAssembly.FullAssemblyName
+    let str = sprintf "%s %s.cs" typeDef.FullName typeDef.ParentModule.FullAssemblyName
     toSafeFileNameRegex.Replace(str, "_")
 
-let decompile (externalSym:ExternalSymbol) assemblyPath =
+type DecompileError =
+| Exception of symbol: ExternalSymbol * filePath: string * error: exn
+
+let decompile (externalSym: ExternalSymbol) assemblyPath: Result<ExternalContentPosition, DecompileError> =
     try
-        let typeSystem =
-            loadTypeSystem assemblyPath
+        let decompiler = decompilerForFile assemblyPath
+
+        let typeSystem = decompiler.TypeSystem
 
         let typeDef =
             getDeclaringTypeName externalSym
@@ -180,7 +181,7 @@ let decompile (externalSym:ExternalSymbol) assemblyPath =
 
 
         let (contents, location) =
-            decompileTypeAndFindLocation typeSystem typeDef symbol
+            decompileTypeAndFindLocation decompiler typeDef symbol
 
         let fileName = typeDef |> toSafeFileName
         let tempFile =
@@ -190,18 +191,28 @@ let decompile (externalSym:ExternalSymbol) assemblyPath =
 
         match location with
         | Some l ->
-            Some { File = tempFile
-                   Column = l.Column - 1
-                   Line = l.Line }
+            Ok { File = tempFile
+                 Column = l.Column - 1
+                 Line = l.Line }
         | None ->
-            Some { File = tempFile
-                   Column = 1
-                   Line = 1 }
+            Ok { File = tempFile
+                 Column = 1
+                 Line = 1 }
     with
-    | _ -> None
+    | e -> Result.Error (Exception (externalSym, assemblyPath, e))
 
-let tryFindExternalDeclaration (checkResults:FSharpCheckFileResults) (assembly, externalSym) =
-    checkResults.ProjectContext.GetReferencedAssemblies()
-    |> List.tryFind(fun x -> x.SimpleName = assembly)
-    |> Option.bind(fun x -> x.FileName)
-    |> Option.bind(decompile externalSym)
+type FindExternalDeclarationError =
+| ReferenceNotFound of assembly: string
+| ReferenceHasNoFileName of assembly: FSharpAssembly
+| DecompileError of error: DecompileError
+
+let tryFindExternalDeclaration (checkResults:FSharpCheckFileResults) (assembly, externalSym): Result<ExternalContentPosition, FindExternalDeclarationError> =
+    match
+        checkResults.ProjectContext.GetReferencedAssemblies()
+        |> List.tryFind(fun x -> x.SimpleName = assembly) with
+    | None -> Result.Error (ReferenceNotFound assembly)
+    | Some assembly when assembly.FileName = None -> Result.Error (ReferenceHasNoFileName assembly)
+    | Some assembly ->
+        match decompile externalSym assembly.FileName.Value with
+        | Error err -> Result.Error (DecompileError err)
+        | Ok result -> Ok result

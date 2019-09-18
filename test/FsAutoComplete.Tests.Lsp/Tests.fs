@@ -64,8 +64,11 @@ let basicTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
     let (server, event) = serverInitialize path defaultConfigDto
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "BasicTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
     )
@@ -90,7 +93,7 @@ let basicTests =
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
                     MarkedString.String ""
                     MarkedString.String "*Full name: Script.t*"
-                    MarkedString.String "*Assembly: Script*"|]
+                    MarkedString.String "*Assembly: BasicTest*"|]
 
             Expect.equal res.Contents expected "Hover test - simple symbol"
         ))
@@ -171,7 +174,9 @@ let codeLensTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
     let (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true}
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -237,7 +242,9 @@ let documentSymbolTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
     let (server, event) = serverInitialize path defaultConfigDto
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -265,7 +272,9 @@ let autocompleteTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
     let (server, event) = serverInitialize path defaultConfigDto
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -492,6 +501,7 @@ let gotoTest =
         | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup") ->
           failtest "Should not generate the startup dummy file"
         | Result.Ok (Some (GotoResult.Single r)) ->
+          logger.debug (eventX "wrote external definition file to {location}" >> setField "location" r.Uri)
           Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
           Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
           () // should
