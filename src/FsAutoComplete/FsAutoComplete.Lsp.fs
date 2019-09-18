@@ -859,7 +859,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let source =
             System.IO.File.ReadAllText(fileName) // TODO: how to properly get this?
             |> Fantomas.SourceOrigin.SourceString
-        let parsingOptions: FSharpParsingOptions = commands.P
+        let parsingOptions: FSharpParsingOptions = failwithf "meh" //commands.P
         let checker : FSharpChecker = commands.GetChecker()
         let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(fileName,source, Fantomas.FormatConfig.FormatConfig.Default, parsingOptions, checker)
         let range:Types.Range = failwith "total range of document?"
@@ -871,9 +871,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return failwith "meh"
     }
 
-    override __.TextDocumentOnTypeFormatting(documentOnTypeFormattingParams) = async {
-        return failwith "Not sure why this one is necessary"
-    }
     member private x.HandleTypeCheckCodeAction file pos f =
         async {
                 return!
