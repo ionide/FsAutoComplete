@@ -115,6 +115,7 @@ module SignatureFormatter =
                     match func.EnclosingEntitySafe with
                     | Some ent -> ent.DisplayName
                     | _ -> func.DisplayName
+                    |> PrettyNaming.QuoteIdentifierIfNeeded
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
                 else func.DisplayName
@@ -171,14 +172,17 @@ module SignatureFormatter =
             let allLengths =
                 argInfos
                 |> List.concat
-                |> List.map (fun p -> match p.Name with Some name -> name.Length | None -> p.DisplayName.Length)
+                |> List.map (fun p -> let name = Option.defaultValue p.DisplayName p.Name
+                                      let normalisedName = PrettyNaming.QuoteIdentifierIfNeeded name
+                                      normalisedName.Length )
             match allLengths with
             | [] -> 0
             | l -> l |> List.maxUnderThreshold maxPadding
 
         let formatName indent padding (parameter:FSharpParameter) =
-            let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
-            indent + name.PadRight padding + ":"
+            let name = Option.defaultValue parameter.DisplayName parameter.Name
+            let normalisedName = PrettyNaming.QuoteIdentifierIfNeeded name
+            indent + normalisedName.PadRight padding + ":"
 
         let isDelegate =
             match func.EnclosingEntitySafe with
@@ -358,8 +362,8 @@ module SignatureFormatter =
             else "val"
         let name =
             if v.DisplayName.StartsWith "( "
-            then PrettyNaming.QuoteIdentifierIfNeeded v.LogicalName
-            else v.DisplayName
+            then v.LogicalName else v.DisplayName
+            |> PrettyNaming.QuoteIdentifierIfNeeded
         let constraints =
             match v.FullTypeSafe with
             | Some fulltype when fulltype.IsGenericParameter ->
@@ -483,6 +487,7 @@ module SignatureFormatter =
 
         let typeDisplay =
             let name =
+                let normalisedName = PrettyNaming.QuoteIdentifierIfNeeded fse.DisplayName
                 if fse.GenericParameters.Count > 0 then
                     let paramsAndConstraints =
                         fse.GenericParameters
@@ -496,8 +501,9 @@ module SignatureFormatter =
                                              then "'" + name
                                              else sprintf "'%s (requires %s)" name renderedConstraints )
 
-                    fse.DisplayName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
-                else fse.DisplayName
+                    normalisedName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
+                else
+                    normalisedName
 
             let basicName = modifier + typeName ++ name
 
