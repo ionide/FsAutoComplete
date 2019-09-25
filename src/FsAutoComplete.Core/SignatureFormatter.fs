@@ -118,7 +118,7 @@ module SignatureFormatter =
                     |> PrettyNaming.QuoteIdentifierIfNeeded
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
-                else func.DisplayName
+                else PrettyNaming.QuoteIdentifierIfNeeded func.DisplayName
             name
 
         let modifiers =
@@ -502,8 +502,7 @@ module SignatureFormatter =
                                              else sprintf "'%s (requires %s)" name renderedConstraints )
 
                     normalisedName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
-                else
-                    normalisedName
+                else normalisedName
 
             let basicName = modifier + typeName ++ name
 
