@@ -32,22 +32,22 @@ module DocumentationFormatter =
             sprintf "<a href='command:fsharp.showDocumentation?%s'>%s</a>" cnt name, name.Length
 
 
-    let rec format dispalyContext (typ : FSharpType) : (string * int) =
+    let rec format displayContext (typ : FSharpType) : (string * int) =
         let typ2 = if typ.IsAbbreviation then typ.AbbreviatedType else typ
         // let typ2 = match typ.BaseType with | Some typ -> typ |_ -> typ
         // let typ2 = typ
-        let t =
+        let typeName =
             try
                 if typ.IsTupleType || typ.IsStructTupleType then
                     typ.GenericArguments
-                    |> Seq.map (format dispalyContext >> fst)
+                    |> Seq.map (format displayContext >> fst)
                     |> String.concat " * "
                 elif typ.GenericArguments.Count > 0 then
                     let r =
                         typ.GenericArguments
-                        |> Seq.map (format dispalyContext >> fst)
+                        |> Seq.map (format displayContext >> fst)
                         |> String.concat ","
-                    let org = typ.Format dispalyContext
+                    let org = typ.Format displayContext
                     let t = Regex.Replace(org, """<.*>""", sprintf "<%s>" r)
                     let t = Regex.Replace(t, """(.*?) list""", sprintf "List<%s>" r)
                     let t = Regex.Replace(t, """(.*?) option""", sprintf "Option<%s>" r)
@@ -59,10 +59,10 @@ module DocumentationFormatter =
                 elif typ.IsGenericParameter then
                     (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
                 else
-                    typ.Format dispalyContext
+                    typ.Format displayContext |> PrettyNaming.QuoteIdentifierIfNeeded
             with
-            | _ -> typ.Format dispalyContext
-        let ft =
+            | _ -> typ.Format displayContext
+        let xmlDocSig =
             try
                 if typ2.HasTypeDefinition then
                     typ2.TypeDefinition.XmlDocSig
@@ -70,7 +70,7 @@ module DocumentationFormatter =
                     "-"
             with
             | _ -> "-"
-        let a =
+        let assemblyName =
             try
                 if typ2.IsGenericParameter then
                     "-"
@@ -78,7 +78,7 @@ module DocumentationFormatter =
                     typ2.TypeDefinition.Assembly.SimpleName
             with
             | _ -> "-"
-        formatLink t ft a
+        formatLink typeName xmlDocSig assemblyName
 
     and formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
@@ -178,9 +178,10 @@ module DocumentationFormatter =
                     match func.EnclosingEntitySafe with
                     | Some ent -> ent.DisplayName
                     | _ -> func.DisplayName
+                    |> PrettyNaming.QuoteIdentifierIfNeeded
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
-                else func.DisplayName
+                else PrettyNaming.QuoteIdentifierIfNeeded func.DisplayName
             name
 
         let modifiers =
@@ -234,14 +235,17 @@ module DocumentationFormatter =
             let allLengths =
                 argInfos
                 |> List.concat
-                |> List.map (fun p -> match p.Name with Some name -> name.Length | None -> p.DisplayName.Length)
+                |> List.map (fun p -> let name = Option.defaultValue p.DisplayName p.Name
+                                      let normalisedName = PrettyNaming.QuoteIdentifierIfNeeded name
+                                      normalisedName.Length)
             match allLengths with
             | [] -> 0
             | l -> l |> List.maxUnderThreshold maxPadding
 
         let formatName indent padding (parameter:FSharpParameter) =
-            let name = match parameter.Name with Some name -> name | None -> parameter.DisplayName
-            indent + name.PadRight padding + ":"
+            let name = Option.defaultValue parameter.DisplayName parameter.Name
+            let normalisedName = PrettyNaming.QuoteIdentifierIfNeeded name
+            indent + normalisedName.PadRight padding + ":"
 
         let isDelegate =
             match func.EnclosingEntitySafe with
@@ -405,8 +409,8 @@ module DocumentationFormatter =
             else "val"
         let name =
             if v.DisplayName.StartsWith "( "
-            then PrettyNaming.QuoteIdentifierIfNeeded v.LogicalName
-            else v.DisplayName
+            then v.LogicalName else v.DisplayName
+            |> PrettyNaming.QuoteIdentifierIfNeeded
         let constraints =
             match v.FullTypeSafe with
             | Some fulltype when fulltype.IsGenericParameter ->
@@ -566,6 +570,7 @@ module DocumentationFormatter =
 
         let typeDisplay =
             let name =
+                let normalisedName = PrettyNaming.QuoteIdentifierIfNeeded fse.DisplayName
                 if fse.GenericParameters.Count > 0 then
                     let paramsAndConstraints =
                         fse.GenericParameters
@@ -579,8 +584,8 @@ module DocumentationFormatter =
                                              then "'" + name
                                              else sprintf "'%s (requires %s)" name renderedConstraints )
 
-                    fse.DisplayName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
-                else fse.DisplayName
+                    normalisedName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
+                else normalisedName
 
             let basicName = modifier + (typeName fse) ++ name
 
