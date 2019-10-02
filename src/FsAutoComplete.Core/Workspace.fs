@@ -32,15 +32,13 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBind
             fcsBinder.GetProjectOptions (projectFileName)
             |> Result.bind (fun po ->
                 extractOptionsDPW po
-                |> Result.map (fun optsDPW ->
+                |> Result.bind (fun optsDPW ->
                     let logMap = [ projectFileName, "" ] |> Map.ofList
                     let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
                     let view = projViewer.Render optsDPW
-                    let items = 
+                    let items =
                         if obj.ReferenceEquals(view.Items, null) then [] else view.Items
-                    Result.Ok (po, optsDPW, items, logMap)
-            | None -> 
-                Error (GenericError(projectFileName, (sprintf "Project file '%s' parsing failed" projectFileName)))
+                    Result.Ok (po, optsDPW, items, logMap)))
         | NetCoreProjectJson ->
             Error (GenericError(projectFileName, (sprintf "Project file '%s' format project.json not supported" projectFileName)))
         | FSharpNetSdk ->
