@@ -2,20 +2,21 @@ version 5.201.1
 
 framework: net461, netstandard2.0, netcoreapp2.1
 source https://api.nuget.org/v3/index.json
+source ./lib
 storage: none
 
 nuget Argu ~> 5.2.0
 nuget Fantomas 3.0.0-beta-006
 nuget FSharp.Compiler.Service ~> 32.0
-nuget Dotnet.ProjInfo ~> 0.36.0
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.36.0
+nuget Dotnet.ProjInfo ~> 0.37.0 prerelease
+nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.37.0 prerelease
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
-nuget FSharpLint.Core ~> 0.12.2
+nuget FSharpLint.Core ~> 0.12.3 prerelease
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
