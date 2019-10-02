@@ -82,14 +82,17 @@ module CommandResponse =
     | GenericError = 1
     | ProjectNotRestored = 100
     | ProjectParsingFailed = 101
+    | GenericProjectError = 102
 
   [<RequireQualifiedAccess>]
   type ErrorData =
     | GenericError
     | ProjectNotRestored of ProjectNotRestoredData
     | ProjectParsingFailed of ProjectParsingFailedData
+    | GenericProjectError of ProjectData
   and ProjectNotRestoredData = { Project: ProjectFilePath }
   and ProjectParsingFailedData = { Project: ProjectFilePath }
+  and ProjectData = { Project: ProjectFilePath }
 
   [<RequireQualifiedAccess>]
   type ProjectResponseInfo =
@@ -440,6 +443,7 @@ module CommandResponse =
         serialize { Kind = "error"; Data = { Code = (int code); Message = message; AdditionalData = data }  }
     match errorData with
     | ErrorData.GenericError -> ser (ErrorCodes.GenericError) (obj())
+    | ErrorData.GenericProjectError d -> ser (ErrorCodes.GenericProjectError) d
     | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d
     | ErrorData.ProjectParsingFailed d -> ser (ErrorCodes.ProjectParsingFailed) d
 
@@ -501,9 +505,31 @@ module CommandResponse =
     serialize { Kind = "project"; Data = projectData }
 
   let projectError (serialize : Serializer) errorDetails =
+    let rec getMessageLines errorDetails =
+      match errorDetails with
+      | Dotnet.ProjInfo.Workspace.LanguageNotSupported (_) -> [sprintf "this project is not supported, only fsproj"]
+      | Dotnet.ProjInfo.Workspace.ProjectNotLoaded (_) -> [sprintf "this project was not loaded due to some internal error"]
+      | Dotnet.ProjInfo.Workspace.MissingExtraProjectInfos _ -> [sprintf "this project was not loaded because ExtraProjectInfos were missing"]
+      | Dotnet.ProjInfo.Workspace.InvalidExtraProjectInfos (_, err) ->  [sprintf "this project was not loaded because ExtraProjectInfos were invalid: %s" err]
+      | Dotnet.ProjInfo.Workspace.ReferencesNotLoaded (_, referenceErrors) ->
+
+        [ yield sprintf "this project was not loaded because some references could not be loaded:"
+          yield! 
+            referenceErrors
+              |> Seq.collect (fun (projPath, er) -> 
+                [ yield sprintf "  - %s:" projPath 
+                  yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line)]) ]
+      | Dotnet.ProjInfo.Workspace.GenericError (_, errorMessage) -> [errorMessage]
+      | Dotnet.ProjInfo.Workspace.ProjectNotRestored _ -> ["Project not restored"]
+    let msg = getMessageLines errorDetails |> fun s -> String.Join("\n", s)
     match errorDetails with
-    | GenericError (project, errorMessage) -> errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) errorMessage
-    | ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) "Project not restored"
+    | Dotnet.ProjInfo.Workspace.LanguageNotSupported (project) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Workspace.ProjectNotLoaded project -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Workspace.MissingExtraProjectInfos project -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Workspace.InvalidExtraProjectInfos (project, _) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Workspace.ReferencesNotLoaded (project, _) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Workspace.GenericError (project, _) -> errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) msg
+    | Dotnet.ProjInfo.Workspace.ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) msg
 
   let projectLoading (serialize : Serializer) projectFileName =
     serialize { Kind = "projectLoading"; Data = { ProjectLoadingResponse.Project = projectFileName } }
