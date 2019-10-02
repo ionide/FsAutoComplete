@@ -32,11 +32,11 @@ let initTests =
       Expect.equal res.Capabilities.CodeActionProvider (Some true) "Code Action Provider"
       Expect.equal res.Capabilities.CodeLensProvider (Some {CodeLensOptions.ResolveProvider = Some true}) "Code Lens Provider"
       Expect.equal res.Capabilities.DefinitionProvider (Some true) "Definition Provider"
-      Expect.equal res.Capabilities.DocumentFormattingProvider None "Document Formatting Provider"
+      Expect.equal res.Capabilities.DocumentFormattingProvider (Some true) "Document Formatting Provider"
       Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highligthing Provider"
       Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
       Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
-      Expect.equal res.Capabilities.DocumentRangeFormattingProvider None "Document Range Formatting Provider"
+      Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some true) "Document Range Formatting Provider"
       Expect.equal res.Capabilities.DocumentSymbolProvider (Some true) "Document Symbol Provider"
       Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
       Expect.equal res.Capabilities.Experimental None "Experimental"
@@ -364,7 +364,7 @@ let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Ev
   event.Publish
   |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
   |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
-  |> Event.add (fun n -> 
+  |> Event.add (fun n ->
       let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
 
       if Array.isEmpty n.Diagnostics then // no errors
@@ -642,7 +642,7 @@ let uriTests =
     testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
     testList "fileName to uri tests" (samples |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
  ]
- 
+
 let dotnetnewTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
@@ -683,7 +683,7 @@ let dotnetnewTest =
         let sampleTemplate : DotnetNewTemplate.DetailedTemplate = { TemplateName = "Console Application";
                                                                     Author = "Microsoft";
                                                                     TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
-                                                                    Options = 
+                                                                    Options =
                                                                     [ { ParameterName = "--no-restore";
                                                                         ShortName = "";
                                                                         ParameterType = DotnetNewTemplate.TemplateParameterType.Bool;
@@ -717,4 +717,4 @@ let tests =
     fsdnTest
     uriTests
     dotnetnewTest
-  ] 
+  ]
