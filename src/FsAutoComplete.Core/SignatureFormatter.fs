@@ -22,18 +22,25 @@ module SignatureFormatter =
         | true, false -> b
         | false, false -> a + " " + b
 
-    let getUnioncaseSignature displayContext (unionCase:FSharpUnionCase) =
-        if unionCase.UnionCaseFields.Count > 0 then
-            let typeList =
-                unionCase.UnionCaseFields
-                |> Seq.map (fun unionField ->
-                    if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
-                        unionField.FieldType.Format displayContext
-                    else
-                        unionField.Name ++ ":" ++ ((unionField.FieldType.Format displayContext)))
+    let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
+        try
+            if typ.IsTupleType || typ.IsStructTupleType then
+                typ.GenericArguments
+                |> Seq.map (formatFSharpType context)
                 |> String.concat " * "
-            unionCase.DisplayName + " of " + typeList
-         else unionCase.DisplayName
+            elif typ.GenericArguments.Count > 0 then
+                let genericArgs =
+                    typ.GenericArguments
+                    |> Seq.map (formatFSharpType context)
+                    |> String.concat ","
+                sprintf "%s<%s>" (PrettyNaming.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName) genericArgs
+
+            elif typ.IsGenericParameter then
+                (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
+            else
+                PrettyNaming.QuoteIdentifierIfNeeded (typ.Format context)
+        with
+        | _ -> typ.Format context
 
     let formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
@@ -61,24 +68,24 @@ module SignatureFormatter =
                     if includeMemberConstraintTypes then
                         yield " : "
                         if isProperty then
-                            yield (c.MemberReturnType.Format displayContext)
+                            yield (formatFSharpType displayContext c.MemberReturnType )
                         else
                             if c.MemberArgumentTypes.Count <= 1 then
                                 yield "unit"
                             else
                                 yield asGenericParamName param
                             yield " -> "
-                            yield ((c.MemberReturnType.Format displayContext).TrimStart())
+                            yield ((formatFSharpType displayContext c.MemberReturnType).TrimStart())
                 } |> String.concat ""
 
             let typeConstraint (tc: FSharpType) =
-                sprintf ":> %s" (tc.Format displayContext)
+                sprintf ":> %s" (formatFSharpType displayContext tc)
 
             let enumConstraint (ec: FSharpType) =
-                sprintf "enum<%s>" (ec.Format displayContext)
+                sprintf "enum<%s>" (formatFSharpType displayContext ec)
 
             let delegateConstraint (tc: FSharpGenericParameterDelegateConstraint) =
-                sprintf "delegate<%s, %s>" (tc.DelegateTupledArgumentType.Format displayContext) (tc.DelegateReturnType.Format displayContext)
+                sprintf "delegate<%s, %s>" (formatFSharpType displayContext tc.DelegateTupledArgumentType) (formatFSharpType displayContext tc.DelegateReturnType)
 
             let symbols =
                 match constrainedBy with
@@ -105,6 +112,19 @@ module SignatureFormatter =
                                          print sb symbol)
 
         sb.ToString()
+
+    let getUnioncaseSignature (displayContext: FSharpDisplayContext) (unionCase:FSharpUnionCase) =
+        if unionCase.UnionCaseFields.Count > 0 then
+            let typeList =
+                unionCase.UnionCaseFields
+                |> Seq.map (fun unionField ->
+                    if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
+                        formatFSharpType displayContext unionField.FieldType
+                    else
+                        unionField.Name ++ ":" ++ (formatFSharpType displayContext unionField.FieldType))
+                |> String.concat " * "
+            unionCase.DisplayName + " of " + typeList
+         else unionCase.DisplayName
 
     let getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
         let maybeGetter = func.LogicalName.StartsWith "get_"
@@ -158,7 +178,7 @@ module SignatureFormatter =
 
         let retType =
             //This try block will be removed when FCS updates
-            try func.ReturnParameter.Type.Format displayContext
+            try formatFSharpType displayContext func.ReturnParameter.Type
             with _ex -> "Unknown"
 
         let retTypeConstraint =
@@ -190,7 +210,7 @@ module SignatureFormatter =
             | _ -> false
 
         let formatParameter (p:FSharpParameter) =
-            try p.Type.Format displayContext
+            try formatFSharpType displayContext p.Type
             with :? InvalidOperationException -> p.DisplayName
 
         match argInfos with
@@ -290,13 +310,14 @@ module SignatureFormatter =
                     match func.EnclosingEntitySafe with
                     | Some ent -> ent.DisplayName
                     | _ -> func.DisplayName
+                    |> PrettyNaming.QuoteIdentifierIfNeeded
                 else
-                    func.ReturnParameter.Type.Format displayContext
+                    formatFSharpType displayContext func.ReturnParameter.Type
             with _ex ->
                 try
                     if func.FullType.GenericArguments.Count > 0 then
                         let lastArg = func.FullType.GenericArguments |> Seq.last
-                        lastArg.Format displayContext
+                        formatFSharpType displayContext lastArg
                     else "Unknown"
                 with _ -> "Unknown"
 
@@ -323,7 +344,7 @@ module SignatureFormatter =
             | many ->
                 let formatParameter (p:FSharpParameter) =
                     try
-                        p.Type.Format displayContext
+                    formatFSharpType displayContext p.Type
                     with
                     | :? InvalidOperationException -> p.DisplayName
 
@@ -356,7 +377,7 @@ module SignatureFormatter =
     let getFuncSignature f c = getFuncSignatureWithIdent f c 3
 
     let getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
-        let retType = v.FullType.Format displayContext
+        let retType = formatFSharpType displayContext v.FullType
         let prefix =
             if v.IsMutable then "val mutable"
             else "val"
@@ -376,7 +397,7 @@ module SignatureFormatter =
         | None -> prefix ++ name ++ ":" ++ retType
 
     let getFieldSignature displayContext (field: FSharpField) =
-        let retType = field.FieldType.Format displayContext
+        let retType = formatFSharpType displayContext field.FieldType
         match field.LiteralValue with
         | Some lv -> field.DisplayName + ":" ++ retType ++ "=" ++ (string lv)
         | None ->
