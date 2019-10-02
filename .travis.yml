@@ -10,33 +10,12 @@ script:
 
 matrix:
   include:
-    - mono: 5.18.0
-      dist: xenial
-      dotnet: 2.1.801
-      env:
-        - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
-        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
     - mono: latest # => "stable release"
       dist: xenial
       dotnet: 2.1.801
-      env:
-        - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
-        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
     - mono: weekly # => "latest commits"
       dist: xenial
       dotnet: 2.1.801
-      env:
-        - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
-        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
-    - mono: 5.18.0
-      dist: bionic
-      dotnet: 2.2.103
-      env:
-        - FORCE_DOTNET_VERSION=2.2.103
-        - FSAC_TESTSUITE_CROSSGEN_NETFX=1 #works on 5.0
-        - FSAC_TESTSUITE_NETCORE_MODE_HTTP=0
 
   allow_failures:
     - mono: weekly
-    - mono: 5.18.0 # https://travis-ci.community/t/unable-to-locate-package-referenceassemblies-pcl/2686
-    - dotnet: 2.2.103
