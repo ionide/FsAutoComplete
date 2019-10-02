@@ -462,13 +462,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 #if NETCORE_FSI
     logDebug "[Opts] Getting options for script file %s" file
     let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, useSdkRefs = true, assumeDotNetFramework = false, useFsiAuxLib = true)
+    let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
+    let projOptions = {projOptions with OtherOptions = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |] }
     logDebug "[Opts] Resolved optiosn - %A" projOptions
 #else
     let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
     let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
 #endif
     match FakeSupport.detectFakeScript file with
-    | None -> 
+    | None ->
       logDebug "[Opts] %s is not a FAKE script" file
       return projOptions
     | Some (detectionInfo) ->
