@@ -5,7 +5,8 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 nuget Argu ~> 5.2.0
-nuget FSharp.Compiler.Service ~> 31.0
+nuget Fantomas 3.0.0-beta-006
+nuget FSharp.Compiler.Service ~> 32.0
 nuget Dotnet.ProjInfo ~> 0.36.0
 nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.36.0
 nuget FSharp.Data 3.0.1

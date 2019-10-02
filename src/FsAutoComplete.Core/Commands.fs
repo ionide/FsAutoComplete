@@ -1114,3 +1114,5 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         let! runtimePath = FakeSupport.getFakeRuntime ()
         return [CoreResponse.FakeRuntime runtimePath]
     }
+
+    member x.GetChecker () = checker.GetFSharpChecker()

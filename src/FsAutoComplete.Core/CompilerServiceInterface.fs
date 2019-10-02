@@ -537,3 +537,5 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   }
 
   member __.Compile = checker.Compile
+
+  member internal x.GetFSharpChecker() = checker
