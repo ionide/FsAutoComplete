@@ -459,9 +459,13 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       ])
 
   member __.GetProjectOptionsFromScript(file, source) = async {
+#if NETCORE_FSI
+    let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, useSdkRefs = false, assumeDotNetFramework = true, useFsiAuxLib = true)
+    logDebug "[Opts] Resolved optiosn - %A" projOptions
+#else
     let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
     let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
-
+#endif
     match FakeSupport.detectFakeScript file with
     | None -> return projOptions
     | Some (detectionInfo) ->
