@@ -42,6 +42,7 @@ let entry args =
       let fs = FileSystem(originalFs, commands.Files.TryFind)
       AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
+      use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->

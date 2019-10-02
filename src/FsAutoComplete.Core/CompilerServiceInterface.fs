@@ -460,19 +460,25 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.GetProjectOptionsFromScript(file, source) = async {
 #if NETCORE_FSI
-    let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, useSdkRefs = false, assumeDotNetFramework = true, useFsiAuxLib = true)
+    logDebug "[Opts] Getting options for script file %s" file
+    let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, useSdkRefs = true, assumeDotNetFramework = false, useFsiAuxLib = true)
     logDebug "[Opts] Resolved optiosn - %A" projOptions
 #else
     let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
     let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
 #endif
     match FakeSupport.detectFakeScript file with
-    | None -> return projOptions
+    | None -> 
+      logDebug "[Opts] %s is not a FAKE script" file
+      return projOptions
     | Some (detectionInfo) ->
+      logDebug "[Opts] %s is a FAKE script" file
       try
-        return { projOptions with OtherOptions = FakeSupport.getProjectOptions detectionInfo }
+        let otherOpts = FakeSupport.getProjectOptions detectionInfo
+        logDebug "[Opts] Discovered FAKE options - %A" otherOpts
+        return { projOptions with OtherOptions = otherOpts }
       with e ->
-        printfn "[FSharpChecker] Error in FAKE script support: %O" e
+        logDebug "[Opts] Error in FAKE script support: %O" e
         return projOptions
   }
 
@@ -492,11 +498,12 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
-      logDebug "[Checker] ParseAndCheckFileInProject - %s" filePath
+      let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
+      logDebug "[Checker] %s" opName
       let source = SourceText.ofString source
       let options = clearProjectReferecnes options
       let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
+      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName))
       return
           match res with
           | Choice1Of2 (p,c)->
