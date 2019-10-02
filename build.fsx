@@ -165,23 +165,31 @@ let runall cfg =
     trace "Done Integration tests."
 
 Target "IntegrationTestStdioMode" (fun _ ->
-  trace "== Integration tests (stdio/net) =="
-  let cfg = { Runtime = NET }
-  listAll cfg
-  runall cfg
+  ignore()
+  // not doing these tests because they need to be migrated to LSP
+  // trace "== Integration tests (stdio/net) =="
+  // let cfg = { Runtime = NET }
+  // listAll cfg
+  // runall cfg
 )
 
 
 Target "IntegrationTestStdioModeNetCore" (fun _ ->
-  trace "== Integration tests (stdio/netcore) =="
-  let cfg = { Runtime = NETCoreFDD }
-  listAll cfg
-  runall cfg
+  ignore ()
+  // not doing these tests because they need to be migrated to LSP
+  // trace "== Integration tests (stdio/netcore) =="
+  // let cfg = { Runtime = NETCoreFDD }
+  // listAll cfg
+  // runall cfg
 )
 
 
 Target "LspTest" (fun _ ->
-  DotNetCli.RunCommand id """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
+  DotNetCli.RunCommand
+      (fun p ->
+          { p with
+              TimeOut = TimeSpan.FromMinutes 60. })
+      """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
 )
 
 Target "ReleaseArchive" (fun _ ->

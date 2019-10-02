@@ -70,9 +70,9 @@ type ParseAndCheckResults
       | FSharpFindDeclResult.DeclFound range ->
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
-        return Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym)
-                |> Option.map (fun extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec))
-                |> Option.getOrElse (ResultOrString.Error "External declaration not resolved")
+        match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
+        | Ok extDec -> return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
+        | Error err -> return ResultOrString.Error (sprintf "External declaration not resolved: %A" err)
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {
@@ -537,3 +537,5 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   }
 
   member __.Compile = checker.Compile
+
+  member internal x.GetFSharpChecker() = checker

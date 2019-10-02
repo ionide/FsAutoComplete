@@ -32,11 +32,11 @@ let initTests =
       Expect.equal res.Capabilities.CodeActionProvider (Some true) "Code Action Provider"
       Expect.equal res.Capabilities.CodeLensProvider (Some {CodeLensOptions.ResolveProvider = Some true}) "Code Lens Provider"
       Expect.equal res.Capabilities.DefinitionProvider (Some true) "Definition Provider"
-      Expect.equal res.Capabilities.DocumentFormattingProvider None "Document Formatting Provider"
+      Expect.equal res.Capabilities.DocumentFormattingProvider (Some true) "Document Formatting Provider"
       Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highligthing Provider"
       Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
       Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
-      Expect.equal res.Capabilities.DocumentRangeFormattingProvider None "Document Range Formatting Provider"
+      Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some true) "Document Range Formatting Provider"
       Expect.equal res.Capabilities.DocumentSymbolProvider (Some true) "Document Symbol Provider"
       Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
       Expect.equal res.Capabilities.Experimental None "Experimental"
@@ -64,8 +64,11 @@ let basicTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
     let (server, event) = serverInitialize path defaultConfigDto
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "BasicTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
     )
@@ -90,7 +93,7 @@ let basicTests =
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
                     MarkedString.String ""
                     MarkedString.String "*Full name: Script.t*"
-                    MarkedString.String "*Assembly: Script*"|]
+                    MarkedString.String "*Assembly: BasicTest*"|]
 
             Expect.equal res.Contents expected "Hover test - simple symbol"
         ))
@@ -171,7 +174,9 @@ let codeLensTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
     let (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true}
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -237,7 +242,9 @@ let documentSymbolTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
     let (server, event) = serverInitialize path defaultConfigDto
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -265,7 +272,9 @@ let autocompleteTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
     let (server, event) = serverInitialize path defaultConfigDto
-    let path = Path.Combine(path, "Script.fsx")
+    let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -355,7 +364,7 @@ let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Ev
   event.Publish
   |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
   |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
-  |> Event.add (fun n -> 
+  |> Event.add (fun n ->
       let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
 
       if Array.isEmpty n.Diagnostics then // no errors
@@ -492,6 +501,7 @@ let gotoTest =
         | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup") ->
           failtest "Should not generate the startup dummy file"
         | Result.Ok (Some (GotoResult.Single r)) ->
+          logger.debug (eventX "wrote external definition file to {location}" >> setField "location" r.Uri)
           Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
           Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
           () // should
@@ -632,7 +642,7 @@ let uriTests =
     testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
     testList "fileName to uri tests" (samples |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
  ]
- 
+
 let dotnetnewTest =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
@@ -673,7 +683,7 @@ let dotnetnewTest =
         let sampleTemplate : DotnetNewTemplate.DetailedTemplate = { TemplateName = "Console Application";
                                                                     Author = "Microsoft";
                                                                     TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
-                                                                    Options = 
+                                                                    Options =
                                                                     [ { ParameterName = "--no-restore";
                                                                         ShortName = "";
                                                                         ParameterType = DotnetNewTemplate.TemplateParameterType.Bool;
@@ -707,4 +717,4 @@ let tests =
     fsdnTest
     uriTests
     dotnetnewTest
-  ] 
+  ]

@@ -27,7 +27,7 @@ let (|ConstructorPats|) = function
     | SynConstructorArgs.Pats ps -> ps
     | SynConstructorArgs.NamePatPairs(xs, _) -> List.map snd xs
 
-/// A pattern that collects all attributes from a `SynAttributes` into a single flat list 
+/// A pattern that collects all attributes from a `SynAttributes` into a single flat list
 let (|AllAttrs|) (attrs: SynAttributes) =
     attrs |> List.collect (fun attrList -> attrList.Attributes)
 
@@ -870,6 +870,11 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         | SynExpr.YieldOrReturnFrom (_, e, r) ->
             addIfInside r
             walkExpr e
+        | SynExpr.SequentialOrImplicitYield(_, e1, e2, ifNotE, r) ->
+            addIfInside r
+            walkExpr e1
+            walkExpr e2
+            walkExpr ifNotE
         | SynExpr.Lambda (_, _, pats, e, r) ->
             addIfInside r
             walkSimplePats pats

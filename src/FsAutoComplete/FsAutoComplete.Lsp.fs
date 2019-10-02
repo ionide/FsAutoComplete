@@ -347,6 +347,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentHighlightProvider = Some true
                         DocumentSymbolProvider = Some true
                         WorkspaceSymbolProvider = Some true
+                        DocumentFormattingProvider = Some true
+                        DocumentRangeFormattingProvider = Some true
                         SignatureHelpProvider = Some {
                             SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]
                         }
@@ -849,6 +851,58 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 |> success
             | _ -> LspResult.notImplemented
         return res
+    }
+
+    override __.TextDocumentFormatting(p) = async {
+        let doc = p.TextDocument
+        let fileName = doc.GetFilePath()
+        match commands.TryGetFileCheckerOptionsWithLines fileName with
+        | Result.Ok (opts, lines) ->
+            let range =
+                let zero = { Line = 0; Character = 0 }
+                let endLine = Array.length lines - 1
+                let endCharacter =
+                    Array.tryLast lines
+                    |> Option.map (fun line -> if line.Length = 0 then 0 else line.Length - 1)
+                    |> Option.defaultValue 0
+                { Start = zero; End = { Line = endLine; Character = endCharacter } }
+
+            let source = String.concat "\n" lines
+            let parsingOptions = Utils.projectOptionsToParseOptions opts
+            let checker : FSharpChecker = commands.GetChecker()
+            let! formatted =
+                Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
+                                                           Fantomas.SourceOrigin.SourceString source,
+                                                           Fantomas.FormatConfig.FormatConfig.Default,
+                                                           parsingOptions,
+                                                           checker)
+
+            return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
+        | Result.Error er ->
+            return LspResult.notImplemented
+    }
+
+    override __.TextDocumentRangeFormatting(p) = async {
+        let doc = p.TextDocument
+        let fileName = doc.GetFilePath()
+        match commands.TryGetFileCheckerOptionsWithLines fileName with
+        | Result.Ok (opts, lines) ->
+            let range = Fantomas.CodeFormatter.MakeRange(fileName, (p.Range.Start.Line + 1), (p.Range.Start.Character + 1), (p.Range.End.Line + 1), (p.Range.End.Character + 1))
+
+            let source = String.concat "\n" lines
+            let parsingOptions = Utils.projectOptionsToParseOptions opts
+            let checker : FSharpChecker = commands.GetChecker()
+            let! formatted =
+                Fantomas.CodeFormatter.FormatSelectionAsync(fileName,
+                                                            range,
+                                                            Fantomas.SourceOrigin.SourceString source,
+                                                            Fantomas.FormatConfig.FormatConfig.Default,
+                                                            parsingOptions,
+                                                            checker)
+
+            return LspResult.success(Some([| { Range = p.Range; NewText = formatted  } |]))
+        | Result.Error er ->
+            return LspResult.notImplemented
     }
 
     member private x.HandleTypeCheckCodeAction file pos f =

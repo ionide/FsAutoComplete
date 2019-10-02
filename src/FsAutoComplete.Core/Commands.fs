@@ -410,8 +410,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         let outFileOpt = Some (extraInfo.TargetPath)
         let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
         let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath
+        let projViewerItemsNormalized = if obj.ReferenceEquals(null, projViewerItems) then [] else projViewerItems
         let projViewerItemsNormalized =
-            projViewerItems
+            projViewerItemsNormalized
             |> List.map (function
                 | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, c) ->
                     Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(fullPathNormalized p, c))
@@ -1105,3 +1106,5 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         let! runtimePath = FakeSupport.getFakeRuntime ()
         return [CoreResponse.FakeRuntime runtimePath]
     }
+
+    member x.GetChecker () = checker.GetFSharpChecker()
