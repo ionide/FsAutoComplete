@@ -509,7 +509,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           | Choice1Of2 (p,c)->
             let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
             match c with
-            | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
+            | FSharpCheckFileAnswer.Aborted ->
+              logDebug "[Checker] %s completed with errors %A" opName (List.ofArray p.Errors)
+              ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
           | Choice2Of2 e -> ResultOrString.Error e.Message
