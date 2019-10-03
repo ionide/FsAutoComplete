@@ -57,7 +57,7 @@ module DotnetNewTemplate =
         Options = 
         [ { ParameterName = "--framework";
             ShortName = "-f";
-            ParameterType = TemplateParameterType.Choice ["netcoreapp2.1     - Target netcoreapp2.1";"netstandard2.0    - Target netstandard2.0"];
+            ParameterType = TemplateParameterType.Choice ["netcoreapp3.0     - Target netcoreapp3.0";"netstandard2.0    - Target netstandard2.0"];
             ParameterDescription = "The target framework for the project.";
             DefaultValue = "netstandard2.0" };
             

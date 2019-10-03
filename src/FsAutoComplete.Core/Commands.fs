@@ -369,7 +369,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                     return
                         match result with
-                        | ResultOrString.Error e -> [CoreResponse.ErrorRes e]
+                        | ResultOrString.Error e -> 
+                            [CoreResponse.ErrorRes e]
                         | ResultOrString.Ok (parseAndCheck) ->
                             let parseResult = parseAndCheck.GetParseResults
                             let results = parseAndCheck.GetCheckResults
@@ -387,7 +388,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, TFM.NetCore)
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
@@ -398,7 +399,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         state.SetFileVersion file version
                         async.Return c
                     | None -> async {
-                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, TFM.NetFx)
                         state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }

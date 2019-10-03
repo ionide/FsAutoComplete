@@ -110,8 +110,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             if file.EndsWith ".fsx" then
                 state.Files.TryFind file |> Option.map (fun st ->
                     async {
-                        let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
-                        let! opts = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, st.Lines |> String.concat "\n")
+                        let! (opts, _errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString (st.Lines |> String.concat "\n"), assumeDotNetFramework = true, useSdkRefs = false)
                         let sf = getFilesFromOpts opts
 
                         return
@@ -159,8 +158,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                         return ()
             | Some vf, None when file.EndsWith ".fsx" ->
                 let txt = vf.Lines |> String.concat "\n"
-                let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
-                let! opts = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, txt)
+                let! (opts, _errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString txt, assumeDotNetFramework = true, useSdkRefs = false)
                 let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
                 match cr with
                 | FSharpCheckFileAnswer.Aborted ->
