@@ -13,6 +13,10 @@ type FindDeclarationResult =
     | ExternalDeclaration of Decompiler.ExternalContentPosition
     | Range of FSharp.Compiler.Range.range
 
+type TFM =
+| NetFx
+| NetCore
+
 type ParseAndCheckResults
     (
         parseResults: FSharpParseFileResults,
@@ -419,6 +423,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
 
   do checker.BeforeBackgroundFileCheck.Add ignore
+
   let fixFileName path =
     if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
     else
@@ -441,6 +446,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
     Debug.print fmt
 
+  let patchWithMscorlib (projOptions: FSharpProjectOptions) =
+    let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
+    let otherOpts = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |]
+    { projOptions with OtherOptions = otherOpts }
+
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
 
@@ -458,17 +468,30 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
                |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
       ])
 
-  member __.GetProjectOptionsFromScript(file, source) = async {
-#if NETCORE_FSI
-    logDebug "[Opts] Getting options for script file %s" file
-    let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, useSdkRefs = true, assumeDotNetFramework = false, useFsiAuxLib = true)
-    let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
-    let projOptions = {projOptions with OtherOptions = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |] }
-    logDebug "[Opts] Resolved optiosn - %A" projOptions
-#else
-    let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
-    let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
-#endif
+  member private __.GetNetFxScriptOptions(file, source) =
+    logDebug "[Opts] Getting NetFX options for script file %s" file
+    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true)
+
+  member private __.GetNetCoreScriptOptions(file, source) =
+    logDebug "[Opts] Getting NetCore options for script file %s" file
+    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true)
+
+  member self.GetProjectOptionsFromScript(file, source, tfm) = async {
+    let! (projOptions, errors) =
+      match tfm with
+      | NetFx -> self.GetNetFxScriptOptions(file, source)
+      | NetCore -> self.GetNetCoreScriptOptions(file, source)
+
+    let projOptions = patchWithMscorlib projOptions
+
+    match errors with
+    | [] ->
+      let refs = projOptions.OtherOptions |> Array.filter (fun o -> o.StartsWith("-r")) |> String.concat "\n"
+      logDebug "[Opts] Resolved options - %A" projOptions
+      logDebug "[Opts] Resolved references:\n%s" refs
+    | errs ->
+      logDebug "[Opts] Resolved options with errors\n%A\n%A" projOptions errs
+
     match FakeSupport.detectFakeScript file with
     | None ->
       logDebug "[Opts] %s is not a FAKE script" file
