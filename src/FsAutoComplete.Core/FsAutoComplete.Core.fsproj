@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="Debug.fs" />
+    <Compile Include="FSIRefs.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
