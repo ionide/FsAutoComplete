@@ -446,6 +446,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
     Debug.print fmt
 
+  let replaceRefs (projOptions: FSharpProjectOptions) =
+    let okOtherOpts = projOptions.OtherOptions |> Array.filter (fun r -> not <| r.StartsWith("-r"))
+    let refs =
+      FSharp.Compiler.FSIRefs.netCoreRefs FSIRefs.defaultDotNetSDKRoot "3.0.100" "3.0.0" "netcoreapp3.0" true
+      |> List.map (fun r -> "-r:" + r)
+    let finalOpts = Array.append okOtherOpts (Array.ofList refs)
+    { projOptions with OtherOptions = finalOpts }
+
   let patchWithMscorlib (projOptions: FSharpProjectOptions) =
     let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
     let otherOpts = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |]
@@ -470,11 +478,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member private __.GetNetFxScriptOptions(file, source) =
     logDebug "[Opts] Getting NetFX options for script file %s" file
-    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true)
+    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
 
   member private __.GetNetCoreScriptOptions(file, source) =
     logDebug "[Opts] Getting NetCore options for script file %s" file
-    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true)
+    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
 
   member self.GetProjectOptionsFromScript(file, source, tfm) = async {
     let! (projOptions, errors) =
@@ -482,7 +490,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       | NetFx -> self.GetNetFxScriptOptions(file, source)
       | NetCore -> self.GetNetCoreScriptOptions(file, source)
 
-    let projOptions = patchWithMscorlib projOptions
+    let projOptions = replaceRefs projOptions
 
     match errors with
     | [] ->
