@@ -359,8 +359,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.TryGetFileVersion = state.TryGetFileVersion
 
-    member x.Parse file lines version =
+    member x.Parse file lines version (isSdkScript: bool option) =
         let file = Path.GetFullPath file
+        let tmf = isSdkScript |> Option.map (fun n -> if n then NetCore else NetFx) |> Option.defaultValue NetFx
+
         do x.CancelQueue file
         async {
             let colorizations = state.ColorizationOutput
@@ -369,7 +371,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                     return
                         match result with
-                        | ResultOrString.Error e -> 
+                        | ResultOrString.Error e ->
                             [CoreResponse.ErrorRes e]
                         | ResultOrString.Ok (parseAndCheck) ->
                             let parseResult = parseAndCheck.GetParseResults
@@ -388,7 +390,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, TFM.NetCore)
+                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
@@ -399,7 +401,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         state.SetFileVersion file version
                         async.Return c
                     | None -> async {
-                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, TFM.NetFx)
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
                         state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }

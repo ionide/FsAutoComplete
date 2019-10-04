@@ -521,6 +521,7 @@ type FSharpConfigDto = {
     AnalyzersPath: string [] option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
+    UseSdkScripts: bool option
 }
 
 type FSharpConfigRequest = {
@@ -550,6 +551,7 @@ type FSharpConfig = {
     AnalyzersPath: string []
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
+    UseSdkScripts: bool
 }
 with
     static member Default =
@@ -579,6 +581,7 @@ with
                 Enabled = "never"
                 Prefix =""
             }
+            UseSdkScripts = false
         }
 
     static member FromDto(dto: FSharpConfigDto) =
@@ -608,6 +611,7 @@ with
                 Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
             }
+            UseSdkScripts = defaultArg dto.UseSdkScripts false
         }
 
     member x.AddDto(dto: FSharpConfigDto) =
@@ -637,4 +641,5 @@ with
                 Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) x.LineLens.Enabled
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
             }
+            UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
         }

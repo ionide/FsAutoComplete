@@ -41,7 +41,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                   CoreResponse.InfoRes (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
                ]
           | Parse (file, kind, lines) ->
-              let! res = commands.Parse file lines 0
+              let! res = commands.Parse file lines 0 None
               //Hack for tests
               let r = match kind with
                       | Synchronous -> CoreResponse.InfoRes "Synchronous parsing started"
@@ -94,7 +94,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | Fsdn querystr -> return! commands.Fsdn (querystr)
           | DotnetNewList filterstr -> return! commands.DotnetNewList (filterstr)
           | DotnetNewGetDetails filterstr -> return! commands.DotnetNewGetDetails (filterstr)
-          | DotnetNewCreateCli (templateShortName, parameterList) -> return! commands.DotnetNewCreateCli templateShortName parameterList 
+          | DotnetNewCreateCli (templateShortName, parameterList) -> return! commands.DotnetNewCreateCli templateShortName parameterList
           | Quit ->
               quit <- true
               return! commands.Quit()
