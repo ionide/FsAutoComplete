@@ -71,7 +71,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 | Some contentChange, Some version ->
                     if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                         let content = contentChange.Text.Split('\n')
-                        do! (commands.Parse filePath content version |> Async.Ignore)
+                        let tfmConfig = config.UseSdkScripts
+                        do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
                         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
                         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
@@ -382,6 +383,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let doc = p.TextDocument
         let filePath = doc. GetFilePath()
         let content = doc.Text.Split('\n')
+        let tfmConfig = config.UseSdkScripts
+
         commands.SetFileContent(filePath, content, Some doc.Version)
 
 
@@ -389,7 +392,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             do! commands.WorkspaceReady |> Async.AwaitEvent
             Debug.print "[LSP call] TextDocumentDidOpen - workspace ready"
 
-        do! (commands.Parse filePath content doc.Version |> Async.Ignore)
+        do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
