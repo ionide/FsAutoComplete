@@ -18,7 +18,7 @@ with
         member s.Usage =
             match s with
             | Configuration _ -> "The configuration. The default is 'Debug'."
-            | Framework _ -> "The target framework. The default is 'netcoreapp3.0'"
+            | Framework _ -> "The target framework. The default is 'netcoreapp2.1'"
             | Published -> "Test the exe published in '~/bin/' dirs instead"
             | Runtime _ -> "The target runtime. If set, it will test a self-contained deployment."
 
@@ -50,7 +50,7 @@ let testConfig =
     let results = parser.Parse (Array.ofList fsxArgs)
 
     let configuration = results.GetResult (<@ Configuration @>, defaultValue = "Debug")
-    let framework = results.GetResult (<@ Framework @>, defaultValue = "netcoreapp3.0")
+    let framework = results.GetResult (<@ Framework @>, defaultValue = "netcoreapp2.1")
     let rid = results.TryGetResult <@ Runtime @>
     let published = results.Contains <@ Published @>
 
