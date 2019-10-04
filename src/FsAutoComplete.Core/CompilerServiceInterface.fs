@@ -423,7 +423,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
 
   do checker.BeforeBackgroundFileCheck.Add ignore
-
   let fixFileName path =
     if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
     else

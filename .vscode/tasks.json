@@ -15,7 +15,7 @@
         {
             "taskName": "build_debug_netcore",
             "type": "shell",
-            "command": "dotnet build src/FsAutoComplete -f netcoreapp3.0",
+            "command": "dotnet build src/FsAutoComplete -f netcoreapp2.1",
             "group": {
                 "kind": "build",
                 "isDefault": true

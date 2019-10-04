@@ -80,7 +80,7 @@ let runIntegrationTest cfg (fn: string) : bool =
       match cfg.Runtime with
       | FSACRuntime.NET -> "net461"
       | FSACRuntime.NETCoreSCD
-      | FSACRuntime.NETCoreFDD -> "netcoreapp3.0"
+      | FSACRuntime.NETCoreFDD -> "netcoreapp2.1"
     let fsiArgs = sprintf "%s -- -pub -f %s -c %s" fn framework configuration
     let fsiPath = FSIHelper.fsiPath
     tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
@@ -222,7 +222,7 @@ Target "LocalRelease" (fun _ ->
     DotNetCli.Publish (fun p ->
        { p with
            Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
-           Framework = "netcoreapp3.0"
+           Framework = "netcoreapp2.1"
            Project = "src/FsAutoComplete"
            Configuration = configuration
            AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ]  })

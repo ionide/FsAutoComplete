@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net461;netcoreapp3.0</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp2.1</TargetFrameworks>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
@@ -24,7 +24,7 @@
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
   </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.0' ">
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
     <Content Include="default.win32manifest">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -38,7 +38,7 @@
   <!-- do not bundle the net461 exe inside the .net core tool package -->
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <TargetFrameworks></TargetFrameworks>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <AssemblyName>dotnet-fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
 
@@ -55,11 +55,11 @@
 
   <Target Name="CopyBackgroundServiceJsonToOutputDir"
           AfterTargets="ComputeFilesToPublish"
-          Condition=" '$(TargetFramework)' == 'netcoreapp3.0' ">
+          Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp3.0\fsautocomplete.backgroundservices.deps.json"
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.deps.json"
                              RelativePath="fsautocomplete.backgroundservices.deps.json" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp3.0\fsautocomplete.backgroundservices.runtimeconfig.json"
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.runtimeconfig.json"
                              RelativePath="fsautocomplete.backgroundservices.runtimeconfig.json" />
     </ItemGroup>
   </Target>
