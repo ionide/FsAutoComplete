@@ -13,10 +13,6 @@ type FindDeclarationResult =
     | ExternalDeclaration of Decompiler.ExternalContentPosition
     | Range of FSharp.Compiler.Range.range
 
-type TFM =
-| NetFx
-| NetCore
-
 type ParseAndCheckResults
     (
         parseResults: FSharpParseFileResults,
@@ -439,17 +435,25 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let clearProjectReferecnes (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
-  let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
-
   let logDebug fmt =
     if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
     Debug.print fmt
 
   let replaceRefs (projOptions: FSharpProjectOptions) =
     let okOtherOpts = projOptions.OtherOptions |> Array.filter (fun r -> not <| r.StartsWith("-r"))
-    let refs =
-      FSharp.Compiler.FSIRefs.netCoreRefs FSIRefs.defaultDotNetSDKRoot "3.0.100" "3.0.0" "netcoreapp3.0" true
-      |> List.map (fun r -> "-r:" + r)
+    let assemblyPaths =
+      match Environment.latest3xSdkVersion.Value, Environment.latest3xRuntimeVersion.Value with
+      | None, _ ->
+        Debug.print "Couldn't find latest 3.x sdk version"
+        []
+      | _, None ->
+        Debug.print "Couldn't find latest 3.x runtime version"
+        []
+      | Some sdkVersion, Some runtimeVersion ->
+        let refs = FSIRefs.netCoreRefs Environment.dotnetSDKRoot.Value (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
+        Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
+        refs
+    let refs = assemblyPaths |> List.map (fun r -> "-r:" + r)
     let finalOpts = Array.append okOtherOpts (Array.ofList refs)
     { projOptions with OtherOptions = finalOpts }
 
@@ -479,17 +483,19 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     logDebug "[Opts] Getting NetFX options for script file %s" file
     checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
 
-  member private __.GetNetCoreScriptOptions(file, source) =
+  member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
-    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
+    return replaceRefs opts, errors
+  }
 
   member self.GetProjectOptionsFromScript(file, source, tfm) = async {
     let! (projOptions, errors) =
       match tfm with
-      | NetFx -> self.GetNetFxScriptOptions(file, source)
-      | NetCore -> self.GetNetCoreScriptOptions(file, source)
-
-    let projOptions = replaceRefs projOptions
+      | FSIRefs.TFM.NetFx ->
+        self.GetNetFxScriptOptions(file, source)
+      | FSIRefs.TFM.NetCore ->
+        self.GetNetCoreScriptOptions(file, source)
 
     match errors with
     | [] ->

@@ -1,9 +1,8 @@
 /// Functions to retrieve .net framework and .net core dependencies
 /// for resolution of FSI
 
-#if !INTERACTIVE
-module FSharp.Compiler.FSIRefs
-#endif
+[<RequireQualifiedAccess>]
+module FsAutoComplete.FSIRefs
 
 open System
 open System.IO
@@ -11,7 +10,11 @@ open System.IO
 let defaultDotNetSDKRoot =
   match Environment.OSVersion.Platform with
   | PlatformID.MacOSX | PlatformID.Unix -> "/usr/local/share/dotnet"
-  | _ -> failwith "Add windows default"
+  | _ -> @"C:\Program Files\dotnet\sdk"
+
+type TFM =
+| NetFx
+| NetCore
 
 type [<Struct;CustomComparison;CustomEquality>] NugetVersion = NugetVersion of major: int * minor: int * build: int * suffix: string
 with
@@ -43,6 +46,7 @@ with
       match y with
       | :? NugetVersion as y' -> (x :> IComparable<NugetVersion>).CompareTo y'
       | _ -> failwith "not able to convert types"
+
   interface IEquatable<NugetVersion> with
     member x.Equals y =
       let (NugetVersion(major, minor, build, suffix)) = x
@@ -58,6 +62,11 @@ with
     let (NugetVersion(major, minor, build, suffix)) = x
     (hash major + hash minor + hash build + hash suffix) % 13
 
+  override x.ToString() =
+    match x with
+    | NugetVersion(major, minor, build, suffix) when String.IsNullOrWhiteSpace suffix -> sprintf "%d.%d.%d" major minor build
+    | NugetVersion(major, minor, build, suffix) -> sprintf "%d.%d.%d-%s" major minor build suffix
+
 /// Parse nuget version strings into numeric and suffix parts
 ///
 /// Format: `$(Major).$(Minor).$(Build) [-SomeSuffix]`
@@ -71,34 +80,31 @@ let deconstructVersion (version: string): NugetVersion =
       version, ""
 
   let elements = version.Split('.')
+
   if elements.Length < 3 then
       NugetVersion(0, 0, 0, suffix)
   else
       NugetVersion(Int32.Parse(elements.[0]), Int32.Parse(elements.[1]), Int32.Parse(elements.[2]), suffix)
 
+let versionDirectoriesIn (baseDir: string) =
+  baseDir
+  |> Directory.EnumerateDirectories
+  |> Seq.map (Path.GetFileName >> deconstructVersion)
+  |> Seq.sort
+  |> List.ofSeq
+
 /// returns a sorted list of the SDK versions available at the given dotnet root
 let sdkVersions dotnetRoot =
   let sdkDir = Path.Combine (dotnetRoot, "sdk")
   if Directory.Exists sdkDir
-  then
-    sdkDir
-    |> Directory.EnumerateDirectories
-    |> Seq.map (Path.GetDirectoryName >> deconstructVersion)
-    |> Seq.sort
-    |> List.ofSeq |> Some
+  then Some (versionDirectoriesIn sdkDir)
   else None
 
 /// returns a sorted list of the .Net Core runtime versions available at the given dotnet root
 let runtimeVersions dotnetRoot =
   let runtimesDir = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App")
   if Directory.Exists runtimesDir
-  then
-    runtimesDir
-    |> Directory.EnumerateDirectories
-    |> Seq.map (Path.GetDirectoryName >> deconstructVersion)
-    |> Seq.sort
-    |> List.ofSeq
-    |> Some
+  then Some (versionDirectoriesIn runtimesDir)
   else None
 
 let appPackDir dotnetRoot runtimeVersion tfm =

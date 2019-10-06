@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\FsAutoComplete.Core\Debug.fs" />
+    <Compile Include="..\FsAutoComplete.Core\FSIRefs.fs" />
     <Compile Include="..\FsAutoComplete.Core\Utils.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProcessWatcher.fs" />
     <Compile Include="..\FsAutoComplete.Core\UntypedAstUtils.fs" />

@@ -361,7 +361,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.Parse file lines version (isSdkScript: bool option) =
         let file = Path.GetFullPath file
-        let tmf = isSdkScript |> Option.map (fun n -> if n then NetCore else NetFx) |> Option.defaultValue NetFx
+        let tmf = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
 
         do x.CancelQueue file
         async {
