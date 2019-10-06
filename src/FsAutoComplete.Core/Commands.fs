@@ -167,7 +167,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
         }
 
-    let parseFilesInTheBackground files =
+    let parseFilesInTheBackground fsiScriptTFM files =
         async {
             files
             |> List.toArray
@@ -178,8 +178,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         | Some f -> Some (f.Lines)
                         | None when File.Exists(file) ->
                             let ctn = File.ReadAllLines file
-                            state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn; Version = None }
-                            if backgroundServiceEnabled then BackgroundServices.updateFile(file, ctn |> String.concat "\n", 0)
+                            state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
+                            let payload =
+                                if Utils.isAScript file
+                                then BackgroundServices.ScriptFile(file, fsiScriptTFM)
+                                else BackgroundServices.SourceFile file
+                            if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
                             Some (ctn)
                         | None -> None
                     match sourceOpt with
@@ -225,13 +229,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
-    let onProjectLoaded projectFileName (response: ProjectCrackerCache) =
+    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts =
         for file in response.Items |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p) do
             state.FileCheckOptions.[file] <- normalizeOptions response.Options
 
         response.Items
         |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-        |> parseFilesInTheBackground
+        |> parseFilesInTheBackground tfmForScripts
         |> Async.Start
 
     let workspaceBinder () =
@@ -256,9 +260,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member __.LastCheckResult
         with get() = lastCheckResult
 
-    member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version) =
+    member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
         state.AddFileText(file, lines, version)
-        if backgroundServiceEnabled then BackgroundServices.updateFile(file, lines |> String.concat "\n", defaultArg version 0)
+        let payload =
+            if Utils.isAScript file
+            then BackgroundServices.ScriptFile(file, tfmIfScript)
+            else BackgroundServices.SourceFile file
+
+        if backgroundServiceEnabled then BackgroundServices.updateFile(payload, lines |> String.concat "\n", defaultArg version 0)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse>, ?failureToString: string -> CoreResponse) =
         Async.bind <| function
@@ -431,7 +440,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
         (opts.ProjectFileName, cached)
 
-    member x.Project projectFileName _verbose onChange = async {
+    member x.Project projectFileName _verbose onChange tfmForScripts = async {
         let projectFileName = Path.GetFullPath projectFileName
         let project =
             match state.Projects.TryFind projectFileName with
@@ -463,7 +472,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return
             match projResponse with
             | Result.Ok (projectFileName, response) ->
-                onProjectLoaded projectFileName response
+                onProjectLoaded projectFileName response tfmForScripts
                 let responseFiles =
                     response.Items
                     |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
@@ -898,7 +907,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return [CoreResponse.WorkspacePeek d]
     }
 
-    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) = async {
+    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts = async {
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
         //TODO check full path
         let projectFileNames = files |> List.map Path.GetFullPath
@@ -932,7 +941,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
                 if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
-                projectLoadedSuccessfully projectFileName response
+                projectLoadedSuccessfully projectFileName response tfmForScripts
 
                 let responseFiles =
                     response.Items
