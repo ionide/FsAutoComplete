@@ -643,3 +643,8 @@ with
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
         }
+
+    member x.ScriptTFM =
+        match x.UseSdkScripts with
+        | false -> FSIRefs.NetFx
+        | true -> FSIRefs.NetCore

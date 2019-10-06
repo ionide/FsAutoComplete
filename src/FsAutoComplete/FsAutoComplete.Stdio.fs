@@ -49,7 +49,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
               return r :: res
 
           | Project (file, verbose) ->
-              return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose)))
+              return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose))) FSIRefs.NetFx
           | Declarations file -> return! commands.Declarations file None None
           | HelpText sym -> return commands.Helptext sym
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
@@ -89,7 +89,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | SimplifiedNames filename -> return! commands.GetSimplifiedNames filename
           | UnusedOpens filename -> return! commands.GetUnusedOpens filename
           | WorkspacePeek (dir, deep, excludeDir) -> return! commands.WorkspacePeek dir deep (excludeDir |> List.ofArray)
-          | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray) false
+          | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray) false FSIRefs.NetFx
           | Error msg -> return commands.Error msg
           | Fsdn querystr -> return! commands.Fsdn (querystr)
           | DotnetNewList filterstr -> return! commands.DotnetNewList (filterstr)

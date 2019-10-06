@@ -7,8 +7,18 @@ open FSharp.Compiler.SourceCodeServices
 
 type Msg = {Value: string}
 
+type BackgroundFileCheckType =
+| SourceFile of filePath: string
+| ScriptFile of filePath: string * tfm: FSIRefs.TFM
+with
+    member x.FilePath =
+        match x with
+        | SourceFile(path)
+        | ScriptFile(path, _) -> path
+
+
 type UpdateFileParms = {
-    File: string
+    File: BackgroundFileCheckType
     Content: string
     Version: int
 }
@@ -19,7 +29,7 @@ type ProjectParms = {
 }
 
 type FileParms = {
-    File: string
+    File: BackgroundFileCheckType
 }
 
 let p =
@@ -60,13 +70,13 @@ let start () =
     client.Start ()
 
 let updateFile(file, content, version) =
-    let msg = {File = file; Content = content; Version = version}
+    let msg: UpdateFileParms = { File = file; Content = content; Version = version }
     client.SendRequest "background/update" msg
 
 let updateProject(file, opts) =
-    let msg = {File = file; Options = opts}
+    let msg = { File = file; Options = opts }
     client.SendRequest "background/project" msg
 
 let saveFile(file) =
-    let msg = {File = file}
+    let msg: FileParms = { File = file }
     client.SendRequest "background/save" msg

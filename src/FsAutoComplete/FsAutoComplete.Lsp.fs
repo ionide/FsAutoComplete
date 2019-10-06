@@ -314,7 +314,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
-                        commands.WorkspaceLoad ignore projs.Fsprojs false
+                        commands.WorkspaceLoad ignore projs.Fsprojs false config.ScriptTFM
                         |> Async.Ignore
                         |> Async.Start
                     | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
@@ -322,7 +322,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             sln.Items
                             |> List.collect Workspace.foldFsproj
                             |> List.map fst
-                        commands.WorkspaceLoad ignore projs false
+                        commands.WorkspaceLoad ignore projs false config.ScriptTFM
                         |> Async.Ignore
                         |> Async.Start
                     | _ ->
@@ -385,7 +385,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let content = doc.Text.Split('\n')
         let tfmConfig = config.UseSdkScripts
 
-        commands.SetFileContent(filePath, content, Some doc.Version)
+        commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
 
         if not commands.IsWorkspaceReady then
@@ -409,7 +409,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | Some contentChange, Some version ->
             if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                 let content = contentChange.Text.Split('\n')
-                commands.SetFileContent(filePath, content, Some version)
+                commands.SetFileContent(filePath, content, Some version, config.ScriptTFM)
             else ()
         | _ -> ()
 
@@ -1586,7 +1586,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FSharpWorkspaceLoad(p) = async {
         Debug.print "[LSP call] FSharpWorkspaceLoad"
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
-        let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences
+        let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences config.ScriptTFM
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1619,7 +1619,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FSharpProject(p) = async {
         Debug.print "[LSP call] FSharpProject"
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn false ignore
+        let! res = commands.Project fn false ignore config.ScriptTFM
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
