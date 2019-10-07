@@ -80,7 +80,7 @@ module DocumentationFormatter =
             | _ -> "-"
         formatLink typeName xmlDocSig assemblyName
 
-    and formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
+    let formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
         let asGenericParamName (param: FSharpGenericParameter) =
             (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
@@ -151,11 +151,11 @@ module DocumentationFormatter =
 
         sb.ToString()
 
-    and formatParameter displayContext (p:FSharpParameter) =
+    let formatParameter displayContext (p:FSharpParameter) =
         try p.Type |> format displayContext
         with :? InvalidOperationException -> p.DisplayName, p.DisplayName.Length
 
-    and getUnioncaseSignature displayContext (unionCase:FSharpUnionCase) =
+    let getUnioncaseSignature displayContext (unionCase:FSharpUnionCase) =
         if unionCase.UnionCaseFields.Count > 0 then
             let typeList =
                 unionCase.UnionCaseFields
@@ -169,7 +169,7 @@ module DocumentationFormatter =
             unionCase.DisplayName + " of " + typeList
          else unionCase.DisplayName
 
-    and getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
+    let getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
         let maybeGetter = func.LogicalName.StartsWith "get_"
         let indent = String.replicate ident " "
         let functionName =
@@ -300,7 +300,7 @@ module DocumentationFormatter =
             if isDelegate then typeArguments
             else modifiers ++ functionName + ": \n" + typeArguments
 
-    and getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (getter: bool) (setter : bool) =
+    let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (getter: bool) (setter : bool) =
         let functionName =
             let name =
                 if func.IsConstructor then "new"
@@ -400,9 +400,9 @@ module DocumentationFormatter =
         | false, true -> res ++ "with set"
         | false, false -> res
 
-    and getFuncSignature f c = getFuncSignatureWithIdent f c 3
+    let getFuncSignature f c = getFuncSignatureWithIdent f c 3
 
-    and getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
+    let getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
         let retType = v.FullType  |> format displayContext |> fst
         let prefix =
             if v.IsMutable then "val mutable"
@@ -422,7 +422,7 @@ module DocumentationFormatter =
         | Some constraints -> prefix ++ name ++ ":" ++ constraints
         | None -> prefix ++ name ++ ":" ++ retType
 
-    and getFieldSignature displayContext (field: FSharpField) =
+    let getFieldSignature displayContext (field: FSharpField) =
         let retType = field.FieldType |> format displayContext  |> fst
         match field.LiteralValue with
         | Some lv -> field.DisplayName + ":" ++ retType ++ "=" ++ (string lv)
@@ -432,7 +432,7 @@ module DocumentationFormatter =
                 else "val"
             prefix ++ field.DisplayName + ":" ++ retType
 
-    and getAPCaseSignature displayContext (apc:FSharpActivePatternCase) =
+    let getAPCaseSignature displayContext (apc:FSharpActivePatternCase) =
         let findVal =
             apc.Group.DeclaringEntity
             |> Option.bind (fun ent -> ent.MembersFunctionsAndValues
@@ -445,7 +445,7 @@ module DocumentationFormatter =
             |> Option.getOrElse ""
         sprintf "active pattern %s: %s" apc.Name findVal
 
-    and getAttributeSignature displayContext (attr: FSharpAttribute) =
+    let getAttributeSignature displayContext (attr: FSharpAttribute) =
         let name = formatLink attr.AttributeType.DisplayName attr.AttributeType.XmlDocSig attr.AttributeType.Assembly.SimpleName
         let attr =
             attr.ConstructorArguments
@@ -455,7 +455,7 @@ module DocumentationFormatter =
         sprintf "%s(%s)" (fst name) attr
 
 
-    and getEntitySignature displayContext (fse: FSharpEntity) =
+    let getEntitySignature displayContext (fse: FSharpEntity) =
         let modifier =
             match fse.Accessibility with
             | a when a.IsInternal -> "internal "
