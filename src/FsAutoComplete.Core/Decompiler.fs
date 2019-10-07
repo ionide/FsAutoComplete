@@ -55,7 +55,7 @@ type TextWriterWithLocationFinder(tokenWriter:TextWriterTokenWriter, formattingP
     member __.MatchingLocation with get() = matchingLocation
 
 let decompilerForFile (file: string) =
-    let settings = DecompilerSettings(CSharp.LanguageVersion.Latest, ThrowOnAssemblyResolveErrors = true)
+    let settings = DecompilerSettings(CSharp.LanguageVersion.Latest, ThrowOnAssemblyResolveErrors = false)
     let decompiler = CSharpDecompiler(file, settings)
     decompiler.AstTransforms.Add(EscapeInvalidIdentifiers())
     decompiler

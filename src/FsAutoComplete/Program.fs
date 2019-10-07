@@ -35,8 +35,8 @@ let entry args =
 
       let backgroundServiceEnabled =
         results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
-
-      let commands = Commands(writeJson, backgroundServiceEnabled)
+      let serializer = if config.VerboseJson then writeJsonExpanded else writeJson
+      let commands = Commands(serializer, backgroundServiceEnabled)
       let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
       let fs = FileSystem(originalFs, commands.Files.TryFind)
       AbstractIL.Internal.Library.Shim.FileSystem <- fs

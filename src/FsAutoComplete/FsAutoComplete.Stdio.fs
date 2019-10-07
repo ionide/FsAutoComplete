@@ -8,6 +8,7 @@ module Response = CommandResponse
 
 let main (config: Options.Config) (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
+    let serializer = if config.VerboseJson then writeJsonExpanded else writeJson
 
     // use a mailboxprocess to queue the send of notifications
     use agent = MailboxProcessor.Start ((fun inbox ->
@@ -106,11 +107,11 @@ let main (config: Options.Config) (commands: Commands) (commandQueue: BlockingCo
       |> Async.Catch
       |> Async.RunSynchronously
       |> function
-         | Choice1Of2 res -> res |> List.iter (CommandResponse.serialize writeJson >> Console.WriteLine)
+         | Choice1Of2 res -> res |> List.iter (CommandResponse.serialize serializer >> Console.WriteLine)
          | Choice2Of2 exn ->
             exn
             |> sprintf "Unexpected internal error. Please report at https://github.com/fsharp/FsAutoComplete/issues, attaching the exception information:\n%O"
-            |> Response.error writeJson
+            |> Response.error serializer
             |> Console.WriteLine
     0
 

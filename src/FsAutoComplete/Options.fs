@@ -63,6 +63,7 @@ module Options =
       | Mode of TransportMode
       | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
       | [<CustomCommandLine("--use-sdk-scripts")>] UseSdkScripts
+      | [<CustomCommandLine("--verbose-json")>] VerboseJson
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -78,12 +79,16 @@ module Options =
                   | Mode _ -> "the transport type."
                   | BackgroundServiceEnabled -> "enable background service"
                   | UseSdkScripts -> "enable the use of .net core references for script typechecking"
+                  | VerboseJson -> "serializes responses using indented json"
 
 
   type Config =
-    { UseSdkScripts: bool }
+    { UseSdkScripts: bool
+      VerboseJson: bool }
     with
-        static member Default = { UseSdkScripts = false }
+        static member Default =
+          { UseSdkScripts = false
+            VerboseJson = false }
         member x.ScriptTFM =
             match x.UseSdkScripts with
             | true -> FSIRefs.NetFx
@@ -119,6 +124,8 @@ module Options =
           config
       | UseSdkScripts ->
         { config with UseSdkScripts = true }
+      | VerboseJson -> 
+        { config with VerboseJson = true }
 
     (Config.Default, args.GetAllResults())
     ||> List.fold applyArg
