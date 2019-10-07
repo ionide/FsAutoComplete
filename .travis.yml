@@ -12,10 +12,10 @@ matrix:
   include:
     - mono: latest # => "stable release"
       dist: xenial
-      dotnet: 2.1.801
+      dotnet: 3.0.100
     - mono: weekly # => "latest commits"
       dist: xenial
-      dotnet: 2.1.801
+      dotnet: 3.0.100
 
   allow_failures:
     - mono: weekly
