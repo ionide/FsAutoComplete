@@ -105,12 +105,13 @@ let fsacExePath () =
   testConfig.FsacExePath
 
 let configureFSACArgs (startInfo: ProcessStartInfo) =
+    let netcoreArgs = "--use-sdk-scripts --verbose-json"
     let fileName, args =
       match testConfig.Runtime with
       | FSACRuntime.NETCoreFDD ->
-          "dotnet", fsacExePath () + " --use-sdk-scripts"
+          "dotnet", fsacExePath () + " " + netcoreArgs
       | FSACRuntime.NETCoreSCD ->
-          fsacExePath (), "--use-sdk-scripts"
+          fsacExePath (), netcoreArgs
       | FSACRuntime.NET ->
           fsacExePath (), ""
 
@@ -219,13 +220,6 @@ type FsAutoCompleteWrapperStdio() =
     waitOut times
 
 
-let formatJson json =
-    try
-      let parsedJson = JsonConvert.DeserializeObject(json)
-      JsonConvert.SerializeObject(parsedJson, Formatting.Indented)
-    with _ ->
-      json
-
 type FsAutoCompleteWrapper = FsAutoCompleteWrapperStdio
 
 let stripPackagesDir =
@@ -246,11 +240,6 @@ let writeNormalizedOutputWith additionalFn (fn: string) (s: string) =
   let lines = s.TrimEnd().Split('\n')
 
   for i in [ 0 .. lines.Length - 1 ] do
-
-    // re-serialize json so is indented
-    if Path.GetExtension fn = ".json" then
-      lines.[i] <- formatJson lines.[i]
-
     // replace paths with <absolute path removed>
     lines.[i] <- Regex.Replace(normalizeDirSeparators lines.[i],
                                sprintf "%s/.*?test/FsAutoComplete\.IntegrationTests/(.*?(\"|$))" driveLetterRegex,
@@ -274,11 +263,6 @@ let writeNormalizedOutputWith additionalFn (fn: string) (s: string) =
                                sprintf "\"%s/[^\"]*?/([^\"/]*?\.dll\")" driveLetterRegex,
                                "\"<absolute path removed>/$1")
 
-    // replace quoted paths '<path>' with <absolute path removed>
-    lines.[i] <- Regex.Replace(lines.[i],
-                               sprintf "'%s/[^']*?/([^'/]*?\.[a-zA-Z]*)'" driveLetterRegex,
-                               "'<absolute path removed>/$1'")
-
     // replace temp directory with <tempdir path removed>
     lines.[i] <- Regex.Replace(lines.[i],
                                Path.GetTempPath().Replace("\\","[/|\\\\]"),
@@ -293,9 +277,6 @@ let writeNormalizedOutputWith additionalFn (fn: string) (s: string) =
     lines.[i] <- lines.[i].Replace("\r", "").Replace(@"\r", "")
 
     lines.[i] <- additionalFn lines.[i]
-
-  //workaround for https://github.com/fsharp/fsharp/issues/774
-  let lines = lines |> Array.filter ((<>) "non-IL or abstract method with non-zero RVA")
 
   // Write manually to ensure \n line endings on all platforms
   use f = new StreamWriter(fn)

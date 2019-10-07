@@ -42,10 +42,7 @@ let main (config: Options.Config) (commands: Commands) (commandQueue: BlockingCo
                   CoreResponse.InfoRes (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
                ]
           | Parse (file, kind, lines) ->
-              let isSdkScript =
-                if Utils.isAScript file
-                then Some config.UseSdkScripts
-                else None
+              let isSdkScript = Some config.UseSdkScripts
               let! res = commands.Parse file lines 0 isSdkScript
               //Hack for tests
               let r = match kind with
@@ -115,16 +112,9 @@ let main (config: Options.Config) (commands: Commands) (commandQueue: BlockingCo
             |> Console.WriteLine
     0
 
-let trimBOM (s: string) =
-    let bomUTF8 = Text.Encoding.UTF8.GetString(Text.Encoding.UTF8.GetPreamble())
-    if (s.StartsWith(bomUTF8, StringComparison.Ordinal)) then
-        s.Remove(0, bomUTF8.Length)
-    else
-        s
-
 let start config (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     Console.InputEncoding <- Text.Encoding.UTF8
-    Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
+    Console.OutputEncoding <- Text.Encoding.UTF8
 
     let commandQueue = new BlockingCollection<Command>(10)
 
@@ -138,12 +128,6 @@ let start config (commands: Commands) (args: Argu.ParseResults<Options.CLIArgume
 
           while true do
             let inputLine = Console.ReadLine()
-#if NETCOREAPP
-            //on .net core, bom is not stripped.
-            //ref https://github.com/dotnet/standard/issues/260
-            //TODO tweak console.inputencoding to remove the BOM instead of this ugly hack
-            let inputLine = trimBOM inputLine
-#endif
             let cmd = CommandInput.parseCommand(inputLine)
             commandQueue.Add(cmd)
         }

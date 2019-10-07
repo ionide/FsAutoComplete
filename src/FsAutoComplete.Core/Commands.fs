@@ -370,7 +370,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.Parse file lines version (isSdkScript: bool option) =
         let file = Path.GetFullPath file
-        let tmf = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
+        let tfm = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
 
         do x.CancelQueue file
         async {
@@ -399,7 +399,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tfm)
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
@@ -410,7 +410,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         state.SetFileVersion file version
                         async.Return c
                     | None -> async {
-                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tfm)
                         state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
