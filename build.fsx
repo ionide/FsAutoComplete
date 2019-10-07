@@ -80,7 +80,7 @@ let runIntegrationTest cfg (fn: string) : bool =
       match cfg.Runtime with
       | FSACRuntime.NET -> "net461"
       | FSACRuntime.NETCoreSCD
-      | FSACRuntime.NETCoreFDD -> "netcoreapp2.1"
+      | FSACRuntime.NETCoreFDD -> "netcoreapp3.0"
     let fsiArgs = sprintf "%s -- -pub -f %s -c %s" fn framework configuration
     let fsiPath = FSIHelper.fsiPath
     tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
@@ -175,12 +175,10 @@ Target "IntegrationTestStdioMode" (fun _ ->
 
 
 Target "IntegrationTestStdioModeNetCore" (fun _ ->
-  ignore ()
-  // not doing these tests because they need to be migrated to LSP
-  // trace "== Integration tests (stdio/netcore) =="
-  // let cfg = { Runtime = NETCoreFDD }
-  // listAll cfg
-  // runall cfg
+  trace "== Integration tests (stdio/netcore) =="
+  let cfg = { Runtime = NETCoreFDD }
+  listAll cfg
+  runall cfg
 )
 
 
