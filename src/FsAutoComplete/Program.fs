@@ -31,11 +31,10 @@ let entry args =
           printfn "%s" Options.commandText
           exit 0 )
 
-      Options.apply results
+      let config = Options.apply results
 
       let backgroundServiceEnabled =
         results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
-
 
       let commands = Commands(writeJson, backgroundServiceEnabled)
       let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
@@ -46,7 +45,7 @@ let entry args =
 
       match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
       | Options.TransportMode.Stdio ->
-          FsAutoComplete.Stdio.start commands results
+          FsAutoComplete.Stdio.start config commands results
       | Options.TransportMode.Lsp ->
           FsAutoComplete.Lsp.start commands results
     with

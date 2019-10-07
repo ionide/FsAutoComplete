@@ -80,9 +80,9 @@ let testConfig =
       else
         match fsacRuntime with
         | FSACRuntime.NETCoreFDD ->
-          fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.dll" configuration framework
+          fromRoot "../../src/FsAutoComplete/bin/%s/netcoreapp2.1/fsautocomplete.dll" configuration
         | FSACRuntime.NETCoreSCD ->
-          fromRoot "../../src/FsAutoComplete/bin/%s/%s/publish/fsautocomplete" configuration framework
+          fromRoot "../../src/FsAutoComplete/bin/%s/netcoreapp2.1/publish/fsautocomplete" configuration
         | FSACRuntime.NET ->
           fromRoot "../../src/FsAutoComplete/bin/%s/%s/fsautocomplete.exe" configuration framework
 
@@ -105,24 +105,23 @@ let fsacExePath () =
   testConfig.FsacExePath
 
 let configureFSACArgs (startInfo: ProcessStartInfo) =
-    startInfo.FileName <-
+    let fileName, args =
       match testConfig.Runtime with
       | FSACRuntime.NETCoreFDD ->
-          "dotnet"
-      | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
-          fsacExePath ()
+          "dotnet", fsacExePath () + " --use-sdk-scripts"
+      | FSACRuntime.NETCoreSCD ->
+          fsacExePath (), "--use-sdk-scripts"
+      | FSACRuntime.NET ->
+          fsacExePath (), ""
 
+    startInfo.FileName <- fileName
     startInfo.RedirectStandardOutput <- true
     startInfo.RedirectStandardError  <- true
     startInfo.RedirectStandardInput  <- true
     startInfo.UseShellExecute <- false
     startInfo.EnvironmentVariables.Add("FCS_ToolTipSpinWaitTime", "10000")
     startInfo.EnvironmentVariables.Add("FSAC_WORKSPACELOAD_DELAY", "2000")
-    match testConfig.Runtime with
-    | FSACRuntime.NETCoreFDD ->
-        startInfo.Arguments <- fsacExePath ()
-    | FSACRuntime.NET | FSACRuntime.NETCoreSCD ->
-        ()
+    startInfo.Arguments <- args
     if Environment.GetEnvironmentVariable("FSAC_TESTSUITE_WAITDEBUGGER") = "1" then
       startInfo.Arguments <- sprintf "%s --wait-for-debugger" startInfo.Arguments
 

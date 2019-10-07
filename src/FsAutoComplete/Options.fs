@@ -62,6 +62,7 @@ module Options =
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | Mode of TransportMode
       | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
+      | [<CustomCommandLine("--use-sdk-scripts")>] UseSdkScripts
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -76,15 +77,28 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | Mode _ -> "the transport type."
                   | BackgroundServiceEnabled -> "enable background service"
+                  | UseSdkScripts -> "enable the use of .net core references for script typechecking"
+
+
+  type Config =
+    { UseSdkScripts: bool }
+    with
+        static member Default = { UseSdkScripts = false }
+        member x.ScriptTFM =
+            match x.UseSdkScripts with
+            | true -> FSIRefs.NetFx
+            | false -> FSIRefs.NetCore
 
   let apply (args: ParseResults<CLIArguments>) =
 
-    let applyArg arg =
+    let applyArg (config: Config) arg =
       match arg with
       | Verbose ->
           Debug.verbose <- true
+          config
       | AttachDebugger ->
           System.Diagnostics.Debugger.Launch() |> ignore<bool>
+          config
       | Logfile s ->
           try
             Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
@@ -92,15 +106,19 @@ module Options =
           | e ->
             printfn "Bad log file: %s" e.Message
             exit 1
+          config
       | VFilter v ->
           Debug.categories <- v.Split(',') |> set |> Some
+          config
       | Commands
       | Version
       | WaitForDebugger
       | BackgroundServiceEnabled
       | HostPID _
       | Mode _ ->
-          ()
+          config
+      | UseSdkScripts ->
+        { config with UseSdkScripts = true }
 
-    args.GetAllResults()
-    |> List.iter applyArg
+    (Config.Default, args.GetAllResults())
+    ||> List.fold applyArg

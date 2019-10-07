@@ -81,16 +81,20 @@ let runIntegrationTest cfg (fn: string) : bool =
       | FSACRuntime.NET -> "net461"
       | FSACRuntime.NETCoreSCD
       | FSACRuntime.NETCoreFDD -> "netcoreapp3.0"
-    let fsiArgs = sprintf "%s -- -pub -f %s -c %s" fn framework configuration
-    let fsiPath = FSIHelper.fsiPath
-    tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
+    let fsiBin, fsiArgs =
+      match cfg.Runtime with
+      | FSACRuntime.NET -> FSIHelper.fsiPath, ""
+      | _ -> "dotnet", "fsi"
+    let fsiArgs =
+      (match fsiArgs with | "" -> "" | s -> s + " ") + sprintf "%s -- -pub -f %s -c %s" fn framework configuration
+    tracefn "Running fsi '%s %s' (from dir '%s')"  fsiBin fsiArgs dir
     let testExecution =
       try
         FileUtils.pushd dir
 
         let result, messages =
             ExecProcessRedirected (fun info ->
-              info.FileName <- fsiPath
+              info.FileName <- fsiBin
               info.Arguments <- fsiArgs
               info.WorkingDirectory <- dir
             ) (TimeSpan.FromMinutes(1.0))

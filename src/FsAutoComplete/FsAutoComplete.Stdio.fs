@@ -6,7 +6,7 @@ open FsAutoComplete.JsonSerializer
 open System.Collections.Concurrent
 module Response = CommandResponse
 
-let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
+let main (config: Options.Config) (commands: Commands) (commandQueue: BlockingCollection<Command>) =
     let mutable quit = false
 
     // use a mailboxprocess to queue the send of notifications
@@ -41,7 +41,11 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
                   CoreResponse.InfoRes (sprintf "Started (PID=%i)" (System.Diagnostics.Process.GetCurrentProcess().Id))
                ]
           | Parse (file, kind, lines) ->
-              let! res = commands.Parse file lines 0 None
+              let isSdkScript =
+                if Utils.isAScript file
+                then Some config.UseSdkScripts
+                else None
+              let! res = commands.Parse file lines 0 isSdkScript
               //Hack for tests
               let r = match kind with
                       | Synchronous -> CoreResponse.InfoRes "Synchronous parsing started"
@@ -49,7 +53,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
               return r :: res
 
           | Project (file, verbose) ->
-              return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose))) FSIRefs.NetFx
+              return! commands.Project file verbose (fun fullPath -> commandQueue.Add(Project (fullPath, verbose))) config.ScriptTFM
           | Declarations file -> return! commands.Declarations file None None
           | HelpText sym -> return commands.Helptext sym
           | PosCommand (cmd, file, lineStr, pos, _timeout, filter) ->
@@ -89,7 +93,7 @@ let main (commands: Commands) (commandQueue: BlockingCollection<Command>) =
           | SimplifiedNames filename -> return! commands.GetSimplifiedNames filename
           | UnusedOpens filename -> return! commands.GetUnusedOpens filename
           | WorkspacePeek (dir, deep, excludeDir) -> return! commands.WorkspacePeek dir deep (excludeDir |> List.ofArray)
-          | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray) false FSIRefs.NetFx
+          | WorkspaceLoad files -> return! commands.WorkspaceLoad (fun fullPath -> commandQueue.Add(Project (fullPath, false))) (files |> List.ofArray) false config.ScriptTFM
           | Error msg -> return commands.Error msg
           | Fsdn querystr -> return! commands.Fsdn (querystr)
           | DotnetNewList filterstr -> return! commands.DotnetNewList (filterstr)
@@ -117,7 +121,7 @@ let trimBOM (s: string) =
     else
         s
 
-let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
+let start config (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
     Console.InputEncoding <- Text.Encoding.UTF8
     Console.OutputEncoding <- new Text.UTF8Encoding(false, false)
 
@@ -144,6 +148,6 @@ let start (commands: Commands) (args: Argu.ParseResults<Options.CLIArguments>) =
         }
         |> Async.Start
 
-        main commands commandQueue
+        main config commands commandQueue
     finally
         (Debug.output).Close()
