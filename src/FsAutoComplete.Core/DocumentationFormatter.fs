@@ -31,42 +31,13 @@ module DocumentationFormatter =
             let cnt = Uri.EscapeDataString content
             sprintf "<a href='command:fsharp.showDocumentation?%s'>%s</a>" cnt name, name.Length
 
-
-    let rec format displayContext (typ : FSharpType) : (string * int) =
+    let rec formatType displayContext (typ : FSharpType) : (string*int) list =
         let typ2 = if typ.IsAbbreviation then typ.AbbreviatedType else typ
-        // let typ2 = match typ.BaseType with | Some typ -> typ |_ -> typ
-        // let typ2 = typ
-        let typeName =
-            try
-                if typ.IsTupleType || typ.IsStructTupleType then
-                    typ.GenericArguments
-                    |> Seq.map (format displayContext >> fst)
-                    |> String.concat " * "
-                elif typ.GenericArguments.Count > 0 then
-                    let r =
-                        typ.GenericArguments
-                        |> Seq.map (format displayContext >> fst)
-                        |> String.concat ","
-                    let org = typ.Format displayContext
-                    let t = Regex.Replace(org, """<.*>""", sprintf "<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) list""", sprintf "List<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) option""", sprintf "Option<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) list""", sprintf "List<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) lazy""", sprintf "Lazy<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) seq""", sprintf "Seq<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) \[\]""", sprintf "Array<%s>" r)
-                    t
-                elif typ.IsGenericParameter then
-                    (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
-                else
-                    typ.Format displayContext |> PrettyNaming.QuoteIdentifierIfNeeded
-            with
-            | _ -> typ.Format displayContext
         let xmlDocSig =
             try
                 if typ2.HasTypeDefinition then
                     typ2.TypeDefinition.XmlDocSig
-                else
+                 else
                     "-"
             with
             | _ -> "-"
@@ -78,7 +49,40 @@ module DocumentationFormatter =
                     typ2.TypeDefinition.Assembly.SimpleName
             with
             | _ -> "-"
-        formatLink typeName xmlDocSig assemblyName
+        if typ.IsTupleType || typ.IsStructTupleType then
+            let separator = formatLink " * " xmlDocSig assemblyName
+            [ for arg in typ.GenericArguments do
+              if arg <> typ.GenericArguments.[0] then yield separator
+              yield! formatType displayContext arg ]
+        elif typ.GenericArguments.Count > 0 then
+            let r =
+                typ.GenericArguments
+                |> Seq.collect (formatType displayContext)
+            let org = typ.Format displayContext
+            let t = Regex.Replace(org, """(.*?) list""", "List<")
+            let t = Regex.Replace(t, """(.*?) option""", "Option<")
+            let t = Regex.Replace(t, """(.*?) lazy""", "Lazy<")
+            let t = Regex.Replace(t, """(.*?) seq""", "Seq<")
+            let t = Regex.Replace(t, """(.*?) ?\[\]""", "Array<")
+            let t = Regex.Replace(t, """<.*>""", "<")
+            [ yield formatLink t xmlDocSig assemblyName
+              if t.EndsWith "<" then 
+                  yield! r
+                  yield formatLink ">" xmlDocSig assemblyName ]
+        elif typ.IsGenericParameter then
+            let name =
+                if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'"
+                + typ.GenericParameter.Name
+            [formatLink name xmlDocSig assemblyName]
+        else
+            let name = 
+                typ.Format displayContext
+                |> PrettyNaming.QuoteIdentifierIfNeeded
+            [formatLink name xmlDocSig assemblyName]
+
+    let format displayContext (typ : FSharpType) : (string * int) =
+        formatType displayContext typ
+        |> Seq.reduce (fun (aLink,aLen) (bLink,bLen) -> (aLink+bLink, aLen+bLen))
 
     let formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
