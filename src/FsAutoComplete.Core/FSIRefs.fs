@@ -10,58 +10,14 @@ open System.IO
 let defaultDotNetSDKRoot =
   match Environment.OSVersion.Platform with
   | PlatformID.MacOSX | PlatformID.Unix -> "/usr/local/share/dotnet"
-  | _ -> @"C:\Program Files\dotnet\sdk"
+  | _ -> @"C:\Program Files\dotnet"
 
 type TFM =
 | NetFx
 | NetCore
 
-type [<Struct;CustomComparison;CustomEquality>] NugetVersion = NugetVersion of major: int * minor: int * build: int * suffix: string
+type NugetVersion = NugetVersion of major: int * minor: int * build: int * suffix: string
 with
-  interface IComparable<NugetVersion> with
-    member x.CompareTo (y: NugetVersion) =
-      if x = y then 0
-      else
-        try
-          let (NugetVersion(major1, minor1, build1, suffix1 )) = x
-          let (NugetVersion(major2, minor2, build2, suffix2 )) = y
-          let v = major1 - major2
-          if v <> 0 then v
-          else
-            let v = minor1 - minor2
-            if v <> 0 then v
-            else
-              let v = build1 - build2
-              if v <> 0 then v
-              else
-                match String.IsNullOrEmpty(suffix1), String.IsNullOrEmpty(suffix2) with
-                | true, true -> 0
-                | true, false -> 1
-                | false, true -> -1
-                | false, false -> String.Compare(suffix1, suffix2, StringComparison.InvariantCultureIgnoreCase)
-        with _ -> 0
-
-  interface IComparable with
-    member x.CompareTo (y: obj) =
-      match y with
-      | :? NugetVersion as y' -> (x :> IComparable<NugetVersion>).CompareTo y'
-      | _ -> failwith "not able to convert types"
-
-  interface IEquatable<NugetVersion> with
-    member x.Equals y =
-      let (NugetVersion(major, minor, build, suffix)) = x
-      let (NugetVersion(major2, minor2, build2, suffix2)) = y
-      major = major2 && minor = minor2 && build = build2 && suffix = suffix2
-
-  override x.Equals(y: obj) =
-    match y with
-    | :? NugetVersion as y' -> (x :> IEquatable<NugetVersion>).Equals y'
-    | _ -> failwith "can't compare to other type"
-
-  override x.GetHashCode() =
-    let (NugetVersion(major, minor, build, suffix)) = x
-    (hash major + hash minor + hash build + hash suffix) % 13
-
   override x.ToString() =
     match x with
     | NugetVersion(major, minor, build, suffix) when String.IsNullOrWhiteSpace suffix -> sprintf "%d.%d.%d" major minor build
