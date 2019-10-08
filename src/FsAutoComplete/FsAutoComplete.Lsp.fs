@@ -349,7 +349,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentSymbolProvider = Some true
                         WorkspaceSymbolProvider = Some true
                         DocumentFormattingProvider = Some true
-                        DocumentRangeFormattingProvider = Some true
+                        DocumentRangeFormattingProvider = Some false
                         SignatureHelpProvider = Some {
                             SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]
                         }
