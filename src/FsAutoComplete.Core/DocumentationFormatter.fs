@@ -75,9 +75,7 @@ module DocumentationFormatter =
                 + typ.GenericParameter.Name
             [formatLink name xmlDocSig assemblyName]
         else
-            let name = 
-                typ.Format displayContext
-                |> PrettyNaming.QuoteIdentifierIfNeeded
+            let name = typ.TypeDefinition.DisplayName |> PrettyNaming.QuoteIdentifierIfNeeded
             [formatLink name xmlDocSig assemblyName]
 
     let format displayContext (typ : FSharpType) : (string * int) =
