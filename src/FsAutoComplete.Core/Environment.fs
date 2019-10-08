@@ -37,7 +37,7 @@ module Environment =
   // Below code slightly modified from FAKE MSBuildHelper.fs
 
   let private vsSkus = ["Community"; "Professional"; "Enterprise"; "BuildTools"]
-  let private vsVersions = ["2017"; "2019"]
+  let private vsVersions = ["2019"; "2017";]
   let private cartesian a b =
     [ for a' in a do
         for b' in b do
