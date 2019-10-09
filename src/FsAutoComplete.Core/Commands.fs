@@ -75,7 +75,6 @@ type NotificationEvent =
     | FileParsed of string
 
 type Commands (serialize : Serializer, backgroundServiceEnabled) =
-
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial
     let fileParsed = Event<FSharpParseFileResults>()
@@ -1136,3 +1135,4 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 return Ok ranges
     }
 
+    member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)

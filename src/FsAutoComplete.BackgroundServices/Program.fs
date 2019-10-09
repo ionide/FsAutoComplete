@@ -105,9 +105,14 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
 
     let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = true)
-    let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
 
     do checker.ImplicitlyStartBackgroundWork <- false
+
+    //TODO: does the backgroundservice ever get config updates?
+    let sdkRoot = Environment.dotnetSDKRoot.Value
+    let latestSdkVersion = Environment.latest3xSdkVersion sdkRoot
+    let latestRuntimeVersion = Environment.latest3xSdkVersion sdkRoot
+
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =
         if Array.isEmpty opts.SourceFiles then
@@ -119,7 +124,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         let replaceRefs (projOptions: FSharpProjectOptions) =
             let okOtherOpts = projOptions.OtherOptions |> Array.filter (fun r -> not <| r.StartsWith("-r"))
             let assemblyPaths =
-              match Environment.latest3xSdkVersion.Value, Environment.latest3xRuntimeVersion.Value with
+              match latestSdkVersion.Value, latestRuntimeVersion.Value with
               | None, _
               | _, None ->
                 []

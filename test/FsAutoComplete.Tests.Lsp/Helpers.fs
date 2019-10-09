@@ -42,7 +42,8 @@ let defaultConfigDto : FSharpConfigDto =
     InterfaceStubGenerationObjectIdentifier = None
     InterfaceStubGenerationMethodBody = None
     LineLens = None
-    UseSdkScripts = Some true }
+    UseSdkScripts = Some true
+    DotNetRoot = None }
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}
