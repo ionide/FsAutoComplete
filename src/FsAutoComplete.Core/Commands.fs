@@ -1120,3 +1120,19 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member x.GetChecker () = checker.GetFSharpChecker()
+
+    member x.ScopesForFile (file: string) = async {
+        let file = Path.GetFullPath file
+        match state.TryGetFileCheckerOptionsWithLines file with
+        | Error s -> return Error s
+        | Ok (opts, sourceLines) ->
+            let parseOpts = Utils.projectOptionsToParseOptions opts
+            let allSource = sourceLines |> String.concat "\n"
+            let! ast = checker.ParseFile(file, allSource, parseOpts)
+            match ast.ParseTree with
+            | None -> return Error (ast.Errors |> Array.map string |> String.concat "\n")
+            | Some ast' ->
+                let ranges = Structure.getOutliningRanges sourceLines ast'
+                return Ok ranges
+    }
+
