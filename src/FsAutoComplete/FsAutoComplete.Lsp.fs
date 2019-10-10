@@ -103,6 +103,18 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
 
+    let toFoldingRange (item: Structure.ScopeRange): FoldingRange option = 
+        match item.Collapse with
+        | Structure.Collapse.Same -> None
+        | Structure.Collapse.Below -> 
+            // map the collapserange to the foldingRange
+            let lsp = fcsRangeToLsp item.CollapseRange
+            Some { StartCharacter = Some lsp.Start.Character
+                   StartLine = lsp.Start.Line
+                   EndCharacter = Some lsp.End.Character
+                   EndLine = lsp.End.Line
+                   Kind = None }
+
     do
         commands.Notify.Subscribe(fun n ->
             try
@@ -1436,8 +1448,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return ()
     }
 
-    override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
-        AsyncLspResult.success (Some [||])
+    override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) = async {
+        Debug.print "[LSP call] TextDocument/FoldingRange"
+        let file = rangeP.TextDocument.GetFilePath()
+        match! commands.ScopesForFile file with
+        | Ok scopes -> 
+            let ranges = scopes |> Seq.choose toFoldingRange |> List.ofSeq
+            return LspResult.success (Some ranges)
+        | Result.Error error -> 
+            return LspResult.internalError error
+    }
 
     member x.FSharpSignature(p: TextDocumentPositionParams) =
         Debug.print "[LSP call] FSharpSignature"

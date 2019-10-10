@@ -1120,3 +1120,20 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member x.GetChecker () = checker.GetFSharpChecker()
+
+    member x.ScopesForFile (file: string) = async {
+        let file = Path.GetFullPath file
+        match state.TryGetFileCheckerOptionsWithLines file with
+        | Error s -> return Error s
+        | Ok (opts, source) -> 
+            let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+            match tyResOpt with
+            | None -> return Error "Cached typecheck results not yet available"
+            | Some tyRes ->
+                match tyRes.GetAST with
+                | Some ast ->
+                    return Ok (Structure.getOutliningRanges source ast)
+                | None ->
+                    return Error (sprintf "No AST available for %s" file)
+    }
+        

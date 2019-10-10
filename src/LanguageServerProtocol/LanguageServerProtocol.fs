@@ -2146,7 +2146,7 @@ type LspServer() =
     default __.TextDocumentDidClose(_) = ignoreNotification
 
     /// The folding range request is sent from the client to the server to return all folding ranges found in a given text document.
-    abstract member TextDocumentFoldingRange: FoldingRangeParams -> AsyncLspResult<FoldingRange [] option>
+    abstract member TextDocumentFoldingRange: FoldingRangeParams -> AsyncLspResult<FoldingRange list option>
     default __.TextDocumentFoldingRange(_) = notImplemented
 
 module Server =
