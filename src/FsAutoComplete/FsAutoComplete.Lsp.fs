@@ -368,6 +368,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                      Change = Some TextDocumentSyncKind.Full
                                      Save = Some { IncludeText = Some true }
                                  }
+                        FoldingRangeProvider = Some true
                     }
             }
             |> success
@@ -1434,6 +1435,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         Debug.print "[LSP call] WorkspaceDidChangeConfiguration:\n %A" c
         return ()
     }
+
+    override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
+        AsyncLspResult.success (Some [||])
 
     member x.FSharpSignature(p: TextDocumentPositionParams) =
         Debug.print "[LSP call] FSharpSignature"

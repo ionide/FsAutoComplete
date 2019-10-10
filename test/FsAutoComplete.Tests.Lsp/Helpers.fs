@@ -95,6 +95,11 @@ let clientCaps : ClientCapabilities =
       { DynamicRegistration = Some true
         SymbolKind = Some skCaps}
 
+    let foldingRangeCaps: FoldingRangeCapabilities =
+      { DynamicRegistration = Some true
+        LineFoldingOnly = Some true
+        RangeLimit = Some 100 }
+
     { Synchronization = Some syncCaps
       PublishDiagnostics = diagCaps
       Completion = Some compCaps
@@ -110,7 +115,8 @@ let clientCaps : ClientCapabilities =
       CodeAction = Some dynCaps
       CodeLens = Some dynCaps
       DocumentLink = Some dynCaps
-      Rename = Some dynCaps}
+      Rename = Some dynCaps
+      FoldingRange = Some foldingRangeCaps }
 
 
   { Workspace = Some workspaceCaps
@@ -151,7 +157,7 @@ let loadDocument path : TextDocumentItem =
     Text = File.ReadAllText path  }
 
 let parseProject projectFilePath (server: FsharpLspServer) = async {
-  let projectParams: ProjectParms = 
+  let projectParams: ProjectParms =
     { Project = { Uri = filePathToUri projectFilePath } }
   // first restore the project
   let psi = System.Diagnostics.ProcessStartInfo()
