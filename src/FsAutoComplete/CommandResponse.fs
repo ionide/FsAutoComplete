@@ -218,6 +218,7 @@ module CommandResponse =
       Fsc: string option
       Fsi: string option
       MSBuild: string option
+      SdkRoot: string option
     }
 
   type FSharpErrorInfo =
@@ -749,8 +750,8 @@ module CommandResponse =
     let data = TipFormatter.extractSignature tip
     serialize { Kind = "typesig"; Data = data }
 
-  let compilerLocation (serialize : Serializer) fsc fsi msbuild =
-    let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild }
+  let compilerLocation (serialize : Serializer) fsc fsi msbuild sdkRoot =
+    let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild; SdkRoot = sdkRoot }
     serialize { Kind = "compilerlocation"; Data = data }
 
   let message (serialize : Serializer) (kind: string, data: 'a) =
@@ -914,8 +915,8 @@ module CommandResponse =
       formattedDocumentationForSymbol s xml assembly xmlDoc (signature, footer, cn)
     | CoreResponse.TypeSig(tip) ->
       typeSig s tip
-    | CoreResponse.CompilerLocation(fcs, fsi, msbuild) ->
-      compilerLocation s fcs fsi msbuild
+    | CoreResponse.CompilerLocation(fcs, fsi, msbuild, sdk) ->
+      compilerLocation s fcs fsi msbuild sdk
     | CoreResponse.Lint(_,warnings) ->
       lint s warnings
     | CoreResponse.ResolveNamespaces(word, opens, qualifies) ->

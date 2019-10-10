@@ -430,6 +430,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let entityCache = EntityCache()
 
+  let mutable sdkRoot = None
+  let mutable sdkVersion = lazy(None)
+  let mutable runtimeVersion = lazy(None)
+
   let mutable disableInMemoryProjectReferences = false
 
   let clearProjectReferecnes (opts: FSharpProjectOptions) =
@@ -442,15 +446,21 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let replaceRefs (projOptions: FSharpProjectOptions) =
     let okOtherOpts = projOptions.OtherOptions |> Array.filter (fun r -> not <| r.StartsWith("-r"))
     let assemblyPaths =
-      match Environment.latest3xSdkVersion.Value, Environment.latest3xRuntimeVersion.Value with
-      | None, _ ->
-        Debug.print "Couldn't find latest 3.x sdk version"
+      match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
+      | None, _, _ ->
+        Debug.print "No dotnet SDK root path found"
         []
-      | _, None ->
-        Debug.print "Couldn't find latest 3.x runtime version"
+      | Some root, None, None ->
+        Debug.print "Couldn't find latest 3.x sdk and runtime versions inside root %s" root
         []
-      | Some sdkVersion, Some runtimeVersion ->
-        let refs = FSIRefs.netCoreRefs Environment.dotnetSDKRoot.Value (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
+      | Some root, None, _ ->
+        Debug.print "Couldn't find latest 3.x sdk version inside root %s" root
+        []
+      | Some root, _, None ->
+        Debug.print "Couldn't find latest 3.x runtime version inside root %s" root
+        []
+      | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
+        let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
         Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
         refs
     let refs = assemblyPaths |> List.map (fun r -> "-r:" + r)
@@ -590,3 +600,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.Compile = checker.Compile
 
   member internal x.GetFSharpChecker() = checker
+
+  member __.SetDotnetRoot(path) =
+    sdkRoot <- Some path
+    sdkVersion <- Environment.latest3xSdkVersion path
+    runtimeVersion <- Environment.latest3xSdkVersion path
+
+  member __.GetDotnetRoot () = sdkRoot

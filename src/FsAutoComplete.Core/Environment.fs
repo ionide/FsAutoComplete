@@ -88,7 +88,13 @@ module Environment =
 
   /// The sdk root that we assume for FSI-ref-location purposes.
   /// TODO: make this settable via ENV variable or explicit LSP config
-  let dotnetSDKRoot = lazy (FsAutoComplete.FSIRefs.defaultDotNetSDKRoot)
+  let dotnetSDKRoot =
+    lazy (
+      let fromEnv =
+        Environment.GetEnvironmentVariable "DOTNET_ROOT"
+        |> Option.ofObj
+      defaultArg fromEnv FSIRefs.defaultDotNetSDKRoot
+    )
 
   let private maxVersionWithThreshold minVersion versions =
     versions
@@ -99,10 +105,10 @@ module Environment =
 
   /// because 3.x is the minimum SDK that we support for FSI, we want to float to the latest
   /// 3.x sdk that the user has installed, to prevent hard-coding.
-  let latest3xSdkVersion =
+  let latest3xSdkVersion sdkRoot =
     let minSDKVersion = FSIRefs.NugetVersion(3,0,100,"")
     lazy (
-      match FsAutoComplete.FSIRefs.sdkVersions dotnetSDKRoot.Value with
+      match FSIRefs.sdkVersions sdkRoot with
       | None -> None
       | Some sortedSdkVersions ->
         Debug.print "SDK versions: %A" sortedSdkVersions
@@ -111,10 +117,10 @@ module Environment =
 
   /// because 3.x is the minimum runtime that we support for FSI, we want to float to the latest
   /// 3.x runtime that the user has installed, to prevent hard-coding.
-  let latest3xRuntimeVersion =
+  let latest3xRuntimeVersion sdkRoot =
     let minRuntimeVersion = FSIRefs.NugetVersion(3,0,0,"")
     lazy (
-      match FsAutoComplete.FSIRefs.runtimeVersions dotnetSDKRoot.Value with
+      match FSIRefs.runtimeVersions sdkRoot with
       | None -> None
       | Some sortedRuntimeVersions ->
         Debug.print "Runtime versions: %A" sortedRuntimeVersions

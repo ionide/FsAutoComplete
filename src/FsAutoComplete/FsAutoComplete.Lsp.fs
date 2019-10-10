@@ -53,6 +53,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     let mutable config = FSharpConfig.Default
 
+    /// centralize any state changes when the config is updated here
+    let updateConfig (newConfig: FSharpConfig) =
+        config <- newConfig
+        commands.SetDotnetSDKRoot config.DotNetRoot
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -349,7 +353,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             |> Option.map FSharpConfig.FromDto
             |> Option.getOrElse FSharpConfig.Default
 
-        config <- c
+        updateConfig c
+
         // Debug.print "Config: %A" c
 
         match p.RootPath, c.AutomaticWorkspaceInit with
@@ -1495,7 +1500,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>
         let c = config.AddDto dto.FSharp
-        config <- c
+        updateConfig c
         Debug.print "[LSP call] WorkspaceDidChangeConfiguration:\n %A" c
         return ()
     }
@@ -1635,8 +1640,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.CompilerLocation(fsc, fsi, msbuld) ->
-                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuld }
+            | CoreResponse.CompilerLocation(fsc, fsi, msbuild, sdk) ->
+                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuild sdk}
                 |> success
             | _ -> LspResult.notImplemented
 

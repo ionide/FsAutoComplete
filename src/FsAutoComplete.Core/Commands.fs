@@ -39,7 +39,7 @@ type CoreResponse =
     | FormattedDocumentation of tip: FSharpToolTipText<string> option * xmlSig: (string * string) option * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
-    | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
+    | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option * sdkRoot: string option
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | ResolveNamespaces of word: string * opens: (string * string * InsertContext * bool) list * qualifies: (string * string) list
     | UnionCase of text: string * position: pos
@@ -75,7 +75,6 @@ type NotificationEvent =
     | FileParsed of string
 
 type Commands (serialize : Serializer, backgroundServiceEnabled) =
-
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial
     let fileParsed = Event<FSharpParseFileResults>()
@@ -559,7 +558,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
 
 
-    member x.CompilerLocation () = [CoreResponse.CompilerLocation (Environment.fsc, Environment.fsi, Environment.msbuild)]
+    member x.CompilerLocation () = [CoreResponse.CompilerLocation (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())]
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
@@ -1136,3 +1135,4 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 return Ok ranges
     }
 
+    member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)

@@ -36,7 +36,6 @@ let entry args =
       let backgroundServiceEnabled =
         results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
 
-
       let commands = Commands(writeJson, backgroundServiceEnabled)
       let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
       let fs = FileSystem(originalFs, commands.Files.TryFind)
