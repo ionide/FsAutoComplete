@@ -1122,14 +1122,22 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member x.GetChecker () = checker.GetFSharpChecker()
 
     member x.ScopesForFile (file: string) = async {
+        let rec blockForCheckResults file opts = async {
+            match checker.TryGetRecentCheckResultsForFile(file, opts) with
+            | None -> 
+                do! Async.Sleep 100
+                return! blockForCheckResults file opts
+            | Some tyRes -> 
+                return tyRes
+        }
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithLines file with
         | Error s -> return Error s
         | Ok (opts, source) -> 
-            let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
-            match tyResOpt with
-            | None -> return Error "Cached typecheck results not yet available"
-            | Some tyRes ->
+            do! Async.Sleep 5000
+            match checker.TryGetRecentCheckResultsForFile(file, opts) with
+            | None -> return Error "no checkresults :("
+            | Some tyRes -> 
                 match tyRes.GetAST with
                 | Some ast ->
                     return Ok (Structure.getOutliningRanges source ast)
