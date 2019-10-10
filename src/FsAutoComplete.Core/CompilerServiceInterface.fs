@@ -605,3 +605,5 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     sdkRoot <- Some path
     sdkVersion <- Environment.latest3xSdkVersion path
     runtimeVersion <- Environment.latest3xSdkVersion path
+
+  member __.GetDotnetRoot () = sdkRoot

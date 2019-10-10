@@ -1640,8 +1640,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.CompilerLocation(fsc, fsi, msbuld) ->
-                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuld }
+            | CoreResponse.CompilerLocation(fsc, fsi, msbuild, sdk) ->
+                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuild sdk}
                 |> success
             | _ -> LspResult.notImplemented
 
