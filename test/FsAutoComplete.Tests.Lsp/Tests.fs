@@ -36,7 +36,7 @@ let initTests =
       Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highligthing Provider"
       Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
       Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
-      Expect.equal res.Capabilities.DocumentRangeFormattingProvider None "Document Range Formatting Provider"
+      Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some false) "Document Range Formatting Provider"
       Expect.equal res.Capabilities.DocumentSymbolProvider (Some true) "Document Symbol Provider"
       Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
       Expect.equal res.Capabilities.Experimental None "Experimental"
@@ -54,6 +54,7 @@ let initTests =
       Expect.equal res.Capabilities.TextDocumentSync (Some td) "Text Document Provider"
       Expect.equal res.Capabilities.TypeDefinitionProvider (Some true) "Type Definition Provider"
       Expect.equal res.Capabilities.WorkspaceSymbolProvider (Some true) "Workspace Symbol Provider"
+      Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
     | Result.Error e ->
       failwith "Initialization failed"
   }
@@ -704,6 +705,35 @@ let dotnetnewTest =
       ))
     ]
 
+let foldingTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FoldingTests")
+
+    dotnetCleanup path
+
+    Utils.runProcess (logDotnetRestore "FoldingTests") path "dotnet" "restore"
+    |> expectExitCodeZero
+
+    let (server, event) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing event
+    let libraryPath = Path.Combine(path, "Library.fs")
+    let libFile = loadDocument libraryPath
+    let tdop : DidOpenTextDocumentParams = { TextDocument = libFile }
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    server, libraryPath
+  )
+  let serverTest f () = f serverStart.Value
+  testList "folding tests" [
+    testCase "can get ranges for sample file" (serverTest (fun (server, libraryPath) ->
+      let rangeResponse = server.TextDocumentFoldingRange({ TextDocument = { Uri = filePathToUri libraryPath } }) |> Async.RunSynchronously
+      match rangeResponse with
+      | Ok(Some(ranges)) ->
+        Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
+      | Ok(None) -> failwithf "No ranges found in file, problem parsing?"
+      | LspResult.Error e -> failwithf "Error from range LSP call: %A" e
+    ))
+  ]
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -717,4 +747,5 @@ let tests =
     fsdnTest
     uriTests
     dotnetnewTest
+    foldingTests
   ]

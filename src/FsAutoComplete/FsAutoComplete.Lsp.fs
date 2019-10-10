@@ -157,15 +157,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | Structure.Scope.RecordDefn
         | Structure.Scope.UnionDefn -> None
 
-    let toFoldingRange (item: Structure.ScopeRange): FoldingRange option =
+    let toFoldingRange (item: Structure.ScopeRange): FoldingRange =
         let kind = scopeToKind item.Scope
         // map the collapserange to the foldingRange
         let lsp = fcsRangeToLsp item.CollapseRange
-        Some { StartCharacter   = Some lsp.Start.Character
-               StartLine        = lsp.Start.Line
-               EndCharacter     = Some lsp.End.Character
-               EndLine          = lsp.End.Line
-               Kind             = kind }
+        { StartCharacter   = Some lsp.Start.Character
+          StartLine        = lsp.Start.Line
+          EndCharacter     = Some lsp.End.Character
+          EndLine          = lsp.End.Line
+          Kind             = kind }
 
     do
         commands.Notify.Subscribe(fun n ->
@@ -1505,7 +1505,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let file = rangeP.TextDocument.GetFilePath()
         match! commands.ScopesForFile file with
         | Ok scopes ->
-            let ranges = scopes |> Seq.choose toFoldingRange |> List.ofSeq
+            let ranges = scopes |> Seq.map toFoldingRange |> Set.ofSeq |> List.ofSeq
             return LspResult.success (Some ranges)
         | Result.Error error ->
             return LspResult.internalError error
