@@ -1659,11 +1659,10 @@ module Types =
         TextDocument: TextDocumentIdentifier
     }
 
-    type FoldingRangeKind =
-    | Comment
-    | Imports
-    | Region
-    | Custom of kind: string
+    module FoldingRangeKind =
+        let Comment = "comment"
+        let Imports = "imports"
+        let Region = "region"
 
     type FoldingRange = {
         /// The zero-based line number from where the folded range starts.
@@ -1681,7 +1680,7 @@ module Types =
         /// Describes the kind of the folding range such as `comment' or 'region'. The kind
         /// is used to categorize folding ranges and used by commands like 'Fold all comments'. See
         /// [FoldingRangeKind](#FoldingRangeKind) for an enumeration of standardized kinds.
-        Kind: FoldingRangeKind option
+        Kind: string option
     }
 
 module LowLevel =

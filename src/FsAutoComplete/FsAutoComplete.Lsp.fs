@@ -107,7 +107,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     /// this lets commands like 'fold all comments' work sensibly.
     /// impl note: implemented as an exhaustive match here so that
     /// if new structure kinds appear we have to handle them.
-    let scopeToKind (scope: Structure.Scope): FoldingRangeKind option =
+    let scopeToKind (scope: Structure.Scope): string option =
         match scope with
         | Structure.Scope.Open -> Some FoldingRangeKind.Imports
         | Structure.Scope.Comment
