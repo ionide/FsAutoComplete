@@ -170,6 +170,55 @@ let basicTests =
 
   ]
 
+///Tests for linter
+let linterTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
+    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true}
+    let projectPath = Path.Combine(path, "LinterTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs") 
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    (server, path)
+  )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
+
+  testSequenced <| ftestList "Linter Test" [
+    testCase "no idea" (serverTest (fun server path -> 
+      let p : TextDocumentPositionParams =
+        { TextDocument = { Uri = filePathToUri path}
+          Position = { Line = 0; Character = 18}}
+      let res = server.TextDocumentHover p |> Async.RunSynchronously
+      match res with
+      | Result.Error e -> failtestf "Request failed: %A" e
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok (Some res) ->
+        let expected =
+          MarkedStrings
+            [|  MarkedString.WithLanguage 
+                  {Language = "fsharp"; Value = "val not: value: bool -> bool"}
+                MarkedString.String ""
+                MarkedString.String "*Full name: Microsoft.FSharp.Core.Operators.not*"
+                MarkedString.String "*AAssembly: FSharp.Core*"
+                MarkedString.String "`not (a = b)` might be able to be refactored into `a <> b`.F# Linter(FS0065)" |]
+
+        printf "%A" res.Contents
+        Expect.equal res.Contents expected "Hover test - simple symbol"      
+        
+
+    ))
+
+    testCase "no idea 2" (serverTest (fun server path -> 
+      //comes in on textDocument/publishDiagnostics on project load
+
+        //see how events are read below
+
+    ))
+  ]
+
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest =
   let serverStart = lazy (
@@ -748,4 +797,5 @@ let tests =
     uriTests
     dotnetnewTest
     foldingTests
+    linterTests
   ]
