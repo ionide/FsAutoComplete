@@ -521,6 +521,8 @@ type FSharpConfigDto = {
     AnalyzersPath: string [] option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
+    UseSdkScripts: bool option
+    DotNetRoot: string option
 }
 
 type FSharpConfigRequest = {
@@ -550,6 +552,8 @@ type FSharpConfig = {
     AnalyzersPath: string []
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
+    UseSdkScripts: bool
+    DotNetRoot: string
 }
 with
     static member Default =
@@ -579,6 +583,8 @@ with
                 Enabled = "never"
                 Prefix =""
             }
+            UseSdkScripts = false
+            DotNetRoot = Environment.dotnetSDKRoot.Value
         }
 
     static member FromDto(dto: FSharpConfigDto) =
@@ -608,8 +614,12 @@ with
                 Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
             }
+            UseSdkScripts = defaultArg dto.UseSdkScripts false
+            DotNetRoot = defaultArg dto.DotNetRoot Environment.dotnetSDKRoot.Value
         }
 
+    /// called when a configuration change takes effect, so empty members here should revert options
+    /// back to their defaults
     member x.AddDto(dto: FSharpConfigDto) =
         {
             AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
@@ -637,4 +647,11 @@ with
                 Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) x.LineLens.Enabled
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
             }
+            UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
+            DotNetRoot = defaultArg dto.DotNetRoot FSharpConfig.Default.DotNetRoot
         }
+
+    member x.ScriptTFM =
+        match x.UseSdkScripts with
+        | false -> FSIRefs.NetFx
+        | true -> FSIRefs.NetCore

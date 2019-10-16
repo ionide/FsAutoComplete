@@ -37,7 +37,7 @@ module Environment =
   // Below code slightly modified from FAKE MSBuildHelper.fs
 
   let private vsSkus = ["Community"; "Professional"; "Enterprise"; "BuildTools"]
-  let private vsVersions = ["2017"; "2019"]
+  let private vsVersions = ["2019"; "2017";]
   let private cartesian a b =
     [ for a' in a do
         for b' in b do
@@ -85,3 +85,48 @@ module Environment =
         | true, x -> TimeSpan.FromMilliseconds(float x)
         | false, _ -> TimeSpan.Zero
     | _ -> TimeSpan.Zero
+
+  /// The sdk root that we assume for FSI-ref-location purposes.
+  /// TODO: make this settable via ENV variable or explicit LSP config
+  let dotnetSDKRoot =
+    lazy (
+      let fromEnv =
+        Environment.GetEnvironmentVariable "DOTNET_ROOT"
+        |> Option.ofObj
+      defaultArg fromEnv FSIRefs.defaultDotNetSDKRoot
+    )
+
+  let private maxVersionWithThreshold minVersion versions =
+    versions
+    |> List.filter (fun v -> v >= minVersion)
+    // can't use `List.max` here because it throws, and there's no `List.tryMax`
+    |> List.sortDescending
+    |> List.tryHead
+
+  /// because 3.x is the minimum SDK that we support for FSI, we want to float to the latest
+  /// 3.x sdk that the user has installed, to prevent hard-coding.
+  let latest3xSdkVersion sdkRoot =
+    let minSDKVersion = FSIRefs.NugetVersion(3,0,100,"")
+    lazy (
+      match FSIRefs.sdkVersions sdkRoot with
+      | None -> None
+      | Some sortedSdkVersions ->
+        Debug.print "SDK versions: %A" sortedSdkVersions
+        maxVersionWithThreshold minSDKVersion sortedSdkVersions
+    )
+
+  /// because 3.x is the minimum runtime that we support for FSI, we want to float to the latest
+  /// 3.x runtime that the user has installed, to prevent hard-coding.
+  let latest3xRuntimeVersion sdkRoot =
+    let minRuntimeVersion = FSIRefs.NugetVersion(3,0,0,"")
+    lazy (
+      match FSIRefs.runtimeVersions sdkRoot with
+      | None -> None
+      | Some sortedRuntimeVersions ->
+        Debug.print "Runtime versions: %A" sortedRuntimeVersions
+        maxVersionWithThreshold minRuntimeVersion sortedRuntimeVersions
+    )
+
+  /// When resolving fsi references for .net core, this is the TFM that we use.
+  /// Will need to be bumped as fsi advances in TFMs.
+  let fsiTFMMoniker = "netcoreapp3.0"

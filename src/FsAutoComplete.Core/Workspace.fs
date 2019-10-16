@@ -1,5 +1,6 @@
 module FsAutoComplete.Workspace
 
+open Dotnet.ProjInfo.Workspace
 open ProjectRecognizer
 open System.IO
 
@@ -28,21 +29,16 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBind
         | NetCoreSdk ->
             loader.LoadProjects [projectFileName]
 
-            match fcsBinder.GetProjectOptions (projectFileName) with
-            | Some po ->
-                match extractOptionsDPW po with
-                | Error e -> Error e
-                | Ok optsDPW ->
-                    // same useless log to remain compatible with tests baseline
+            fcsBinder.GetProjectOptions (projectFileName)
+            |> Result.bind (fun po ->
+                extractOptionsDPW po
+                |> Result.bind (fun optsDPW ->
                     let logMap = [ projectFileName, "" ] |> Map.ofList
-
                     let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
                     let view = projViewer.Render optsDPW
-                    let items = 
+                    let items =
                         if obj.ReferenceEquals(view.Items, null) then [] else view.Items
-                    Result.Ok (po, optsDPW, items, logMap)
-            | None -> 
-                Error (GenericError(projectFileName, (sprintf "Project file '%s' parsing failed" projectFileName)))
+                    Result.Ok (po, optsDPW, items, logMap)))
         | NetCoreProjectJson ->
             Error (GenericError(projectFileName, (sprintf "Project file '%s' format project.json not supported" projectFileName)))
         | FSharpNetSdk ->
@@ -63,14 +59,14 @@ let loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = asy
     for project in projects do
         match project.Response with
         | Some res ->
-            onLoaded (WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
+            onLoaded (FsAutoComplete.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
         | None ->
             project.FileName
             |> parseProject' (loader, fcsBinder)
             |> function
                | Ok (opts, optsDPW, projViewerItems, logMap) ->
-                   onLoaded (WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
+                   onLoaded (FsAutoComplete.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
                | Error error ->
-                   onLoaded (WorkspaceProjectState.Failed (project.FileName, error))
+                   onLoaded (FsAutoComplete.WorkspaceProjectState.Failed (project.FileName, error))
 
     }

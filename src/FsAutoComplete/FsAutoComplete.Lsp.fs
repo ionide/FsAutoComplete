@@ -53,6 +53,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     let mutable config = FSharpConfig.Default
 
+    /// centralize any state changes when the config is updated here
+    let updateConfig (newConfig: FSharpConfig) =
+        config <- newConfig
+        commands.SetDotnetSDKRoot config.DotNetRoot
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -71,7 +75,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 | Some contentChange, Some version ->
                     if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                         let content = contentChange.Text.Split('\n')
-                        do! (commands.Parse filePath content version |> Async.Ignore)
+                        let tfmConfig = config.UseSdkScripts
+                        do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
                         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
                         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
@@ -101,6 +106,70 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         {Uri = uri; Diagnostics = diags}
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
+
+    /// convert structure scopes to known kinds of folding range.
+    /// this lets commands like 'fold all comments' work sensibly.
+    /// impl note: implemented as an exhaustive match here so that
+    /// if new structure kinds appear we have to handle them.
+    let scopeToKind (scope: Structure.Scope): string option =
+        match scope with
+        | Structure.Scope.Open -> Some FoldingRangeKind.Imports
+        | Structure.Scope.Comment
+        | Structure.Scope.XmlDocComment -> Some FoldingRangeKind.Comment
+        | Structure.Scope.Namespace
+        | Structure.Scope.Module
+        | Structure.Scope.Type
+        | Structure.Scope.Member
+        | Structure.Scope.LetOrUse
+        | Structure.Scope.Val
+        | Structure.Scope.CompExpr
+        | Structure.Scope.IfThenElse
+        | Structure.Scope.ThenInIfThenElse
+        | Structure.Scope.ElseInIfThenElse
+        | Structure.Scope.TryWith
+        | Structure.Scope.TryInTryWith
+        | Structure.Scope.WithInTryWith
+        | Structure.Scope.TryFinally
+        | Structure.Scope.TryInTryFinally
+        | Structure.Scope.FinallyInTryFinally
+        | Structure.Scope.ArrayOrList
+        | Structure.Scope.ObjExpr
+        | Structure.Scope.For
+        | Structure.Scope.While
+        | Structure.Scope.Match
+        | Structure.Scope.MatchBang
+        | Structure.Scope.MatchLambda
+        | Structure.Scope.MatchClause
+        | Structure.Scope.Lambda
+        | Structure.Scope.CompExprInternal
+        | Structure.Scope.Quote
+        | Structure.Scope.Record
+        | Structure.Scope.SpecialFunc
+        | Structure.Scope.Do
+        | Structure.Scope.New
+        | Structure.Scope.Attribute
+        | Structure.Scope.Interface
+        | Structure.Scope.HashDirective
+        | Structure.Scope.LetOrUseBang
+        | Structure.Scope.TypeExtension
+        | Structure.Scope.YieldOrReturn
+        | Structure.Scope.YieldOrReturnBang
+        | Structure.Scope.Tuple
+        | Structure.Scope.UnionCase
+        | Structure.Scope.EnumCase
+        | Structure.Scope.RecordField
+        | Structure.Scope.RecordDefn
+        | Structure.Scope.UnionDefn -> None
+
+    let toFoldingRange (item: Structure.ScopeRange): FoldingRange =
+        let kind = scopeToKind item.Scope
+        // map the collapserange to the foldingRange
+        let lsp = fcsRangeToLsp item.CollapseRange
+        { StartCharacter   = Some lsp.Start.Character
+          StartLine        = lsp.Start.Line
+          EndCharacter     = Some lsp.End.Character
+          EndLine          = lsp.End.Line
+          Kind             = kind }
 
     do
         commands.Notify.Subscribe(fun n ->
@@ -284,7 +353,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             |> Option.map FSharpConfig.FromDto
             |> Option.getOrElse FSharpConfig.Default
 
-        config <- c
+        updateConfig c
+
         // Debug.print "Config: %A" c
 
         match p.RootPath, c.AutomaticWorkspaceInit with
@@ -313,7 +383,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
-                        commands.WorkspaceLoad ignore projs.Fsprojs false
+                        commands.WorkspaceLoad ignore projs.Fsprojs false config.ScriptTFM
                         |> Async.Ignore
                         |> Async.Start
                     | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
@@ -321,7 +391,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             sln.Items
                             |> List.collect Workspace.foldFsproj
                             |> List.map fst
-                        commands.WorkspaceLoad ignore projs false
+                        commands.WorkspaceLoad ignore projs false config.ScriptTFM
                         |> Async.Ignore
                         |> Async.Start
                     | _ ->
@@ -348,7 +418,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentSymbolProvider = Some true
                         WorkspaceSymbolProvider = Some true
                         DocumentFormattingProvider = Some true
-                        DocumentRangeFormattingProvider = Some true
+                        DocumentRangeFormattingProvider = Some false
                         SignatureHelpProvider = Some {
                             SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]
                         }
@@ -367,6 +437,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                      Change = Some TextDocumentSyncKind.Full
                                      Save = Some { IncludeText = Some true }
                                  }
+                        FoldingRangeProvider = Some true
                     }
             }
             |> success
@@ -382,14 +453,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let doc = p.TextDocument
         let filePath = doc. GetFilePath()
         let content = doc.Text.Split('\n')
-        commands.SetFileContent(filePath, content, Some doc.Version)
+        let tfmConfig = config.UseSdkScripts
+
+        commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
 
         if not commands.IsWorkspaceReady then
             do! commands.WorkspaceReady |> Async.AwaitEvent
             Debug.print "[LSP call] TextDocumentDidOpen - workspace ready"
 
-        do! (commands.Parse filePath content doc.Version |> Async.Ignore)
+        do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
         if config.UnusedOpensAnalyzer then do! (commands.GetUnusedOpens filePath |> Async.Ignore)
@@ -406,7 +479,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | Some contentChange, Some version ->
             if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                 let content = contentChange.Text.Split('\n')
-                commands.SetFileContent(filePath, content, Some version)
+                commands.SetFileContent(filePath, content, Some version, config.ScriptTFM)
             else ()
         | _ -> ()
 
@@ -1427,9 +1500,20 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>
         let c = config.AddDto dto.FSharp
-        config <- c
+        updateConfig c
         Debug.print "[LSP call] WorkspaceDidChangeConfiguration:\n %A" c
         return ()
+    }
+
+    override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) = async {
+        Debug.print "[LSP call] TextDocument/FoldingRange"
+        let file = rangeP.TextDocument.GetFilePath()
+        match! commands.ScopesForFile file with
+        | Ok scopes ->
+            let ranges = scopes |> Seq.map toFoldingRange |> Set.ofSeq |> List.ofSeq
+            return LspResult.success (Some ranges)
+        | Result.Error error ->
+            return LspResult.internalError error
     }
 
     member x.FSharpSignature(p: TextDocumentPositionParams) =
@@ -1556,8 +1640,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.CompilerLocation(fsc, fsi, msbuld) ->
-                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuld }
+            | CoreResponse.CompilerLocation(fsc, fsi, msbuild, sdk) ->
+                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuild sdk}
                 |> success
             | _ -> LspResult.notImplemented
 
@@ -1583,7 +1667,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FSharpWorkspaceLoad(p) = async {
         Debug.print "[LSP call] FSharpWorkspaceLoad"
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
-        let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences
+        let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences config.ScriptTFM
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1616,7 +1700,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FSharpProject(p) = async {
         Debug.print "[LSP call] FSharpProject"
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn false ignore
+        let! res = commands.Project fn false ignore config.ScriptTFM
         let res =
             match res.[0] with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

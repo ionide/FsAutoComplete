@@ -78,10 +78,11 @@ FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protoc
   - Add missing `new` keyword for `IDisposable`
   - Generate cases for all DU case in pattern matching
   - Generate empty interface implementation
-  - Fixes suggested by FSharpLint
+  - Fixes suggested by [FSharpLint](https://github.com/fsprojects/FSharpLint)
 * `textDocument/codeLens` & `codeLens/resolve`:
   - signature Code Lenses
   - reference number Code Lenses
+* `textDocument/formatting` - powered by [fantomas](https://github.com/fsprojects/fantomas)
 * `textDocument/references`
 * `textDocument/documentHighlight`
 * `textDocument/signatureHelp`
@@ -122,6 +123,7 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 
 * `--background-service-enabled` - passing this flag enables background service feature, increasing FSAC responsiveness by moving some of the operations (especially background type checking) to other process. It results in increased memory usage. Used by default in Ionide.
 * `--verbose` - passing this flag enables additional logging being printed out in `stderr`
+* `DOTNET_ROOT` - setting this environment variable will set the dotnet SDK root, which is used when finding references for FSX scripts.
 
 #### Initialization options:
 
@@ -143,9 +145,11 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 * `FSharp.InterfaceStubGenerationMethodBody` - defines dummy body used by interface stub generator, recommended default value: `"failwith \"Not Implemented\""`
 * `FSharp.UnusedOpensAnalyzer` - enables unused `open` detections, recommended default value: `true`
 * `FSharp.UnusedDeclarationsAnalyzer` - enables unused symbol detection, recommended default value: `true`
+* `FSharp.UseSdkScripts` - enables the use of .Net Core SDKs for script file type-checking and evaluation, otherwise the .Net Framework reference lists will be used. Recommended default value: `true`. Current default value: `false`
 * `FSharp.SimplifyNameAnalyzer` - enables simplify name analyzer and remove redundant qualifier quick fix, recommended default value: `false`
 * `FSharp.ResolveNamespaces` - enables resolve namespace quick fix (add `open` if symbol is from not yet opened module/namespace), recommended default value: `true`
 * `FSharp.EnableReferenceCodeLens` - enables reference count code lenses, recommended default value: `true` if `--background-service-enabled` is used by default, `false` otherwise
+* `FSharp.dotNetRoot` - sets the root path for finding dotnet SDK references. Primarily used for FSX Scripts. Default value: operating-system dependent. On windows, `C:\Program Files\dotnet`; on Unix, `/usr/local/share/dotnet`
 
 ### Old stdio protocol
 

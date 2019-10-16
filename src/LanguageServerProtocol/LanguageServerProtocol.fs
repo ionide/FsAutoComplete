@@ -477,6 +477,19 @@ module Types =
         TagSupport: bool option
     }
 
+    type FoldingRangeCapabilities =  {
+        /// Whether implementation supports dynamic registration for folding range providers. If this is set to `true`
+        /// the client supports the new `(FoldingRangeProviderOptions & TextDocumentRegistrationOptions & StaticRegistrationOptions)`
+        /// return value for the corresponding server capability as well.
+        DynamicRegistration: bool option
+        /// The maximum number of folding ranges that the client prefers to receive per document. The value serves as a
+        /// hint, servers are free to follow the limit.
+        RangeLimit: int option
+        /// If set, the client signals that it only supports folding complete lines. If set, client will
+        /// ignore specified `startCharacter` and `endCharacter` properties in a FoldingRange.
+        LineFoldingOnly: bool option
+    }
+
     /// Text document specific client capabilities.
     type TextDocumentClientCapabilities = {
         Synchronization: SynchronizationCapabilities option
@@ -525,6 +538,9 @@ module Types =
 
         /// Capabilities specific to the `textDocument/rename`
         Rename: DynamicCapabilities option
+
+        /// capabilities for the `textDocument/foldingRange`
+        FoldingRange: FoldingRangeCapabilities option
     }
 
     type ClientCapabilities = {
@@ -686,6 +702,10 @@ module Types =
 
         /// Experimental server capabilities.
         Experimental: JToken option
+
+        ///
+        FoldingRangeProvider: bool option
+
     }
     with
         static member Default =
@@ -710,6 +730,7 @@ module Types =
                 DocumentLinkProvider = None
                 ExecuteCommandProvider = None
                 Experimental = None
+                FoldingRangeProvider = None
             }
 
     type InitializeResult = {
@@ -1633,6 +1654,35 @@ module Types =
         ActiveParameter: int option
     }
 
+    type FoldingRangeParams = {
+        /// the document to generate ranges for
+        TextDocument: TextDocumentIdentifier
+    }
+
+    module FoldingRangeKind =
+        let Comment = "comment"
+        let Imports = "imports"
+        let Region = "region"
+
+    type FoldingRange = {
+        /// The zero-based line number from where the folded range starts.
+        StartLine: int
+
+        /// The zero-based character offset from where the folded range starts. If not defined, defaults to the length of the start line.
+        StartCharacter: int option
+
+        /// The zero-based line number where the folded range ends.
+        EndLine: int
+
+        /// The zero-based character offset before the folded range ends. If not defined, defaults to the length of the end line.
+        EndCharacter: int option
+
+        /// Describes the kind of the folding range such as `comment' or 'region'. The kind
+        /// is used to categorize folding ranges and used by commands like 'Fold all comments'. See
+        /// [FoldingRangeKind](#FoldingRangeKind) for an enumeration of standardized kinds.
+        Kind: string option
+    }
+
 module LowLevel =
     open System
     open System.IO
@@ -2094,6 +2144,10 @@ type LspServer() =
     abstract member TextDocumentDidClose: DidCloseTextDocumentParams -> Async<unit>
     default __.TextDocumentDidClose(_) = ignoreNotification
 
+    /// The folding range request is sent from the client to the server to return all folding ranges found in a given text document.
+    abstract member TextDocumentFoldingRange: FoldingRangeParams -> AsyncLspResult<FoldingRange list option>
+    default __.TextDocumentFoldingRange(_) = notImplemented
+
 module Server =
     open System
     open System.IO
@@ -2198,6 +2252,7 @@ module Server =
             "textDocument/didSave", requestHandling (fun s p -> s.TextDocumentDidSave(p) |> notificationSuccess)
             "textDocument/didClose", requestHandling (fun s p -> s.TextDocumentDidClose(p) |> notificationSuccess)
             "textDocument/documentSymbol", requestHandling (fun s p -> s.TextDocumentDocumentSymbol(p))
+            "textDocument/foldingRange", requestHandling (fun s p -> s.TextDocumentFoldingRange(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "workspace/didChangeWorkspaceFolders", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
             "workspace/didChangeConfiguration", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)

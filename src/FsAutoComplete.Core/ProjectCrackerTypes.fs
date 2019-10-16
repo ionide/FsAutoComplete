@@ -3,9 +3,14 @@ namespace FsAutoComplete
 open System
 open System.IO
 
-type GetProjectOptionsErrors =
-     | ProjectNotRestored of string
-     | GenericError of string * string
+type GetProjectOptionsErrors = Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors
+    //| ProjectNotRestored of projFile:string
+    //| LanguageNotSupported of projFile:string
+    //| ProjectNotLoaded of projFile:string
+    //| MissingExtraProjectInfos of projFile:string
+    //| InvalidExtraProjectInfos of projFile:string * error:string
+    //| ReferencesNotLoaded of projFile:string * referenceErrors:seq<string*GetProjectOptionsErrors>
+    //| GenericError of projFile:string * string
 
 type [<RequireQualifiedAccess>] WorkspaceProjectState =
     | Loading of string

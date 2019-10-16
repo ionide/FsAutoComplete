@@ -430,16 +430,47 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let entityCache = EntityCache()
 
+  let mutable sdkRoot = None
+  let mutable sdkVersion = lazy(None)
+  let mutable runtimeVersion = lazy(None)
+
   let mutable disableInMemoryProjectReferences = false
 
   let clearProjectReferecnes (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
-  let fsxBinder = Dotnet.ProjInfo.Workspace.FCS.FsxBinder(NETFrameworkInfoProvider.netFWInfo, checker)
-
   let logDebug fmt =
     if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
     Debug.print fmt
+
+  let replaceRefs (projOptions: FSharpProjectOptions) =
+    let okOtherOpts = projOptions.OtherOptions |> Array.filter (fun r -> not <| r.StartsWith("-r"))
+    let assemblyPaths =
+      match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
+      | None, _, _ ->
+        Debug.print "No dotnet SDK root path found"
+        []
+      | Some root, None, None ->
+        Debug.print "Couldn't find latest 3.x sdk and runtime versions inside root %s" root
+        []
+      | Some root, None, _ ->
+        Debug.print "Couldn't find latest 3.x sdk version inside root %s" root
+        []
+      | Some root, _, None ->
+        Debug.print "Couldn't find latest 3.x runtime version inside root %s" root
+        []
+      | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
+        let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
+        Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
+        refs
+    let refs = assemblyPaths |> List.map (fun r -> "-r:" + r)
+    let finalOpts = Array.append okOtherOpts (Array.ofList refs)
+    { projOptions with OtherOptions = finalOpts }
+
+  let patchWithMscorlib (projOptions: FSharpProjectOptions) =
+    let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
+    let otherOpts = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |]
+    { projOptions with OtherOptions = otherOpts }
 
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
@@ -458,17 +489,44 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
                |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
       ])
 
-  member __.GetProjectOptionsFromScript(file, source) = async {
-    let targetFramework = NETFrameworkInfoProvider.latestInstalledNETVersion ()
-    let! projOptions = fsxBinder.GetProjectOptionsFromScriptBy(targetFramework, file, source)
+  member private __.GetNetFxScriptOptions(file, source) =
+    logDebug "[Opts] Getting NetFX options for script file %s" file
+    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
+
+  member private __.GetNetCoreScriptOptions(file, source) = async {
+    logDebug "[Opts] Getting NetCore options for script file %s" file
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
+    return replaceRefs opts, errors
+  }
+
+  member self.GetProjectOptionsFromScript(file, source, tfm) = async {
+    let! (projOptions, errors) =
+      match tfm with
+      | FSIRefs.TFM.NetFx ->
+        self.GetNetFxScriptOptions(file, source)
+      | FSIRefs.TFM.NetCore ->
+        self.GetNetCoreScriptOptions(file, source)
+
+    match errors with
+    | [] ->
+      let refs = projOptions.OtherOptions |> Array.filter (fun o -> o.StartsWith("-r")) |> String.concat "\n"
+      logDebug "[Opts] Resolved options - %A" projOptions
+      logDebug "[Opts] Resolved references:\n%s" refs
+    | errs ->
+      logDebug "[Opts] Resolved options with errors\n%A\n%A" projOptions errs
 
     match FakeSupport.detectFakeScript file with
-    | None -> return projOptions
+    | None ->
+      logDebug "[Opts] %s is not a FAKE script" file
+      return projOptions
     | Some (detectionInfo) ->
+      logDebug "[Opts] %s is a FAKE script" file
       try
-        return { projOptions with OtherOptions = FakeSupport.getProjectOptions detectionInfo }
+        let otherOpts = FakeSupport.getProjectOptions detectionInfo
+        logDebug "[Opts] Discovered FAKE options - %A" otherOpts
+        return { projOptions with OtherOptions = otherOpts }
       with e ->
-        printfn "[FSharpChecker] Error in FAKE script support: %O" e
+        logDebug "[Opts] Error in FAKE script support: %O" e
         return projOptions
   }
 
@@ -488,17 +546,20 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
-      logDebug "[Checker] ParseAndCheckFileInProject - %s" filePath
+      let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
+      logDebug "[Checker] %s" opName
       let source = SourceText.ofString source
       let options = clearProjectReferecnes options
       let fixedFilePath = fixFileName filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, null))
+      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName))
       return
           match res with
           | Choice1Of2 (p,c)->
             let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
             match c with
-            | FSharpCheckFileAnswer.Aborted -> ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
+            | FSharpCheckFileAnswer.Aborted ->
+              logDebug "[Checker] %s completed with errors %A" opName (List.ofArray p.Errors)
+              ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
           | Choice2Of2 e -> ResultOrString.Error e.Message
@@ -539,3 +600,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.Compile = checker.Compile
 
   member internal x.GetFSharpChecker() = checker
+
+  member __.SetDotnetRoot(path) =
+    sdkRoot <- Some path
+    sdkVersion <- Environment.latest3xSdkVersion path
+    runtimeVersion <- Environment.latest3xSdkVersion path
+
+  member __.GetDotnetRoot () = sdkRoot

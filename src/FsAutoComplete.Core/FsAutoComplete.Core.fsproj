@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
@@ -11,12 +11,13 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
-    <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN</DefineConstants>
+    <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN;NETCORE_FSI</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="Debug.fs" />
+    <Compile Include="FSIRefs.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />

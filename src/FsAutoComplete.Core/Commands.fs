@@ -39,7 +39,7 @@ type CoreResponse =
     | FormattedDocumentation of tip: FSharpToolTipText<string> option * xmlSig: (string * string) option * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | FormattedDocumentationForSymbol of xmlSig: string * assembly: string * xmlDoc: string list * signature: (string * (string [] * string [] * string [] * string [] * string [] * string [])) * footer: string * cn: string
     | TypeSig of tip: FSharpToolTipText<string>
-    | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option
+    | CompilerLocation of fcs: string option * fsi: string option * msbuild: string option * sdkRoot: string option
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | ResolveNamespaces of word: string * opens: (string * string * InsertContext * bool) list * qualifies: (string * string) list
     | UnionCase of text: string * position: pos
@@ -75,7 +75,6 @@ type NotificationEvent =
     | FileParsed of string
 
 type Commands (serialize : Serializer, backgroundServiceEnabled) =
-
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial
     let fileParsed = Event<FSharpParseFileResults>()
@@ -167,7 +166,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
         }
 
-    let parseFilesInTheBackground files =
+    let parseFilesInTheBackground fsiScriptTFM files =
         async {
             files
             |> List.toArray
@@ -178,8 +177,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         | Some f -> Some (f.Lines)
                         | None when File.Exists(file) ->
                             let ctn = File.ReadAllLines file
-                            state.Files.[file] <- {Touched = DateTime.Now; Lines = ctn; Version = None }
-                            if backgroundServiceEnabled then BackgroundServices.updateFile(file, ctn |> String.concat "\n", 0)
+                            state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
+                            let payload =
+                                if Utils.isAScript file
+                                then BackgroundServices.ScriptFile(file, fsiScriptTFM)
+                                else BackgroundServices.SourceFile file
+                            if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
                             Some (ctn)
                         | None -> None
                     match sourceOpt with
@@ -225,13 +228,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
-    let onProjectLoaded projectFileName (response: ProjectCrackerCache) =
+    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts =
         for file in response.Items |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p) do
             state.FileCheckOptions.[file] <- normalizeOptions response.Options
 
         response.Items
         |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-        |> parseFilesInTheBackground
+        |> parseFilesInTheBackground tfmForScripts
         |> Async.Start
 
     let workspaceBinder () =
@@ -256,9 +259,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member __.LastCheckResult
         with get() = lastCheckResult
 
-    member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version) =
+    member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
         state.AddFileText(file, lines, version)
-        if backgroundServiceEnabled then BackgroundServices.updateFile(file, lines |> String.concat "\n", defaultArg version 0)
+        let payload =
+            if Utils.isAScript file
+            then BackgroundServices.ScriptFile(file, tfmIfScript)
+            else BackgroundServices.SourceFile file
+
+        if backgroundServiceEnabled then BackgroundServices.updateFile(payload, lines |> String.concat "\n", defaultArg version 0)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse>, ?failureToString: string -> CoreResponse) =
         Async.bind <| function
@@ -359,8 +367,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.TryGetFileVersion = state.TryGetFileVersion
 
-    member x.Parse file lines version =
+    member x.Parse file lines version (isSdkScript: bool option) =
         let file = Path.GetFullPath file
+        let tmf = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
+
         do x.CancelQueue file
         async {
             let colorizations = state.ColorizationOutput
@@ -369,7 +379,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                     return
                         match result with
-                        | ResultOrString.Error e -> [CoreResponse.ErrorRes e]
+                        | ResultOrString.Error e ->
+                            [CoreResponse.ErrorRes e]
                         | ResultOrString.Ok (parseAndCheck) ->
                             let parseResult = parseAndCheck.GetParseResults
                             let results = parseAndCheck.GetCheckResults
@@ -387,7 +398,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
@@ -398,7 +409,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         state.SetFileVersion file version
                         async.Return c
                     | None -> async {
-                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text)
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
                         state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
@@ -428,7 +439,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
         (opts.ProjectFileName, cached)
 
-    member x.Project projectFileName _verbose onChange = async {
+    member x.Project projectFileName _verbose onChange tfmForScripts = async {
         let projectFileName = Path.GetFullPath projectFileName
         let project =
             match state.Projects.TryFind projectFileName with
@@ -460,7 +471,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return
             match projResponse with
             | Result.Ok (projectFileName, response) ->
-                onProjectLoaded projectFileName response
+                onProjectLoaded projectFileName response tfmForScripts
                 let responseFiles =
                     response.Items
                     |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
@@ -547,7 +558,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
 
 
-    member x.CompilerLocation () = [CoreResponse.CompilerLocation (Environment.fsc, Environment.fsi, Environment.msbuild)]
+    member x.CompilerLocation () = [CoreResponse.CompilerLocation (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())]
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
@@ -895,7 +906,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return [CoreResponse.WorkspacePeek d]
     }
 
-    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) = async {
+    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts = async {
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
         //TODO check full path
         let projectFileNames = files |> List.map Path.GetFullPath
@@ -929,7 +940,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
                 let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
                 if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
-                projectLoadedSuccessfully projectFileName response
+                projectLoadedSuccessfully projectFileName response tfmForScripts
 
                 let responseFiles =
                     response.Items
@@ -965,26 +976,18 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 Some (WorkspaceProjectState.Loading path)
             | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap) ->
                 match fcsBinder.GetProjectOptions(opts.ProjectFileName) with
-                | Some fcsOpts ->
+                | Ok fcsOpts ->
                     match Workspace.extractOptionsDPW fcsOpts with
                     | Ok optsDPW ->
                         let view = projViewer.Render optsDPW
-                        let projectFiles =
-                            view.Items
-
-                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, projectFiles, logMap))
+                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap))
                     | Error _ ->
                         None //TODO not ignore the error
-                | None ->
+                | Error _ ->
                     //TODO notify C# project too
                     None
             | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Failed (path, e) ->
-                let error =
-                    match e with
-                    | Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors.ProjectNotRestored s ->
-                        GetProjectOptionsErrors.ProjectNotRestored s
-                    | Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors.GenericError (a, b) ->
-                        GetProjectOptionsErrors.GenericError (a,b)
+                let error = e
                 Some (WorkspaceProjectState.Failed (path, error))
 
         loader.Notifications.Add(fun (_, arg) ->
@@ -1116,3 +1119,20 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member x.GetChecker () = checker.GetFSharpChecker()
+
+    member x.ScopesForFile (file: string) = async {
+        let file = Path.GetFullPath file
+        match state.TryGetFileCheckerOptionsWithLines file with
+        | Error s -> return Error s
+        | Ok (opts, sourceLines) ->
+            let parseOpts = Utils.projectOptionsToParseOptions opts
+            let allSource = sourceLines |> String.concat "\n"
+            let! ast = checker.ParseFile(file, allSource, parseOpts)
+            match ast.ParseTree with
+            | None -> return Error (ast.Errors |> Array.map string |> String.concat "\n")
+            | Some ast' ->
+                let ranges = Structure.getOutliningRanges sourceLines ast'
+                return Ok ranges
+    }
+
+    member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)

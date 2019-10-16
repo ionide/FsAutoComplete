@@ -31,42 +31,13 @@ module DocumentationFormatter =
             let cnt = Uri.EscapeDataString content
             sprintf "<a href='command:fsharp.showDocumentation?%s'>%s</a>" cnt name, name.Length
 
-
-    let rec format displayContext (typ : FSharpType) : (string * int) =
+    let rec formatType displayContext (typ : FSharpType) : (string*int) list =
         let typ2 = if typ.IsAbbreviation then typ.AbbreviatedType else typ
-        // let typ2 = match typ.BaseType with | Some typ -> typ |_ -> typ
-        // let typ2 = typ
-        let typeName =
-            try
-                if typ.IsTupleType || typ.IsStructTupleType then
-                    typ.GenericArguments
-                    |> Seq.map (format displayContext >> fst)
-                    |> String.concat " * "
-                elif typ.GenericArguments.Count > 0 then
-                    let r =
-                        typ.GenericArguments
-                        |> Seq.map (format displayContext >> fst)
-                        |> String.concat ","
-                    let org = typ.Format displayContext
-                    let t = Regex.Replace(org, """<.*>""", sprintf "<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) list""", sprintf "List<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) option""", sprintf "Option<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) list""", sprintf "List<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) lazy""", sprintf "Lazy<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) seq""", sprintf "Seq<%s>" r)
-                    let t = Regex.Replace(t, """(.*?) \[\]""", sprintf "Array<%s>" r)
-                    t
-                elif typ.IsGenericParameter then
-                    (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
-                else
-                    typ.Format displayContext |> PrettyNaming.QuoteIdentifierIfNeeded
-            with
-            | _ -> typ.Format displayContext
         let xmlDocSig =
             try
                 if typ2.HasTypeDefinition then
                     typ2.TypeDefinition.XmlDocSig
-                else
+                 else
                     "-"
             with
             | _ -> "-"
@@ -78,9 +49,40 @@ module DocumentationFormatter =
                     typ2.TypeDefinition.Assembly.SimpleName
             with
             | _ -> "-"
-        formatLink typeName xmlDocSig assemblyName
+        if typ.IsTupleType || typ.IsStructTupleType then
+            let separator = formatLink " * " xmlDocSig assemblyName
+            [ for arg in typ.GenericArguments do
+              if arg <> typ.GenericArguments.[0] then yield separator
+              yield! formatType displayContext arg ]
+        elif typ.GenericArguments.Count > 0 then
+            let r =
+                typ.GenericArguments
+                |> Seq.collect (formatType displayContext)
+            let org = typ.Format displayContext
+            let t = Regex.Replace(org, """(.*?) list""", "List<")
+            let t = Regex.Replace(t, """(.*?) option""", "Option<")
+            let t = Regex.Replace(t, """(.*?) lazy""", "Lazy<")
+            let t = Regex.Replace(t, """(.*?) seq""", "Seq<")
+            let t = Regex.Replace(t, """(.*?) ?\[\]""", "Array<")
+            let t = Regex.Replace(t, """<.*>""", "<")
+            [ yield formatLink t xmlDocSig assemblyName
+              if t.EndsWith "<" then 
+                  yield! r
+                  yield formatLink ">" xmlDocSig assemblyName ]
+        elif typ.IsGenericParameter then
+            let name =
+                if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'"
+                + typ.GenericParameter.Name
+            [formatLink name xmlDocSig assemblyName]
+        else
+            let name = typ.TypeDefinition.DisplayName |> PrettyNaming.QuoteIdentifierIfNeeded
+            [formatLink name xmlDocSig assemblyName]
 
-    and formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
+    let format displayContext (typ : FSharpType) : (string * int) =
+        formatType displayContext typ
+        |> Seq.reduce (fun (aLink,aLen) (bLink,bLen) -> (aLink+bLink, aLen+bLen))
+
+    let formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
         let asGenericParamName (param: FSharpGenericParameter) =
             (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
@@ -151,11 +153,11 @@ module DocumentationFormatter =
 
         sb.ToString()
 
-    and formatParameter displayContext (p:FSharpParameter) =
+    let formatParameter displayContext (p:FSharpParameter) =
         try p.Type |> format displayContext
         with :? InvalidOperationException -> p.DisplayName, p.DisplayName.Length
 
-    and getUnioncaseSignature displayContext (unionCase:FSharpUnionCase) =
+    let getUnioncaseSignature displayContext (unionCase:FSharpUnionCase) =
         if unionCase.UnionCaseFields.Count > 0 then
             let typeList =
                 unionCase.UnionCaseFields
@@ -169,7 +171,7 @@ module DocumentationFormatter =
             unionCase.DisplayName + " of " + typeList
          else unionCase.DisplayName
 
-    and getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
+    let getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident:int) =
         let maybeGetter = func.LogicalName.StartsWith "get_"
         let indent = String.replicate ident " "
         let functionName =
@@ -300,7 +302,7 @@ module DocumentationFormatter =
             if isDelegate then typeArguments
             else modifiers ++ functionName + ": \n" + typeArguments
 
-    and getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (getter: bool) (setter : bool) =
+    let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (getter: bool) (setter : bool) =
         let functionName =
             let name =
                 if func.IsConstructor then "new"
@@ -400,9 +402,9 @@ module DocumentationFormatter =
         | false, true -> res ++ "with set"
         | false, false -> res
 
-    and getFuncSignature f c = getFuncSignatureWithIdent f c 3
+    let getFuncSignature f c = getFuncSignatureWithIdent f c 3
 
-    and getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
+    let getValSignature displayContext (v:FSharpMemberOrFunctionOrValue) =
         let retType = v.FullType  |> format displayContext |> fst
         let prefix =
             if v.IsMutable then "val mutable"
@@ -422,7 +424,7 @@ module DocumentationFormatter =
         | Some constraints -> prefix ++ name ++ ":" ++ constraints
         | None -> prefix ++ name ++ ":" ++ retType
 
-    and getFieldSignature displayContext (field: FSharpField) =
+    let getFieldSignature displayContext (field: FSharpField) =
         let retType = field.FieldType |> format displayContext  |> fst
         match field.LiteralValue with
         | Some lv -> field.DisplayName + ":" ++ retType ++ "=" ++ (string lv)
@@ -432,7 +434,7 @@ module DocumentationFormatter =
                 else "val"
             prefix ++ field.DisplayName + ":" ++ retType
 
-    and getAPCaseSignature displayContext (apc:FSharpActivePatternCase) =
+    let getAPCaseSignature displayContext (apc:FSharpActivePatternCase) =
         let findVal =
             apc.Group.DeclaringEntity
             |> Option.bind (fun ent -> ent.MembersFunctionsAndValues
@@ -445,7 +447,7 @@ module DocumentationFormatter =
             |> Option.getOrElse ""
         sprintf "active pattern %s: %s" apc.Name findVal
 
-    and getAttributeSignature displayContext (attr: FSharpAttribute) =
+    let getAttributeSignature displayContext (attr: FSharpAttribute) =
         let name = formatLink attr.AttributeType.DisplayName attr.AttributeType.XmlDocSig attr.AttributeType.Assembly.SimpleName
         let attr =
             attr.ConstructorArguments
@@ -455,7 +457,7 @@ module DocumentationFormatter =
         sprintf "%s(%s)" (fst name) attr
 
 
-    and getEntitySignature displayContext (fse: FSharpEntity) =
+    let getEntitySignature displayContext (fse: FSharpEntity) =
         let modifier =
             match fse.Accessibility with
             | a when a.IsInternal -> "internal "
