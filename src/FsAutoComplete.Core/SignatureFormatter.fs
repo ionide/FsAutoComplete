@@ -22,6 +22,14 @@ module SignatureFormatter =
         | true, false -> b
         | false, false -> a + " " + b
 
+    let entityIsArray (entity: FSharpEntity) =
+        if entity.IsArrayType then
+            true
+        else
+            if entity.IsFSharpAbbreviation then
+                entity.UnAnnotate().IsArrayType
+            else false
+
     let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
         try
             if typ.IsTupleType || typ.IsStructTupleType then
@@ -31,15 +39,18 @@ module SignatureFormatter =
             elif typ.IsGenericParameter then
                 (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
             elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
+                let typeDef = typ.TypeDefinition
                 let genericArgs =
                     typ.GenericArguments
                     |> Seq.map (formatFSharpType context)
                     |> String.concat ","
-                if typ.TypeDefinition.IsArrayType then
+                if entityIsArray typeDef then
                     sprintf "%s array" genericArgs
-                else sprintf "%s<%s>" (PrettyNaming.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName) genericArgs
+                else sprintf "%s<%s>" (PrettyNaming.QuoteIdentifierIfNeeded typeDef.DisplayName) genericArgs
             else
-                PrettyNaming.QuoteIdentifierIfNeeded (typ.Format context)
+                if typ.HasTypeDefinition then
+                    PrettyNaming.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName
+                else typ.Format context
         with
         | _ -> typ.Format context
 
