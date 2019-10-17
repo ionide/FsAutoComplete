@@ -28,15 +28,16 @@ module SignatureFormatter =
                 typ.GenericArguments
                 |> Seq.map (formatFSharpType context)
                 |> String.concat " * "
-            elif typ.GenericArguments.Count > 0 then
+            elif typ.IsGenericParameter then
+                (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
+            elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
                 let genericArgs =
                     typ.GenericArguments
                     |> Seq.map (formatFSharpType context)
                     |> String.concat ","
-                sprintf "%s<%s>" (PrettyNaming.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName) genericArgs
-
-            elif typ.IsGenericParameter then
-                (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
+                if typ.TypeDefinition.IsArrayType then
+                    sprintf "%s array" genericArgs
+                else sprintf "%s<%s>" (PrettyNaming.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName) genericArgs
             else
                 PrettyNaming.QuoteIdentifierIfNeeded (typ.Format context)
         with
