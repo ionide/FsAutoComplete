@@ -16,12 +16,30 @@ type TFM =
 | NetFx
 | NetCore
 
+[<NoComparison>]
 type NugetVersion = NugetVersion of major: int * minor: int * build: int * suffix: string
 with
   override x.ToString() =
     match x with
     | NugetVersion(major, minor, build, suffix) when String.IsNullOrWhiteSpace suffix -> sprintf "%d.%d.%d" major minor build
     | NugetVersion(major, minor, build, suffix) -> sprintf "%d.%d.%d-%s" major minor build suffix
+
+/// custom comparison for these versions means that you compare major/minor/build,
+/// but an empty preview string marks a stable version, which is greater
+let compareNugetVersion (NugetVersion(lM, lm, lb, ls)) (NugetVersion(rM, rm, rb, rs)) =
+  match compare lM rM with
+  | 0 ->
+    match compare lm rm with
+    | 0 ->
+      match compare lb rb with
+      | 0 ->
+        match ls, rs with
+        | "", s -> 1 // no preview string means left is a stable release and so is greater than right
+        | s, "" -> -1 // no preview string means right is a stable release and so is greater than left
+        | ls, rs -> compare ls rs // no shortcut means compare lexigrapically
+      | n -> n
+    | n -> n
+  | n -> n
 
 /// Parse nuget version strings into numeric and suffix parts
 ///
@@ -45,9 +63,9 @@ let deconstructVersion (version: string): NugetVersion =
 let versionDirectoriesIn (baseDir: string) =
   baseDir
   |> Directory.EnumerateDirectories
-  |> Seq.map (Path.GetFileName >> deconstructVersion)
-  |> Seq.sort
-  |> List.ofSeq
+  |> Array.ofSeq // have to convert to array to get a sortWith that takes our custom comparison function
+  |> Array.map (Path.GetFileName >> deconstructVersion)
+  |> Array.sortWith compareNugetVersion
 
 /// returns a sorted list of the SDK versions available at the given dotnet root
 let sdkVersions dotnetRoot =
@@ -80,8 +98,8 @@ let runtimeDir dotnetRoot runtimeVersion =
 let findRuntimeRefs packDir runtimeDir =
   match packDir, runtimeDir with
   | Some refDir, _
-  | _, Some refDir -> Directory.EnumerateFiles(refDir, "*.dll") |> Seq.toList
-  | None, None -> []
+  | _, Some refDir -> Directory.EnumerateFiles(refDir, "*.dll") |> Seq.toArray
+  | None, None -> [||]
 
 /// given the compiler root dir and if to include FSI refs, returns the set of compiler assemblies to references if that dir exists.
 let compilerAndInteractiveRefs compilerDir useFsiAuxLib =

@@ -96,12 +96,11 @@ module Environment =
       defaultArg fromEnv FSIRefs.defaultDotNetSDKRoot
     )
 
-  let private maxVersionWithThreshold minVersion versions =
+  let private maxVersionWithThreshold (minVersion: FSIRefs.NugetVersion) (versions: FSIRefs.NugetVersion []) =
     versions
-    |> List.filter (fun v -> v >= minVersion)
-    // can't use `List.max` here because it throws, and there's no `List.tryMax`
-    |> List.sortDescending
-    |> List.tryHead
+    |> Array.filter (fun v -> FSIRefs.compareNugetVersion v minVersion >= 0) // get all versions that compare as greater than the minVersion
+    |> Array.sortWith FSIRefs.compareNugetVersion
+    |> Array.tryLast
 
   /// because 3.x is the minimum SDK that we support for FSI, we want to float to the latest
   /// 3.x sdk that the user has installed, to prevent hard-coding.
