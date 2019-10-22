@@ -351,23 +351,48 @@ let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
     logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
 
-let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<string * obj>) =
+let getDiagnosticsEvents =
+  Event.filter (fun (typ, _o) ->
+    printfn "event of type %s" typ
+    typ = "textDocument/publishDiagnostics"
+  )
+  >> Event.map (fun (_typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+
+let matchFiles (files: string Set) =
+  Event.choose (fun (p: LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
+    let filename = p.Uri.Replace('\\', '/').Substring("file://".Length)
+    if Set.contains filename files
+    then Some (filename, p)
+    else None
+  )
+
+let waitForParseResultsForFile file (events: Event<string*obj>) =
+  let matchingFileEvents =
+    events.Publish
+    |> getDiagnosticsEvents
+    |> matchFiles (Set.ofList [file])
+  async {
+    let! (filename, args) = Async.AwaitEvent matchingFileEvents
+    match args.Diagnostics with
+    | [||] -> return Ok ()
+    | errors -> return Core.Result.Error errors
+  }
+  |> Async.RunSynchronously
+
+let waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<string * obj>) =
 
   let found =
-    files
-    |> List.map (fun s -> s, false)
-    |> fun x ->
-        let d = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>()
-        x
-        |> List.iter (fun (k,v) -> d.AddOrUpdate(k, v, (fun x y -> y)) |> ignore)
-        d
+    let d = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>()
+    for file in files do
+      d.[file] <- false
+    d
+
+  let fileNames = files |> Set.ofList
 
   event.Publish
-  |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
-  |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
-  |> Event.add (fun n ->
-      let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
-
+  |> getDiagnosticsEvents
+  |> matchFiles fileNames
+  |> Event.add (fun (filename, n) ->
       if Array.isEmpty n.Diagnostics then // no errors
         found.AddOrUpdate(filename, true, (fun x y -> true)) |> ignore
 
@@ -734,6 +759,28 @@ let foldingTests =
     ))
   ]
 
+let scriptPreviewTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
+    let libraryPath = Path.Combine(path, "Script.fsx")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+    server, events, libraryPath
+  )
+  let serverTest f () = f serverStart.Value
+
+  ftestList "script preview language features" [
+    testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+      match waitForParseResultsForFile scriptPath events with
+      | Ok () ->
+        printfn "wut"
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" scriptPath errors
+    ))
+  ]
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -748,4 +795,5 @@ let tests =
     uriTests
     dotnetnewTest
     foldingTests
+    scriptPreviewTests
   ]
