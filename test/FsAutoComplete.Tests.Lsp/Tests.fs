@@ -766,7 +766,7 @@ let scriptPreviewTests =
   )
   let serverTest f () = f serverStart.Value
 
-  ftestList "script preview language features" [
+  testList "script preview language features" [
     testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
       match waitForParseResultsForFile scriptPath events with
