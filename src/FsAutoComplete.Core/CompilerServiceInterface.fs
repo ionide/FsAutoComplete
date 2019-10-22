@@ -436,7 +436,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let mutable disableInMemoryProjectReferences = false
 
-  let clearProjectReferecnes (opts: FSharpProjectOptions) =
+  let clearProjectReferences (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
   let logDebug fmt =
@@ -467,6 +467,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     let finalOpts = Array.append okOtherOpts (Array.ofList refs)
     { projOptions with OtherOptions = finalOpts }
 
+  let setPreviewLangVersion (projOptions: FSharpProjectOptions) =
+    match projOptions.OtherOptions |> Array.tryFindIndex (fun arg -> arg.Contains "langversion") with
+    | None ->
+      // no langversion specified, can just add --langversion:preview
+      { projOptions with OtherOptions = Array.append [|"--langversion:preview"|] projOptions.OtherOptions }
+    | Some index -> // could do array slicing here, but the logic around 0th and last positions being the 'index' would be annoying
+      let newOpts = projOptions.OtherOptions |> Array.mapi (fun idx item -> if idx = index then "--langversion:preview" else item)
+      { projOptions with OtherOptions = newOpts }
+
   let patchWithMscorlib (projOptions: FSharpProjectOptions) =
     let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
     let otherOpts = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |]
@@ -496,7 +505,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
-    return replaceRefs opts, errors
+    let allModifications = replaceRefs >> setPreviewLangVersion
+    return allModifications opts, errors
   }
 
   member self.GetProjectOptionsFromScript(file, source, tfm) = async {
@@ -532,7 +542,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
     logDebug "[Checker] GetBackgroundCheckResultsForFileInProject - %s" fn
-    let opt = clearProjectReferecnes opt
+    let opt = clearProjectReferences opt
     checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
@@ -549,7 +559,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
       logDebug "[Checker] %s" opName
       let source = SourceText.ofString source
-      let options = clearProjectReferecnes options
+      let options = clearProjectReferences options
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName))
       return
@@ -568,7 +578,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     logDebug "[Checker] TryGetRecentCheckResultsForFile - %s" file
     let source = source |> Option.map SourceText.ofString
-    let options = clearProjectReferecnes options
+    let options = clearProjectReferences options
     checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
@@ -582,7 +592,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
         let! res =
           [yield p; yield! projects ]
           |> Seq.map (fun (opts) -> async {
-              let opts = clearProjectReferecnes opts
+              let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return! res.GetUsesOfSymbol symbol
             })

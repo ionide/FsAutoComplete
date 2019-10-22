@@ -352,10 +352,7 @@ let logDotnetRestore section line =
     logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
 
 let getDiagnosticsEvents =
-  Event.filter (fun (typ, _o) ->
-    printfn "event of type %s" typ
-    typ = "textDocument/publishDiagnostics"
-  )
+  Event.filter (fun (typ, _o) -> typ = "textDocument/publishDiagnostics")
   >> Event.map (fun (_typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
 
 let matchFiles (files: string Set) =
@@ -774,7 +771,6 @@ let scriptPreviewTests =
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
       match waitForParseResultsForFile scriptPath events with
       | Ok () ->
-        printfn "wut"
         () // all good, no parsing/checking errors
       | Core.Result.Error errors ->
         failwithf "Errors while parsing script %s: %A" scriptPath errors
