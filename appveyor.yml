@@ -4,7 +4,7 @@ image:
 install:
   # use version from global.json and get url from https://dotnet.microsoft.com/download/dotnet-core/2.1
   - ps: $sdkUrl = "https://download.visualstudio.microsoft.com/download/pr/0297dbc2-424f-426a-a415-b39927dffe9a/2417ef7aae3c24da94ad7e54137b38b6/dotnet-sdk-2.1.802-win-x64.exe"
-  - ps: Invoke-WebRequest $sdkUrl -OutFile ${env:TEMP}\dotnet-sdk-win-x64.exe
+  - ps: Invoke-WebRequest $sdkUrl -OutFile "${env:TEMP}\dotnet-sdk-win-x64.exe"
   - ps: ${env:TEMP}\dotnet-sdk-win-x64.exe
 
 build_script:
