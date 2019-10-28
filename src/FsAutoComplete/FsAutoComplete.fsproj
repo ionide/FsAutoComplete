@@ -14,11 +14,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Options.fs" />
-    <Compile Include="Parser.fs" />
-    <Compile Include="CommandInput.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
-    <Compile Include="FsAutoComplete.Stdio.fs" />
     <Compile Include="LspHelpers.fs" />
     <Compile Include="FsAutoComplete.Lsp.fs" />
     <Compile Include="Program.fs" />

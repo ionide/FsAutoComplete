@@ -6,50 +6,7 @@ namespace FsAutoComplete
 open System
 
 module Options =
-
-  let commandText = @"
-    Supported commands
-    ==================
-    quit
-      - quit the program
-    declarations ""filename""
-      - get information about top-level declarations in a file with location
-    parse ""<filename>"" [sync]
-      - trigger full background parse request; should be
-        followed by content of a file (ended with <<EOF>>)
-        Optional 'sync' is used to force the parse to occur
-        synchronously for testing purposes. Not intended for
-        use in production.
-    completion ""<filename>"" ""<lineStr>"" <line> <col> [timeout] [filter=(StartsWith|Contains)]
-      - trigger completion request for the specified location
-        optionally filter in the specified manner
-    helptext <candidate>
-      - fetch type signature for specified completion candidate
-        (from last completion request). Only use in JSON mode.
-    symboluse ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
-      - find all uses of the symbol for the specified location
-    symboluseproject ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
-      - find all uses of the symbol for the specified location across whole project
-    tooltip ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
-      - get tool tip for the specified location
-    typesig ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
-      - get type signature for the specified location
-    finddecl ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
-      - find the point of declaration of the symbol at specified location
-    methods ""<filename>"" ""<lineStr>"" <line> <col> [timeout]
-      - find the method signatures at specified location
-    project ""<filename>""
-      - associates the current session with the specified project
-    compilerlocation
-      - prints the best guess for the location of fsc and fsi
-        (or fsharpc and fsharpi on unix)
-    "
-
   open Argu
-
-  type TransportMode =
-      | Stdio
-      | Lsp
 
   type CLIArguments =
       | Version
@@ -57,10 +14,8 @@ module Options =
       | AttachDebugger
       | [<EqualsAssignment; AltCommandLine("-l")>] Logfile of path:string
       | VFilter of filter:string
-      | Commands
       | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
-      | Mode of TransportMode
       | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
       with
           interface IArgParserTemplate with
@@ -71,10 +26,8 @@ module Options =
                   | Verbose -> "enable verbose mode"
                   | Logfile _ -> "send verbose output to specified log file"
                   | VFilter _ -> "apply a comma-separated {FILTER} to verbose output"
-                  | Commands -> "list the commands that this program understands"
                   | WaitForDebugger _ -> "wait for a debugger to attach to the process"
                   | HostPID _ -> "the Host process ID."
-                  | Mode _ -> "the transport type."
                   | BackgroundServiceEnabled -> "enable background service"
 
   let apply (args: ParseResults<CLIArguments>) =
@@ -94,12 +47,10 @@ module Options =
             exit 1
       | VFilter v ->
           Debug.categories <- v.Split(',') |> set |> Some
-      | Commands
       | Version
       | WaitForDebugger
       | BackgroundServiceEnabled
-      | HostPID _
-      | Mode _ ->
+      | HostPID _  ->
           ()
 
     args.GetAllResults()

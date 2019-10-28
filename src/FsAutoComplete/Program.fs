@@ -26,11 +26,6 @@ let entry args =
           printfn "FsAutoComplete %s (git sha %s)" (version.Version) (version.GitSha)
           exit 0 )
 
-      results.TryGetResult(<@ Options.CLIArguments.Commands @>)
-      |> Option.iter (fun _ ->
-          printfn "%s" Options.commandText
-          exit 0 )
-
       Options.apply results
 
       let backgroundServiceEnabled =
@@ -43,11 +38,7 @@ let entry args =
 
       use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
-      match results.GetResult(<@ Options.CLIArguments.Mode @>, defaultValue = Options.TransportMode.Stdio) with
-      | Options.TransportMode.Stdio ->
-          FsAutoComplete.Stdio.start commands results
-      | Options.TransportMode.Lsp ->
-          FsAutoComplete.Lsp.start commands results
+      FsAutoComplete.Lsp.start commands
     with
     | :? ArguParseException as ex ->
       printfn "%s" ex.Message

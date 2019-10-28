@@ -515,10 +515,10 @@ module CommandResponse =
       | Dotnet.ProjInfo.Workspace.ReferencesNotLoaded (_, referenceErrors) ->
 
         [ yield sprintf "this project was not loaded because some references could not be loaded:"
-          yield! 
+          yield!
             referenceErrors
-              |> Seq.collect (fun (projPath, er) -> 
-                [ yield sprintf "  - %s:" projPath 
+              |> Seq.collect (fun (projPath, er) ->
+                [ yield sprintf "  - %s:" projPath
                   yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line)]) ]
       | Dotnet.ProjInfo.Workspace.GenericError (_, errorMessage) -> [errorMessage]
       | Dotnet.ProjInfo.Workspace.ProjectNotRestored _ -> ["Project not restored"]
@@ -663,7 +663,7 @@ module CommandResponse =
     serialize { Kind = "dotnetnewgetDetails"; Data = data }
 
   let dotnetnewCreateCli (serialize : Serializer) (commandName : string, parameterStr : string) =
-    serialize { Kind = "dotnetnewCreateCli"; 
+    serialize { Kind = "dotnetnewCreateCli";
                 Data = { CommandName = commandName
                          ParameterStr = parameterStr} }
 
