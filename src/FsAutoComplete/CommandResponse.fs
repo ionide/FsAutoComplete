@@ -459,9 +459,9 @@ module CommandResponse =
     let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
     serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
 
-  let project (serialize : Serializer) (projectFileName, projectFiles, outFileOpt, references, logMap, (extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData), projectItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, additionals) =
+  let project (serialize : Serializer) (projectResult: ProjectResult) =
     let projectInfo =
-      match extra.ProjectSdkType with
+      match projectResult.extra.ProjectSdkType with
       | Dotnet.ProjInfo.Workspace.ProjectSdkType.Verbose _ ->
         ProjectResponseInfo.Verbose
       | Dotnet.ProjInfo.Workspace.ProjectSdkType.DotnetSdk info ->
@@ -490,19 +490,19 @@ module CommandResponse =
           ProjectResponseItem.Metadata = Map.empty }
 
     let projectData =
-      { Project = projectFileName
-        Files = projectFiles
-        Output = match outFileOpt with Some x -> x | None -> "null"
-        References = List.sortBy IO.Path.GetFileName references
-        Logs = logMap
+      { Project = projectResult.projectFileName
+        Files = projectResult.projectFiles
+        Output = match projectResult.outFileOpt with Some x -> x | None -> "null"
+        References = List.sortBy IO.Path.GetFileName projectResult.references
+        Logs = projectResult.logMap
         OutputType =
-          match extra.ProjectOutputType with
+          match projectResult.extra.ProjectOutputType with
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Library -> Library
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Exe -> Exe
           | Dotnet.ProjInfo.Workspace.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
-        Items = projectItems |> List.map mapItemResponse
-        AdditionalInfo = additionals }
+        Items = projectResult.projectItems |> List.map mapItemResponse
+        AdditionalInfo = projectResult.additionals }
     serialize { Kind = "project"; Data = projectData }
 
   let projectError (serialize : Serializer) errorDetails =
@@ -865,89 +865,3 @@ module CommandResponse =
 
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
-
-  let serialize (s: Serializer) = function
-    | CoreResponse.InfoRes(text) ->
-      info s text
-    | CoreResponse.ErrorRes(text) ->
-      error s text
-    | CoreResponse.HelpText(name, tip, additionalEdit) ->
-      helpText s (name, tip, additionalEdit)
-    | CoreResponse.HelpTextSimple(name, tip) ->
-      helpTextSimple s (name, tip)
-    | CoreResponse.Project(projectFileName, projectFiles, outFileOpt, references, logMap, extra, projectItems, additionals) ->
-      project s (projectFileName, projectFiles, outFileOpt, references, logMap, extra, projectItems, additionals)
-    | CoreResponse.ProjectError(errorDetails) ->
-      projectError s errorDetails
-    | CoreResponse.ProjectLoading(projectFileName) ->
-      projectLoading s projectFileName
-    | CoreResponse.WorkspacePeek(found) ->
-      workspacePeek s found
-    | CoreResponse.WorkspaceLoad(finished) ->
-      workspaceLoad s finished
-    | CoreResponse.Completion(decls, includeKeywords) ->
-      completion s decls includeKeywords
-    | CoreResponse.SymbolUse(symbol, uses) ->
-      symbolUse s (symbol, uses)
-    | CoreResponse.SymbolUseImplementation(symbol, uses) ->
-      symbolImplementation s (symbol, uses)
-    | CoreResponse.SignatureData(typ, parms, generics) ->
-      signatureData s (typ, parms, generics)
-    | CoreResponse.Help(data) ->
-      help s data
-    | CoreResponse.Methods(meth, commas) ->
-      methods s (meth, commas)
-    | CoreResponse.Errors(es, file) ->
-      errors s (es, file)
-    | CoreResponse.Colorizations(colors) ->
-      colorizations s colors
-    | CoreResponse.FindDeclaration(result) ->
-      findDeclaration s result
-    | CoreResponse.FindTypeDeclaration(range) ->
-      findTypeDeclaration s range
-    | CoreResponse.Declarations(decls) ->
-      declarations s decls
-    | CoreResponse.ToolTip(tip, signature, footer, typeDoc) ->
-      toolTip s (tip, signature, footer, typeDoc)
-    | CoreResponse.FormattedDocumentation(tip, xmlSig, signature, footer, cn) ->
-      formattedDocumentation s (tip, xmlSig, signature, footer, cn)
-    | CoreResponse.FormattedDocumentationForSymbol(xml, assembly, xmlDoc, signature, footer, cn) ->
-      formattedDocumentationForSymbol s xml assembly xmlDoc (signature, footer, cn)
-    | CoreResponse.TypeSig(tip) ->
-      typeSig s tip
-    | CoreResponse.CompilerLocation(fcs, fsi, msbuild, sdk) ->
-      compilerLocation s fcs fsi msbuild sdk
-    | CoreResponse.Lint(_,warnings) ->
-      lint s warnings
-    | CoreResponse.ResolveNamespaces(word, opens, qualifies) ->
-      resolveNamespace s (word, opens, qualifies)
-    | CoreResponse.UnionCase(text, position) ->
-      unionCase s text position
-    | CoreResponse.RecordStub(text, position) ->
-      recordStub s text position
-    | CoreResponse.UnusedDeclarations(_,decls) ->
-      unusedDeclarations s decls
-    | CoreResponse.UnusedOpens(_,opens) ->
-      unusedOpens s opens
-    | CoreResponse.SimplifiedName(_,names) ->
-      simplifiedNames s names
-    | CoreResponse.Compile(errors, code) ->
-      compile s (errors, code)
-    | CoreResponse.Analyzer(messages, file) ->
-      analyzer s (messages, file)
-    | CoreResponse.SymbolUseRange(ranges) ->
-      symbolUseRange s ranges
-    | CoreResponse.SymbolUseImplementationRange(ranges) ->
-      symbolUseImplementationRange s ranges
-    | CoreResponse.InterfaceStub(generatedCode, insertPosition) ->
-      interfaceStub s generatedCode insertPosition
-    | CoreResponse.RangesAtPositions(ranges) -> rangesAtPosition s ranges
-    | CoreResponse.Fsdn(functions) -> fsdn s functions
-    | CoreResponse.FakeTargets(targets) ->
-      fakeTargets s targets
-    | CoreResponse.FakeRuntime(runtimePath) ->
-      fakeRuntime s runtimePath
-    | CoreResponse.DotnetNewList (installedTemplate) -> dotnetnewlist s installedTemplate
-    | CoreResponse.DotnetNewGetDetails (detailedTemplate) ->
-      dotnetnewgetDetails s detailedTemplate
-    | CoreResponse.DotnetNewCreateCli (commandName,parameterStr) -> dotnetnewCreateCli s (commandName, parameterStr)
