@@ -1879,7 +1879,7 @@ let startCore (commands: Commands) =
 
     LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FsharpLspServer(commands, lspClient))
 
-let start (commands: Commands) (_args: ParseResults<Options.CLIArguments>) =
+let start (commands: Commands) =
     // stdout is used for commands
     if Debug.output = stdout then
         Debug.output <- stderr
