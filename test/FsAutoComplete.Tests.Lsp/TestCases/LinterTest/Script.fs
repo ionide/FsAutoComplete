@@ -1,3 +1,4 @@
+module test
 let test1 a b = not (a=b)
 let test2 a b = not (a<>b)
 let test3 = fun a -> a

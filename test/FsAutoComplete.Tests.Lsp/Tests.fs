@@ -170,54 +170,6 @@ let basicTests =
 
   ]
 
-///Tests for linter
-let linterTests =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
-    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true}
-    let projectPath = Path.Combine(path, "LinterTest.fsproj")
-    parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs") 
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-  )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
-
-  testSequenced <| ftestList "Linter Test" [
-    testCase "no idea" (serverTest (fun server path -> 
-      let p : TextDocumentPositionParams =
-        { TextDocument = { Uri = filePathToUri path}
-          Position = { Line = 0; Character = 18}}
-      let res = server.TextDocumentHover p |> Async.RunSynchronously
-      match res with
-      | Result.Error e -> failtestf "Request failed: %A" e
-      | Result.Ok None -> failtest "Request none"
-      | Result.Ok (Some res) ->
-        let expected =
-          MarkedStrings
-            [|  MarkedString.WithLanguage 
-                  {Language = "fsharp"; Value = "val not: value: bool -> bool"}
-                MarkedString.String ""
-                MarkedString.String "*Full name: Microsoft.FSharp.Core.Operators.not*"
-                MarkedString.String "*AAssembly: FSharp.Core*"
-                MarkedString.String "`not (a = b)` might be able to be refactored into `a <> b`.F# Linter(FS0065)" |]
-
-        printf "%A" res.Contents
-        Expect.equal res.Contents expected "Hover test - simple symbol"      
-        
-
-    ))
-
-    testCase "no idea 2" (serverTest (fun server path -> 
-      //comes in on textDocument/publishDiagnostics on project load
-
-        //see how events are read below
-
-    ))
-  ]
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest =
@@ -426,6 +378,10 @@ let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Ev
         logger.debug (eventX "all parsed without error, signaling...")
         m.Set() |> ignore
       )
+
+
+
+
 
 ///Rename tests
 let renameTest =
@@ -780,6 +736,81 @@ let foldingTests =
         Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
       | Ok(None) -> failwithf "No ranges found in file, problem parsing?"
       | LspResult.Error e -> failwithf "Error from range LSP call: %A" e
+    ))
+  ]
+
+let inline waitForParsedScript (m: System.Threading.ManualResetEvent) (event: Event<string * obj>) =
+
+  let bag = new System.Collections.Concurrent.ConcurrentBag<LanguageServerProtocol.Types.PublishDiagnosticsParams>()
+
+  event.Publish
+  |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
+  |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+  |> Event.filter (fun n -> 
+    let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
+    filename = "Script.fs")
+  |> Event.add (fun n -> 
+    bag.Add(n)
+    logger.debug (eventX "recived publishDiagnostics")
+    m.Set() |> ignore
+  )
+
+  bag
+
+///Tests for linter
+let linterTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
+    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true}
+
+    let m = new System.Threading.ManualResetEvent(false)
+    let bag = event |> waitForParsedScript m
+
+
+    let projectPath = Path.Combine(path, "LinterTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs") 
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    m.WaitOne() |> ignore
+
+    (server, path, bag)
+  )
+  let serverTest f () =
+    let (server, path, bag) = serverStart.Value
+    f server path bag
+
+  testSequenced <| ftestList "Linter Test" [
+    testCase "Linter Messages" (serverTest (fun server path bag -> 
+      let (b,v) = bag.TryPeek()
+      Expect.equal true b "Diagnostic Message Received"
+      if b then
+        let firstDiag = { 
+          Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
+          Severity = Some DiagnosticSeverity.Information
+          Code = Some "FS0042"
+          Source = "F# Linter"
+          Message = "Consider changing `test` to PascalCase."
+          RelatedInformation = None
+          Tags = None}
+        Expect.equal v.Diagnostics.[0] firstDiag "first message matches"
+        let secondDiag = {
+          Range = { Start = { Line = 1; Character = 16 }
+                    End = { Line = 1; Character = 25 } }
+          Severity = Some DiagnosticSeverity.Information
+          Code = Some "FS0065"
+          Source = "F# Linter"
+          Message = "`not (a = b)` might be able to be refactored into `a <> b`."
+          RelatedInformation = None
+          Tags = None 
+        }
+        Expect.equal v.Diagnostics.[1] secondDiag "second message matches"
+        
+      
+
+        printf "%A" v.Diagnostics
+
     ))
   ]
 
