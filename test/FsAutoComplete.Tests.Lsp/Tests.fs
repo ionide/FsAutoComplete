@@ -379,10 +379,6 @@ let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Ev
         m.Set() |> ignore
       )
 
-
-
-
-
 ///Rename tests
 let renameTest =
   let serverStart = lazy (
@@ -739,6 +735,7 @@ let foldingTests =
     ))
   ]
 
+
 let inline waitForParsedScript (m: System.Threading.ManualResetEvent) (event: Event<string * obj>) =
 
   let bag = new System.Collections.Concurrent.ConcurrentBag<LanguageServerProtocol.Types.PublishDiagnosticsParams>()
@@ -782,9 +779,8 @@ let linterTests =
     f server path bag
 
   testSequenced <| ftestList "Linter Test" [
-    testCase "Linter Messages" (serverTest (fun server path bag -> 
+    testCase "Linter Diagnostics" (serverTest (fun server path bag -> 
       let (b,v) = bag.TryPeek()
-      Expect.equal true b "Diagnostic Message Received"
       if b then
         let firstDiag = { 
           Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
@@ -794,7 +790,6 @@ let linterTests =
           Message = "Consider changing `test` to PascalCase."
           RelatedInformation = None
           Tags = None}
-        Expect.equal v.Diagnostics.[0] firstDiag "first message matches"
         let secondDiag = {
           Range = { Start = { Line = 1; Character = 16 }
                     End = { Line = 1; Character = 25 } }
@@ -805,12 +800,74 @@ let linterTests =
           RelatedInformation = None
           Tags = None 
         }
-        Expect.equal v.Diagnostics.[1] secondDiag "second message matches"
-        
-      
+        let thirdDiag = 
+          { Range = { Start = { Line = 2; Character = 16 }
+                      End = { Line = 2; Character = 26 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`not (a <> b)` might be able to be refactored into `a = b`."
+            RelatedInformation = None
+            Tags = None }
 
-        printf "%A" v.Diagnostics
+        let fourthDiag = 
+          { Range = { Start = { Line = 3; Character = 12 }
+                      End = { Line = 3; Character = 22 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`fun x -> x` might be able to be refactored into `id`."
+            RelatedInformation = None
+            Tags = None }
+        let fifthDiag =
+          { Range = { Start = { Line = 4; Character = 12 }
+                      End = { Line = 4; Character = 20 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`not true` might be able to be refactored into `false`."
+            RelatedInformation = None
+            Tags = None }
+        let sixthDiag =
+          { Range = { Start = { Line = 5; Character = 12 }
+                      End = { Line = 5; Character = 21 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`not false` might be able to be refactored into `true`."
+            RelatedInformation = None
+            Tags = None }
+        let seventhDiag =          
+          { Range = { Start = { Line = 7; Character = 14 }
+                      End = { Line = 7; Character = 21 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`a <> true` might be able to be refactored into `not a`."
+            RelatedInformation = None
+            Tags = None }
+        let eigthDiag = 
+          { Range = { Start = { Line = 8; Character = 14 }
+                      End = { Line = 8; Character = 20 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`x = null` might be able to be refactored into `isNull x`."
+            RelatedInformation = None
+            Tags = None }
+        let ninthDiag =
+          { Range = { Start = { Line = 9; Character = 14 }
+                      End = { Line = 9; Character = 37 } }
+            Severity = Some DiagnosticSeverity.Information
+            Code = Some "FS0065"
+            Source = "F# Linter"
+            Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
+            RelatedInformation = None
+            Tags = None }
 
+        let diagnostics = [|firstDiag; secondDiag; thirdDiag; fourthDiag; fifthDiag; sixthDiag; seventhDiag; eigthDiag; ninthDiag|]
+        Expect.equal v.Diagnostics diagnostics "Linter messages match"
+      else failtest "No diagnostic message recived"
     ))
   ]
 
