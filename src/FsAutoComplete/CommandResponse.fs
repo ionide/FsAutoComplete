@@ -4,10 +4,7 @@ open System
 
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
-open System.Text.RegularExpressions
-open FSharp.Analyzers
 open FsAutoComplete.WorkspacePeek
-open SymbolCache
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -52,22 +49,6 @@ module CommandResponse =
     {
       Kind: string
       Data: 'T
-    }
-
-  type Location =
-    {
-      File: string
-      Line: int
-      Column: int
-    }
-
-  type CompletionResponse =
-    {
-      Name: string
-      ReplacementText: string
-      Glyph: string
-      GlyphChar: string
-      NamespaceToOpen: string option
     }
 
   type ResponseError<'T> =
@@ -143,19 +124,6 @@ module CommandResponse =
       Metadata: Map<string, string>
     }
 
-  type OverloadDescription =
-    {
-      Signature: string
-      Comment: string
-    }
-
-  type TooltipDescription =
-    {
-      Signature: string
-      Comment: string
-      Footer: string
-    }
-
   type DocumentationDescription =
     {
       XmlKey: string
@@ -168,49 +136,6 @@ module CommandResponse =
       Signature: string
       Comment: string
       Footer: string
-    }
-
-  type OverloadParameter =
-    {
-      Name : string
-      CanonicalTypeTextForSorting : string
-      Display : string
-      Description : string
-    }
-  type Overload =
-    {
-      Tip : OverloadDescription list list
-      TypeText : string
-      Parameters : OverloadParameter list
-      IsStaticArguments : bool
-    }
-  type MethodResponse =
-    {
-      Name : string
-      CurrentParameter : int
-      Overloads : Overload list
-    }
-
-  type SymbolUseResponse =
-    {
-      Name: string
-      Uses: SymbolCache.SymbolUseRange list
-    }
-
-  type AdditionalEdit =
-    {
-      Text: string
-      Line: int
-      Column: int
-      Type: string
-    }
-
-
-  type HelpTextResponse =
-    {
-      Name: string
-      Overloads: OverloadDescription list list
-      AdditionalEdit: AdditionalEdit option
     }
 
   type CompilerLocationResponse =
@@ -247,17 +172,6 @@ module CommandResponse =
         Subcategory = e.Subcategory
       }
 
-  type ErrorResponse =
-    {
-      File: string
-      Errors: FSharpErrorInfo []
-    }
-
-  type Colorization =
-    {
-      Range: Range.range
-      Kind: string
-    }
 
   type Declaration =
     {
@@ -292,41 +206,6 @@ module CommandResponse =
       Nested : Declaration []
   }
 
-  type OpenNamespace = {
-    Namespace : string
-    Name : string
-    Type : string
-    Line : int
-    Column : int
-    MultipleNames : bool
-  }
-
-  type QualifySymbol = {
-    Name : string
-    Qualifier : string
-  }
-
-  type ResolveNamespaceResponse = {
-    Opens : OpenNamespace []
-    Qualifies: QualifySymbol []
-    Word : string
-  }
-
-  type UnionCaseResponse = {
-    Text : string
-    Position : pos
-  }
-
-  type RecordStubResponse = {
-      Text : string
-      Position : pos
-  }
-
-  type InterfaceStubResponse = {
-      Text : string
-      Position : pos
-  }
-
   type Parameter = {
     Name : string
     Type : string
@@ -336,32 +215,6 @@ module CommandResponse =
     OutputType : string
     Parameters : Parameter list list
     Generics : string list
-  }
-
-  type UnusedDeclaration = {
-    Range: Range.range
-    IsThisMember: bool
-  }
-
-  type UnusedDeclarations = {
-    Declarations : UnusedDeclaration []
-  }
-
-  type UnusedOpens = {
-    Declarations : Range.range []
-  }
-
-  type SimplifiedNameData = {
-    RelativeName : string
-    UnnecessaryRange: Range.range
-  }
-
-  type SimplifiedName = {
-    Names: SimplifiedNameData []
-  }
-
-  type RangesAtPositions = {
-    Ranges: Range.range list list
   }
 
   type WorkspacePeekResponse = {
@@ -409,17 +262,6 @@ module CommandResponse =
     Errors: FSharpErrorInfo []
   }
 
-  type AnalyzerMsg =
-    { Type: string
-      Message: string
-      Code: string
-      Severity: string
-      Range: Range.range
-      Fixes: SDK.Fix list }
-  type AnalyzerResponse =
-    { File: string
-      Messages: AnalyzerMsg list}
-
   type FsdnResponse = {
     Functions: string list
   }
@@ -437,9 +279,7 @@ module CommandResponse =
     ParameterStr : string
   }
 
-  let info (serialize : Serializer) (s: string) = serialize { Kind = "info"; Data = s }
-
-  let errorG (serialize : Serializer) (errorData: ErrorData) message =
+  let private errorG (serialize : Serializer) (errorData: ErrorData) message =
     let inline ser code data =
         serialize { Kind = "error"; Data = { Code = (int code); Message = message; AdditionalData = data }  }
     match errorData with
@@ -447,17 +287,6 @@ module CommandResponse =
     | ErrorData.GenericProjectError d -> ser (ErrorCodes.GenericProjectError) d
     | ErrorData.ProjectNotRestored d -> ser (ErrorCodes.ProjectNotRestored) d
     | ErrorData.ProjectParsingFailed d -> ser (ErrorCodes.ProjectParsingFailed) d
-
-  let error (serialize : Serializer) (s: string) = errorG serialize ErrorData.GenericError s
-
-  let helpText (serialize : Serializer) (name: string, tip: FSharpToolTipText, additionalEdit ) =
-    let data = TipFormatter.formatTip tip |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
-    let additionalEdit = additionalEdit |> Option.map (fun (n, l, c, t) -> {AdditionalEdit.Text = n; Line = l; Column = c; Type = t})
-    serialize { Kind = "helptext"; Data = { HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = additionalEdit  } }
-
-  let helpTextSimple (serialize: Serializer) (name : string, tip: string) =
-    let data = [[{OverloadDescription.Signature = name; Comment = tip}]]
-    serialize {Kind = "helptext"; Data = {HelpTextResponse.Name = name; Overloads = data; AdditionalEdit = None} }
 
   let project (serialize : Serializer) (projectResult: ProjectResult) =
     let projectInfo =
@@ -570,77 +399,6 @@ module CommandResponse =
         if finished then "finished" else "started"
     serialize { Kind = "workspaceLoad"; Data = { WorkspaceLoadResponse.Status = data } }
 
-  let completion (serialize : Serializer) (decls: FSharpDeclarationListItem[]) includeKeywords =
-      serialize {  Kind = "completion"
-                   Data = [ for d in decls do
-                              let code =
-                                if Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then d.Name else
-                                PrettyNaming.QuoteIdentifierIfNeeded d.Name
-                              let (glyph, glyphChar) = CompletionUtils.getIcon d.Glyph
-                              yield {CompletionResponse.Name = d.Name; ReplacementText = code; Glyph = glyph; GlyphChar = glyphChar; NamespaceToOpen = d.NamespaceToOpen }
-                            if includeKeywords then
-                              for k in FsAutoComplete.KeywordList.allKeywords do
-                                yield {CompletionResponse.Name = k; ReplacementText = k; Glyph = "Keyword"; GlyphChar = "K"; NamespaceToOpen = None}
-                          ] }
-
-  let symbolUse (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
-    let su =
-      { Name = symbol.Symbol.DisplayName
-        Uses =
-          [ for su in uses do
-              yield { StartLine = su.RangeAlternate.StartLine
-                      StartColumn = su.RangeAlternate.StartColumn + 1
-                      EndLine = su.RangeAlternate.EndLine
-                      EndColumn = su.RangeAlternate.EndColumn + 1
-                      FileName = su.FileName
-                      IsFromDefinition = su.IsFromDefinition
-                      IsFromAttribute = su.IsFromAttribute
-                      IsFromComputationExpression = su.IsFromComputationExpression
-                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
-                      IsFromPattern = su.IsFromPattern
-                      IsFromType = su.IsFromType
-                      SymbolFullName = symbol.Symbol.FullName
-                      SymbolDisplayName = symbol.Symbol.DisplayName
-                      SymbolIsLocal = symbol.Symbol.IsPrivateToFile } ] |> Seq.distinct |> Seq.toList }
-    serialize { Kind = "symboluse"; Data = su }
-
-  let symbolImplementation (serialize : Serializer) (symbol: FSharpSymbolUse, uses: FSharpSymbolUse[]) =
-    let su =
-      { Name = symbol.Symbol.DisplayName
-        Uses =
-          [ for su in uses do
-              yield { StartLine = su.RangeAlternate.StartLine
-                      StartColumn = su.RangeAlternate.StartColumn + 1
-                      EndLine = su.RangeAlternate.EndLine
-                      EndColumn = su.RangeAlternate.EndColumn + 1
-                      FileName = su.FileName
-                      IsFromDefinition = su.IsFromDefinition
-                      IsFromAttribute = su.IsFromAttribute
-                      IsFromComputationExpression = su.IsFromComputationExpression
-                      IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
-                      IsFromPattern = su.IsFromPattern
-                      IsFromType = su.IsFromType
-                      SymbolFullName = symbol.Symbol.FullName
-                      SymbolDisplayName = symbol.Symbol.DisplayName
-                      SymbolIsLocal = symbol.Symbol.IsPrivateToFile } ] |> Seq.distinct |> Seq.toList }
-    serialize { Kind = "symbolimplementation"; Data = su }
-
-  let symbolUseRange (serialize : Serializer) (uses: SymbolUseRange[]) =
-    let symbol = uses.[0]
-    let su =
-      { Name = symbol.SymbolDisplayName
-        Uses = List.ofArray uses
-      }
-    serialize { Kind = "symboluse"; Data = su }
-
-  let symbolUseImplementationRange (serialize : Serializer) (uses: SymbolUseRange[]) =
-    let symbol = uses.[0]
-    let su =
-      { Name = symbol.SymbolDisplayName
-        Uses = List.ofArray uses
-      }
-    serialize { Kind = "symbolimplementation"; Data = su }
-
   let signatureData (serialize : Serializer) ((typ, parms, generics) : string * ((string * string) list list) * string list) =
     let pms =
       parms
@@ -667,57 +425,6 @@ module CommandResponse =
                 Data = { CommandName = commandName
                          ParameterStr = parameterStr} }
 
-  let methods (serialize : Serializer) (meth: FSharpMethodGroup, commas: int) =
-      serialize {  Kind = "method"
-                   Data = {  Name = meth.MethodName
-                             CurrentParameter = commas
-                             Overloads =
-                              [ for o in meth.Methods do
-                                 let tip = TipFormatter.formatTip o.Description |> List.map(List.map(fun (n,m) -> {OverloadDescription.Signature = n; Comment = m} ))
-                                 yield {
-                                   Tip = tip
-                                   TypeText = o.ReturnTypeText
-                                   Parameters =
-                                     [ for p in o.Parameters do
-                                        yield {
-                                          Name = p.ParameterName
-                                          CanonicalTypeTextForSorting = p.CanonicalTypeTextForSorting
-                                          Display = p.Display
-                                          Description = "" //TODO: Investigate if Description is needed at all - not used in Ionide, check in Emacs and vim.
-                                        }
-                                   ]
-                                   IsStaticArguments = not o.HasParameters
-                                 }
-                              ] }
-                }
-
-  let errors (serialize : Serializer) (errors: FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[], file: string) =
-    let errors =
-        errors
-        |> Array.filter (FSharpErrorInfo.IsIgnored >> not)
-        |> Array.map FSharpErrorInfo.OfFSharpError
-    serialize { Kind = "errors";
-                Data = { File = file
-                         Errors = errors }}
-
-  let colorizations (serialize : Serializer) (colorizations: (Range.range * SemanticClassificationType)[]) =
-    // let data = [ for r, k in colorizations do
-    //                yield { Range = r; Kind = Enum.GetName(typeof<SemanticClassificationType>, k) } ]
-    serialize { Kind = "colorizations"; Data = [] } //TODO: Fix colorization
-
-  let findDeclaration (serialize : Serializer) (result: FindDeclarationResult) =
-    match result with
-    | FindDeclarationResult.Range range ->
-        let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
-        serialize { Kind = "finddecl"; Data = data }
-    | FindDeclarationResult.ExternalDeclaration extDecl ->
-        let data = { Line = extDecl.Line; Column = extDecl.Column + 1; File = extDecl.File }
-        serialize { Kind = "finddecl"; Data = data }
-
-  let findTypeDeclaration (serialize : Serializer) (range: Range.range) =
-    let data = { Line = range.StartLine; Column = range.StartColumn + 1; File = range.FileName }
-    serialize { Kind = "finddecl"; Data = data }
-
   let declarations (serialize : Serializer) (decls : (FSharpNavigationTopLevelDeclaration * string) []) =
      let decls' =
       decls |> Array.map (fun (d, fn) ->
@@ -725,10 +432,6 @@ module CommandResponse =
           Nested = d.Nested |> Array.map ( fun a -> Declaration.OfDeclarationItem(a,fn))
         })
      serialize { Kind = "declarations"; Data = decls' }
-
-  let toolTip (serialize : Serializer) (tip, signature, footer, typeDoc) =
-    let data = TipFormatter.formatTipEnhanced tip signature footer typeDoc |> List.map(List.map(fun (n,m,f) -> {Footer =f; Signature = n; Comment = m} ))
-    serialize { Kind = "tooltip"; Data = data }
 
   let formattedDocumentation (serialize : Serializer) (tip, xmlSig, signature, footer, cn) =
     let data =
@@ -754,111 +457,8 @@ module CommandResponse =
     let data = { Fsi = fsi; Fsc = fsc; MSBuild = msbuild; SdkRoot = sdkRoot }
     serialize { Kind = "compilerlocation"; Data = data }
 
-  let message (serialize : Serializer) (kind: string, data: 'a) =
-    serialize { Kind = kind; Data = data }
-
-  let lint (serialize : Serializer) (warnings : Lint.EnrichedLintWarning list) =
-
-    let data = warnings |> List.map (fun w -> w.Warning) |> List.toArray
-    serialize { Kind = "lint"; Data = data }
-
-
-  let resolveNamespace (serialize : Serializer) (word: string, opens : (string * string * InsertContext * bool) list, qualfies : (string * string) list) =
-    let ops =
-      opens
-      |> List.map (fun (ns, name, ctx, multiple) ->
-        {
-          Namespace = ns
-          Name = name
-          Type = ctx.ScopeKind.ToString()
-          Line = ctx.Pos.Line
-          Column = ctx.Pos.Column
-          MultipleNames = multiple
-        })
-      |> List.toArray
-
-    let quals =
-      qualfies
-      |> List.map (fun (name, q) ->
-        {
-          QualifySymbol.Name = name
-          QualifySymbol.Qualifier = q
-        })
-      |> List.toArray
-
-    let data = {
-      Opens = ops
-      Qualifies = quals
-      Word = word
-    }
-
-    serialize { Kind = "namespaces"; Data = data}
-
-  let unionCase (serialize : Serializer) (text : string) position =
-    let data : UnionCaseResponse = {
-      Text = text
-      Position = position
-    }
-    serialize { Kind = "unionCase"; Data = data}
-
-  let recordStub (serialize : Serializer) (text : string) position =
-    let data : RecordStubResponse = {
-      Text = text
-      Position = position
-    }
-    serialize { Kind = "recordStub"; Data = data}
-
-  let interfaceStub (serialize : Serializer) (text : string) (position : pos) =
-    let data : InterfaceStubResponse = {
-      Text = text
-      Position = position
-    }
-    serialize { Kind = "interfaceStub"; Data = data}
-
-  let unusedDeclarations (serialize : Serializer) data =
-    let data =
-      data |> Array.map (fun (r, t) ->
-        {
-          UnusedDeclaration.Range = r
-          IsThisMember = t
-        })
-    let data = {UnusedDeclarations.Declarations = data}
-    serialize { Kind = "unusedDeclarations"; Data = data}
-
-  let unusedOpens (serialize : Serializer) data =
-    let data = {UnusedOpens.Declarations = data}
-    serialize { Kind = "unusedOpens"; Data = data}
-
-  let simplifiedNames (serialize : Serializer) data =
-    let data = {
-      SimplifiedName.Names = data |> Seq.map (fun (r,n) -> { SimplifiedNameData.RelativeName = n; SimplifiedNameData.UnnecessaryRange =r }) |> Seq.toArray
-    }
-    serialize { Kind = "simpifiedNames"; Data = data}
-
-  let rangesAtPosition (serialize : Serializer) data =
-    let data = {Ranges = data}
-    serialize {Kind = "rangesAtPosition"; Data = data}
-
   let compile (serialize : Serializer) (errors,code) =
     serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
-
-  let analyzer (serialize: Serializer) (messages: SDK.Message seq, file: string) =
-    let r =
-      messages |> Seq.map (fun m ->
-        let s =
-          match m.Severity with
-          | SDK.Info -> "info"
-          | SDK.Warning -> "warning"
-          | SDK.Error -> "error"
-        { Code = m.Code
-          Fixes = m.Fixes
-          Message = m.Message
-          Severity = s
-          Range = m.Range
-          Type = m.Type
-        })
-      |> Seq.toList
-    serialize { Kind = "analyzer"; Data = { File = file; Messages = r}}
 
   let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
      serialize targets

@@ -2,7 +2,6 @@ namespace FsAutoComplete.Tests.Tests
 
 open NUnit.Framework
 open FsAutoComplete
-open FsAutoComplete.Parser
 
 [<TestFixture>]
 type Tests () =
@@ -10,27 +9,6 @@ type Tests () =
     [<SetUp>]
     member this.Setup () =
         ()
-
-    [<Test>]
-    member this.Test1 () =
-        let input = "project \"sample1/c1/c1.fsproj\""
-        let reader = Parser.createForwardStringReader input 0
-        let cmds = CommandInput.project <|> CommandInput.error
-        let cmd = reader |> Parser.getFirst cmds
-        Assert.IsTrue((cmd = Command.Project("sample1/c1/c1.fsproj", false)), sprintf "but was %A" cmd)
-
-    [<Test>]
-    member this.Test2 () =
-        let input = "project \"sample2/c2/c2.fsproj\""
-        let cmd = CommandInput.parseCommand input
-        Assert.IsTrue((cmd = Command.Project("sample2/c2/c2.fsproj", false)), sprintf "but was %A" cmd)
-
-    [<Test>]
-    member this.``stdio parser workspaceload `` () =
-        let input = "workspaceload \"sample2/c2/c2.fsproj\" \"c:\\sample2\\c2\\c2.fsproj\""
-        let cmd = CommandInput.parseCommand input
-        Assert.IsTrue((cmd = WorkspaceLoad([| @"sample2/c2/c2.fsproj"; @"c:\sample2\c2\c2.fsproj" |])), sprintf "but was %A" cmd)
-
 
 
     [<Test>]
