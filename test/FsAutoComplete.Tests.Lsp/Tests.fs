@@ -358,7 +358,7 @@ let getDiagnosticsEvents =
 /// note that the files here are intended to be the filename only., not the full URI.
 let matchFiles (files: string Set) =
   Event.choose (fun (p: LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
-    let filename = p.Uri.Split([|'/'|], StringSplitOptions.RemoveEmptyEntries) |> Array.last
+    let filename = p.Uri.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
     if Set.contains filename files
     then Some (filename, p)
     else None
