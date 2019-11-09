@@ -795,5 +795,7 @@ let tests =
     uriTests
     dotnetnewTest
     foldingTests
+#if false // commented out because this will only work in a netcoreapp3.0 context, which CI doesn't have.
     scriptPreviewTests
+#endif
   ]
