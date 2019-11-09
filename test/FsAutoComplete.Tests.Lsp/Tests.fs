@@ -355,9 +355,10 @@ let getDiagnosticsEvents =
   Event.filter (fun (typ, _o) -> typ = "textDocument/publishDiagnostics")
   >> Event.map (fun (_typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
 
+/// note that the files here are intended to be the filename only., not the full URI.
 let matchFiles (files: string Set) =
   Event.choose (fun (p: LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
-    let filename = p.Uri.Replace('\\', '/').Substring("file://".Length)
+    let filename = p.Uri.Split([|'/'|], StringSplitOptions.RemoveEmptyEntries) |> Array.last
     if Set.contains filename files
     then Some (filename, p)
     else None
@@ -385,19 +386,22 @@ let waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<str
     d
 
   let fileNames = files |> Set.ofList
-
+  logger.debug (eventX "waiting for {files} to be parsed" >> setField "files" fileNames)
   event.Publish
   |> getDiagnosticsEvents
   |> matchFiles fileNames
   |> Event.add (fun (filename, n) ->
       if Array.isEmpty n.Diagnostics then // no errors
         found.AddOrUpdate(filename, true, (fun x y -> true)) |> ignore
+        logger.debug (eventX "{file} was parsed successfully" >> setField "file" filename)
 
-      let fileUnderWatchStatus = found.ToArray() |> Array.map (fun kv -> kv.Value)
-
-      if (not (fileUnderWatchStatus |> Seq.contains false)) then
+      match found |> Seq.filter (fun (KeyValue(name, found)) -> not found) with
+      | s when Seq.isEmpty s ->
         logger.debug (eventX "all parsed without error, signaling...")
         m.Set() |> ignore
+      | s ->
+        logger.debug (eventX "still waiting for {files}" >> setField "files" (s |> Seq.map (fun (KeyValue(name, _)) -> name)))
+        ()
       )
 
 ///Rename tests
@@ -759,17 +763,17 @@ let foldingTests =
 let scriptPreviewTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
-    let libraryPath = Path.Combine(path, "Script.fsx")
+    let scriptPath = Path.Combine(path, "Script.fsx")
     let (server, events) = serverInitialize path defaultConfigDto
     do waitForWorkspaceFinishedParsing events
-    server, events, libraryPath
+    server, events, scriptPath
   )
   let serverTest f () = f serverStart.Value
 
   testList "script preview language features" [
     testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-      match waitForParseResultsForFile scriptPath events with
+      match waitForParseResultsForFile "Script.fsx" events with
       | Ok () ->
         () // all good, no parsing/checking errors
       | Core.Result.Error errors ->
