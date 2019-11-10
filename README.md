@@ -1,8 +1,9 @@
-[![Build Status](https://dev.azure.com/fsautocomplete/fsautocomplete/_apis/build/status/fsharp.FsAutoComplete?branchName=master)](https://dev.azure.com/fsautocomplete/fsautocomplete/_build/latest?definitionId=1&branchName=master)
 
 # FsAutoComplete
 
-The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or 'intellisense' features for editors.
+[![Build Status](https://dev.azure.com/fsautocomplete/fsautocomplete/_apis/build/status/fsharp.FsAutoComplete?branchName=master)](https://dev.azure.com/fsautocomplete/fsautocomplete/_build/latest?definitionId=1&branchName=master)
+
+The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or intellisense features for editors.
 
 It can be hosted using the Language Server Protocol.
 
@@ -14,9 +15,9 @@ Currently it is used by:
 
 It's based on:
 
-- [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
-- [Dotnet.ProjInfo](https://github.com/enricosada/dotnet-proj-info/) for project/sln management.
-- [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
+* [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
+* [Dotnet.ProjInfo](https://github.com/enricosada/dotnet-proj-info/) for project/solution management.
+* [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
 
 ## Required software
 
@@ -36,21 +37,20 @@ FsAutoComplete can run on .NET/mono or .NET Core.
 
 Requirements:
 
-- .NET Core Sdk, see [global.json](global.json) for the exact version.
-- Mono 5.18 on unix/osx
-- Microsoft Build Tools 2013
+* .NET Core Sdk, see [global.json](global.json) for the exact version.
+* Mono 5.18 on unix/osx
+* Microsoft Build Tools 2013
 
 There is a [FAKE script](build.fsx) who can be invoked with `build.cmd`/`build.sh`.
 
-- To build fsautocomplete binaries in `~/bin` directory, do run `build LocalRelease`
-- To build, run all tests and create packages, do run `build All`
-
+* To build fsautocomplete binaries in `~/bin` directory, do run `build LocalRelease`
+* To build, run all tests and create packages, do run `build All`
 
 ## Communication protocol
 
-FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protocol/) as a communication protocol. 
+FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protocol/) as a communication protocol.
 
-#### Supported LSP endpoints
+### Supported LSP endpoints
 
 * `initialize`
 * `textDocument/didOpen`
@@ -63,18 +63,18 @@ FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protoc
 * `textDocument/typeDefinition`
 * `textDocument/implementation`
 * `textDocument/codeAction`:
-  - Remove unused `open`
-  - Resolve namespace/module
-  - Replace unused symbol with `_`
-  - Fix typo based on error message
-  - Remove redundant qualifier
-  - Add missing `new` keyword for `IDisposable`
-  - Generate cases for all DU case in pattern matching
-  - Generate empty interface implementation
-  - Fixes suggested by [FSharpLint](https://github.com/fsprojects/FSharpLint)
+  * Remove unused `open`
+  * Resolve namespace/module
+  * Replace unused symbol with `_`
+  * Fix typo based on error message
+  * Remove redundant qualifier
+  * Add missing `new` keyword for `IDisposable`
+  * Generate cases for all DU case in pattern matching
+  * Generate empty interface implementation
+  * Fixes suggested by [FSharpLint](https://github.com/fsprojects/FSharpLint)
 * `textDocument/codeLens` & `codeLens/resolve`:
-  - signature Code Lenses
-  - reference number Code Lenses
+  * signature Code Lenses
+  * reference number Code Lenses
 * `textDocument/formatting` - powered by [fantomas](https://github.com/fsprojects/fantomas)
 * `textDocument/references`
 * `textDocument/documentHighlight`
@@ -84,11 +84,11 @@ FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protoc
 * `workspace/didChangeConfiguration`
 * `workspace/symbol`
 
-**Custom endpoints:**
+### Custom endpoints
 
 Custom endpoints are using (for messages body) `PlainNotification` type and string format serialized with exactly same serialization format as old JSON protocol
 
-* `fsharp/signature` - accepts `TextDocumentPositionParams`, returns signature of symbol at given position as formated string
+* `fsharp/signature` - accepts `TextDocumentPositionParams`, returns signature of symbol at given position as a formatted string
 * `fsharp/signatureData` - accepts `TextDocumentPositionParams`, returns signature of symbol at given position as DTO
 * `fsharp/lineLens` - accepts `ProjectParms` (`Project` filed contain F# file path), returns locations where LineLenses should be displayed
 * `fsharp/compilerLocation` - no input, returns paths to FCS, FSI and MsBuild
@@ -101,30 +101,30 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 * `fsharp/documentation` - accepts `TextDocumentPositionParams`, returns documentation data about symbol at given position, used for InfoPanel
 * `fsharp/documentationSymbol` - accepts `DocumentationForSymbolReuqest`, returns documentation data about given symbol from given assembly, used for InfoPanel
 
-#### Supported LSP notifications
+### Supported LSP notifications
 
 * `window/showMessage`
 * `window/logMessage`
 * `textDocument/publishDiagnostics`
 
-**Custom notifications:**
+### Custom notifications
 
 * `fsharp/notifyWorkspace` - notification for workspace/solution/project loading events
 * `fsharp/notifyWorkspacePeek` - notification for initial workspace peek
 
-#### Additional startup options:
+### Additional startup options
 
 * `--background-service-enabled` - passing this flag enables background service feature, increasing FSAC responsiveness by moving some of the operations (especially background type checking) to other process. It results in increased memory usage. Used by default in Ionide.
 * `--verbose` - passing this flag enables additional logging being printed out in `stderr`
 * `DOTNET_ROOT` - setting this environment variable will set the dotnet SDK root, which is used when finding references for FSX scripts.
 
-#### Initialization options:
+### Initialization options
 
 Options that should be send as `initializationOptions` as part of `initialize` request.
 
 * `AutomaticWorkspaceInit` - setting it to `true` will start Workspace Loading without need to run `fsharp/workspacePeek` and `fsharp/workspaceLoad` commands. It will always choose top workspace from the found list - all projects in workspace if 0 `.sln` files are found, `.sln` file if 1 `.sln` file was found, `.sln` file with most projects if multiple `.sln` files were found. It's designed to be used in clients that doesn't allow to create custom UI for selecting workspaces.
 
-#### Settings:
+### Settings
 
 * `FSharp.keywordsAutocomplete` - provides keywords in autocomplete list, recommended default value: `true`
 * `FSharp.ExternalAutocomplete` - provides autocomplete for symbols from not opened namespaces/modules, insert `open` on accept, recommended default value: `false`
@@ -148,20 +148,20 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 
 ### FileWatcher exceptions
 
-You may see a stack trace finishing with `System.IO.IOException: kqueue() error at init, error code = ’0’`. This is due to a limitation in the number of filehandles that the Mono file watchers can keep open. Restarting FsAutoComplete or the hosting editor should help. If not, try setting `export MONO_MANAGED_WATCHER=disabled` in your `~/.bash_profile`. Note that on OSX, this setting will only take effect if you launch emacs from the terminal.
-
+You may see a stack trace finishing with `System.IO.IOException: kqueue() error at init, error code = ’0’`. This is due to a limitation in the number of file handles that the Mono file watchers can keep open. Restarting FsAutoComplete or the hosting editor should help. If not, try setting `export MONO_MANAGED_WATCHER=disabled` in your `~/.bash_profile`. Note that on OSX, this setting will only take effect if you launch emacs from the terminal.
 
 ## Maintainers
 
 The maintainers of this repository are:
 
-- [Steffen Forkmann](http://github.com/forki)
-- [Karl Nilsson](http://github.com/kjnilsson)
-- [Enrico Sada](http://github.com/enricosada)
-- [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
+* [Steffen Forkmann](http://github.com/forki)
+* [Karl Nilsson](http://github.com/kjnilsson)
+* [Enrico Sada](http://github.com/enricosada)
+* [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
+* [Chester Husk](http://github.com/baronfel)
 
 The primary maintainer for this repository is [Enrico Sada](http://github.com/enricosada)
 
 Previous maintainers:
 
-- [Robin Neatherway](https://github.com/rneatherway)
+* [Robin Neatherway](https://github.com/rneatherway)
