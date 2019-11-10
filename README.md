@@ -143,6 +143,12 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 * `FSharp.ResolveNamespaces` - enables resolve namespace quick fix (add `open` if symbol is from not yet opened module/namespace), recommended default value: `true`
 * `FSharp.EnableReferenceCodeLens` - enables reference count code lenses, recommended default value: `true` if `--background-service-enabled` is used by default, `false` otherwise
 * `FSharp.dotNetRoot` - sets the root path for finding dotnet SDK references. Primarily used for FSX Scripts. Default value: operating-system dependent. On windows, `C:\Program Files\dotnet`; on Unix, `/usr/local/share/dotnet`
+* `FSharp.fsiExtraParameters` - an array of additional runtime arguments that are passed to FSI. These are used when typechecking scripts to ensure that typechecking has the same context as your FSI instances.  An example would be to set the following parameters to enable Preview features (like opening static classes) for typechecking.
+
+    ```json
+        "FSharp.fsiExtraParameters": ["--langversion:preview"]
+    ```
+
 
 ## Troubleshooting
 
