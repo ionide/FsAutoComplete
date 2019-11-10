@@ -902,7 +902,7 @@ let scriptPreviewTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
     let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto
+    let (server, events) = serverInitialize path { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] }
     do waitForWorkspaceFinishedParsing events
     server, events, scriptPath
   )

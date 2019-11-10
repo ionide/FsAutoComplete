@@ -649,13 +649,19 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member internal __.GetFSharpChecker() = checker
 
   member __.SetDotnetRoot(path) =
-    sdkRoot <- Some path
-    sdkVersion <- Environment.latest3xSdkVersion path
-    runtimeVersion <- Environment.latest3xRuntimeVersion path
-    scriptTypecheckRequirementsChanged.Trigger ()
+    if sdkRoot = Some path
+    then ()
+    else
+      sdkRoot <- Some path
+      sdkVersion <- Environment.latest3xSdkVersion path
+      runtimeVersion <- Environment.latest3xRuntimeVersion path
+      scriptTypecheckRequirementsChanged.Trigger ()
 
   member __.GetDotnetRoot () = sdkRoot
 
   member __.SetFSIAdditionalArguments args =
-    fsiAdditionalArguments <- args
-    scriptTypecheckRequirementsChanged.Trigger ()
+    if fsiAdditionalArguments = args
+    then ()
+    else
+      fsiAdditionalArguments <- args
+      scriptTypecheckRequirementsChanged.Trigger ()
