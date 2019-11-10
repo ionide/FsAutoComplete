@@ -71,15 +71,9 @@ type ParseAndCheckResults
         | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) -> 
           Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
 
-      match declarations with
-      | FSharpFindDeclResult.DeclNotFound _ ->
-        return ResultOrString.Error "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
-        Debug.print "Got a declresult of %A that supposedly exists" range
-        return Ok (FindDeclarationResult.Range range)
-      | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
-        Debug.print "Got a declresult of %A that doesn't exist" rangeInNonexistentFile
+      // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
+      // bugfix/workaround for FCS returning invalid declfound for f# members.
+      let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range) = async {
         match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
         | Some (col, identIsland) ->
@@ -93,6 +87,20 @@ type ParseAndCheckResults
               | SymbolUse.Function f -> f.Assembly.SimpleName, ExternalSymbol.Field(f.DeclaringEntity.Value.FullName, f.LogicalName)
               | _ ->  failwith "boom"
             return decompile assembly externalSym
+      }
+
+      match declarations with
+      | FSharpFindDeclResult.DeclNotFound _ ->
+        return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
+        Debug.print "Got a declresult of %A that supposedly exists" range
+        return Ok (FindDeclarationResult.Range range)
+      | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
+        Debug.print "Got a declresult of %A that doesn't exist" rangeInNonexistentFile
+        return Error ("Could not find declaration")
+        // uncomment this to try to workaround the FCS bug
+        //return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
         return decompile assembly externalSym
     }
