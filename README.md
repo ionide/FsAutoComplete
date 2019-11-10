@@ -4,7 +4,7 @@
 
 The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or 'intellisense' features for editors.
 
-It can be hosted using the Language Server Protocol (`lsp` mode).
+It can be hosted using the Language Server Protocol.
 
 Currently it is used by:
 
@@ -48,7 +48,7 @@ There is a [FAKE script](build.fsx) who can be invoked with `build.cmd`/`build.s
 
 ## Communication protocol
 
-FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protocol/) as a communication protocol. To start it in LSP mode run `fsautocomplete` binary with `--mode lsp` argument.
+FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protocol/) as a communication protocol. 
 
 #### Supported LSP endpoints
 
