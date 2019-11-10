@@ -86,6 +86,21 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         state.ParseResults.[parseRes.FileName] <- parseRes
     )
 
+    do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
+        Debug.print "[Commands - checker events] Script typecheck dependencies changed, purging expired script options"
+        let mutable count = 0
+        state.FileCheckOptions
+        |> Seq.choose (function | KeyValue(path, _) when path.EndsWith ".fsx" -> Some path
+                                | _ -> None)
+        |> Seq.iter (fun path ->
+            match state.FileCheckOptions.TryRemove path with
+            | true, _
+            | false, _ -> ()
+            count <- count + 1
+        )
+        Debug.print "[Commands - checker events] Script typecheck dependencies changed, purged %d expired script options" count
+    )
+
     do if not backgroundServiceEnabled then
             checker.FileChecked.Add (fun (n,_) ->
                 Debug.print "[Commands - checker events] File checked - %s" n
