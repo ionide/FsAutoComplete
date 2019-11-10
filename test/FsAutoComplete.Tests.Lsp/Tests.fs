@@ -770,10 +770,10 @@ let inline waitForParsedScript (m: System.Threading.ManualResetEvent) (event: Ev
   event.Publish
   |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
   |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
-  |> Event.filter (fun n -> 
+  |> Event.filter (fun n ->
     let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
     filename = "Script.fs")
-  |> Event.add (fun n -> 
+  |> Event.add (fun n ->
     bag.Add(n)
     logger.debug (eventX "recived publishDiagnostics")
     m.Set() |> ignore
@@ -793,7 +793,7 @@ let linterTests =
 
     let projectPath = Path.Combine(path, "LinterTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs") 
+    let path = Path.Combine(path, "Script.fs")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
 
@@ -806,10 +806,10 @@ let linterTests =
     f server path bag
 
   testSequenced <| testList "Linter Test" [
-    testCase "Linter Diagnostics" (serverTest (fun server path bag -> 
+    testCase "Linter Diagnostics" (serverTest (fun server path bag ->
       let (b,v) = bag.TryPeek()
       if b then
-        let firstDiag = { 
+        let firstDiag = {
           Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
           Severity = Some DiagnosticSeverity.Information
           Code = Some "FS0042"
@@ -825,9 +825,9 @@ let linterTests =
           Source = "F# Linter"
           Message = "`not (a = b)` might be able to be refactored into `a <> b`."
           RelatedInformation = None
-          Tags = None 
+          Tags = None
         }
-        let thirdDiag = 
+        let thirdDiag =
           { Range = { Start = { Line = 2; Character = 16 }
                       End = { Line = 2; Character = 26 } }
             Severity = Some DiagnosticSeverity.Information
@@ -837,7 +837,7 @@ let linterTests =
             RelatedInformation = None
             Tags = None }
 
-        let fourthDiag = 
+        let fourthDiag =
           { Range = { Start = { Line = 3; Character = 12 }
                       End = { Line = 3; Character = 22 } }
             Severity = Some DiagnosticSeverity.Information
@@ -864,7 +864,7 @@ let linterTests =
             Message = "`not false` might be able to be refactored into `true`."
             RelatedInformation = None
             Tags = None }
-        let seventhDiag =          
+        let seventhDiag =
           { Range = { Start = { Line = 7; Character = 14 }
                       End = { Line = 7; Character = 21 } }
             Severity = Some DiagnosticSeverity.Information
@@ -873,7 +873,7 @@ let linterTests =
             Message = "`a <> true` might be able to be refactored into `not a`."
             RelatedInformation = None
             Tags = None }
-        let eigthDiag = 
+        let eigthDiag =
           { Range = { Start = { Line = 8; Character = 14 }
                       End = { Line = 8; Character = 20 } }
             Severity = Some DiagnosticSeverity.Information
@@ -897,7 +897,7 @@ let linterTests =
       else failtest "No diagnostic message recived"
      ))
   ]
-  
+
 let scriptPreviewTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
@@ -916,7 +916,42 @@ let scriptPreviewTests =
         () // all good, no parsing/checking errors
       | Core.Result.Error errors ->
         failwithf "Errors while parsing script %s: %A" scriptPath errors
+    ))
+  ]
 
+let scriptEvictionTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
+    let scriptPath = Path.Combine(path, "Script.fsx")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+    server, events, scriptPath
+  )
+  let serverTest f () = f serverStart.Value
+
+  testList "script eviction tests" [
+    testCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
+      let openScript () = do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+
+      openScript ()
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        failwithf "Expected errors before we trigger script changes"
+      | Core.Result.Error errors ->
+        ()
+
+      let configChange: DidChangeConfigurationParams =
+        let config : FSharpConfigRequest =
+          { FSharp = { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] } }
+        { Settings = Server.serialize config }
+      do server.WorkspaceDidChangeConfiguration configChange |> Async.RunSynchronously
+
+      openScript ()
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        ()
+      | Core.Result.Error errors ->
+        failwithf "Should be no typecheck errors after we set the preview argument"
     ))
   ]
 
@@ -935,7 +970,7 @@ let tests =
     dotnetnewTest
     foldingTests
     linterTests
-#if false // commented out because this will only work in a netcoreapp3.0 context, which CI doesn't have.
-    scriptPreviewTests
-#endif
+    // commented out because this will only work in a netcoreapp3.0 context, which CI doesn't have.
+    //scriptPreviewTests
+    //scriptEvictionTests
   ]
