@@ -523,6 +523,7 @@ type FSharpConfigDto = {
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
+    FSIExtraParameters: string [] option
 }
 
 type FSharpConfigRequest = {
@@ -554,6 +555,7 @@ type FSharpConfig = {
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
+    FSIExtraParameters: string []
 }
 with
     static member Default =
@@ -585,6 +587,7 @@ with
             }
             UseSdkScripts = false
             DotNetRoot = Environment.dotnetSDKRoot.Value
+            FSIExtraParameters = [||]
         }
 
     static member FromDto(dto: FSharpConfigDto) =
@@ -616,6 +619,7 @@ with
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts false
             DotNetRoot = defaultArg dto.DotNetRoot Environment.dotnetSDKRoot.Value
+            FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
         }
 
     /// called when a configuration change takes effect, so empty members here should revert options
@@ -649,6 +653,7 @@ with
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
             DotNetRoot = defaultArg dto.DotNetRoot FSharpConfig.Default.DotNetRoot
+            FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
         }
 
     member x.ScriptTFM =

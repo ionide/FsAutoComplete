@@ -68,7 +68,7 @@ type ParseAndCheckResults
         | Ok extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
         | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
         | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' not found" assy)
-        | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) -> 
+        | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) ->
           Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
 
       // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
@@ -447,9 +447,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       suggestNamesForErrors = true)
 
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
-
   do checker.BeforeBackgroundFileCheck.Add ignore
-  let fixFileName path =
+
+  /// FCS only accepts absolute file paths, so this ensures that by
+  /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
+  let ensureAbsolutePath path =
     if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
     else
         match Environment.OSVersion.Platform with
@@ -460,9 +462,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let entityCache = EntityCache()
 
+  /// the root path to the dotnet sdk installations, eg /usr/local/share/dotnet
   let mutable sdkRoot = None
+  /// the chosen version of the dotnet sdk for deriving F# compiler FSI references, eg 3.0.100
   let mutable sdkVersion = lazy(None)
+  /// the chosen version of the dotnet runtime for deriving BCL references, eg 3.0.0
   let mutable runtimeVersion = lazy(None)
+  /// additional arguments that are added to typechecking of scripts
+  let mutable fsiAdditionalArguments = Array.empty
 
   let mutable disableInMemoryProjectReferences = false
 
@@ -497,19 +504,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     let finalOpts = Array.append okOtherOpts (Array.ofList refs)
     { projOptions with OtherOptions = finalOpts }
 
-  let setPreviewLangVersion (projOptions: FSharpProjectOptions) =
-    match projOptions.OtherOptions |> Array.tryFindIndex (fun arg -> arg.Contains "langversion") with
-    | None ->
-      // no langversion specified, can just add --langversion:preview
-      { projOptions with OtherOptions = Array.append [|"--langversion:preview"|] projOptions.OtherOptions }
-    | Some index -> // could do array slicing here, but the logic around 0th and last positions being the 'index' would be annoying
-      let newOpts = projOptions.OtherOptions |> Array.mapi (fun idx item -> if idx = index then "--langversion:preview" else item)
-      { projOptions with OtherOptions = newOpts }
-
-  let patchWithMscorlib (projOptions: FSharpProjectOptions) =
-    let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
-    let otherOpts = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |]
-    { projOptions with OtherOptions = otherOpts }
+  let applyFSIAdditionalArgs (projOptions: FSharpProjectOptions) =
+    { projOptions with OtherOptions = Array.append fsiAdditionalArguments projOptions.OtherOptions }
 
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
@@ -528,14 +524,17 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
                |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
       ])
 
-  member private __.GetNetFxScriptOptions(file, source) =
+  member private __.GetNetFxScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetFX options for script file %s" file
-    checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
+    let allModifications = applyFSIAdditionalArgs
+    return allModifications opts, errors
+  }
 
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
-    let allModifications = replaceRefs >> setPreviewLangVersion
+    let allModifications = replaceRefs >> applyFSIAdditionalArgs
     return allModifications opts, errors
   }
 
@@ -590,7 +589,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       logDebug "[Checker] %s" opName
       let source = SourceText.ofString source
       let options = clearProjectReferences options
-      let fixedFilePath = fixFileName filePath
+      let fixedFilePath = ensureAbsolutePath filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName))
       return
           match res with
@@ -639,7 +638,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.Compile = checker.Compile
 
-  member internal x.GetFSharpChecker() = checker
+  member internal __.GetFSharpChecker() = checker
 
   member __.SetDotnetRoot(path) =
     sdkRoot <- Some path
@@ -647,3 +646,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     runtimeVersion <- Environment.latest3xRuntimeVersion path
 
   member __.GetDotnetRoot () = sdkRoot
+
+  member __.SetFSIAdditionalArguments args =
+    fsiAdditionalArguments <- args

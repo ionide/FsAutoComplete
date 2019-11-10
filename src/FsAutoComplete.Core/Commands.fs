@@ -1134,3 +1134,4 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)
+    member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
