@@ -57,6 +57,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let updateConfig (newConfig: FSharpConfig) =
         config <- newConfig
         commands.SetDotnetSDKRoot config.DotNetRoot
+        commands.SetFSIAdditionalArguments config.FSIExtraParameters
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
