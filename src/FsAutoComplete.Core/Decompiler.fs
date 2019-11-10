@@ -149,7 +149,7 @@ let decompile (externalSym: ExternalSymbol) assemblyPath: Result<ExternalContent
         let typeDef =
             getDeclaringTypeName externalSym
             |> resolveType typeSystem
-
+            
         let symbol =
             match externalSym with
             | ExternalSymbol.Type _ -> Some (typeDef :> ISymbol)

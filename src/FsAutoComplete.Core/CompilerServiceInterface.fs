@@ -63,16 +63,46 @@ type ParseAndCheckResults
 
       let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
 
+      let decompile assembly externalSym =
+        match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
+        | Ok extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' not found" assy)
+        | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) -> 
+          Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
+
+      // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
+      // bugfix/workaround for FCS returning invalid declfound for f# members.
+      let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range) = async {
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
+        | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
+        | Some (col, identIsland) ->
+          let! symbolUse = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+          match symbolUse with
+          | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no symboluse found: %s" rangeInNonexistentFile.FileName)
+          | Some sym ->
+            let assembly, externalSym =
+              match sym with
+              | SymbolUse.Field f -> f.Assembly.SimpleName, ExternalSymbol.Field (f.DeclaringEntity.Value.FullName, f.Name)
+              | SymbolUse.Function f -> f.Assembly.SimpleName, ExternalSymbol.Field(f.DeclaringEntity.Value.FullName, f.LogicalName)
+              | _ ->  failwith "boom"
+            return decompile assembly externalSym
+      }
+
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ ->
         return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range ->
+      | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
+        Debug.print "Got a declresult of %A that supposedly exists" range
         return Ok (FindDeclarationResult.Range range)
+      | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
+        Debug.print "Got a declresult of %A that doesn't exist" rangeInNonexistentFile
+        return Error ("Could not find declaration")
+        // uncomment this to try to workaround the FCS bug
+        //return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
-        match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
-        | Ok extDec -> return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
-        | Error err -> return ResultOrString.Error (sprintf "External declaration not resolved: %A" err)
+        return decompile assembly externalSym
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {
@@ -436,7 +466,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let mutable disableInMemoryProjectReferences = false
 
-  let clearProjectReferecnes (opts: FSharpProjectOptions) =
+  let clearProjectReferences (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
   let logDebug fmt =
@@ -467,6 +497,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     let finalOpts = Array.append okOtherOpts (Array.ofList refs)
     { projOptions with OtherOptions = finalOpts }
 
+  let setPreviewLangVersion (projOptions: FSharpProjectOptions) =
+    match projOptions.OtherOptions |> Array.tryFindIndex (fun arg -> arg.Contains "langversion") with
+    | None ->
+      // no langversion specified, can just add --langversion:preview
+      { projOptions with OtherOptions = Array.append [|"--langversion:preview"|] projOptions.OtherOptions }
+    | Some index -> // could do array slicing here, but the logic around 0th and last positions being the 'index' would be annoying
+      let newOpts = projOptions.OtherOptions |> Array.mapi (fun idx item -> if idx = index then "--langversion:preview" else item)
+      { projOptions with OtherOptions = newOpts }
+
   let patchWithMscorlib (projOptions: FSharpProjectOptions) =
     let dir = projOptions.OtherOptions.[2].Substring(3) |> IO.Path.GetDirectoryName
     let otherOpts = [| yield! projOptions.OtherOptions.[0..2]; yield "-r:" + dir </> "mscorlib.dll"; yield! projOptions.OtherOptions.[3..] |]
@@ -496,7 +535,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
-    return replaceRefs opts, errors
+    let allModifications = replaceRefs >> setPreviewLangVersion
+    return allModifications opts, errors
   }
 
   member self.GetProjectOptionsFromScript(file, source, tfm) = async {
@@ -532,7 +572,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
     logDebug "[Checker] GetBackgroundCheckResultsForFileInProject - %s" fn
-    let opt = clearProjectReferecnes opt
+    let opt = clearProjectReferences opt
     checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
@@ -549,7 +589,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
       logDebug "[Checker] %s" opName
       let source = SourceText.ofString source
-      let options = clearProjectReferecnes options
+      let options = clearProjectReferences options
       let fixedFilePath = fixFileName filePath
       let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName))
       return
@@ -568,7 +608,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     logDebug "[Checker] TryGetRecentCheckResultsForFile - %s" file
     let source = source |> Option.map SourceText.ofString
-    let options = clearProjectReferecnes options
+    let options = clearProjectReferences options
     checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
@@ -582,7 +622,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
         let! res =
           [yield p; yield! projects ]
           |> Seq.map (fun (opts) -> async {
-              let opts = clearProjectReferecnes opts
+              let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return! res.GetUsesOfSymbol symbol
             })
@@ -604,6 +644,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.SetDotnetRoot(path) =
     sdkRoot <- Some path
     sdkVersion <- Environment.latest3xSdkVersion path
-    runtimeVersion <- Environment.latest3xSdkVersion path
+    runtimeVersion <- Environment.latest3xRuntimeVersion path
 
   member __.GetDotnetRoot () = sdkRoot

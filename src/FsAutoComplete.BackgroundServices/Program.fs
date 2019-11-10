@@ -111,7 +111,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     //TODO: does the backgroundservice ever get config updates?
     let sdkRoot = Environment.dotnetSDKRoot.Value
     let latestSdkVersion = Environment.latest3xSdkVersion sdkRoot
-    let latestRuntimeVersion = Environment.latest3xSdkVersion sdkRoot
+    let latestRuntimeVersion = Environment.latest3xRuntimeVersion sdkRoot
 
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =

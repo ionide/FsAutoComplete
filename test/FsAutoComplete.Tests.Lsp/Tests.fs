@@ -352,31 +352,57 @@ let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
     logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
 
-let inline waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<string * obj>) =
+let getDiagnosticsEvents =
+  Event.filter (fun (typ, _o) -> typ = "textDocument/publishDiagnostics")
+  >> Event.map (fun (_typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+
+/// note that the files here are intended to be the filename only., not the full URI.
+let matchFiles (files: string Set) =
+  Event.choose (fun (p: LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
+    let filename = p.Uri.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
+    if Set.contains filename files
+    then Some (filename, p)
+    else None
+  )
+
+let waitForParseResultsForFile file (events: Event<string*obj>) =
+  let matchingFileEvents =
+    events.Publish
+    |> getDiagnosticsEvents
+    |> matchFiles (Set.ofList [file])
+  async {
+    let! (filename, args) = Async.AwaitEvent matchingFileEvents
+    match args.Diagnostics with
+    | [||] -> return Ok ()
+    | errors -> return Core.Result.Error errors
+  }
+  |> Async.RunSynchronously
+
+let waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<string * obj>) =
 
   let found =
-    files
-    |> List.map (fun s -> s, false)
-    |> fun x ->
-        let d = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>()
-        x
-        |> List.iter (fun (k,v) -> d.AddOrUpdate(k, v, (fun x y -> y)) |> ignore)
-        d
+    let d = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>()
+    for file in files do
+      d.[file] <- false
+    d
 
+  let fileNames = files |> Set.ofList
+  logger.debug (eventX "waiting for {files} to be parsed" >> setField "files" fileNames)
   event.Publish
-  |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
-  |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
-  |> Event.add (fun n ->
-      let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
-
+  |> getDiagnosticsEvents
+  |> matchFiles fileNames
+  |> Event.add (fun (filename, n) ->
       if Array.isEmpty n.Diagnostics then // no errors
         found.AddOrUpdate(filename, true, (fun x y -> true)) |> ignore
+        logger.debug (eventX "{file} was parsed successfully" >> setField "file" filename)
 
-      let fileUnderWatchStatus = found.ToArray() |> Array.map (fun kv -> kv.Value)
-
-      if (not (fileUnderWatchStatus |> Seq.contains false)) then
+      match found |> Seq.filter (fun (KeyValue(name, found)) -> not found) with
+      | s when Seq.isEmpty s ->
         logger.debug (eventX "all parsed without error, signaling...")
         m.Set() |> ignore
+      | s ->
+        logger.debug (eventX "still waiting for {files}" >> setField "files" (s |> Seq.map (fun (KeyValue(name, _)) -> name)))
+        ()
       )
 
 ///Rename tests
@@ -736,6 +762,7 @@ let foldingTests =
   ]
 
 
+
 let inline waitForParsedScript (m: System.Threading.ManualResetEvent) (event: Event<string * obj>) =
 
   let bag = new System.Collections.Concurrent.ConcurrentBag<LanguageServerProtocol.Types.PublishDiagnosticsParams>()
@@ -868,6 +895,28 @@ let linterTests =
         let diagnostics = [|firstDiag; secondDiag; thirdDiag; fourthDiag; fifthDiag; sixthDiag; seventhDiag; eigthDiag; ninthDiag|]
         Expect.equal v.Diagnostics diagnostics "Linter messages match"
       else failtest "No diagnostic message recived"
+     ))
+  ]
+  
+let scriptPreviewTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
+    let scriptPath = Path.Combine(path, "Script.fsx")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+    server, events, scriptPath
+  )
+  let serverTest f () = f serverStart.Value
+
+  testList "script preview language features" [
+    testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" scriptPath errors
+
     ))
   ]
 
@@ -886,4 +935,7 @@ let tests =
     dotnetnewTest
     foldingTests
     linterTests
+#if false // commented out because this will only work in a netcoreapp3.0 context, which CI doesn't have.
+    scriptPreviewTests
+#endif
   ]

@@ -1,5 +1,4 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/qe58l7mh4e4e2a7j/branch/master?svg=true)](https://ci.appveyor.com/project/fsautocomplete/fsautocomplete/branch/master)
-[![Build Status](https://travis-ci.org/fsharp/FsAutoComplete.svg?branch=master)](https://travis-ci.org/fsharp/FsAutoComplete)
+[![Build Status](https://dev.azure.com/fsautocomplete/fsautocomplete/_apis/build/status/fsharp.FsAutoComplete?branchName=master)](https://dev.azure.com/fsautocomplete/fsautocomplete/_build/latest?definitionId=1&branchName=master)
 
 # FsAutoComplete
 

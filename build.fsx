@@ -188,7 +188,7 @@ Target "LspTest" (fun _ ->
   DotNetCli.RunCommand
       (fun p ->
           { p with
-              TimeOut = TimeSpan.FromMinutes 60. })
+              TimeOut = TimeSpan.FromMinutes 15. })
       """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
 )
 

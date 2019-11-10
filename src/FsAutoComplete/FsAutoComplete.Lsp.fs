@@ -669,46 +669,52 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
                     | CoreResponse.ToolTip(tip, signature, footer, typeDoc) ->
-                        let (signature, comment, footer) = TipFormatter.formatTipEnhanced tip signature footer typeDoc |> List.head |> List.head //I wonder why we do that
+                        let sigCommentFooter =
+                            TipFormatter.formatTipEnhanced tip signature footer typeDoc
+                            |> List.tryHead
+                            |> Option.map List.tryHead
+                            |> Option.flatten
+                        match sigCommentFooter with
+                        | None -> success None
+                        | Some (signature, comment, footer) ->
+                            let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
+                            let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
 
-                        let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
-                        let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
+                            let sigContent =
+                                let lines =
+                                    signature.Split '\n'
+                                    |> Array.filter (not << String.IsNullOrWhiteSpace)
 
-                        let sigContent =
-                            let lines =
-                                signature.Split '\n'
+                                match lines |> Array.splitAt (lines.Length - 1) with
+                                | (h, [| StartsWith "Full name:" fullName |]) ->
+                                    [| yield fsharpBlock h
+                                       yield MarkedString.String ("*" + fullName + "*") |]
+                                | _ -> [| fsharpBlock lines |]
+
+
+                            let commentContent =
+                                comment
+                                |> Markdown.createCommentBlock
+                                |> MarkedString.String
+
+                            let footerContent =
+                                footer.Split '\n'
                                 |> Array.filter (not << String.IsNullOrWhiteSpace)
-
-                            match lines |> Array.splitAt (lines.Length - 1) with
-                            | (h, [| StartsWith "Full name:" fullName |]) ->
-                                [| yield fsharpBlock h
-                                   yield MarkedString.String ("*" + fullName + "*") |]
-                            | _ -> [| fsharpBlock lines |]
+                                |> Array.map (fun n -> MarkedString.String ("*" + n + "*"))
 
 
-                        let commentContent =
-                            comment
-                            |> Markdown.createCommentBlock
-                            |> MarkedString.String
-
-                        let footerContent =
-                            footer.Split '\n'
-                            |> Array.filter (not << String.IsNullOrWhiteSpace)
-                            |> Array.map (fun n -> MarkedString.String ("*" + n + "*"))
-
-
-                        let response =
-                            {
-                                Contents =
-                                    MarkedStrings
-                                        [|
-                                            yield! sigContent
-                                            yield commentContent
-                                            yield! footerContent
-                                        |]
-                                Range = None
-                            }
-                        success (Some response)
+                            let response =
+                                {
+                                    Contents =
+                                        MarkedStrings
+                                            [|
+                                                yield! sigContent
+                                                yield commentContent
+                                                yield! footerContent
+                                            |]
+                                    Range = None
+                                }
+                            success (Some response)
                     | _ -> LspResult.notImplemented
                 return res
             })
