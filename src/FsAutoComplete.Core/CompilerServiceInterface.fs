@@ -471,6 +471,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   /// additional arguments that are added to typechecking of scripts
   let mutable fsiAdditionalArguments = Array.empty
 
+  /// This event is raised when any data that impacts script typechecking
+  /// is changed. This can potentially invalidate existing project options
+  /// so we must purge any typecheck results for cripts.
+  let scriptTypecheckRequirementsChanged = Event<_>()
+
   let mutable disableInMemoryProjectReferences = false
 
   let clearProjectReferences (opts: FSharpProjectOptions) =
@@ -578,6 +583,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.FileChecked =
     checker.FileChecked
 
+  member __.ScriptTypecheckRequirementsChanged =
+    scriptTypecheckRequirementsChanged.Publish
+
   member __.ParseFile(fn, source, fpo) =
     logDebug "[Checker] ParseFile - %s" fn
     let source = SourceText.ofString source
@@ -644,8 +652,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     sdkRoot <- Some path
     sdkVersion <- Environment.latest3xSdkVersion path
     runtimeVersion <- Environment.latest3xRuntimeVersion path
+    scriptTypecheckRequirementsChanged.Trigger ()
 
   member __.GetDotnetRoot () = sdkRoot
 
   member __.SetFSIAdditionalArguments args =
     fsiAdditionalArguments <- args
+    scriptTypecheckRequirementsChanged.Trigger ()
