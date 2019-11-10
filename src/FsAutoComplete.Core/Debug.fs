@@ -5,7 +5,7 @@ namespace FsAutoComplete
 
 module Debug =
 
-  let mutable verbose = false
+  let mutable verbose = true
   let mutable categories : Set<string> option = None
 
   let mutable output = stderr

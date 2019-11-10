@@ -67,8 +67,12 @@ type ParseAndCheckResults
       | FSharpFindDeclResult.DeclNotFound _ ->
         return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
-      | FSharpFindDeclResult.DeclFound range ->
+      | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
+        Debug.print "Got a declresult of %A that supposedly exists" range
         return Ok (FindDeclarationResult.Range range)
+      | FSharpFindDeclResult.DeclFound rangeInNonexistentFile -> 
+        Debug.print "Got a declresult of %A that doesn't exist" rangeInNonexistentFile
+        return ResultOrString.Error (sprintf "Range for nonexistent file found: %s" rangeInNonexistentFile.FileName)
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
         | Ok extDec -> return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
