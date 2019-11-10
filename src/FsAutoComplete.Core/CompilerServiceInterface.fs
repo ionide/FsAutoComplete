@@ -63,6 +63,14 @@ type ParseAndCheckResults
 
       let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
 
+      let decompile assembly externalSym =
+        match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
+        | Ok extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' not found" assy)
+        | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) -> 
+          Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
+
       match declarations with
       | FSharpFindDeclResult.DeclNotFound _ ->
         return ResultOrString.Error "Could not find declaration"
@@ -70,13 +78,23 @@ type ParseAndCheckResults
       | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
         Debug.print "Got a declresult of %A that supposedly exists" range
         return Ok (FindDeclarationResult.Range range)
-      | FSharpFindDeclResult.DeclFound rangeInNonexistentFile -> 
+      | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
         Debug.print "Got a declresult of %A that doesn't exist" rangeInNonexistentFile
-        return ResultOrString.Error (sprintf "Range for nonexistent file found: %s" rangeInNonexistentFile.FileName)
+        match Lexer.findLongIdents(pos.Column - 1, lineStr) with
+        | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
+        | Some (col, identIsland) ->
+          let! symbolUse = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+          match symbolUse with
+          | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no symboluse found: %s" rangeInNonexistentFile.FileName)
+          | Some sym ->
+            let assembly, externalSym =
+              match sym with
+              | SymbolUse.Field f -> f.Assembly.SimpleName, ExternalSymbol.Field (f.DeclaringEntity.Value.FullName, f.Name)
+              | SymbolUse.Function f -> f.Assembly.SimpleName, ExternalSymbol.Field(f.DeclaringEntity.Value.FullName, f.LogicalName)
+              | _ ->  failwith "boom"
+            return decompile assembly externalSym
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
-        match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
-        | Ok extDec -> return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
-        | Error err -> return ResultOrString.Error (sprintf "External declaration not resolved: %A" err)
+        return decompile assembly externalSym
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {
