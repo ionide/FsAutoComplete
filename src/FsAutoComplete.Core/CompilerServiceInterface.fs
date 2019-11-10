@@ -468,6 +468,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let mutable sdkVersion = lazy(None)
   /// the chosen version of the dotnet runtime for deriving BCL references, eg 3.0.0
   let mutable runtimeVersion = lazy(None)
+  /// the map of assemblyNames and file paths derived from the sdkVersion and runtimeVersion
+  let mutable discoveredAssembliesByName = lazy(Map.empty)
   /// additional arguments that are added to typechecking of scripts
   let mutable fsiAdditionalArguments = Array.empty
 
@@ -478,6 +480,28 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let mutable disableInMemoryProjectReferences = false
 
+  /// evaluates the set of assemblies found given the current sdkRoot/sdkVersion/runtimeVersion
+  let computeAssemblyMap () =
+    match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
+    | None, _, _ ->
+      Debug.print "No dotnet SDK root path found"
+      Map.empty
+    | Some root, None, None ->
+      Debug.print "Couldn't find latest 3.x sdk and runtime versions inside root %s" root
+      Map.empty
+    | Some root, None, _ ->
+      Debug.print "Couldn't find latest 3.x sdk version inside root %s" root
+      Map.empty
+    | Some root, _, None ->
+      Debug.print "Couldn't find latest 3.x runtime version inside root %s" root
+      Map.empty
+    | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
+      let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
+      Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
+      refs
+      |> List.map (fun path -> Path.GetFileNameWithoutExtension path, path)
+      |> Map.ofList
+
   let clearProjectReferences (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
@@ -485,29 +509,29 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
     Debug.print fmt
 
-  let replaceRefs (projOptions: FSharpProjectOptions) =
-    let okOtherOpts = projOptions.OtherOptions |> Array.filter (fun r -> not <| r.StartsWith("-r"))
-    let assemblyPaths =
-      match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
-      | None, _, _ ->
-        Debug.print "No dotnet SDK root path found"
-        []
-      | Some root, None, None ->
-        Debug.print "Couldn't find latest 3.x sdk and runtime versions inside root %s" root
-        []
-      | Some root, None, _ ->
-        Debug.print "Couldn't find latest 3.x sdk version inside root %s" root
-        []
-      | Some root, _, None ->
-        Debug.print "Couldn't find latest 3.x runtime version inside root %s" root
-        []
-      | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
-        let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
-        Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
-        refs
-    let refs = assemblyPaths |> List.map (fun r -> "-r:" + r)
-    let finalOpts = Array.append okOtherOpts (Array.ofList refs)
-    { projOptions with OtherOptions = finalOpts }
+  /// replace any BCL/FSharp.Core/FSI refs that FCS gives us with our own set, which is more probe-able
+  let replaceFrameworkRefs (projOptions: FSharpProjectOptions) =
+    let fcsAndScriptReferences =
+      projOptions.OtherOptions
+      |> Array.choose (fun r ->
+        if r.StartsWith("-r")
+        then
+          let path = r.[3..]
+          let assemblyName = Path.GetFileNameWithoutExtension path
+          Some(assemblyName, path)
+        else None
+      )
+      |> Map.ofArray
+
+    let mergedRefs =
+      // we combine here taking our framework references first and throwing away theirs.
+      // this is important because #r order influences typechecking
+      Map.combineTakeFirst discoveredAssembliesByName.Value fcsAndScriptReferences
+      |> Map.values
+      |> Seq.map (fun r -> "-r:" + r)
+      |> Array.ofSeq
+
+    { projOptions with OtherOptions = mergedRefs }
 
   let applyFSIAdditionalArgs (projOptions: FSharpProjectOptions) =
     { projOptions with OtherOptions = Array.append fsiAdditionalArguments projOptions.OtherOptions }
@@ -539,7 +563,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
-    let allModifications = replaceRefs >> applyFSIAdditionalArgs
+    let allModifications = replaceFrameworkRefs >> applyFSIAdditionalArgs
     return allModifications opts, errors
   }
 
@@ -655,6 +679,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       sdkRoot <- Some path
       sdkVersion <- Environment.latest3xSdkVersion path
       runtimeVersion <- Environment.latest3xRuntimeVersion path
+      discoveredAssembliesByName <- lazy(computeAssemblyMap ())
       scriptTypecheckRequirementsChanged.Trigger ()
 
   member __.GetDotnetRoot () = sdkRoot
