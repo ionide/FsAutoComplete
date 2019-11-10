@@ -1,6 +1,31 @@
 [<AutoOpen>]
 module FsAutoComplete.Utils
 
+module Map =
+    /// Combine two maps of identical types by starting with the first map and overlaying the second one.
+    /// Because map updates shadow, any keys in the second map will have priority.
+    let merge (first: Map<'a, 'b>) (second: Map<'a, 'b>) =
+        let mutable result = first
+        for (KeyValue(key, value)) in second do
+            result <- Map.add key value result
+        result
+
+    /// Combine two maps by taking the first value of each key found.
+    let combineTakeFirst (first: Map<_,_>) (second: Map<_,_>) =
+        let mutable result = first
+        for (KeyValue(key, value)) in second do
+            if result.ContainsKey key
+            then ()
+            else result <- Map.add key value result
+        result
+
+    let values (m: Map<_, _>) =
+        seq {
+            for (KeyValue(_,value)) in m do
+                yield value
+        }
+
+
 open System.IO
 open System.Collections.Concurrent
 open System.Diagnostics
