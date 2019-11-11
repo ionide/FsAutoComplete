@@ -659,7 +659,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
         )
 
-    override x.TextDocumentHover(p) =
+    override x.TextDocumentHover(p: TextDocumentPositionParams) =
         Debug.print "[LSP call] TextDocumentHover"
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
