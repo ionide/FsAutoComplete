@@ -45,7 +45,11 @@ module SignatureFormatter =
                     |> Seq.map (formatFSharpType context)
                     |> String.concat ","
                 if entityIsArray typeDef then
-                    sprintf "%s array" genericArgs
+                    if typ.GenericArguments.Count = 1 && typ.GenericArguments.[0].IsTupleType
+                    then
+                        sprintf "(%s) array" genericArgs
+                    else
+                        sprintf "%s array" genericArgs
                 else sprintf "%s<%s>" (PrettyNaming.QuoteIdentifierIfNeeded typeDef.DisplayName) genericArgs
             else
                 if typ.HasTypeDefinition then
