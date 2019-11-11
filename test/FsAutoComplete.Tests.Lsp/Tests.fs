@@ -976,10 +976,9 @@ let tooltipTests =
     server, scriptPath
   )
 
-  let server, scriptPath = serverStart.Value
-
   let verifyTooltip line character expectedTooltip =
     ftestCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
+      let server, scriptPath = serverStart.Value
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
         Position = { Line = line; Character = character }
@@ -995,6 +994,7 @@ let tooltipTests =
 
   testList "tooltip evaluation" [
     verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
+    verifyTooltip 1 4 "val listOfTuples : list<int * int>"
   ]
 
 ///Global list of tests
