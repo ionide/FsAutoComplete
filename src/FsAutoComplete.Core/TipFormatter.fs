@@ -519,47 +519,147 @@ module private Format =
         }
         |> applyFormatter
 
-    type Term = string
-    type Definition = string
+    type private Term = string
+    type private Definition = string
 
-    type ListStyle =
+    type private ListStyle =
         | Bulleted
         | Numbered
         | Tablered
 
-    type ItemList =
-        /// A list where the items are just single-strings (ie a markdown list item that looks like: * Some text here)
-        | Simple of string
+    /// ItemList allow a permissive representation of an Item.
+    /// In theory, TermOnly should not exist but we added it so part of the documentation doesn't disappear
+    /// TODO: Allow direct text support wihtout <description> and <term> tags
+    type private ItemList =
+        /// A list where the items are just contains in a <description> element
+        | DescriptionOnly of string
+        /// A list where the items are just contains in a <term> element
+        | TermOnly of string
         /// A list where the items are a term followed by a definition (ie in markdown: * <TERM> - <DEFINITION>)
         | Definitions of Term * Definition
 
-        static member ToString (prefix : string) (item : ItemList) =
-            match item with
-            | Simple description ->
-                prefix + " " + description
-            | Definitions (term, description) ->
-                prefix + " " + "**" + term + "** - " + description
-
-    type ColumnHeader = string
-
-    // the length of the rows is equal the the length of the headers list
-    type ItemTable = Table of headers: ColumnHeader list * rows: (Term list) list
+    let private itemListToStringAsMarkdownList (prefix : string) (item : ItemList) =
+        match item with
+        | DescriptionOnly description ->
+            prefix + " " + description
+        | TermOnly term ->
+            prefix + " " + "**" + term + "**"
+        | Definitions (term, description) ->
+            prefix + " " + "**" + term + "** - " + description
 
     let private list =
-        Debug.print  "trying list"
         let getType (attributes : Map<string, string>) = Map.tryFind "type" attributes
+
+        let tryGetInnerTextOnNonVoidElement (text : string) (tagName : string) =
+            match Regex.Match(text, tagPattern tagName, RegexOptions.IgnoreCase) with
+            | m when m.Success ->
+                if m.Groups.["non_void_element"].Success then
+                    Some m.Groups.["non_void_innerText"].Value
+                else
+                    None
+            | _ ->
+                None
+
+        let tryGetNonVoidElement (text : string) (tagName : string) =
+            match Regex.Match(text, tagPattern tagName, RegexOptions.IgnoreCase) with
+            | m when m.Success ->
+                if m.Groups.["non_void_element"].Success then
+                    Some (m.Groups.["non_void_element"].Value, m.Groups.["non_void_innerText"].Value)
+                else
+                    None
+            | _ ->
+                None
+
+        let tryGetDescription (text : string) = tryGetInnerTextOnNonVoidElement text "description"
+
+        let tryGetTerm (text : string) = tryGetInnerTextOnNonVoidElement text "term"
+
+        let rec extractItemList (res : ItemList list) (text : string) =
+            match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
+            | m when m.Success ->
+                let newText = text.Substring(m.Value.Length)
+                if m.Groups.["non_void_element"].Success then
+                    let innerText = m.Groups.["non_void_innerText"].Value
+                    let description = tryGetDescription innerText
+                    let term = tryGetTerm innerText
+
+                    let currentItem : ItemList option =
+                        match description, term with
+                        | Some description, Some term ->
+                            Definitions (term, description)
+                            |> Some
+                        | Some description, None ->
+                            DescriptionOnly description
+                            |> Some
+                        | None, Some term ->
+                            TermOnly term
+                            |> Some
+                        | None, None ->
+                            None
+
+                    match currentItem with
+                    | Some currentItem ->
+                        extractItemList (res @ [ currentItem ]) newText
+                    | None ->
+                        extractItemList res newText
+                else
+                    extractItemList res newText
+            | _ ->
+                res
+
+        let rec extractColumnHeader (res : string list) (text : string) =
+            match Regex.Match(text, tagPattern "listheader", RegexOptions.IgnoreCase) with
+            | m when m.Success ->
+                let newText = text.Substring(m.Value.Length)
+                if m.Groups.["non_void_element"].Success then
+                    let innerText = m.Groups.["non_void_innerText"].Value
+
+                    let rec extractAllTerms (res : string list) (text : string) =
+                        match tryGetNonVoidElement text "term" with
+                        | Some (fullString, innerText) ->
+                            let escapedRegex = new Regex(Regex.Escape(fullString))
+                            let newText = escapedRegex.Replace(text, "", 1)
+                            extractAllTerms (res @ [ innerText ]) newText
+                        | None ->
+                            res
+
+                    extractColumnHeader (extractAllTerms [] innerText) newText
+                else
+                    extractColumnHeader res newText
+            | _ ->
+                res
+
+
+        let rec extractRowsForTable (res : (string list) list) (text : string) =
+            match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
+            | m when m.Success ->
+                let newText = text.Substring(m.Value.Length)
+                if m.Groups.["non_void_element"].Success then
+                    let innerText = m.Groups.["non_void_innerText"].Value
+
+                    let rec extractAllTerms (res : string list) (text : string) =
+                        match tryGetNonVoidElement text "term" with
+                        | Some (fullString, innerText) ->
+                            let escapedRegex = new Regex(Regex.Escape(fullString))
+                            let newText = escapedRegex.Replace(text, "", 1)
+                            extractAllTerms (res @ [ innerText ]) newText
+                        | None ->
+                            res
+
+                    extractRowsForTable (res @ [extractAllTerms [] innerText]) newText
+                else
+                    extractRowsForTable res newText
+            | _ ->
+                res
 
         {
             TagName = "list"
             Formatter =
                 function
                 | VoidElement _ ->
-                    Debug.print  "List not found"
                     None
 
                 | NonVoidElement (innerText, attributes) ->
-                    Debug.print  "List found"
-
                     let listStyle =
                         match getType attributes with
                         | Some "bullet" -> Bulleted
@@ -567,98 +667,76 @@ module private Format =
                         | Some "table" -> Tablered
                         | Some _ | None -> Bulleted
 
-                    Debug.print  "ListStyle: %A" listStyle
-
-                    let tryGetInnerTextOnNonVoidElement (text : string) (tagName : string) =
-                        match Regex.Match(text, tagPattern tagName, RegexOptions.IgnoreCase) with
-                        | m when m.Success ->
-                            if m.Groups.["non_void_element"].Success then
-                                Some m.Groups.["non_void_innerText"].Value
-                            else
-                                None
-                        | _ ->
-                            None
-
-                    let tryGetDescription (text : string) = tryGetInnerTextOnNonVoidElement text "description"
-
-                    let tryGetTerm (text : string) = tryGetInnerTextOnNonVoidElement text "term"
-
-                    let rec toListItem (res : ItemList list) (text : string) =
-                        match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
-                        | m when m.Success ->
-                            let newText = text.Substring(m.Value.Length)
-                            if m.Groups.["non_void_element"].Success then
-                                let innerText = m.Groups.["non_void_innerText"].Value
-                                let description = tryGetDescription innerText
-                                let term = tryGetTerm innerText
-
-                                let currentItem : ItemList option =
-                                    match description, term with
-                                    | Some description, Some term ->
-                                        Definitions (term, description)
-                                        |> Some
-                                    | Some description, None ->
-                                        Simple description
-                                        |> Some
-                                    | None, _ ->
-                                        None
-
-                                match currentItem with
-                                | Some currentItem ->
-                                    toListItem (res @ [ currentItem ]) newText
-                                | None ->
-                                    toListItem res newText
-                            else
-                                toListItem res newText
-                        | _ ->
-                            res
-
                     match listStyle with
                     | Bulleted ->
-                        let items = toListItem [] innerText
+                        let items = extractItemList [] innerText
 
                         items
-                        |> List.map (fun item ->
-                            ItemList.ToString "*" item
-                        )
+                        |> List.map (itemListToStringAsMarkdownList "*")
                         |> String.concat "\n"
 
                     | Numbered ->
-                        let items = toListItem [] innerText
+                        let items = extractItemList [] innerText
 
                         items
-                        |> List.map (fun item ->
-                            ItemList.ToString "1." item
-                        )
+                        |> List.map (itemListToStringAsMarkdownList "1.")
                         |> String.concat "\n"
+
                     | Tablered ->
-                        ""
+                        let columnHeaders = extractColumnHeader [] innerText
+                        let rows = extractRowsForTable [] innerText
 
+                        let columnHeadersText =
+                            columnHeaders
+                            |> List.mapi (fun index header ->
+                                if index = 0 then
+                                    " | " + header
+                                elif index = columnHeaders.Length - 1 then
+                                    " | " + header + " | "
+                                else
+                                    " | " + header
+                            )
+                            |> String.concat ""
+
+                        let seprator =
+                            columnHeaders
+                            |> List.mapi (fun index _ ->
+                                if index = 0 then
+                                    " | --- "
+                                elif index = columnHeaders.Length - 1 then
+                                    " | --- |"
+                                else
+                                    " | ---"
+                            )
+                            |> String.concat ""
+
+                        let itemsText =
+                            rows
+                            |> List.map (fun columns ->
+                                columns
+                                |> List.mapi (fun index column ->
+                                    if index = 0 then
+                                        " | " + column
+                                    elif index = columnHeaders.Length - 1 then
+                                        " | " + column + " | "
+                                    else
+                                        " | " + column
+                                )
+                                |> String.concat ""
+                            )
+                            |> String.concat "\n"
+
+                        "\n"
+                        + columnHeadersText
+                        + "\n"
+                        + seprator
+                        + "\n"
+                        + itemsText
                     |> Some
-                    // Regex.Matches(innerText, tagPattern "item", RegexOptions.IgnoreCase)
-                    // |> Seq.cast<Match>
-                    // |> Seq.map (fun m ->
-                    //     if m.Groups.["non_void_element"].Success then
-                    //         let innerText = m.Groups.["non_void_element"].Value
-
-
-                    //     else
-                    //         None
-                    // )
-
-
-                    // | m when m.Success ->
-                    //     if m.Groups.["content"].Success then
-                    //         m.Groups.["content"].Value
-
-
-
         }
         |> applyFormatter
 
     let applyAll (text : string) =
-        Debug.print "maxime test"
-        printfn "majdizjdiozjidjzio"
         text
         // Remove invalid syntax first
         // It's easier to identify invalid patterns when no transformation has been done yet
