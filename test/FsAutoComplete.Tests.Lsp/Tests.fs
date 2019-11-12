@@ -995,6 +995,7 @@ let tooltipTests =
   testList "tooltip evaluation" [
     verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
     verifyTooltip 1 4 "val listOfTuples : list<int * int>"
+    verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
   ]
 
 ///Global list of tests
