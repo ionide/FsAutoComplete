@@ -519,7 +519,146 @@ module private Format =
         }
         |> applyFormatter
 
+    type Term = string
+    type Definition = string
+
+    type ListStyle =
+        | Bulleted
+        | Numbered
+        | Tablered
+
+    type ItemList =
+        /// A list where the items are just single-strings (ie a markdown list item that looks like: * Some text here)
+        | Simple of string
+        /// A list where the items are a term followed by a definition (ie in markdown: * <TERM> - <DEFINITION>)
+        | Definitions of Term * Definition
+
+        static member ToString (prefix : string) (item : ItemList) =
+            match item with
+            | Simple description ->
+                prefix + " " + description
+            | Definitions (term, description) ->
+                prefix + " " + "**" + term + "** - " + description
+
+    type ColumnHeader = string
+
+    // the length of the rows is equal the the length of the headers list
+    type ItemTable = Table of headers: ColumnHeader list * rows: (Term list) list
+
+    let private list =
+        Debug.print  "trying list"
+        let getType (attributes : Map<string, string>) = Map.tryFind "type" attributes
+
+        {
+            TagName = "list"
+            Formatter =
+                function
+                | VoidElement _ ->
+                    Debug.print  "List not found"
+                    None
+
+                | NonVoidElement (innerText, attributes) ->
+                    Debug.print  "List found"
+
+                    let listStyle =
+                        match getType attributes with
+                        | Some "bullet" -> Bulleted
+                        | Some "number" -> Numbered
+                        | Some "table" -> Tablered
+                        | Some _ | None -> Bulleted
+
+                    Debug.print  "ListStyle: %A" listStyle
+
+                    let tryGetInnerTextOnNonVoidElement (text : string) (tagName : string) =
+                        match Regex.Match(text, tagPattern tagName, RegexOptions.IgnoreCase) with
+                        | m when m.Success ->
+                            if m.Groups.["non_void_element"].Success then
+                                Some m.Groups.["non_void_innerText"].Value
+                            else
+                                None
+                        | _ ->
+                            None
+
+                    let tryGetDescription (text : string) = tryGetInnerTextOnNonVoidElement text "description"
+
+                    let tryGetTerm (text : string) = tryGetInnerTextOnNonVoidElement text "term"
+
+                    let rec toListItem (res : ItemList list) (text : string) =
+                        match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
+                        | m when m.Success ->
+                            let newText = text.Substring(m.Value.Length)
+                            if m.Groups.["non_void_element"].Success then
+                                let innerText = m.Groups.["non_void_innerText"].Value
+                                let description = tryGetDescription innerText
+                                let term = tryGetTerm innerText
+
+                                let currentItem : ItemList option =
+                                    match description, term with
+                                    | Some description, Some term ->
+                                        Definitions (term, description)
+                                        |> Some
+                                    | Some description, None ->
+                                        Simple description
+                                        |> Some
+                                    | None, _ ->
+                                        None
+
+                                match currentItem with
+                                | Some currentItem ->
+                                    toListItem (res @ [ currentItem ]) newText
+                                | None ->
+                                    toListItem res newText
+                            else
+                                toListItem res newText
+                        | _ ->
+                            res
+
+                    match listStyle with
+                    | Bulleted ->
+                        let items = toListItem [] innerText
+
+                        items
+                        |> List.map (fun item ->
+                            ItemList.ToString "*" item
+                        )
+                        |> String.concat "\n"
+
+                    | Numbered ->
+                        let items = toListItem [] innerText
+
+                        items
+                        |> List.map (fun item ->
+                            ItemList.ToString "1." item
+                        )
+                        |> String.concat "\n"
+                    | Tablered ->
+                        ""
+
+                    |> Some
+                    // Regex.Matches(innerText, tagPattern "item", RegexOptions.IgnoreCase)
+                    // |> Seq.cast<Match>
+                    // |> Seq.map (fun m ->
+                    //     if m.Groups.["non_void_element"].Success then
+                    //         let innerText = m.Groups.["non_void_element"].Value
+
+
+                    //     else
+                    //         None
+                    // )
+
+
+                    // | m when m.Success ->
+                    //     if m.Groups.["content"].Success then
+                    //         m.Groups.["content"].Value
+
+
+
+        }
+        |> applyFormatter
+
     let applyAll (text : string) =
+        Debug.print "maxime test"
+        printfn "majdizjdiozjidjzio"
         text
         // Remove invalid syntax first
         // It's easier to identify invalid patterns when no transformation has been done yet
@@ -534,6 +673,7 @@ module private Format =
         |> paramRef
         |> typeParamRef
         |> anchor
+        |> list
         |> convertTable
         |> fixPortableClassLibrary
         |> handleMicrosoftOrList
