@@ -98,7 +98,13 @@ let runtimeDir dotnetRoot runtimeVersion =
 let findRuntimeRefs packDir runtimeDir =
   match packDir, runtimeDir with
   | Some refDir, _
-  | _, Some refDir -> Directory.EnumerateFiles(refDir, "*.dll") |> Seq.toArray
+  | _, Some refDir ->
+    Directory.EnumerateFiles(refDir, "*.dll")
+    // SUPER IMPORTANT: netstandard/netcore assembly resolution _must not_ contain mscorlib or else
+    // its presence triggers old netfx fallbacks, which end up bringing assemblies that aren't part
+    // of netcore.
+    |> Seq.filter (fun r -> not (Path.GetFileNameWithoutExtension(r) = "mscorlib"))
+    |> Seq.toArray
   | None, None -> [||]
 
 /// given the compiler root dir and if to include FSI refs, returns the set of compiler assemblies to references if that dir exists.
