@@ -511,15 +511,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   /// replace any BCL/FSharp.Core/FSI refs that FCS gives us with our own set, which is more probe-able
   let replaceFrameworkRefs (projOptions: FSharpProjectOptions) =
+    let refs, otherOptions = projOptions.OtherOptions |> Array.partition (fun r -> r.StartsWith "-r:")
+    
     let fcsAndScriptReferences =
-      projOptions.OtherOptions
-      |> Array.choose (fun r ->
-        if r.StartsWith("-r")
-        then
+      refs
+      |> Array.map (fun r ->
           let path = r.[3..]
           let assemblyName = Path.GetFileNameWithoutExtension path
-          Some(assemblyName, path)
-        else None
+          assemblyName, path
       )
       |> Map.ofArray
 
@@ -531,10 +530,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       |> Seq.map (fun r -> "-r:" + r)
       |> Array.ofSeq
 
-    { projOptions with OtherOptions = mergedRefs }
-
-  let applyFSIAdditionalArgs (projOptions: FSharpProjectOptions) =
-    { projOptions with OtherOptions = Array.append fsiAdditionalArguments projOptions.OtherOptions }
+    { projOptions with OtherOptions = Array.append otherOptions mergedRefs }
 
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
@@ -555,15 +551,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member private __.GetNetFxScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetFX options for script file %s" file
-    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
-    let allModifications = applyFSIAdditionalArgs
-    return allModifications opts, errors
+    let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
+    return opts, errors
   }
 
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
-    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
-    let allModifications = replaceFrameworkRefs >> applyFSIAdditionalArgs
+    let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
+    let allModifications = replaceFrameworkRefs
     return allModifications opts, errors
   }
 
@@ -577,9 +574,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
     match errors with
     | [] ->
-      let refs = projOptions.OtherOptions |> Array.filter (fun o -> o.StartsWith("-r")) |> String.concat "\n"
-      logDebug "[Opts] Resolved options - %A" projOptions
-      logDebug "[Opts] Resolved references:\n%s" refs
+      let refs, otherOpts = projOptions.OtherOptions |> Array.partition (fun o -> o.StartsWith("-r"))
+      logDebug "[Opts] Resolved references:\n%s" (refs |> String.concat "\n")
+      logDebug "[Opts] Resolved other options:\n%s" (otherOpts |> String.concat "\n")
     | errs ->
       logDebug "[Opts] Resolved options with errors\n%A\n%A" projOptions errs
 
