@@ -33,9 +33,13 @@ module SignatureFormatter =
     let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
         try
             if typ.IsTupleType || typ.IsStructTupleType then
-                typ.GenericArguments
-                |> Seq.map (formatFSharpType context)
-                |> String.concat " * "
+                let refTupleStr =
+                    typ.GenericArguments
+                    |> Seq.map (formatFSharpType context)
+                    |> String.concat " * "
+                if typ.IsStructTupleType
+                then sprintf "struct(%s)" refTupleStr
+                else refTupleStr
             elif typ.IsGenericParameter then
                 (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
             elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
