@@ -618,7 +618,10 @@ with
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts false
-            DotNetRoot = defaultArg dto.DotNetRoot Environment.dotnetSDKRoot.Value
+            DotNetRoot =
+                dto.DotNetRoot
+                |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
+                |> Option.defaultValue Environment.dotnetSDKRoot.Value
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
         }
 
@@ -652,7 +655,10 @@ with
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
-            DotNetRoot = defaultArg dto.DotNetRoot FSharpConfig.Default.DotNetRoot
+            DotNetRoot =
+                dto.DotNetRoot
+                |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
+                |> Option.defaultValue FSharpConfig.Default.DotNetRoot
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
         }
 
