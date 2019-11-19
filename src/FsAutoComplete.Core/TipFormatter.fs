@@ -1,4 +1,4 @@
-// --------------------------------------------------------------------------------------
+﻿// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -930,10 +930,16 @@ let private getXmlDoc dllFile =
         with ex ->
           None  // TODO: Remove the empty map from cache to try again in the next request?
 
+[<RequireQualifiedAccess>]
+type FormatCommentStyle =
+    | Legacy
+    | Enhanced
+    | Documentation
+
 // --------------------------------------------------------------------------------------
 // Formatting of tool-tip information displayed in F# IntelliSense
 // --------------------------------------------------------------------------------------
-let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) =
+let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: string option) =
     match cmt with
     | FSharpXmlDoc.Text s ->
         try
@@ -959,7 +965,14 @@ let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) 
                 |> findIndentationSize
 
             let xmlDoc = XmlDocMember(doc, indentationSize, 0)
-            xmlDoc.ToEnhancedString()
+
+            match formatStyle with
+            | FormatCommentStyle.Legacy ->
+                xmlDoc.ToString()
+            | FormatCommentStyle.Enhanced ->
+                xmlDoc.ToEnhancedString()
+            | FormatCommentStyle.Documentation ->
+                xmlDoc.ToDocumentationString()
 
         with
             | ex ->
@@ -972,13 +985,22 @@ let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) 
             let typeDoc =
                 match typeDoc with
                 | Some s when doc.ContainsKey s ->
-                    if isEnhanced then doc.[s].ToEnhancedString() else string doc.[s]
+                    match formatStyle with
+                    | FormatCommentStyle.Legacy ->
+                        doc.[s].ToString()
+                    | FormatCommentStyle.Enhanced ->
+                        doc.[s].ToEnhancedString()
+                    | FormatCommentStyle.Documentation ->
+                        doc.[s].ToDocumentationString()
                 | _ -> ""
-            let typeDoc = typeDoc.Replace("**Description**", "**Type Description**")
-            if isEnhanced then
+
+            match formatStyle with
+            | FormatCommentStyle.Legacy ->
+                doc.[memberName].ToString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
+            | FormatCommentStyle.Enhanced ->
                 doc.[memberName].ToEnhancedString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
-            else
-                string doc.[memberName] + (if typeDoc <> "" then "\n\n" + typeDoc else "")
+            | FormatCommentStyle.Documentation ->
+                doc.[memberName].ToDocumentationString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
         | _ -> ""
     | _ -> ""
 
@@ -996,7 +1018,7 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
             let getRemarks (it : FSharpToolTipElementData<string>) = defaultArg (it.Remarks |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)) ""
-            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc false None)))
+            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc FormatCommentStyle.Legacy None)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
@@ -1007,9 +1029,9 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
             Some (items |> List.map (fun i ->
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc true typeDoc
+                      buildFormatComment i.XmlDoc FormatCommentStyle.Enhanced typeDoc
                     else
-                      buildFormatComment i.XmlDoc true typeDoc
+                      buildFormatComment i.XmlDoc FormatCommentStyle.Enhanced typeDoc
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
                 (signature, comment, footer)))
@@ -1023,9 +1045,9 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
             Some (items |> List.map (fun i ->
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc true None
+                      buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
                     else
-                      buildFormatComment i.XmlDoc true None
+                      buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
@@ -1035,7 +1057,7 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
 
 let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions, interfaces, attrs, ts)) : string * (string [] * string [] * string [] * string[]* string[]* string[])) (footer : string) (cn: string) =
     let xmlDoc =  FSharpXmlDoc.XmlDocFileSignature(assembly, xmlSig)
-    let comment = buildFormatComment xmlDoc true None
+    let comment = buildFormatComment xmlDoc FormatCommentStyle.Documentation None
     [[(signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)]]
 
 let extractSignature (FSharpToolTipText tips) =
