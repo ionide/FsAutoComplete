@@ -1,4 +1,4 @@
-// --------------------------------------------------------------------------------------
+﻿// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -1014,7 +1014,6 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
                       buildFormatComment i.XmlDoc true typeDoc
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
-                Debug.print "%s" comment
                 (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
