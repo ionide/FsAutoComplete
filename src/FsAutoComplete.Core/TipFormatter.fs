@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -690,9 +690,9 @@ module private Format =
                             columnHeaders
                             |> List.mapi (fun index header ->
                                 if index = 0 then
-                                    " | " + header
+                                    "| " + header
                                 elif index = columnHeaders.Length - 1 then
-                                    " | " + header + " | "
+                                    " | " + header + " |"
                                 else
                                     " | " + header
                             )
@@ -702,7 +702,7 @@ module private Format =
                             columnHeaders
                             |> List.mapi (fun index _ ->
                                 if index = 0 then
-                                    " | --- "
+                                    "| ---"
                                 elif index = columnHeaders.Length - 1 then
                                     " | --- |"
                                 else
@@ -716,9 +716,9 @@ module private Format =
                                 columns
                                 |> List.mapi (fun index column ->
                                     if index = 0 then
-                                        " | " + column
+                                        "| " + column
                                     elif index = columnHeaders.Length - 1 then
-                                        " | " + column + " | "
+                                        " | " + column + " |"
                                     else
                                         " | " + column
                                 )
