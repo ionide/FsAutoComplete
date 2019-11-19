@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -824,15 +824,23 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
                 (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
 
     member __.ToEnhancedString() =
-        "**Description**" + nl + nl
-        + summary
-        + Section.fromList "" remarks
-        + Section.fromMap "Type parameters" typeParams
-        + Section.fromMap "Parameters" parameters
-        + Section.fromOption "Returns" returns
-        + Section.fromMap "Exceptions" exceptions
-        + Section.fromList "Examples" examples
-        + Section.fromList "See also" seeAlso
+        let content =
+            summary
+            + Section.fromList "" remarks
+            + Section.fromMap "Type parameters" typeParams
+            + Section.fromMap "Parameters" parameters
+            + Section.fromOption "Returns" returns
+            + Section.fromMap "Exceptions" exceptions
+            + Section.fromList "Examples" examples
+            + Section.fromList "See also" seeAlso
+
+        // If we where unable to process the doc comment, then just output it as it is
+        // For example, this cover the keywords' tooltips
+        if String.IsNullOrEmpty content then
+            doc.InnerText
+        else
+            "**Description**" + nl + nl
+            + content
 
     member __.ToDocumentationString() =
         "**Description**" + nl + nl
@@ -972,16 +980,6 @@ let private buildFormatComment cmt (isEnhanced : bool) (typeDoc: string option) 
             else
                 string doc.[memberName] + (if typeDoc <> "" then "\n\n" + typeDoc else "")
         | _ -> ""
-    | _ -> ""
-
-let private buildFormatDocumentation cmt =
-    match cmt with
-    | FSharpXmlDoc.Text s -> s
-    | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
-       match getXmlDoc dllFile with
-       | Some doc when doc.ContainsKey memberName ->
-            doc.[memberName].ToDocumentationString()
-       | _ -> ""
     | _ -> ""
 
 
