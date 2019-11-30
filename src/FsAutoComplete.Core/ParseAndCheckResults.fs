@@ -65,7 +65,7 @@ type ParseAndCheckResults
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
-      let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
+      let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false, sprintf "findDecl:%s" (String.concat "." identIsland))
 
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
@@ -86,26 +86,33 @@ type ParseAndCheckResults
           match symbolUse with
           | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no symboluse found: %s" rangeInNonexistentFile.FileName)
           | Some sym ->
-            let assembly, externalSym =
-              match sym with
-              | SymbolUse.Field f -> f.Assembly.SimpleName, ExternalSymbol.Field (f.DeclaringEntity.Value.FullName, f.Name)
-              | SymbolUse.Function f -> f.Assembly.SimpleName, ExternalSymbol.Field(f.DeclaringEntity.Value.FullName, f.LogicalName)
-              | _ ->  failwith "boom"
-            return decompile assembly externalSym
+            match sym.Symbol.Assembly.FileName with
+            | Some fullFilePath ->
+              match! Sourcelink.tryFetchSourcelinkFile fullFilePath rangeInNonexistentFile.FileName with
+              | Ok newLocalFilePath ->
+                return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = newLocalFilePath; Line = rangeInNonexistentFile.StartLine ; Column = rangeInNonexistentFile.StartColumn + 1 } )
+              | Error reason ->
+                return ResultOrString.Error (sprintf "%A" reason)
+            | None ->
+              return ResultOrString.Error (sprintf "Assembly '%s' declaring symbol '%s' has no location on disk" sym.Symbol.Assembly.QualifiedName sym.Symbol.DisplayName)
       }
 
       match declarations with
-      | FSharpFindDeclResult.DeclNotFound _ ->
-        return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclNotFound reason ->
+        let elaboration =
+          match reason with
+          | FSharpFindDeclFailureReason.NoSourceCode -> "No source code was found for the declaration"
+          | FSharpFindDeclFailureReason.ProvidedMember m -> sprintf "Go-to-declaration is not available for Type Provider-provided member %s" m
+          | FSharpFindDeclFailureReason.ProvidedType t -> sprintf "Go-to-declaration is not available from Type Provider-provided type %s" t
+          | FSharpFindDeclFailureReason.Unknown r -> r
+        return ResultOrString.Error (sprintf "Could not find declaration. %s" elaboration)
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
         logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" range)
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
         logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" rangeInNonexistentFile)
-        return Error ("Could not find declaration")
-        // uncomment this to try to workaround the FCS bug
-        //return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
+        return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
         return decompile assembly externalSym
     }

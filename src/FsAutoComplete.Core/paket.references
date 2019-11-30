@@ -14,3 +14,4 @@ System.Configuration.ConfigurationManager
 Fantomas
 
 Microsoft.NETFramework.ReferenceAssemblies
+System.Reflection.Metadata
