@@ -37,7 +37,7 @@ let private tryGetSourcesForPdb (pdbPath: string) =
 let private tryGetSourcesForDll (dllPath: string) =
     Debug.print "Reading sourcelink information for DLL %s" dllPath
     let file = File.OpenRead dllPath
-    let embeddedReader = new PEReader(file, PEStreamOptions.PrefetchMetadata)
+    let embeddedReader = new PEReader(file)
     try
         if embeddedReader.HasMetadata
         then
@@ -47,7 +47,8 @@ let private tryGetSourcesForDll (dllPath: string) =
         else
             tryGetSourcesForPdb (pdbForDll dllPath)
     with
-    | _ ->
+    | e ->
+        Debug.print "Error during dll read: %A" e
         tryGetSourcesForPdb (pdbForDll dllPath)
 
 let private tryGetSourcelinkJson (reader: MetadataReader) =
@@ -138,10 +139,12 @@ type Errors =
 
 let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
     // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
+    Debug.print "Reading from %s for source file %s" dllPath targetFile
     let targetFile = 
         if targetFile.StartsWith System.Environment.CurrentDirectory
-        then targetFile.Replace(System.Environment.CurrentDirectory, "")
+        then targetFile.Replace(System.Environment.CurrentDirectory + "/", "")
         else targetFile
+    Debug.print "Target file is %s" targetFile
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
     | Some sourceReaderProvider ->
