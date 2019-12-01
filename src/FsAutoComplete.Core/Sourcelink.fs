@@ -137,7 +137,11 @@ type Errors =
 | MissingPatterns
 
 let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
-    let targetFile = targetFile.Substring(targetFile.IndexOf(':') - 1)
+    // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
+    let targetFile = 
+        if targetFile.StartsWith System.Environment.CurrentDirectory
+        then targetFile.Replace(System.Environment.CurrentDirectory, "")
+        else targetFile
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
     | Some sourceReaderProvider ->
