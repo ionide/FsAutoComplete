@@ -1,13 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Definition.fs" />
     <Compile Include="Library.fs" />
     <Compile Include="External.fs" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="Giraffe" Version="4.0.1" />
+    <PackageReference Update="FSharp.Core" Version="4.7.0" />
+  </ItemGroup>
 </Project>

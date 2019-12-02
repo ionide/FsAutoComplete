@@ -539,6 +539,24 @@ let gotoTest =
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
             ()
       ))
+
+      ftestCase "Go-to-implementation on sourcelink file with sourcelink in PDB" (serverTest (fun server path externalPath definitionPath ->
+        // check for the 'button' member in giraffe view engine
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = filePathToUri externalPath}
+            Position = { Line = 9; Character = 34} }
+        
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "GiraffeViewEngine.fs" "Result should be in GiraffeViewEngine"
+            Expect.isTrue (System.IO.File.Exists res.Uri) "File should exist locally after being downloaded"
+      ))
   ]
 
 
