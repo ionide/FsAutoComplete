@@ -129,7 +129,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
               | _, None ->
                 []
               | Some sdkVersion, Some runtimeVersion ->
-                FSIRefs.netCoreRefs Environment.dotnetSDKRoot.Value (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
+                FSIRefs.netCoreRefs Environment.dotnetSDKRoot.Value (string sdkVersion) (string runtimeVersion) (FSIRefs.tfmForRuntime sdkVersion) true
             let refs = assemblyPaths |> List.map (fun r -> "-r:" + r)
             let finalOpts = Array.append okOtherOpts (Array.ofList refs)
             { projOptions with OtherOptions = finalOpts }

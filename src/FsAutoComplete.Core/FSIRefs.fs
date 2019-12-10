@@ -124,3 +124,12 @@ let netCoreRefs dotnetRoot sdkVersion runtimeVersion tfm useFsiAuxLib =
   [ yield! findRuntimeRefs (appPackDir dotnetRoot runtimeVersion tfm) (runtimeDir dotnetRoot runtimeVersion)
     yield! compilerAndInteractiveRefs (compilerDir dotnetRoot sdkVersion) useFsiAuxLib ]
 
+/// picks a TFM for F# scripts based on the provided SDK version.
+let tfmForRuntime =
+  let netcore3 = NugetVersion(3, 0, 100, "")
+  let netcore31 = NugetVersion(3, 1, 100, "")
+  fun (sdkVersion: NugetVersion) ->
+    match compareNugetVersion sdkVersion netcore3 with
+    | 1 | 0 when compareNugetVersion sdkVersion netcore31 = -1 -> "netcoreapp3.0"
+    | 1 | 0 -> "netcoreapp3.1"
+    | _ -> "netcoreapp2.2"
