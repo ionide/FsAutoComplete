@@ -480,6 +480,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let mutable disableInMemoryProjectReferences = false
 
+  let tfmForRuntime =
+    let netcore3 = FSIRefs.NugetVersion(3, 0, 100, "")
+    let netcore31 = FSIRefs.NugetVersion(3, 1, 100, "")
+    fun (sdkVersion: FSIRefs.NugetVersion) ->
+      match FSIRefs.compareNugetVersion sdkVersion netcore3 with
+      | 1 | 0 when FSIRefs.compareNugetVersion sdkVersion netcore31 = -1 -> "netcoreapp3.0"
+      | 1 | 0 -> "netcoreapp3.1"
+      | _ -> "netcoreapp2.2"
+
   /// evaluates the set of assemblies found given the current sdkRoot/sdkVersion/runtimeVersion
   let computeAssemblyMap () =
     match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
@@ -496,8 +505,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       Debug.print "Couldn't find latest 3.x runtime version inside root %s" root
       Map.empty
     | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
-      let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
-      Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
+      let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) (tfmForRuntime sdkVersion) true
+      Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion (tfmForRuntime sdkVersion) refs
       refs
       |> List.map (fun path -> Path.GetFileNameWithoutExtension path, path)
       |> Map.ofList
@@ -512,13 +521,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   /// replace any BCL/FSharp.Core/FSI refs that FCS gives us with our own set, which is more probe-able
   let replaceFrameworkRefs (projOptions: FSharpProjectOptions) =
     let refs, otherOptions = projOptions.OtherOptions |> Array.partition (fun r -> r.StartsWith "-r:")
-    
+
     let fcsAndScriptReferences =
       refs
-      |> Array.map (fun r ->
+      |> Array.choose (fun r ->
           let path = r.[3..]
           let assemblyName = Path.GetFileNameWithoutExtension path
-          assemblyName, path
+          // don't include the private imple assemblies that the compiler APIs want to give us
+          if assemblyName.Contains "System.Private"
+          then None
+          else Some (assemblyName, path)
       )
       |> Map.ofArray
 
