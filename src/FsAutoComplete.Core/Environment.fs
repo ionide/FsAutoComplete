@@ -125,7 +125,3 @@ module Environment =
         Debug.print "Runtime versions: %A" sortedRuntimeVersions
         maxVersionWithThreshold minRuntimeVersion sortedRuntimeVersions
     )
-
-  /// When resolving fsi references for .net core, this is the TFM that we use.
-  /// Will need to be bumped as fsi advances in TFMs.
-  let fsiTFMMoniker = "netcoreapp3.0"
