@@ -541,6 +541,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         | Some s ->
             CoreResponse.Res (HelpText.Simple (sym, s))
         | None ->
+        let sym = if sym.StartsWith "``" && sym.EndsWith "``" then sym.TrimStart([|'`'|]).TrimEnd([|'`'|]) else sym
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
             CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)

@@ -509,7 +509,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             ()
     }
 
-    override __.TextDocumentCompletion(p) = async {
+    override __.TextDocumentCompletion(p: CompletionParams) = async {
         Debug.print "[LSP call] TextDocumentCompletion"
         Debug.print "[LSP call] TextDocumentCompletion - context: %A" p.Context
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
