@@ -472,6 +472,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let mutable discoveredAssembliesByName = lazy(Map.empty)
   /// additional arguments that are added to typechecking of scripts
   let mutable fsiAdditionalArguments = Array.empty
+  let mutable fsiAdditionalFiles = Array.empty
 
   /// This event is raised when any data that impacts script typechecking
   /// is changed. This can potentially invalidate existing project options
@@ -501,6 +502,17 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       refs
       |> List.map (fun path -> Path.GetFileNameWithoutExtension path, path)
       |> Map.ofList
+
+  let (|StartsWith|_|) (prefix: string) (s: string) =
+    if s.StartsWith(prefix) then Some (s.[prefix.Length..]) else None
+
+  let processFSIArgs args =
+    (([||], [||]), args)
+    ||> Array.fold (fun (args, files) arg ->
+        match arg with
+        | StartsWith "--use:" file | StartsWith "--load:" file -> args, Array.append files [| file |]
+        | arg -> Array.append args [| arg |], files
+    )
 
   let clearProjectReferences (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
@@ -535,6 +547,12 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
     { projOptions with OtherOptions = Array.append otherOptions mergedRefs }
 
+  let addLoadedFiles (projectOptions: FSharpProjectOptions) =
+    let files = Array.append fsiAdditionalFiles projectOptions.SourceFiles
+    logDebug "[Opts] Source file list is %A" files
+    { projectOptions with
+        SourceFiles = files }
+
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
 
@@ -556,14 +574,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     logDebug "[Opts] Getting NetFX options for script file %s" file
     let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
-    return opts, errors
+    let allModifications = addLoadedFiles
+    return allModifications opts, errors
   }
 
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logDebug "[Opts] Getting NetCore options for script file %s" file
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
-    let allModifications = replaceFrameworkRefs
+    let allModifications = replaceFrameworkRefs >> addLoadedFiles
     return allModifications opts, errors
   }
 
@@ -688,5 +707,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     if fsiAdditionalArguments = args
     then ()
     else
-      fsiAdditionalArguments <- args
+      let additionalArgs, files = processFSIArgs args
+      fsiAdditionalArguments <- additionalArgs
+      fsiAdditionalFiles <- files
       scriptTypecheckRequirementsChanged.Trigger ()
