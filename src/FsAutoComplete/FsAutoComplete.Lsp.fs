@@ -52,6 +52,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let subscriptions = ResizeArray<IDisposable>()
 
     let mutable config = FSharpConfig.Default
+    let mutable rootPath : string option = None
 
     /// centralize any state changes when the config is updated here
     let updateConfig (newConfig: FSharpConfig) =
@@ -268,9 +269,27 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     p
                     |> lspClient.TextDocumentPublishDiagnostics
                     |> Async.Start
-                | _ ->
-                    //TODO: Add analyzer support
-                    ()
+                | NotificationEvent.AnalyzerMessage(messages, file) ->
+                    let uri = filePathToUri file
+                    diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
+                    let diag =
+                        messages |> Array.map (fun m ->
+                            let range = fcsRangeToLsp m.Range
+                            let s =
+                                match m.Severity with
+                                | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
+                                | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
+                                | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
+                            { Diagnostic.Range = range
+                              Code = None
+                              Severity = Some s
+                              Source = sprintf "F# Analyzers (%s)" m.Type
+                              Message = m.Message
+                              RelatedInformation = None
+                              Tags = None }
+                        )
+                    diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
+                    sendDiagnostics uri
             with
             | _ -> ()
         ) |> subscriptions.Add
@@ -348,6 +367,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override __.Initialize(p) = async {
         Debug.print "[LSP call] Initialize"
         commands.StartBackgroundService p.RootPath
+        rootPath <- p.RootPath
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
@@ -1817,6 +1837,36 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.LoadAnalyzers(p) = async {
+        try
+            if config.EnableAnalyzers then
+                Debug.print "[Anazlyzers] Config - %A" config.AnalyzersPath
+                config.AnalyzersPath
+                |> Array.iter (fun a ->
+                    match rootPath with
+                    | None -> ()
+                    | Some rp ->
+                        let dir = System.IO.Path.Combine(rp, a)
+                        Debug.print "[Anazlyzers] Lookup dir - %s" dir
+                        dir
+                        |> commands.LoadAnalyzers
+                        |> Async.map (fun n ->
+                            match n with
+                            | CoreResponse.InfoRes msg ->
+                                Debug.print "[Anazlyzers] %s Loaded - %s" a msg
+                            | _ -> ()
+                        )
+                        |> Async.Start
+                )
+            else
+                Debug.print "[Anazlyzers] Disabled"
+            return LspResult.success ()
+        with
+        | ex ->
+            Debug.print "[Analyzers] Loading failed - %s" ex.Message
+            return LspResult.success ()
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -1838,6 +1888,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
+        |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
 

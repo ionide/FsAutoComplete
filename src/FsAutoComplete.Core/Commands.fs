@@ -140,6 +140,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             try
                 let analyzers = state.Analyzers.Values |> Seq.collect id
                 if analyzers |> Seq.length > 0 then
+                    Debug.print "[Analyzers] File checed - %s" file
                     match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                     | Some pt, Some tast ->
                         let context : SDK.Context = {
@@ -156,7 +157,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     | _ -> ()
 
             with
-            | _ -> ()
+            | ex ->
+                Debug.print "[Analyzers] Run failed for %s - %s" file ex.Message
         } |> Async.Start
     )
 
