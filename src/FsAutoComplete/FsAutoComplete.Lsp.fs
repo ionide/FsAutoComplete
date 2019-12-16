@@ -1701,7 +1701,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FSharpProject(p) = async {
         Debug.print "[LSP call] FSharpProject"
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn false ignore config.ScriptTFM
+        let! res = commands.Project fn ignore config.ScriptTFM
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

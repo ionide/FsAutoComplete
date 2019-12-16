@@ -6,30 +6,13 @@ open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
 open FsAutoComplete.InterfaceStubGenerator
-open FsAutoComplete.DotnetNewTemplate
 open System.Threading
 open Utils
-open System.Reflection
 open FSharp.Compiler.Range
 open FSharp.Analyzers
 open ProjectSystem
 
-type ProjectResult = {
-    projectFileName: ProjectFilePath
-    projectFiles: List<SourceFilePath>
-    outFileOpt : string option
-    references : ProjectFilePath list
-    logMap : Map<string,string>
-    extra: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData
-    projectItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list
-    additionals : Map<string,string> }
 
-[<RequireQualifiedAccess>]
-type ProjectResponse =
-    | Project of ProjectResult
-    | ProjectError of errorDetails: GetProjectOptionsErrors
-    | ProjectLoading of projectFileName: ProjectFilePath
-    | WorkspaceLoad of finished: bool
 
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
@@ -51,7 +34,7 @@ type CoreResponse<'a> =
 [<RequireQualifiedAccess>]
 type NotificationEvent =
     | ParseError of errors: FSharpErrorInfo[] * file: string
-    | Workspace of ProjectResponse
+    | Workspace of ProjectSystem.ProjectResponse
     | AnalyzerMessage of  messages: SDK.Message [] * file: string
     | UnusedOpens of file: string * opens: range[]
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
@@ -63,16 +46,13 @@ type NotificationEvent =
 
 type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
-    let state = State.Initial
+    let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
-    let mutable isWorkspaceReady = false
 
     let notify = Event<NotificationEvent>()
-
-    let workspaceReady = Event<unit>()
 
     let fileStateSet = Event<unit>()
 
@@ -90,13 +70,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
         Debug.print "[Commands - checker events] Script typecheck dependencies changed, purging expired script options"
         let mutable count = 0
-        state.FileCheckOptions
-        |> Seq.choose (function | KeyValue(path, _) when path.EndsWith ".fsx" -> Some path
+        state.FSharpProjectOptions
+        |> Seq.choose (function | (path, _) when path.EndsWith ".fsx" -> Some path
                                 | _ -> None)
         |> Seq.iter (fun path ->
-            match state.FileCheckOptions.TryRemove path with
-            | true, _
-            | false, _ -> ()
+            state.RemoveProjectOptions path
             count <- count + 1
         )
         Debug.print "[Commands - checker events] Script typecheck dependencies changed, purged %d expired script options" count
@@ -107,8 +85,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 Debug.print "[Commands - checker events] File checked - %s" n
                 async {
                     try
-                        match state.FileCheckOptions.TryGetValue(n) with
-                        | true, opts ->
+                        match state.GetProjectOptions n with
+                        | Some opts ->
                             let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
                             fileChecked.Trigger (res, res.FileName, -1)
                         | _ -> ()
@@ -163,13 +141,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         } |> Async.Start
     )
 
-
-    let normalizeOptions (opts : FSharpProjectOptions) =
-        { opts with
-            SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
-            OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
-        }
-
     let parseFilesInTheBackground fsiScriptTFM files =
         async {
             files
@@ -192,7 +163,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     match sourceOpt with
                     | None -> ()
                     | Some source ->
-                        let opts = state.FileCheckOptions.[file] |> Utils.projectOptionsToParseOptions
+                        let opts = state.GetProjectOptions' file |> Utils.projectOptionsToParseOptions
                         let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
                         fileParsed.Trigger parseRes
                 with
@@ -233,31 +204,23 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         } |> Async.Start
 
     let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts =
-        for file in response.Items |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p) do
-            state.FileCheckOptions.[file] <- normalizeOptions response.Options
+        if backgroundServiceEnabled then
+            BackgroundServices.updateProject(projectFileName, response.Options)
 
         response.Items
         |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
         |> parseFilesInTheBackground tfmForScripts
         |> Async.Start
 
-    let workspaceBinder () =
-        let loaderConfig = Dotnet.ProjInfo.Workspace.LoaderConfig.Default Environment.msbuildLocator
-        let loader = Dotnet.ProjInfo.Workspace.Loader.Create(loaderConfig)
-        let infoConfig = Dotnet.ProjInfo.Workspace.NetFWInfoConfig.Default Environment.msbuildLocator
-        let netFwInfo = Dotnet.ProjInfo.Workspace.NetFWInfo.Create(infoConfig)
-        loader, checker.CreateFCSBinder(netFwInfo, loader)
-
     member __.Notify = notify.Publish
 
-    member __.WorkspaceReady = workspaceReady.Publish
+    member __.WorkspaceReady = state.ProjectController.WorkspaceReady
 
     member __.FileChecked = fileChecked.Publish
 
 
     member __.IsWorkspaceReady
-        with get() = isWorkspaceReady
-        and set(value) = isWorkspaceReady <- value
+        with get() = state.ProjectController.IsWorkspaceReady
 
     member __.LastVersionChecked
         with get() = lastVersionChecked
@@ -402,7 +365,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
-                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
             else
@@ -413,86 +375,16 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         async.Return c
                     | None -> async {
                         let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
-                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
         } |> x.AsCancellable file
 
-    member private __.ToProjectCache (opts, extraInfo: Dotnet.ProjInfo.Workspace.ExtraProjectInfoData, projViewerItems: Dotnet.ProjInfo.Workspace.ProjectViewerItem list, logMap) =
-        let outFileOpt = Some (extraInfo.TargetPath)
-        let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
-        let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath
-        let projViewerItemsNormalized = if obj.ReferenceEquals(null, projViewerItems) then [] else projViewerItems
-        let projViewerItemsNormalized =
-            projViewerItemsNormalized
-            |> List.map (function
-                | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, c) ->
-                    Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(fullPathNormalized p, c))
 
-        let cached = {
-            ProjectCrackerCache.Options = opts
-            OutFile = outFileOpt
-            References = references
-            Log = logMap
-            ExtraInfo = extraInfo
-            Items = projViewerItemsNormalized
-        }
-
-        (opts.ProjectFileName, cached)
-
-    member x.Project projectFileName _verbose onChange tfmForScripts = async {
-        let projectFileName = Path.GetFullPath projectFileName
-        let project =
-            match state.Projects.TryFind projectFileName with
-            | Some prj -> prj
-            | None ->
-                let proj = new Project(projectFileName, onChange)
-                state.Projects.[projectFileName] <- proj
-                proj
-
-        let workspaceBinder = workspaceBinder ()
-
-        let projResponse =
-            match project.Response with
-            | Some response ->
-                Result.Ok (projectFileName, response)
-            | None ->
-                let projectCached =
-                    projectFileName
-                    |> Workspace.parseProject workspaceBinder
-                    |> Result.map (fun (opts, optsDPW, projectFiles, logMap) -> x.ToProjectCache(opts, optsDPW.ExtraProjectInfo, projectFiles, logMap) )
-                match projectCached with
-                | Result.Ok (projectFileName, response) ->
-                    if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, response.Options)
-                    project.Response <- Some response
-                    Result.Ok (projectFileName, response)
-                | Result.Error error ->
-                    project.Response <- None
-                    Result.Error error
-        return
-            match projResponse with
-            | Result.Ok (projectFileName, response) ->
-                onProjectLoaded projectFileName response tfmForScripts
-                let responseFiles =
-                    response.Items
-                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-                let projInfo : ProjectResult =
-                    { projectFileName = projectFileName
-                      projectFiles = responseFiles
-                      outFileOpt = response.OutFile
-                      references = response.References
-                      logMap = response.Log
-                      extra = response.ExtraInfo
-                      projectItems = response.Items
-                      additionals = Map.empty}
-
-                ProjectResponse.Project projInfo
-                |> CoreResponse.Res
-            | Result.Error error ->
-                ProjectResponse.ProjectError error
-                |> CoreResponse.Res
+    member x.Project projectFileName onChange tfmForScripts = async {
+        let! res = state.ProjectController.LoadProject projectFileName onChange tfmForScripts onProjectLoaded
+        return CoreResponse.Res res
     }
 
     member x.Declarations file lines version = async {
@@ -659,20 +551,20 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     match res with
                     | None ->
                         if fsym.IsInternalToProject then
-                            let opts = state.FileCheckOptions.[tyRes.FileName]
+                            let opts = state.GetProjectOptions' tyRes.FileName
                             let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
                             return CoreResponse.Res (LocationResponse.Use (sym, symbols))
                         else
-                            let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                            let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
                             return CoreResponse.Res (LocationResponse.Use (sym, symbols))
                     | Some res ->
                         return CoreResponse.Res (LocationResponse.UseRange res)
                 elif fsym.IsInternalToProject then
-                    let opts = state.FileCheckOptions.[tyRes.FileName]
+                    let opts = state.GetProjectOptions' tyRes.FileName
                     let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
                     return CoreResponse.Res (LocationResponse.Use (sym, symbols))
                 else
-                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                    let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
                     return CoreResponse.Res (LocationResponse.Use (sym, symbols))
             })
         |> x.AsCancellable (Path.GetFullPath fn)
@@ -693,20 +585,20 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     match res with
                     | None ->
                         if fsym.IsInternalToProject then
-                            let opts = state.FileCheckOptions.[tyRes.FileName]
+                            let opts = state.GetProjectOptions' tyRes.FileName
                             let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
                             return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
                         else
-                            let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                            let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
                             return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols))
                     | Some res ->
                         return CoreResponse.Res (LocationResponse.UseRange res)
                 elif fsym.IsInternalToProject then
-                    let opts = state.FileCheckOptions.[tyRes.FileName]
+                    let opts = state.GetProjectOptions' tyRes.FileName
                     let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
                     return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
                 else
-                    let! symbols = checker.GetUsesOfSymbol (fn, state.FileCheckOptions.ToArray() |> Array.map (fun (KeyValue(k, v)) -> k,v) |> Seq.ofArray, sym.Symbol)
+                    let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
                     let symbols = filterSymbols symbols
                     return CoreResponse.Res (LocationResponse.Use (sym, symbols ))
             })
@@ -911,119 +803,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
-        let d = WorkspacePeek.peek dir deep excludedDirs
-        state.WorkspaceRoot <- dir
-
+        let d = state.ProjectController.PeekWorkspace dir deep excludedDirs
         return CoreResponse.Res d
     }
 
     member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts = async {
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-        //TODO check full path
-        let projectFileNames = files |> List.map Path.GetFullPath
-
-        let projects =
-            projectFileNames
-            |> List.map (fun projectFileName -> projectFileName, new Project(projectFileName, onChange))
-
-        for projectFileName, proj in projects do
-            state.Projects.[projectFileName] <- proj
-
-        let projectLoadedSuccessfully projectFileName response =
-            let project =
-                match state.Projects.TryFind projectFileName with
-                | Some prj -> prj
-                | None ->
-                    let proj = new Project(projectFileName, onChange)
-                    state.Projects.[projectFileName] <- proj
-                    proj
-
-            project.Response <- Some response
-
-            onProjectLoaded projectFileName response
-
-        let onLoaded p =
-            match p with
-            | WorkspaceProjectState.Loading projectFileName ->
-                ProjectResponse.ProjectLoading projectFileName
-                |> NotificationEvent.Workspace
-                |> notify.Trigger
-            | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
-                let projectFileName, response = x.ToProjectCache(opts, extraInfo, projectFiles, logMap)
-                if backgroundServiceEnabled then BackgroundServices.updateProject(projectFileName, opts)
-                projectLoadedSuccessfully projectFileName response tfmForScripts
-
-                let responseFiles =
-                    response.Items
-                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-                let projInfo : ProjectResult =
-                    { projectFileName = projectFileName
-                      projectFiles = responseFiles
-                      outFileOpt = response.OutFile
-                      references = response.References
-                      logMap = response.Log
-                      extra = response.ExtraInfo
-                      projectItems = projectFiles
-                      additionals = Map.empty}
-
-                ProjectResponse.Project projInfo
-                |> NotificationEvent.Workspace
-                |> notify.Trigger
-            | WorkspaceProjectState.Failed (projectFileName, error) ->
-                ProjectResponse.ProjectError error
-                |> NotificationEvent.Workspace
-                |> notify.Trigger
-
-        ProjectResponse.WorkspaceLoad false
-        |> NotificationEvent.Workspace
-        |> notify.Trigger
-
-        // this is to delay the project loading notification (of this thread)
-        // after the workspaceload started response returned below in outer async
-        // Make test output repeteable, and notification in correct order
-        match Environment.workspaceLoadDelay() with
-        | delay when delay > TimeSpan.Zero ->
-            do! Async.Sleep(Environment.workspaceLoadDelay().TotalMilliseconds |> int)
-        | _ -> ()
-
-        let loader, fcsBinder = workspaceBinder ()
-
-        let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
-
-        let bindNewOnloaded (n: Dotnet.ProjInfo.Workspace.WorkspaceProjectState) : WorkspaceProjectState option =
-            match n with
-            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loading (path, _) ->
-                Some (WorkspaceProjectState.Loading path)
-            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap) ->
-                match fcsBinder.GetProjectOptions(opts.ProjectFileName) with
-                | Ok fcsOpts ->
-                    match Workspace.extractOptionsDPW fcsOpts with
-                    | Ok optsDPW ->
-                        let view = projViewer.Render optsDPW
-                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap))
-                    | Error _ ->
-                        None //TODO not ignore the error
-                | Error _ ->
-                    //TODO notify C# project too
-                    None
-            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Failed (path, e) ->
-                let error = e
-                Some (WorkspaceProjectState.Failed (path, error))
-
-        loader.Notifications.Add(fun (_, arg) ->
-            arg |> bindNewOnloaded |> Option.iter onLoaded )
-
-        do! Workspace.loadInBackground onLoaded (loader, fcsBinder) (projects |> List.map snd)
-
-        ProjectResponse.WorkspaceLoad true
-        |> NotificationEvent.Workspace
-        |> notify.Trigger
-
-        x.IsWorkspaceReady <- true
-        workspaceReady.Trigger ()
-
-
-        return CoreResponse.Res true
+        let! res = state.ProjectController.LoadWorkspace onChange files tfmForScripts onProjectLoaded
+        return CoreResponse.Res res
     }
 
     member x.GetUnusedDeclarations file =
@@ -1092,7 +879,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.Compile projectFileName = async {
         let projectFileName = Path.GetFullPath projectFileName
-        match state.Projects.TryFind projectFileName with
+        match state.GetProject projectFileName with
         | None -> return CoreResponse.InfoRes "Project not found"
         | Some proj ->
         match proj.Response with

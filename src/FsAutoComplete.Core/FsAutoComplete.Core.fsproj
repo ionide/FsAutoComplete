@@ -27,7 +27,6 @@
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />
     <Compile Include="FileSystem.fs" />
-    <Compile Include="FscArguments.fs" />
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="SimplifyNameAnalyzer.fs" />

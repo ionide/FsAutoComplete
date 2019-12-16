@@ -15,8 +15,7 @@ type State =
   {
     Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
     LastCheckedVersion: ConcurrentDictionary<SourceFilePath, int>
-    FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
-    Projects : ConcurrentDictionary<ProjectFilePath, Project>
+    ProjectController: ProjectController
 
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
     Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * pos * SourceFilePath>
@@ -28,16 +27,13 @@ type State =
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
     Analyzers: ConcurrentDictionary<FilePath, Analyzer list>
 
-    mutable WorkspaceRoot: string
-
     mutable ColorizationOutput: bool
   }
 
-  static member Initial =
+  static member Initial checker =
     { Files = ConcurrentDictionary()
       LastCheckedVersion = ConcurrentDictionary()
-      FileCheckOptions = ConcurrentDictionary()
-      Projects = ConcurrentDictionary()
+      ProjectController = ProjectController(checker)
       HelpText = ConcurrentDictionary()
       Declarations = ConcurrentDictionary()
       CurrentAST = None
@@ -45,19 +41,35 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ParseResults = ConcurrentDictionary()
-      WorkspaceRoot = Environment.CurrentDirectory
       Analyzers = ConcurrentDictionary()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
     let file = Utils.normalizePath file
 
-    x.FileCheckOptions.TryFind file
+    x.ProjectController.GetProjectOptions file
     |> Option.map (fun opts ->
         x.Files.[file] <- { Lines = lines; Touched = DateTime.Now; Version = None }
-        x.FileCheckOptions.[file] <- opts
         opts
     )
+
+  member x.GetProjectOptions(file) : FSharpProjectOptions option =
+    let file = Utils.normalizePath file
+    x.ProjectController.GetProjectOptions file
+
+  member x.GetProjectOptions'(file) : FSharpProjectOptions =
+    let file = Utils.normalizePath file
+    (x.ProjectController.GetProjectOptions file).Value
+
+  member x.RemoveProjectOptions(file) : unit =
+    let file = Utils.normalizePath file
+    x.ProjectController.RemoveProjectOptions file
+
+  member x.FSharpProjectOptions = x.ProjectController.ProjectOptions
+
+  member x.GetProject file : Project option =
+    let file = Utils.normalizePath file
+    x.ProjectController.GetProject file
 
   member x.TryGetFileVersion (file: SourceFilePath) : int option =
     let file = Utils.normalizePath file
@@ -79,12 +91,6 @@ type State =
 
   member x.SetLastCheckedVersion (file: SourceFilePath) (version: int) =
     x.LastCheckedVersion.[file] <- version
-
-  member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts, version) =
-    let file = Utils.normalizePath file
-    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
-    x.Files.[file] <- fileState
-    x.FileCheckOptions.[file] <- opts
 
   member x.AddFileText(file: SourceFilePath, lines: LineStr[], version) =
     let file = Utils.normalizePath file
@@ -122,7 +128,7 @@ type State =
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" file)
     | Some (volFile) ->
 
-      match x.FileCheckOptions.TryFind(file) with
+      match x.ProjectController.GetProjectOptions(file) with
       | None -> Ok (State.FileWithoutProjectOptions(file), volFile.Lines)
       | Some opts -> Ok (opts, volFile.Lines)
 

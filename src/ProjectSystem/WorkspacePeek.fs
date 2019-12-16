@@ -36,7 +36,7 @@ module WorkspacePeek =
     | Solution of string * SolutionData
     | Directory of string * string list
 
-    let tryParseSln (slnFilePath: string) =
+    let internal tryParseSln (slnFilePath: string) =
         let parseSln (sln: Microsoft.Build.Construction.SolutionFile) =
             let slnDir = Path.GetDirectoryName slnFilePath
             let makeAbsoluteFromSlnDir =
@@ -111,7 +111,7 @@ module WorkspacePeek =
             | Choice3Of3 x -> (a, b, x :: c)
         Array.fold foldBy ([],[],[])
 
-    let peek (rootDir: string) deep (excludedDirs: string list) =
+    let internal peek (rootDir: string) deep (excludedDirs: string list) =
         if isNull rootDir then [] else
         let dirInfo = DirectoryInfo(rootDir)
 
