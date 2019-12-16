@@ -11,6 +11,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open FsAutoComplete
+open ProjectSystem
 
 type BackgroundFileCheckType =
 | SourceFile of filePath: string

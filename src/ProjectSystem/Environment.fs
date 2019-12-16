@@ -1,14 +1,59 @@
-namespace FsAutoComplete
+namespace ProjectSystem
 
 open System
 open System.IO
-open Utils
 #if NETSTANDARD2_0
 open System.Runtime.InteropServices
 #endif
 open Dotnet.ProjInfo.Workspace
 
+[<RequireQualifiedAccess>]
 module Environment =
+
+
+
+  /// Determines if the current system is an Unix system.
+  /// See http://www.mono-project.com/docs/faq/technical/#how-to-detect-the-execution-platform
+  let isUnix =
+  #if NETSTANDARD2_0
+      RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+      RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+  #else
+      int System.Environment.OSVersion.Platform |> fun p -> (p = 4) || (p = 6) || (p = 128)
+  #endif
+
+  /// Determines if the current system is a MacOs system
+  let isMacOS =
+  #if NETSTANDARD2_0
+      RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+  #else
+      (System.Environment.OSVersion.Platform = PlatformID.MacOSX) ||
+          // osascript is the AppleScript interpreter on OS X
+          File.Exists "/usr/bin/osascript"
+  #endif
+
+  /// Determines if the current system is a Linux system
+  let isLinux =
+  #if NETSTANDARD2_0
+      RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+  #else
+      isUnix && not isMacOS
+  #endif
+
+  /// Determines if the current system is a Windows system
+  let isWindows =
+  #if NETSTANDARD2_0
+      RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+  #else
+      match System.Environment.OSVersion.Platform with
+      | PlatformID.Win32NT | PlatformID.Win32S | PlatformID.Win32Windows | PlatformID.WinCE -> true
+      | _ -> false
+  #endif
+
+
+  let runningOnMono =
+    try not << isNull <| Type.GetType "Mono.Runtime"
+    with _ -> false
 
   let msbuildLocator = MSBuildLocator()
 
@@ -63,13 +108,13 @@ module Environment =
 
   let fsi =
     // on netcore on non-windows we just deflect to fsharpi as usual
-    if Utils.runningOnMono || not FsAutoComplete.Utils.isWindows then Some "fsharpi"
+    if runningOnMono || not isWindows then Some "fsharpi"
     else
       // if running on windows, non-mono we can't yet send paths to the netcore version of fsi.exe so use the one from full-framework
       fsharpInstallationPath |> Option.map (fun root -> root </> "fsi.exe")
 
   let fsc =
-    if Utils.runningOnMono || not FsAutoComplete.Utils.isWindows then Some "fsharpc"
+    if runningOnMono || not isWindows then Some "fsharpc"
     else
       // if running on windows, non-mono we can't yet send paths to the netcore version of fsc.exe so use the one from full-framework
       fsharpInstallationPath |> Option.map (fun root -> root </> "fsc.exe")
@@ -110,7 +155,7 @@ module Environment =
       match FSIRefs.sdkVersions sdkRoot with
       | None -> None
       | Some sortedSdkVersions ->
-        Debug.print "SDK versions: %A" sortedSdkVersions
+        // Debug.print "SDK versions: %A" sortedSdkVersions
         maxVersionWithThreshold minSDKVersion sortedSdkVersions
     )
 
@@ -122,6 +167,6 @@ module Environment =
       match FSIRefs.runtimeVersions sdkRoot with
       | None -> None
       | Some sortedRuntimeVersions ->
-        Debug.print "Runtime versions: %A" sortedRuntimeVersions
+        // Debug.print "Runtime versions: %A" sortedRuntimeVersions
         maxVersionWithThreshold minRuntimeVersion sortedRuntimeVersions
     )

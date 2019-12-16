@@ -17,14 +17,15 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\FsAutoComplete.Core\Debug.fs" />
-    <Compile Include="..\FsAutoComplete.Core\FSIRefs.fs" />
+    <Compile Include="..\ProjectSystem\Utils.fs" />
+    <Compile Include="..\ProjectSystem\FSIRefs.fs" />
+    <Compile Include="..\ProjectSystem\Environment.fs" />
     <Compile Include="..\FsAutoComplete.Core\Utils.fs" />
+    <Compile Include="..\FsAutoComplete.Core\Debug.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProcessWatcher.fs" />
     <Compile Include="..\FsAutoComplete.Core\UntypedAstUtils.fs" />
     <Compile Include="..\FsAutoComplete.Core\TypedAstUtils.fs" />
     <Compile Include="..\FsAutoComplete.Core\FileSystem.fs" />
-    <Compile Include="..\FsAutoComplete.Core\Environment.fs" />
     <Compile Include="..\FsAutoComplete.Core\SymbolCache.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

@@ -2,7 +2,7 @@
 /// for resolution of FSI
 
 [<RequireQualifiedAccess>]
-module FsAutoComplete.FSIRefs
+module ProjectSystem.FSIRefs
 
 open System
 open System.IO

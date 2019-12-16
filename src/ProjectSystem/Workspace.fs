@@ -1,4 +1,4 @@
-module FsAutoComplete.Workspace
+module ProjectSystem.Workspace
 
 open Dotnet.ProjInfo.Workspace
 open ProjectRecognizer
@@ -20,7 +20,7 @@ let extractOptionsDPW (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOpt
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
-let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: SourceFilePath) =
+let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: string) =
     if not (File.Exists projectFileName) then
         Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
     else
@@ -59,14 +59,14 @@ let loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = asy
     for project in projects do
         match project.Response with
         | Some res ->
-            onLoaded (FsAutoComplete.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
+            onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
         | None ->
             project.FileName
             |> parseProject' (loader, fcsBinder)
             |> function
                | Ok (opts, optsDPW, projViewerItems, logMap) ->
-                   onLoaded (FsAutoComplete.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
+                   onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
                | Error error ->
-                   onLoaded (FsAutoComplete.WorkspaceProjectState.Failed (project.FileName, error))
+                   onLoaded (ProjectSystem.WorkspaceProjectState.Failed (project.FileName, error))
 
     }

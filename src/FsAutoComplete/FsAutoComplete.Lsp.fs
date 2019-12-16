@@ -12,6 +12,7 @@ open FsAutoComplete
 open FSharpLint.Application.LintWarning
 open Newtonsoft.Json.Linq
 open LspHelpers
+open ProjectSystem
 module FcsRange = FSharp.Compiler.Range
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =

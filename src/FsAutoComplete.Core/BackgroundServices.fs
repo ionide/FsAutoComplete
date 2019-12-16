@@ -4,6 +4,7 @@ open FsAutoComplete
 open LanguageServerProtocol
 open System.IO
 open FSharp.Compiler.SourceCodeServices
+open ProjectSystem
 
 type Msg = {Value: string}
 
@@ -60,7 +61,7 @@ let client =
     #if DOTNET_SPAWN
     Client.Client("dotnet", Path.Combine(p, "fsautocomplete.backgroundservices.dll") + " " + pid, notificationsHandler)
     #else
-    if Utils.runningOnMono then
+    if Environment.runningOnMono then
         Client.Client("mono", Path.Combine(p, "fsautocomplete.backgroundservices.exe")+ " " + pid, notificationsHandler)
     else
         Client.Client(Path.Combine(p, "fsautocomplete.backgroundservices.exe"), pid, notificationsHandler)

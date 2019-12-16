@@ -1,4 +1,4 @@
-﻿namespace FsAutoComplete
+﻿namespace ProjectSystem
 
 open System
 open System.IO
@@ -76,7 +76,7 @@ type private ProjectMessage =
     | GetResponse of AsyncReplyChannel<ProjectCrackerCache option>
     | SetResponse of ProjectCrackerCache option
 
-type Project (projectFile, onChange: ProjectFilePath -> unit) =
+type Project (projectFile, onChange: string -> unit) =
     let persistentCache = ProjectPersistentCache(projectFile)
 
     let fullPath = Path.GetFullPath projectFile
