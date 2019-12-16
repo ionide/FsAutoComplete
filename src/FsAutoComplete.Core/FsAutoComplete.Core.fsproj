@@ -25,7 +25,6 @@
     <Compile Include="TypedAstPatterns.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Environment.fs" />
-    <Compile Include="NETFrameworkInfoProvider.fs" />
     <Compile Include="SignatureFormatter.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />
