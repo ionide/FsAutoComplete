@@ -75,6 +75,8 @@ type ProjectController(checker : FSharpChecker) =
 
     member __.WorkspaceReady = workspaceReady.Publish
 
+    member __.NotifyWorkspace = notify.Publish
+
     member __.IsWorkspaceReady
         with get() = isWorkspaceReady
 
@@ -129,6 +131,7 @@ type ProjectController(checker : FSharpChecker) =
         return
             match projResponse with
             | Result.Ok (projectFileName, response) ->
+                updateState response
                 onProjectLoaded projectFileName response tfmForScripts
                 let responseFiles =
                     response.Items
@@ -170,6 +173,7 @@ type ProjectController(checker : FSharpChecker) =
 
             project.Response <- Some response
 
+            updateState response
             onProjectLoaded projectFileName response
 
         let onLoaded p =

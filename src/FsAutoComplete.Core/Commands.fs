@@ -56,6 +56,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     let fileStateSet = Event<unit>()
 
+    do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
+
     do BackgroundServices.messageRecived.Publish.Add (fun n ->
        match n with
        | BackgroundServices.Diagnostics d -> notify.Trigger (NotificationEvent.Diagnostics d)
