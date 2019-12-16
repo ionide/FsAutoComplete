@@ -17,19 +17,16 @@
   <ItemGroup>
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="Debug.fs" />
-    <Compile Include="FSIRefs.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
     <Compile Include="TypedAstPatterns.fs" />
     <Compile Include="Lexer.fs" />
-    <Compile Include="Environment.fs" />
     <Compile Include="SignatureFormatter.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />
     <Compile Include="FileSystem.fs" />
-    <Compile Include="ProjectCrackerTypes.fs" />
     <Compile Include="FscArguments.fs" />
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
@@ -37,10 +34,7 @@
     <Compile Include="Decompiler.fs" />
     <Compile Include="FakeSupport.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
-    <Compile Include="WorkspacePeek.fs" />
-    <Compile Include="Project.fs" />
     <Compile Include="State.fs" />
-    <Compile Include="Workspace.fs" />
     <Compile Include="CodeGeneration.fs" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="RecordStubGenerator.fs" />
@@ -54,6 +48,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
+    <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 

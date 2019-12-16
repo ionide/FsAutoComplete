@@ -7,6 +7,7 @@ open Utils
 open FSharp.Compiler.Range
 open FSharp.Compiler
 open FSharp.Compiler.Text
+open ProjectSystem
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =

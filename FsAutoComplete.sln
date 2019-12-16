@@ -26,13 +26,13 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete", "src\FsAut
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "LanguageServerProtocol", "src\LanguageServerProtocol\LanguageServerProtocol.fsproj", "{093CFF4E-C533-41FE-BAA1-474151C8BBB7}"
-EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.BackgroundServices", "src\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj", "{775C1714-AD5F-4A4C-B613-0AE08F51E17A}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{443E0B8D-9AD0-436E-A331-E8CC12965F07}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "LanguageServerProtocol", "src\LanguageServerProtocol\LanguageServerProtocol.fsproj", "{093CFF4E-C533-41FE-BAA1-474151C8BBB7}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Tests", "test\FsAutoComplete.Tests\FsAutoComplete.Tests.fsproj", "{60D13105-E260-4495-BD63-6FCBC033A97D}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ProjectSystem", "src\ProjectSystem\ProjectSystem.fsproj", "{9F8E66A9-9F72-485D-A177-DEFA09CA1FAC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{443E0B8D-9AD0-436E-A331-E8CC12965F07}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Tests.Lsp", "test\FsAutoComplete.Tests.Lsp\FsAutoComplete.Tests.Lsp.fsproj", "{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}"
 EndProject
@@ -58,20 +58,19 @@ Global
 		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{775C1714-AD5F-4A4C-B613-0AE08F51E17A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{60D13105-E260-4495-BD63-6FCBC033A97D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F8E66A9-9F72-485D-A177-DEFA09CA1FAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F8E66A9-9F72-485D-A177-DEFA09CA1FAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F8E66A9-9F72-485D-A177-DEFA09CA1FAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F8E66A9-9F72-485D-A177-DEFA09CA1FAC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{60D13105-E260-4495-BD63-6FCBC033A97D} = {443E0B8D-9AD0-436E-A331-E8CC12965F07}
 		{6FE2E08A-9F3F-4C7C-B190-77C46AE147D7} = {443E0B8D-9AD0-436E-A331-E8CC12965F07}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution

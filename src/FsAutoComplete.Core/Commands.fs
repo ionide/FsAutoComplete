@@ -12,6 +12,7 @@ open Utils
 open System.Reflection
 open FSharp.Compiler.Range
 open FSharp.Analyzers
+open ProjectSystem
 
 type ProjectResult = {
     projectFileName: ProjectFilePath

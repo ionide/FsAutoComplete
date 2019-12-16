@@ -8,7 +8,7 @@ open FSharp.Compiler.SourceCodeServices
 open FSharp.Reflection
 open System.Collections.Generic
 open System.Text
-
+open ProjectSystem
 
 module FcsRange = FSharp.Compiler.Range
 
@@ -398,7 +398,7 @@ module Markdown =
         |> normalizeLeadingSpace
 
 module Workspace =
-    open FsAutoComplete.WorkspacePeek
+    open ProjectSystem.WorkspacePeek
     open FsAutoComplete.CommandResponse
 
     let mapInteresting i =
@@ -406,7 +406,7 @@ module Workspace =
         | Interesting.Directory (p, fsprojs) ->
             WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
         | Interesting.Solution (p, sd) ->
-            let rec item (x: FsAutoComplete.WorkspacePeek.SolutionItem) =
+            let rec item (x: ProjectSystem.WorkspacePeek.SolutionItem) =
                 let kind =
                     match x.Kind with
                     | SolutionItemKind.Unknown

@@ -30,6 +30,8 @@
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
+    <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
+
   </ItemGroup>
 
   <!-- do not bundle the net461 exe inside the .net core tool package -->

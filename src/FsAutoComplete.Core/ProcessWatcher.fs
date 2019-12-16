@@ -2,6 +2,7 @@ namespace FsAutoComplete
 
 open System.Diagnostics
 open System
+open ProjectSystem
 
 module ProcessWatcher =
 
@@ -11,7 +12,7 @@ module ProcessWatcher =
   let private watcher = new MailboxProcessor<OnExitMessage>(fun inbox ->
     let rec loop underWatch =
         async {
-            let! message = inbox.TryReceive(System.TimeSpan.FromSeconds(0.5).TotalMilliseconds |> int)
+            let! message = inbox.TryReceive(TimeSpan.FromSeconds(0.5).TotalMilliseconds |> int)
             let next =
                 match message with
                 | Some (Watch (proc, a)) ->
@@ -25,16 +26,16 @@ module ProcessWatcher =
     loop [] )
 
   let watch proc onExitCallback =
-    if Utils.runningOnMono then
+    if Environment.runningOnMono then
         watcher.Start()
-        watcher.Post (OnExitMessage.Watch(proc, onExitCallback))
+        watcher.Post (Watch(proc, onExitCallback))
     else
         proc.EnableRaisingEvents <- true
         proc.Exited |> Event.add (fun _ -> onExitCallback proc)
 
   let zombieCheckWithHostPID quit pid =
     try
-      let hostProcess = System.Diagnostics.Process.GetProcessById(pid)
+      let hostProcess = Process.GetProcessById(pid)
       watch hostProcess (fun _ -> quit ())
     with
     | e ->

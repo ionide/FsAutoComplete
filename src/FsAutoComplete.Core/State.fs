@@ -4,10 +4,9 @@ open System
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
-open Priority_Queue
 open FSharp.Compiler.Range
 open FSharp.Analyzers.SDK
-open System.Collections.Concurrent
+open ProjectSystem
 
 type DeclName = string
 type CompletionNamespaceInsert = string * int * int * string
