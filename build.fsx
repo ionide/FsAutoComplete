@@ -204,6 +204,9 @@ Target "ReleaseArchive" (fun _ ->
 
     !! (sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" release.AssemblyVersion)
     |> Copy "bin/pkgs"
+
+    !! (sprintf "bin/project_system/ProjectSystem.%s.nupkg" release.AssemblyVersion)
+    |> Copy "bin/pkgs"
 )
 
 Target "LocalRelease" (fun _ ->
@@ -234,6 +237,14 @@ Target "LocalRelease" (fun _ ->
            Project = "src/FsAutoComplete"
            Configuration = configuration
            AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion; "/p:PackAsTool=true" ]  })
+
+    CleanDirs [ "bin/project_system" ]
+    DotNetCli.Pack (fun p ->
+       { p with
+           OutputPath = __SOURCE_DIRECTORY__ </> "bin/project_system"
+           Project = "src/ProjectSystem"
+           Configuration = configuration
+           AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ]  })
 )
 
 Target "Clean" (fun _ ->
