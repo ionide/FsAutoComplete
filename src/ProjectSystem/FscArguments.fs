@@ -1,4 +1,4 @@
-namespace FsAutoComplete
+namespace ProjectSystem
 
 open System
 open System.IO

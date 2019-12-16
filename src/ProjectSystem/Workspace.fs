@@ -50,11 +50,11 @@ let private parseProject' (loader, fcsBinder) projectFileName =
     projectFileName
     |> getProjectOptions (loader, fcsBinder)
 
-let parseProject (loader, fcsBinder) projectFileName =
+let internal parseProject (loader, fcsBinder) projectFileName =
     projectFileName
     |> parseProject' (loader, fcsBinder)
 
-let loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = async {
+let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = async {
 
     for project in projects do
         match project.Response with
