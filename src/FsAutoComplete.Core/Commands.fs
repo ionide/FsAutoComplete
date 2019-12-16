@@ -241,9 +241,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         |> Async.Start
 
     let workspaceBinder () =
-        let config = Dotnet.ProjInfo.Workspace.LoaderConfig.Default Environment.msbuildLocator
-        let loader = Dotnet.ProjInfo.Workspace.Loader.Create(config)
-        loader, checker.CreateFCSBinder(NETFrameworkInfoProvider.netFWInfo, loader)
+        let loaderConfig = Dotnet.ProjInfo.Workspace.LoaderConfig.Default Environment.msbuildLocator
+        let loader = Dotnet.ProjInfo.Workspace.Loader.Create(loaderConfig)
+        let infoConfig = Dotnet.ProjInfo.Workspace.NetFWInfoConfig.Default Environment.msbuildLocator
+        let netFwInfo = Dotnet.ProjInfo.Workspace.NetFWInfo.Create(infoConfig)
+        loader, checker.CreateFCSBinder(netFwInfo, loader)
 
     member __.Notify = notify.Publish
 
