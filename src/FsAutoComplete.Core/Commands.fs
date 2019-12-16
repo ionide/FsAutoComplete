@@ -1100,7 +1100,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member __.LoadAnalyzers (path: string) = async {
-        let analyzers = Analyzers.loadAnalyzers path
+        let analyzers = FSharp.Analyzers.SDK.Client.loadAnalyzers path
         state.Analyzers.AddOrUpdate(path, (fun _ -> analyzers), (fun _ _ -> analyzers)) |> ignore
         return CoreResponse.InfoRes (sprintf "%d Analyzers registered" analyzers.Length)
     }
