@@ -92,6 +92,13 @@ type State =
   member x.SetLastCheckedVersion (file: SourceFilePath) (version: int) =
     x.LastCheckedVersion.[file] <- version
 
+  member x.AddFileTextAndCheckerOptions(file: SourceFilePath, lines: LineStr[], opts, version) =
+    let file = Utils.normalizePath file
+    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
+    x.Files.[file] <- fileState
+    x.ProjectController.SetProjectOptions(file, opts)
+
+
   member x.AddFileText(file: SourceFilePath, lines: LineStr[], version) =
     let file = Utils.normalizePath file
     let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }

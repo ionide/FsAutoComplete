@@ -363,10 +363,16 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                             let errors = Array.append results.Errors parseResult.Errors
                             CoreResponse.Res (errors, fileName)
                 }
+            let normalizeOptions (opts : FSharpProjectOptions) =
+                { opts with
+                    SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
+                    OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
+                }
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
                 let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
             else
@@ -377,6 +383,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         async.Return c
                     | None -> async {
                         let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                         return checkOptions
                     }
                 fileStateSet.Trigger ()

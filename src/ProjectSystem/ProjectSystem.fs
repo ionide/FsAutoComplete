@@ -84,6 +84,11 @@ type ProjectController(checker : FSharpChecker) =
         let file = Utils.normalizePath file
         fileCheckOptions.TryFind file
 
+    member __.SetProjectOptions(file: string, opts: FSharpProjectOptions) =
+        let file = Utils.normalizePath file
+        fileCheckOptions.AddOrUpdate(file, (fun _ -> opts), (fun _ _ -> opts))
+        |> ignore
+
     member __.RemoveProjectOptions(file) =
         let file = Utils.normalizePath file
         fileCheckOptions.TryRemove file |> ignore
