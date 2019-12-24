@@ -130,6 +130,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                             ParseTree = pt
                             TypedTree = tast
                             Symbols = parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList
+                            GetAllEntities = parseAndCheck.GetAllEntities
                         }
                         let result = analyzers |> Seq.collect (fun n -> n context)
                         (Seq.toArray result, file)

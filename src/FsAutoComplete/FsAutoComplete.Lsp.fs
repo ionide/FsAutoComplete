@@ -63,6 +63,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
+    let analyzerFixes = System.Collections.Generic.Dictionary<(DocumentUri * string), (LanguageServerProtocol.Types.Range * TextEdit) list>()
+
 
     let parseFile (p: DidChangeTextDocumentParams) =
 
@@ -273,6 +275,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 | NotificationEvent.AnalyzerMessage(messages, file) ->
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
+                    let fs =
+                        messages |> Seq.collect (fun w ->
+                            w.Fixes
+                            |> List.map (fun f ->
+                                let range = fcsRangeToLsp f.FromRange
+                                range, {Range = range; NewText = f.ToText})
+                        )
+                        |> Seq.toList
+                    let aName = (messages |> Seq.head).Type
+
+
+                    analyzerFixes.[(uri, aName)] <- fs
+
                     let diag =
                         messages |> Array.map (fun m ->
                             let range = fcsRangeToLsp m.Range
@@ -1028,6 +1043,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | None -> async.Return []
         | Some d -> handler d
 
+    member private __.IfDiagnosticType (str: string) handler p =
+        let diag =
+            p.Context.Diagnostics |> Seq.tryFind (fun n -> n.Source.Contains str)
+        match diag with
+        | None -> async.Return []
+        | Some d -> handler d
+
     member private __.CreateFix uri fn title (d: Diagnostic option) range replacement  =
         let e =
             {
@@ -1126,6 +1148,28 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
                     |> List.singleton
                     |> async.Return
+        )
+
+    member private x.GetAnalyzerCodeAction fn p =
+        p |> x.IfDiagnosticType "F# Analyzers" (fun d ->
+            let uri = filePathToUri fn
+
+            let res =
+                analyzerFixes
+                |> Seq.map (|KeyValue|)
+                |> Seq.tryPick (fun ((u, _), lst) ->
+                    if u = uri then Some lst else None
+                )
+
+            match res with
+            | None -> async.Return []
+            | Some lst ->
+                lst
+                |> List.filter (fun (r, te) -> r = d.Range)
+                |> List.map (fun (r,te) ->
+                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
+                )
+                |> async.Return
         )
 
     member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
@@ -1332,6 +1376,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
             let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
             let! linterActions = x.GetLinterCodeAction fn p
+            let! analyzerActions = x.GetAnalyzerCodeAction fn p
+
             let! interfaceGenerator = x.GetInterfaceStubCodeAction fn p lines
             let! recordGenerator = x.GetRecordStubCodeAction fn p lines
 
@@ -1345,6 +1391,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     yield! newKeywordAction
                     yield! duCaseActions
                     yield! linterActions
+                    yield! analyzerActions
                     yield! interfaceGenerator
                     yield! recordGenerator
                     yield! redundantActions

@@ -27,7 +27,7 @@ NUGET
       FSharp.Core (>= 4.0.0.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net40)) (&& (== netstandard2.0) (>= net40))
       FSharp.Core (>= 4.2.3) - restriction: || (&& (== net461) (< net40) (>= netstandard1.6)) (== netcoreapp2.1) (== netstandard2.0)
       NETStandard.Library (>= 1.6.1) - restriction: || (&& (== net461) (< net40) (>= netstandard1.6)) (== netcoreapp2.1) (== netstandard2.0)
-    FSharp.Analyzers.SDK (0.0.10)
+    FSharp.Analyzers.SDK (0.2)
       FSharp.Compiler.Service (>= 33.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.7) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
     FSharp.Compiler.Service (33.0)
