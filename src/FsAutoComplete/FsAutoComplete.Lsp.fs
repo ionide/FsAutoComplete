@@ -976,10 +976,23 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let source = String.concat "\n" lines
             let parsingOptions = Utils.projectOptionsToParseOptions opts
             let checker : FSharpChecker = commands.GetChecker()
+            let config =
+                match rootPath with
+                | Some rp ->
+                    let result = Fantomas.CodeFormatter.ReadConfiguration rp
+                    match result with
+                    | Fantomas.FormatConfig.Success c
+                    | Fantomas.FormatConfig.PartialSuccess(c,_) -> c
+                    | Fantomas.FormatConfig.Failure err ->
+                        printfn "%A" err // TODO log errors and warnings where?
+                        Fantomas.FormatConfig.FormatConfig.Default
+                | None ->
+                    Fantomas.FormatConfig.FormatConfig.Default
+
             let! formatted =
                 Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
                                                            Fantomas.SourceOrigin.SourceString source,
-                                                           Fantomas.FormatConfig.FormatConfig.Default,
+                                                           config,
                                                            parsingOptions,
                                                            checker)
 
