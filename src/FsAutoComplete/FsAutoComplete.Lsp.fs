@@ -977,16 +977,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let parsingOptions = Utils.projectOptionsToParseOptions opts
             let checker : FSharpChecker = commands.GetChecker()
             let config =
-                match rootPath with
-                | Some rp ->
-                    let result = Fantomas.CodeFormatter.ReadConfiguration rp
-                    match result with
-                    | Fantomas.FormatConfig.Success c
-                    | Fantomas.FormatConfig.PartialSuccess(c,_) -> c
-                    | Fantomas.FormatConfig.Failure err ->
-                        printfn "%A" err // TODO log errors and warnings where?
-                        Fantomas.FormatConfig.FormatConfig.Default
-                | None ->
+                let currentFolder = System.IO.Path.GetDirectoryName(fileName)
+                let result = Fantomas.CodeFormatter.ReadConfiguration currentFolder
+                match result with
+                | Fantomas.FormatConfig.Success c -> c
+                | Fantomas.FormatConfig.PartialSuccess(c,warnings) ->
+                    Debug.print "[Fantomas] Warnings while parsing the configuration files:"
+                    List.iter (fun w -> Debug.print "[Fantomas]: %s" w) warnings
+                    c
+                | Fantomas.FormatConfig.Failure err ->
+                    Debug.print "[Fantomas] Error while parsing the configuration files: %A" err
+                    Debug.print "[Fantomas] Using default configuration"
                     Fantomas.FormatConfig.FormatConfig.Default
 
             let! formatted =
