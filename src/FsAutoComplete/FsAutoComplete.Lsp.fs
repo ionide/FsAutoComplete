@@ -976,6 +976,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let source = String.concat "\n" lines
             let parsingOptions = Utils.projectOptionsToParseOptions opts
             let checker : FSharpChecker = commands.GetChecker()
+            // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
             let config =
                 let currentFolder = System.IO.Path.GetDirectoryName(fileName)
                 let result = Fantomas.CodeFormatter.ReadConfiguration currentFolder
