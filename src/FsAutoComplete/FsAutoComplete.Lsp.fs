@@ -984,7 +984,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 | Fantomas.FormatConfig.Success c -> c
                 | Fantomas.FormatConfig.PartialSuccess(c,warnings) ->
                     Debug.print "[Fantomas] Warnings while parsing the configuration files:"
-                    List.iter (fun w -> Debug.print "[Fantomas]: %s" w) warnings
+                    List.iter (fun w -> Debug.print "[Fantomas] - %s" w) warnings
                     c
                 | Fantomas.FormatConfig.Failure err ->
                     Debug.print "[Fantomas] Error while parsing the configuration files: %A" err
