@@ -969,7 +969,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let endLine = Array.length lines - 1
                 let endCharacter =
                     Array.tryLast lines
-                    |> Option.map (fun line -> if line.Length = 0 then 0 else line.Length - 1)
+                    |> Option.map (fun line -> line.Length)
                     |> Option.defaultValue 0
                 { Start = zero; End = { Line = endLine; Character = endCharacter } }
 
