@@ -959,7 +959,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    override __.TextDocumentFormatting(p) = async {
+    override __.TextDocumentFormatting(p: DocumentFormattingParams) = async {
         let doc = p.TextDocument
         let fileName = doc.GetFilePath()
         match commands.TryGetFileCheckerOptionsWithLines fileName with
