@@ -998,6 +998,48 @@ let tooltipTests =
     verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
   ]
 
+let formattingTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+    server, events, path
+  )
+  let serverTest f () = f serverStart.Value
+
+  let editForWholeFile sourceFile expectedFile =
+    let sourceLines = File.ReadAllLines sourceFile
+    let start = { Line = 0; Character = 0 }
+    let ``end`` = { Line = sourceLines.Length - 1; Character = sourceLines.[sourceLines.Length - 1].Length }
+    let expectedText = File.ReadAllText expectedFile
+    { Range = { Start = start; End = ``end`` }; NewText = expectedText }
+
+  let verifyFormatting (server: Lsp.FsharpLspServer, events, rootPath) scenario =
+    let sourceFile = Path.Combine(rootPath, sprintf "%s.input.fsx" scenario)
+    let expectedFile = Path.Combine(rootPath, sprintf "%s.expected.fsx" scenario)
+    let expectedTextEdit = editForWholeFile sourceFile expectedFile
+    do server.TextDocumentDidOpen { TextDocument = loadDocument sourceFile } |> Async.RunSynchronously
+    match waitForParseResultsForFile (Path.GetFileName sourceFile) events with
+    | Ok () ->
+      match server.TextDocumentFormatting { TextDocument = { Uri = filePathToUri sourceFile }
+                                            Options = { TabSize = 4
+                                                        InsertSpaces = true
+                                                        AdditionalData = dict [] } } |> Async.RunSynchronously with
+      | Ok (Some [|edit|]) ->
+        Expect.equal edit expectedTextEdit "should replace the entire file range with the expected content"
+      | Ok other ->
+        failwithf "Invalid formatting result: %A" other
+      | Result.Error e ->
+        failwithf "Error while formatting %s: %A" sourceFile e
+    | Core.Result.Error errors ->
+      failwithf "Errors while parsing script %s: %A" sourceFile errors
+
+  testList "fantomas integration" [
+    testCase "can replace entire content of file when formatting whole document" (serverTest (fun state ->
+      verifyFormatting state "endCharacter"
+    ))
+  ]
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -1017,4 +1059,5 @@ let tests =
     //scriptPreviewTests
     //scriptEvictionTests
     //tooltipTests
+    //formattingTests
   ]
