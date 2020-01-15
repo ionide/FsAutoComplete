@@ -147,7 +147,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
         match file with
         | ScriptFile(file, tfm) ->
-            state.Files.TryFind file |> Option.map (fun st ->
+            state.Files.TryFind (Utils.normalizePath file) |> Option.map (fun st ->
                 async {
                     let! (opts, _errors) = getScriptOptions file (st.Lines |> String.concat "\n") tfm
                     let sf = getFilesFromOpts opts
@@ -160,8 +160,11 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 }
             )
         | SourceFile file ->
-            match state.FileCheckOptions.TryFind file with
-            | None -> None
+            match state.FileCheckOptions.TryFind (Utils.normalizePath file) with
+            | None ->
+                client.Notify {Value = sprintf "Couldn't find file check options for %A" file } |> Async.Start
+                client.Notify {Value = sprintf "Known files %A" (state.FileCheckOptions.Keys |> Seq.toArray) } |> Async.Start
+                None
             | Some opts ->
                 let sf = getFilesFromOpts opts
 
