@@ -43,25 +43,38 @@ module Conversions =
     /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
     /// modified slightly to not rely on the System.Path members because they vary per-platform
     let filePathToUri (filePath: string): DocumentUri =
-        let uri = StringBuilder(filePath.Length)
-        for c in filePath do
-            if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
-                c > '\xFF' then
-                uri.Append(c) |> ignore
-            // handle windows path separator chars.
-            // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
-            // logic to work cross-platform (for tests)
-            else if c = '\\' then
-                uri.Append('/') |> ignore
+        let filePath, finished =
+            if filePath.Contains "Untitled-" then
+                let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
+                if rg.Success then
+                    rg.Groups.[1].Value, true
+                else
+                    filePath, false
             else
-                uri.Append('%') |> ignore
-                uri.Append((int c).ToString("X2")) |> ignore
+                filePath, false
 
-        if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-            "file:" + uri.ToString()
+        if not finished then
+            let uri = StringBuilder(filePath.Length)
+            for c in filePath do
+                if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                    c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
+                    c > '\xFF' then
+                    uri.Append(c) |> ignore
+                // handle windows path separator chars.
+                // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
+                // logic to work cross-platform (for tests)
+                else if c = '\\' then
+                    uri.Append('/') |> ignore
+                else
+                    uri.Append('%') |> ignore
+                    uri.Append((int c).ToString("X2")) |> ignore
+
+            if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
+                "file:" + uri.ToString()
+            else
+                "file:///" + (uri.ToString()).TrimStart('/')
         else
-            "file:///" + (uri.ToString()).TrimStart('/')
+            "untitled:" + filePath
 
     let fcsRangeToLspLocation(range: FSharp.Compiler.Range.range): Lsp.Location =
         let fileUri = filePathToUri range.FileName
@@ -107,9 +120,11 @@ module Conversions =
     /// without doing a check based on what the current system's OS is.
     let fileUriToLocalPath (u: DocumentUri) =
         let initialLocalPath = Uri(u).LocalPath
-        if isWindowsStyleDriveLetterMatch initialLocalPath
-        then initialLocalPath.TrimStart('/')
-        else initialLocalPath
+        let fn =
+            if isWindowsStyleDriveLetterMatch initialLocalPath
+            then initialLocalPath.TrimStart('/')
+            else initialLocalPath
+        if fn.EndsWith ".fs" || fn.EndsWith ".fsi" || fn.EndsWith ".fsx" then fn else (fn + ".fsx")
 
     type TextDocumentIdentifier with
         member doc.GetFilePath() = fileUriToLocalPath doc.Uri
