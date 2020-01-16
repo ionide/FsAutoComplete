@@ -124,7 +124,7 @@ module Conversions =
             if isWindowsStyleDriveLetterMatch initialLocalPath
             then initialLocalPath.TrimStart('/')
             else initialLocalPath
-        if fn.EndsWith ".fs" || fn.EndsWith ".fsi" || fn.EndsWith ".fsx" then fn else (fn + ".fsx")
+        if u.StartsWith "untitled:" then (fn + ".fsx") else fn
 
     type TextDocumentIdentifier with
         member doc.GetFilePath() = fileUriToLocalPath doc.Uri
