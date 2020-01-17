@@ -2286,10 +2286,8 @@ module Server =
             | None ->
                 match methodCallResult with
                 | Result.Ok (Some ok) ->
-                    // FsAutoComplete.Debug.print "[LSP-Internals] Provided response %A to notification %s but it is ignored" ok request.Method
                     ()
                 | Result.Error err ->
-                    // FsAutoComplete.Debug.print "[LSP-Internals] Failed with %A to notification %s but it is ignored" err request.Method
                     ()
                 | _ ->
                     ()
@@ -2309,8 +2307,6 @@ module Server =
         | ErrorStreamClosed = 2
 
     let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: ClientNotificationSender -> 'a) (serverCreator: 'a -> 'b) =
-        // FsAutoComplete.Debug.print "[LSP-Internals] Starting up !"
-
         let sender = MailboxProcessor<string>.Start(fun inbox ->
             let rec loop () = async {
                 let! str = inbox.Receive()
@@ -2357,7 +2353,6 @@ module Server =
         while not quit do
             try
                 let _, requestString = LowLevel.read input
-                // FsAutoComplete.Debug.print "[LSP-Internals] Received: %s" requestString
 
                 match handleClientRequest requestString with
                 | RequestHandlingResult.WasShutdown -> shutdownReceived <- true
@@ -2367,13 +2362,9 @@ module Server =
                 | RequestHandlingResult.Normal -> ()
             with
             | :? EndOfStreamException ->
-                // FsAutoComplete.Debug.print "[LSP-Internals] Client closed the input stream"
                 quit <- true
             | ex ->
                 ()
-                // FsAutoComplete.Debug.print "[LSP-Internals] %O" ex
-
-        // FsAutoComplete.Debug.print "[LSP-Internals] Ended"
 
         match shutdownReceived, quitReceived with
         | true, true -> LspCloseReason.RequestedByClient

@@ -155,7 +155,6 @@ module Environment =
       match FSIRefs.sdkVersions sdkRoot with
       | None -> None
       | Some sortedSdkVersions ->
-        // Debug.print "SDK versions: %A" sortedSdkVersions
         maxVersionWithThreshold minSDKVersion sortedSdkVersions
     )
 
@@ -167,6 +166,5 @@ module Environment =
       match FSIRefs.runtimeVersions sdkRoot with
       | None -> None
       | Some sortedRuntimeVersions ->
-        // Debug.print "Runtime versions: %A" sortedRuntimeVersions
         maxVersionWithThreshold minRuntimeVersion sortedRuntimeVersions
     )
