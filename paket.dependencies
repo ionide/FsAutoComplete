@@ -1,9 +1,11 @@
-version 5.201.1
+version 5.241.6
 
 framework: net461, netstandard2.0, netcoreapp2.1
 source https://api.nuget.org/v3/index.json
 source ./lib
 storage: none
+
+github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
 nuget Fantomas 3.2.0-beta-002
