@@ -260,11 +260,24 @@ Target "Build" (fun _ ->
          AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ] })
 )
 
+Target "ReplaceFsLibLogNamespaces" <| fun _ ->
+  let replacements =
+    [ "FsLibLog\\n", "FsAutoComplete.Logging\n"
+      "FsLibLog\\.", "FsAutoComplete.Logging" ]
+  replacements
+  |> List.iter (fun (``match``, replace) ->
+    (!! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs")
+    |> RegexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8
+  )
+
 Target "Test" id
 Target "IntegrationTest" id
 Target "All" id
 Target "Release" id
 Target "BuildDebug" id
+
+
+"ReplaceFsLibLogNamespaces" ==> "Build"
 
 "BuildDebug"
   ==> "Build"
