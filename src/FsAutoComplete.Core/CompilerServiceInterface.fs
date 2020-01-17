@@ -548,11 +548,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
     { projOptions with OtherOptions = Array.append otherOptions mergedRefs }
 
+  /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
     let files = Array.append fsiAdditionalFiles projectOptions.SourceFiles
     logDebug "[Opts] Source file list is %A" files
     { projectOptions with
         SourceFiles = files }
+
+  /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
+  let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =
+    { projectOptions with SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath }
 
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
@@ -575,7 +580,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     logDebug "[Opts] Getting NetFX options for script file %s" file
     let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
-    let allModifications = addLoadedFiles
+    let allModifications = addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
   }
 
@@ -583,7 +588,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     logDebug "[Opts] Getting NetCore options for script file %s" file
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
-    let allModifications = replaceFrameworkRefs >> addLoadedFiles
+    let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
   }
 
