@@ -23,6 +23,7 @@ let entry args =
         LoggerConfiguration()
           .MinimumLevel.ControlledBy(verbositySwitch)
           .Enrich.FromLogContext()
+          .Destructure.FSharpTypes()
           .WriteTo.Async(
             fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
           ) // make it so that every console log is logged to stderr

@@ -1885,7 +1885,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.LoadAnalyzers(path) = async {
         try
             if config.EnableAnalyzers then
-                Loggers.analyzers.info (Log.setMessage "Using analyzer root of {root}" >> Log.addContextDestructured "config" config.AnalyzersPath)
+                Loggers.analyzers.info (Log.setMessage "Using analyzer roots of {roots}" >> Log.addContextDestructured "roots" config.AnalyzersPath)
                 config.AnalyzersPath
                 |> Array.iter (fun a ->
                     match rootPath with
@@ -1898,7 +1898,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         |> Async.map (fun n ->
                             match n with
                             | CoreResponse.InfoRes msg ->
-                                Loggers.analyzers.info (Log.setMessage "Analyzer {name} loaded" >> Log.addContextDestructured "name" a >> Log.addContextDestructured "loadMessage" msg)
+                                Loggers.analyzers.info (Log.setMessage "From {name}: {loadMessage}" >> Log.addContextDestructured "name" a >> Log.addContextDestructured "loadMessage" msg)
                             | _ -> ()
                         )
                         |> Async.Start

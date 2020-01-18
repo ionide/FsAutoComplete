@@ -21,3 +21,4 @@ Serilog
 Serilog.Sinks.File
 Serilog.Sinks.Console
 Serilog.Sinks.Async
+Destructurama.FSharp

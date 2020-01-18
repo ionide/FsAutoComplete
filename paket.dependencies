@@ -33,6 +33,7 @@ nuget Serilog
 nuget Serilog.Sinks.File
 nuget Serilog.Sinks.Console
 nuget Serilog.Sinks.Async
+nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
 
 nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true, strategy:min
 
