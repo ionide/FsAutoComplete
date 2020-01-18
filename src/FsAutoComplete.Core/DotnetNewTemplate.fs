@@ -66,7 +66,7 @@ module DotnetNewTemplate =
     readTemplates ()
     |> parseTemplateOutput
     |> Array.map (fun (name, shortName) ->
-      {Name = name; ShortName = shortName; Language = [TemplateLanguage.FSharp]; Tags = []}
+      {Name = name; ShortName = shortName; Language = []; Tags = []}
     )
     |> Array.toList
 
