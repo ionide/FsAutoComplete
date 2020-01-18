@@ -46,7 +46,8 @@ module Options =
             printfn "Bad log file: %s" e.Message
             exit 1
       | VFilter v ->
-          Debug.categories <- v.Split(',') |> set |> Some
+          // TODO: set category level
+          ()
       | Version
       | WaitForDebugger
       | BackgroundServiceEnabled

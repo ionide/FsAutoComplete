@@ -3,8 +3,11 @@ namespace FsAutoComplete
 open System.Diagnostics
 open System
 open ProjectSystem
+open FsAutoComplete.Logging
 
 module ProcessWatcher =
+
+  let private logger = LogProvider.getLoggerByName "ProcessWatcher"
 
   type private OnExitMessage =
     | Watch of Process * (Process -> unit)
@@ -39,7 +42,5 @@ module ProcessWatcher =
       watch hostProcess (fun _ -> quit ())
     with
     | e ->
-      Debug.print "[Process Watcher] Host process ID %i not found: %s" pid e.Message
-      // If the process dies before we get here then request shutdown
-      // immediately
+      logger.error (Log.setMessage "Host process {pid} not found" >> Log.addContext "pid" pid >> Log.addExn e)
       quit ()

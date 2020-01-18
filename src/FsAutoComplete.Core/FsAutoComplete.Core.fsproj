@@ -48,6 +48,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
     <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 

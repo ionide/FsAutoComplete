@@ -17,7 +17,7 @@ insert_final_newline = ignore
 trim_trailing_whitespace = false
 
 [*.fs]
-indent_size = 4
+indent_size = 2
 
 [*.fsx]
-indent_size = 4
+indent_size = 2
