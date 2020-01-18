@@ -37,7 +37,7 @@ let entry args =
       AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
       use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-
+      // TODO: ensure that logger is configured to write to stderr instead of stdout because LSP communicates over stdout
       FsAutoComplete.Lsp.start commands
     with
     | :? ArguParseException as ex ->
