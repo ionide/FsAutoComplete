@@ -16,3 +16,8 @@ Microsoft.Data.Sqlite
 OptimizedPriorityQueue
 ICSharpCode.Decompiler
 Fantomas
+
+Serilog
+Serilog.Sinks.File
+Serilog.Sinks.Console
+Serilog.Sinks.Async
