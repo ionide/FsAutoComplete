@@ -1794,7 +1794,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member __.FSharpDotnetNewList(p: DotnetNewListRequest) = async {
         Debug.print "[LSP call] FSharpDotnetNewList"
-        let! res = commands.DotnetNewList p.Query
+        let! res = commands.DotnetNewList ()
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1806,15 +1806,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpDotnetNewGetDetails(p: DotnetNewGetDetailsRequest) = async {
-        Debug.print "[LSP call] FSharpDotnetNewGetDetails"
-        let! res = commands.DotnetNewGetDetails p.Query
+    member __.FSharpDotnetNewRun(p: DotnetNewRunRequest) = async {
+        Debug.print "[LSP call] FSharpDotnetNewRun"
+        let! res = commands.DotnetNewRun p.Template p.Name p.Output []
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.Res (funcs) ->
-                { Content = CommandResponse.dotnetnewgetDetails FsAutoComplete.JsonSerializer.writeJson funcs }
+            | CoreResponse.Res (_) ->
+                { Content = "" }
                 |> success
 
         return res
@@ -1947,7 +1947,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))
         |> Map.add "fsharp/fsdn" (requestHandling (fun s p -> s.FSharpFsdn(p) ))
         |> Map.add "fsharp/dotnetnewlist" (requestHandling (fun s p -> s.FSharpDotnetNewList(p) ))
-        |> Map.add "fsharp/dotnetnewgetDetails" (requestHandling (fun s p -> s.FSharpDotnetNewGetDetails(p) ))
+        |> Map.add "fsharp/dotnetnewrun" (requestHandling (fun s p -> s.FSharpDotnetNewRun(p) ))
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
