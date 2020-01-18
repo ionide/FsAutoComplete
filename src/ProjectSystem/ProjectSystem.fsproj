@@ -12,10 +12,6 @@
     <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN;NETCORE_FSI</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\paket-files\TheAngryByrd\FsLibLog\src\FsLibLog\FsLibLog.fs">
-      <Paket>True</Paket>
-      <Link>paket-files/FsLibLog.fs</Link>
-    </Compile>
     <Compile Include="Utils.fs" />
     <Compile Include="FSIRefs.fs" />
     <Compile Include="FscArguments.fs" />

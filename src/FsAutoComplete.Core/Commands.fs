@@ -3,6 +3,7 @@ namespace FsAutoComplete
 open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
+open FsAutoComplete.Logging
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
 open FsAutoComplete.InterfaceStubGenerator
@@ -55,6 +56,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let notify = Event<NotificationEvent>()
 
     let fileStateSet = Event<unit>()
+    let commandsLogger = LogProvider.getLoggerByName "Commands"
+    let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
+    let analyzerLogger = LogProvider.getLoggerByName "Analyzers"
 
     do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
 
@@ -70,7 +74,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     )
 
     do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
-        Debug.print "[Commands - checker events] Script typecheck dependencies changed, purging expired script options"
+        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
         let mutable count = 0
         state.FSharpProjectOptions
         |> Seq.choose (function | (path, _) when path.EndsWith ".fsx" -> Some path
@@ -79,12 +83,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             state.RemoveProjectOptions path
             count <- count + 1
         )
-        Debug.print "[Commands - checker events] Script typecheck dependencies changed, purged %d expired script options" count
+        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContext "optionCount" count)
     )
 
     do if not backgroundServiceEnabled then
             checker.FileChecked.Add (fun (n,_) ->
-                Debug.print "[Commands - checker events] File checked - %s" n
+                checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContext "file" n)
                 async {
                     try
                         match state.GetProjectOptions n with
@@ -121,7 +125,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             try
                 let analyzers = state.Analyzers.Values |> Seq.collect id
                 if analyzers |> Seq.length > 0 then
-                    Debug.print "[Analyzers] File checed - %s" file
+                    analyzerLogger.info (Log.setMessage "begin analysis of {file}" >> Log.addContext "file" file)
                     match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                     | Some pt, Some tast ->
                         let context : SDK.Context = {
@@ -140,7 +144,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             with
             | ex ->
-                Debug.print "[Analyzers] Run failed for %s - %s" file ex.Message
+                analyzerLogger.error (Log.setMessage "Run failed for {file}" >> Log.addContext "file" file >> Log.addExn ex)
         } |> Async.Start
     )
 
@@ -175,7 +179,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     // is raised, who can be ignored
                     ()
                 | ex ->
-                    Debug.print "[Commands] Failed to parse file '%s' exn %A" file ex
+                    commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContext "file" file >> Log.addExn ex)
             ) }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
@@ -293,7 +297,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         let file = Path.GetFullPath file
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
-        Debug.print "[Commands] TryGetLatestTypeCheckResultsForFile - %s; State - %A; Checked - %A" file stateVersion checkedVersion
+        commandsLogger.debug (Log.setMessage "TryGetLatestTypeCheckResultsFor {file}, State@{stateVersion}, Checked@{checkedVersion}"
+                              >> Log.addContext "file" file
+                              >> Log.addContext "stateVersion" stateVersion
+                              >> Log.addContext "checkedVersion" checkedVersion)
+
         match stateVersion, checkedVersion with
         | Some sv, Some cv when cv < sv ->
             x.FileChecked

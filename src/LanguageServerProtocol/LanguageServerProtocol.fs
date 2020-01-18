@@ -2454,7 +2454,6 @@ module Client =
                 | None ->
                     match methodCallResult with
                     | Some ok->
-                        // FsAutoComplete.Debug.print "[LSP-Internals] Provided response %A to notification %s but it is ignored" ok request.Method
                         return Some (JsonRpc.Response.Success(None, Some ok))
                     | None ->
                         return None

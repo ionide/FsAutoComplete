@@ -15,6 +15,7 @@
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj">
       <Name>LanguageServerProtocol.fsproj</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\ProjectSystem\Utils.fs" />

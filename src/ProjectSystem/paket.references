@@ -3,7 +3,3 @@ Sln
 Dotnet.ProjInfo
 Dotnet.ProjInfo.Workspace.FCS
 Newtonsoft.Json
-
-# this project is the closest thing to a 'root' we have,
-# so this is where we import the liblog wrapper
-File: FsLibLog.fs
