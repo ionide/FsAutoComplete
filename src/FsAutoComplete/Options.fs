@@ -33,6 +33,23 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | BackgroundServiceEnabled -> "enable background service"
 
+  let isCategory (category: string) (e: LogEvent) =
+    match e.Properties.TryGetValue "SourceContext" with
+    | true, loggerName ->
+      match loggerName with
+      | :? ScalarValue as v ->
+        match v.Value with
+        | :? string as s when s = category -> true
+        | _ -> false
+      | _ -> false
+    | false,  _ -> false
+
+  let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) =
+    e.Level >= minLevel
+
+  // will use later when a mapping-style config of { "category": "minLevel" } is established
+  let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
+
   let apply (levelSwitch: LoggingLevelSwitch) (logConfig: Serilog.LoggerConfiguration) (args: ParseResults<CLIArguments>) =
 
     let applyArg arg =
@@ -54,17 +71,7 @@ module Options =
           filters
           |> Array.iter (fun category ->
             // category is encoded in the SourceContext property, so we filter messages based on that property's value
-            logConfig.Filter.ByExcluding(fun event ->
-              match event.Properties.TryGetValue "SourceContext" with
-              | true, loggerName ->
-                match loggerName with
-                | :? ScalarValue as v ->
-                  match v.Value with
-                  | :? string as s when s = category -> true
-                  | _ -> false
-                | _ -> false
-              | false,  _ -> false
-            ) |> ignore
+            logConfig.Filter.ByExcluding(Func<_,_>(isCategory category)) |> ignore
           )
       | Version
       | WaitForDebugger

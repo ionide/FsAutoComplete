@@ -18,10 +18,11 @@ let entry args =
 
       // default the verbosity to warning
       let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
-      let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}<{SourceContext}>{NewLine}{Exception}"
+      let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
       let logConf =
         LoggerConfiguration()
           .MinimumLevel.ControlledBy(verbositySwitch)
+          .Enrich.FromLogContext()
           .WriteTo.Async(
             fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
           ) // make it so that every console log is logged to stderr
@@ -54,8 +55,9 @@ let entry args =
       AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
       use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-
-      FsAutoComplete.Lsp.start commands
+      let result = FsAutoComplete.Lsp.start commands
+      Serilog.Log.CloseAndFlush()
+      result
     with
     | :? ArguParseException as ex ->
       printfn "%s" ex.Message

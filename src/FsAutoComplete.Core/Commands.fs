@@ -82,12 +82,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             state.RemoveProjectOptions path
             count <- count + 1
         )
-        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContext "optionCount" count)
+        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContextDestructured "optionCount" count)
     )
 
     do if not backgroundServiceEnabled then
             checker.FileChecked.Add (fun (n,_) ->
-                checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContext "file" n)
+                checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
                 async {
                     try
                         match state.GetProjectOptions n with
@@ -124,7 +124,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             try
                 let analyzers = state.Analyzers.Values |> Seq.collect id
                 if analyzers |> Seq.length > 0 then
-                    Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContext "file" file)
+                    Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
                     match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                     | Some pt, Some tast ->
                         let context : SDK.Context = {
@@ -143,7 +143,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             with
             | ex ->
-                Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContext "file" file >> Log.addExn ex)
+                Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn ex)
         } |> Async.Start
     )
 
@@ -178,7 +178,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     // is raised, who can be ignored
                     ()
                 | ex ->
-                    commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContext "file" file >> Log.addExn ex)
+                    commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContextDestructured "file" file >> Log.addExn ex)
             ) }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
@@ -297,9 +297,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
         commandsLogger.debug (Log.setMessage "TryGetLatestTypeCheckResultsFor {file}, State@{stateVersion}, Checked@{checkedVersion}"
-                              >> Log.addContext "file" file
-                              >> Log.addContext "stateVersion" stateVersion
-                              >> Log.addContext "checkedVersion" checkedVersion)
+                              >> Log.addContextDestructured "file" file
+                              >> Log.addContextDestructured "stateVersion" stateVersion
+                              >> Log.addContextDestructured "checkedVersion" checkedVersion)
 
         match stateVersion, checkedVersion with
         | Some sv, Some cv when cv < sv ->
