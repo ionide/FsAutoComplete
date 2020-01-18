@@ -349,6 +349,10 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         }
 
 module Program =
+    open Serilog
+    open Serilog.Core
+    open Serilog.Events
+    open FsAutoComplete.Logging
 
     let state = State.Initial
 
@@ -368,6 +372,23 @@ module Program =
 
     [<EntryPoint>]
     let main argv =
+
+        // default the verbosity to warning
+        let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
+        let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+        let logConf =
+          LoggerConfiguration()
+            .MinimumLevel.ControlledBy(verbositySwitch)
+            .Enrich.FromLogContext()
+            .WriteTo.Async(
+              fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
+            ) // make it so that every console log is logged to stderr
+
+        let logger = logConf.CreateLogger()
+        Serilog.Log.Logger <- logger
+        LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
+
+
         let pid = Int32.Parse argv.[0]
         let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
         let fs = FileSystem(originalFs, state.Files.TryFind)
@@ -375,4 +396,5 @@ module Program =
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
         SymbolCache.initCache (Environment.CurrentDirectory)
         let _ = startCore()
+        Serilog.Log.CloseAndFlush()
         0

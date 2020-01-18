@@ -84,7 +84,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
                         let content = contentChange.Text.Split('\n')
                         let tfmConfig = config.UseSdkScripts
-                        logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContext "file" filePath)
+                        logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
                         do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
                         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
@@ -94,7 +94,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     else
                         logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
                 | _ ->
-                    logger.info (Log.setMessage "ParseFile - Found no change for {file}" >> Log.addContext "file" filePath)
+                    logger.info (Log.setMessage "ParseFile - Found no change for {file}" >> Log.addContextDestructured "file" filePath)
         } |> Async.Start
 
     let parseFileDebuncer = Debounce(500, parseFile)
@@ -182,7 +182,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     do
         commands.Notify.Subscribe(fun n ->
             try
-                logger.info (Log.setMessage "Notify {event}" >> Log.addContext "event" n)
+                logger.info (Log.setMessage "Notify {event}" >> Log.addContextDestructured "event" n)
                 match n with
                 | NotificationEvent.FileParsed fn ->
                     {Content = fn}
@@ -318,19 +318,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath()
-            logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContext "file" file >> Log.addContext "pos" pos)
+            logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
             return!
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                 | ResultOrString.Error s ->
-                    logger.error (Log.setMessage "PositionHandler - Getting file checker options for {file} failed" >> Log.addContext "error" s >> Log.addContext "file" file)
+                    logger.error (Log.setMessage "PositionHandler - Getting file checker options for {file} failed" >> Log.addContextDestructured "error" s >> Log.addContextDestructured "file" file)
                     AsyncLspResult.internalError s
                 | ResultOrString.Ok (options, lines, lineStr) ->
                     try
                         let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
                         match tyResOpt with
                         | None ->
-                            logger.info (Log.setMessage "PositionHandler - Cached typecheck results not yet available for {file}" >> Log.addContext "file" file)
+                            logger.info (Log.setMessage "PositionHandler - Cached typecheck results not yet available for {file}" >> Log.addContextDestructured "file" file)
                             AsyncLspResult.internalError "Cached typecheck results not yet available"
                         | Some tyRes ->
                             async {
@@ -338,11 +338,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 match r with
                                 | Choice1Of2 r -> return r
                                 | Choice2Of2 e ->
-                                    logger.error (Log.setMessage "PositionHandler - Failed during child operation on file {file}" >> Log.addContext "file" file >> Log.addExn e)
+                                    logger.error (Log.setMessage "PositionHandler - Failed during child operation on file {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
                                     return LspResult.internalError e.Message
                             }
                     with e ->
-                        logger.error (Log.setMessage "PositionHandler - Operation failed for file {file}" >> Log.addContext "file" file >> Log.addExn e)
+                        logger.error (Log.setMessage "PositionHandler - Operation failed for file {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
                         AsyncLspResult.internalError e.Message
         }
 
@@ -351,7 +351,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath()
-            logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContext "file" file >> Log.addContext "pos" pos)
+            logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
             return!
                     try
@@ -360,12 +360,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         return!
                             match tyResOpt with
                             | None ->
-                                logger.error (Log.setMessage "PositionHandler - Cached typecheck results for {file} not yet available and are required" >> Log.addContext "file" file)
+                                logger.error (Log.setMessage "PositionHandler - Cached typecheck results for {file} not yet available and are required" >> Log.addContextDestructured "file" file)
                                 AsyncLspResult.internalError "Cached typecheck results not yet available"
                             | Some tyRes ->
                                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                                 | ResultOrString.Error s ->
-                                    logger.error (Log.setMessage "PositionHandler - Getting file checker options for {file} failed" >> Log.addContext "error" s >> Log.addContext "file" file)
+                                    logger.error (Log.setMessage "PositionHandler - Getting file checker options for {file} failed" >> Log.addContextDestructured "error" s >> Log.addContextDestructured "file" file)
                                     AsyncLspResult.internalError s
                                 | ResultOrString.Ok (options, lines, lineStr) ->
                                     async {
@@ -373,12 +373,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                         match r with
                                         | Choice1Of2 r -> return r
                                         | Choice2Of2 e ->
-                                            logger.error (Log.setMessage "PositionHandler - Failed during child operation on file {file}" >> Log.addContext "file" file >> Log.addExn e)
+                                            logger.error (Log.setMessage "PositionHandler - Failed during child operation on file {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
                                             return LspResult.internalError e.Message
                                     }
                         }
                     with e ->
-                        logger.error (Log.setMessage "PositionHandler - Operation failed for file {file}" >> Log.addContext "file" file >> Log.addExn e)
+                        logger.error (Log.setMessage "PositionHandler - Operation failed for file {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
                         AsyncLspResult.internalError e.Message
         }
 
@@ -532,7 +532,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.TextDocumentCompletion(p: CompletionParams) = async {
 
-        logger.info (Log.setMessage "TextDocumentCompletion triggered with {context}" >> Log.addContext "context" p.Context)
+        logger.info (Log.setMessage "TextDocumentCompletion triggered with {context}" >> Log.addContextDestructured "context" p.Context)
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
         let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
         let doc = p.TextDocument
@@ -972,10 +972,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     | [] ->
                       c
                     | warnings ->
-                      fantomasLogger.warn (Log.setMessage "Warnings while parsing the configuration file at {path}" >> Log.addContext "path" currentFolder >> Log.addContext "warnings" warnings)
+                      fantomasLogger.warn (Log.setMessage "Warnings while parsing the configuration file at {path}" >> Log.addContextDestructured "path" currentFolder >> Log.addContextDestructured "warnings" warnings)
                       c
                 | Fantomas.FormatConfig.Failure err ->
-                    fantomasLogger.error (Log.setMessage "Error while parsing the configuration files at {path}. Using default configuration" >> Log.addContext "path" currentFolder >> Log.addExn err)
+                    fantomasLogger.error (Log.setMessage "Error while parsing the configuration files at {path}. Using default configuration" >> Log.addContextDestructured "path" currentFolder >> Log.addExn err)
                     Fantomas.FormatConfig.FormatConfig.Default
 
             let! formatted =
@@ -1442,11 +1442,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
                 let file = fileUriToLocalPath data.[0]
-                logger.info (Log.setMessage "CodeLensResolve - Position request for {file} at {pos}" >> Log.addContext "file" file >> Log.addContext "pos" pos)
+                logger.info (Log.setMessage "CodeLensResolve - Position request for {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
-                        logger.error (Log.setMessage "CodeLensResolve - Getting file checker options failed for {file}" >> Log.addContext "file" file >> Log.addContext "error" s)
+                        logger.error (Log.setMessage "CodeLensResolve - Getting file checker options failed for {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" s)
                         let cmd = { Title = "No options"; Command = None; Arguments = None }
                         { p with Command = Some cmd } |> success |> async.Return
                     | ResultOrString.Ok (options, _, lineStr) ->
@@ -1456,7 +1456,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 return!
                                     match tyResOpt with
                                     | None ->
-                                        logger.warn (Log.setMessage "CodeLensResolve - Cached typecheck results not yet available for {file}" >> Log.addContext "file" file)
+                                        logger.warn (Log.setMessage "CodeLensResolve - Cached typecheck results not yet available for {file}" >> Log.addContextDestructured "file" file)
                                         let cmd = { Title = "No typecheck results"; Command = None; Arguments = None }
                                         { p with Command = Some cmd } |> success |> async.Return
                                     | Some tyRes ->
@@ -1465,13 +1465,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                             match r with
                                             | Choice1Of2 r -> return r
                                             | Choice2Of2 e ->
-                                                logger.error (Log.setMessage "CodeLensResolve - Child operation failed for {file}" >> Log.addContext "file" file >> Log.addExn e)
+                                                logger.error (Log.setMessage "CodeLensResolve - Child operation failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
                                                 let cmd = { Title = ""; Command = None; Arguments = None }
                                                 return { p with Command = Some cmd } |> success
                                         }
                             }
                         with e ->
-                            logger.error (Log.setMessage "CodeLensResolve - Operation failed on {file}" >> Log.addContext "file" file >> Log.addExn e)
+                            logger.error (Log.setMessage "CodeLensResolve - Operation failed on {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
                             let cmd = { Title = ""; Command = None; Arguments = None }
                             { p with Command = Some cmd } |> success |> async.Return
             }
@@ -1484,7 +1484,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let res =
                         match res with
                         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                            logger.error (Log.setMessage "CodeLensResolve - error on file {file}" >> Log.addContext "file" file >> Log.addContext "error" msg)
+                            logger.error (Log.setMessage "CodeLensResolve - error on file {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" msg)
                             let cmd = { Title = ""; Command = None; Arguments = None }
                             {p with Command = Some cmd} |> success
                         | CoreResponse.Res (typ, parms, _) ->
@@ -1497,7 +1497,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let res =
                         match res with
                         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                            logger.error (Log.setMessage "CodeLensResolve - error getting symbol use for {file}" >> Log.addContext "file" file >> Log.addContext "error" msg)
+                            logger.error (Log.setMessage "CodeLensResolve - error getting symbol use for {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" msg)
                             let cmd = {Title = ""; Command = None; Arguments = None}
                             {p with Command = Some cmd} |> success
                         | CoreResponse.Res (LocationResponse.Use (sym, uses)) ->
@@ -1560,7 +1560,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             |> Server.deserialize<FSharpConfigRequest>
         let c = config.AddDto dto.FSharp
         updateConfig c
-        logger.info (Log.setMessage "Workspace configuration changed" >> Log.addContext "config" c)
+        logger.info (Log.setMessage "Workspace configuration changed" >> Log.addContextDestructured "config" c)
         return ()
     }
 
@@ -1598,7 +1598,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async {
                 let pos = FcsRange.mkPos (p.Position.Line) (p.Position.Character + 2)
                 let file = IO.Path.GetFullPath (p.TextDocument.Uri)
-                logger.info (Log.setMessage "FSharpSignatureData - Position request for {file} at {pos}" >> Log.addContext "file" file >> Log.addContext "pos" pos)
+                logger.info (Log.setMessage "FSharpSignatureData - Position request for {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
@@ -1885,20 +1885,20 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.LoadAnalyzers(path) = async {
         try
             if config.EnableAnalyzers then
-                Loggers.analyzers.info (Log.setMessage "Using analyzer root of {root}" >> Log.addContext "config" config.AnalyzersPath)
+                Loggers.analyzers.info (Log.setMessage "Using analyzer root of {root}" >> Log.addContextDestructured "config" config.AnalyzersPath)
                 config.AnalyzersPath
                 |> Array.iter (fun a ->
                     match rootPath with
                     | None -> ()
                     | Some rp ->
                         let dir = System.IO.Path.Combine(rp, a)
-                        Loggers.analyzers.info (Log.setMessage "Loading analyzers from {dir}" >> Log.addContext "dir" dir)
+                        Loggers.analyzers.info (Log.setMessage "Loading analyzers from {dir}" >> Log.addContextDestructured "dir" dir)
                         dir
                         |> commands.LoadAnalyzers
                         |> Async.map (fun n ->
                             match n with
                             | CoreResponse.InfoRes msg ->
-                                Loggers.analyzers.info (Log.setMessage "Analyzer {name} loaded" >> Log.addContext "name" a >> Log.addContext "loadMessage" msg)
+                                Loggers.analyzers.info (Log.setMessage "Analyzer {name} loaded" >> Log.addContextDestructured "name" a >> Log.addContextDestructured "loadMessage" msg)
                             | _ -> ()
                         )
                         |> Async.Start
@@ -1946,7 +1946,7 @@ let start (commands: Commands) =
 
     try
         let result = startCore commands
-        logger.info (Log.setMessage "Start - Ending LSP mode with {reason}" >> Log.addContext "reason" result)
+        logger.info (Log.setMessage "Start - Ending LSP mode with {reason}" >> Log.addContextDestructured "reason" result)
         int result
     with
     | ex ->

@@ -56,8 +56,8 @@ module Debug =
 
         let message =
           match eventArgs.EventName with
-          | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> Log.addContext "function" (functionId eventArgs.Payload.[0])
-          | "LogMessage" -> Log.setMessage "({function}) {message}" >> Log.addContext "function" (functionId eventArgs.Payload.[1]) >> Log.addContext "message" (eventArgs.Payload.[0] :?> string)
+          | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[0])
+          | "LogMessage" -> Log.setMessage "({function}) {message}" >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[1]) >> Log.addContextDestructured "message" (eventArgs.Payload.[0] :?> string)
           | "BlockStart" | "BlockMessageStart" ->
              inflightEvents.TryAdd(eventArgs.RelatedActivityId, DateTimeOffset.UtcNow) |> ignore
              id
@@ -65,19 +65,19 @@ module Debug =
             match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
-              Log.setMessage "Finished compiler function {function} in {seconds}" >> Log.addContext "function" (functionId eventArgs.Payload.[0]) >> Log.addContext "seconds" delta.TotalSeconds
+              Log.setMessage "Finished compiler function {function} in {seconds}" >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[0]) >> Log.addContextDestructured "seconds" delta.TotalSeconds
             | false, _ -> id
           | "BlockMessageStop" ->
             match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
               Log.setMessage "Finished compiler function {function} with parameter {parameter} in {seconds}"
-              >> Log.addContext "function" (functionId eventArgs.Payload.[1])
-              >> Log.addContext "seconds" delta.TotalSeconds
-              >> Log.addContext "parameter" (eventArgs.Payload.[0])
+              >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[1])
+              >> Log.addContextDestructured "seconds" delta.TotalSeconds
+              >> Log.addContextDestructured "parameter" (eventArgs.Payload.[0])
             | false, _ -> id
           | other ->
-            Log.setMessage "Unknown event {name} with payload {payload}" >> Log.addContext "name" eventArgs.EventName >> Log.addContext "payload" (eventArgs.Payload |> Seq.toList)
+            Log.setMessage "Unknown event {name} with payload {payload}" >> Log.addContextDestructured "name" eventArgs.EventName >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
 
         (eventLevelToLogLevel eventArgs.Level) message
 

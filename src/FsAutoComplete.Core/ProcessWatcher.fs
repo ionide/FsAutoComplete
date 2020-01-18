@@ -42,5 +42,5 @@ module ProcessWatcher =
       watch hostProcess (fun _ -> quit ())
     with
     | e ->
-      logger.error (Log.setMessage "Host process {pid} not found" >> Log.addContext "pid" pid >> Log.addExn e)
+      logger.error (Log.setMessage "Host process {pid} not found" >> Log.addContextDestructured "pid" pid >> Log.addExn e)
       quit ()

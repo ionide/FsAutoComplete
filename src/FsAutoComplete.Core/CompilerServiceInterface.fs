@@ -98,10 +98,10 @@ type ParseAndCheckResults
         return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
-        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContext "range" range)
+        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" range)
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
-        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContext "range" rangeInNonexistentFile)
+        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" rangeInNonexistentFile)
         return Error ("Could not find declaration")
         // uncomment this to try to workaround the FCS bug
         //return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
@@ -496,23 +496,23 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       sdkRefsLogger.info (Log.setMessage "No dotnet SDK root path found")
       Map.empty
     | Some root, None, None ->
-      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk and runtime versions inside {root}" >> Log.addContext "root" root)
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk and runtime versions inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some root, None, _ ->
-      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk version inside {root}" >> Log.addContext "root" root)
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk version inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some root, _, None ->
-      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x runtime version inside {root}" >> Log.addContext "root" root)
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x runtime version inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
       let tfm = FSIRefs.tfmForRuntime sdkVersion
       let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) tfm true
       sdkRefsLogger.info (Log.setMessage "Found refs for {sdk} inside {root}"
-                          >> Log.addContext "root" dotnetSdkRoot
-                          >> Log.addContext "sdk" sdkVersion
-                          >> Log.addContext "runtimeVersion" runtimeVersion
-                          >> Log.addContext "tfm" tfm
-                          >> Log.addContext "refs" refs)
+                          >> Log.addContextDestructured "root" dotnetSdkRoot
+                          >> Log.addContextDestructured "sdk" sdkVersion
+                          >> Log.addContextDestructured "runtimeVersion" runtimeVersion
+                          >> Log.addContextDestructured "tfm" tfm
+                          >> Log.addContextDestructured "refs" refs)
 
       refs
       |> List.map (fun path -> Path.GetFileNameWithoutExtension path, path)
@@ -533,7 +533,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
   let logQueueLength (logger: ILog) msg =
-    checkerLogger.trace (Log.setMessage "Current Queue Length is {queueLength}" >> Log.addContext "queueLength" checker.CurrentQueueLength)
+    checkerLogger.trace (Log.setMessage "Current Queue Length is {queueLength}" >> Log.addContextDestructured "queueLength" checker.CurrentQueueLength)
     logger.info msg
 
   /// replace any BCL/FSharp.Core/FSI refs that FCS gives us with our own set, which is more probe-able
@@ -565,7 +565,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
     let files = Array.append fsiAdditionalFiles projectOptions.SourceFiles
-    logQueueLength optsLogger (Log.setMessage "Source file list is {files}" >> Log.addContext "files" files)
+    logQueueLength optsLogger (Log.setMessage "Source file list is {files}" >> Log.addContextDestructured "files" files)
     { projectOptions with
         SourceFiles = files }
 
@@ -591,7 +591,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       ])
 
   member private __.GetNetFxScriptOptions(file, source) = async {
-    logQueueLength optsLogger (Log.setMessage "Getting NetFX options for script file {file}" >> Log.addContext "file" file)
+    logQueueLength optsLogger (Log.setMessage "Getting NetFX options for script file {file}" >> Log.addContextDestructured "file" file)
     let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
     let allModifications = addLoadedFiles >> resolveRelativeFilePaths
@@ -599,7 +599,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   }
 
   member private __.GetNetCoreScriptOptions(file, source) = async {
-    logQueueLength optsLogger (Log.setMessage "Getting NetCore options for script file {file}" >> Log.addContext "file" file)
+    logQueueLength optsLogger (Log.setMessage "Getting NetCore options for script file {file}" >> Log.addContextDestructured "file" file)
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
     let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
@@ -617,20 +617,20 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     match errors with
     | [] ->
       let refs, otherOpts = projOptions.OtherOptions |> Array.partition (fun o -> o.StartsWith("-r"))
-      logQueueLength optsLogger (Log.setMessage "Resolved references" >> Log.addContext "refs" refs)
-      logQueueLength optsLogger (Log.setMessage "Resolved other options" >> Log.addContext "otherOpts" otherOpts)
+      logQueueLength optsLogger (Log.setMessage "Resolved references" >> Log.addContextDestructured "refs" refs)
+      logQueueLength optsLogger (Log.setMessage "Resolved other options" >> Log.addContextDestructured "otherOpts" otherOpts)
     | errs ->
-      logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved options with errors" >> Log.addContext "opts" projOptions >> Log.addContext "errors" errs)
+      logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved options with errors" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
 
     match FakeSupport.detectFakeScript file with
     | None ->
-      logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContext "file" file)
+      logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContextDestructured "file" file)
       return projOptions
     | Some (detectionInfo) ->
-      logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContext "file" file)
+      logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
       try
         let otherOpts = FakeSupport.getProjectOptions detectionInfo
-        logQueueLength optsLogger (Log.setMessage "Discovered FAKE options" >> Log.addContext "file" file >> Log.addContext "otherOpts" otherOpts)
+        logQueueLength optsLogger (Log.setMessage "Discovered FAKE options" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
         return { projOptions with OtherOptions = otherOpts }
       with e ->
         logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)
@@ -638,7 +638,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
-    logQueueLength checkerLogger (Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}" >> Log.addContext "file" fn)
+    logQueueLength checkerLogger (Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}" >> Log.addContextDestructured "file" fn)
     let opt = clearProjectReferences opt
     checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
@@ -650,14 +650,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     scriptTypecheckRequirementsChanged.Publish
 
   member __.ParseFile(fn, source, fpo) =
-    logQueueLength checkerLogger (Log.setMessage "ParseFile - {file}" >> Log.addContext "file" fn)
+    logQueueLength checkerLogger (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
     let source = SourceText.ofString source
     checker.ParseFile(fn, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
-      logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContext "opName" opName)
+      logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
       let source = SourceText.ofString source
       let options = clearProjectReferences options
       let fixedFilePath = ensureAbsolutePath filePath
@@ -668,7 +668,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
             let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
             match c with
             | FSharpCheckFileAnswer.Aborted ->
-              logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContext "opName" opName >> Log.addContext "Errors" (List.ofArray p.Errors))
+              logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "Errors" (List.ofArray p.Errors))
               ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
@@ -677,14 +677,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %s" file
-    logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContext "opName" opName)
+    logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
     let source = source |> Option.map SourceText.ofString
     let options = clearProjectReferences options
     checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source, userOpName=opName)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
   member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
-    logQueueLength checkerLogger (Log.setMessage "GetUsesOfSymbol - {file}" >> Log.addContext "file" file)
+    logQueueLength checkerLogger (Log.setMessage "GetUsesOfSymbol - {file}" >> Log.addContextDestructured "file" file)
     let projects = x.GetDependingProjects file options
     return!
       match projects with
@@ -702,7 +702,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   }
 
   member __.GetDeclarations (fileName, source, options, version) = async {
-    logQueueLength checkerLogger (Log.setMessage "GetDeclarations - {file}" >> Log.addContext "file" fileName)
+    logQueueLength checkerLogger (Log.setMessage "GetDeclarations - {file}" >> Log.addContextDestructured "file" fileName)
     let source = SourceText.ofString source
     let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
