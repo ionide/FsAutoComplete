@@ -1,7 +1,6 @@
 module BackgroundServices
 
 open FsAutoComplete
-open FsAutoComplete.Logging
 open LanguageServerProtocol
 open System.IO
 open FSharp.Compiler.SourceCodeServices
@@ -47,12 +46,10 @@ type MessageType =
 let messageRecived = Event<MessageType>()
 
 let client =
-    let logger = LogProvider.getLoggerByName "BackgroundService"
 
     let notificationsHandler =
         Map.empty
         |> Map.add "background/notify" (Client.notificationHandling (fun (msg: Msg) -> async {
-            logger.debug (Log.setMessage msg.Value)
             return None
         } ))
         |> Map.add "background/diagnostics" (Client.notificationHandling (fun (msg: Types.PublishDiagnosticsParams) -> async {

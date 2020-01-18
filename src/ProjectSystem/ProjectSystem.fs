@@ -17,7 +17,7 @@ type ProjectResult = {
 
 [<RequireQualifiedAccess>]
 type ProjectResponse =
-    | Project of ProjectResult
+    | Project of project: ProjectResult
     | ProjectError of errorDetails: GetProjectOptionsErrors
     | ProjectLoading of projectFileName: string
     | WorkspaceLoad of finished: bool
