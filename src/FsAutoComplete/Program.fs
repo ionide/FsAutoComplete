@@ -5,6 +5,10 @@ open System.IO
 open FSharp.Compiler
 open FsAutoComplete.JsonSerializer
 open Argu
+open Serilog
+open Serilog.Core
+open Serilog.Events
+open FsAutoComplete.Logging
 
 [<EntryPoint>]
 let entry args =
@@ -12,6 +16,15 @@ let entry args =
     try
       System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
+      // default the verbosity to warning
+      let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
+      let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}<{SourceContext}>{NewLine}{Exception}"
+      let logConf =
+        LoggerConfiguration()
+          .MinimumLevel.ControlledBy(verbositySwitch)
+          .WriteTo.Async(
+            fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
+          ) // make it so that every console log is logged to stderr
 
       let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
 
@@ -26,7 +39,11 @@ let entry args =
           printfn "FsAutoComplete %s (git sha %s)" (version.Version) (version.GitSha)
           exit 0 )
 
-      Options.apply results
+      Options.apply verbositySwitch logConf results
+
+      let logger = logConf.CreateLogger()
+      Serilog.Log.Logger <- logger
+      LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
       let backgroundServiceEnabled =
         results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
@@ -37,7 +54,7 @@ let entry args =
       AbstractIL.Internal.Library.Shim.FileSystem <- fs
 
       use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-      // TODO: ensure that logger is configured to write to stderr instead of stdout because LSP communicates over stdout
+
       FsAutoComplete.Lsp.start commands
     with
     | :? ArguParseException as ex ->

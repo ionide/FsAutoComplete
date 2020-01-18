@@ -4,6 +4,9 @@
 namespace FsAutoComplete
 
 open System
+open Serilog
+open Serilog.Core
+open Serilog.Events
 
 module Options =
   open Argu
@@ -30,26 +33,39 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | BackgroundServiceEnabled -> "enable background service"
 
-  let apply (args: ParseResults<CLIArguments>) =
+  let apply (levelSwitch: LoggingLevelSwitch) (logConfig: Serilog.LoggerConfiguration) (args: ParseResults<CLIArguments>) =
 
     let applyArg arg =
       match arg with
       | Verbose ->
-          // TODO: set level flag
+          levelSwitch.MinimumLevel <- LogEventLevel.Verbose
           ()
       | AttachDebugger ->
           System.Diagnostics.Debugger.Launch() |> ignore<bool>
       | Logfile s ->
           try
-            // TODO: set logger output to tee to file
-            ()
+            logConfig.WriteTo.Async(fun c -> c.File(path = s, levelSwitch = levelSwitch) |> ignore) |> ignore
           with
           | e ->
             printfn "Bad log file: %s" e.Message
             exit 1
       | VFilter v ->
-          // TODO: set category level
-          ()
+          let filters = v.Split([|','|], StringSplitOptions.RemoveEmptyEntries)
+          filters
+          |> Array.iter (fun category ->
+            // category is encoded in the SourceContext property, so we filter messages based on that property's value
+            logConfig.Filter.ByExcluding(fun event ->
+              match event.Properties.TryGetValue "SourceContext" with
+              | true, loggerName ->
+                match loggerName with
+                | :? ScalarValue as v ->
+                  match v.Value with
+                  | :? string as s when s = category -> true
+                  | _ -> false
+                | _ -> false
+              | false,  _ -> false
+            ) |> ignore
+          )
       | Version
       | WaitForDebugger
       | BackgroundServiceEnabled
