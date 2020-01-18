@@ -3,6 +3,14 @@
 // --------------------------------------------------------------------------------------
 namespace FsAutoComplete
 
+/// loggers that are shared between components
+[<RequireQualifiedAccess>]
+module Loggers =
+  open FsAutoComplete.Logging
+
+  let analyzers = LogProvider.getLoggerByName "Analyzers"
+
+
 [<RequireQualifiedAccess>]
 module Debug =
   open System

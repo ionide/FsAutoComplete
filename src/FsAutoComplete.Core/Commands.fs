@@ -58,7 +58,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let fileStateSet = Event<unit>()
     let commandsLogger = LogProvider.getLoggerByName "Commands"
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
-    let analyzerLogger = LogProvider.getLoggerByName "Analyzers"
 
     do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
 
@@ -125,7 +124,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             try
                 let analyzers = state.Analyzers.Values |> Seq.collect id
                 if analyzers |> Seq.length > 0 then
-                    analyzerLogger.info (Log.setMessage "begin analysis of {file}" >> Log.addContext "file" file)
+                    Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContext "file" file)
                     match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                     | Some pt, Some tast ->
                         let context : SDK.Context = {
@@ -144,7 +143,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             with
             | ex ->
-                analyzerLogger.error (Log.setMessage "Run failed for {file}" >> Log.addContext "file" file >> Log.addExn ex)
+                Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContext "file" file >> Log.addExn ex)
         } |> Async.Start
     )
 

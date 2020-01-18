@@ -35,12 +35,14 @@ module Options =
     let applyArg arg =
       match arg with
       | Verbose ->
-          Debug.verbose <- true
+          // TODO: set level flag
+          ()
       | AttachDebugger ->
           System.Diagnostics.Debugger.Launch() |> ignore<bool>
       | Logfile s ->
           try
-            Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
+            // TODO: set logger output to tee to file
+            ()
           with
           | e ->
             printfn "Bad log file: %s" e.Message
