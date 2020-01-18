@@ -1,4 +1,5 @@
 namespace FsAutoComplete
+open System
 
 module DotnetNewTemplate =
   type Template = {
@@ -6,7 +7,7 @@ module DotnetNewTemplate =
     ShortName : string;
     Language: TemplateLanguage list;
     Tags: string list
-  } 
+  }
   and TemplateLanguage = CSharp | FSharp | VB
   and DetailedTemplate = {
     TemplateName : string;
@@ -27,49 +28,80 @@ module DotnetNewTemplate =
   | Choice of string list
 
   let installedTemplates () : Template list =
-    [ { Name = "Console Application";
-        ShortName = "console";
-        Language = [ TemplateLanguage.CSharp; TemplateLanguage.FSharp; TemplateLanguage.VB ];
-        Tags = ["Common"; "Console"] };
+    let readTemplates () =
 
-      { Name = "Class library";
-        ShortName = "classlib";
-        Language = [ TemplateLanguage.CSharp; TemplateLanguage.FSharp; TemplateLanguage.VB ];
-        Tags = ["Common"; "Library"]  }; 
-    ]
+      let si = System.Diagnostics.ProcessStartInfo()
+      si.FileName <- "dotnet"
+      si.Arguments <- "new --list -lang F#"
+      si.UseShellExecute <- false
+      si.RedirectStandardOutput <- true
+      si.WorkingDirectory <- Environment.CurrentDirectory
+      let proc = System.Diagnostics.Process.Start(si)
+      let mutable output = ""
+      while not proc.StandardOutput.EndOfStream do
+          let line = proc.StandardOutput.ReadLine()
+          output <- output + "\n" + line
+      output
+
+    let parseTemplateOutput (x: string) =
+        let xs =
+            x.Split('\n')
+            |> Array.skipWhile(fun n -> not (n.StartsWith "Templates"))
+            |> Array.filter (fun n -> not (String.IsNullOrWhiteSpace n))
+        let header = xs.[0]
+        let body = xs.[2..]
+        let nameLegth = header.IndexOf("Short")
+        printfn "Length: %A" nameLegth
+        let body =
+            body
+            |> Array.map (fun (n: string) ->
+                printfn "ROW: %s" n
+                let name = n.[0..nameLegth - 1].Trim()
+                let shortName = n.[nameLegth..].Split(' ').[0].Trim()
+                name, shortName
+            )
+
+        body
+
+    readTemplates ()
+    |> parseTemplateOutput
+    |> Array.map (fun (name, shortName) ->
+      {Name = name; ShortName = shortName; Language = [TemplateLanguage.FSharp]; Tags = []}
+    )
+    |> Array.toList
 
   let templateDetails () : DetailedTemplate list =
     [
       { TemplateName = "Console Application";
         Author = "Microsoft";
         TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
-        Options = 
+        Options =
         [ { ParameterName = "--no-restore";
             ShortName = "";
             ParameterType = TemplateParameterType.Bool;
             ParameterDescription = "If specified, skips the automatic restore of the project on create.";
-            DefaultValue = "false / (*) true" }; 
+            DefaultValue = "false / (*) true" };
         ] };
 
       { TemplateName = "Class library";
         Author = "Microsoft";
         TemplateDescription = "A project for creating a class library that targets .NET Standard or .NET Core";
-        Options = 
+        Options =
         [ { ParameterName = "--framework";
             ShortName = "-f";
             ParameterType = TemplateParameterType.Choice ["netcoreapp2.1     - Target netcoreapp2.1";"netstandard2.0    - Target netstandard2.0"];
             ParameterDescription = "The target framework for the project.";
             DefaultValue = "netstandard2.0" };
-            
+
           { ParameterName = "--no-restore";
             ShortName = "";
             ParameterType = TemplateParameterType.Bool;
             ParameterDescription = "If specified, skips the automatic restore of the project on create.";
-            DefaultValue = "false / (*) true" }; 
+            DefaultValue = "false / (*) true" };
 
         ] };
     ]
-  
+
   let isMatch (filterstr: string) (x: string) =
     x.ToLower().Contains(filterstr.ToLower())
 
@@ -91,11 +123,6 @@ module DotnetNewTemplate =
       | _ -> failwithf "The value %A is not supported as parameter" o
     result
 
-  let dotnetnewlist (userInput : string) =
-    installedTemplates ()
-    |> List.map (fun t -> t, extractString t) // extract keywords from the template
-    |> List.filter (fun (t, strings) ->  strings |> List.exists (isMatch userInput)) // check if a keyword match the user string
-    |> List.map (fun (t,strings) -> t)  // return the template
 
   let dotnetnewgetDetails (userInput : string) =
     let templates =
@@ -103,29 +130,46 @@ module DotnetNewTemplate =
       |> List.map (fun t -> t, extractDetailedString t)
       |> List.filter (fun (t,strings) -> strings |> List.exists (nameMatch userInput))
       |> List.map (fun (t,strings) -> t)
-    
-    match templates with 
+
+    match templates with
     | [] -> failwithf "No template exists with name : %s" userInput
     | [x] -> x
     | _ -> failwithf "Multiple templates found : \n%A" templates
 
-  let dotnetnewCreateCli (templateShortName : string) (parameterList : (string * obj) list) : (string * string) =
-    let result1 = "dotnet "
-    let str = "new " + templateShortName
-    //parameterList = [("-n", "myApp");("-lang", "F#");("--no-restore", false)]
+  let dotnetnewCreateCli (templateShortName : string) (name: string option) (output: string option) (parameterList : (string * obj) list) =
+    let str = "new " + templateShortName + "-lang F#"
+    let str =
+      match name with
+      | None -> str
+      | Some s -> str + " -n " + s
+    let str =
+      match output with
+      | None -> str
+      | Some s -> str + " -o " + s
+
     let plist =
-      parameterList 
-      |> List.map ( fun (k,v) -> 
+      parameterList
+      |> List.map ( fun (k,v) ->
                let asString = convertObjToString v
                k,asString )
 
     let str2 =
-      plist 
-      |> List.map ( fun(k,v) -> 
+      plist
+      |> List.map ( fun(k,v) ->
                 let theString = k + " " + v
                 theString )
-      |> String.concat " " 
+      |> String.concat " "
 
-    let result2 = str + " " + str2 
+    let args = str + " " + str2
 
-    (result1,result2)
+    let si = Diagnostics.ProcessStartInfo()
+    si.FileName <- "dotnet"
+    si.Arguments <- args
+    si.UseShellExecute <- false
+    si.RedirectStandardOutput <- true
+    si.WorkingDirectory <- Environment.CurrentDirectory
+    let proc = Diagnostics.Process.Start(si)
+    proc.WaitForExit ()
+
+
+    ()

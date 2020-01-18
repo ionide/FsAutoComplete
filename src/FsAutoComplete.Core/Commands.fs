@@ -255,18 +255,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
             return CoreResponse.Res results
         }
 
-    member x.DotnetNewList (filterstr) = async {
-            let results = DotnetNewTemplate.dotnetnewlist filterstr
+    member x.DotnetNewList () = async {
+            let results = DotnetNewTemplate.installedTemplates ()
             return CoreResponse.Res results
         }
 
-    member x.DotnetNewGetDetails (filterstr) = async {
-            let results = DotnetNewTemplate.dotnetnewgetDetails filterstr
-            return CoreResponse.Res results
-        }
 
-    member x.DotnetNewCreateCli (templateShortName : string) (parameterStr : (string * obj) list) = async {
-            let results = DotnetNewTemplate.dotnetnewCreateCli templateShortName parameterStr
+    member x.DotnetNewRun (templateShortName : string) (name: string option) (output: string option) (parameterStr : (string * obj) list) = async {
+            let results = DotnetNewTemplate.dotnetnewCreateCli templateShortName name output parameterStr
             return CoreResponse.Res results
         }
 

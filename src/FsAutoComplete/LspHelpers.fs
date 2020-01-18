@@ -511,7 +511,7 @@ type FsdnRequest = { Query: string }
 
 type DotnetNewListRequest = { Query: string }
 
-type DotnetNewGetDetailsRequest = { Query: string }
+type DotnetNewRunRequest = { Template: string; Output: string option; Name: string option }
 
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
