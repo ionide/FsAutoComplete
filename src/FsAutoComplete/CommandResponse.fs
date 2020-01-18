@@ -414,8 +414,7 @@ module CommandResponse =
     serialize { Kind = "fsdn"; Data = data }
 
   let dotnetnewlist (serialize : Serializer) (installedTemplate : DotnetNewTemplate.Template list) =
-    let data = { DotnetNewListResponse.Installed = installedTemplate }
-    serialize { Kind = "dotnetnewlist"; Data = data }
+    serialize { Kind = "dotnetnewlist"; Data = installedTemplate }
 
   let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate) =
     let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }
