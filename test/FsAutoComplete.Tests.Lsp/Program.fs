@@ -31,6 +31,7 @@ let tests =
     //dependencyManagerTests //Requires .Net 5 preview
     scriptGotoTests
     interactiveDirectivesUnitTests
+    astTests
 
     fsdnTest
     uriTests

@@ -1889,9 +1889,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
 
-    member x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
-        logger.info (Log.setMessage "FSharpDocumentationSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
-
+    member x.FSharpDocumentationSymbol(p: DocumentationForSymbolRequest) =
         match commands.LastCheckResult with
         | None -> AsyncLspResult.internalError "error"
         | Some tyRes ->
@@ -1994,6 +1992,29 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
+    member __.AstRepresentation(p: AstRepresentationRequest) = async {
+        let file = p.file.GetFilePath()
+        match p.astKind with
+        | AstKind.Parsed ->
+            match! commands.ParseTree file with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                return LspResult.internalError msg
+            | CoreResponse.Res parseTree ->
+                let formatted =
+                    match p.format with
+                    | Printf -> AstFormat.ParseTree.printfFormat parseTree
+                return LspResult.success formatted
+        | AstKind.Typed ->
+            match! commands.Tast file with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                return LspResult.internalError msg
+            | CoreResponse.Res tast ->
+                let formatted =
+                    match p.format with
+                    | Printf -> AstFormat.TypedTree.printfFormat tast
+                return LspResult.success formatted
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -2019,6 +2040,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/highlighting" (requestHandling (fun s p -> s.GetHighlighting(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
+        |> Map.add "fsharp/ast" (requestHandling (fun s p -> s.AstRepresentation(p)))
 
 
 

@@ -760,4 +760,47 @@ let signatureHelpTests =
         let! result = getSignatureHelpAt 2 c
         result |> expectSomeOverloads
     })
+
+
+let astTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AST")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+    let scriptPath = Path.Combine(path, "Script.fsx")
+    server, events, scriptPath
+  )
+  let serverTest f () = f serverStart.Value
+
+  testList "ast/parsetree endpoints" [
+    testCase "can get parsetree of file" (serverTest (fun (server, events, scriptPath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        let s = server.AstRepresentation { file = { Uri = filePathToUri scriptPath }
+                                           astKind = AstKind.Parsed
+                                           format = AstOutputFormat.Printf } |> Async.RunSynchronously
+        match s with
+        | LspResult.Ok parseTree ->
+          ()
+        | LspResult.Error msg -> failwithf "%A" msg
+      | Core.Result.Error errors ->
+        failwithf "should be able to open script"
+    ))
+    testCase "can get tast of file" (serverTest (fun (server, events, scriptPath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        let s = server.AstRepresentation { file = { Uri = filePathToUri scriptPath }
+                                           astKind = AstKind.Typed
+                                           format = AstOutputFormat.Printf } |> Async.RunSynchronously
+        match s with
+        | LspResult.Ok tast ->
+          ()
+        | LspResult.Error msg -> failwithf "%A" msg
+      | Core.Result.Error errors ->
+        failwithf "should be able to open script"
+    ))
   ]

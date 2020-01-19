@@ -340,7 +340,7 @@ type WorkspaceLoadParms = {
 }
 
 type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string array}
-type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
+type DocumentationForSymbolRequest = {XmlSig: string; Assembly: string}
 
 type FakeTargetsRequest = {FileName : string; FakeContext : FakeSupport.FakeContext; }
 
@@ -356,6 +356,14 @@ type FsdnRequest = { Query: string }
 type DotnetNewListRequest = { Query: string }
 
 type DotnetNewRunRequest = { Template: string; Output: string option; Name: string option }
+
+type AstOutputFormat =
+| Printf
+
+type AstRepresentationRequest =
+    { file: TextDocumentIdentifier
+      astKind: AstKind
+      format: AstOutputFormat }
 
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option

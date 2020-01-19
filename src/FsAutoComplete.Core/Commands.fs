@@ -22,6 +22,10 @@ type HelpText =
     | Simple of symbol: string * text: string
     | Full of symbol: string * tip: FSharpToolTipText * moreInfo: option<string * int * int * string>
 
+[<RequireQualifiedAccess>]
+type AstKind =
+| Parsed
+| Typed
 
 [<RequireQualifiedAccess>]
 type CoreResponse<'a> =
@@ -63,6 +67,14 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
+    let tryGetCheckResultsForFile (file: SourceFilePath) = async {
+        match state.GetProjectOptions file with
+        | Some opts ->
+            let! results = checker.GetBackgroundCheckResultsForFileInProject(file, opts)
+            return Some results
+        | _ -> return None
+    }
+
     do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
 
     do BackgroundServices.messageRecived.Publish.Add (fun n ->
@@ -88,10 +100,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
                 async {
                     try
-                        match state.GetProjectOptions n with
-                        | Some opts ->
-                            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                            fileChecked.Trigger (res, Utils.normalizePath res.FileName, -1)
+                        match! tryGetCheckResultsForFile n with
+                        | Some res ->
+                            fileChecked.Trigger (res, res.FileName, -1)
                         | _ -> ()
                     with
                     | _ -> ()
@@ -954,6 +965,24 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     member x.FakeRuntime () = async {
         let! runtimePath = FakeSupport.getFakeRuntime ()
         return CoreResponse.Res runtimePath
+    }
+
+    member x.ParseTree (file: SourceFilePath) = async {
+        match state.ParseResults.TryFind file with
+        | Some res ->
+            match res.ParseTree with
+            | Some ast -> return CoreResponse.Res ast
+            | None -> return CoreResponse.ErrorRes "No parse tree for file"
+        | None -> return CoreResponse.ErrorRes "File not yet parsed"
+    }
+
+    member x.Tast (file: SourceFilePath) = async {
+        match! tryGetCheckResultsForFile file with
+        | Some res ->
+            match res.GetCheckResults.ImplementationFile with
+            | Some tast -> return CoreResponse.Res tast
+            | None -> return CoreResponse.ErrorRes "No typed AST for file"
+        | None -> return CoreResponse.ErrorRes "File not yet typechecked"
     }
 
     member x.ScopesForFile (file: string) = async {
