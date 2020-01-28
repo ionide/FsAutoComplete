@@ -15,8 +15,6 @@ let project = "FsAutoComplete"
 // Read additional information from the release notes document
 let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
-let isMono = Environment.isMono
-
 let configuration = Environment.environVarOrDefault "configuration" "Release"
 
 let buildDir = "src" </> project </> "bin" </> "Debug"
@@ -118,7 +116,8 @@ Target.create "All" ignore
 Target.create "Release" ignore
 
 
-"ReplaceFsLibLogNamespaces" ==> "Build"
+"ReplaceFsLibLogNamespaces"
+  ==> "Build"
 
 
 "Build"
