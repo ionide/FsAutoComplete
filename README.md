@@ -21,30 +21,33 @@ It's based on:
 
 ## Required software
 
-FsAutoComplete can run on .NET/mono or .NET Core.
+FsAutoComplete can run on .NET/mono or .NET Core. We highly recommend using .Net Core version of FSAC as we plan to remove "full framework" version soon - [read more](https://github.com/fsharp/FsAutoComplete/issues/506)
 
-### FSAC .NET
+### FSAC .NET Core
+
+* .NET Core Sdk (Required: >= 2.1, Recommended: >= 3.0 )
+
+### FSAC .NET (deprecated)
 
 * on windows: [Microsoft Build Tools 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48159)
 * on unix/mac: Required: Mono >= 5.12, Recommended: Mono >= 5.18
 
-### FSAC .NET Core
-
-* .NET Core Sdk
-* on unix/mac: Required: Mono >= 5.12, Recommended: Mono >= 5.18
 
 ## Building and testing
 
 Requirements:
 
 * .NET Core Sdk, see [global.json](global.json) for the exact version.
-* Mono 5.18 on unix/osx
-* Microsoft Build Tools 2013
 
-There is a [FAKE script](build.fsx) who can be invoked with `build.cmd`/`build.sh`.
+1. Restore dotnet tools to install local Paket and FAKE `dotnet tool restore`
+2. Build FSAC with `dotnet fake build`
 
-* To build fsautocomplete binaries in `~/bin` directory, do run `build LocalRelease`
-* To build, run all tests and create packages, do run `build All`
+* To build release fsautocomplete binaries in `~/bin` directory, do run `dotnet fake build --target LocalRelease`
+* To build, run all tests and create packages, do run `dotnet fake build --target All`
+
+### DevContainer
+
+The repository additionally provides DevContainer definition that can be used with VSCode's Remote Containers extension - use it to get stable development environment
 
 ## Communication protocol
 
