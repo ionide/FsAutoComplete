@@ -420,8 +420,9 @@ GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
 GROUP Build
+STORAGE: NONE
 NUGET
-  remote: https://www.nuget.org/api/v2
+  remote: https://api.nuget.org/v3/index.json
     BlackFox.VsWhere (1.0) - restriction: || (>= net462) (>= netstandard2.0)
       FSharp.Core (>= 4.0.0.1) - restriction: >= net45
       FSharp.Core (>= 4.2.3) - restriction: && (< net45) (>= netstandard2.0)
