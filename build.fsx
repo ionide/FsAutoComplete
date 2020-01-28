@@ -33,7 +33,7 @@ Target.create "LspTest" (fun _ ->
       id
       "run"
       """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
-  |> ignore
+  |> fun r -> if not r.OK then failwithf "Errors while running LSP tests:\n%s" (r.Errors |> String.concat "\n\t")
 )
 
 Target.create "ReleaseArchive" (fun _ ->
