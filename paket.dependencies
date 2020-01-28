@@ -38,10 +38,21 @@ nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has diff
 nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true, strategy:min
 
 group Build
-  framework: net45
-  source https://api.nuget.org/v3/index.json
+  source https://www.nuget.org/api/v2
 
-  nuget FAKE ~> 4
+  nuget Fake.Core.Target
+  nuget Fake.Core.Process
+  nuget Fake.DotNet.Cli
+  nuget Fake.Core.ReleaseNotes
+  nuget Fake.DotNet.AssemblyInfoFile
+  nuget Fake.DotNet.Paket
+  nuget Fake.Tools.Git
+  nuget Fake.Core.Environment
+  nuget Fake.Core.UserInput
+  nuget Fake.IO.FileSystem
+  nuget Fake.IO.Zip
+  nuget Fake.DotNet.MsBuild
+  nuget Fake.Api.GitHub
 
 group Test
   framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1

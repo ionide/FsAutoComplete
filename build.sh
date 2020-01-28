@@ -29,7 +29,8 @@ then
   mozroots --import --sync --quiet
 fi
 
+dotnet tool restore
 run .paket/paket.exe restore
 
-run packages/build/FAKE/tools/FAKE.exe "$@" $FSIARGS build.fsx
+dotnet fake run "$@"
 
