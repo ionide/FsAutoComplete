@@ -10,8 +10,10 @@ jobs:
       useGlobalJson: true
   - script: echo "##vso[task.setvariable variable=PATH]C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\IDE\CommonExtensions\Microsoft\FSharp;%PATH%"
     displayName: set fsi in PATH
-  - script: build.cmd All
-    displayName: build All
+  - script: dotnet tool restore
+    displayName: Install Tools
+  - script: dotnet fake build --target All
+    displayName: Build All
   - task: PublishBuildArtifacts@1
     inputs:
       pathtoPublish: 'bin/pkgs'
@@ -28,8 +30,10 @@ jobs:
     displayName: Install fsharpi
   - script: echo "##vso[task.setvariable variable=FrameworkPathOverride]$(dirname $(which mono))/../lib/mono/4.5/"
     displayName: Workaround .NET reference assemblies on linux
-  - script: ./build.sh All
-    displayName: build All
+  - script: dotnet tool restore
+    displayName: Install Tools
+  - script: dotnet fake build --target All
+    displayName: Build All
 - job: MacOS
   pool:
     vmImage: 'macOS-10.13'
@@ -40,5 +44,7 @@ jobs:
       useGlobalJson: true
   - script: echo "##vso[task.setvariable variable=FrameworkPathOverride]$(dirname $(which mono))/../lib/mono/4.5/"
     displayName: Workaround .NET reference assemblies on linux
-  - script: ./build.sh All
-    displayName: build All
+  - script: dotnet tool restore
+    displayName: Install Tools
+  - script: dotnet fake build --target All
+    displayName: Build All
