@@ -36,6 +36,7 @@ nuget Serilog.Sinks.Async
 nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
 
 nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true, strategy:min
+nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
 
 group Build
   source https://www.nuget.org/api/v2
@@ -53,6 +54,7 @@ group Build
   nuget Fake.IO.Zip
   nuget Fake.DotNet.MsBuild
   nuget Fake.Api.GitHub
+  nuget Microsoft.Build
 
 group Test
   framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1

@@ -13,3 +13,5 @@ FSharp.Data
 Dapper
 Microsoft.Data.Sqlite
 System.Configuration.ConfigurationManager
+
+Microsoft.NETFramework.ReferenceAssemblies

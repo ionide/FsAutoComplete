@@ -22,3 +22,5 @@ Serilog.Sinks.File
 Serilog.Sinks.Console
 Serilog.Sinks.Async
 Destructurama.FSharp
+
+Microsoft.NETFramework.ReferenceAssemblies
