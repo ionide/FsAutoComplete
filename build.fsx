@@ -93,6 +93,10 @@ Target.create "Clean" (fun _ ->
   Shell.cleanDirs [ buildDir; buildReleaseDir; pkgsDir ]
 )
 
+Target.create "Restore" (fun _ ->
+    DotNet.restore id ""
+)
+
 Target.create "Build" (fun _ ->
   DotNet.build (fun p ->
      { p with
@@ -115,8 +119,8 @@ Target.create "Test" ignore
 Target.create "All" ignore
 Target.create "Release" ignore
 
-
-"ReplaceFsLibLogNamespaces"
+"Restore"
+  ==> "ReplaceFsLibLogNamespaces"
   ==> "Build"
 
 
