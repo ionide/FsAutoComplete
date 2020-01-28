@@ -1,0 +1,15 @@
+// For format details, see https://aka.ms/vscode-remote/devcontainer.json or the definition README at
+// https://github.com/microsoft/vscode-dev-containers/tree/master/containers/dotnetcore-3.0-fsharp
+{
+	"name": "F# (.NET Core 3.1)",
+	"dockerFile": "Dockerfile",
+  "settings": {
+		"terminal.integrated.shell.linux": "/bin/bash",
+		"FSharp.useSdkScripts":true
+	},
+  "postCreateCommand": "dotnet tool restore",
+  "extensions": [
+		"Ionide.Ionide-fsharp",
+		"ms-vscode.csharp"
+	]
+}
