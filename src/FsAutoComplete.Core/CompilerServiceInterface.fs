@@ -417,9 +417,7 @@ type ParseAndCheckResults
           let ctx = checkResults.ProjectContext
           let assembliesByFileName =
             ctx.GetReferencedAssemblies()
-            |> Seq.groupBy (fun asm -> asm.FileName)
-            |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
-            |> Seq.toList
+            |> List.groupBy (fun asm -> asm.FileName)
             |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
                         // get Content.Entities from it.
 
