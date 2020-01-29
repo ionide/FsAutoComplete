@@ -1,21 +1,5 @@
 namespace FsAutoComplete
 open System
-open System.Diagnostics
-open System.Threading.Tasks
-
-module ProcessHelper =
-  let WaitForExitAsync(p: Process) = async {
-    let tcs = new TaskCompletionSource<obj>()
-    p.EnableRaisingEvents <- true
-    p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
-    
-    let! token = Async.CancellationToken
-    let _registered = token.Register(fun _ -> tcs.SetCanceled())
-
-    let! _ = tcs.Task |> Async.AwaitTask
-    ()
-  }
-
 
 module DotnetNewTemplate =
   type Template = {
@@ -185,4 +169,4 @@ module DotnetNewTemplate =
     si.RedirectStandardOutput <- true
     si.WorkingDirectory <- Environment.CurrentDirectory
     let proc = Diagnostics.Process.Start(si)
-    ProcessHelper.WaitForExitAsync proc
+    Utils.ProcessHelper.WaitForExitAsync proc

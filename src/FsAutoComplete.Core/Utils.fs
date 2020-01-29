@@ -25,10 +25,23 @@ module Map =
                 yield value
         }
 
+open System.Diagnostics
+open System.Threading.Tasks
+
+module ProcessHelper =
+    let WaitForExitAsync(p: Process) = async {
+        let tcs = new TaskCompletionSource<obj>()
+        p.EnableRaisingEvents <- true
+        p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
+
+        let! token = Async.CancellationToken
+        let _registered = token.Register(fun _ -> tcs.SetCanceled())        
+        let! _ = tcs.Task |> Async.AwaitTask
+        ()
+    }
 
 open System.IO
 open System.Collections.Concurrent
-open System.Diagnostics
 open System
 open FSharp.Compiler.SourceCodeServices
 
