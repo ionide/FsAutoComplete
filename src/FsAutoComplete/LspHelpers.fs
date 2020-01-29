@@ -172,7 +172,7 @@ module Conversions =
             }
         seq {
             yield (inner None topLevel.Declaration)
-            yield! topLevel.Nested |> Seq.ofArray |> Seq.map (inner (Some topLevel.Declaration.Name))
+            yield! topLevel.Nested |> Seq.map (inner (Some topLevel.Declaration.Name))
         }
 
     let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: FSharpNavigationTopLevelDeclaration): CodeLens [] =
