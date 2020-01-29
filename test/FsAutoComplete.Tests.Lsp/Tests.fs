@@ -1,4 +1,4 @@
-﻿module FsAutoComplete.Tests.Lsp
+module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -412,7 +412,7 @@ let renameTest =
 
     dotnetCleanup testDir
 
-    Utils.runProcess (logDotnetRestore "RenameTest") testDir "dotnet" "restore"
+    Helpers.runProcess (logDotnetRestore "RenameTest") testDir "dotnet" "restore"
     |> expectExitCodeZero
 
     let m = new System.Threading.ManualResetEvent(false)
@@ -489,7 +489,7 @@ let gotoTest =
 
     dotnetCleanup path
 
-    Utils.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
+    Helpers.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
     |> expectExitCodeZero
 
     let (server, event) = serverInitialize path defaultConfigDto
@@ -678,7 +678,7 @@ let foldingTests =
 
     dotnetCleanup path
 
-    Utils.runProcess (logDotnetRestore "FoldingTests") path "dotnet" "restore"
+    Helpers.runProcess (logDotnetRestore "FoldingTests") path "dotnet" "restore"
     |> expectExitCodeZero
 
     let (server, event) = serverInitialize path defaultConfigDto
