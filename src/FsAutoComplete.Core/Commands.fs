@@ -265,7 +265,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
 
     member x.DotnetNewRun (templateShortName : string) (name: string option) (output: string option) (parameterStr : (string * obj) list) = async {
-            let results = DotnetNewTemplate.dotnetnewCreateCli templateShortName name output parameterStr
+            let! results = DotnetNewTemplate.dotnetnewCreateCli templateShortName name output parameterStr
             return CoreResponse.Res results
         }
 

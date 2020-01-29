@@ -169,7 +169,4 @@ module DotnetNewTemplate =
     si.RedirectStandardOutput <- true
     si.WorkingDirectory <- Environment.CurrentDirectory
     let proc = Diagnostics.Process.Start(si)
-    proc.WaitForExit ()
-
-
-    ()
+    Utils.ProcessHelper.WaitForExitAsync proc
