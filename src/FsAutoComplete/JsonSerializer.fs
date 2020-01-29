@@ -119,18 +119,11 @@ module private JsonSerializerConverters =
             member x.CanRead = false
             member x.CanWrite = true }
 
-    let memoizeTest f =
-      let cache = ref Map.empty
+    let sameDU =
+      let cache = System.Collections.Concurrent.ConcurrentDictionary<_,bool>()
       fun (x : Type) (y : Type) ->
-        let input = (x.GetHashCode(),y.GetHashCode())
-        match (!cache).TryFind(input) with
-        | Some res -> res
-        | None ->
-            let res = f x y
-            cache := (!cache).Add(input,res)
-            res
-
-    let sameDU = memoizeTest (fun ty t -> Microsoft.FSharp.Reflection.FSharpType.IsUnion(t) && t.BaseType = ty)
+        let key = x.GetHashCode(),y.GetHashCode()
+        cache.GetOrAdd(key, fun _ -> Microsoft.FSharp.Reflection.FSharpType.IsUnion y && y.BaseType = x)
 
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)
