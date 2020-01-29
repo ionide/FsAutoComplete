@@ -214,14 +214,8 @@ module internal GlyphConversions =
         let completionItemSet = defaultArg completionItemSet defaultSet
 
         let bestAvailable (possible: 'kind[]) =
-            let mutable found: 'kind option = None
-            let mutable i = 0
-            let possibleCount = possible.Length
-            while found.IsNone && i < possibleCount do
-                if Array.contains possible.[i] completionItemSet then
-                    found <- Some possible.[i]
-                i <- i + 1
-            found
+            possible
+            |> Array.tryFind (fun x -> Array.contains x completionItemSet)
 
         let unionCases = FSharpType.GetUnionCases(typeof<FSharpGlyph>)
         let cache = Dictionary<FSharpGlyph, 'kind option>(unionCases.Length)
