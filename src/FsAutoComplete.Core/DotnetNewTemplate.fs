@@ -8,6 +8,10 @@ module ProcessHelper =
     let tcs = new TaskCompletionSource<obj>()
     p.EnableRaisingEvents <- true
     p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
+    
+    let! token = Async.CancellationToken
+    let _registered = token.Register(fun _ -> tcs.SetCanceled())
+
     let! _ = tcs.Task |> Async.AwaitTask
     ()
   }
