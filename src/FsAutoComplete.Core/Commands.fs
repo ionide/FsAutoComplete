@@ -683,7 +683,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             let isAttribute = entityKind = EntityKind.Attribute
             let entities =
-                entities |> List.filter (fun e ->
+                entities
+                |> List.filter (fun e ->
                     match entityKind, (e.Kind LookupType.Fuzzy) with
                     | EntityKind.Attribute, EntityKind.Attribute
                     | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
@@ -716,26 +717,23 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             let openNamespace =
                 candidates
-                |> Seq.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
-                |> Seq.groupBy (fun (ns, _, _) -> ns)
-                |> Seq.map (fun (ns, xs) ->
+                |> List.choose (fun (entity, ctx) -> entity.Namespace |> Option.map (fun ns -> ns, entity.Name, ctx))
+                |> List.groupBy (fun (ns, _, _) -> ns)
+                |> List.map (fun (ns, xs) ->
                     ns,
                     xs
-                    |> Seq.map (fun (_, name, ctx) -> name, ctx)
-                    |> Seq.distinctBy (fun (name, _) -> name)
-                    |> Seq.sortBy fst
-                    |> Seq.toArray)
-                |> Seq.collect (fun (ns, names) ->
-                    let multipleNames = names |> Array.length > 1
-                    names |> Seq.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
-                |> Seq.toList
+                    |> List.map (fun (_, name, ctx) -> name, ctx)
+                    |> List.distinctBy (fun (name, _) -> name)
+                    |> List.sortBy fst)
+                |> List.collect (fun (ns, names) ->
+                    let multipleNames = match names with | [] -> false | [_] -> false | _ -> true
+                    names |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
 
             let qualifySymbolActions =
                 candidates
-                |> Seq.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
-                |> Seq.distinct
-                |> Seq.sort
-                |> Seq.toList
+                |> List.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
+                |> List.distinct
+                |> List.sort
 
             return CoreResponse.Res (word, openNamespace, qualifySymbolActions)
         } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
