@@ -855,8 +855,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 | Some tyRes ->
                     let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
                     let! simplified = SimplifyNameDiagnosticAnalyzer.getSimplifyNameRanges tyRes.GetCheckResults source allUses
-                    let res = CoreResponse.Res (file, (Seq.toArray simplified))
-                    notify.Trigger (NotificationEvent.SimplifyNames (file, (Seq.toArray simplified)))
+                    let simplified = simplified.ToArray()
+                    let res = CoreResponse.Res (file, simplified)
+                    notify.Trigger (NotificationEvent.SimplifyNames (file, simplified))
                     return res
         } |> x.AsCancellable file
 
