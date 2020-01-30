@@ -399,8 +399,12 @@ type ParseAndCheckResults
                             x.MinorPriority.CompareTo(y.MinorPriority))
       let decls =
         match filter with
-        | Some "StartsWith" -> [| for d in sortedDeclItems do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
-        | Some "Contains" -> [| for d in sortedDeclItems do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
+        | Some "StartsWith" ->
+          sortedDeclItems
+          |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+        | Some "Contains" ->
+          sortedDeclItems
+          |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
         | _ -> sortedDeclItems
 
 
