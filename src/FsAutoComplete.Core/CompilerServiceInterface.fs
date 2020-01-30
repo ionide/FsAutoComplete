@@ -666,7 +666,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
             let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
             match c with
             | FSharpCheckFileAnswer.Aborted ->
-              logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "Errors" (List.ofArray p.Errors))
+              logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
               ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
