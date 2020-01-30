@@ -695,8 +695,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
             let maybeUnresolvedIdents =
                 idents
-                |> List.map (fun ident -> { Ident = ident; Resolved = false})
-                |> List.toArray
+                |> Array.map (fun ident -> { Ident = ident; Resolved = false})
 
             let entities =
                 entities
