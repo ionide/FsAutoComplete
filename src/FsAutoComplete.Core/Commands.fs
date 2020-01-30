@@ -560,8 +560,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 if fsym.IsPrivateToFile then
                     return CoreResponse.Res (LocationResponse.Use (sym, usages))
                 elif backgroundServiceEnabled then
-                    let! res =  SymbolCache.getSymbols fsym.FullName
-                    match res with
+                    match! SymbolCache.getSymbols fsym.FullName with
                     | None ->
                         if fsym.IsInternalToProject then
                             let opts = state.GetProjectOptions' tyRes.FileName
@@ -594,8 +593,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 if fsym.IsPrivateToFile then
                     return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols usages))
                 elif backgroundServiceEnabled then
-                    let! res =  SymbolCache.getImplementation fsym.FullName
-                    match res with
+                    match! SymbolCache.getImplementation fsym.FullName with
                     | None ->
                         if fsym.IsInternalToProject then
                             let opts = state.GetProjectOptions' tyRes.FileName
