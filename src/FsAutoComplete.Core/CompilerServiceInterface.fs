@@ -385,8 +385,18 @@ type ParseAndCheckResults
         | CompletionItemKind.Other -> 5
         | CompletionItemKind.Method (isExtension = true) -> 6
 
-      let sortedDeclItems =
+      let decls =
+        match filter with
+        | Some "StartsWith" ->
           results.Items
+          |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+        | Some "Contains" ->
+          results.Items
+          |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
+        | _ -> results.Items
+        
+      let sortedDecls =
+          decls
           |> Array.sortWith (fun x y ->
               let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
               if n <> 0 then n else
@@ -397,20 +407,9 @@ type ParseAndCheckResults
                           n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
                           if n <> 0 then n else
                             x.MinorPriority.CompareTo(y.MinorPriority))
-      let decls =
-        match filter with
-        | Some "StartsWith" ->
-          sortedDeclItems
-          |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-        | Some "Contains" ->
-          sortedDeclItems
-          |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
-        | _ -> sortedDeclItems
 
-
-
-      let shouldKeywords = decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
-      return Some (decls, residue, shouldKeywords)
+      let shouldKeywords = sortedDecls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
+      return Some (sortedDecls, residue, shouldKeywords)
     with :? TimeoutException -> return None
   }
 
