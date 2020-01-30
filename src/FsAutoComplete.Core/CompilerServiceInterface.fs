@@ -686,17 +686,17 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     let projects = x.GetDependingProjects file options
     return!
       match projects with
-      | None -> async {return [||]}
+      | None -> async { return [||] }
       | Some (p, projects) -> async {
         let! res =
-          [yield p; yield! projects ]
+          p :: projects
           |> Seq.map (fun (opts) -> async {
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return! res.GetUsesOfSymbol symbol
             })
           |> Async.Parallel
-        return res |> Array.collect id }
+        return res |> Array.concat }
   }
 
   member __.GetDeclarations (fileName, source, options, version) = async {
