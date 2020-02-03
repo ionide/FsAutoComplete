@@ -549,20 +549,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let ok = line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
                 if not ok then
                     AsyncLspResult.internalError "not ok"
-                elif (lineStr.StartsWith "#" && (FsAutoComplete.KeywordList.hashDirectives |> List.exists (fun (n,_) -> n.StartsWith word ) || word.Contains "\n" )) then
-                    let its =
-                        FsAutoComplete.KeywordList.hashDirectives
-                        |> List.map (fun (k, d) ->
-                            { CompletionItem.Create(k) with
-                                Kind = Some CompletionItemKind.Keyword
-                                InsertText = Some k
-                                FilterText = Some k
-                                SortText = Some k
-                                Documentation = Some (Documentation.String d)
-                                Label = "#" + k
-                            })
-                        |> List.toArray
-                    let completionList = { IsIncomplete = false; Items = its}
+                elif (lineStr.StartsWith "#" && (KeywordList.hashDirectives.Keys |> Seq.exists (fun k -> k.StartsWith word ) || word.Contains "\n" )) then
+                    let completionList = { IsIncomplete = false; Items = KeywordList.hashSymbolCompletionItems }
                     async.Return (success (Some completionList))
                 else
                     async {
@@ -603,19 +591,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                                 Label = label
                                             }
                                         )
-                                    let kwds =
-                                        if not keywords
-                                        then []
-                                        else
-                                            FsAutoComplete.KeywordList.allKeywords
-                                            |> List.mapi (fun id k ->
-                                                { CompletionItem.Create(k) with
-                                                    Kind = Some CompletionItemKind.Keyword
-                                                    InsertText = Some k
-                                                    SortText = Some (sprintf "1000000%d" id)
-                                                    FilterText = Some k
-                                                    Label = k })
-                                    let its = Array.append items (List.toArray kwds)
+                                    let its = if not keywords then items else Array.append items KeywordList.keywordCompletionItems
                                     let completionList = { IsIncomplete = false; Items = its}
                                     success (Some completionList)
                                 | _ -> noCompletion
