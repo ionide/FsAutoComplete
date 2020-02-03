@@ -1,12 +1,20 @@
 namespace FsAutoComplete
 
 open LanguageServerProtocol.Types
+open FSharp.Compiler.SourceCodeServices
 
 module KeywordList =
 
     let keywordDescriptions =
         FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription
         |> dict
+
+    let keywordTooltips =
+      keywordDescriptions
+      |> Seq.map (fun kv ->
+        let tip = FSharpToolTipText [FSharpToolTipElement.Single(kv.Key, FSharpXmlDoc.Text kv.Value)]
+        kv.Key, tip)
+      |> dict
 
     let hashDirectives =
         [ "r", "References an assembly"
@@ -32,7 +40,6 @@ module KeywordList =
                 Label = "#" + kv.Key
             })
         |> Seq.toArray
-
 
     let allKeywords : string list =
         FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription

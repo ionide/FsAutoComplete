@@ -150,13 +150,11 @@ type ParseAndCheckResults
         | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) ->
             match identIsland with
             | [ident] ->
-               KeywordList.tryGetKeywordDescription ident
-               |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-               |> function
-               | Some tip ->
-                Ok tip
-               | None ->
-                ResultOrString.Error "No tooltip information"
+               match KeywordList.keywordTooltips.TryGetValue ident with
+               | true, tip ->
+                  Ok tip
+               | _ ->
+                  ResultOrString.Error "No tooltip information"
             | _ ->
               ResultOrString.Error "No tooltip information"
         | _ ->
@@ -176,13 +174,11 @@ type ParseAndCheckResults
       | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
           match identIsland with
           | [ident] ->
-             let keyword = KeywordList.tryGetKeywordDescription ident
-                           |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-             match keyword with
-             | Some tip ->
-              return Ok (tip, ident, "", None)
-             | None ->
-              return Error "No tooltip information"
+             match KeywordList.keywordTooltips.TryGetValue ident with
+             | true, tip ->
+                return Ok (tip, ident, "", None)
+             | _ ->
+                return Error "No tooltip information"
           | _ ->
             return Error "No tooltip information"
       | _ ->
@@ -212,13 +208,11 @@ type ParseAndCheckResults
       | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
           match identIsland with
           | [ident] ->
-             let keyword = KeywordList.tryGetKeywordDescription ident
-                           |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-             match keyword with
-             | Some tip ->
-              return Ok (Some tip, None, (ident, (DocumentationFormatter.emptyTypeTip)), "", "")
-             | None ->
-              return Error "No tooltip information"
+             match KeywordList.keywordTooltips.TryGetValue ident with
+             | true, tip ->
+                return Ok (Some tip, None, (ident, (DocumentationFormatter.emptyTypeTip)), "", "")
+             | _ ->
+                return Error "No tooltip information"
           | _ ->
             return Error "No documentation information"
       | _ ->
