@@ -91,11 +91,6 @@ module Option =
 
   let inline attempt (f: unit -> 'T) = try Some <| f() with _ -> None
 
-  let getOrElse defaultValue option =
-    match option with
-    | None -> defaultValue
-    | Some x -> x
-
   /// Gets the option if Some x, otherwise the supplied default value.
   let inline orElse v option =
     match option with

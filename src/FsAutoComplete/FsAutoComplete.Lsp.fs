@@ -395,7 +395,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             |> Option.bind (fun options -> if options.HasValues then Some options else None)
             |> Option.map Server.deserialize<FSharpConfigDto>
             |> Option.map FSharpConfig.FromDto
-            |> Option.getOrElse FSharpConfig.Default
+            |> Option.defaultValue FSharpConfig.Default
 
         updateConfig c
 

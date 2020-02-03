@@ -362,7 +362,7 @@ module DocumentationFormatter =
                 with _ -> "Unknown"
 
         let formatName (parameter:FSharpParameter) =
-            parameter.Name |> Option.getOrElse parameter.DisplayName
+            parameter.Name |> Option.defaultValue parameter.DisplayName
 
         let isDelegate =
             match func.EnclosingEntitySafe with
@@ -444,7 +444,7 @@ module DocumentationFormatter =
                 try
                     Some (n.Split([|':' |], 2).[1])
                 with _ -> None )
-            |> Option.getOrElse ""
+            |> Option.defaultValue ""
         sprintf "active pattern %s: %s" apc.Name findVal
 
     let getAttributeSignature displayContext (attr: FSharpAttribute) =

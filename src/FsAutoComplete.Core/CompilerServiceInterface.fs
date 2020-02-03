@@ -226,7 +226,7 @@ type ParseAndCheckResults
         | Some (signature, footer, cn) ->
             match symbol with
             | SymbolUse.TypeAbbreviation symbol ->
-              return Ok (None, Some (symbol.GetAbbriviatedParent().XmlDocSig, symbol.GetAbbriviatedParent().Assembly.FileName |> Option.getOrElse ""), signature, footer, cn)
+              return Ok (None, Some (symbol.GetAbbriviatedParent().XmlDocSig, symbol.GetAbbriviatedParent().Assembly.FileName |> Option.defaultValue ""), signature, footer, cn)
             | _ ->
               return Ok (Some tip, None, signature, footer, cn)
   }
@@ -283,7 +283,7 @@ type ParseAndCheckResults
       | None ->
         return Error "No tooltip information"
       | Some (signature, footer, cn) ->
-          return Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.getOrElse "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
+          return Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
   }
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
