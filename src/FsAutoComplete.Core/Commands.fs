@@ -443,14 +443,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member __.Helptext sym =
-        match KeywordList.tryGetKeywordDescription sym with
-        | Some s ->
+        match KeywordList.keywordDescriptions.TryGetValue sym with
+        | true, s ->
             CoreResponse.Res (HelpText.Simple (sym, s))
-        | None ->
-        match KeywordList.tryGetHashDescription sym with
-        | Some s ->
+        | _ ->
+        match KeywordList.hashDirectives.TryGetValue sym with
+        | true, s ->
             CoreResponse.Res (HelpText.Simple (sym, s))
-        | None ->
+        | _ ->
         let sym = if sym.StartsWith "``" && sym.EndsWith "``" then sym.TrimStart([|'`'|]).TrimEnd([|'`'|]) else sym
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
@@ -475,9 +475,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     | None -> calculateNamespaceInser decl pos getSource
                     | Some s -> Some s
                 CoreResponse.Res (HelpText.Full (sym, tip, n))
-
-
-
 
     member x.CompilerLocation () = CoreResponse.Res (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())
     member x.Colorization enabled = state.ColorizationOutput <- enabled
