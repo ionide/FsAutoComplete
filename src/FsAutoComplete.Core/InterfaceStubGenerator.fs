@@ -926,7 +926,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
                             |> Some
                         else None)
                 // There is no reference point, we indent the content at the start column of the interface
-                |> Option.getOrElse iface.Range.StartColumn
+                |> Option.defaultValue iface.Range.StartColumn
             | None -> iface.Range.StartColumn
 
 /// Return None, if we failed to handle the interface implementation

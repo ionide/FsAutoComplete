@@ -208,7 +208,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                         None
                     else
                        let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
-                       if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.getOrElse false then
+                       if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                             { MatchWithOrFunctionRange = functionKeywordRange
                               Expr = matchLambdaExpr
                               Clauses = synMatchClauseList }
@@ -224,7 +224,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                 )
                 |> Option.orTry (fun () ->
                     let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
-                    if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.getOrElse false then
+                    if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                         match sequencePointInfoForBinding with
                         | SequencePointAtBinding range ->
                             { MatchWithOrFunctionRange = range
@@ -400,7 +400,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
                 getIfArgsAreFree constructorArgs (fun () ->
                     [ (name, quals |> List.rev) ]
                 )
-                |> Option.getOrElse []
+                |> Option.defaultValue []
 
         | SynPat.Or(left, right, _) ->
             (getCasesInPattern left) @ (getCasesInPattern right)

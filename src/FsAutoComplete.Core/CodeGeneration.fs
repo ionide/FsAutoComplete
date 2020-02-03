@@ -170,7 +170,7 @@ module internal CodeGenerationUtils =
                         if indexes |> Set.contains idx then
                             getAvailableIndex (idx + 1)
                         else idx
-                    let index = index |> Option.getOrElse 1 |> getAvailableIndex
+                    let index = index |> Option.defaultValue 1 |> getAvailableIndex
                     Some index, namesWithIndices |> Map.add nm (indexes |> Set.add index)
                 | None, Some index -> Some index, namesWithIndices |> Map.add nm (Set.ofList [index])
                 | None, None -> None, namesWithIndices |> Map.add nm Set.empty

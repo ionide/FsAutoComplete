@@ -105,7 +105,7 @@ module TypedAstExtensionHelpers =
             x.NestedEntities |> Seq.filter (fun entity -> entity.Accessibility.IsPublic)
 
         member x.TryGetMembersFunctionsAndValues =
-            Option.attempt (fun _ -> x.MembersFunctionsAndValues) |> Option.getOrElse ([||] :> _)
+            Option.attempt (fun _ -> x.MembersFunctionsAndValues) |> Option.defaultValue ([||] :> _)
 
         member x.TryGetFullNameWithUnderScoreTypes() =
             try
