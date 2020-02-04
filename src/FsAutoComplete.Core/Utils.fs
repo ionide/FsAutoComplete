@@ -91,11 +91,6 @@ module Option =
 
   let inline attempt (f: unit -> 'T) = try Some <| f() with _ -> None
 
-  let inline fill f o =
-    match o with
-    | Some v -> v
-    | _      -> f
-
 [<RequireQualifiedAccess>]
 module Async =
     /// Transforms an Async value using the specified function.
