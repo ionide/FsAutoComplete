@@ -611,7 +611,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
             None
         else
             walkSynTypeDefnRepr representation
-            |> Option.orElse (List.tryPick walkSynMemberDefn members)
+            |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members)
 
     and walkSynTypeDefnRepr(typeDefnRepr: SynTypeDefnRepr) =
         if not <| rangeContainsPos typeDefnRepr.Range pos then
@@ -713,7 +713,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
             | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
                 walkExpr synExpr
-                |> Option.orElse (synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
+                |> Option.orElseWith (fun _ -> synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
 
             | SynExpr.Lazy(synExpr, _range) ->
                 walkExpr synExpr
@@ -729,7 +729,8 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 walkExpr synExpr
 
             | SynExpr.LetOrUse(_, _, synBindingList, synExpr, _range) ->
-                Option.orElse (List.tryPick walkBinding synBindingList) (walkExpr synExpr)
+                walkExpr synExpr
+                |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 
             | SynExpr.TryWith(synExpr, _range, _synMatchClauseList, _range2, _range3, _sequencePointInfoForTry, _sequencePointInfoForWith) ->
                 walkExpr synExpr
@@ -761,7 +762,8 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
             | SynExpr.DotIndexedGet(synExpr, IndexerArgList synExprList, _range, _range2) ->
-                Option.orElse (walkExpr synExpr) (List.tryPick walkExpr synExprList)
+                List.tryPick walkExpr synExprList
+                |> Option.orElseWith (fun _ -> walkExpr synExpr)
 
             | SynExpr.DotIndexedSet(synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
                 [ yield synExpr1
