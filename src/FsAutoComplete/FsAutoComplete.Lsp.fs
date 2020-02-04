@@ -666,14 +666,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
                     | CoreResponse.Res(tip, signature, footer, typeDoc) ->
-                        let sigCommentFooter =
-                            TipFormatter.formatTipEnhanced tip signature footer typeDoc
-                            |> List.tryHead
-                            |> Option.map List.tryHead
-                            |> Option.flatten
-                        match sigCommentFooter with
-                        | None -> success None
-                        | Some (signature, comment, footer) ->
+                        match TipFormatter.formatTipEnhanced tip signature footer typeDoc with
+                        | (sigCommentFooter::_)::_ -> 
+                            let signature, comment, footer = sigCommentFooter
                             let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
                             let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
 
@@ -712,6 +707,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     Range = None
                                 }
                             success (Some response)
+                        | _ -> success None
                 return res
             })
 

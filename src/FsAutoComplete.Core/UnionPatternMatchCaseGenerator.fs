@@ -203,7 +203,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                                   _, _wholeExprRange) as matchLambdaExpr ->
                 synMatchClauseList
                 |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
-                |> Option.orTry (fun () ->
+                |> Option.orElseWith (fun () ->
                     if isExnMatch then
                         None
                     else
@@ -218,11 +218,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
 
             | SynExpr.Match(sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) as matchExpr ->
                 getIfPosInRange synExpr.Range (fun () -> walkExpr synExpr)
-                |> Option.orTry (fun () ->
+                |> Option.orElseWith (fun () ->
                     synMatchClauseList
                     |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
                 )
-                |> Option.orTry (fun () ->
+                |> Option.orElseWith (fun () ->
                     let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
                     if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                         match sequencePointInfoForBinding with

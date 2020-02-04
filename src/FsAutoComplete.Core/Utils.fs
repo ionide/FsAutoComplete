@@ -96,18 +96,6 @@ module Option =
     | Some v -> v
     | _      -> f
 
-  let inline orTry f =
-    function
-    | Some x -> Some x
-    | None -> f()
-
-  /// Some(Some x) -> Some x | None -> None
-  let inline flatten x =
-    match x with
-    | Some x -> x
-    | None -> None
-
-
 [<RequireQualifiedAccess>]
 module Async =
     /// Transforms an Async value using the specified function.

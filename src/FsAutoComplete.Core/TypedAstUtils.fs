@@ -68,8 +68,8 @@ module TypedAstUtils =
 module TypedAstExtensionHelpers =
     type FSharpEntity with
         member x.TryGetFullName() =
-            x.TryFullName            
-            |> Option.orTry (fun _ ->
+            x.TryFullName
+            |> Option.orElseWith (fun _ ->
                 Option.attempt (fun _ -> String.Join(".", x.AccessPath, x.DisplayName)))
 
         member x.TryGetFullDisplayName() =
