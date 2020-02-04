@@ -285,7 +285,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
                                    FieldExprList = fields }
                         )
                     )
-                    |> Option.orTry (fun () ->
+                    |> Option.orElseWith (fun () ->
                         fields
                         |> List.tryPick walkRecordField
                     )
@@ -323,7 +323,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
                                    FieldExprList = fields }
                         )
                     )
-                    |> Option.orTry (fun () ->
+                    |> Option.orElseWith (fun () ->
                         fields
                         |> List.tryPick walkRecordField
                     )
