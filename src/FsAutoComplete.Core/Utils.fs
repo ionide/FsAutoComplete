@@ -96,11 +96,6 @@ module Option =
     | Some v -> v
     | _      -> f
 
-  let orElseFun other option =
-    match option with
-    | None -> other()
-    | Some x -> Some x
-
   let inline orTry f =
     function
     | Some x -> Some x
