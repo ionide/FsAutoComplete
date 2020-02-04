@@ -102,17 +102,10 @@ module Option =
     | Some v -> v
     | _      -> f
 
-
-
   let orElseFun other option =
     match option with
     | None -> other()
     | Some x -> Some x
-
-  let getOrElseFun defaultValue option =
-    match option with
-    | None -> defaultValue()
-    | Some x -> x
 
   let inline orTry f =
     function

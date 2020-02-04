@@ -24,16 +24,16 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
         member __.FileStreamReadShim fileName =
             getContent fileName
             |> Option.map (fun bytes -> new MemoryStream (bytes) :> Stream)
-            |> Option.getOrElseFun (fun _ -> actualFs.FileStreamReadShim fileName)
+            |> Option.defaultWith (fun _ -> actualFs.FileStreamReadShim fileName)
 
         member __.ReadAllBytesShim fileName =
             getContent fileName
-            |> Option.getOrElseFun (fun _ -> actualFs.ReadAllBytesShim fileName)
+            |> Option.defaultWith (fun _ -> actualFs.ReadAllBytesShim fileName)
 
         member __.GetLastWriteTimeShim fileName =
             getFile fileName
             |> Option.map (fun x -> x.Touched)
-            |> Option.getOrElseFun (fun _ -> actualFs.GetLastWriteTimeShim fileName)
+            |> Option.defaultWith (fun _ -> actualFs.GetLastWriteTimeShim fileName)
 
         member __.GetTempPathShim() = actualFs.GetTempPathShim()
         member __.FileStreamCreateShim file = file |> normalize |> actualFs.FileStreamCreateShim
