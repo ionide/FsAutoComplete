@@ -762,12 +762,14 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
             | SynExpr.DotIndexedGet(synExpr, IndexerArgList synExprList, _range, _range2) ->
-                List.tryPick walkExpr synExprList
+                synExprList
+                |> List.map fst
+                |> List.tryPick walkExpr
                 |> Option.orElseWith (fun _ -> walkExpr synExpr)
 
             | SynExpr.DotIndexedSet(synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
                 [ yield synExpr1
-                  yield! synExprList
+                  yield! synExprList |> List.map fst
                   yield synExpr2 ]
                 |> List.tryPick walkExpr
 
@@ -800,8 +802,10 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
             | SynExpr.DoBang(synExpr, _range) ->
                 walkExpr synExpr
 
-            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, ands, synExpr2, _range) ->
+                [ synExpr1
+                  yield! ands |> List.map (fun (_,_,_,_,body,_) -> body)
+                  synExpr2 ] |> List.tryPick walkExpr
 
             | SynExpr.LibraryOnlyILAssembly _
             | SynExpr.LibraryOnlyStaticOptimization _
