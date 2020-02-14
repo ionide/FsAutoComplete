@@ -667,7 +667,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         LspResult.internalError msg
                     | CoreResponse.Res(tip, signature, footer, typeDoc) ->
                         match TipFormatter.formatTipEnhanced tip signature footer typeDoc with
-                        | (sigCommentFooter::_)::_ -> 
+                        | (sigCommentFooter::_)::_ ->
                             let signature, comment, footer = sigCommentFooter
                             let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
                             let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
@@ -919,8 +919,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override __.TextDocumentFormatting(p: DocumentFormattingParams) = async {
         let doc = p.TextDocument
         let fileName = doc.GetFilePath()
-        match commands.TryGetFileCheckerOptionsWithLines fileName with
-        | Result.Ok (opts, lines) ->
+        let! res = commands.FormatDocument fileName
+        match res with
+        | Some (lines, formatted) ->
             let range =
                 let zero = { Line = 0; Character = 0 }
                 let endLine = Array.length lines - 1
@@ -930,58 +931,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Option.defaultValue 0
                 { Start = zero; End = { Line = endLine; Character = endCharacter } }
 
-            let source = String.concat "\n" lines
-            let parsingOptions = Utils.projectOptionsToParseOptions opts
-            let checker : FSharpChecker = commands.GetChecker()
-            // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
-            let config =
-                let currentFolder = System.IO.Path.GetDirectoryName(fileName)
-                let result = Fantomas.CodeFormatter.ReadConfiguration currentFolder
-                match result with
-                | Fantomas.FormatConfig.Success c -> c
-                | Fantomas.FormatConfig.PartialSuccess(c,warnings) ->
-                    match warnings with
-                    | [] ->
-                      c
-                    | warnings ->
-                      fantomasLogger.warn (Log.setMessage "Warnings while parsing the configuration file at {path}" >> Log.addContextDestructured "path" currentFolder >> Log.addContextDestructured "warnings" warnings)
-                      c
-                | Fantomas.FormatConfig.Failure err ->
-                    fantomasLogger.error (Log.setMessage "Error while parsing the configuration files at {path}. Using default configuration" >> Log.addContextDestructured "path" currentFolder >> Log.addExn err)
-                    Fantomas.FormatConfig.FormatConfig.Default
-
-            let! formatted =
-                Fantomas.CodeFormatter.FormatDocumentAsync(fileName,
-                                                           Fantomas.SourceOrigin.SourceString source,
-                                                           config,
-                                                           parsingOptions,
-                                                           checker)
-
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
-        | Result.Error er ->
-            return LspResult.notImplemented
-    }
-
-    override __.TextDocumentRangeFormatting(p) = async {
-        let doc = p.TextDocument
-        let fileName = doc.GetFilePath()
-        match commands.TryGetFileCheckerOptionsWithLines fileName with
-        | Result.Ok (opts, lines) ->
-            let range = Fantomas.CodeFormatter.MakeRange(fileName, (p.Range.Start.Line + 1), (p.Range.Start.Character + 1), (p.Range.End.Line + 1), (p.Range.End.Character + 1))
-
-            let source = String.concat "\n" lines
-            let parsingOptions = Utils.projectOptionsToParseOptions opts
-            let checker : FSharpChecker = commands.GetChecker()
-            let! formatted =
-                Fantomas.CodeFormatter.FormatSelectionAsync(fileName,
-                                                            range,
-                                                            Fantomas.SourceOrigin.SourceString source,
-                                                            Fantomas.FormatConfig.FormatConfig.Default,
-                                                            parsingOptions,
-                                                            checker)
-
-            return LspResult.success(Some([| { Range = p.Range; NewText = formatted  } |]))
-        | Result.Error er ->
+        | None ->
             return LspResult.notImplemented
     }
 
