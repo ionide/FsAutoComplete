@@ -931,8 +931,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res runtimePath
     }
 
-    // member x.GetChecker () = checker.GetFSharpChecker()
-
     member x.ScopesForFile (file: string) = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithLines file with
