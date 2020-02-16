@@ -1,3 +1,5 @@
+#### 0.39.0
+
 #### 0.38.2
 
 #### 0.38.1 - 16.04.2019
@@ -82,11 +84,11 @@
   - Performance updates for find usages
   - Implement GetNamespaceSuggestions
   - Update FSharpLint version
-  - Optimize GetNamespaceSuggestions 
+  - Optimize GetNamespaceSuggestions
   - Optimize GetDeclarations
   - Add endpoint for F1 Help
   - ... and more!
-  
+
 (Some of these features only exposed currently via HTTP interface)
 
 #### 0.30.2 - 31.10.2016
@@ -211,7 +213,7 @@
 
 #### 0.20.1 - 30.07.2015
 
-* Fix exception in `symboluse` command: #46. 
+* Fix exception in `symboluse` command: #46.
 
 #### 0.20.0 - 28.07.2015
 
@@ -254,7 +256,7 @@ Other changes:
   Note that this was previously the intended behaviour, but column
   indexes were treated as 0-based. Ensure that both line and column
   indexes sent in commands are 1-based.
-  
+
 #### 0.17.0 - 31.05.2015
 
 * Completion filtering - https://github.com/fsharp/FSharp.AutoComplete/pull/10

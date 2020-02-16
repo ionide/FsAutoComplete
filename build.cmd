@@ -1,2 +1,2 @@
 dotnet tool restore
-dotnet fake build -t LocalRestore
+dotnet fake build -t LocalRelease
