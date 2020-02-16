@@ -58,6 +58,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let fileStateSet = Event<unit>()
     let commandsLogger = LogProvider.getLoggerByName "Commands"
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
+    let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
     do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
 
@@ -930,8 +931,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res runtimePath
     }
 
-    member x.GetChecker () = checker.GetFSharpChecker()
-
     member x.ScopesForFile (file: string) = async {
         let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithLines file with
@@ -949,3 +948,39 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
+
+    member x.FormatDocument (file: SourceFilePath) = async {
+        let file = Path.GetFullPath file
+
+        match x.TryGetFileCheckerOptionsWithLines file with
+        | Result.Ok (opts, lines) ->
+            let source = String.concat "\n" lines
+            let parsingOptions = Utils.projectOptionsToParseOptions opts
+            let checker : FSharpChecker = checker.GetFSharpChecker()
+            // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
+            let config =
+                let currentFolder = Path.GetDirectoryName(file)
+                let result = Fantomas.CodeFormatter.ReadConfiguration currentFolder
+                match result with
+                | Fantomas.FormatConfig.Success c -> c
+                | Fantomas.FormatConfig.PartialSuccess(c,warnings) ->
+                    match warnings with
+                    | [] ->
+                      c
+                    | warnings ->
+                      fantomasLogger.warn (Log.setMessage "Warnings while parsing the configuration file at {path}" >> Log.addContextDestructured "path" currentFolder >> Log.addContextDestructured "warnings" warnings)
+                      c
+                | Fantomas.FormatConfig.Failure err ->
+                    fantomasLogger.error (Log.setMessage "Error while parsing the configuration files at {path}. Using default configuration" >> Log.addContextDestructured "path" currentFolder >> Log.addExn err)
+                    Fantomas.FormatConfig.FormatConfig.Default
+
+            let! formatted =
+                Fantomas.CodeFormatter.FormatDocumentAsync(file,
+                                                           Fantomas.SourceOrigin.SourceString source,
+                                                           config,
+                                                           parsingOptions,
+                                                           checker)
+            return Some (lines, formatted)
+        | Result.Error er ->
+            return None
+    }
