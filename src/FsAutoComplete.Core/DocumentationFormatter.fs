@@ -54,7 +54,7 @@ module DocumentationFormatter =
             [ for arg in typ.GenericArguments do
               if arg <> typ.GenericArguments.[0] then yield separator
               yield! formatType displayContext arg ]
-        elif typ.GenericArguments.Count > 0 then
+        elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
             let r =
                 typ.GenericArguments
                 |> Seq.collect (formatType displayContext)
@@ -66,7 +66,7 @@ module DocumentationFormatter =
             let t = Regex.Replace(t, """(.*?) ?\[\]""", "Array<")
             let t = Regex.Replace(t, """<.*>""", "<")
             [ yield formatLink t xmlDocSig assemblyName
-              if t.EndsWith "<" then 
+              if t.EndsWith "<" then
                   yield! r
                   yield formatLink ">" xmlDocSig assemblyName ]
         elif typ.IsGenericParameter then
@@ -75,8 +75,13 @@ module DocumentationFormatter =
                 + typ.GenericParameter.Name
             [formatLink name xmlDocSig assemblyName]
         else
+          if typ.HasTypeDefinition then
             let name = typ.TypeDefinition.DisplayName |> PrettyNaming.QuoteIdentifierIfNeeded
             [formatLink name xmlDocSig assemblyName]
+          else
+            let name = typ.Format displayContext
+            [formatLink name xmlDocSig assemblyName]
+
 
     let format displayContext (typ : FSharpType) : (string * int) =
         formatType displayContext typ
