@@ -1810,18 +1810,23 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             if config.EnableAnalyzers then
                 Loggers.analyzers.info (Log.setMessage "Using analyzer roots of {roots}" >> Log.addContextDestructured "roots" config.AnalyzersPath)
                 config.AnalyzersPath
-                |> Array.iter (fun a ->
+                |> Array.iter (fun analyzerPath ->
                     match rootPath with
                     | None -> ()
-                    | Some rp ->
-                        let dir = System.IO.Path.Combine(rp, a)
+                    | Some workspacePath ->
+                        let dir =
+                          if System.IO.Path.IsPathRooted analyzerPath
+                          // if analyzer is using absolute path, use it as is
+                          then analyzerPath
+                          // otherwise, it is a relative path and should be combined with the workspace path
+                          else System.IO.Path.Combine(workspacePath, analyzerPath)
                         Loggers.analyzers.info (Log.setMessage "Loading analyzers from {dir}" >> Log.addContextDestructured "dir" dir)
                         dir
                         |> commands.LoadAnalyzers
                         |> Async.map (fun n ->
                             match n with
                             | CoreResponse.InfoRes msg ->
-                                Loggers.analyzers.info (Log.setMessage "From {name}: {loadMessage}" >> Log.addContextDestructured "name" a >> Log.addContextDestructured "loadMessage" msg)
+                                Loggers.analyzers.info (Log.setMessage "From {name}: {loadMessage}" >> Log.addContextDestructured "name" analyzerPath >> Log.addContextDestructured "loadMessage" msg)
                             | _ -> ()
                         )
                         |> Async.Start
