@@ -67,30 +67,46 @@ let versionDirectoriesIn (baseDir: string) =
   |> Array.map (Path.GetFileName >> deconstructVersion)
   |> Array.sortWith compareNugetVersion
 
+/// path to the directory where .Net SDK versions are stored
+let sdkDir dotnetRoot = Path.Combine (dotnetRoot, "sdk")
+
 /// returns a sorted list of the SDK versions available at the given dotnet root
 let sdkVersions dotnetRoot =
-  let sdkDir = Path.Combine (dotnetRoot, "sdk")
+  let sdkDir = sdkDir dotnetRoot
   if Directory.Exists sdkDir
   then Some (versionDirectoriesIn sdkDir)
   else None
 
-/// returns a sorted list of the .Net Core runtime versions available at the given dotnet root
+/// path to the .netcoreapp reference assembly storage location
+let netcoreAppPacksDir dotnetRoot = Path.Combine(dotnetRoot, "packs/Microsoft.NETCore.App.Ref")
+/// path to the .netcoreapp implementation assembly storage location
+let netcoreAppDir dotnetRoot = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App")
+
+/// Returns a sorted list of the .Net Core runtime versions available at the given dotnet root.
+///
+/// If the reference-dll packs directory (`<dotnet root>/packs/Microsoft.NETCore.App.Ref`) is present that is used, otherwise
+/// defaults to the actual runtime implementation dlls (`<dotnet root>/shared/Microsoft.NETCore.app`).
 let runtimeVersions dotnetRoot =
-  let runtimesDir = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App")
-  if Directory.Exists runtimesDir
-  then Some (versionDirectoriesIn runtimesDir)
-  else None
+  let runtimesDir = netcoreAppDir dotnetRoot
+  let packsDir = netcoreAppPacksDir dotnetRoot
+  if Directory.Exists packsDir
+  then
+    Some (versionDirectoriesIn packsDir)
+    else
+      if Directory.Exists runtimesDir
+      then Some (versionDirectoriesIn runtimesDir)
+      else None
 
 let appPackDir dotnetRoot runtimeVersion tfm =
-  let packDir = Path.Combine(dotnetRoot, "packs/Microsoft.NETCore.App.Ref", runtimeVersion, "ref", tfm)
+  let packDir = Path.Combine(netcoreAppPacksDir dotnetRoot, runtimeVersion, "ref", tfm)
   if Directory.Exists packDir then Some packDir else None
 
 let compilerDir dotnetRoot sdkVersion =
-  let compilerDir = Path.Combine(dotnetRoot, "sdk", sdkVersion, "FSharp")
+  let compilerDir = Path.Combine(sdkDir dotnetRoot, sdkVersion, "FSharp")
   if Directory.Exists compilerDir then Some compilerDir else None
 
 let runtimeDir dotnetRoot runtimeVersion =
-  let runtimeDir = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App", runtimeVersion)
+  let runtimeDir = Path.Combine(netcoreAppDir dotnetRoot, runtimeVersion)
   if Directory.Exists runtimeDir then Some runtimeDir else None
 
 /// given the pack directory and the runtime directory, we prefer the pack directory (because these are ref dlls)
