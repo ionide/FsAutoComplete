@@ -7,7 +7,6 @@ Newtonsoft.Json
 Fake.Runtime
 OptimizedPriorityQueue
 ICSharpCode.Decompiler
-FSharp.Analyzers.SDK
 Microsoft.SourceLink.GitHub
 FSharp.Data
 Dapper
