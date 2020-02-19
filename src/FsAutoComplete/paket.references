@@ -8,7 +8,6 @@ System.Configuration.ConfigurationManager
 FSharpLint.Core
 Dotnet.ProjInfo
 Dotnet.ProjInfo.Workspace.FCS
-FSharp.Analyzers.SDK
 Fake.Runtime
 Dapper
 FSharp.Data

@@ -5,7 +5,6 @@ open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
 open FSharp.Compiler.Range
-open FSharp.Analyzers.SDK
 open ProjectSystem
 
 type DeclName = string
@@ -25,7 +24,6 @@ type State =
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
-    Analyzers: ConcurrentDictionary<FilePath, Analyzer list>
 
     mutable ColorizationOutput: bool
   }
@@ -41,7 +39,6 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ParseResults = ConcurrentDictionary()
-      Analyzers = ConcurrentDictionary()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =

@@ -10,7 +10,6 @@ open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
 open FSharp.Compiler.Range
-open FSharp.Analyzers
 open ProjectSystem
 
 
@@ -36,7 +35,7 @@ type CoreResponse<'a> =
 type NotificationEvent =
     | ParseError of errors: FSharpErrorInfo[] * file: string
     | Workspace of ProjectSystem.ProjectResponse
-    | AnalyzerMessage of  messages: SDK.Message [] * file: string
+    | AnalyzerMessage of  messages: obj * file: string
     | UnusedOpens of file: string * opens: range[]
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string * decls: (range * bool)[]
@@ -52,6 +51,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let fileChecked = Event<ParseAndCheckResults * string * int>()
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
+    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> obj) option = None
 
     let notify = Event<NotificationEvent>()
 
@@ -123,25 +123,18 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
         async {
             try
-                let analyzers = state.Analyzers.Values |> Seq.collect id
-                if analyzers |> Seq.length > 0 then
-                    Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
-                    match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
-                    | Some pt, Some tast ->
-                        let context : SDK.Context = {
-                            FileName = file
-                            Content = state.Files.[file].Lines
-                            ParseTree = pt
-                            TypedTree = tast
-                            Symbols = parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList
-                            GetAllEntities = parseAndCheck.GetAllEntities
-                        }
-                        let result = analyzers |> Seq.collect (fun n -> n context)
-                        (Seq.toArray result, file)
-                        |> NotificationEvent.AnalyzerMessage
-                        |> notify.Trigger
-                    | _ -> ()
+              match analyzerHandler with
+              | None -> ()
+              | Some handler ->
 
+                Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
+                match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
+                | Some pt, Some tast ->
+                    let res = handler (file, state.Files.[file].Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+                    (res, file)
+                    |> NotificationEvent.AnalyzerMessage
+                    |> notify.Trigger
+                | _ -> ()
             with
             | ex ->
                 Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn ex)
@@ -232,6 +225,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member __.LastVersionChecked
         with get() = lastVersionChecked
 
+    member __.AnalyzerHandler
+        with get() = analyzerHandler
+        and  set v = analyzerHandler <- v
+ 
     member __.LastCheckResult
         with get() = lastCheckResult
 
@@ -894,12 +891,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         | Some proj ->
             let! errors,code = checker.Compile(proj.Options.OtherOptions)
             return CoreResponse.Res (errors,code)
-    }
-
-    member __.LoadAnalyzers (path: string) = async {
-        let analyzers = FSharp.Analyzers.SDK.Client.loadAnalyzers path
-        state.Analyzers.AddOrUpdate(path, (fun _ -> analyzers), (fun _ _ -> analyzers)) |> ignore
-        return CoreResponse.InfoRes (sprintf "%d Analyzers registered" analyzers.Length)
     }
 
     member __.StartBackgroundService (workspaceDir : string option) =

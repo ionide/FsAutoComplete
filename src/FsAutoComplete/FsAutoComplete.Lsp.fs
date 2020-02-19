@@ -15,6 +15,9 @@ open LspHelpers
 open ProjectSystem
 module FcsRange = FSharp.Compiler.Range
 open FsAutoComplete.Logging
+#if ANALYZER_SUPPORT
+open FSharp.Analyzers
+#endif
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()
@@ -111,6 +114,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 n.Range.Start.Line
             )
             |> Seq.toArray
+        logger.info (Log.setMessage "SendDiag for {file}: {diags}" >> Log.addContextDestructured "file" uri >> Log.addContextDestructured "diags" diags )
         {Uri = uri; Diagnostics = diags}
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
@@ -182,7 +186,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     do
         commands.Notify.Subscribe(fun n ->
             try
-                logger.info (Log.setMessage "Notify {event}" >> Log.addContextDestructured "event" n)
+                // logger.info (Log.setMessage "Notify {event}" >> Log.addContextDestructured "event" n)
                 match n with
                 | NotificationEvent.FileParsed fn ->
                     {Content = fn}
@@ -276,6 +280,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> lspClient.TextDocumentPublishDiagnostics
                     |> Async.Start
                 | NotificationEvent.AnalyzerMessage(messages, file) ->
+#if ANALYZER_SUPPORT
+                    let messages = messages :?> SDK.Message []
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
                     let fs =
@@ -309,6 +315,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         )
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
                     sendDiagnostics uri
+#else
+                    ()
+#endif
             with
             | _ -> ()
         ) |> subscriptions.Add
@@ -390,6 +399,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
+#if ANALYZER_SUPPORT
+        let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
+          let ctx : SDK.Context = {
+            FileName = file
+            Content = content
+            ParseTree = pt
+            TypedTree = tast
+            Symbols = symbols
+            GetAllEntities = getAllEnts
+          }
+          SDK.Client.runAnalyzers ctx |> Array.ofList |> box
+        commands.AnalyzerHandler <- Some analyzerHandler
+#endif
         let c =
             p.InitializationOptions
             |> Option.bind (fun options -> if options.HasValues then Some options else None)
@@ -1806,8 +1828,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.LoadAnalyzers(path) = async {
+#if ANALYZER_SUPPORT
         try
             if config.EnableAnalyzers then
+
                 Loggers.analyzers.info (Log.setMessage "Using analyzer roots of {roots}" >> Log.addContextDestructured "roots" config.AnalyzersPath)
                 config.AnalyzersPath
                 |> Array.iter (fun analyzerPath ->
@@ -1821,15 +1845,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                           // otherwise, it is a relative path and should be combined with the workspace path
                           else System.IO.Path.Combine(workspacePath, analyzerPath)
                         Loggers.analyzers.info (Log.setMessage "Loading analyzers from {dir}" >> Log.addContextDestructured "dir" dir)
-                        dir
-                        |> commands.LoadAnalyzers
-                        |> Async.map (fun n ->
-                            match n with
-                            | CoreResponse.InfoRes msg ->
-                                Loggers.analyzers.info (Log.setMessage "From {name}: {loadMessage}" >> Log.addContextDestructured "name" analyzerPath >> Log.addContextDestructured "loadMessage" msg)
-                            | _ -> ()
-                        )
-                        |> Async.Start
+                        let (n,m) = dir |> SDK.Client.loadAnalyzers
+                        Loggers.analyzers.info (Log.setMessage "From {name}: {dllNo} dlls including {analyzersNo} analyzers" >> Log.addContextDestructured "name" analyzerPath >> Log.addContextDestructured "dllNo" n >> Log.addContextDestructured "analyzersNo" m)
                 )
             else
                 Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
@@ -1838,6 +1855,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | ex ->
             Loggers.analyzers.error (Log.setMessage "Loading failed" >> Log.addExn ex)
             return LspResult.success ()
+#else
+        return LspResult.success ()
+#endif
     }
 
 let startCore (commands: Commands) =
