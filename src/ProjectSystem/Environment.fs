@@ -149,10 +149,10 @@ module Environment =
 
   /// because 3.x is the minimum SDK that we support for FSI, we want to float to the latest
   /// 3.x sdk that the user has installed, to prevent hard-coding.
-  let latest3xSdkVersion sdkRoot =
+  let latest3xSdkVersion dotnetRoot =
     let minSDKVersion = FSIRefs.NugetVersion(3,0,100,"")
     lazy (
-      match FSIRefs.sdkVersions sdkRoot with
+      match FSIRefs.sdkVersions dotnetRoot with
       | None -> None
       | Some sortedSdkVersions ->
         maxVersionWithThreshold minSDKVersion sortedSdkVersions
@@ -160,10 +160,10 @@ module Environment =
 
   /// because 3.x is the minimum runtime that we support for FSI, we want to float to the latest
   /// 3.x runtime that the user has installed, to prevent hard-coding.
-  let latest3xRuntimeVersion sdkRoot =
+  let latest3xRuntimeVersion dotnetRoot =
     let minRuntimeVersion = FSIRefs.NugetVersion(3,0,0,"")
     lazy (
-      match FSIRefs.runtimeVersions sdkRoot with
+      match FSIRefs.runtimeVersions dotnetRoot with
       | None -> None
       | Some sortedRuntimeVersions ->
         maxVersionWithThreshold minRuntimeVersion sortedRuntimeVersions
