@@ -1,3 +1,12 @@
+#### 0.40.0 - 19.02.2020
+
+* Move Fantomas formatting to Core project [#553](https://github.com/fsharp/FsAutoComplete/issues/553) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+* Fix return type in signatures in documentation formatter [#554](https://github.com/fsharp/FsAutoComplete/issues/554) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+* Work around build infrastructure by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+* Allows analyzer paths to be absolute [#555](https://github.com/fsharp/FsAutoComplete/issues/555) by [@Zaid-Ajaj](https://github.com/Zaid-Ajaj)
+* Update FSI references version-finding algorithm to probe packs dir as well as runtimes dir [#556](https://github.com/fsharp/FsAutoComplete/issues/556) by [@baronfel](https://github.com/baronfel)
+* Update FSharp.Analyzers.SDK to 0.3.0 and make them available only in .Net Core build [#557](https://github.com/fsharp/FsAutoComplete/issues/557) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+
 #### 0.39.0
 
 #### 0.38.2
