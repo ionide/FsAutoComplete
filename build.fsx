@@ -150,10 +150,14 @@ Target.create "ReleaseGitHub" (fun _ ->
         GitHub.createClient user pw
     let files = !! (pkgsDir </> "*.*")
 
+    let notes =
+      release.Notes
+      |> List.map (fun s -> "* " + s)
+
     // release on github
     let cl =
         client
-        |> GitHub.draftNewRelease gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
+        |> GitHub.draftNewRelease gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) notes
     (cl,files)
     ||> Seq.fold (fun acc e -> acc |> GitHub.uploadFile e)
     |> GitHub.publishDraft//releaseDraft
