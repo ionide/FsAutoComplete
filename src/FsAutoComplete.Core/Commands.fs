@@ -228,7 +228,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     member __.AnalyzerHandler
         with get() = analyzerHandler
         and  set v = analyzerHandler <- v
- 
+
     member __.LastCheckResult
         with get() = lastCheckResult
 
@@ -640,13 +640,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     | None -> return CoreResponse.InfoRes "Something went wrong during parsing"
                     | Some tree ->
                         try
-                            let fsharpLintConfig = Lint.tryLoadConfiguration file
-                            let opts =
-                                match fsharpLintConfig with
-                                | Ok config -> Some config
-                                | Error _ -> None
-
-                            match Lint.lintWithConfiguration opts tree source tyRes.GetCheckResults with
+                            let! ctok = Async.CancellationToken
+                            let fsharpLintConfig = Lint.loadConfiguration file
+                            match Lint.lintWithConfiguration fsharpLintConfig ctok tree source tyRes.GetCheckResults with
                             | Error e -> return CoreResponse.InfoRes e
                             | Ok enrichedWarnings ->
                                 let res = CoreResponse.Res (file, enrichedWarnings)

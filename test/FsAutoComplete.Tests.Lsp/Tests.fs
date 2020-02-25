@@ -1,4 +1,4 @@
-module FsAutoComplete.Tests.Lsp
+﻿module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -752,7 +752,7 @@ let linterTests =
         let firstDiag = {
           Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
           Severity = Some DiagnosticSeverity.Information
-          Code = Some "FS0042"
+          Code = Some "FL0042"
           Source = "F# Linter"
           Message = "Consider changing `test` to PascalCase."
           RelatedInformation = None
@@ -761,7 +761,7 @@ let linterTests =
           Range = { Start = { Line = 1; Character = 16 }
                     End = { Line = 1; Character = 25 } }
           Severity = Some DiagnosticSeverity.Information
-          Code = Some "FS0065"
+          Code = Some "FL0065"
           Source = "F# Linter"
           Message = "`not (a = b)` might be able to be refactored into `a <> b`."
           RelatedInformation = None
@@ -771,7 +771,7 @@ let linterTests =
           { Range = { Start = { Line = 2; Character = 16 }
                       End = { Line = 2; Character = 26 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`not (a <> b)` might be able to be refactored into `a = b`."
             RelatedInformation = None
@@ -781,7 +781,7 @@ let linterTests =
           { Range = { Start = { Line = 3; Character = 12 }
                       End = { Line = 3; Character = 22 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`fun x -> x` might be able to be refactored into `id`."
             RelatedInformation = None
@@ -790,7 +790,7 @@ let linterTests =
           { Range = { Start = { Line = 4; Character = 12 }
                       End = { Line = 4; Character = 20 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`not true` might be able to be refactored into `false`."
             RelatedInformation = None
@@ -799,7 +799,7 @@ let linterTests =
           { Range = { Start = { Line = 5; Character = 12 }
                       End = { Line = 5; Character = 21 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`not false` might be able to be refactored into `true`."
             RelatedInformation = None
@@ -808,7 +808,7 @@ let linterTests =
           { Range = { Start = { Line = 7; Character = 14 }
                       End = { Line = 7; Character = 21 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`a <> true` might be able to be refactored into `not a`."
             RelatedInformation = None
@@ -817,7 +817,7 @@ let linterTests =
           { Range = { Start = { Line = 8; Character = 14 }
                       End = { Line = 8; Character = 20 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`x = null` might be able to be refactored into `isNull x`."
             RelatedInformation = None
@@ -826,7 +826,7 @@ let linterTests =
           { Range = { Start = { Line = 9; Character = 14 }
                       End = { Line = 9; Character = 37 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
             RelatedInformation = None

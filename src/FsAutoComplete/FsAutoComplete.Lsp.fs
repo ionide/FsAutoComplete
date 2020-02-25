@@ -9,7 +9,6 @@ open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete
-open FSharpLint.Application.LintWarning
 open Newtonsoft.Json.Linq
 open LspHelpers
 open ProjectSystem
@@ -248,10 +247,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                     let fs =
                         warnings |> List.choose (fun w ->
-                            w.Warning.Fix
-                            |> Option.map (fun f ->
-                                let range = fcsRangeToLsp w.Warning.Range
-                                range, {Range = range; NewText = f.ToText})
+                            w.Warning.Details.SuggestedFix
+                            |> Option.bind (fun f ->
+                                let f = f.Force()
+                                let range = fcsRangeToLsp w.Warning.Details.Range
+                                f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+                            )
                         )
 
                     fixes.[uri] <- fs
@@ -259,12 +260,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         warnings |> List.map(fun w ->
                             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
                             // neither the Message or the RelatedInformation structures support markdown.
-                            let range = fcsRangeToLsp w.Warning.Range
+                            let range = fcsRangeToLsp w.Warning.Details.Range
                             { Diagnostic.Range = range
-                              Code = w.Code |> Option.map (sprintf "FS%04d") // '04' says to pad with '0' up to '4' digits in width. (we're recreating the F#Lint display numbers here)
+                              Code = Some w.Code
                               Severity = Some DiagnosticSeverity.Information
                               Source = "F# Linter"
-                              Message = w.Warning.Info
+                              Message = w.Warning.Details.Message
                               RelatedInformation = None
                               Tags = None }
                         )

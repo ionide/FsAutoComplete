@@ -10,8 +10,8 @@ github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibL
 nuget Argu ~> 5.2.0
 nuget Fantomas
 nuget FSharp.Compiler.Service 34.1.0
-nuget Dotnet.ProjInfo ~> 0.37.0 prerelease
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.37.0 prerelease
+nuget Dotnet.ProjInfo
+nuget Dotnet.ProjInfo.Workspace.FCS
 nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler

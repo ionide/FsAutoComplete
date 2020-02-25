@@ -58,7 +58,7 @@ module Environment =
   let msbuildLocator = MSBuildLocator()
 
   let msbuild =
-    let msbuildPath = msbuildLocator.LatestInstalledMSBuild()
+    let msbuildPath = msbuildLocator.LatestInstalledMSBuildNET()
 
     match msbuildPath with
     | Dotnet.ProjInfo.Inspect.MSBuildExePath.Path path ->
