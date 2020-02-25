@@ -15,14 +15,16 @@ let pageForLint (identifier: string) =
 let enrichLintWarning (w: Suggestion.LintWarning): EnrichedLintWarning =
     { Code = w.RuleIdentifier; HelpUrl = pageForLint w.RuleIdentifier; Warning = w }
 
-let tryFindSettingsForProject (projectFilePath: string) =
-  None
-
 /// Attempts to load the F#Lint configuration from the closest available settings file to the given project file.
-let loadConfiguration (projectFilePath: string) =
-  match tryFindSettingsForProject projectFilePath with
+let loadConfiguration (workspaceRoot: string option) =
+  match workspaceRoot with
+  | Some root ->
+    let configFileName = "fsharplint.json"
+    let fullPath = System.IO.Path.Combine(root, configFileName)
+    if System.IO.File.Exists fullPath
+    then ConfigurationParam.FromFile fullPath
+    else ConfigurationParam.Default
   | None -> ConfigurationParam.Default
-  | Some f -> ConfigurationParam.FromFile f
 
 let lintWithConfiguration (lintConfig: ConfigurationParam) ctok ast sourceCode typeCheckResults =
     let res =

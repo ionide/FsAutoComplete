@@ -399,9 +399,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
 
-    override __.Initialize(p) = async {
-        commands.StartBackgroundService p.RootPath
-        rootPath <- p.RootPath
+    override __.Initialize(p: InitializeParams) = async {
+        let actualRootPath =
+          match p.RootUri with
+          | Some rootUri -> Some (fileUriToLocalPath rootUri)
+          | None -> p.RootPath
+
+        commands.StartBackgroundService actualRootPath
+        rootPath <- actualRootPath
+        commands.WorkspaceRoot <- actualRootPath
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
@@ -1506,7 +1512,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return ()
     }
 
-    override __.WorkspaceDidChangeConfiguration(p) = async {
+    override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) = async {
         let dto =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>

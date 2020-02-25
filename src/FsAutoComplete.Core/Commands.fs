@@ -50,6 +50,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
 
+    let mutable workspaceRoot: string option = None
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
     let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> obj) option = None
@@ -232,6 +233,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.LastCheckResult
         with get() = lastCheckResult
+
+    member __.WorkspaceRoot
+        with get() = workspaceRoot
+        and  set v = workspaceRoot <- v
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
         state.AddFileText(file, lines, version)
@@ -642,7 +647,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     | Some tree ->
                         try
                             let! ctok = Async.CancellationToken
-                            let fsharpLintConfig = Lint.loadConfiguration file
+                            let fsharpLintConfig = Lint.loadConfiguration workspaceRoot
+
                             match Lint.lintWithConfiguration fsharpLintConfig ctok tree source tyRes.GetCheckResults with
                             | Error e -> return CoreResponse.InfoRes e
                             | Ok enrichedWarnings ->
