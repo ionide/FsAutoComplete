@@ -39,7 +39,7 @@ type NotificationEvent =
     | UnusedOpens of file: string * opens: range[]
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string * decls: (range * bool)[]
-    | SimplifyNames of file: string * names: (range * string)[]
+    | SimplifyNames of file: string * names: SimplifyNames.SimplifiableRange []
     | Canceled of string
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string
@@ -49,6 +49,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
+
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
     let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> obj) option = None
@@ -841,9 +842,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 match tyResOpt with
                 | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
                 | Some tyRes ->
-                    let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
-                    let! simplified = SimplifyNameDiagnosticAnalyzer.getSimplifyNameRanges tyRes.GetCheckResults source allUses
-                    let simplified = simplified.ToArray()
+                    let getSourceLine lineNo = source.[lineNo]
+                    let! simplified = SimplifyNames.getSimplifiableNames(tyRes.GetCheckResults, getSourceLine)
+                    let simplified = Array.ofList simplified
                     let res = CoreResponse.Res (file, simplified)
                     notify.Trigger (NotificationEvent.SimplifyNames (file, simplified))
                     return res

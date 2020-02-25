@@ -235,8 +235,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
 
-                    let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+                    let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
+                        { Diagnostic.Range = fcsRangeToLsp range
+                          Code = None
+                          Severity = Some DiagnosticSeverity.Hint
+                          Source = "FSAC"
+                          Message = "This qualifier is redundant"
+                          RelatedInformation = Some [| |]
+                          Tags = Some [| DiagnosticTag.Unnecessary |] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
