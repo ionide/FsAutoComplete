@@ -51,6 +51,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let fileChecked = Event<ParseAndCheckResults * string * int>()
 
     let mutable workspaceRoot: string option = None
+    let mutable linterConfigFileRelativePath: string option = None
+    let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
     let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> obj) option = None
@@ -233,10 +235,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.LastCheckResult
         with get() = lastCheckResult
-
-    member __.WorkspaceRoot
-        with get() = workspaceRoot
-        and  set v = workspaceRoot <- v
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
         state.AddFileText(file, lines, version)
@@ -647,9 +645,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     | Some tree ->
                         try
                             let! ctok = Async.CancellationToken
-                            let fsharpLintConfig = Lint.loadConfiguration workspaceRoot
-
-                            match Lint.lintWithConfiguration fsharpLintConfig ctok tree source tyRes.GetCheckResults with
+                            match Lint.lintWithConfiguration linterConfiguration ctok tree source tyRes.GetCheckResults with
                             | Error e -> return CoreResponse.InfoRes e
                             | Ok enrichedWarnings ->
                                 let res = CoreResponse.Res (file, enrichedWarnings)
@@ -978,3 +974,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
         | Result.Error er ->
             return None
     }
+
+    member __.SetWorkspaceRoot (root: string option) =
+      workspaceRoot <- root
+      linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
+
+    member __.SetLinterConfigRelativePath (relativePath: string option) =
+      linterConfigFileRelativePath <- relativePath
+      linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath

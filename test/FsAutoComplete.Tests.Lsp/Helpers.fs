@@ -25,6 +25,7 @@ let defaultConfigDto : FSharpConfigDto =
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
     Linter = None
+    LinterConfig = None
     UnionCaseStubGeneration = None
     UnionCaseStubGenerationBody = None
     RecordStubGeneration = None

@@ -66,6 +66,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         config <- newConfig
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments config.FSIExtraParameters
+        commands.SetLinterConfigRelativePath config.LinterConfig
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -407,7 +408,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         commands.StartBackgroundService actualRootPath
         rootPath <- actualRootPath
-        commands.WorkspaceRoot <- actualRootPath
+        commands.SetWorkspaceRoot actualRootPath
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
