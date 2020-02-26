@@ -9,7 +9,6 @@ open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open FsAutoComplete
-open FSharpLint.Application.LintWarning
 open Newtonsoft.Json.Linq
 open LspHelpers
 open ProjectSystem
@@ -67,6 +66,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         config <- newConfig
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments config.FSIExtraParameters
+        commands.SetLinterConfigRelativePath config.LinterConfig
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -236,8 +236,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
 
-                    let diags = decls |> Array.map(fun (n, _) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This qualifier is redundant"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+                    let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
+                        { Diagnostic.Range = fcsRangeToLsp range
+                          Code = None
+                          Severity = Some DiagnosticSeverity.Hint
+                          Source = "FSAC"
+                          Message = "This qualifier is redundant"
+                          RelatedInformation = Some [| |]
+                          Tags = Some [| DiagnosticTag.Unnecessary |] }
                     )
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
@@ -248,10 +254,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                     let fs =
                         warnings |> List.choose (fun w ->
-                            w.Warning.Fix
-                            |> Option.map (fun f ->
-                                let range = fcsRangeToLsp w.Warning.Range
-                                range, {Range = range; NewText = f.ToText})
+                            w.Warning.Details.SuggestedFix
+                            |> Option.bind (fun f ->
+                                let f = f.Force()
+                                let range = fcsRangeToLsp w.Warning.Details.Range
+                                f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+                            )
                         )
 
                     fixes.[uri] <- fs
@@ -259,12 +267,12 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         warnings |> List.map(fun w ->
                             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
                             // neither the Message or the RelatedInformation structures support markdown.
-                            let range = fcsRangeToLsp w.Warning.Range
+                            let range = fcsRangeToLsp w.Warning.Details.Range
                             { Diagnostic.Range = range
-                              Code = w.Code |> Option.map (sprintf "FS%04d") // '04' says to pad with '0' up to '4' digits in width. (we're recreating the F#Lint display numbers here)
+                              Code = Some w.Code
                               Severity = Some DiagnosticSeverity.Information
                               Source = "F# Linter"
-                              Message = w.Warning.Info
+                              Message = w.Warning.Details.Message
                               RelatedInformation = None
                               Tags = None }
                         )
@@ -392,9 +400,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
 
-    override __.Initialize(p) = async {
-        commands.StartBackgroundService p.RootPath
-        rootPath <- p.RootPath
+    override __.Initialize(p: InitializeParams) = async {
+        let actualRootPath =
+          match p.RootUri with
+          | Some rootUri -> Some (fileUriToLocalPath rootUri)
+          | None -> p.RootPath
+
+        commands.StartBackgroundService actualRootPath
+        rootPath <- actualRootPath
+        commands.SetWorkspaceRoot actualRootPath
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
@@ -1499,7 +1513,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return ()
     }
 
-    override __.WorkspaceDidChangeConfiguration(p) = async {
+    override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) = async {
         let dto =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>

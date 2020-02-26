@@ -514,6 +514,7 @@ type FSharpConfigDto = {
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     Linter: bool option
+    LinterConfig: string option
     UnionCaseStubGeneration: bool option
     UnionCaseStubGenerationBody: string option
     RecordStubGeneration: bool option
@@ -546,6 +547,7 @@ type FSharpConfig = {
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     Linter: bool
+    LinterConfig: string option
     UnionCaseStubGeneration: bool
     UnionCaseStubGenerationBody: string
     RecordStubGeneration: bool
@@ -575,6 +577,7 @@ with
             KeywordsAutocomplete = false
             ExternalAutocomplete = false
             Linter = false
+            LinterConfig = None
             UnionCaseStubGeneration = false
             UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
             RecordStubGeneration = false
@@ -607,6 +610,7 @@ with
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
             Linter = defaultArg dto.Linter false
+            LinterConfig = dto.LinterConfig
             UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration false
             UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody "failwith \"Not Implemented\""
             RecordStubGeneration = defaultArg dto.RecordStubGeneration false
@@ -644,6 +648,7 @@ with
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
             Linter = defaultArg dto.Linter x.Linter
+            LinterConfig = dto.LinterConfig
             UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration x.UnionCaseStubGeneration
             UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody x.UnionCaseStubGenerationBody
             RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration

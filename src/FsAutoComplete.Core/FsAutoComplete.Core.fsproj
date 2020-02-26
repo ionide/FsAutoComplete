@@ -29,7 +29,6 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
-    <Compile Include="SimplifyNameAnalyzer.fs" />
     <Compile Include="Decompiler.fs" />
     <Compile Include="FakeSupport.fs" />
     <Compile Include="CompilerServiceInterface.fs" />

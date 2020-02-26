@@ -126,8 +126,8 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
     and walkInterfaceImpl (InterfaceImpl(_, bindings, _)) = List.iter walkBinding bindings
 
     and walkIndexerArg = function
-        | SynIndexerArg.One e -> walkExpr e
-        | SynIndexerArg.Two (e1, e2) -> List.iter walkExpr [e1; e2]
+        | SynIndexerArg.One(e, _fromEnd,_range) -> walkExpr e
+        | SynIndexerArg.Two(e1,_e1FromEnd,e2,_e2FromEnd,_e1Range,_e2Range) -> List.iter walkExpr [e1; e2]
 
     and walkType = function
         | SynType.Array (_, t, _)
@@ -237,9 +237,13 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
             addLongIdentWithDots ident
             List.iter walkExpr [e1; e2; e3]
         | SynExpr.JoinIn (e1, _, e2, _) -> List.iter walkExpr [e1; e2]
-        | SynExpr.LetOrUseBang (_, _, _, pat, e1, e2, _) ->
+        | SynExpr.LetOrUseBang (_, _, _, pat, e1, ands, e2, _) ->
             walkPat pat
-            List.iter walkExpr [e1; e2]
+            walkExpr e1
+            for (_,_,_,pat,body,_) in ands do
+              walkPat pat
+              walkExpr body
+            walkExpr e2
         | SynExpr.TraitCall (ts, sign, e, _) ->
             List.iter walkTypar ts
             walkMemberSig sign
@@ -447,8 +451,8 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
     and walkInterfaceImpl (InterfaceImpl(_, bindings, _)) = List.iter walkBinding bindings
 
     and walkIndexerArg = function
-        | SynIndexerArg.One e -> walkExpr e
-        | SynIndexerArg.Two (e1, e2) -> List.iter walkExpr [e1; e2]
+        | SynIndexerArg.One(e,_fromEnd,_range) -> walkExpr e
+        | SynIndexerArg.Two(e1,_e1FromEnd,e2,_e2FromEnd,_e1Range,_e2Range) -> List.iter walkExpr [e1; e2]
 
     and walkType = function
         | SynType.Array (_, t, _)
@@ -551,9 +555,13 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
         | SynExpr.DotNamedIndexedPropertySet (e1, ident, e2, e3, _) ->
             List.iter walkExpr [e1; e2; e3]
         | SynExpr.JoinIn (e1, _, e2, _) -> List.iter walkExpr [e1; e2]
-        | SynExpr.LetOrUseBang (_, _, _, pat, e1, e2, _) ->
+        | SynExpr.LetOrUseBang (_, _, _, pat, e1, ands, e2, _) ->
             walkPat pat
-            List.iter walkExpr [e1; e2]
+            walkExpr e1
+            for (_,_,_,pat,body,_) in ands do
+              walkPat pat
+              walkExpr body
+            walkExpr e2
         | SynExpr.TraitCall (ts, sign, e, _) ->
             List.iter walkTypar ts
             walkMemberSig sign
@@ -802,8 +810,8 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         List.iter walkBinding bindings
 
     and walkIndexerArg = function
-        | SynIndexerArg.One e -> walkExpr e
-        | SynIndexerArg.Two (e1, e2) -> List.iter walkExpr [e1; e2]
+        | SynIndexerArg.One(e,_fromEnd,_range) -> walkExpr e
+        | SynIndexerArg.Two(e1,_e1FromEnd,e2,_e2FromEnd,_e1Range,_e2Range) -> List.iter walkExpr [e1; e2]
 
     and walkType = function
         | SynType.Array (_, t, r)
@@ -960,10 +968,15 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         | SynExpr.JoinIn (e1, _, e2, r) ->
             addIfInside r
             List.iter walkExpr [e1; e2]
-        | SynExpr.LetOrUseBang (_, _, _, pat, e1, e2, r) ->
+        | SynExpr.LetOrUseBang (_, _, _, pat, e1, ands, e2, r) ->
             addIfInside r
             walkPat pat
-            List.iter walkExpr [e1; e2]
+            walkExpr e1
+            for (_,_,_,pat,body,r) in ands do
+              addIfInside r
+              walkPat pat
+              walkExpr body
+            walkExpr e2
         | SynExpr.TraitCall (ts, sign, e, r) ->
             addIfInside r
             List.iter walkTypar ts
@@ -1228,10 +1241,14 @@ let getQuotationRanges ast =
         | SynExpr.AddressOf (_, expr, _, _) ->
             visitExpr expr
         | SynExpr.App (_,_, expr1(*funcExpr*),expr2(*argExpr*), _)
-        | SynExpr.LetOrUseBang (_, _, _, _,expr1(*rhsExpr*),expr2(*body*), _)
         | SynExpr.TryFinally (expr1, expr2, _, _, _)
         | SynExpr.While (_, expr1, expr2, _) ->
             visitExpr expr1; visitExpr expr2
+        | SynExpr.LetOrUseBang (_, _, _, _,expr1(*rhsExpr*),ands, expr2(*body*), _) ->
+          visitExpr expr1
+          for (_,_,_,_,body,_) in ands do
+            visitExpr body
+          visitExpr expr2
         | SynExpr.Tuple (_, exprs, _, _)
         | SynExpr.ArrayOrList (_, exprs, _)
         | Sequentials  exprs ->
@@ -1341,9 +1358,13 @@ let internal getStringLiterals ast : Range.range list =
         | SynExpr.TryFinally (expr1, expr2, _, _, _)
         | SynExpr.NamedIndexedPropertySet (_, expr1, expr2, _)
         | SynExpr.DotNamedIndexedPropertySet (_, _, expr1, expr2, _)
-        | SynExpr.LetOrUseBang (_, _, _, _,expr1(*rhsExpr*), expr2(*body*), _)
         | SynExpr.While (_, expr1, expr2, _) ->
             visitExpr expr1; visitExpr expr2
+        | SynExpr.LetOrUseBang (_, _, _, _,expr1(*rhsExpr*), ands, expr2(*body*), _) ->
+            visitExpr expr1
+            for (_,_,_,_,body,_) in ands do
+              visitExpr body
+            visitExpr expr2
         | Sequentials exprs
         | SynExpr.Tuple (_, exprs, _, _)
         | SynExpr.ArrayOrList(_, exprs, _) -> List.iter visitExpr exprs
@@ -1665,12 +1686,15 @@ module Outlining =
             | SynExpr.DoBang (e,r) ->
                 yield! rcheck Scope.Do Collapse.Below <| Range.modStart r 3
                 yield! parseExpr e
-            | SynExpr.LetOrUseBang (_,_,_,pat,e1,e2,_) ->
+            | SynExpr.LetOrUseBang (_,_,_,pat,e1,ands,e2,_) ->
                 // for `let!` or `use!` the pattern begins at the end of the keyword so that
                 // this scope can be used without adjustment if there is no `=` on the same line
                 // if there is an `=` the range will be adjusted during the tooltip creation
                 yield! rcheck Scope.LetOrUseBang Collapse.Below <| Range.endToEnd pat.Range e1.Range
                 yield! parseExpr e1
+                for (_,_,_,_,body,r) in ands do
+                  yield! rcheck Scope.LetOrUseBang Collapse.Below r
+                  yield! parseExpr body
                 yield! parseExpr e2
             | SynExpr.For (_,_,_,_,_,e,r)
             | SynExpr.ForEach (_,_,_,_,_,e,r) ->
@@ -2092,8 +2116,8 @@ module Printf =
         and walkInterfaceImpl (InterfaceImpl(_, bindings, _)) = List.iter walkBinding bindings
 
         and walkIndexerArg = function
-            | SynIndexerArg.One e -> walkExpr e
-            | SynIndexerArg.Two (e1, e2) -> List.iter walkExpr [e1; e2]
+            | SynIndexerArg.One(e,_fromEnd,_range) -> walkExpr e
+            | SynIndexerArg.Two(e1,_e1FromEnd,e2,_e2FromEnd,_e1Range,_e2Range) -> List.iter walkExpr [e1; e2]
 
         and walkType = function
             | SynType.Array (_, t, _)
@@ -2246,7 +2270,11 @@ module Printf =
                 | SynExpr.NamedIndexedPropertySet (_, e1, e2, _) -> List.iter walkExpr [e1; e2]
                 | SynExpr.DotNamedIndexedPropertySet (e1, _, e2, e3, _) -> List.iter walkExpr [e1; e2; e3]
                 | SynExpr.JoinIn (e1, _, e2, _) -> List.iter walkExpr [e1; e2]
-                | SynExpr.LetOrUseBang (_, _, _, _, e1, e2, _) -> List.iter walkExpr [e1; e2]
+                | SynExpr.LetOrUseBang (_, _, _, _, e1, ands, e2, _) ->
+                  walkExpr e1
+                  for (_,_,_,_,body,_) in ands do
+                    walkExpr body
+                  walkExpr e2
                 | SynExpr.TraitCall (_, sign, e, _) ->
                     walkMemberSig sign
                     walkExpr e

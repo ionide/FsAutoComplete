@@ -8,17 +8,18 @@ storage: none
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas 3.2.0
-nuget FSharp.Compiler.Service 33.0.0
-nuget Dotnet.ProjInfo ~> 0.37.0 prerelease
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.37.0 prerelease
+nuget Fantomas
+nuget FSharp.Compiler.Service 34.1.0
+nuget Dotnet.ProjInfo
+nuget Dotnet.ProjInfo.Workspace.FCS
+nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
-nuget FSharpLint.Core ~> 0.12.3 prerelease
+nuget FSharpLint.Core
 nuget FSharp.Core redirects:force
 nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..

@@ -52,12 +52,11 @@ module Debug =
           source <- newSource
 
       override __.OnEventWritten eventArgs =
-        let functionId (o: obj) = o :?> FSharp.Compiler.LogCompilerFunctionId
 
         let message =
           match eventArgs.EventName with
-          | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[0])
-          | "LogMessage" -> Log.setMessage "({function}) {message}" >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[1]) >> Log.addContextDestructured "message" (eventArgs.Payload.[0] :?> string)
+          | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> Log.addContextDestructured "function" (eventArgs.Payload.[0])
+          | "LogMessage" -> Log.setMessage "({function}) {message}" >> Log.addContextDestructured "function" (eventArgs.Payload.[1]) >> Log.addContextDestructured "message" (eventArgs.Payload.[0] :?> string)
           | "BlockStart" | "BlockMessageStart" ->
              inflightEvents.TryAdd(eventArgs.RelatedActivityId, DateTimeOffset.UtcNow) |> ignore
              id
@@ -65,14 +64,14 @@ module Debug =
             match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
-              Log.setMessage "Finished compiler function {function} in {seconds}" >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[0]) >> Log.addContextDestructured "seconds" delta.TotalSeconds
+              Log.setMessage "Finished compiler function {function} in {seconds}" >> Log.addContextDestructured "function" (eventArgs.Payload.[0]) >> Log.addContextDestructured "seconds" delta.TotalSeconds
             | false, _ -> id
           | "BlockMessageStop" ->
             match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
               Log.setMessage "Finished compiler function {function} with parameter {parameter} in {seconds}"
-              >> Log.addContextDestructured "function" (functionId eventArgs.Payload.[1])
+              >> Log.addContextDestructured "function" (eventArgs.Payload.[1])
               >> Log.addContextDestructured "seconds" delta.TotalSeconds
               >> Log.addContextDestructured "parameter" (eventArgs.Payload.[0])
             | false, _ -> id
