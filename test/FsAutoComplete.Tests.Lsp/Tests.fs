@@ -917,7 +917,7 @@ let tooltipTests =
   )
 
   let verifyTooltip line character expectedTooltip =
-    ftestCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
+    testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
       let server, scriptPath = serverStart.Value
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
@@ -994,9 +994,8 @@ let tests =
     uriTests
     foldingTests
     linterTests
-    // commented out because this will only work in a netcoreapp3.0 context, which CI doesn't have.
-    //scriptPreviewTests
-    //scriptEvictionTests
-    //tooltipTests
-    //formattingTests
+    scriptPreviewTests
+    scriptEvictionTests
+    tooltipTests
+    formattingTests
   ]
