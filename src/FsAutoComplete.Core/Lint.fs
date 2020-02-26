@@ -2,6 +2,9 @@ module FsAutoComplete.Lint
 
 open FSharpLint.Framework
 open FSharpLint.Application
+open FsAutoComplete.Logging
+
+let logger = LogProvider.getLoggerByName "FSharpLint"
 
 type EnrichedLintWarning =
     { Warning: Suggestion.LintWarning
@@ -27,6 +30,7 @@ let loadConfiguration (workspaceRoot: string option) (lintConfigFileRelativePath
   | None -> ConfigurationParam.Default
 
 let lintWithConfiguration (lintConfig: ConfigurationParam) ctok ast sourceCode typeCheckResults =
+  try
     let res =
         Lint.lintParsedSource
             { Lint.OptionalLintParameters.Default with
@@ -37,7 +41,13 @@ let lintWithConfiguration (lintConfig: ConfigurationParam) ctok ast sourceCode t
               TypeCheckResults = Some typeCheckResults }
 
     match res with
-    | LintResult.Failure f -> Error (sprintf "Something went wrong, linter failed: %s" f.Description)
+    | LintResult.Failure f ->
+      logger.error (Log.setMessage "Linter failure: {message}" >> Log.addContextDestructured "message" f.Description)
+      Error (sprintf "Something went wrong, linter failed: %s" f.Description)
     | LintResult.Success warnings ->
         let splitWarnings = warnings |> List.map enrichLintWarning
         Ok splitWarnings
+  with
+  | e ->
+    logger.error (Log.setMessage "Fatal error in linter: {message}" >> Log.addContextDestructured "message" e.Message >> Log.addExn e)
+    Error (sprintf "Something went wrong, linter failed: %s" e.Message)
