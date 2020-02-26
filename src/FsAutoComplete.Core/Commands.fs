@@ -844,7 +844,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 match tyResOpt with
                 | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
                 | Some tyRes ->
-                    let getSourceLine lineNo = source.[lineNo]
+                    let getSourceLine lineNo = source.[lineNo - 1]
                     let! simplified = SimplifyNames.getSimplifiableNames(tyRes.GetCheckResults, getSourceLine)
                     let simplified = Array.ofList simplified
                     let res = CoreResponse.Res (file, simplified)
