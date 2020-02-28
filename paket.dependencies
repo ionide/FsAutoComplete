@@ -21,7 +21,6 @@ nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
 nuget FSharpLint.Core
 nuget FSharp.Core redirects:force
-nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4

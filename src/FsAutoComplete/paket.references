@@ -12,7 +12,6 @@ Fake.Runtime
 Dapper
 FSharp.Data
 Microsoft.Data.Sqlite
-OptimizedPriorityQueue
 ICSharpCode.Decompiler
 Fantomas
 

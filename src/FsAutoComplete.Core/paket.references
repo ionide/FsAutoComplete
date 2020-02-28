@@ -5,7 +5,6 @@ Dotnet.ProjInfo
 Dotnet.ProjInfo.Workspace.FCS
 Newtonsoft.Json
 Fake.Runtime
-OptimizedPriorityQueue
 ICSharpCode.Decompiler
 Microsoft.SourceLink.GitHub
 FSharp.Data
