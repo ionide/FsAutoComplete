@@ -1,3 +1,7 @@
+#### 0.40.1 - 28.02.2020
+
+* Update to FCS 34.1 ( + all other deps) [#552](https://github.com/fsharp/FsAutoComplete/issues/556) by [@baronfel](https://github.com/baronfel)
+
 #### 0.40.0 - 19.02.2020
 
 * Move Fantomas formatting to Core project [#553](https://github.com/fsharp/FsAutoComplete/issues/553) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
