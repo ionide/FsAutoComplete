@@ -80,7 +80,7 @@ type ParseAndCheckResults
       let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range) = async {
         match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
-        | Some (col, identIsland) ->        
+        | Some (col, identIsland) ->
           let identIsland = Array.toList identIsland
           let! symbolUse = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
           match symbolUse with
@@ -114,7 +114,7 @@ type ParseAndCheckResults
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None ->
       return Error "Cannot find ident at this location"
-    | Some(col,identIsland) ->    
+    | Some(col,identIsland) ->
       let identIsland = Array.toList identIsland
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
       match symbol with
@@ -141,7 +141,7 @@ type ParseAndCheckResults
   member __.TryGetToolTip (pos: pos) (lineStr: LineStr) = async {
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Cannot find ident for tooltip"
-    | Some(col,identIsland) ->    
+    | Some(col,identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
@@ -164,7 +164,7 @@ type ParseAndCheckResults
   member __.TryGetToolTipEnhanced (pos: pos) (lineStr: LineStr) = async {
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident for tooltip"
-    | Some(col,identIsland) ->    
+    | Some(col,identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
@@ -198,7 +198,7 @@ type ParseAndCheckResults
   member __.TryGetFormattedDocumentation (pos: pos) (lineStr: LineStr) = async {
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident"
-    | Some(col,identIsland) ->    
+    | Some(col,identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
@@ -292,7 +292,7 @@ type ParseAndCheckResults
         | None ->
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
-        
+
         let identIsland = Array.toList identIsland
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
@@ -309,7 +309,7 @@ type ParseAndCheckResults
         | None ->
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
-        
+
         let identIsland = Array.toList identIsland
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
@@ -349,7 +349,7 @@ type ParseAndCheckResults
         match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
-        
+
         let identIsland = Array.toList identIsland
         let! help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
         match help with
@@ -393,7 +393,7 @@ type ParseAndCheckResults
           results.Items
           |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
         | _ -> results.Items
-        
+
       let sortedDecls =
           decls
           |> Array.sortWith (fun x y ->
@@ -622,19 +622,24 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     | errs ->
       logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved options with errors" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
 
-    match FakeSupport.detectFakeScript file with
-    | None ->
-      logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContextDestructured "file" file)
-      return projOptions
-    | Some (detectionInfo) ->
-      logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
-      try
-        let otherOpts = FakeSupport.getProjectOptions detectionInfo
-        logQueueLength optsLogger (Log.setMessage "Discovered FAKE options" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
-        return { projOptions with OtherOptions = otherOpts }
-      with e ->
-        logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)
+    try
+      match FakeSupport.detectFakeScript file with
+      | None ->
+        logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContextDestructured "file" file)
         return projOptions
+      | Some (detectionInfo) ->
+        logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
+        try
+          let otherOpts = FakeSupport.getProjectOptions detectionInfo
+          logQueueLength optsLogger (Log.setMessage "Discovered FAKE options" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
+          return { projOptions with OtherOptions = otherOpts }
+        with e ->
+          logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)
+          return projOptions
+    with
+    | e ->
+      logQueueLength optsLogger (Log.setMessage "error while checking if {file} is a FAKE script" >> Log.addContextDestructured "file" file >> Log.addExn e)
+      return projOptions
   }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
