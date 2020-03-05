@@ -980,6 +980,26 @@ let formattingTests =
     ))
   ]
 
+let fakeInteropTests =
+  let serverStart = lazy (
+    let folderPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FakeInterop")
+    let (server, events) = serverInitialize folderPath defaultConfigDto
+    let buildScript = "build.fsx"
+    do waitForWorkspaceFinishedParsing events
+    server, events, folderPath, buildScript
+  )
+  let serverTest f () = f serverStart.Value
+
+  testList "fake integration" [
+    testCase "can typecheck a fake script including uses of paket-delivered types" (serverTest (fun (server, events, rootPath, scriptName) ->
+        do server.TextDocumentDidOpen { TextDocument = loadDocument (Path.Combine(rootPath, scriptName)) } |> Async.RunSynchronously
+        match waitForParseResultsForFile scriptName events with
+        | Ok () ->
+          () // all good, no parsing/checking errors
+        | Core.Result.Error errors ->
+          failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, scriptName)) errors
+        ))
+  ]
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -998,4 +1018,5 @@ let tests =
     scriptEvictionTests
     tooltipTests
     formattingTests
+    fakeInteropTests
   ]
