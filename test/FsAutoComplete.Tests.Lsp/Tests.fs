@@ -10,8 +10,24 @@ open FsAutoComplete.LspHelpers
 open Helpers
 open Expecto.Logging
 open Expecto.Logging.Message
+open Serilog
+open Serilog.Core
+open Serilog.Events
+open FsAutoComplete.Logging
 
 let logger = Expecto.Logging.Log.create "LSPTests"
+
+let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+let serilogLogger =
+  LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .MinimumLevel.Information()
+    .Destructure.FSharpTypes()
+    .WriteTo.Async(
+      fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
+    ).CreateLogger() // make it so that every console log is logged to stderr
+Serilog.Log.Logger <- serilogLogger
+LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
 ///Test for initialization of the server
 let initTests =
@@ -352,9 +368,15 @@ let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
     logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
 
+let typedEvents typ =
+  Event.filter (fun (typ', _o) -> typ' = typ)
+
+let payloadAs<'t> =
+  Event.map (fun (_typ, o) -> unbox<'t> o)
+
 let getDiagnosticsEvents =
-  Event.filter (fun (typ, _o) -> typ = "textDocument/publishDiagnostics")
-  >> Event.map (fun (_typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+  typedEvents "textDocument/publishDiagnostics"
+  >> payloadAs<LanguageServerProtocol.Types.PublishDiagnosticsParams>
 
 /// note that the files here are intended to be the filename only., not the full URI.
 let matchFiles (files: string Set) =
@@ -365,11 +387,18 @@ let matchFiles (files: string Set) =
     else None
   )
 
-let waitForParseResultsForFile file (events: Event<string*obj>) =
-  let matchingFileEvents =
+let fileDiagnostics file (events: Event<string*obj>) =
     events.Publish
     |> getDiagnosticsEvents
     |> matchFiles (Set.ofList [file])
+
+let analyzerEvents file events =
+  fileDiagnostics file events
+  |> Event.map snd
+  |> Event.filter (fun payload -> payload.Diagnostics |> Array.exists (fun d -> d.Source.StartsWith "F# Analyzers"))
+
+let waitForParseResultsForFile file (events: Event<string*obj>) =
+  let matchingFileEvents = fileDiagnostics file events
   async {
     let! (filename, args) = Async.AwaitEvent matchingFileEvents
     match args.Diagnostics with
@@ -1000,6 +1029,41 @@ let fakeInteropTests =
           failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, scriptName)) errors
         ))
   ]
+
+let analyzerTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
+    let analyzerEnabledConfig =
+      { defaultConfigDto with
+          EnableAnalyzers = Some true
+          AnalyzersPath = Some [| Path.Combine(path, "packages", "analyzers") |] }
+
+    Helpers.runProcess (logDotnetRestore "analyzerTests") path "dotnet" "restore" |> expectExitCodeZero
+
+    let (server, events) = serverInitialize path analyzerEnabledConfig
+
+    let scriptPath = Path.Combine(path, "Script.fs")
+    do waitForWorkspaceFinishedParsing events
+    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+    server, events, path, scriptPath
+  )
+
+  let serverTest f () = f serverStart.Value
+
+  ftestList "analyzer integration" [
+    testCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
+      match waitForParseResultsForFile (Path.GetFileName testFilePath) events with
+      | Ok () ->
+        do Async.Sleep 5000 |> Async.RunSynchronously
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" testFilePath errors
+    ))
+  ]
+
+
+>>>>>>> Add basic analyzer test
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -1019,4 +1083,5 @@ let tests =
     tooltipTests
     formattingTests
     fakeInteropTests
+    analyzerTests
   ]
