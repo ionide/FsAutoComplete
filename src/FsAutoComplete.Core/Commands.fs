@@ -138,7 +138,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                     (res, file)
                     |> NotificationEvent.AnalyzerMessage
                     |> notify.Trigger
-                | _ -> ()
+                    Loggers.analyzers.info (Log.setMessage "end analysis of {file}" >> Log.addContextDestructured "file" file)
+                | _ ->
+                  Loggers.analyzers.info (Log.setMessage "missing components of {file} to run analyzers, skipped them" >> Log.addContextDestructured "file" file)
+                  ()
             with
             | ex ->
                 Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn ex)
@@ -231,7 +234,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.AnalyzerHandler
         with get() = analyzerHandler
-        and  set v = analyzerHandler <- v
+        and  set v =
+          Loggers.analyzers.info (Log.setMessage "updated analyzer handler")
+          analyzerHandler <- v
 
     member __.LastCheckResult
         with get() = lastCheckResult
