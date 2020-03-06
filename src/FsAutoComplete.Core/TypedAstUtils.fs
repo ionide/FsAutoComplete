@@ -68,9 +68,8 @@ module TypedAstUtils =
 module TypedAstExtensionHelpers =
     type FSharpEntity with
         member x.TryGetFullName() =
-            Option.attempt (fun _ -> x.TryFullName)
-            |> Option.flatten
-            |> Option.orTry (fun _ ->
+            x.TryFullName
+            |> Option.orElseWith (fun _ ->
                 Option.attempt (fun _ -> String.Join(".", x.AccessPath, x.DisplayName)))
 
         member x.TryGetFullDisplayName() =
@@ -105,7 +104,7 @@ module TypedAstExtensionHelpers =
             x.NestedEntities |> Seq.filter (fun entity -> entity.Accessibility.IsPublic)
 
         member x.TryGetMembersFunctionsAndValues =
-            Option.attempt (fun _ -> x.MembersFunctionsAndValues) |> Option.getOrElse ([||] :> _)
+            Option.attempt (fun _ -> x.MembersFunctionsAndValues) |> Option.defaultValue ([||] :> _)
 
         member x.TryGetFullNameWithUnderScoreTypes() =
             try
@@ -232,33 +231,6 @@ module TypedAstExtensionHelpers =
             | :? FSharpActivePatternCase as apc -> apc.XmlDoc
             | :? FSharpGenericParameter as gp -> gp.XmlDoc
             | _ -> ResizeArray() :> Collections.Generic.IList<_>
-
-    type FSharpSymbolUse with
-        member this.IsPrivateToFile =
-            let isPrivate =
-                match this.Symbol with
-                | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember || m.Accessibility.IsPrivate
-                | :? FSharpEntity as m -> m.Accessibility.IsPrivate
-                | :? FSharpGenericParameter -> true
-                | :? FSharpUnionCase as m -> m.Accessibility.IsPrivate
-                | :? FSharpField as m -> m.Accessibility.IsPrivate
-                | _ -> false
-
-            let declarationLocation =
-                match this.Symbol.SignatureLocation with
-                | Some x -> Some x
-                | _ ->
-                    match this.Symbol.DeclarationLocation with
-                    | Some x -> Some x
-                    | _ -> this.Symbol.ImplementationLocation
-
-            let declaredInTheFile =
-                match declarationLocation with
-                | Some declRange -> declRange.FileName = this.RangeAlternate.FileName
-                | _ -> false
-
-            isPrivate && declaredInTheFile
-
 
     type FSharpGenericParameterMemberConstraint with
         member x.IsProperty =

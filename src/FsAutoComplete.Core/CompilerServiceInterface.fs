@@ -7,6 +7,8 @@ open Utils
 open FSharp.Compiler.Range
 open FSharp.Compiler
 open FSharp.Compiler.Text
+open ProjectSystem
+open FsAutoComplete.Logging
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -19,6 +21,8 @@ type ParseAndCheckResults
         checkResults: FSharpCheckFileResults,
         entityCache: EntityCache
     ) =
+
+  let logger = LogProvider.getLoggerByName "FindDeclaration"
 
   member __.TryGetMethodOverrides (lines: LineStr[]) (pos: pos) = async {
     // Find the number of `,` in the current signature
@@ -60,7 +64,7 @@ type ParseAndCheckResults
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
-
+      let identIsland = Array.toList identIsland
       let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
 
       let decompile assembly externalSym =
@@ -77,6 +81,7 @@ type ParseAndCheckResults
         match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
         | Some (col, identIsland) ->
+          let identIsland = Array.toList identIsland
           let! symbolUse = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
           match symbolUse with
           | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no symboluse found: %s" rangeInNonexistentFile.FileName)
@@ -94,10 +99,10 @@ type ParseAndCheckResults
         return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
-        Debug.print "Got a declresult of %A that supposedly exists" range
+        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" range)
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
-        Debug.print "Got a declresult of %A that doesn't exist" rangeInNonexistentFile
+        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" rangeInNonexistentFile)
         return Error ("Could not find declaration")
         // uncomment this to try to workaround the FCS bug
         //return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
@@ -110,6 +115,7 @@ type ParseAndCheckResults
     | None ->
       return Error "Cannot find ident at this location"
     | Some(col,identIsland) ->
+      let identIsland = Array.toList identIsland
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
       match symbol with
       | None ->
@@ -136,7 +142,7 @@ type ParseAndCheckResults
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
-
+      let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
       return
@@ -144,13 +150,11 @@ type ParseAndCheckResults
         | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) ->
             match identIsland with
             | [ident] ->
-               KeywordList.tryGetKeywordDescription ident
-               |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-               |> function
-               | Some tip ->
-                Ok tip
-               | None ->
-                ResultOrString.Error "No tooltip information"
+               match KeywordList.keywordTooltips.TryGetValue ident with
+               | true, tip ->
+                  Ok tip
+               | _ ->
+                  ResultOrString.Error "No tooltip information"
             | _ ->
               ResultOrString.Error "No tooltip information"
         | _ ->
@@ -161,7 +165,7 @@ type ParseAndCheckResults
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
-
+      let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
@@ -170,13 +174,11 @@ type ParseAndCheckResults
       | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
           match identIsland with
           | [ident] ->
-             let keyword = KeywordList.tryGetKeywordDescription ident
-                           |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-             match keyword with
-             | Some tip ->
-              return Ok (tip, ident, "", None)
-             | None ->
-              return Error "No tooltip information"
+             match KeywordList.keywordTooltips.TryGetValue ident with
+             | true, tip ->
+                return Ok (tip, ident, "", None)
+             | _ ->
+                return Error "No tooltip information"
           | _ ->
             return Error "No tooltip information"
       | _ ->
@@ -197,7 +199,7 @@ type ParseAndCheckResults
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return Error "Cannot find ident"
     | Some(col,identIsland) ->
-
+      let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let! tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
@@ -206,13 +208,11 @@ type ParseAndCheckResults
       | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
           match identIsland with
           | [ident] ->
-             let keyword = KeywordList.tryGetKeywordDescription ident
-                           |> Option.map (fun desc -> FSharpToolTipText [FSharpToolTipElement.Single(ident, FSharpXmlDoc.Text desc)])
-             match keyword with
-             | Some tip ->
-              return Ok (Some tip, None, (ident, (DocumentationFormatter.emptyTypeTip)), "", "")
-             | None ->
-              return Error "No tooltip information"
+             match KeywordList.keywordTooltips.TryGetValue ident with
+             | true, tip ->
+                return Ok (Some tip, None, (ident, (DocumentationFormatter.emptyTypeTip)), "", "")
+             | _ ->
+                return Error "No tooltip information"
           | _ ->
             return Error "No documentation information"
       | _ ->
@@ -226,7 +226,7 @@ type ParseAndCheckResults
         | Some (signature, footer, cn) ->
             match symbol with
             | SymbolUse.TypeAbbreviation symbol ->
-              return Ok (None, Some (symbol.GetAbbriviatedParent().XmlDocSig, symbol.GetAbbriviatedParent().Assembly.FileName |> Option.getOrElse ""), signature, footer, cn)
+              return Ok (None, Some (symbol.GetAbbriviatedParent().XmlDocSig, symbol.GetAbbriviatedParent().Assembly.FileName |> Option.defaultValue ""), signature, footer, cn)
             | _ ->
               return Ok (Some tip, None, signature, footer, cn)
   }
@@ -283,7 +283,7 @@ type ParseAndCheckResults
       | None ->
         return Error "No tooltip information"
       | Some (signature, footer, cn) ->
-          return Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.getOrElse "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
+          return Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
   }
 
   member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) =
@@ -293,6 +293,7 @@ type ParseAndCheckResults
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
+        let identIsland = Array.toList identIsland
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
         | None ->
@@ -309,6 +310,7 @@ type ParseAndCheckResults
           return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
+        let identIsland = Array.toList identIsland
         let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
         match symboluse with
         | None ->
@@ -348,6 +350,7 @@ type ParseAndCheckResults
         | None -> return (ResultOrString.Error "No ident at this location")
         | Some(colu, identIsland) ->
 
+        let identIsland = Array.toList identIsland
         let! help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
         match help with
         | None -> return (ResultOrString.Error "No symbol information found")
@@ -381,8 +384,18 @@ type ParseAndCheckResults
         | CompletionItemKind.Other -> 5
         | CompletionItemKind.Method (isExtension = true) -> 6
 
-      let sortedDeclItems =
+      let decls =
+        match filter with
+        | Some "StartsWith" ->
           results.Items
+          |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+        | Some "Contains" ->
+          results.Items
+          |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
+        | _ -> results.Items
+
+      let sortedDecls =
+          decls
           |> Array.sortWith (fun x y ->
               let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
               if n <> 0 then n else
@@ -393,16 +406,9 @@ type ParseAndCheckResults
                           n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
                           if n <> 0 then n else
                             x.MinorPriority.CompareTo(y.MinorPriority))
-      let decls =
-        match filter with
-        | Some "StartsWith" -> [| for d in sortedDeclItems do if d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase) then yield d |]
-        | Some "Contains" -> [| for d in sortedDeclItems do if d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0 then yield d |]
-        | _ -> sortedDeclItems
 
-
-
-      let shouldKeywords = decls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
-      return Some (decls, residue, shouldKeywords)
+      let shouldKeywords = sortedDecls.Length > 0 && not results.IsForType && not results.IsError && List.isEmpty longName.QualifyingIdents
+      return Some (sortedDecls, residue, shouldKeywords)
     with :? TimeoutException -> return None
   }
 
@@ -413,9 +419,7 @@ type ParseAndCheckResults
           let ctx = checkResults.ProjectContext
           let assembliesByFileName =
             ctx.GetReferencedAssemblies()
-            |> Seq.groupBy (fun asm -> asm.FileName)
-            |> Seq.map (fun (fileName, asms) -> fileName, List.ofSeq asms)
-            |> Seq.toList
+            |> List.groupBy (fun asm -> asm.FileName)
             |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
                         // get Content.Entities from it.
 
@@ -443,7 +447,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     FSharpChecker.Create(
       projectCacheSize = (if backgroundServiceEnabled then 3 else 200),
       keepAllBackgroundResolutions = not backgroundServiceEnabled,
-      keepAssemblyContents = false,
+      keepAssemblyContents = true,
       suggestNamesForErrors = true)
 
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
@@ -462,6 +466,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let entityCache = EntityCache()
 
+  let sdkRefsLogger = LogProvider.getLoggerByName "SdkRefs"
+  let checkerLogger = LogProvider.getLoggerByName "Checker"
+  let optsLogger =    LogProvider.getLoggerByName "Opts"
+
   /// the root path to the dotnet sdk installations, eg /usr/local/share/dotnet
   let mutable sdkRoot = None
   /// the chosen version of the dotnet sdk for deriving F# compiler FSI references, eg 3.0.100
@@ -472,6 +480,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let mutable discoveredAssembliesByName = lazy(Map.empty)
   /// additional arguments that are added to typechecking of scripts
   let mutable fsiAdditionalArguments = Array.empty
+  let mutable fsiAdditionalFiles = Array.empty
 
   /// This event is raised when any data that impacts script typechecking
   /// is changed. This can potentially invalidate existing project options
@@ -484,42 +493,62 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let computeAssemblyMap () =
     match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
     | None, _, _ ->
-      Debug.print "No dotnet SDK root path found"
+      sdkRefsLogger.info (Log.setMessage "No dotnet SDK root path found")
       Map.empty
     | Some root, None, None ->
-      Debug.print "Couldn't find latest 3.x sdk and runtime versions inside root %s" root
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk and runtime versions inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some root, None, _ ->
-      Debug.print "Couldn't find latest 3.x sdk version inside root %s" root
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk version inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some root, _, None ->
-      Debug.print "Couldn't find latest 3.x runtime version inside root %s" root
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x runtime version inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
-      let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
-      Debug.print "found refs for SDK %O/Runtime %O/TFM %s:\n%A" sdkVersion runtimeVersion Environment.fsiTFMMoniker refs
+      let tfm = FSIRefs.tfmForRuntime sdkVersion
+      let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) tfm true
+      sdkRefsLogger.info (Log.setMessage "Found refs for {sdk} inside {root}"
+                          >> Log.addContextDestructured "root" dotnetSdkRoot
+                          >> Log.addContextDestructured "sdk" sdkVersion
+                          >> Log.addContextDestructured "runtimeVersion" runtimeVersion
+                          >> Log.addContextDestructured "tfm" tfm
+                          >> Log.addContextDestructured "refs" refs)
+
       refs
       |> List.map (fun path -> Path.GetFileNameWithoutExtension path, path)
       |> Map.ofList
 
+  let (|StartsWith|_|) (prefix: string) (s: string) =
+    if s.StartsWith(prefix) then Some (s.[prefix.Length..]) else None
+
+  let processFSIArgs args =
+    (([||], [||]), args)
+    ||> Array.fold (fun (args, files) arg ->
+        match arg with
+        | StartsWith "--use:" file | StartsWith "--load:" file -> args, Array.append files [| file |]
+        | arg -> Array.append args [| arg |], files
+    )
+
   let clearProjectReferences (opts: FSharpProjectOptions) =
     if disableInMemoryProjectReferences then {opts with ReferencedProjects = [||]} else opts
 
-  let logDebug fmt =
-    if Debug.verbose then Debug.print "[FSharpChecker] Current Queue Length: %d" checker.CurrentQueueLength
-    Debug.print fmt
+  let logQueueLength (logger: ILog) msg =
+    checkerLogger.trace (Log.setMessage "Current Queue Length is {queueLength}" >> Log.addContextDestructured "queueLength" checker.CurrentQueueLength)
+    logger.info msg
 
   /// replace any BCL/FSharp.Core/FSI refs that FCS gives us with our own set, which is more probe-able
   let replaceFrameworkRefs (projOptions: FSharpProjectOptions) =
+    let refs, otherOptions = projOptions.OtherOptions |> Array.partition (fun r -> r.StartsWith "-r:")
+
     let fcsAndScriptReferences =
-      projOptions.OtherOptions
+      refs
       |> Array.choose (fun r ->
-        if r.StartsWith("-r")
-        then
           let path = r.[3..]
           let assemblyName = Path.GetFileNameWithoutExtension path
-          Some(assemblyName, path)
-        else None
+          // don't include the private imple assemblies that the compiler APIs want to give us
+          if assemblyName.Contains "System.Private"
+          then None
+          else Some (assemblyName, path)
       )
       |> Map.ofArray
 
@@ -531,10 +560,18 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       |> Seq.map (fun r -> "-r:" + r)
       |> Array.ofSeq
 
-    { projOptions with OtherOptions = mergedRefs }
+    { projOptions with OtherOptions = Array.append otherOptions mergedRefs }
 
-  let applyFSIAdditionalArgs (projOptions: FSharpProjectOptions) =
-    { projOptions with OtherOptions = Array.append fsiAdditionalArguments projOptions.OtherOptions }
+  /// ensures that any user-configured include/load files are added to the typechecking context
+  let addLoadedFiles (projectOptions: FSharpProjectOptions) =
+    let files = Array.append fsiAdditionalFiles projectOptions.SourceFiles
+    logQueueLength optsLogger (Log.setMessage "Source file list is {files}" >> Log.addContextDestructured "files" files)
+    { projectOptions with
+        SourceFiles = files }
+
+  /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
+  let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =
+    { projectOptions with SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath }
 
   member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
     Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
@@ -554,16 +591,18 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       ])
 
   member private __.GetNetFxScriptOptions(file, source) = async {
-    logDebug "[Opts] Getting NetFX options for script file %s" file
-    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true)
-    let allModifications = applyFSIAdditionalArgs
+    logQueueLength optsLogger (Log.setMessage "Getting NetFX options for script file {file}" >> Log.addContextDestructured "file" file)
+    let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
+    let allModifications = addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
   }
 
   member private __.GetNetCoreScriptOptions(file, source) = async {
-    logDebug "[Opts] Getting NetCore options for script file %s" file
-    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true)
-    let allModifications = replaceFrameworkRefs >> applyFSIAdditionalArgs
+    logQueueLength optsLogger (Log.setMessage "Getting NetCore options for script file {file}" >> Log.addContextDestructured "file" file)
+    let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
+    let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
   }
 
@@ -577,29 +616,34 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
     match errors with
     | [] ->
-      let refs = projOptions.OtherOptions |> Array.filter (fun o -> o.StartsWith("-r")) |> String.concat "\n"
-      logDebug "[Opts] Resolved options - %A" projOptions
-      logDebug "[Opts] Resolved references:\n%s" refs
+      let refs, otherOpts = projOptions.OtherOptions |> Array.partition (fun o -> o.StartsWith("-r"))
+      logQueueLength optsLogger (Log.setMessage "Resolved references" >> Log.addContextDestructured "refs" refs)
+      logQueueLength optsLogger (Log.setMessage "Resolved other options" >> Log.addContextDestructured "otherOpts" otherOpts)
     | errs ->
-      logDebug "[Opts] Resolved options with errors\n%A\n%A" projOptions errs
+      logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved options with errors" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
 
-    match FakeSupport.detectFakeScript file with
-    | None ->
-      logDebug "[Opts] %s is not a FAKE script" file
-      return projOptions
-    | Some (detectionInfo) ->
-      logDebug "[Opts] %s is a FAKE script" file
-      try
-        let otherOpts = FakeSupport.getProjectOptions detectionInfo
-        logDebug "[Opts] Discovered FAKE options - %A" otherOpts
-        return { projOptions with OtherOptions = otherOpts }
-      with e ->
-        logDebug "[Opts] Error in FAKE script support: %O" e
+    try
+      match FakeSupport.detectFakeScript file with
+      | None ->
+        logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContextDestructured "file" file)
         return projOptions
+      | Some (detectionInfo) ->
+        logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
+        try
+          let otherOpts = FakeSupport.getProjectOptions detectionInfo
+          logQueueLength optsLogger (Log.setMessage "Discovered FAKE options" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
+          return { projOptions with OtherOptions = otherOpts }
+        with e ->
+          logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)
+          return projOptions
+    with
+    | e ->
+      logQueueLength optsLogger (Log.setMessage "error while checking if {file} is a FAKE script" >> Log.addContextDestructured "file" file >> Log.addExn e)
+      return projOptions
   }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
-    logDebug "[Checker] GetBackgroundCheckResultsForFileInProject - %s" fn
+    logQueueLength checkerLogger (Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}" >> Log.addContextDestructured "file" fn)
     let opt = clearProjectReferences opt
     checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
@@ -611,14 +655,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     scriptTypecheckRequirementsChanged.Publish
 
   member __.ParseFile(fn, source, fpo) =
-    logDebug "[Checker] ParseFile - %s" fn
+    logQueueLength checkerLogger (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
     let source = SourceText.ofString source
     checker.ParseFile(fn, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath, version, source, options) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
-      logDebug "[Checker] %s" opName
+      logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
       let source = SourceText.ofString source
       let options = clearProjectReferences options
       let fixedFilePath = ensureAbsolutePath filePath
@@ -629,7 +673,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
             let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
             match c with
             | FSharpCheckFileAnswer.Aborted ->
-              logDebug "[Checker] %s completed with errors %A" opName (List.ofArray p.Errors)
+              logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
               ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
             | FSharpCheckFileAnswer.Succeeded(c) ->
               Ok (ParseAndCheckResults(p,c, entityCache))
@@ -637,32 +681,33 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
-    logDebug "[Checker] TryGetRecentCheckResultsForFile - %s" file
+    let opName = sprintf "TryGetRecentCheckResultsForFile - %s" file
+    logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
     let source = source |> Option.map SourceText.ofString
     let options = clearProjectReferences options
-    checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source)
+    checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source, userOpName=opName)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
   member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
-    logDebug "[Checker] GetUsesOfSymbol - %s" file
+    logQueueLength checkerLogger (Log.setMessage "GetUsesOfSymbol - {file}" >> Log.addContextDestructured "file" file)
     let projects = x.GetDependingProjects file options
     return!
       match projects with
-      | None -> async {return [||]}
+      | None -> async { return [||] }
       | Some (p, projects) -> async {
         let! res =
-          [yield p; yield! projects ]
+          p :: projects
           |> Seq.map (fun (opts) -> async {
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return! res.GetUsesOfSymbol symbol
             })
           |> Async.Parallel
-        return res |> Array.collect id }
+        return res |> Array.concat }
   }
 
   member __.GetDeclarations (fileName, source, options, version) = async {
-    logDebug "[Checker] GetDeclarations - %s" fileName
+    logQueueLength checkerLogger (Log.setMessage "GetDeclarations - {file}" >> Log.addContextDestructured "file" fileName)
     let source = SourceText.ofString source
     let! parseResult = checker.ParseFile(fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
@@ -688,5 +733,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     if fsiAdditionalArguments = args
     then ()
     else
-      fsiAdditionalArguments <- args
+      let additionalArgs, files = processFSIArgs args
+      fsiAdditionalArguments <- additionalArgs
+      fsiAdditionalFiles <- files
       scriptTypecheckRequirementsChanged.Trigger ()

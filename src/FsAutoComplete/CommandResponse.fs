@@ -4,7 +4,8 @@ open System
 
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
-open FsAutoComplete.WorkspacePeek
+open ProjectSystem
+open ProjectSystem.WorkspacePeek
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -364,13 +365,13 @@ module CommandResponse =
   let projectLoading (serialize : Serializer) projectFileName =
     serialize { Kind = "projectLoading"; Data = { ProjectLoadingResponse.Project = projectFileName } }
 
-  let workspacePeek (serialize : Serializer) (found: FsAutoComplete.WorkspacePeek.Interesting list) =
+  let workspacePeek (serialize : Serializer) (found: WorkspacePeek.Interesting list) =
     let mapInt i =
         match i with
-        | Interesting.Directory (p, fsprojs) ->
+        | WorkspacePeek.Interesting.Directory (p, fsprojs) ->
             WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
-        | Interesting.Solution (p, sd) ->
-            let rec item (x: FsAutoComplete.WorkspacePeek.SolutionItem) =
+        | WorkspacePeek.Interesting.Solution (p, sd) ->
+            let rec item (x: ProjectSystem.WorkspacePeek.SolutionItem) =
                 let kind =
                     match x.Kind with
                     | SolutionItemKind.Unknown
@@ -413,8 +414,7 @@ module CommandResponse =
     serialize { Kind = "fsdn"; Data = data }
 
   let dotnetnewlist (serialize : Serializer) (installedTemplate : DotnetNewTemplate.Template list) =
-    let data = { DotnetNewListResponse.Installed = installedTemplate }
-    serialize { Kind = "dotnetnewlist"; Data = data }
+    serialize { Kind = "dotnetnewlist"; Data = installedTemplate }
 
   let dotnetnewgetDetails (serialize : Serializer) (detailedTemplate : DotnetNewTemplate.DetailedTemplate) =
     let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }

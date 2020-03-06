@@ -1,281 +1,191 @@
-// include Fake lib
-#r @"packages/build/FAKE/tools/FakeLib.dll"
+#r "paket: groupref build //"
+#load ".fake/build.fsx/intellisense.fsx"
 
-open Fake
-open Fake.ReleaseNotesHelper
-open System
-open System.IO
+
+// open Fake
+open Fake.Core
+open Fake.IO
+open Fake.IO.FileSystemOperators
+open Fake.IO.Globbing.Operators
+open Fake.DotNet
+open Fake.Core.TargetOperators
+open Fake.Api
+open Fake.Tools
 
 let project = "FsAutoComplete"
 
 // Read additional information from the release notes document
-let releaseNotesData =
-    File.ReadAllLines "RELEASE_NOTES.md"
-    |> parseAllReleaseNotes
+let release = ReleaseNotes.load "RELEASE_NOTES.md"
 
-let release = List.head releaseNotesData
-
-let isMono = Fake.EnvironmentHelper.isMono
-
-let configuration = getBuildParamOrDefault "configuration" "Release"
+let configuration = Environment.environVarOrDefault "configuration" "Release"
 
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
-let integrationTestDir = "test" </> "FsAutoComplete.IntegrationTests"
-let releaseArchive = "bin" </> "pkgs" </> "fsautocomplete.zip"
-let releaseArchiveNetCore = "bin" </> "pkgs" </> "fsautocomplete.netcore.zip"
+let pkgsDir = "bin" </> "pkgs"
+let releaseArchive = pkgsDir </> "fsautocomplete.zip"
+let releaseArchiveNetCore = pkgsDir </> "fsautocomplete.netcore.zip"
 
-let integrationTests =
-  !! (integrationTestDir + "/**/*Runner.fsx")
-  -- (integrationTestDir + "/DotNetSdk*/*.*")
+let gitOwner = "fsharp"
+let gitName = project
+let gitHome = "https://github.com/" + gitOwner
 
-type FSACRuntime = NET | NETCoreSCD | NETCoreFDD
-type IntegrationTestConfig = {Runtime: FSACRuntime }
 
-let (|AnyNetcoreRuntime|_|) r =
-  match r with
-  | FSACRuntime.NETCoreSCD
-  | FSACRuntime.NETCoreFDD -> Some ()
-  | FSACRuntime.NET -> None
+Target.initEnvironment ()
 
-let isTestSkipped cfg (fn: string) =
-  let file = Path.GetFileName(fn)
-  let dir = Path.GetFileName(Path.GetDirectoryName(fn))
-
-  match cfg.Runtime, dir, file with
-  // known difference. On mono the error message from msbuild is different and not normalized
-  | _, "OldSdk", "InvalidProjectFileRunner.fsx" when isMono ->
-    Some "known difference. On mono the error message from msbuild is different and not normalized"
-  // stdio and http
-  | _, "Test1Json", "Test1JsonRunner.fsx" ->
-    Some "flaky, the Range sometimes finish at start of newline other times at end of line"
-  | _, "ProjectCache", "Runner.fsx" ->
-    Some "fails, ref https://github.com/fsharp/FsAutoComplete/issues/198"
-  | _, "DotNetSdk2.0CrossgenWithNetFx", "Runner.fsx" ->
-    match isWindows, environVar "FSAC_TESTSUITE_CROSSGEN_NETFX" with
-    | true, _ -> None //always run it on windows
-    | false, "1" -> None //force run on mono
-    | false, _ -> Some "not supported on this mono version" //by default skipped on mono
-//  | _, _, "DotNetSdk2.0", "InvalidProjectFileRunner.fsx"
-  | AnyNetcoreRuntime, "OldSdk", "InvalidProjectFileRunner.fsx" when not(isWindows) ->
-    Some "the regex to normalize output fails. mono/.net divergence?" //by default skipped on mono
-  // .net core based fsac
-  | AnyNetcoreRuntime, "NoFSharpCoreReference", "Runner.fsx" ->
-    Some "know failure, the FSharp.Core is not added if not in the fsc args list"
-  // known difference, the FSharp.Core of script is different so are xmldoc
-  | AnyNetcoreRuntime, "Tooltips", "Runner.fsx" ->
-    Some "known difference, the FSharp.Core of script is different so are xmldoc"
-  // by default others are enabled
-  | _ -> None
-
-let runIntegrationTest cfg (fn: string) : bool =
-  let dir = Path.GetDirectoryName fn
-
-  match isTestSkipped cfg fn with
-  | Some msg ->
-    tracefn "Skipped '%s' reason: %s"  fn msg
-    true
-  | None ->
-    let framework =
-      match cfg.Runtime with
-      | FSACRuntime.NET -> "net461"
-      | FSACRuntime.NETCoreSCD
-      | FSACRuntime.NETCoreFDD -> "netcoreapp2.1"
-    let fsiArgs = sprintf "%s -- -pub -f %s -c %s" fn framework configuration
-    let fsiPath = FSIHelper.fsiPath
-    tracefn "Running fsi '%s %s' (from dir '%s')"  fsiPath fsiArgs dir
-    let testExecution =
-      try
-        FileUtils.pushd dir
-
-        let result, messages =
-            ExecProcessRedirected (fun info ->
-              info.FileName <- fsiPath
-              info.Arguments <- fsiArgs
-              info.WorkingDirectory <- dir
-            ) (TimeSpan.FromMinutes(1.0))
-
-        System.Threading.Thread.Sleep (TimeSpan.FromSeconds(1.0))
-
-        Some (result, messages |> List.ofSeq)
-      with ex ->
-        tracefn "fsi failed with ex %A" ex
-        None
-    FileUtils.popd ()
-    match testExecution with
-    | None -> //timeout
-      false
-    | Some (result, msgs) ->
-      let msgs = msgs |> List.filter (fun x -> x.IsError)
-      if not result then
-        for msg in msgs do
-          traceError msg.Message
-        let isWebEx = msgs |> List.exists (fun m -> m.Message.Contains("System.Net.WebException"))
-        isWebEx
-      else
-        true
-
-let listAll cfg =
-  let willRun, willSkip =
-    integrationTests
-    |> Seq.map (fun test -> test, isTestSkipped cfg test)
-    |> List.ofSeq
-    |> List.partition (fun (test, skipped) -> match skipped with
-                                              | Some txt -> false
-                                              | None -> true)
-
-  printfn "=== Tests to Run ==="
-  for (testName, _msg) in willRun do
-    printfn "\t%s" testName
-
-let runall cfg =
-
-    trace "Cleanup test dir (git clean)..."
-    let clean =
-      let ok, out, err =
-        Git.CommandHelper.runGitCommand (Path.Combine(__SOURCE_DIRECTORY__, integrationTestDir)) "clean -xdf"
-      out |> Seq.iter (printfn "%s")
-      printfn "Done: %s" (ok.ToString())
-
-    trace "Resetting output files in test dir (git reset)..."
-    let clean =
-      let ok, out, err =
-        Git.CommandHelper.runGitCommand "." (sprintf "git checkout -- %s" integrationTestDir)
-      out |> Seq.iter (printfn "%s")
-      printfn "Done: %s" (ok.ToString())
-
-    trace "Running Integration tests..."
-    let runOk =
-     integrationTests
-     |> Seq.map (runIntegrationTest cfg)
-     |> Seq.forall id
-
-    if not runOk then
-      trace "Integration tests did not run successfully"
-      failwith "Integration tests did not run successfully"
-    else
-      trace "checking tests results..."
-      let ok, out, err =
-        Git.CommandHelper.runGitCommand
-                          "."
-                          ("-c core.fileMode=false diff --exit-code " + integrationTestDir)
-      if not ok then
-        trace (toLines out)
-        failwithf "Integration tests failed:\n%s" err
-    trace "Done Integration tests."
-
-Target "IntegrationTestStdioMode" (fun _ ->
-  ignore()
-  // not doing these tests because they need to be migrated to LSP
-  // trace "== Integration tests (stdio/net) =="
-  // let cfg = { Runtime = NET }
-  // listAll cfg
-  // runall cfg
+Target.create "LspTest" (fun _ ->
+  DotNet.exec
+      // (fun p ->
+      //     { p with
+      //         Timeout = TimeSpan.FromMinutes 15. })
+      id
+      "run"
+      """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
+  |> fun r -> if not r.OK then failwithf "Errors while running LSP tests:\n%s" (r.Errors |> String.concat "\n\t")
 )
 
-
-Target "IntegrationTestStdioModeNetCore" (fun _ ->
-  ignore ()
-  // not doing these tests because they need to be migrated to LSP
-  // trace "== Integration tests (stdio/netcore) =="
-  // let cfg = { Runtime = NETCoreFDD }
-  // listAll cfg
-  // runall cfg
-)
-
-
-Target "LspTest" (fun _ ->
-  DotNetCli.RunCommand
-      (fun p ->
-          { p with
-              TimeOut = TimeSpan.FromMinutes 15. })
-      """run -c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
-)
-
-Target "ReleaseArchive" (fun _ ->
-    CleanDirs [ "bin/pkgs" ]
-    ensureDirectory "bin/pkgs"
+Target.create "ReleaseArchive" (fun _ ->
+    Shell.cleanDirs [ "bin/pkgs" ]
+    Directory.ensure "bin/pkgs"
 
     !! "bin/release/**/*"
-    |> Zip "bin/release" releaseArchive
+    |> Zip.zip "bin/release" releaseArchive
 
     !! "bin/release_netcore/**/*"
-    |> Zip "bin/release_netcore" releaseArchiveNetCore
+    |> Zip.zip "bin/release_netcore" releaseArchiveNetCore
 
     !! (sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" release.AssemblyVersion)
-    |> Copy "bin/pkgs"
+    |> Shell.copy "bin/pkgs"
+
+    !! (sprintf "bin/project_system/ProjectSystem.%s.nupkg" release.AssemblyVersion)
+    |> Shell.copy "bin/pkgs"
 )
 
-Target "LocalRelease" (fun _ ->
-    ensureDirectory "bin/release"
-    CleanDirs [ "bin/release"; "bin/release_netcore" ]
+Target.create "LocalRelease" (fun _ ->
+    Directory.ensure "bin/release"
+    Shell.cleanDirs [ "bin/release"; "bin/release_netcore" ]
 
-    DotNetCli.Publish (fun p ->
+    DotNet.publish (fun p ->
        { p with
-           Output = __SOURCE_DIRECTORY__ </> "bin/release"
-           Framework = "net461"
-           Project = "src/FsAutoComplete"
-           Configuration = configuration
-           AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ]  })
+           OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release")
+           Framework = Some "net461"
+           Configuration = DotNet.BuildConfiguration.fromString configuration
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
 
-    CleanDirs [ "bin/release_netcore" ]
-    DotNetCli.Publish (fun p ->
+    Shell.cleanDirs [ "bin/release_netcore" ]
+    DotNet.publish (fun p ->
        { p with
-           Output = __SOURCE_DIRECTORY__ </> "bin/release_netcore"
-           Framework = "netcoreapp2.1"
-           Project = "src/FsAutoComplete"
-           Configuration = configuration
-           AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ]  })
+           OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_netcore")
+           Framework = Some "netcoreapp2.1"
+           Configuration = DotNet.BuildConfiguration.fromString configuration
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
 
-    CleanDirs [ "bin/release_as_tool" ]
-    DotNetCli.Pack (fun p ->
+
+    Shell.cleanDirs [ "bin/release_as_tool" ]
+    DotNet.publish (fun p ->
        { p with
-           OutputPath = __SOURCE_DIRECTORY__ </> "bin/release_as_tool"
-           Project = "src/FsAutoComplete"
-           Configuration = configuration
-           AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion; "/p:PackAsTool=true" ]  })
+           OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_as_tool")
+           Configuration = DotNet.BuildConfiguration.fromString configuration
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion; "PackAsTool", "true" ] } }) "src/FsAutoComplete"
+
+
+    Shell.cleanDirs [ "bin/project_system" ]
+    DotNet.pack (fun p ->
+       { p with
+           OutputPath = Some ( __SOURCE_DIRECTORY__ </> "bin/project_system")
+           Configuration = DotNet.BuildConfiguration.fromString configuration
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/ProjectSystem"
 )
 
-Target "Clean" (fun _ ->
-  CleanDirs [ buildDir; buildReleaseDir ]
-  DeleteFiles [ releaseArchive; releaseArchiveNetCore ]
+Target.create "Clean" (fun _ ->
+  Shell.cleanDirs [ buildDir; buildReleaseDir; pkgsDir ]
 )
 
-Target "Build" (fun _ ->
-  DotNetCli.Build (fun p ->
+Target.create "Restore" (fun _ ->
+    DotNet.restore id ""
+)
+
+Target.create "Build" (fun _ ->
+  DotNet.build (fun p ->
      { p with
-         Project = "FsAutoComplete.sln"
-         Configuration = configuration
-         AdditionalArgs = [ "/p:SourceLinkCreate=true"; sprintf "/p:Version=%s" release.AssemblyVersion ] })
+         Configuration = DotNet.BuildConfiguration.fromString configuration
+         MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "FsAutoComplete.sln"
 )
 
-Target "Test" id
-Target "IntegrationTest" id
-Target "All" id
-Target "Release" id
-Target "BuildDebug" id
+Target.create "ReplaceFsLibLogNamespaces" <| fun _ ->
+  let replacements =
+    [ "FsLibLog\\n", "FsAutoComplete.Logging\n"
+      "FsLibLog\\.", "FsAutoComplete.Logging" ]
+  replacements
+  |> List.iter (fun (``match``, replace) ->
+    (!! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs")
+    |> Shell.regexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8
+  )
 
-"BuildDebug"
-  ==> "Build"
-  ==> "IntegrationTest"
+Target.create "ReleaseGitHub" (fun _ ->
+    let remote =
+        Git.CommandHelper.getGitResult "" "remote -v"
+        |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
+        |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + gitName))
+        |> function None -> gitHome + "/" + gitName | Some (s: string) -> s.Split().[0]
 
-"BuildDebug"
+    Git.Staging.stageAll ""
+    Git.Commit.exec "" (sprintf "Bump version to %s" release.NugetVersion)
+    Git.Branches.pushBranch "" remote (Git.Information.getBranchName "")
+
+
+    Git.Branches.tag "" release.NugetVersion
+    Git.Branches.pushTag "" remote release.NugetVersion
+
+    let client =
+        let user =
+            match Environment.getBuildParam "github-user" with
+            | s when not (String.isNullOrWhiteSpace s) -> s
+            | _ -> UserInput.getUserInput "Username: "
+        let pw =
+            match Environment.getBuildParam "github-pw" with
+            | s when not (String.isNullOrWhiteSpace s) -> s
+            | _ -> UserInput.getUserPassword "Password: "
+
+        // Git.createClient user pw
+        GitHub.createClient user pw
+    let files = !! (pkgsDir </> "*.*")
+
+    let notes =
+      release.Notes
+      |> List.map (fun s -> "* " + s)
+
+    // release on github
+    let cl =
+        client
+        |> GitHub.draftNewRelease gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) notes
+    (cl,files)
+    ||> Seq.fold (fun acc e -> acc |> GitHub.uploadFile e)
+    |> GitHub.publishDraft//releaseDraft
+    |> Async.RunSynchronously
+)
+
+Target.create "NoOp" ignore
+Target.create "Test" ignore
+Target.create "All" ignore
+Target.create "Release" ignore
+
+"Restore"
+  ==> "ReplaceFsLibLogNamespaces"
   ==> "Build"
+
+
+"Build"
   ==> "LspTest"
-
-"LocalRelease" ==> "IntegrationTestStdioMode" ==> "IntegrationTest"
-"LocalRelease" ==> "IntegrationTestStdioModeNetCore" ==> "IntegrationTest"
-
-"LspTest" ==> "Test"
-"IntegrationTest" ==> "Test"
-"Test" ==> "All"
-"BuildDebug" ==> "All"
+  ==> "Test"
+  ==> "All"
 
 "Build"
   ==> "LocalRelease"
   ==> "ReleaseArchive"
+  ==> "ReleaseGitHub"
   ==> "Release"
 
-"ReleaseArchive" ==> "All"
+"ReleaseArchive"
+  ==> "All"
 
-RunTargetOrDefault "Build"
+Target.runOrDefaultWithArguments "Build"

@@ -611,7 +611,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
             None
         else
             walkSynTypeDefnRepr representation
-            |> Option.orElse (List.tryPick walkSynMemberDefn members)
+            |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members)
 
     and walkSynTypeDefnRepr(typeDefnRepr: SynTypeDefnRepr) =
         if not <| rangeContainsPos typeDefnRepr.Range pos then
@@ -713,7 +713,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
             | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
                 walkExpr synExpr
-                |> Option.orElse (synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
+                |> Option.orElseWith (fun _ -> synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
 
             | SynExpr.Lazy(synExpr, _range) ->
                 walkExpr synExpr
@@ -729,7 +729,8 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 walkExpr synExpr
 
             | SynExpr.LetOrUse(_, _, synBindingList, synExpr, _range) ->
-                Option.orElse (List.tryPick walkBinding synBindingList) (walkExpr synExpr)
+                walkExpr synExpr
+                |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 
             | SynExpr.TryWith(synExpr, _range, _synMatchClauseList, _range2, _range3, _sequencePointInfoForTry, _sequencePointInfoForWith) ->
                 walkExpr synExpr
@@ -761,11 +762,14 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
             | SynExpr.DotIndexedGet(synExpr, IndexerArgList synExprList, _range, _range2) ->
-                Option.orElse (walkExpr synExpr) (List.tryPick walkExpr synExprList)
+                synExprList
+                |> List.map fst
+                |> List.tryPick walkExpr
+                |> Option.orElseWith (fun _ -> walkExpr synExpr)
 
             | SynExpr.DotIndexedSet(synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
                 [ yield synExpr1
-                  yield! synExprList
+                  yield! synExprList |> List.map fst
                   yield synExpr2 ]
                 |> List.tryPick walkExpr
 
@@ -798,8 +802,10 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
             | SynExpr.DoBang(synExpr, _range) ->
                 walkExpr synExpr
 
-            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, ands, synExpr2, _range) ->
+                [ synExpr1
+                  yield! ands |> List.map (fun (_,_,_,_,body,_) -> body)
+                  synExpr2 ] |> List.tryPick walkExpr
 
             | SynExpr.LibraryOnlyILAssembly _
             | SynExpr.LibraryOnlyStaticOptimization _
@@ -926,7 +932,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
                             |> Some
                         else None)
                 // There is no reference point, we indent the content at the start column of the interface
-                |> Option.getOrElse iface.Range.StartColumn
+                |> Option.defaultValue iface.Range.StartColumn
             | None -> iface.Range.StartColumn
 
 /// Return None, if we failed to handle the interface implementation

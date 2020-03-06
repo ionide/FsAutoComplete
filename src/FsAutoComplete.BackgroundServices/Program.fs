@@ -11,6 +11,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open FsAutoComplete
+open ProjectSystem
 
 type BackgroundFileCheckType =
 | SourceFile of filePath: string
@@ -129,7 +130,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
               | _, None ->
                 []
               | Some sdkVersion, Some runtimeVersion ->
-                FSIRefs.netCoreRefs Environment.dotnetSDKRoot.Value (string sdkVersion) (string runtimeVersion) Environment.fsiTFMMoniker true
+                FSIRefs.netCoreRefs Environment.dotnetSDKRoot.Value (string sdkVersion) (string runtimeVersion) (FSIRefs.tfmForRuntime sdkVersion) true
             let refs = assemblyPaths |> List.map (fun r -> "-r:" + r)
             let finalOpts = Array.append okOtherOpts (Array.ofList refs)
             { projOptions with OtherOptions = finalOpts }
@@ -146,7 +147,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
         match file with
         | ScriptFile(file, tfm) ->
-            state.Files.TryFind file |> Option.map (fun st ->
+            state.Files.TryFind (Utils.normalizePath file) |> Option.map (fun st ->
                 async {
                     let! (opts, _errors) = getScriptOptions file (st.Lines |> String.concat "\n") tfm
                     let sf = getFilesFromOpts opts
@@ -159,8 +160,11 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 }
             )
         | SourceFile file ->
-            match state.FileCheckOptions.TryFind file with
-            | None -> None
+            match state.FileCheckOptions.TryFind (Utils.normalizePath file) with
+            | None ->
+                client.Notify {Value = sprintf "Couldn't find file check options for %A" file } |> Async.Start
+                client.Notify {Value = sprintf "Known files %A" (state.FileCheckOptions.Keys |> Seq.toArray) } |> Async.Start
+                None
             | Some opts ->
                 let sf = getFilesFromOpts opts
 
@@ -364,6 +368,7 @@ module Program =
 
     [<EntryPoint>]
     let main argv =
+
         let pid = Int32.Parse argv.[0]
         let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
         let fs = FileSystem(originalFs, state.Files.TryFind)

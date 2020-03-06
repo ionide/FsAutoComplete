@@ -1,24 +1,24 @@
 namespace FsAutoComplete
 
 open Fake.Runtime
-open System
-open System.IO
-open System.IO.Compression
-open System.Threading.Tasks
-open System.Net
-open Newtonsoft.Json.Linq
+open FsAutoComplete.Logging
 
 module FakeSupport =
   let getFakeRuntime () =
-      Tooling.getFakeRuntime()  
+      Tooling.getFakeRuntime()
 
   type Declaration = Tooling.Declaration
   type FakeContext = Tooling.FakeContext
   type Dependency = Tooling.Dependency
   type Target = Tooling.Target
 
+  let private logger = LogProvider.getLoggerByName "FakeSupport"
+
   let private setupLogging () =
-    Tooling.setupLogging (fun _isError -> Debug.print "%s")
+    Tooling.setupLogging (fun isError ->
+      let logger = if isError then logger.error else logger.info
+      Log.setMessage >> logger
+    )
 
   let detectFakeScript (file) =
     setupLogging()

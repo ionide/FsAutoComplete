@@ -33,9 +33,13 @@ module SignatureFormatter =
     let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
         try
             if typ.IsTupleType || typ.IsStructTupleType then
-                typ.GenericArguments
-                |> Seq.map (formatFSharpType context)
-                |> String.concat " * "
+                let refTupleStr =
+                    typ.GenericArguments
+                    |> Seq.map (formatFSharpType context)
+                    |> String.concat " * "
+                if typ.IsStructTupleType
+                then sprintf "struct(%s)" refTupleStr
+                else refTupleStr
             elif typ.IsGenericParameter then
                 (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
             elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
@@ -284,7 +288,7 @@ module SignatureFormatter =
                 if func.IsConstructor then "new"
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
-                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.fill func.DisplayName
+                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.defaultValue func.DisplayName
                 else func.DisplayName
             name
 
@@ -338,7 +342,7 @@ module SignatureFormatter =
                 with _ -> "Unknown"
 
         let formatName (parameter:FSharpParameter) =
-            parameter.Name |> Option.getOrElse parameter.DisplayName
+            parameter.Name |> Option.defaultValue parameter.DisplayName
 
         let isDelegate =
             match func.EnclosingEntitySafe with
@@ -432,7 +436,7 @@ module SignatureFormatter =
                 try
                     Some (n.Split([|':' |], 2).[1])
                 with _ -> None )
-            |> Option.getOrElse ""
+            |> Option.defaultValue ""
         sprintf "active pattern %s: %s" apc.Name findVal
 
     let getEntitySignature displayContext (fse: FSharpEntity) =

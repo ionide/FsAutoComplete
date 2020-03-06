@@ -1,4 +1,4 @@
-namespace FsAutoComplete
+namespace ProjectSystem
 
 open System
 open System.IO
@@ -17,7 +17,7 @@ type [<RequireQualifiedAccess>] WorkspaceProjectState =
     | Loaded of FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * Dotnet.ProjInfo.Workspace.ProjectViewerItem list * Map<string,string>
     | Failed of string * GetProjectOptionsErrors
 
-module ProjectRecognizer =
+module internal ProjectRecognizer =
 
     let (|NetCoreProjectJson|FSharpNetSdk|NetCoreSdk|Net45|Unsupported|) (file: string) =
         //.NET Core Sdk preview3+ replace project.json with fsproj

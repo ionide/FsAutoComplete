@@ -6,3 +6,5 @@ Dapper
 Microsoft.Data.Sqlite
 Dotnet.ProjInfo
 Dotnet.ProjInfo.Workspace.FCS
+
+Microsoft.NETFramework.ReferenceAssemblies

@@ -54,7 +54,7 @@ module DocumentationFormatter =
             [ for arg in typ.GenericArguments do
               if arg <> typ.GenericArguments.[0] then yield separator
               yield! formatType displayContext arg ]
-        elif typ.GenericArguments.Count > 0 then
+        elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
             let r =
                 typ.GenericArguments
                 |> Seq.collect (formatType displayContext)
@@ -66,7 +66,7 @@ module DocumentationFormatter =
             let t = Regex.Replace(t, """(.*?) ?\[\]""", "Array<")
             let t = Regex.Replace(t, """<.*>""", "<")
             [ yield formatLink t xmlDocSig assemblyName
-              if t.EndsWith "<" then 
+              if t.EndsWith "<" then
                   yield! r
                   yield formatLink ">" xmlDocSig assemblyName ]
         elif typ.IsGenericParameter then
@@ -75,8 +75,13 @@ module DocumentationFormatter =
                 + typ.GenericParameter.Name
             [formatLink name xmlDocSig assemblyName]
         else
+          if typ.HasTypeDefinition then
             let name = typ.TypeDefinition.DisplayName |> PrettyNaming.QuoteIdentifierIfNeeded
             [formatLink name xmlDocSig assemblyName]
+          else
+            let name = typ.Format displayContext
+            [formatLink name xmlDocSig assemblyName]
+
 
     let format displayContext (typ : FSharpType) : (string * int) =
         formatType displayContext typ
@@ -308,7 +313,7 @@ module DocumentationFormatter =
                 if func.IsConstructor then "new"
                 elif func.IsOperatorOrActivePattern then func.DisplayName
                 elif func.DisplayName.StartsWith "( " then PrettyNaming.QuoteIdentifierIfNeeded func.LogicalName
-                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.fill func.DisplayName
+                elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.defaultValue func.DisplayName
                 else func.DisplayName
             fst (formatLink name func.XmlDocSig func.Assembly.SimpleName)
 
@@ -362,7 +367,7 @@ module DocumentationFormatter =
                 with _ -> "Unknown"
 
         let formatName (parameter:FSharpParameter) =
-            parameter.Name |> Option.getOrElse parameter.DisplayName
+            parameter.Name |> Option.defaultValue parameter.DisplayName
 
         let isDelegate =
             match func.EnclosingEntitySafe with
@@ -444,7 +449,7 @@ module DocumentationFormatter =
                 try
                     Some (n.Split([|':' |], 2).[1])
                 with _ -> None )
-            |> Option.getOrElse ""
+            |> Option.defaultValue ""
         sprintf "active pattern %s: %s" apc.Name findVal
 
     let getAttributeSignature displayContext (attr: FSharpAttribute) =

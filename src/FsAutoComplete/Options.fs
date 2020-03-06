@@ -4,6 +4,9 @@
 namespace FsAutoComplete
 
 open System
+open Serilog
+open Serilog.Core
+open Serilog.Events
 
 module Options =
   open Argu
@@ -30,23 +33,46 @@ module Options =
                   | HostPID _ -> "the Host process ID."
                   | BackgroundServiceEnabled -> "enable background service"
 
-  let apply (args: ParseResults<CLIArguments>) =
+  let isCategory (category: string) (e: LogEvent) =
+    match e.Properties.TryGetValue "SourceContext" with
+    | true, loggerName ->
+      match loggerName with
+      | :? ScalarValue as v ->
+        match v.Value with
+        | :? string as s when s = category -> true
+        | _ -> false
+      | _ -> false
+    | false,  _ -> false
+
+  let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) =
+    e.Level >= minLevel
+
+  // will use later when a mapping-style config of { "category": "minLevel" } is established
+  let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
+
+  let apply (levelSwitch: LoggingLevelSwitch) (logConfig: Serilog.LoggerConfiguration) (args: ParseResults<CLIArguments>) =
 
     let applyArg arg =
       match arg with
       | Verbose ->
-          Debug.verbose <- true
+          levelSwitch.MinimumLevel <- LogEventLevel.Verbose
+          ()
       | AttachDebugger ->
           System.Diagnostics.Debugger.Launch() |> ignore<bool>
       | Logfile s ->
           try
-            Debug.output <- (IO.File.CreateText(s) :> IO.TextWriter)
+            logConfig.WriteTo.Async(fun c -> c.File(path = s, levelSwitch = levelSwitch) |> ignore) |> ignore
           with
           | e ->
             printfn "Bad log file: %s" e.Message
             exit 1
       | VFilter v ->
-          Debug.categories <- v.Split(',') |> set |> Some
+          let filters = v.Split([|','|], StringSplitOptions.RemoveEmptyEntries)
+          filters
+          |> Array.iter (fun category ->
+            // category is encoded in the SourceContext property, so we filter messages based on that property's value
+            logConfig.Filter.ByExcluding(Func<_,_>(isCategory category)) |> ignore
+          )
       | Version
       | WaitForDebugger
       | BackgroundServiceEnabled

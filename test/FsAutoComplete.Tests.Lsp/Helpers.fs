@@ -25,6 +25,7 @@ let defaultConfigDto : FSharpConfigDto =
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
     Linter = None
+    LinterConfig = None
     UnionCaseStubGeneration = None
     UnionCaseStubGenerationBody = None
     RecordStubGeneration = None
@@ -193,3 +194,31 @@ let dotnetCleanup baseDir =
   |> List.map (fun f -> Path.Combine(baseDir, f))
   |> List.filter Directory.Exists
   |> List.iter (fun path -> Directory.Delete(path, true))
+
+
+
+let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
+    let psi = System.Diagnostics.ProcessStartInfo()
+    psi.FileName <- exePath
+    psi.WorkingDirectory <- workingDir
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    psi.Arguments <- args
+    psi.CreateNoWindow <- true
+    psi.UseShellExecute <- false
+
+    use p = new System.Diagnostics.Process()
+    p.StartInfo <- psi
+
+    p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+
+    p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+
+    p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+    p.WaitForExit()
+
+    let exitCode = p.ExitCode
+
+    exitCode, (workingDir, exePath, args)

@@ -1,3 +1,18 @@
+#### 0.40.1 - 28.02.2020
+
+* Update to FCS 34.1 ( + all other deps) [#552](https://github.com/fsharp/FsAutoComplete/issues/556) by [@baronfel](https://github.com/baronfel)
+
+#### 0.40.0 - 19.02.2020
+
+* Move Fantomas formatting to Core project [#553](https://github.com/fsharp/FsAutoComplete/issues/553) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+* Fix return type in signatures in documentation formatter [#554](https://github.com/fsharp/FsAutoComplete/issues/554) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+* Work around build infrastructure by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+* Allows analyzer paths to be absolute [#555](https://github.com/fsharp/FsAutoComplete/issues/555) by [@Zaid-Ajaj](https://github.com/Zaid-Ajaj)
+* Update FSI references version-finding algorithm to probe packs dir as well as runtimes dir [#556](https://github.com/fsharp/FsAutoComplete/issues/556) by [@baronfel](https://github.com/baronfel)
+* Update FSharp.Analyzers.SDK to 0.3.0 and make them available only in .Net Core build [#557](https://github.com/fsharp/FsAutoComplete/issues/557) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+
+#### 0.39.0
+
 #### 0.38.2
 
 #### 0.38.1 - 16.04.2019
@@ -82,11 +97,11 @@
   - Performance updates for find usages
   - Implement GetNamespaceSuggestions
   - Update FSharpLint version
-  - Optimize GetNamespaceSuggestions 
+  - Optimize GetNamespaceSuggestions
   - Optimize GetDeclarations
   - Add endpoint for F1 Help
   - ... and more!
-  
+
 (Some of these features only exposed currently via HTTP interface)
 
 #### 0.30.2 - 31.10.2016
@@ -211,7 +226,7 @@
 
 #### 0.20.1 - 30.07.2015
 
-* Fix exception in `symboluse` command: #46. 
+* Fix exception in `symboluse` command: #46.
 
 #### 0.20.0 - 28.07.2015
 
@@ -254,7 +269,7 @@ Other changes:
   Note that this was previously the intended behaviour, but column
   indexes were treated as 0-based. Ensure that both line and column
   indexes sent in commands are 1-based.
-  
+
 #### 0.17.0 - 31.05.2015
 
 * Completion filtering - https://github.com/fsharp/FSharp.AutoComplete/pull/10

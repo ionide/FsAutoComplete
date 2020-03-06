@@ -25,10 +25,23 @@ module Map =
                 yield value
         }
 
+open System.Diagnostics
+open System.Threading.Tasks
+
+module ProcessHelper =
+    let WaitForExitAsync(p: Process) = async {
+        let tcs = new TaskCompletionSource<obj>()
+        p.EnableRaisingEvents <- true
+        p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
+
+        let! token = Async.CancellationToken
+        let _registered = token.Register(fun _ -> tcs.SetCanceled())        
+        let! _ = tcs.Task |> Async.AwaitTask
+        ()
+    }
 
 open System.IO
 open System.Collections.Concurrent
-open System.Diagnostics
 open System
 open FSharp.Compiler.SourceCodeServices
 
@@ -53,52 +66,6 @@ let isAScript (fileName: string) =
     let ext = Path.GetExtension(fileName)
     [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
 
-/// Determines if the current system is an Unix system.
-/// See http://www.mono-project.com/docs/faq/technical/#how-to-detect-the-execution-platform
-let isUnix =
-#if NETSTANDARD2_0
-    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-        System.Runtime.InteropServices.OSPlatform.Linux) ||
-    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-        System.Runtime.InteropServices.OSPlatform.OSX)
-#else
-    int System.Environment.OSVersion.Platform |> fun p -> (p = 4) || (p = 6) || (p = 128)
-#endif
-
-/// Determines if the current system is a MacOs system
-let isMacOS =
-#if NETSTANDARD2_0
-    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-        System.Runtime.InteropServices.OSPlatform.OSX)
-#else
-    (System.Environment.OSVersion.Platform = PlatformID.MacOSX) ||
-        // osascript is the AppleScript interpreter on OS X
-        File.Exists "/usr/bin/osascript"
-#endif
-
-/// Determines if the current system is a Linux system
-let isLinux =
-#if NETSTANDARD2_0
-    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-        System.Runtime.InteropServices.OSPlatform.Linux)
-#else
-    isUnix && not isMacOS
-#endif
-
-/// Determines if the current system is a Windows system
-let isWindows =
-#if NETSTANDARD2_0
-    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-        System.Runtime.InteropServices.OSPlatform.Windows)
-#else
-    match System.Environment.OSVersion.Platform with
-    | PlatformID.Win32NT | PlatformID.Win32S | PlatformID.Win32Windows | PlatformID.WinCE -> true
-    | _ -> false
-#endif
-
-let runningOnMono =
-  try not << isNull <| Type.GetType "Mono.Runtime"
-  with _ -> false
 
 let normalizePath (file : string) =
   if file.EndsWith ".fs" || file.EndsWith ".fsi" then
@@ -109,12 +76,6 @@ let normalizePath (file : string) =
 let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
 let inline (</>) path1 path2 = combinePaths path1 path2
-
-let normalizeDirSeparators (path: string) =
-  match Path.DirectorySeparatorChar with
-  | '\\' -> path.Replace('/', '\\')
-  | '/' -> path.Replace('\\', '/')
-  | _ -> path
 
 let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 //TODO: Investigate why sometimes SourceFiles are not filled
@@ -129,46 +90,6 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 module Option =
 
   let inline attempt (f: unit -> 'T) = try Some <| f() with _ -> None
-
-  let getOrElse defaultValue option =
-    match option with
-    | None -> defaultValue
-    | Some x -> x
-
-  /// Gets the option if Some x, otherwise the supplied default value.
-  let inline orElse v option =
-    match option with
-    | Some x -> Some x
-    | None -> v
-
-  let inline fill f o =
-    match o with
-    | Some v -> v
-    | _      -> f
-
-
-
-  let orElseFun other option =
-    match option with
-    | None -> other()
-    | Some x -> Some x
-
-  let getOrElseFun defaultValue option =
-    match option with
-    | None -> defaultValue()
-    | Some x -> x
-
-  let inline orTry f =
-    function
-    | Some x -> Some x
-    | None -> f()
-
-  /// Some(Some x) -> Some x | None -> None
-  let inline flatten x =
-    match x with
-    | Some x -> x
-    | None -> None
-
 
 [<RequireQualifiedAccess>]
 module Async =
@@ -565,33 +486,6 @@ let splitByPrefix (prefix: string) (s: string) =
 let splitByPrefix2 prefixes (s: string) =
     prefixes
     |> List.tryPick (fun prefix -> splitByPrefix prefix s)
-
-
-let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
-    let psi = System.Diagnostics.ProcessStartInfo()
-    psi.FileName <- exePath
-    psi.WorkingDirectory <- workingDir
-    psi.RedirectStandardOutput <- true
-    psi.RedirectStandardError <- true
-    psi.Arguments <- args
-    psi.CreateNoWindow <- true
-    psi.UseShellExecute <- false
-
-    use p = new System.Diagnostics.Process()
-    p.StartInfo <- psi
-
-    p.OutputDataReceived.Add(fun ea -> log (ea.Data))
-
-    p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
-
-    p.Start() |> ignore
-    p.BeginOutputReadLine()
-    p.BeginErrorReadLine()
-    p.WaitForExit()
-
-    let exitCode = p.ExitCode
-
-    exitCode, (workingDir, exePath, args)
 
 [<AutoOpen>]
 module Patterns =

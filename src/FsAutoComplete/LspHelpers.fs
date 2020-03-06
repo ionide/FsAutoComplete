@@ -8,7 +8,7 @@ open FSharp.Compiler.SourceCodeServices
 open FSharp.Reflection
 open System.Collections.Generic
 open System.Text
-
+open ProjectSystem
 
 module FcsRange = FSharp.Compiler.Range
 
@@ -43,25 +43,38 @@ module Conversions =
     /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
     /// modified slightly to not rely on the System.Path members because they vary per-platform
     let filePathToUri (filePath: string): DocumentUri =
-        let uri = StringBuilder(filePath.Length)
-        for c in filePath do
-            if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
-                c > '\xFF' then
-                uri.Append(c) |> ignore
-            // handle windows path separator chars.
-            // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
-            // logic to work cross-platform (for tests)
-            else if c = '\\' then
-                uri.Append('/') |> ignore
+        let filePath, finished =
+            if filePath.Contains "Untitled-" then
+                let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
+                if rg.Success then
+                    rg.Groups.[1].Value, true
+                else
+                    filePath, false
             else
-                uri.Append('%') |> ignore
-                uri.Append((int c).ToString("X2")) |> ignore
+                filePath, false
 
-        if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-            "file:" + uri.ToString()
+        if not finished then
+            let uri = StringBuilder(filePath.Length)
+            for c in filePath do
+                if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                    c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
+                    c > '\xFF' then
+                    uri.Append(c) |> ignore
+                // handle windows path separator chars.
+                // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
+                // logic to work cross-platform (for tests)
+                else if c = '\\' then
+                    uri.Append('/') |> ignore
+                else
+                    uri.Append('%') |> ignore
+                    uri.Append((int c).ToString("X2")) |> ignore
+
+            if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
+                "file:" + uri.ToString()
+            else
+                "file:///" + (uri.ToString()).TrimStart('/')
         else
-            "file:///" + (uri.ToString()).TrimStart('/')
+            "untitled:" + filePath
 
     let fcsRangeToLspLocation(range: FSharp.Compiler.Range.range): Lsp.Location =
         let fileUri = filePathToUri range.FileName
@@ -107,9 +120,11 @@ module Conversions =
     /// without doing a check based on what the current system's OS is.
     let fileUriToLocalPath (u: DocumentUri) =
         let initialLocalPath = Uri(u).LocalPath
-        if isWindowsStyleDriveLetterMatch initialLocalPath
-        then initialLocalPath.TrimStart('/')
-        else initialLocalPath
+        let fn =
+            if isWindowsStyleDriveLetterMatch initialLocalPath
+            then initialLocalPath.TrimStart('/')
+            else initialLocalPath
+        if u.StartsWith "untitled:" then (fn + ".fsx") else fn
 
     type TextDocumentIdentifier with
         member doc.GetFilePath() = fileUriToLocalPath doc.Uri
@@ -157,7 +172,7 @@ module Conversions =
             }
         seq {
             yield (inner None topLevel.Declaration)
-            yield! topLevel.Nested |> Seq.ofArray |> Seq.map (inner (Some topLevel.Declaration.Name))
+            yield! topLevel.Nested |> Seq.map (inner (Some topLevel.Declaration.Name))
         }
 
     let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: FSharpNavigationTopLevelDeclaration): CodeLens [] =
@@ -199,14 +214,8 @@ module internal GlyphConversions =
         let completionItemSet = defaultArg completionItemSet defaultSet
 
         let bestAvailable (possible: 'kind[]) =
-            let mutable found: 'kind option = None
-            let mutable i = 0
-            let possibleCount = possible.Length
-            while found.IsNone && i < possibleCount do
-                if Array.contains possible.[i] completionItemSet then
-                    found <- Some possible.[i]
-                i <- i + 1
-            found
+            possible
+            |> Array.tryFind (fun x -> Array.contains x completionItemSet)
 
         let unionCases = FSharpType.GetUnionCases(typeof<FSharpGlyph>)
         let cache = Dictionary<FSharpGlyph, 'kind option>(unionCases.Length)
@@ -293,7 +302,7 @@ module internal GlyphConversions =
                 | _ -> [||])
 
 module Workspace =
-    open FsAutoComplete.WorkspacePeek
+    open ProjectSystem.WorkspacePeek
     open FsAutoComplete.CommandResponse
 
     let mapInteresting i =
@@ -301,7 +310,7 @@ module Workspace =
         | Interesting.Directory (p, fsprojs) ->
             WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
         | Interesting.Solution (p, sd) ->
-            let rec item (x: FsAutoComplete.WorkspacePeek.SolutionItem) =
+            let rec item (x: ProjectSystem.WorkspacePeek.SolutionItem) =
                 let kind =
                     match x.Kind with
                     | SolutionItemKind.Unknown
@@ -391,7 +400,7 @@ type FsdnRequest = { Query: string }
 
 type DotnetNewListRequest = { Query: string }
 
-type DotnetNewGetDetailsRequest = { Query: string }
+type DotnetNewRunRequest = { Template: string; Output: string option; Name: string option }
 
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
@@ -400,6 +409,7 @@ type FSharpConfigDto = {
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     Linter: bool option
+    LinterConfig: string option
     UnionCaseStubGeneration: bool option
     UnionCaseStubGenerationBody: string option
     RecordStubGeneration: bool option
@@ -432,6 +442,7 @@ type FSharpConfig = {
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     Linter: bool
+    LinterConfig: string option
     UnionCaseStubGeneration: bool
     UnionCaseStubGenerationBody: string
     RecordStubGeneration: bool
@@ -461,6 +472,7 @@ with
             KeywordsAutocomplete = false
             ExternalAutocomplete = false
             Linter = false
+            LinterConfig = None
             UnionCaseStubGeneration = false
             UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
             RecordStubGeneration = false
@@ -493,6 +505,7 @@ with
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
             Linter = defaultArg dto.Linter false
+            LinterConfig = dto.LinterConfig
             UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration false
             UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody "failwith \"Not Implemented\""
             RecordStubGeneration = defaultArg dto.RecordStubGeneration false
@@ -513,7 +526,10 @@ with
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts false
-            DotNetRoot = defaultArg dto.DotNetRoot Environment.dotnetSDKRoot.Value
+            DotNetRoot =
+                dto.DotNetRoot
+                |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
+                |> Option.defaultValue Environment.dotnetSDKRoot.Value
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
         }
 
@@ -527,6 +543,7 @@ with
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
             Linter = defaultArg dto.Linter x.Linter
+            LinterConfig = dto.LinterConfig
             UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration x.UnionCaseStubGeneration
             UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody x.UnionCaseStubGenerationBody
             RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration
@@ -547,7 +564,10 @@ with
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
             }
             UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
-            DotNetRoot = defaultArg dto.DotNetRoot FSharpConfig.Default.DotNetRoot
+            DotNetRoot =
+                dto.DotNetRoot
+                |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
+                |> Option.defaultValue FSharpConfig.Default.DotNetRoot
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
         }
 

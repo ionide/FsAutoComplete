@@ -1,8 +1,2 @@
-@echo off
-
-.paket\paket.exe restore
-if errorlevel 1 (
-  exit /b %errorlevel%
-)
-
-packages\build\FAKE\tools\FAKE.exe build.fsx %*
+dotnet tool restore
+dotnet fake build -t ReleaseArchive

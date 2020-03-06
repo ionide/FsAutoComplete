@@ -100,8 +100,8 @@ module internal CodeGenerationUtils =
                 indentWriter.Dispose()
 
     let (|IndexerArg|) = function
-        | SynIndexerArg.Two(e1, e2) -> [e1; e2]
-        | SynIndexerArg.One e -> [e]
+        | SynIndexerArg.Two(e1,e1FromEnd, e2, e2FromEnd, _e1Range, _e2Range) -> [e1, e1FromEnd; e2, e2FromEnd]
+        | SynIndexerArg.One(e, fromEnd, _range) -> [e, fromEnd]
 
     let (|IndexerArgList|) xs =
         List.collect (|IndexerArg|) xs
@@ -170,7 +170,7 @@ module internal CodeGenerationUtils =
                         if indexes |> Set.contains idx then
                             getAvailableIndex (idx + 1)
                         else idx
-                    let index = index |> Option.getOrElse 1 |> getAvailableIndex
+                    let index = index |> Option.defaultValue 1 |> getAvailableIndex
                     Some index, namesWithIndices |> Map.add nm (indexes |> Set.add index)
                 | None, Some index -> Some index, namesWithIndices |> Map.add nm (Set.ofList [index])
                 | None, None -> None, namesWithIndices |> Map.add nm Set.empty

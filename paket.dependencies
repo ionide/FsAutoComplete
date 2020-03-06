@@ -1,43 +1,63 @@
-version 5.201.1
+version 5.241.6
 
 framework: net461, netstandard2.0, netcoreapp2.1
 source https://api.nuget.org/v3/index.json
 source ./lib
 storage: none
 
+github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
+
 nuget Argu ~> 5.2.0
-nuget Fantomas 3.0.0-beta-006
-nuget FSharp.Compiler.Service ~> 32.0
-nuget Dotnet.ProjInfo ~> 0.37.0 prerelease
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.37.0 prerelease
+nuget Fantomas 3.3.0-beta-002 # needed prerelease for the FCS 34.1.0 version bump
+nuget FSharp.Compiler.Service 34.1.1
+nuget Dotnet.ProjInfo
+nuget Dotnet.ProjInfo.Workspace.FCS
+nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
-nuget FSharpLint.Core ~> 0.12.3 prerelease
+nuget FSharpLint.Core
 nuget FSharp.Core redirects:force
-nuget OptimizedPriorityQueue
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
 nuget Microsoft.Data.Sqlite.Core 2.2.4
 nuget SQLitePCLRaw.bundle_green 1.1.14
 nuget SQLitePCLRaw.core 1.1.14
-nuget FSharp.Analyzers.SDK
 nuget System.Configuration.ConfigurationManager
+nuget Serilog
+nuget Serilog.Sinks.File
+nuget Serilog.Sinks.Console
+nuget Serilog.Sinks.Async
+nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
 
 nuget Microsoft.SourceLink.GitHub 1.0.0-beta2-18618-05 copy_local:true, strategy:min
+nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
 
 group Build
-  framework: net45
   source https://api.nuget.org/v3/index.json
+  storage: none
 
-  nuget FAKE ~> 4
+  nuget Fake.Core.Target
+  nuget Fake.Core.Process
+  nuget Fake.DotNet.Cli
+  nuget Fake.Core.ReleaseNotes
+  nuget Fake.DotNet.AssemblyInfoFile
+  nuget Fake.DotNet.Paket
+  nuget Fake.Tools.Git
+  nuget Fake.Core.Environment
+  nuget Fake.Core.UserInput
+  nuget Fake.IO.FileSystem
+  nuget Fake.IO.Zip
+  nuget Fake.DotNet.MsBuild
+  nuget Fake.Api.GitHub
+  nuget Microsoft.Build
 
 group Test
-  framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1
+  framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1, netcoreapp3.1
   source https://api.nuget.org/v3/index.json
   storage: none
 

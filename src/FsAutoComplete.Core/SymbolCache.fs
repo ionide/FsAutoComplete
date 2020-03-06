@@ -70,17 +70,19 @@ module private PersistenCacheImpl =
         let res = connection.Query<SymbolUseRange>(q)
         res
 
-    let loadSymbolUses (connection: SqliteConnection) file =
+    let loadSymbolUses (connection: SqliteConnection) file = async {
         if connection.State <> ConnectionState.Open then connection.Open()
         let q = sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false" file
-        let res = connection.QueryAsync<SymbolUseRange>(q)
-        res |> Async.AwaitTask |> Async.map (Seq.toArray)
+        let! res = connection.QueryAsync<SymbolUseRange>(q) |> Async.AwaitTask
+        return Seq.toArray res
+    }
 
-    let loadImplementations (connection: SqliteConnection) file =
+    let loadImplementations (connection: SqliteConnection) file = async {
         if connection.State <> ConnectionState.Open then connection.Open()
         let q = sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false AND (IsFromDispatchSlotImplementation=true OR IsFromType=true)" file
-        let res = connection.QueryAsync<SymbolUseRange>(q)
-        res |> Async.AwaitTask |> Async.map (Seq.toArray)
+        let! res = connection.QueryAsync<SymbolUseRange>(q) |> Async.AwaitTask
+        return Seq.toArray res
+    }
 
     let initializeCache dir =
         let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir

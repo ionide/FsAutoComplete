@@ -412,7 +412,7 @@ let renameTest =
 
     dotnetCleanup testDir
 
-    Utils.runProcess (logDotnetRestore "RenameTest") testDir "dotnet" "restore"
+    Helpers.runProcess (logDotnetRestore "RenameTest") testDir "dotnet" "restore"
     |> expectExitCodeZero
 
     let m = new System.Threading.ManualResetEvent(false)
@@ -489,7 +489,7 @@ let gotoTest =
 
     dotnetCleanup path
 
-    Utils.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
+    Helpers.runProcess (logDotnetRestore "GoToTests") path "dotnet" "restore"
     |> expectExitCodeZero
 
     let (server, event) = serverInitialize path defaultConfigDto
@@ -671,66 +671,6 @@ let uriTests =
     testList "fileName to uri tests" (samples |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
  ]
 
-let dotnetnewTest =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
-    let (server, event) = serverInitialize path defaultConfigDto
-    waitForWorkspaceFinishedParsing event
-    server
-  )
-  let serverTest f () =
-    f serverStart.Value
-
-  testList "DotnetNew Tests" [
-      testCase "DotnetNewList on list" (serverTest (fun server ->
-        let p : DotnetNewListRequest = {
-            Query = "Console Application"
-        }
-
-        let sampleTemplate : DotnetNewTemplate.Template = { Name = "Console Application";
-                                               ShortName = "console";
-                                               Language = [ DotnetNewTemplate.TemplateLanguage.CSharp; DotnetNewTemplate.TemplateLanguage.FSharp; DotnetNewTemplate.TemplateLanguage.VB ];
-                                               Tags = ["Common"; "Console"] }
-
-        let res = server.FSharpDotnetNewList p |> Async.RunSynchronously
-        match res with
-        | Result.Error e -> failtestf "Request failed: %A" e
-        | Result.Ok n ->
-          Expect.stringContains n.Content "Console Application" (sprintf "the Console Application is a valid response, but was %A" n)
-          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.DotnetNewListResponse>>(n.Content)
-          Expect.equal r.Kind "dotnetnewlist" (sprintf "dotnetnewlist response, but was %A, from json %A" r n)
-          Expect.equal r.Data.Installed.[0].Name sampleTemplate.Name (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
-          Expect.equal r.Data.Installed.[0].Language sampleTemplate.Language (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
-      ))
-
-      testCase "DotnetNewGetDetails on list" (serverTest (fun server ->
-        let p : DotnetNewGetDetailsRequest = {
-            Query = "Console Application"
-        }
-
-        let sampleTemplate : DotnetNewTemplate.DetailedTemplate = { TemplateName = "Console Application";
-                                                                    Author = "Microsoft";
-                                                                    TemplateDescription = "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS";
-                                                                    Options =
-                                                                    [ { ParameterName = "--no-restore";
-                                                                        ShortName = "";
-                                                                        ParameterType = DotnetNewTemplate.TemplateParameterType.Bool;
-                                                                        ParameterDescription = "If specified, skips the automatic restore of the project on create.";
-                                                                        DefaultValue = "false / (*) true" }
-                                                                    ] }
-
-        let res = server.FSharpDotnetNewGetDetails p |> Async.RunSynchronously
-        match res with
-        | Result.Error e -> failtestf "Request failed: %A" e
-        | Result.Ok n ->
-          Expect.stringContains n.Content "Console Application" (sprintf "the Console Application is a valid response, but was %A" n)
-          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.DotnetNewGetDetailsResponse>>(n.Content)
-          Expect.equal r.Kind "dotnetnewgetDetails" (sprintf "dotnetnewgetDetails response, but was %A, from json %A" r n)
-          Expect.equal r.Data.Detailed.TemplateName sampleTemplate.TemplateName (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
-          Expect.equal r.Data.Detailed.Options.[0].ParameterName sampleTemplate.Options.[0].ParameterName (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
-          Expect.equal r.Data.Detailed.Options.[0].ParameterType sampleTemplate.Options.[0].ParameterType (sprintf "the Console Application is a valid response, but was %A, from json %A" r n)
-      ))
-    ]
 
 let foldingTests =
   let serverStart = lazy (
@@ -738,7 +678,7 @@ let foldingTests =
 
     dotnetCleanup path
 
-    Utils.runProcess (logDotnetRestore "FoldingTests") path "dotnet" "restore"
+    Helpers.runProcess (logDotnetRestore "FoldingTests") path "dotnet" "restore"
     |> expectExitCodeZero
 
     let (server, event) = serverInitialize path defaultConfigDto
@@ -812,7 +752,7 @@ let linterTests =
         let firstDiag = {
           Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
           Severity = Some DiagnosticSeverity.Information
-          Code = Some "FS0042"
+          Code = Some "FL0042"
           Source = "F# Linter"
           Message = "Consider changing `test` to PascalCase."
           RelatedInformation = None
@@ -821,7 +761,7 @@ let linterTests =
           Range = { Start = { Line = 1; Character = 16 }
                     End = { Line = 1; Character = 25 } }
           Severity = Some DiagnosticSeverity.Information
-          Code = Some "FS0065"
+          Code = Some "FL0065"
           Source = "F# Linter"
           Message = "`not (a = b)` might be able to be refactored into `a <> b`."
           RelatedInformation = None
@@ -831,7 +771,7 @@ let linterTests =
           { Range = { Start = { Line = 2; Character = 16 }
                       End = { Line = 2; Character = 26 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`not (a <> b)` might be able to be refactored into `a = b`."
             RelatedInformation = None
@@ -841,7 +781,7 @@ let linterTests =
           { Range = { Start = { Line = 3; Character = 12 }
                       End = { Line = 3; Character = 22 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`fun x -> x` might be able to be refactored into `id`."
             RelatedInformation = None
@@ -850,7 +790,7 @@ let linterTests =
           { Range = { Start = { Line = 4; Character = 12 }
                       End = { Line = 4; Character = 20 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`not true` might be able to be refactored into `false`."
             RelatedInformation = None
@@ -859,7 +799,7 @@ let linterTests =
           { Range = { Start = { Line = 5; Character = 12 }
                       End = { Line = 5; Character = 21 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`not false` might be able to be refactored into `true`."
             RelatedInformation = None
@@ -868,7 +808,7 @@ let linterTests =
           { Range = { Start = { Line = 7; Character = 14 }
                       End = { Line = 7; Character = 21 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`a <> true` might be able to be refactored into `not a`."
             RelatedInformation = None
@@ -877,7 +817,7 @@ let linterTests =
           { Range = { Start = { Line = 8; Character = 14 }
                       End = { Line = 8; Character = 20 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`x = null` might be able to be refactored into `isNull x`."
             RelatedInformation = None
@@ -886,7 +826,7 @@ let linterTests =
           { Range = { Start = { Line = 9; Character = 14 }
                       End = { Line = 9; Character = 37 } }
             Severity = Some DiagnosticSeverity.Information
-            Code = Some "FS0065"
+            Code = Some "FL0065"
             Source = "F# Linter"
             Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
             RelatedInformation = None
@@ -977,7 +917,7 @@ let tooltipTests =
   )
 
   let verifyTooltip line character expectedTooltip =
-    ftestCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
+    testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
       let server, scriptPath = serverStart.Value
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
@@ -995,6 +935,49 @@ let tooltipTests =
   testList "tooltip evaluation" [
     verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
     verifyTooltip 1 4 "val listOfTuples : list<int * int>"
+    verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
+  ]
+
+let formattingTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+    server, events, path
+  )
+  let serverTest f () = f serverStart.Value
+
+  let editForWholeFile sourceFile expectedFile =
+    let sourceLines = File.ReadAllLines sourceFile
+    let start = { Line = 0; Character = 0 }
+    let ``end`` = { Line = sourceLines.Length - 1; Character = sourceLines.[sourceLines.Length - 1].Length }
+    let expectedText = File.ReadAllText expectedFile
+    { Range = { Start = start; End = ``end`` }; NewText = expectedText }
+
+  let verifyFormatting (server: Lsp.FsharpLspServer, events, rootPath) scenario =
+    let sourceFile = Path.Combine(rootPath, sprintf "%s.input.fsx" scenario)
+    let expectedFile = Path.Combine(rootPath, sprintf "%s.expected.fsx" scenario)
+    let expectedTextEdit = editForWholeFile sourceFile expectedFile
+    do server.TextDocumentDidOpen { TextDocument = loadDocument sourceFile } |> Async.RunSynchronously
+    match waitForParseResultsForFile (Path.GetFileName sourceFile) events with
+    | Ok () ->
+      match server.TextDocumentFormatting { TextDocument = { Uri = filePathToUri sourceFile }
+                                            Options = { TabSize = 4
+                                                        InsertSpaces = true
+                                                        AdditionalData = dict [] } } |> Async.RunSynchronously with
+      | Ok (Some [|edit|]) ->
+        Expect.equal edit expectedTextEdit "should replace the entire file range with the expected content"
+      | Ok other ->
+        failwithf "Invalid formatting result: %A" other
+      | Result.Error e ->
+        failwithf "Error while formatting %s: %A" sourceFile e
+    | Core.Result.Error errors ->
+      failwithf "Errors while parsing script %s: %A" sourceFile errors
+
+  testList "fantomas integration" [
+    testCase "can replace entire content of file when formatting whole document" (serverTest (fun state ->
+      verifyFormatting state "endCharacter"
+    ))
   ]
 
 ///Global list of tests
@@ -1009,11 +992,10 @@ let tests =
     gotoTest
     fsdnTest
     uriTests
-    dotnetnewTest
     foldingTests
     linterTests
-    // commented out because this will only work in a netcoreapp3.0 context, which CI doesn't have.
-    //scriptPreviewTests
-    //scriptEvictionTests
-    //tooltipTests
+    scriptPreviewTests
+    scriptEvictionTests
+    tooltipTests
+    formattingTests
   ]

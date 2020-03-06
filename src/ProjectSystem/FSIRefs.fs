@@ -2,7 +2,7 @@
 /// for resolution of FSI
 
 [<RequireQualifiedAccess>]
-module FsAutoComplete.FSIRefs
+module ProjectSystem.FSIRefs
 
 open System
 open System.IO
@@ -67,30 +67,46 @@ let versionDirectoriesIn (baseDir: string) =
   |> Array.map (Path.GetFileName >> deconstructVersion)
   |> Array.sortWith compareNugetVersion
 
+/// path to the directory where .Net SDK versions are stored
+let sdkDir dotnetRoot = Path.Combine (dotnetRoot, "sdk")
+
 /// returns a sorted list of the SDK versions available at the given dotnet root
 let sdkVersions dotnetRoot =
-  let sdkDir = Path.Combine (dotnetRoot, "sdk")
+  let sdkDir = sdkDir dotnetRoot
   if Directory.Exists sdkDir
   then Some (versionDirectoriesIn sdkDir)
   else None
 
-/// returns a sorted list of the .Net Core runtime versions available at the given dotnet root
+/// path to the .netcoreapp reference assembly storage location
+let netcoreAppPacksDir dotnetRoot = Path.Combine(dotnetRoot, "packs/Microsoft.NETCore.App.Ref")
+/// path to the .netcoreapp implementation assembly storage location
+let netcoreAppDir dotnetRoot = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App")
+
+/// Returns a sorted list of the .Net Core runtime versions available at the given dotnet root.
+///
+/// If the reference-dll packs directory (`<dotnet root>/packs/Microsoft.NETCore.App.Ref`) is present that is used, otherwise
+/// defaults to the actual runtime implementation dlls (`<dotnet root>/shared/Microsoft.NETCore.app`).
 let runtimeVersions dotnetRoot =
-  let runtimesDir = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App")
-  if Directory.Exists runtimesDir
-  then Some (versionDirectoriesIn runtimesDir)
-  else None
+  let runtimesDir = netcoreAppDir dotnetRoot
+  let packsDir = netcoreAppPacksDir dotnetRoot
+  if Directory.Exists packsDir
+  then
+    Some (versionDirectoriesIn packsDir)
+    else
+      if Directory.Exists runtimesDir
+      then Some (versionDirectoriesIn runtimesDir)
+      else None
 
 let appPackDir dotnetRoot runtimeVersion tfm =
-  let packDir = Path.Combine(dotnetRoot, "packs/Microsoft.NETCore.App.Ref", runtimeVersion, "ref", tfm)
+  let packDir = Path.Combine(netcoreAppPacksDir dotnetRoot, runtimeVersion, "ref", tfm)
   if Directory.Exists packDir then Some packDir else None
 
 let compilerDir dotnetRoot sdkVersion =
-  let compilerDir = Path.Combine(dotnetRoot, "sdk", sdkVersion, "FSharp")
+  let compilerDir = Path.Combine(sdkDir dotnetRoot, sdkVersion, "FSharp")
   if Directory.Exists compilerDir then Some compilerDir else None
 
 let runtimeDir dotnetRoot runtimeVersion =
-  let runtimeDir = Path.Combine(dotnetRoot, "shared/Microsoft.NETCore.App", runtimeVersion)
+  let runtimeDir = Path.Combine(netcoreAppDir dotnetRoot, runtimeVersion)
   if Directory.Exists runtimeDir then Some runtimeDir else None
 
 /// given the pack directory and the runtime directory, we prefer the pack directory (because these are ref dlls)
@@ -98,7 +114,13 @@ let runtimeDir dotnetRoot runtimeVersion =
 let findRuntimeRefs packDir runtimeDir =
   match packDir, runtimeDir with
   | Some refDir, _
-  | _, Some refDir -> Directory.EnumerateFiles(refDir, "*.dll") |> Seq.toArray
+  | _, Some refDir ->
+    Directory.EnumerateFiles(refDir, "*.dll")
+    // SUPER IMPORTANT: netstandard/netcore assembly resolution _must not_ contain mscorlib or else
+    // its presence triggers old netfx fallbacks, which end up bringing assemblies that aren't part
+    // of netcore.
+    |> Seq.filter (fun r -> not (Path.GetFileNameWithoutExtension(r) = "mscorlib"))
+    |> Seq.toArray
   | None, None -> [||]
 
 /// given the compiler root dir and if to include FSI refs, returns the set of compiler assemblies to references if that dir exists.
@@ -118,3 +140,12 @@ let netCoreRefs dotnetRoot sdkVersion runtimeVersion tfm useFsiAuxLib =
   [ yield! findRuntimeRefs (appPackDir dotnetRoot runtimeVersion tfm) (runtimeDir dotnetRoot runtimeVersion)
     yield! compilerAndInteractiveRefs (compilerDir dotnetRoot sdkVersion) useFsiAuxLib ]
 
+/// picks a TFM for F# scripts based on the provided SDK version.
+let tfmForRuntime =
+  let netcore3 = NugetVersion(3, 0, 100, "")
+  let netcore31 = NugetVersion(3, 1, 100, "")
+  fun (sdkVersion: NugetVersion) ->
+    match compareNugetVersion sdkVersion netcore3 with
+    | 1 | 0 when compareNugetVersion sdkVersion netcore31 = -1 -> "netcoreapp3.0"
+    | 1 | 0 -> "netcoreapp3.1"
+    | _ -> "netcoreapp2.2"

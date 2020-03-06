@@ -5,11 +5,12 @@ Dotnet.ProjInfo
 Dotnet.ProjInfo.Workspace.FCS
 Newtonsoft.Json
 Fake.Runtime
-OptimizedPriorityQueue
 ICSharpCode.Decompiler
-FSharp.Analyzers.SDK
 Microsoft.SourceLink.GitHub
 FSharp.Data
 Dapper
 Microsoft.Data.Sqlite
 System.Configuration.ConfigurationManager
+Fantomas
+
+Microsoft.NETFramework.ReferenceAssemblies

@@ -1081,4 +1081,4 @@ let extractSignature (FSharpToolTipText tips) =
     tips
     |> Seq.tryPick firstResult
     |> Option.map getSignature
-    |> Option.getOrElse ""
+    |> Option.defaultValue ""

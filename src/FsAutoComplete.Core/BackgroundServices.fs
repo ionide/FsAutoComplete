@@ -4,6 +4,7 @@ open FsAutoComplete
 open LanguageServerProtocol
 open System.IO
 open FSharp.Compiler.SourceCodeServices
+open ProjectSystem
 
 type Msg = {Value: string}
 
@@ -49,7 +50,6 @@ let client =
     let notificationsHandler =
         Map.empty
         |> Map.add "background/notify" (Client.notificationHandling (fun (msg: Msg) -> async {
-            Debug.print "[BACKGROUND SERVICE] Msg: %s" msg.Value
             return None
         } ))
         |> Map.add "background/diagnostics" (Client.notificationHandling (fun (msg: Types.PublishDiagnosticsParams) -> async {
@@ -60,7 +60,7 @@ let client =
     #if DOTNET_SPAWN
     Client.Client("dotnet", Path.Combine(p, "fsautocomplete.backgroundservices.dll") + " " + pid, notificationsHandler)
     #else
-    if Utils.runningOnMono then
+    if Environment.runningOnMono then
         Client.Client("mono", Path.Combine(p, "fsautocomplete.backgroundservices.exe")+ " " + pid, notificationsHandler)
     else
         Client.Client(Path.Combine(p, "fsautocomplete.backgroundservices.exe"), pid, notificationsHandler)

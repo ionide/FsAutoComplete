@@ -12,6 +12,12 @@
     <Prefer32Bit>false</Prefer32Bit>
     <Platform>x64</Platform>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+    <DefineConstants>ANALYZER_SUPPORT;$(DefineConstants);</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+    <PackageReference Include="FSharp.Analyzers.SDK" Version="0.3.0" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Options.fs" />
     <Compile Include="CommandResponse.fs" />
@@ -30,6 +36,8 @@
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
+    <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
+
   </ItemGroup>
 
   <!-- do not bundle the net461 exe inside the .net core tool package -->

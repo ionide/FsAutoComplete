@@ -111,7 +111,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
     and walkSynTypeDefn(TypeDefn(_componentInfo, representation, members, range)) =
         getIfPosInRange range (fun () ->
             walkSynTypeDefnRepr representation
-            |> Option.orElse (List.tryPick walkSynMemberDefn members)
+            |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members)
         )
 
     and walkSynTypeDefnRepr(typeDefnRepr: SynTypeDefnRepr) =
@@ -187,7 +187,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
 
             | SynExpr.ObjExpr(_ty, _baseCallOpt, binds, ifaces, _range1, _range2) ->
                 List.tryPick walkBinding binds
-                |> Option.orElse (List.tryPick walkSynInterfaceImpl ifaces)
+                |> Option.orElseWith (fun _ -> List.tryPick walkSynInterfaceImpl ifaces)
 
             | SynExpr.While(_sequencePointInfoForWhileLoop, synExpr1, synExpr2, _range) ->
                 List.tryPick walkExpr [synExpr1; synExpr2]
@@ -203,12 +203,12 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                                   _, _wholeExprRange) as matchLambdaExpr ->
                 synMatchClauseList
                 |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
-                |> Option.orTry (fun () ->
+                |> Option.orElseWith (fun () ->
                     if isExnMatch then
                         None
                     else
                        let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
-                       if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.getOrElse false then
+                       if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                             { MatchWithOrFunctionRange = functionKeywordRange
                               Expr = matchLambdaExpr
                               Clauses = synMatchClauseList }
@@ -218,13 +218,13 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
 
             | SynExpr.Match(sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) as matchExpr ->
                 getIfPosInRange synExpr.Range (fun () -> walkExpr synExpr)
-                |> Option.orTry (fun () ->
+                |> Option.orElseWith (fun () ->
                     synMatchClauseList
                     |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
                 )
-                |> Option.orTry (fun () ->
+                |> Option.orElseWith (fun () ->
                     let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
-                    if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.getOrElse false then
+                    if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                         match sequencePointInfoForBinding with
                         | SequencePointAtBinding range ->
                             { MatchWithOrFunctionRange = range
@@ -243,7 +243,8 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                 walkExpr synExpr
 
             | SynExpr.LetOrUse(_, _, synBindingList, synExpr, _range) ->
-                Option.orElse (List.tryPick walkBinding synBindingList) (walkExpr synExpr)
+                walkExpr synExpr
+                |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 
             | SynExpr.TryWith(synExpr, _range, _synMatchClauseList, _range2, _range3, _sequencePointInfoForTry, _sequencePointInfoForWith) ->
                 walkExpr synExpr
@@ -275,11 +276,14 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
             | SynExpr.DotIndexedGet(synExpr, IndexerArgList synExprList, _range, _range2) ->
-                Option.orElse (walkExpr synExpr) (List.tryPick walkExpr synExprList)
+                synExprList
+                |> List.map fst
+                |> List.tryPick walkExpr
+                |> Option.orElseWith (fun _ -> walkExpr synExpr)
 
             | SynExpr.DotIndexedSet(synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
                 [ yield synExpr1
-                  yield! synExprList
+                  yield! synExprList |> List.map fst
                   yield synExpr2 ]
                 |> List.tryPick walkExpr
 
@@ -312,8 +316,10 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
             | SynExpr.DoBang(synExpr, _range) ->
                 walkExpr synExpr
 
-            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, ands, synExpr2, _range) ->
+                [ synExpr1
+                  yield! ands |> List.map (fun (_,_,_,_,body,_) -> body)
+                  synExpr2 ] |> List.tryPick walkExpr
 
             | SynExpr.LibraryOnlyILAssembly _
             | SynExpr.LibraryOnlyStaticOptimization _
@@ -400,7 +406,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
                 getIfArgsAreFree constructorArgs (fun () ->
                     [ (name, quals |> List.rev) ]
                 )
-                |> Option.getOrElse []
+                |> Option.defaultValue []
 
         | SynPat.Or(left, right, _) ->
             (getCasesInPattern left) @ (getCasesInPattern right)

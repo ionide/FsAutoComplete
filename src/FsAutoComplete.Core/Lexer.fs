@@ -170,7 +170,7 @@ module Lexer =
                 | _ -> false)
                 /// Gets the option if Some x, otherwise try to get another value
 
-            |> Option.orTry (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
+            |> Option.orElseWith (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
             |> Option.map (fun token ->
                 { Kind = token.Kind
                   Line = line
@@ -198,7 +198,7 @@ module Lexer =
     let inline private tryGetLexerSymbolIslands sym =
         match sym.Text with
         | "" -> None
-        | _ -> Some (sym.RightColumn, sym.Text.Split '.' |> Array.toList)
+        | _ -> Some (sym.RightColumn, sym.Text.Split '.')
 
     // Parsing - find the identifier around the current location
     // (we look for full identifier in the backward direction, but only
