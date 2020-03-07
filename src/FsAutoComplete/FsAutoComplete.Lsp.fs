@@ -67,17 +67,18 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments config.FSIExtraParameters
         commands.SetLinterConfigRelativePath config.LinterConfig
+#if ANALYZER_SUPPORT
         match config.AnalyzersPath with
         | [||] ->
-          logger.info(Log.setMessage "Analyzers unregistered")
+          Loggers.analyzers.info(Log.setMessage "Analyzers unregistered")
           SDK.Client.registeredAnalyzers.Clear()
         | paths ->
           for path in paths do
             let (newlyFound, total) = SDK.Client.loadAnalyzers path
-            logger.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
+            Loggers.analyzers.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
           let total = SDK.Client.registeredAnalyzers.Count
-          logger.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
-
+          Loggers.analyzers.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
+#endif
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -434,7 +435,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Symbols = symbols
             GetAllEntities = getAllEnts
           }
-          SDK.Client.runAnalyzers ctx |> Array.ofList |> box
+          try
+            SDK.Client.runAnalyzers ctx |> Array.ofList |> box
+          with
+          | ex ->
+            Loggers.analyzers.error (Log.setMessage "Error while processing analyzers for {file}: {message}"
+                                    >> Log.addContextDestructured "message" ex.Message
+                                    >> Log.addExn ex
+                                    >> Log.addContextDestructured "file" file)
+            box [||]
         commands.AnalyzerHandler <- Some analyzerHandler
 #endif
         let c =
