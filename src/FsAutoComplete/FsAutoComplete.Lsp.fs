@@ -67,6 +67,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments config.FSIExtraParameters
         commands.SetLinterConfigRelativePath config.LinterConfig
+        match config.AnalyzersPath with
+        | [||] ->
+          logger.info(Log.setMessage "Analyzers unregistered")
+          SDK.Client.registeredAnalyzers.Clear()
+        | paths ->
+          for path in paths do
+            let (newlyFound, total) = SDK.Client.loadAnalyzers path
+            logger.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
+          let total = SDK.Client.registeredAnalyzers.Count
+          logger.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
+
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
