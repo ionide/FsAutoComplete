@@ -1,5 +1,4 @@
 module AnalzyersTest
 
-open Npgsql.FSharp
-
-let q = Sql.query "select 1"
+let sampleOption = None
+printfn "%d" sampleOption.Value

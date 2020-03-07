@@ -388,9 +388,10 @@ let matchFiles (files: string Set) =
   )
 
 let fileDiagnostics file (events: Event<string*obj>) =
-    events.Publish
-    |> getDiagnosticsEvents
-    |> matchFiles (Set.ofList [file])
+  logger.info (eventX "waiting for events on file {file}" >> setField "file" file)
+  events.Publish
+  |> getDiagnosticsEvents
+  |> matchFiles (Set.ofList [file])
 
 let analyzerEvents file events =
   fileDiagnostics file events
@@ -1033,15 +1034,15 @@ let fakeInteropTests =
 let analyzerTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
+    // because the analyzer is a project this project has a reference, the analyzer can ber
+    // found in alongside this project, so we can use the directory this project is in
+    let analyzerPath = System.IO.Path.GetDirectoryName (System.Reflection.Assembly.GetExecutingAssembly().Location)
     let analyzerEnabledConfig =
       { defaultConfigDto with
           EnableAnalyzers = Some true
-          AnalyzersPath = Some [| Path.Combine(path, "packages", "analyzers") |] }
-
-    Helpers.runProcess (logDotnetRestore "analyzerTests") path "dotnet" "restore" |> expectExitCodeZero
+          AnalyzersPath = Some [| analyzerPath |] }
 
     let (server, events) = serverInitialize path analyzerEnabledConfig
-
     let scriptPath = Path.Combine(path, "Script.fs")
     do waitForWorkspaceFinishedParsing events
     do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
@@ -1050,15 +1051,24 @@ let analyzerTests =
 
   let serverTest f () = f serverStart.Value
 
-  ftestList "analyzer integration" [
+  testList "analyzer integration" [
     testCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-      match waitForParseResultsForFile (Path.GetFileName testFilePath) events with
-      | Ok () ->
-        do Async.Sleep 5000 |> Async.RunSynchronously
-        () // all good, no parsing/checking errors
-      | Core.Result.Error errors ->
-        failwithf "Errors while parsing script %s: %A" testFilePath errors
+      // now wait for analyzer events for the file:
+
+      let diagnostic = analyzerEvents (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitEvent |> Async.RunSynchronously
+      let expected =
+        [|{ Range = { Start = { Line = 3
+                                Character = 13 }
+                      End = { Line = 3
+                              Character = 31 } }
+            Severity = Some DiagnosticSeverity.Warning
+            Code = None
+            Source = "F# Analyzers (Option.Value analyzer)"
+            Message = "Option.Value shouldn't be used"
+            RelatedInformation = None
+            Tags = None }|]
+      Expect.equal diagnostic.Diagnostics expected "Expected a single analyzer warning about options"
     ))
   ]
 
