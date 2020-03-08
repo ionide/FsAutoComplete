@@ -435,15 +435,34 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Symbols = symbols
             GetAllEntities = getAllEnts
           }
+
+          let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
+            match r.Output with
+            | Ok results ->
+              Loggers.analyzers.info (Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
+                                      >> Log.addContextDestructured "analyzer" r.AnalyzerName
+                                      >> Log.addContextDestructured "count" results.Length
+                                      >> Log.addContextDestructured "file" file)
+              results
+            | Error e ->
+              Loggers.analyzers.error (Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
+                                       >> Log.addContextDestructured "analyzer" r.AnalyzerName
+                                       >> Log.addContextDestructured "file" file
+                                       >> Log.addContextDestructured "message" e.Message
+                                       >> Log.addExn e)
+              []
+
           try
-            SDK.Client.runAnalyzers ctx |> Array.ofList |> box
+            SDK.Client.runAnalyzersSafely ctx
+            |> List.collect extractResultsFromAnalyzer
+            |> box
           with
           | ex ->
             Loggers.analyzers.error (Log.setMessage "Error while processing analyzers for {file}: {message}"
                                     >> Log.addContextDestructured "message" ex.Message
                                     >> Log.addExn ex
                                     >> Log.addContextDestructured "file" file)
-            box [||]
+            box []
         commands.AnalyzerHandler <- Some analyzerHandler
 #endif
         let c =

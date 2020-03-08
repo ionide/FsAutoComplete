@@ -1042,6 +1042,9 @@ let analyzerTests =
           EnableAnalyzers = Some true
           AnalyzersPath = Some [| analyzerPath |] }
 
+    Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
+    |> expectExitCodeZero
+
     let (server, events) = serverInitialize path analyzerEnabledConfig
     let scriptPath = Path.Combine(path, "Script.fs")
     do waitForWorkspaceFinishedParsing events
@@ -1052,7 +1055,7 @@ let analyzerTests =
   let serverTest f () = f serverStart.Value
 
   testList "analyzer integration" [
-    testCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
+    ftestCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
       // now wait for analyzer events for the file:
 

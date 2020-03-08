@@ -14,6 +14,7 @@ FSharp.Data
 Microsoft.Data.Sqlite
 ICSharpCode.Decompiler
 Fantomas
+FSharp.Analyzers.SDK framework: netcoreapp2.1
 
 Serilog
 Serilog.Sinks.File
