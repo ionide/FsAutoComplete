@@ -30,7 +30,7 @@ jobs:
     displayName: Build All
 - job: MacOS
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.15'
   steps:
   - task: UseDotNet@2
     displayName: 'Use .NET Core Sdk from global.json'
