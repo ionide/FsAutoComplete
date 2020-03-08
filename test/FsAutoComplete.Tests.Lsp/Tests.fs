@@ -1055,7 +1055,7 @@ let analyzerTests =
   let serverTest f () = f serverStart.Value
 
   testList "analyzer integration" [
-    ftestCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
+    testCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
       // now wait for analyzer events for the file:
 
