@@ -132,12 +132,20 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
                 match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                 | Some pt, Some tast ->
-                    let res = handler (file, state.Files.[file].Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+                  match state.Files.TryGetValue file with
+                  | true, fileData ->
+
+                    let res = handler (file, fileData.Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
 
                     (res, file)
                     |> NotificationEvent.AnalyzerMessage
                     |> notify.Trigger
                     Loggers.analyzers.info (Log.setMessage "end analysis of {file}" >> Log.addContextDestructured "file" file)
+                  | false, _ ->
+                    let otherKeys = state.Files.Keys |> Array.ofSeq
+                    Loggers.analyzers.info (Log.setMessage "No file contents found for {file}. Current files are {files}"
+                                            >> Log.addContextDestructured "file" file
+                                            >> Log.addContextDestructured "files" otherKeys)
                 | _ ->
                   Loggers.analyzers.info (Log.setMessage "missing components of {file} to run analyzers, skipped them" >> Log.addContextDestructured "file" file)
                   ()
