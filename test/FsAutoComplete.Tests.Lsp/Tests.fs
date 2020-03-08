@@ -1075,8 +1075,6 @@ let analyzerTests =
     ))
   ]
 
-
->>>>>>> Add basic analyzer test
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [

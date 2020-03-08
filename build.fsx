@@ -39,7 +39,7 @@ Target.create "LspTest" (fun _ ->
       //         Timeout = TimeSpan.FromMinutes 15. })
       id
       "run"
-      """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --debug"""
+      """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
   |> fun r -> if not r.OK then failwithf "Errors while running LSP tests:\n%s" (r.Errors |> String.concat "\n\t")
 )
 
