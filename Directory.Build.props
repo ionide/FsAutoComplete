@@ -5,6 +5,7 @@
     <Product>FsAutoComplete</Product>
     <Description>A command line tool for interfacing with FSharp.Compiler.Service over a pipe.</Description>
     <PackageLicenseExpression Condition=" '$(PackAsTool)' != 'true' ">Apache-2.0</PackageLicenseExpression>
+    <NoWarn>3186</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
