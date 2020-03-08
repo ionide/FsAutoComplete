@@ -12,8 +12,6 @@ open Utils
 open FSharp.Compiler.Range
 open ProjectSystem
 
-
-
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
     | Use of 'a
@@ -32,10 +30,10 @@ type CoreResponse<'a> =
     | Res of 'a
 
 [<RequireQualifiedAccess>]
-type NotificationEvent =
+type NotificationEvent<'analyzer> =
     | ParseError of errors: FSharpErrorInfo[] * file: string
     | Workspace of ProjectSystem.ProjectResponse
-    | AnalyzerMessage of  messages: obj * file: string
+    | AnalyzerMessage of  messages: 'analyzer [] * file: string
     | UnusedOpens of file: string * opens: range[]
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string * decls: (range * bool)[]
@@ -44,7 +42,7 @@ type NotificationEvent =
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string
 
-type Commands (serialize : Serializer, backgroundServiceEnabled) =
+type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
@@ -55,9 +53,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
-    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> obj) option = None
+    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> 'analyzer []) option = None
 
-    let notify = Event<NotificationEvent>()
+    let notify = Event<NotificationEvent<_>>()
 
     let fileStateSet = Event<unit>()
     let commandsLogger = LogProvider.getLoggerByName "Commands"
@@ -135,6 +133,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                 | Some pt, Some tast ->
                     let res = handler (file, state.Files.[file].Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+
                     (res, file)
                     |> NotificationEvent.AnalyzerMessage
                     |> notify.Trigger

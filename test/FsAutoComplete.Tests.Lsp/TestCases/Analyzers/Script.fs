@@ -1,4 +1,4 @@
 module AnalzyersTest
 
-let sampleOption = None
+let sampleOption: int option = None
 printfn "%d" sampleOption.Value

@@ -47,6 +47,13 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     // TODO: Add the missing notifications
     // TODO: Implement requests
 
+type Commands =
+#if ANALYZER_SUPPORT
+  Commands<SDK.Message>
+#else
+  Commands<obj>
+#endif
+
 type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     inherit LspServer()
 
@@ -301,7 +308,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Async.Start
                 | NotificationEvent.AnalyzerMessage(messages, file) ->
 #if ANALYZER_SUPPORT
-                    let messages = messages :?> SDK.Message []
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
                     let fs =
@@ -455,14 +461,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           try
             SDK.Client.runAnalyzersSafely ctx
             |> List.collect extractResultsFromAnalyzer
-            |> box
+            |> List.toArray
           with
           | ex ->
             Loggers.analyzers.error (Log.setMessage "Error while processing analyzers for {file}: {message}"
                                     >> Log.addContextDestructured "message" ex.Message
                                     >> Log.addExn ex
                                     >> Log.addContextDestructured "file" file)
-            box []
+            [||]
         commands.AnalyzerHandler <- Some analyzerHandler
 #endif
         let c =
