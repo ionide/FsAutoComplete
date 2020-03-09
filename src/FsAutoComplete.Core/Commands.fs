@@ -96,7 +96,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                         match state.GetProjectOptions n with
                         | Some opts ->
                             let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                            fileChecked.Trigger (res, n, -1)
+                            fileChecked.Trigger (res, Utils.normalizePath res.FileName, -1)
                         | _ -> ()
                     with
                     | _ -> ()
