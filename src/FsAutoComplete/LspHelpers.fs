@@ -429,6 +429,7 @@ type FSharpConfigDto = {
     UseSdkScripts: bool option
     DotNetRoot: string option
     FSIExtraParameters: string [] option
+    TooltipMode : string option
 }
 
 type FSharpConfigRequest = {
@@ -462,6 +463,7 @@ type FSharpConfig = {
     UseSdkScripts: bool
     DotNetRoot: string
     FSIExtraParameters: string []
+    TooltipMode : string
 }
 with
     static member Default =
@@ -495,6 +497,7 @@ with
             UseSdkScripts = false
             DotNetRoot = Environment.dotnetSDKRoot.Value
             FSIExtraParameters = [||]
+            TooltipMode = "full"
         }
 
     static member FromDto(dto: FSharpConfigDto) =
@@ -531,6 +534,7 @@ with
                 |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
                 |> Option.defaultValue Environment.dotnetSDKRoot.Value
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
+            TooltipMode = defaultArg dto.TooltipMode "full"
         }
 
     /// called when a configuration change takes effect, so empty members here should revert options
@@ -569,6 +573,7 @@ with
                 |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
                 |> Option.defaultValue FSharpConfig.Default.DotNetRoot
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
+            TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
         }
 
     member x.ScriptTFM =

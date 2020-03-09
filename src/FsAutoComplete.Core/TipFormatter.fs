@@ -826,7 +826,16 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
          else nl + nl + "Exceptions:" + nl +
                 (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
 
-    member __.ToEnhancedString() =
+    member __.ToSummaryOnlyString() =
+        // If we where unable to process the doc comment, then just output it as it is
+        // For example, this cover the keywords' tooltips
+        if String.IsNullOrEmpty summary then
+            doc.InnerText
+        else
+            "**Description**" + nl + nl
+            + summary
+
+    member __.ToFullEnhancedString() =
         let content =
             summary
             + Section.fromList "" remarks
@@ -936,7 +945,8 @@ let private getXmlDoc dllFile =
 [<RequireQualifiedAccess>]
 type FormatCommentStyle =
     | Legacy
-    | Enhanced
+    | FullEnhanced
+    | SummaryOnly
     | Documentation
 
 // --------------------------------------------------------------------------------------
@@ -972,8 +982,10 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
             match formatStyle with
             | FormatCommentStyle.Legacy ->
                 xmlDoc.ToString()
-            | FormatCommentStyle.Enhanced ->
-                xmlDoc.ToEnhancedString()
+            | FormatCommentStyle.SummaryOnly ->
+                xmlDoc.ToSummaryOnlyString()
+            | FormatCommentStyle.FullEnhanced ->
+                xmlDoc.ToFullEnhancedString()
             | FormatCommentStyle.Documentation ->
                 xmlDoc.ToDocumentationString()
 
@@ -991,8 +1003,10 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
                     match formatStyle with
                     | FormatCommentStyle.Legacy ->
                         doc.[s].ToString()
-                    | FormatCommentStyle.Enhanced ->
-                        doc.[s].ToEnhancedString()
+                    | FormatCommentStyle.SummaryOnly ->
+                        doc.[s].ToSummaryOnlyString()
+                    | FormatCommentStyle.FullEnhanced ->
+                        doc.[s].ToFullEnhancedString()
                     | FormatCommentStyle.Documentation ->
                         doc.[s].ToDocumentationString()
                 | _ -> ""
@@ -1000,8 +1014,10 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
             match formatStyle with
             | FormatCommentStyle.Legacy ->
                 doc.[memberName].ToString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
-            | FormatCommentStyle.Enhanced ->
-                doc.[memberName].ToEnhancedString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
+            | FormatCommentStyle.SummaryOnly ->
+                doc.[memberName].ToSummaryOnlyString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
+            | FormatCommentStyle.FullEnhanced ->
+                doc.[memberName].ToFullEnhancedString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
             | FormatCommentStyle.Documentation ->
                 doc.[memberName].ToDocumentationString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
         | _ -> ""
@@ -1025,16 +1041,16 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 
-let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) (typeDoc: string option) : (string * string * string) list list =
+let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : string) (typeDoc: string option) (formatCommentStyle : FormatCommentStyle) : (string * string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
             Some (items |> List.map (fun i ->
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc FormatCommentStyle.Enhanced typeDoc
+                      buildFormatComment i.XmlDoc formatCommentStyle typeDoc
                     else
-                      buildFormatComment i.XmlDoc FormatCommentStyle.Enhanced typeDoc
+                      buildFormatComment i.XmlDoc formatCommentStyle typeDoc
                       + "\n\n**Generic parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
                 (signature, comment, footer)))
