@@ -47,6 +47,13 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     // TODO: Add the missing notifications
     // TODO: Implement requests
 
+type Commands =
+#if ANALYZER_SUPPORT
+  Commands<SDK.Message>
+#else
+  Commands<obj>
+#endif
+
 type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     inherit LspServer()
 
@@ -67,6 +74,18 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments config.FSIExtraParameters
         commands.SetLinterConfigRelativePath config.LinterConfig
+#if ANALYZER_SUPPORT
+        match config.AnalyzersPath with
+        | [||] ->
+          Loggers.analyzers.info(Log.setMessage "Analyzers unregistered")
+          SDK.Client.registeredAnalyzers.Clear()
+        | paths ->
+          for path in paths do
+            let (newlyFound, total) = SDK.Client.loadAnalyzers path
+            Loggers.analyzers.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
+          let total = SDK.Client.registeredAnalyzers.Count
+          Loggers.analyzers.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
+#endif
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -289,7 +308,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Async.Start
                 | NotificationEvent.AnalyzerMessage(messages, file) ->
 #if ANALYZER_SUPPORT
-                    let messages = messages :?> SDK.Message []
                     let uri = filePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
                     let fs =
@@ -423,7 +441,34 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Symbols = symbols
             GetAllEntities = getAllEnts
           }
-          SDK.Client.runAnalyzers ctx |> Array.ofList |> box
+
+          let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
+            match r.Output with
+            | Ok results ->
+              Loggers.analyzers.info (Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
+                                      >> Log.addContextDestructured "analyzer" r.AnalyzerName
+                                      >> Log.addContextDestructured "count" results.Length
+                                      >> Log.addContextDestructured "file" file)
+              results
+            | Error e ->
+              Loggers.analyzers.error (Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
+                                       >> Log.addContextDestructured "analyzer" r.AnalyzerName
+                                       >> Log.addContextDestructured "file" file
+                                       >> Log.addContextDestructured "message" e.Message
+                                       >> Log.addExn e)
+              []
+
+          try
+            SDK.Client.runAnalyzersSafely ctx
+            |> List.collect extractResultsFromAnalyzer
+            |> List.toArray
+          with
+          | ex ->
+            Loggers.analyzers.error (Log.setMessage "Error while processing analyzers for {file}: {message}"
+                                    >> Log.addContextDestructured "message" ex.Message
+                                    >> Log.addExn ex
+                                    >> Log.addContextDestructured "file" file)
+            [||]
         commands.AnalyzerHandler <- Some analyzerHandler
 #endif
         let c =

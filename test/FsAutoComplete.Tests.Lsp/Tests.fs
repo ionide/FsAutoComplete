@@ -10,8 +10,24 @@ open FsAutoComplete.LspHelpers
 open Helpers
 open Expecto.Logging
 open Expecto.Logging.Message
+open Serilog
+open Serilog.Core
+open Serilog.Events
+open FsAutoComplete.Logging
 
 let logger = Expecto.Logging.Log.create "LSPTests"
+
+let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+let serilogLogger =
+  LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .MinimumLevel.Information()
+    .Destructure.FSharpTypes()
+    .WriteTo.Async(
+      fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
+    ).CreateLogger() // make it so that every console log is logged to stderr
+Serilog.Log.Logger <- serilogLogger
+LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
 ///Test for initialization of the server
 let initTests =
@@ -352,9 +368,15 @@ let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
     logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
 
+let typedEvents typ =
+  Event.filter (fun (typ', _o) -> typ' = typ)
+
+let payloadAs<'t> =
+  Event.map (fun (_typ, o) -> unbox<'t> o)
+
 let getDiagnosticsEvents =
-  Event.filter (fun (typ, _o) -> typ = "textDocument/publishDiagnostics")
-  >> Event.map (fun (_typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+  typedEvents "textDocument/publishDiagnostics"
+  >> payloadAs<LanguageServerProtocol.Types.PublishDiagnosticsParams>
 
 /// note that the files here are intended to be the filename only., not the full URI.
 let matchFiles (files: string Set) =
@@ -365,11 +387,19 @@ let matchFiles (files: string Set) =
     else None
   )
 
+let fileDiagnostics file (events: Event<string*obj>) =
+  logger.info (eventX "waiting for events on file {file}" >> setField "file" file)
+  events.Publish
+  |> getDiagnosticsEvents
+  |> matchFiles (Set.ofList [file])
+
+let analyzerEvents file events =
+  fileDiagnostics file events
+  |> Event.map snd
+  |> Event.filter (fun payload -> payload.Diagnostics |> Array.exists (fun d -> d.Source.StartsWith "F# Analyzers"))
+
 let waitForParseResultsForFile file (events: Event<string*obj>) =
-  let matchingFileEvents =
-    events.Publish
-    |> getDiagnosticsEvents
-    |> matchFiles (Set.ofList [file])
+  let matchingFileEvents = fileDiagnostics file events
   async {
     let! (filename, args) = Async.AwaitEvent matchingFileEvents
     match args.Diagnostics with
@@ -980,6 +1010,71 @@ let formattingTests =
     ))
   ]
 
+let fakeInteropTests =
+  let serverStart = lazy (
+    let folderPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FakeInterop")
+    let (server, events) = serverInitialize folderPath defaultConfigDto
+    let buildScript = "build.fsx"
+    do waitForWorkspaceFinishedParsing events
+    server, events, folderPath, buildScript
+  )
+  let serverTest f () = f serverStart.Value
+
+  testList "fake integration" [
+    testCase "can typecheck a fake script including uses of paket-delivered types" (serverTest (fun (server, events, rootPath, scriptName) ->
+        do server.TextDocumentDidOpen { TextDocument = loadDocument (Path.Combine(rootPath, scriptName)) } |> Async.RunSynchronously
+        match waitForParseResultsForFile scriptName events with
+        | Ok () ->
+          () // all good, no parsing/checking errors
+        | Core.Result.Error errors ->
+          failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, scriptName)) errors
+        ))
+  ]
+
+let analyzerTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
+    // because the analyzer is a project this project has a reference, the analyzer can ber
+    // found in alongside this project, so we can use the directory this project is in
+    let analyzerPath = System.IO.Path.GetDirectoryName (System.Reflection.Assembly.GetExecutingAssembly().Location)
+    let analyzerEnabledConfig =
+      { defaultConfigDto with
+          EnableAnalyzers = Some true
+          AnalyzersPath = Some [| analyzerPath |] }
+
+    Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
+    |> expectExitCodeZero
+
+    let (server, events) = serverInitialize path analyzerEnabledConfig
+    let scriptPath = Path.Combine(path, "Script.fs")
+    do waitForWorkspaceFinishedParsing events
+    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+    server, events, path, scriptPath
+  )
+
+  let serverTest f () = f serverStart.Value
+
+  testList "analyzer integration" [
+    testCase "can run analyzer on file" (serverTest (fun (server, events, rootPath, testFilePath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
+      // now wait for analyzer events for the file:
+
+      let diagnostic = analyzerEvents (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitEvent |> Async.RunSynchronously
+      let expected =
+        [|{ Range = { Start = { Line = 3
+                                Character = 13 }
+                      End = { Line = 3
+                              Character = 31 } }
+            Severity = Some DiagnosticSeverity.Warning
+            Code = None
+            Source = "F# Analyzers (Option.Value analyzer)"
+            Message = "Option.Value shouldn't be used"
+            RelatedInformation = None
+            Tags = None }|]
+      Expect.equal diagnostic.Diagnostics expected "Expected a single analyzer warning about options"
+    ))
+  ]
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -998,4 +1093,6 @@ let tests =
     scriptEvictionTests
     tooltipTests
     formattingTests
+    fakeInteropTests
+    analyzerTests
   ]

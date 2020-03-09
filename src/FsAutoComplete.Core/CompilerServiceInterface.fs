@@ -617,10 +617,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     match errors with
     | [] ->
       let refs, otherOpts = projOptions.OtherOptions |> Array.partition (fun o -> o.StartsWith("-r"))
-      logQueueLength optsLogger (Log.setMessage "Resolved references" >> Log.addContextDestructured "refs" refs)
-      logQueueLength optsLogger (Log.setMessage "Resolved other options" >> Log.addContextDestructured "otherOpts" otherOpts)
+      logQueueLength optsLogger (Log.setMessage "Resolved references: {refs}" >> Log.addContextDestructured "refs" refs)
+      logQueueLength optsLogger (Log.setMessage "Resolved other options: {otherOpts}" >> Log.addContextDestructured "otherOpts" otherOpts)
     | errs ->
-      logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved options with errors" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
+      logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved {opts} with {errors}" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
 
     try
       match FakeSupport.detectFakeScript file with
@@ -631,7 +631,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
         logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
         try
           let otherOpts = FakeSupport.getProjectOptions detectionInfo
-          logQueueLength optsLogger (Log.setMessage "Discovered FAKE options" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
+          logQueueLength optsLogger (Log.setMessage "Discovered FAKE options {otherOpts} " >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
           return { projOptions with OtherOptions = otherOpts }
         with e ->
           logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)

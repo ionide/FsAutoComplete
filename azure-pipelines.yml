@@ -16,21 +16,21 @@ jobs:
     inputs:
       pathtoPublish: 'bin/pkgs'
       artifactName: 'pkgs'
-- job: Linux
-  pool:
-    vmImage: 'ubuntu-16.04'
-  steps:
-  - task: UseDotNet@2
-    displayName: 'Use .NET Core Sdk from global.json'
-    inputs:
-      useGlobalJson: true
-  - script: dotnet tool restore
-    displayName: Install Tools
-  - script: dotnet fake build --target All
-    displayName: Build All
+# - job: Linux
+#   pool:
+#     vmImage: 'ubuntu-16.04'
+#   steps:
+#   - task: UseDotNet@2
+#     displayName: 'Use .NET Core Sdk from global.json'
+#     inputs:
+#       useGlobalJson: true
+#   - script: dotnet tool restore
+#     displayName: Install Tools
+#   - script: dotnet fake build --target All
+#     displayName: Build All
 - job: MacOS
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.15'
   steps:
   - task: UseDotNet@2
     displayName: 'Use .NET Core Sdk from global.json'

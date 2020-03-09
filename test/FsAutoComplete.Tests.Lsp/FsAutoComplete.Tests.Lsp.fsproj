@@ -10,6 +10,7 @@
     <ProjectReference Include="../../src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj">
       <Name>FsAutoComplete.Core.fsproj</Name>
     </ProjectReference>
+    <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />

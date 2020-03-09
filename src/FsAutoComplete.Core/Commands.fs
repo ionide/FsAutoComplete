@@ -12,8 +12,6 @@ open Utils
 open FSharp.Compiler.Range
 open ProjectSystem
 
-
-
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
     | Use of 'a
@@ -32,10 +30,10 @@ type CoreResponse<'a> =
     | Res of 'a
 
 [<RequireQualifiedAccess>]
-type NotificationEvent =
+type NotificationEvent<'analyzer> =
     | ParseError of errors: FSharpErrorInfo[] * file: string
     | Workspace of ProjectSystem.ProjectResponse
-    | AnalyzerMessage of  messages: obj * file: string
+    | AnalyzerMessage of  messages: 'analyzer [] * file: string
     | UnusedOpens of file: string * opens: range[]
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string * decls: (range * bool)[]
@@ -44,7 +42,7 @@ type NotificationEvent =
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string
 
-type Commands (serialize : Serializer, backgroundServiceEnabled) =
+type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
@@ -55,9 +53,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
     let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
-    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> obj) option = None
+    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.Ast.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> 'analyzer []) option = None
 
-    let notify = Event<NotificationEvent>()
+    let notify = Event<NotificationEvent<_>>()
 
     let fileStateSet = Event<unit>()
     let commandsLogger = LogProvider.getLoggerByName "Commands"
@@ -98,7 +96,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                         match state.GetProjectOptions n with
                         | Some opts ->
                             let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                            fileChecked.Trigger (res, res.FileName, -1)
+                            fileChecked.Trigger (res, Utils.normalizePath res.FileName, -1)
                         | _ -> ()
                     with
                     | _ -> ()
@@ -134,11 +132,23 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
                 Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
                 match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                 | Some pt, Some tast ->
-                    let res = handler (file, state.Files.[file].Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+                  match state.Files.TryGetValue file with
+                  | true, fileData ->
+
+                    let res = handler (file, fileData.Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+
                     (res, file)
                     |> NotificationEvent.AnalyzerMessage
                     |> notify.Trigger
-                | _ -> ()
+                    Loggers.analyzers.info (Log.setMessage "end analysis of {file}" >> Log.addContextDestructured "file" file)
+                  | false, _ ->
+                    let otherKeys = state.Files.Keys |> Array.ofSeq
+                    Loggers.analyzers.info (Log.setMessage "No file contents found for {file}. Current files are {files}"
+                                            >> Log.addContextDestructured "file" file
+                                            >> Log.addContextDestructured "files" otherKeys)
+                | _ ->
+                  Loggers.analyzers.info (Log.setMessage "missing components of {file} to run analyzers, skipped them" >> Log.addContextDestructured "file" file)
+                  ()
             with
             | ex ->
                 Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn ex)
@@ -231,7 +241,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.AnalyzerHandler
         with get() = analyzerHandler
-        and  set v = analyzerHandler <- v
+        and  set v =
+          Loggers.analyzers.info (Log.setMessage "updated analyzer handler")
+          analyzerHandler <- v
 
     member __.LastCheckResult
         with get() = lastCheckResult
