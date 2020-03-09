@@ -8,8 +8,11 @@ open System.IO
 open System.Xml
 open System.Text.RegularExpressions
 open FSharp.Compiler.SourceCodeServices
+open FsAutoComplete.Logging
 
 let inline nl<'T> = Environment.NewLine
+
+let logger = LogProvider.getLoggerByName "TipFormatter"
 
 module private Section =
 
@@ -617,7 +620,7 @@ module private Format =
                     let rec extractAllTerms (res : string list) (text : string) =
                         match tryGetNonVoidElement text "term" with
                         | Some (fullString, innerText) ->
-                            let escapedRegex = new Regex(Regex.Escape(fullString))
+                            let escapedRegex = Regex(Regex.Escape(fullString))
                             let newText = escapedRegex.Replace(text, "", 1)
                             extractAllTerms (res @ [ innerText ]) newText
                         | None ->
@@ -640,7 +643,7 @@ module private Format =
                     let rec extractAllTerms (res : string list) (text : string) =
                         match tryGetNonVoidElement text "term" with
                         | Some (fullString, innerText) ->
-                            let escapedRegex = new Regex(Regex.Escape(fullString))
+                            let escapedRegex = Regex(Regex.Escape(fullString))
                             let newText = escapedRegex.Replace(text, "", 1)
                             extractAllTerms (res @ [ innerText ]) newText
                         | None ->
@@ -976,7 +979,7 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
 
         with
             | ex ->
-                Debug.print "%A" ex
+                logger.warn (Log.setMessage "TipFormatter - Error while parsing the doc comment" >> Log.addExn ex)
                 sprintf "An error occured when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found LSP output"
 
     | FSharpXmlDoc.XmlDocFileSignature(dllFile, memberName) ->
