@@ -747,7 +747,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
                     | CoreResponse.Res(tip, signature, footer, typeDoc) ->
-                        match TipFormatter.formatTipEnhanced tip signature footer typeDoc with
+                        let formatCommentStyle =
+                            if config.TooltipMode = "full" then
+                                TipFormatter.FormatCommentStyle.FullEnhanced
+                            else if config.TooltipMode = "summary" then
+                                TipFormatter.FormatCommentStyle.SummaryOnly
+                            else
+                                TipFormatter.FormatCommentStyle.Legacy
+
+                        match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
                         | (sigCommentFooter::_)::_ ->
                             let signature, comment, footer = sigCommentFooter
                             let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
@@ -767,7 +775,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                             let commentContent =
                                 comment
-                                |> Markdown.createCommentBlock
                                 |> MarkedString.String
 
                             let footerContent =
