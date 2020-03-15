@@ -69,8 +69,9 @@ let clientCaps : ClientCapabilities =
         DidSave = Some true}
 
     let diagCaps: PublishDiagnosticsCapabilites =
+      let diagnosticTags: DiagnosticTagSupport = { ValueSet = [||] }
       { RelatedInformation = Some true
-        TagSupport = Some true}
+        TagSupport = Some diagnosticTags }
 
     let ciCaps: CompletionItemCapabilities =
       { SnippetSupport = Some true
@@ -140,12 +141,12 @@ let serverInitialize path (config: FSharpConfigDto) =
   |> Event.add logEvent
 
   let p : InitializeParams =
-      { ProcessId = Some 1
-        RootPath = Some path
-        RootUri = Some (sprintf "file://%s" path)
-        InitializationOptions = Some (Server.serialize config)
-        Capabilities = Some clientCaps
-        trace = None}
+    { ProcessId = Some 1
+      RootPath = Some path
+      RootUri = Some (sprintf "file://%s" path)
+      InitializationOptions = Some (Server.serialize config)
+      Capabilities = Some clientCaps
+      trace = None}
 
   let result = server.Initialize p |> Async.RunSynchronously
   match result with
@@ -184,8 +185,8 @@ let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
   |> Async.AwaitEvent
   |> Async.RunSynchronously
   |> fun o ->
-        if o.Content.Contains """{"Kind":"error","""
-        then failtestf "error loading project: %A" o
+    if o.Content.Contains """{"Kind":"error","""
+    then failtestf "error loading project: %A" o
 
 let expectExitCodeZero (exitCode, _) =
   Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
@@ -199,27 +200,27 @@ let dotnetCleanup baseDir =
 
 
 let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
-    let psi = System.Diagnostics.ProcessStartInfo()
-    psi.FileName <- exePath
-    psi.WorkingDirectory <- workingDir
-    psi.RedirectStandardOutput <- true
-    psi.RedirectStandardError <- true
-    psi.Arguments <- args
-    psi.CreateNoWindow <- true
-    psi.UseShellExecute <- false
+  let psi = System.Diagnostics.ProcessStartInfo()
+  psi.FileName <- exePath
+  psi.WorkingDirectory <- workingDir
+  psi.RedirectStandardOutput <- true
+  psi.RedirectStandardError <- true
+  psi.Arguments <- args
+  psi.CreateNoWindow <- true
+  psi.UseShellExecute <- false
 
-    use p = new System.Diagnostics.Process()
-    p.StartInfo <- psi
+  use p = new System.Diagnostics.Process()
+  p.StartInfo <- psi
 
-    p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+  p.OutputDataReceived.Add(fun ea -> log (ea.Data))
 
-    p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+  p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
-    p.Start() |> ignore
-    p.BeginOutputReadLine()
-    p.BeginErrorReadLine()
-    p.WaitForExit()
+  p.Start() |> ignore
+  p.BeginOutputReadLine()
+  p.BeginErrorReadLine()
+  p.WaitForExit()
 
-    let exitCode = p.ExitCode
+  let exitCode = p.ExitCode
 
-    exitCode, (workingDir, exePath, args)
+  exitCode, (workingDir, exePath, args)

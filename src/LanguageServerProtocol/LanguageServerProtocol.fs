@@ -466,15 +466,28 @@ module Types =
         SymbolKind: SymbolKindCapabilities option
     }
 
+    [<RequireQualifiedAccess>]
+    type DiagnosticTag =
+        /// Unused or unnecessary code.
+        ///
+        /// Clients are allowed to render diagnostics with this tag faded out instead of having
+        /// an error squiggle.
+        | Unnecessary = 1
+
+    type DiagnosticTagSupport = {
+
+        /// Represents the tags supported by the client
+        ValueSet: DiagnosticTag[]
+    }
+
     /// Capabilities specific to `textDocument/publishDiagnostics`.
     type PublishDiagnosticsCapabilites = {
 
         /// Whether the clients accepts diagnostics with related information.
         RelatedInformation: bool option
 
-
         /// Client supports the tag property to provide meta data about a diagnostic.
-        TagSupport: bool option
+        TagSupport: DiagnosticTagSupport option
     }
 
     type FoldingRangeCapabilities =  {
@@ -1364,14 +1377,6 @@ module Types =
         | Information = 3
         ///  Reports a hint.
         | Hint = 4
-
-    [<RequireQualifiedAccess>]
-    type DiagnosticTag =
-        /// Unused or unnecessary code.
-        ///
-        /// Clients are allowed to render diagnostics with this tag faded out instead of having
-        /// an error squiggle.
-        | Unnecessary = 1
 
     /// Represents a related message and source code location for a diagnostic. This should be
     /// used to point to code locations that cause or related to a diagnostics, e.g when duplicating
