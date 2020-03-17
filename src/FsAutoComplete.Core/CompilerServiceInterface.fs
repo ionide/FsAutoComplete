@@ -481,6 +481,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   /// additional arguments that are added to typechecking of scripts
   let mutable fsiAdditionalArguments = Array.empty
   let mutable fsiAdditionalFiles = Array.empty
+  let mutable dependencyManagers = lazy(Array.empty)
 
   /// This event is raised when any data that impacts script typechecking
   /// is changed. This can potentially invalidate existing project options
@@ -488,6 +489,21 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let scriptTypecheckRequirementsChanged = Event<_>()
 
   let mutable disableInMemoryProjectReferences = false
+
+  let findDependencyManagers () =
+    let minDependencyVersion = FSIRefs.NugetVersion(5, 0, 0, "zzzzzzzpreview")
+    match sdkRoot, sdkVersion.Value with
+    | Some dotnetSdkRoot, Some sdkVersion ->
+      match FSIRefs.compareNugetVersion minDependencyVersion sdkVersion with
+      | 1 -> [||]
+      | 0 | -1 ->
+        match FSIRefs.compilerDir dotnetSdkRoot (string sdkVersion) with
+        | Some compilerDir ->
+          sdkRefsLogger.info (Log.setMessage "Registering the dependencyManagers in the SDK")
+          [| sprintf "--compilertool:%s" compilerDir; sprintf "--compilertool:%s" (System.IO.Path.GetDirectoryName (typeof<ParseAndCheckResults>.Assembly.Location)) |]
+        | None -> [||]
+      | _ -> [||]
+    | _ -> [||]
 
   /// evaluates the set of assemblies found given the current sdkRoot/sdkVersion/runtimeVersion
   let computeAssemblyMap () =
@@ -600,7 +616,12 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member private __.GetNetCoreScriptOptions(file, source) = async {
     logQueueLength optsLogger (Log.setMessage "Getting NetCore options for script file {file}" >> Log.addContextDestructured "file" file)
-    let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+    let containsPreview = fsiAdditionalArguments |> Array.exists ((=) "--langversion:preview")
+    let allFlags = [|
+        yield "--targetprofile:netstandard"
+        yield! fsiAdditionalArguments
+        if containsPreview then yield! dependencyManagers.Value
+    |]
     let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
     let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
@@ -724,6 +745,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       sdkRoot <- Some path
       sdkVersion <- Environment.latest3xSdkVersion path
       runtimeVersion <- Environment.latest3xRuntimeVersion path
+      dependencyManagers <- lazy(findDependencyManagers ())
       discoveredAssembliesByName <- lazy(computeAssemblyMap ())
       scriptTypecheckRequirementsChanged.Trigger ()
 
