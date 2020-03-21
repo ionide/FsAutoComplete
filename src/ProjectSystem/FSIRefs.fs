@@ -9,7 +9,8 @@ open System.IO
 
 let defaultDotNetSDKRoot =
   match Environment.OSVersion.Platform with
-  | PlatformID.MacOSX | PlatformID.Unix -> "/usr/local/share/dotnet"
+  | PlatformID.MacOSX -> "/usr/local/share/dotnet"
+  | PlatformID.Unix -> "/usr/share/dotnet"
   | _ -> @"C:\Program Files\dotnet"
 
 type TFM =
