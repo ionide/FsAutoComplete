@@ -70,9 +70,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     /// centralize any state changes when the config is updated here
     let updateConfig (newConfig: FSharpConfig) =
+        let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
         config <- newConfig
         commands.SetDotnetSDKRoot config.DotNetRoot
-        commands.SetFSIAdditionalArguments config.FSIExtraParameters
+        commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
 #if ANALYZER_SUPPORT
         match config.AnalyzersPath with

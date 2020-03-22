@@ -730,6 +730,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   member __.GetDotnetRoot () = sdkRoot
 
   member __.SetFSIAdditionalArguments args =
+    //TODO: UX - if preview-required features are set, then auto-add langversion:preview for the user.
     if fsiAdditionalArguments = args
     then ()
     else

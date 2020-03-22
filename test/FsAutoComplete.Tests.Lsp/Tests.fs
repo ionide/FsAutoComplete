@@ -1075,6 +1075,45 @@ let analyzerTests =
     ))
   ]
 
+
+let dependencyManagerTests =
+  let serverStart useCorrectPaths =
+    let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
+    let dependencyManagerAssemblyDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "FsAutoComplete.DependencyManager.Dummy", "bin", "Debug", "netstandard2.0")
+    let dependencyManagerEnabledConfig =
+      { defaultConfigDto with
+          FSIExtraParameters = Some [| "--langversion:preview" |]
+          FSICompilerToolLocations = Some [| if useCorrectPaths then dependencyManagerAssemblyDir |] }
+    let (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig
+    let scriptPath = Path.Combine(workingDir, "Script.fsx")
+    do waitForWorkspaceFinishedParsing events
+    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+    server, events, workingDir, scriptPath
+
+  let serverTest correctManagerPaths f = fun () -> f (serverStart correctManagerPaths)
+
+  testList "dependencyManager integrations" [
+    testCase "can typecheck script that depends on #r dummy dependency manager" (serverTest true (fun (server, events, workingDir, testFilePath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok _ -> ()
+      | Core.Result.Error e ->
+        failwithf "Error during typechecking: %A" e
+    ))
+    testCase "fails to typecheck script when dependency manager is missing" (serverTest false (fun (server, events, workingDir, testFilePath) ->
+      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
+      match waitForParseResultsForFile "Script.fsx" events with
+      | Ok _ ->
+        failwith "Expected to fail typechecking a script with a dependency manager that's missing"
+      | Core.Result.Error e ->
+        match e with
+        | [| { Code = Some "3216" } |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
+        | e -> failwithf "Unexpected error during typechecking: %A" e
+    ))
+  ]
+
+
+
 ///Global list of tests
 let tests =
    testSequenced <| testList "lsp" [
@@ -1095,4 +1134,5 @@ let tests =
     formattingTests
     fakeInteropTests
     analyzerTests
+    dependencyManagerTests
   ]
