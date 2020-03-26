@@ -962,6 +962,10 @@ let tooltipTests =
         failwithf "Error while getting hover text: %A" errors
     )
 
+  testList "tooltip evaluation" [
+    verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
+    verifyTooltip 1 4 "val listOfTuples : list<int * int>"
+    verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
     verifyTooltip 3 4 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
   ]
 
