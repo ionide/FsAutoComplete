@@ -1,7 +1,7 @@
 /// Code from VisualFSharpPowerTools project: https://github.com/fsprojects/VisualFSharpPowerTools/blob/master/src/FSharp.Editing/Common/UntypedAstUtils.fs
 module FsAutoComplete.UntypedAstUtils
 
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractSyntax
 open System.Collections.Generic
 open FSharp.Compiler
 open FSharp.Compiler.Range
@@ -24,8 +24,8 @@ let rec (|Sequentials|_|) = function
     | _ -> None
 
 let (|ConstructorPats|) = function
-    | SynConstructorArgs.Pats ps -> ps
-    | SynConstructorArgs.NamePatPairs(xs, _) -> List.map snd xs
+    | SynArgPats.Pats ps -> ps
+    | SynArgPats.NamePatPairs(xs, _) -> List.map snd xs
 
 /// A pattern that collects all attributes from a `SynAttributes` into a single flat list
 let (|AllAttrs|) (attrs: SynAttributes) =
@@ -1281,8 +1281,8 @@ let getQuotationRanges ast =
         | SynPat.Or (pat1, pat2, _) -> visitPattern pat1; visitPattern pat2
         | SynPat.LongIdent (_, _, _, ctorArgs, _, _) ->
             match ctorArgs with
-            | SynConstructorArgs.Pats pats -> List.iter visitPattern pats
-            | SynConstructorArgs.NamePatPairs(xs, _) ->
+            | SynArgPats.Pats pats -> List.iter visitPattern pats
+            | SynArgPats.NamePatPairs(xs, _) ->
                 xs |> List.map snd |> List.iter visitPattern
         | SynPat.Record(xs, _) -> xs |> List.map snd |> List.iter visitPattern
         | _ -> ()
@@ -1705,7 +1705,7 @@ module Outlining =
                 yield! parseExpr body
             | SynExpr.Match (seqPointAtBinding,_,clauses,r) ->
                 match seqPointAtBinding with
-                | SequencePointAtBinding pr ->
+                | DebugPointAtBinding pr ->
                     yield! rcheck Scope.Match Collapse.Below <| Range.endToEnd pr r
                 | _ -> ()
                 yield! parseMatchClauses clauses
@@ -1740,22 +1740,22 @@ module Outlining =
                 yield! parseBindings bindings
             | SynExpr.TryWith (e,_,matchClauses,tryRange,withRange,tryPoint,withPoint) ->
                 match tryPoint with
-                | SequencePointAtTry r ->
+                | DebugPointAtTry.Yes r ->
                     yield! rcheck Scope.TryWith Collapse.Below <| Range.endToEnd r tryRange
                 | _ -> ()
                 match withPoint with
-                | SequencePointAtWith r ->
+                | DebugPointAtWith.Yes r ->
                     yield! rcheck Scope.WithInTryWith Collapse.Below <| Range.endToEnd r withRange
                 | _ -> ()
                 yield! parseExpr e
                 yield! parseMatchClauses matchClauses
             | SynExpr.TryFinally (tryExpr,finallyExpr,r,tryPoint,finallyPoint) ->
                 match tryPoint with
-                | SequencePointAtTry tryRange ->
+                | DebugPointAtTry.Yes tryRange ->
                     yield! rcheck Scope.TryFinally Collapse.Below <| Range.endToEnd tryRange r
                 | _ -> ()
                 match finallyPoint with
-                | SequencePointAtFinally finallyRange ->
+                | DebugPointAtFinally.Yes finallyRange ->
                     yield! rcheck  Scope.FinallyInTryFinally Collapse.Below <| Range.endToEnd finallyRange r
                 | _ -> ()
                 yield! parseExpr tryExpr
@@ -1765,7 +1765,7 @@ module Outlining =
                 yield! rcheck Scope.IfThenElse Collapse.Below r
                 // Outline the `then` scope
                 match seqPointInfo with
-                | SequencePointInfoForBinding.SequencePointAtBinding rt ->
+                | DebugPointForBinding.DebugPointAtBinding rt ->
                     yield! rcheck  Scope.ThenInIfThenElse Collapse.Below <| Range.endToEnd rt e2.Range
                 | _ -> ()
                 yield! parseExpr e1
@@ -1941,7 +1941,7 @@ module Outlining =
             | SynTypeDefnRepr.Exception _ -> ()
         }
 
-    let private getConsecutiveModuleDecls (predicate: SynModuleDecl -> range option) (scope:Scope) (decls: SynModuleDecls) =
+    let private getConsecutiveModuleDecls (predicate: SynModuleDecl -> range option) (scope:Scope) (decls: SynModuleDecl list) =
         let groupConsecutiveDecls input =
             let rec loop (input: range list) (res: range list list) currentBulk =
                 match input, currentBulk with

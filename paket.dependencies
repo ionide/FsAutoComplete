@@ -3,13 +3,16 @@ version 5.241.6
 framework: net461, netstandard2.0, netcoreapp2.1
 source https://api.nuget.org/v3/index.json
 source ./lib
+source /Users/chethusk/oss/fcs/artifacts/bin/fcs/Release
+source /Users/chethusk/oss/fcs/artifacts/packages/Release/Shipping
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
 nuget Fantomas 3.3.0-beta-002 # needed prerelease for the FCS 34.1.0 version bump
-nuget FSharp.Compiler.Service 34.1.1
+nuget FSharp.Compiler.Service 35.0.0
+nuget FSharp.DependencyManager.Nuget 35.0.0
 nuget Dotnet.ProjInfo
 nuget Dotnet.ProjInfo.Workspace.FCS
 nuget FSharp.Analyzers.SDK

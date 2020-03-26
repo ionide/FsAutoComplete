@@ -4,7 +4,7 @@ module FsAutoComplete.InterfaceStubGenerator
 open System
 open System.Diagnostics
 open FsAutoComplete.UntypedAstUtils
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractSyntax
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
 

@@ -4,7 +4,8 @@ module FsAutoComplete.UnionPatternMatchCaseGenerator
 open System
 open System.Diagnostics
 open FsAutoComplete.UntypedAstUtils
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractSyntax
+open FSharp.Compiler.AbstractSyntaxOps
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
 
@@ -226,7 +227,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: Parsed
                     let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
                     if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                         match sequencePointInfoForBinding with
-                        | SequencePointAtBinding range ->
+                        | DebugPointAtBinding range ->
                             { MatchWithOrFunctionRange = range
                               Expr = matchExpr
                               Clauses = synMatchClauseList }
@@ -375,12 +376,12 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
 
     let getIfArgsAreFree constructorArgs func =
         match constructorArgs with
-        | SynConstructorArgs.Pats patList ->
+        | SynArgPats.Pats patList ->
             if List.forall checkPattern patList then
                 Some (func())
             else
                 None
-        | SynConstructorArgs.NamePatPairs(namedPatList, _) ->
+        | SynArgPats.NamePatPairs(namedPatList, _) ->
             let patList =
                 namedPatList
                 |> List.unzip

@@ -4,7 +4,7 @@ namespace FsAutoComplete
 open System
 open System.IO
 open System.CodeDom.Compiler
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractSyntax
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
 
