@@ -280,6 +280,13 @@ module CommandResponse =
     ParameterStr : string
   }
 
+  type HighlightingRange = {Range: range; TokenType: string}
+
+  type HighlightingResponse = {
+    Highlights: HighlightingRange []
+  }
+
+
   let private errorG (serialize : Serializer) (errorData: ErrorData) message =
     let inline ser code data =
         serialize { Kind = "error"; Data = { Code = (int code); Message = message; AdditionalData = data }  }
@@ -465,3 +472,33 @@ module CommandResponse =
 
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
+
+  let highlighting (serialize: Serializer) ranges =
+    let map (t: SemanticClassificationType) : string =
+      match t with
+      | SemanticClassificationType.Operator -> "operator"
+      | SemanticClassificationType.ReferenceType -> "type"
+      | SemanticClassificationType.ValueType -> "struct"
+      | SemanticClassificationType.UnionCase -> "enumMember"
+      | SemanticClassificationType.Function -> "function"
+      | SemanticClassificationType.Property -> "property"
+      | SemanticClassificationType.MutableVar -> "mutable"
+      | SemanticClassificationType.Module -> "namespace"
+      | SemanticClassificationType.Printf -> "printf"
+      | SemanticClassificationType.ComputationExpression -> "macro"
+      | SemanticClassificationType.IntrinsicFunction -> "function"
+      | SemanticClassificationType.Enumeration -> "enum"
+      | SemanticClassificationType.Interface -> "interface"
+      | SemanticClassificationType.TypeArgument -> "typeParameter"
+      | SemanticClassificationType.Disposable -> "disposable"
+
+
+    serialize {
+      Kind = "highlighting"
+      Data = {
+        Highlights =
+          ranges |> Array.map (fun struct (r, tk) ->
+            {Range = r; TokenType = map tk }
+          )
+      }
+    }
