@@ -391,6 +391,9 @@ type WorkspacePeekRequest = {Directory : string; Deep: int; ExcludedDirs: string
 type DocumentationForSymbolReuqest = {XmlSig: string; Assembly: string}
 
 type FakeTargetsRequest = {FileName : string; FakeContext : FakeSupport.FakeContext; }
+
+type HighlightingRequest = {FileName : string; }
+
 type LineLensConfig = {
     Enabled: string
     Prefix: string
