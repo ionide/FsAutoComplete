@@ -32,6 +32,13 @@ module SignatureFormatter =
 
     let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
         try
+            let genericArguments =
+                typ.GenericArguments
+                |> Seq.filter (fun n ->
+                  try
+                    n.TypeDefinition.CompiledName <> "MeasureOne"
+                  with
+                  | _ -> true)
             if typ.IsTupleType || typ.IsStructTupleType then
                 let refTupleStr =
                     typ.GenericArguments
@@ -42,10 +49,10 @@ module SignatureFormatter =
                 else refTupleStr
             elif typ.IsGenericParameter then
                 (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
-            elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
+            elif typ.HasTypeDefinition && (Seq.length genericArguments) > 0 then
                 let typeDef = typ.TypeDefinition
                 let genericArgs =
-                    typ.GenericArguments
+                    genericArguments
                     |> Seq.map (formatFSharpType context)
                     |> String.concat ","
                 if entityIsArray typeDef then

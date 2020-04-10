@@ -1,4 +1,4 @@
-﻿module FsAutoComplete.Tests.Lsp
+module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -931,6 +931,11 @@ let tooltipTests =
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }; MarkedString.String newline; MarkedString.String fullname; MarkedString.String assembly |] } -> Some tooltip
     | _ -> None
 
+  let (|Description|_|) (hover: Hover) =
+    match hover with
+    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }; MarkedString.String description; MarkedString.String fullname; MarkedString.String assembly |] } -> Some description
+    | _ -> None
+
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
     let scriptPath = Path.Combine(path, "Script.fsx")
@@ -962,10 +967,28 @@ let tooltipTests =
         failwithf "Error while getting hover text: %A" errors
     )
 
+  let verifyDesscription line character expectedTooltip =
+    testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
+      let server, scriptPath = serverStart.Value
+      let pos: TextDocumentPositionParams = {
+        TextDocument =  { Uri = sprintf "file://%s" scriptPath }
+        Position = { Line = line; Character = character }
+      }
+      match server.TextDocumentHover pos |> Async.RunSynchronously with
+      | Ok (Some (Description tooltip)) ->
+        Expect.equal tooltip expectedTooltip (sprintf "Should have a tooltip of '%s'" expectedTooltip)
+      | Ok _ ->
+        failwithf "Should have gotten hover text"
+      | Result.Error errors ->
+        failwithf "Error while getting hover text: %A" errors
+    )
+
   testList "tooltip evaluation" [
     verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
     verifyTooltip 1 4 "val listOfTuples : list<int * int>"
     verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
+    verifyTooltip 3 4 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
+    //verifyDesscription 4 4 """**Description**\n\nPrint to a string using the given format.\n\n**Parameters**\n\n* `format`: The formatter.\n\n**Returns**\n\nThe formatted result.\n\n**Generic parameters**\n\n* `'T` is `string`"""
   ]
 
 let formattingTests =
