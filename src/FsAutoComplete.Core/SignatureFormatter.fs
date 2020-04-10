@@ -34,7 +34,11 @@ module SignatureFormatter =
         try
             let genericArguments =
                 typ.GenericArguments
-                |> Seq.filter (fun n -> n.TypeDefinition.CompiledName <> "MeasureOne")
+                |> Seq.filter (fun n ->
+                  try
+                    n.TypeDefinition.CompiledName <> "MeasureOne"
+                  with
+                  | _ -> true)
             if typ.IsTupleType || typ.IsStructTupleType then
                 let refTupleStr =
                     typ.GenericArguments
