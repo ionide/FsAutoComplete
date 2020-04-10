@@ -1075,7 +1075,6 @@ let analyzerTests =
     ))
   ]
 
-
 let dependencyManagerTests =
   let serverStart useCorrectPaths =
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
@@ -1113,6 +1112,30 @@ let dependencyManagerTests =
   ]
 
 
+let highlightingTets =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
+    let (server, event) = serverInitialize path defaultConfigDto
+    let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
+    parseProject projectPath server |> Async.RunSynchronously
+    let path = Path.Combine(path, "Script.fs")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    (server, path)
+    )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
+
+  testCase "Document Highlighting" (serverTest (fun server path ->
+    let p : HighlightingRequest = { FileName =  path}
+    let res = server.GetHighlighting p |> Async.RunSynchronously
+    printfn "%A" res
+    ()
+    // Expect.equal res.Length 2 "Document Symbol has all symbols"
+  ))
+
 
 ///Global list of tests
 let tests =
@@ -1135,4 +1158,5 @@ let tests =
     fakeInteropTests
     analyzerTests
     dependencyManagerTests
+    highlightingTets
   ]

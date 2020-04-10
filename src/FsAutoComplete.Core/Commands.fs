@@ -987,6 +987,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             return None
     }
 
+    member x.GetHighlighting (file: SourceFilePath) = async {
+      let file = Path.GetFullPath file
+      let! res = x.TryGetLatestTypeCheckResultsForFile file
+      match res with
+      | Some res ->
+        let r = res.GetCheckResults.GetSemanticClassification(None)
+        return Some r
+      | None ->
+       return None
+    }
+
     member __.SetWorkspaceRoot (root: string option) =
       workspaceRoot <- root
       linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath

@@ -27,13 +27,13 @@ TestResult.xml
 
 .DS_Store
 /FSI-ASSEMBLY.dll.mdb
-.fake/
+.fake
 
 fsautocomplete.zip
 fsautocomplete.suave.zip
 .dotnetsdk2_0/
 .dotnetsdk/
-.ionide/
+.ionide
 .idea/
 /.vs/
 msbuild.binlog

@@ -1,3 +1,8 @@
+#### 0.41.1 - 23.03.2020
+
+* Fix `PublishDiagnosticsCapabilities` type [#574](https://github.com/fsharp/FsAutoComplete/pull/574) by [@Gastove](https://github.com/Gastove)
+* Set defaultDotNetSDKRoot on Linux correctly [#576](https://github.com/fsharp/FsAutoComplete/pull/576) by [@Krzysztof-Cieslak](https://github.com/Krzysztof-Cieslak)
+
 #### 0.41.0 - 10.03.2020
 
 * Rework documentation parser [#446](https://github.com/fsharp/FsAutoComplete/issues/446) by [@MangelMaxime](https://github.com/MangelMaxime)

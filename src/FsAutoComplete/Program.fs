@@ -26,7 +26,7 @@ let entry args =
 
       // default the verbosity to warning
       let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
-      let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+      let outputTemplate = "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
       let logConf =
         LoggerConfiguration()
           .MinimumLevel.ControlledBy(verbositySwitch)

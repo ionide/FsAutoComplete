@@ -1927,6 +1927,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 #endif
     }
 
+    member __.GetHighlighting(p : HighlightingRequest) = async {
+      let fn = p.FileName
+      let! res = commands.GetHighlighting fn
+      let res =
+        match res with
+        | None -> LspResult.internalError "No highlights found"
+        | Some res ->
+          { Content = CommandResponse.highlighting FsAutoComplete.JsonSerializer.writeJson res }
+          |> success
+
+      return res
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -1949,6 +1962,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
+        |> Map.add "fsharp/highlighting" (requestHandling (fun s p -> s.GetHighlighting(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
 

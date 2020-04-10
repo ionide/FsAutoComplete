@@ -10,6 +10,7 @@
   "postCreateCommand": "dotnet tool restore",
   "extensions": [
 		"Ionide.Ionide-fsharp",
+		"Ionide.Ionide-Paket",
 		"ms-vscode.csharp"
 	]
 }
