@@ -432,6 +432,7 @@ type FSharpConfigDto = {
     UseSdkScripts: bool option
     DotNetRoot: string option
     FSIExtraParameters: string [] option
+    FSICompilerToolLocations: string [] option
     TooltipMode : string option
 }
 
@@ -466,6 +467,7 @@ type FSharpConfig = {
     UseSdkScripts: bool
     DotNetRoot: string
     FSIExtraParameters: string []
+    FSICompilerToolLocations: string []
     TooltipMode : string
 }
 with
@@ -500,6 +502,7 @@ with
             UseSdkScripts = false
             DotNetRoot = Environment.dotnetSDKRoot.Value
             FSIExtraParameters = [||]
+            FSICompilerToolLocations = [||]
             TooltipMode = "full"
         }
 
@@ -537,10 +540,11 @@ with
                 |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
                 |> Option.defaultValue Environment.dotnetSDKRoot.Value
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
+            FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode "full"
         }
 
-    /// called when a configuration change takes effect, so empty members here should revert options
+    /// called when a configuration change takes effect, so None-valued members here should revert options
     /// back to their defaults
     member x.AddDto(dto: FSharpConfigDto) =
         {
@@ -576,6 +580,7 @@ with
                 |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
                 |> Option.defaultValue FSharpConfig.Default.DotNetRoot
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
+            FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
         }
 

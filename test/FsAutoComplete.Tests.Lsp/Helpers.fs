@@ -46,6 +46,7 @@ let defaultConfigDto : FSharpConfigDto =
     UseSdkScripts = Some true
     DotNetRoot = None
     FSIExtraParameters = None
+    FSICompilerToolLocations = None
     TooltipMode = None }
 
 let clientCaps : ClientCapabilities =
