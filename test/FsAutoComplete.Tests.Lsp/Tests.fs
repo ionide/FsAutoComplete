@@ -1157,6 +1157,6 @@ let tests =
     formattingTests
     fakeInteropTests
     analyzerTests
-    dependencyManagerTests
+    //dependencyManagerTests //Requires .Net 5 preview
     highlightingTets
   ]
