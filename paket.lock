@@ -41,7 +41,7 @@ NUGET
       Mono.Cecil (>= 0.11.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Paket.Core (>= 5.245.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime.Loader (>= 4.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-    Fantomas (4.0.0-alpha-004)
+    Fantomas (4.0.0-alpha-006)
       FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.7.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
     FParsec (1.1.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
@@ -647,6 +647,18 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
     System.ValueTuple (4.5) - condition: net461, redirects: force
+<<<<<<< HEAD
+=======
+  remote: paket-files/github.com/ionide/fantomas/bin
+    Fantomas (3.4.0-ionide01)
+      FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FSharp.Core (>= 4.7) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+GIT
+  remote: https://github.com/ionide/fantomas.git
+     (ee10a8fb24700e23b155e8ad65082ec46f5b6596)
+      build: build.sh -t Pack
+      path: ./bin
+>>>>>>> bump deps
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
@@ -1339,8 +1351,13 @@ NUGET
     Mono.Cecil (0.11.2)
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
+<<<<<<< HEAD
     Newtonsoft.Json (12.0.3) - restriction: || (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp1.0) (>= uap10.0)) (&& (== netstandard2.0) (>= netcoreapp2.1))
     NuGet.Frameworks (5.5.1) - restriction: || (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp1.0) (>= uap10.0)) (&& (== netstandard2.0) (>= netcoreapp2.1))
+=======
+    Newtonsoft.Json (12.0.3) - restriction: || (&& (== net461) (>= netcoreapp1.0) (>= uap10.0)) (&& (== net461) (>= netcoreapp2.1)) (&& (== netcoreapp2.0) (>= netcoreapp2.1)) (&& (== netcoreapp2.0) (>= uap10.0)) (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp1.0) (>= uap10.0)) (&& (== netstandard2.0) (>= netcoreapp2.1))
+    NuGet.Frameworks (5.5.1) - restriction: || (&& (== net461) (>= netcoreapp1.0) (>= uap10.0)) (&& (== net461) (>= netcoreapp2.1)) (&& (== netcoreapp2.0) (>= netcoreapp2.1)) (&& (== netcoreapp2.0) (>= uap10.0)) (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp1.0) (>= uap10.0)) (&& (== netstandard2.0) (>= netcoreapp2.1))
+>>>>>>> bump deps
     NUnit (3.10.1)
       NETStandard.Library (>= 2.0)
     NUnit3TestAdapter (3.10)

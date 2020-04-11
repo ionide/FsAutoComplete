@@ -9,7 +9,7 @@ storage: none
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas 4.0.0-alpha-004
+nuget Fantomas 4.0.0-alpha-006
 nuget FSharp.Compiler.Service 35.0.0
 nuget Dotnet.ProjInfo 0.41.0
 nuget Dotnet.ProjInfo.Workspace.FCS 0.41.0
