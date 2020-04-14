@@ -468,7 +468,7 @@ module CommandResponse =
     serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
 
   let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
-     serialize targets
+     serialize { Kind = "fakeTargets"; Data = targets }
 
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }

@@ -695,14 +695,26 @@ let fakeInteropTests =
           failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, scriptName)) errors
         ))
     ftestCase "can determine fake targets list for a fake script" (serverTest (fun (server, events, rootPath, scriptName) ->
+        let dotnetBinary =
+          match System.Environment.OSVersion.Platform with
+          | System.PlatformID.Win32NT
+          | System.PlatformID.Win32S
+          | System.PlatformID.WinCE
+          | System.PlatformID.Win32Windows -> "dotnet.exe"
+          | _ -> "dotnet"
+        let dotnetPath = Path.Combine(server.Config.DotNetRoot, dotnetBinary)
+        let expectedTargets = [|"Default"|]
         do server.TextDocumentDidOpen { TextDocument = loadDocument (Path.Combine(rootPath, scriptName)) } |> Async.RunSynchronously
         match waitForParseResultsForFile scriptName events with
         | Ok () ->
           match server.FakeTargets({ FileName = Path.Combine(rootPath, scriptName)
-                                     FakeContext = { DotNetRuntime = "netcoreapp2.1" } }) |> Async.RunSynchronously with
-          | Ok targets ->
-            printfn "%A" targets
-            ()
+                                     FakeContext = { DotNetRuntime = dotnetPath } }) |> Async.RunSynchronously with
+          | Ok { WarningsAndErrors = warnings; Targets = targets } ->
+            match warnings with
+            | [||] -> ()
+            | warnings -> printfn "FAKE warnings: %A" warnings
+            let targetNames = targets |> Array.map (fun t -> t.Name)
+            Expect.equal targetNames expectedTargets "should have found all targets"
           | Core.Result.Error errors ->
             failwithf "Errors while getting targets outline for %s: %A" (Path.Combine(rootPath, scriptName)) errors
         | Core.Result.Error errors ->

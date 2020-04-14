@@ -1,5 +1,6 @@
 #r "paket:
-nuget Fake.Core.Target //"
+nuget FSharp.Core 4.7.0
+nuget Fake.Core.Target prerelease //"
 
 #load "./.fake/build.fsx/intellisense.fsx"
 

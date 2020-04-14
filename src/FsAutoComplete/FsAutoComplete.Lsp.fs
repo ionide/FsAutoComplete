@@ -349,6 +349,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | _ -> ()
         ) |> subscriptions.Add
 
+    member x.Config = config
+
     ///Helper function for handling Position requests using **recent** type check results
     member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
@@ -1912,8 +1914,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
             | CoreResponse.Res (targets) ->
-                { Content = CommandResponse.fakeTargets FsAutoComplete.JsonSerializer.writeJson targets }
-                |> success
+                success targets
+                // { Content = CommandResponse.fakeTargets FsAutoComplete.JsonSerializer.writeJson targets }
+                // |> success
 
         return res
     }
