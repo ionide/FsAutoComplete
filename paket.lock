@@ -41,9 +41,8 @@ NUGET
       Mono.Cecil (>= 0.11.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Paket.Core (>= 5.243) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime.Loader (>= 4.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-    FParsec (1.1.1)
+    FParsec (1.1.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.3.4)
-      System.ValueTuple (>= 4.4) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
     FSharp.Analyzers.SDK (0.4.1)
       FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netcoreapp2.0)) (== netcoreapp2.1) (&& (== netstandard2.0) (>= netcoreapp2.0))
       FSharp.Core (>= 4.7.1) - restriction: || (&& (== net461) (>= netcoreapp2.0)) (== netcoreapp2.1) (&& (== netstandard2.0) (>= netcoreapp2.0))
@@ -62,12 +61,6 @@ NUGET
     FSharp.Data (3.0.1)
       FSharp.Core (>= 4.0.0.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net45)) (&& (== netstandard2.0) (>= net45))
       FSharp.Core (>= 4.3.4) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-    FSharpLint.Core (0.13.3)
-      Dotnet.ProjInfo (>= 0.31)
-      FParsec (>= 1.0.3)
-      FSharp.Compiler.Service (>= 34.1)
-      FSharp.Core (>= 4.6.2)
-      Newtonsoft.Json (>= 12.0.2)
     Humanizer.Core (2.7.9)
       NETStandard.Library (>= 1.6.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (< netstandard2.0))
     ICSharpCode.Decompiler (5.0.2.5153)
@@ -280,11 +273,22 @@ NUGET
     Fantomas (3.4.0-ionide01)
       FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.7) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+  remote: paket-files/github.com/baronfel/FSharpLint/packaging
+    FSharpLint.Core (0.14.0)
+      Dotnet.ProjInfo (>= 0.31) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FParsec (>= 1.1.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FSharp.Core (>= 4.6.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      Newtonsoft.Json (>= 12.0.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
 GIT
   remote: https://github.com/ionide/fantomas.git
      (ee10a8fb24700e23b155e8ad65082ec46f5b6596)
       build: build.sh -t Pack
       path: ./bin
+  remote: https://github.com/baronfel/FSharpLint.git
+     (b0ef18223b70a81eb6d6a716029cd5d90a4b6671)
+      build: build.sh -t Package
+      path: ./packaging
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
