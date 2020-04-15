@@ -3,10 +3,10 @@ version 5.241.6
 framework: net461, netstandard2.0, netcoreapp2.1
 
 source https://api.nuget.org/v3/index.json
-git https://github.com/ionide/fantomas.git master build: "build.sh -t Pack", Packages: ./bin, os: mac
-git https://github.com/ionide/fantomas.git master build: "build.cmd -t Pack", Packages: ./bin, os: windows
-git https://github.com/baronfel/FSharpLint.git pass-version build: "build.sh -t Package", Packages: ./packaging, os: mac
-git https://github.com/baronfel/FSharpLint.git pass-version build: "build.cmd -t Package", Packages: ./packaging, os: windows
+git https://github.com/ionide/fantomas.git master build: "build.sh -t Pack", Packages: ./bin, OS: mac
+git https://github.com/ionide/fantomas.git master build: "build.cmd -t Pack", Packages: ./bin, OS: win
+git https://github.com/baronfel/FSharpLint.git pass-version build: "build.sh -t Package", Packages: ./packaging, OS: mac
+git https://github.com/baronfel/FSharpLint.git pass-version build: "build.cmd -t Package", Packages: ./packaging, OS: win
 
 storage: none
 
