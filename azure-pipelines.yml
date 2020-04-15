@@ -8,6 +8,11 @@ jobs:
     displayName: 'Use .NET Core Sdk from global.json'
     inputs:
       useGlobalJson: true
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core Sdk 2.1 to support paket git dependencies'
+    inputs:
+      packageType: sdk
+      version: 2.1.x
   - script: dotnet tool restore
     displayName: Install Tools
   - script: dotnet fake build --target All
@@ -24,6 +29,11 @@ jobs:
 #     displayName: 'Use .NET Core Sdk from global.json'
 #     inputs:
 #       useGlobalJson: true
+#   - task: UseDotNet@2
+#     displayName: 'Use .NET Core Sdk 2.1 to support paket git dependencies'
+#     inputs:
+#       packageType: sdk
+#       version: 2.1.x
 #   - script: dotnet tool restore
 #     displayName: Install Tools
 #   - script: dotnet fake build --target All
@@ -36,6 +46,11 @@ jobs:
     displayName: 'Use .NET Core Sdk from global.json'
     inputs:
       useGlobalJson: true
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core Sdk 2.1 to support paket git dependencies'
+    inputs:
+      packageType: sdk
+      version: 2.1.x
   - script: dotnet tool restore
     displayName: Install Tools
   - script: dotnet fake build --target All

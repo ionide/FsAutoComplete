@@ -1,15 +1,20 @@
 version 5.241.6
 
 framework: net461, netstandard2.0, netcoreapp2.1
+
 source https://api.nuget.org/v3/index.json
-source ./lib
+git https://github.com/ionide/fantomas.git master build: "build.sh -t Pack", Packages: ./bin, OS: mac
+git https://github.com/ionide/fantomas.git master build: "build.cmd -t Pack", Packages: ./bin, OS: win
+git https://github.com/baronfel/FSharpLint.git pass-version build: "build.sh -t Package", Packages: ./packaging, OS: mac
+git https://github.com/baronfel/FSharpLint.git pass-version build: "build.cmd -t Package", Packages: ./packaging, OS: win
+
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas 3.3.0
-nuget FSharp.Compiler.Service 34.1.1
+nuget Fantomas prerelease
+nuget FSharp.Compiler.Service 35.0.0
 nuget Dotnet.ProjInfo
 nuget Dotnet.ProjInfo.Workspace.FCS
 nuget FSharp.Analyzers.SDK

@@ -19,7 +19,7 @@ type State =
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
     Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * pos * SourceFilePath>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
-    mutable CurrentAST: FSharp.Compiler.Ast.ParsedInput option
+    mutable CurrentAST: FSharp.Compiler.SyntaxTree.ParsedInput option
 
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
     ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
