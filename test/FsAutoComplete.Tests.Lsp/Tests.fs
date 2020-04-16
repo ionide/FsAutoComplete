@@ -1,4 +1,4 @@
-module FsAutoComplete.Tests.Lsp
+﻿module FsAutoComplete.Tests.Lsp
 
 open System
 open Expecto
@@ -1159,6 +1159,34 @@ let highlightingTets =
     // Expect.equal res.Length 2 "Document Symbol has all symbols"
   ))
 
+let scriptProjectOptionsCacheTests =
+  let serverStart () =
+    let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
+    let previewEnabledConfig =
+      { defaultConfigDto with
+          FSIExtraParameters = Some [| "--langversion:preview" |] }
+    let (server, events) = serverInitialize workingDir previewEnabledConfig
+    let scriptPath = Path.Combine(workingDir, "Script.fsx")
+    do waitForWorkspaceFinishedParsing events
+    server, events, workingDir, scriptPath
+
+  let serverTest f = fun () -> f (serverStart ())
+
+  testList "ScriptProjectOptionsCache" [
+    testCase "reopening the script file should return same project options for file" (serverTest (fun (server, events, workingDir, testFilePath) ->
+      waitForScriptFilePropjectOptions server
+      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
+      do System.Threading.Thread.Sleep 3000
+      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
+      do System.Threading.Thread.Sleep 3000
+
+      let opts1 = projectOptsList.[0]
+      let opts2 = projectOptsList.[1]
+
+      Expect.equal opts1 opts2 "Project opts should be eqaul"
+    ))
+  ]
+
 
 ///Global list of tests
 let tests =
@@ -1182,4 +1210,5 @@ let tests =
     analyzerTests
     //dependencyManagerTests //Requires .Net 5 preview
     highlightingTets
+    scriptProjectOptionsCacheTests
   ]

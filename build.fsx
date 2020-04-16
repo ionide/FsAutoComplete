@@ -168,7 +168,7 @@ Target.create "Test" ignore
 Target.create "All" ignore
 Target.create "Release" ignore
 
-"Restore"
+"NoOp"
   ==> "ReplaceFsLibLogNamespaces"
   ==> "Build"
 
