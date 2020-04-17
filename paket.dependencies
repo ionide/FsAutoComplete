@@ -3,18 +3,16 @@ version 5.241.6
 framework: net461, netstandard2.0, netcoreapp2.1
 
 source https://api.nuget.org/v3/index.json
-git https://github.com/ionide/fantomas.git master build: "build.sh -t Pack", Packages: ./bin, OS: mac
-git https://github.com/ionide/fantomas.git master build: "build.cmd -t Pack", Packages: ./bin, OS: win
-git https://github.com/ionide/FSharpLint.git pass-version build: "build.sh -t Package", Packages: ./packaging, OS: mac
-git https://github.com/ionide/FSharpLint.git pass-version build: "build.cmd -t Package", Packages: ./packaging, OS: win
+source ./lib
 
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas prerelease
+
 nuget FSharp.Compiler.Service 35.0.0
+nuget FSharp.DependencyManager.Nuget 35.0.0
 nuget Dotnet.ProjInfo
 nuget Dotnet.ProjInfo.Workspace.FCS
 nuget FSharp.Analyzers.SDK
@@ -23,16 +21,17 @@ nuget ICSharpCode.Decompiler
 nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
-nuget Fake.Runtime prerelease
-nuget FSharpLint.Core
+
 nuget FSharp.Core redirects:force
 nuget System.ValueTuple redirects:force, condition:net461 // workaround for older version of net framework..
+
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
 nuget Microsoft.Data.Sqlite.Core 2.2.4
 nuget SQLitePCLRaw.bundle_green 1.1.14
 nuget SQLitePCLRaw.core 1.1.14
 nuget System.Configuration.ConfigurationManager
+
 nuget Serilog
 nuget Serilog.Sinks.File
 nuget Serilog.Sinks.Console
@@ -41,7 +40,11 @@ nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has diff
 
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
-nuget FSharp.DependencyManager.Nuget 35.0.0
+
+
+nuget Fantomas prerelease
+nuget Fake.Runtime prerelease
+nuget FSharpLint.Core prerelease
 
 group Build
   source https://api.nuget.org/v3/index.json
@@ -67,22 +70,7 @@ group Test
   source https://api.nuget.org/v3/index.json
   storage: none
 
-  nuget NUnit 3.10.1
-  nuget NUnit3TestAdapter 3.10.0
-  nuget Microsoft.NET.Test.Sdk 15.8.0
   nuget Expecto
-
-group IntegrationTests
-  framework: net461
-  source https://api.nuget.org/v3/index.json
-  generate_load_scripts: true
-
-  nuget Http.fs
-  nuget Newtonsoft.Json 11.0.2
-  nuget System.Net.WebSockets.Client
-  nuget Hopac
-  nuget FSharp.Core ~> 4.5
-  nuget Argu ~> 5.2.0
 
 group SourceLink
   storage: none
