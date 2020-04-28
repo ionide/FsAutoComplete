@@ -41,6 +41,9 @@ NUGET
       Mono.Cecil (>= 0.11.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Paket.Core (>= 5.243) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime.Loader (>= 4.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+    Fantomas (4.0.0-alpha-002)
+      FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FSharp.Core (>= 4.7.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
     FParsec (1.1.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       FSharp.Core (>= 4.3.4)
     FSharp.Analyzers.SDK (0.4.1)
@@ -117,8 +120,8 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.1) (== netstandard2.0)
     Microsoft.Win32.Registry (4.7) - restriction: || (&& (== net461) (< net46) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-      System.Buffers (>= 4.5) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (>= monoandroid)) (&& (== net461) (>= monotouch)) (&& (== net461) (< net46) (>= netstandard2.0)) (&& (== net461) (>= xamarinios)) (&& (== net461) (>= xamarinmac)) (&& (== net461) (>= xamarintvos)) (&& (== net461) (>= xamarinwatchos)) (&& (== netcoreapp2.1) (>= monoandroid) (< netstandard2.0)) (&& (== netcoreapp2.1) (>= monotouch)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (>= xamarinios)) (&& (== netcoreapp2.1) (>= xamarinmac)) (&& (== netcoreapp2.1) (>= xamarintvos)) (&& (== netcoreapp2.1) (>= xamarinwatchos)) (== netstandard2.0)
-      System.Memory (>= 4.5.3) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net46) (>= netstandard2.0)) (&& (== net461) (>= netcoreapp2.0)) (&& (== net461) (>= uap10.1)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
+      System.Buffers (>= 4.5) - restriction: || (&& (== net461) (>= monoandroid)) (&& (== net461) (>= monotouch)) (&& (== net461) (< net46) (>= netstandard2.0)) (&& (== net461) (>= xamarinios)) (&& (== net461) (>= xamarinmac)) (&& (== net461) (>= xamarintvos)) (&& (== net461) (>= xamarinwatchos)) (&& (== netcoreapp2.1) (>= monoandroid) (< netstandard2.0)) (&& (== netcoreapp2.1) (>= monotouch)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (>= xamarinios)) (&& (== netcoreapp2.1) (>= xamarinmac)) (&& (== netcoreapp2.1) (>= xamarintvos)) (&& (== netcoreapp2.1) (>= xamarinwatchos)) (== netstandard2.0)
+      System.Memory (>= 4.5.3) - restriction: || (&& (== net461) (< net46) (>= netstandard2.0)) (&& (== net461) (>= netcoreapp2.0)) (&& (== net461) (>= uap10.1)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
       System.Security.AccessControl (>= 4.7)
       System.Security.Principal.Windows (>= 4.7)
     Mono.Cecil (0.11.2)
@@ -189,7 +192,7 @@ NUGET
       System.Threading.Timer (>= 4.0.1) - restriction: || (&& (== net461) (< net45)) (== netcoreapp2.1) (== netstandard2.0)
     Sln (0.3)
     SQLitePCLRaw.bundle_green (1.1.14)
-      NETStandard.Library (>= 1.6) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net35)) (&& (== netcoreapp2.1) (< netcoreapp1.0)) (== netstandard2.0)
+      NETStandard.Library (>= 1.6) - restriction: || (&& (== net461) (< net35)) (&& (== netcoreapp2.1) (< netcoreapp1.0)) (== netstandard2.0)
       SQLitePCLRaw.core (>= 1.1.14)
       SQLitePCLRaw.lib.e_sqlite3.linux (>= 1.1.14) - restriction: || (== net461) (== netcoreapp2.1) (&& (== netstandard2.0) (>= net35) (< portable-net40+sl5+win8+wp8) (< portable-net45+win8+wp8+wpa81)) (&& (== netstandard2.0) (>= net40) (< portable-net45+win8+wp8+wpa81)) (&& (== netstandard2.0) (>= net45)) (&& (== netstandard2.0) (>= netcoreapp1.0))
       SQLitePCLRaw.lib.e_sqlite3.osx (>= 1.1.14) - restriction: || (== net461) (== netcoreapp2.1) (&& (== netstandard2.0) (>= net35) (< portable-net40+sl5+win8+wp8) (< portable-net45+win8+wp8+wpa81)) (&& (== netstandard2.0) (>= net40) (< portable-net45+win8+wp8+wpa81)) (&& (== netstandard2.0) (>= net45)) (&& (== netstandard2.0) (>= netcoreapp1.0)) (&& (== netstandard2.0) (>= xamarinmac))
@@ -343,7 +346,7 @@ NUGET
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net45)) (== netcoreapp2.1) (== netstandard2.0)
     System.Memory (4.5.4)
       System.Buffers (>= 4.5.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= monotouch)) (&& (== netcoreapp2.1) (>= net461)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (< netstandard1.1)) (&& (== netcoreapp2.1) (< netstandard2.0)) (&& (== netcoreapp2.1) (>= xamarinios)) (&& (== netcoreapp2.1) (>= xamarinmac)) (&& (== netcoreapp2.1) (>= xamarintvos)) (&& (== netcoreapp2.1) (>= xamarinwatchos)) (== netstandard2.0)
-      System.Numerics.Vectors (>= 4.4) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net45) (>= netstandard2.0)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (== netstandard2.0)
+      System.Numerics.Vectors (>= 4.4) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (== netstandard2.0)
       System.Numerics.Vectors (>= 4.5) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= net461)) (&& (== netstandard2.0) (>= net461))
       System.Runtime.CompilerServices.Unsafe (>= 4.5.3) - restriction: || (== net461) (&& (== netcoreapp2.1) (>= monotouch)) (&& (== netcoreapp2.1) (>= net461)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (< netstandard1.1)) (&& (== netcoreapp2.1) (< netstandard2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (&& (== netcoreapp2.1) (>= xamarinios)) (&& (== netcoreapp2.1) (>= xamarinmac)) (&& (== netcoreapp2.1) (>= xamarintvos)) (&& (== netcoreapp2.1) (>= xamarinwatchos)) (== netstandard2.0)
     System.Net.Http (4.3.4) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
@@ -443,10 +446,10 @@ NUGET
       System.Reflection.Primitives (>= 4.3) - restriction: || (&& (== net461) (< net45)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net45)) (== netcoreapp2.1) (== netstandard2.0)
     System.Reflection.Emit (4.7) - restriction: || (== netcoreapp2.1) (== netstandard2.0)
-      System.Reflection.Emit.ILGeneration (>= 4.7) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net45)) (&& (== net461) (< netstandard1.1)) (&& (== net461) (>= uap10.1)) (&& (== net461) (>= wpa81)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (< netstandard1.1)) (&& (== netcoreapp2.1) (< netstandard2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
+      System.Reflection.Emit.ILGeneration (>= 4.7) - restriction: || (&& (== net461) (< net45)) (&& (== net461) (< netstandard1.1)) (&& (== net461) (>= uap10.1)) (&& (== net461) (>= wpa81)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (< netstandard1.1)) (&& (== netcoreapp2.1) (< netstandard2.0)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
     System.Reflection.Emit.ILGeneration (4.7) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
     System.Reflection.Emit.Lightweight (4.7) - restriction: || (== netcoreapp2.1) (== netstandard2.0)
-      System.Reflection.Emit.ILGeneration (>= 4.7) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net45)) (&& (== net461) (< portable-net45+wp8)) (&& (== net461) (>= uap10.1)) (&& (== net461) (>= wpa81)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (< netstandard2.0)) (&& (== netcoreapp2.1) (< portable-net45+wp8)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
+      System.Reflection.Emit.ILGeneration (>= 4.7) - restriction: || (&& (== net461) (< net45)) (&& (== net461) (< portable-net45+wp8)) (&& (== net461) (>= uap10.1)) (&& (== net461) (>= wpa81)) (&& (== netcoreapp2.1) (< netcoreapp2.0)) (&& (== netcoreapp2.1) (< netstandard2.0)) (&& (== netcoreapp2.1) (< portable-net45+wp8)) (&& (== netcoreapp2.1) (>= uap10.1)) (== netstandard2.0)
     System.Reflection.Extensions (4.3) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (&& (== net461) (>= netcoreapp1.1)) (== netcoreapp2.1) (== netstandard2.0)
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (== net461) (< net45)) (== netcoreapp2.1) (== netstandard2.0)
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net45)) (== netcoreapp2.1) (== netstandard2.0)
@@ -565,7 +568,7 @@ NUGET
       System.Threading (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.1) (== netstandard2.0)
       System.Threading.Tasks (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.1) (== netstandard2.0)
     System.Security.Cryptography.ProtectedData (4.7) - restriction: || (== netcoreapp2.1) (== netstandard2.0)
-      System.Memory (>= 4.5.3) - restriction: || (&& (== net461) (== netcoreapp2.1)) (&& (== net461) (< net46) (>= netstandard2.0)) (== netstandard2.0)
+      System.Memory (>= 4.5.3) - restriction: || (&& (== net461) (< net46) (>= netstandard2.0)) (== netstandard2.0)
     System.Security.Cryptography.X509Certificates (4.3.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (== net461) (< net46) (>= netstandard1.6)) (== netcoreapp2.1) (== netstandard2.0)
       runtime.native.System (>= 4.3) - restriction: || (&& (== net461) (< net46) (>= netstandard1.6)) (== netcoreapp2.1) (== netstandard2.0)
@@ -638,10 +641,6 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
     System.ValueTuple (4.5) - condition: net461, redirects: force
-  remote: paket-files/github.com/ionide/fantomas/bin
-    Fantomas (3.4.0-ionide01)
-      FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-      FSharp.Core (>= 4.7) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
   remote: paket-files/github.com/baronfel/FSharpLint/packaging
     FSharpLint.Core (0.14.0)
       Dotnet.ProjInfo (>= 0.31) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
@@ -650,15 +649,6 @@ NUGET
       FSharp.Core (>= 4.6.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Newtonsoft.Json (>= 12.0.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
 GIT
-  remote: https://github.com/ionide/fantomas.git
-     (9659998b6d75d38fe7ddb04bc27f4fd518f19417)
-      build: build.sh -t Pack
-      path: ./bin
-      os: mac
-     (9659998b6d75d38fe7ddb04bc27f4fd518f19417)
-      build: build.cmd -t Pack
-      path: ./bin
-      os: win
   remote: https://github.com/baronfel/FSharpLint.git
      (b0ef18223b70a81eb6d6a716029cd5d90a4b6671)
       build: build.sh -t Package
