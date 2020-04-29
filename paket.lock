@@ -85,7 +85,13 @@ NUGET
       System.Threading.Tasks.Parallel (>= 4.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       System.Threading.Thread (>= 4.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       System.Threading.ThreadPool (>= 4.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-    Humanizer.Core (2.7.9)
+    FSharpLint.Core (0.14)
+      Dotnet.ProjInfo (>= 0.31) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FParsec (>= 1.1.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      FSharp.Core (>= 4.6.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+      Newtonsoft.Json (>= 12.0.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+    Humanizer.Core (2.8.2)
       NETStandard.Library (>= 1.6.1) - restriction: || (== net461) (&& (== netcoreapp2.1) (< netstandard2.0))
     ICSharpCode.Decompiler (5.0.2.5153)
       Humanizer.Core (>= 2.2)
@@ -128,7 +134,7 @@ NUGET
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
     Newtonsoft.Json (12.0.3)
-    Paket.Core (5.243) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
+    Paket.Core (5.244.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
       Chessie (>= 0.6)
       Mono.Cecil (>= 0.10.0-beta6)
       Newtonsoft.Json (>= 10.0.3) - restriction: || (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
@@ -641,23 +647,6 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net451)) (== netcoreapp2.1) (== netstandard2.0)
     System.ValueTuple (4.5) - condition: net461, redirects: force
-  remote: paket-files/github.com/baronfel/FSharpLint/packaging
-    FSharpLint.Core (0.14.0)
-      Dotnet.ProjInfo (>= 0.31) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-      FParsec (>= 1.1.1) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-      FSharp.Compiler.Service (>= 35.0) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-      FSharp.Core (>= 4.6.2) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-      Newtonsoft.Json (>= 12.0.3) - restriction: || (&& (== net461) (>= netstandard2.0)) (== netcoreapp2.1) (== netstandard2.0)
-GIT
-  remote: https://github.com/baronfel/FSharpLint.git
-     (b0ef18223b70a81eb6d6a716029cd5d90a4b6671)
-      build: build.sh -t Package
-      path: ./packaging
-      os: mac
-     (b0ef18223b70a81eb6d6a716029cd5d90a4b6671)
-      build: build.cmd -t Package
-      path: ./packaging
-      os: win
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
