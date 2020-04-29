@@ -399,7 +399,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                   | _ ->
                     async {
                       let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
-                      state.ScriptProjectOptions.TryAdd(file, (hash, checkOptions)) |> ignore
+                      state.ScriptProjectOptions.AddOrUpdate(file, (hash, checkOptions), (fun _ _ -> (hash, checkOptions))) |> ignore
                       return checkOptions
                     }
 
