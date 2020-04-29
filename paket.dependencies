@@ -59,7 +59,7 @@ group Build
   nuget Microsoft.Build
 
 group Test
-  framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1, netcoreapp3.1
+  framework: netstandard2.0, netcoreapp2.1, netcoreapp3.1
   source https://api.nuget.org/v3/index.json
   storage: none
 
@@ -67,18 +67,6 @@ group Test
   nuget NUnit3TestAdapter 3.10.0
   nuget Microsoft.NET.Test.Sdk 15.8.0
   nuget Expecto
-
-group IntegrationTests
-  framework: net461
-  source https://api.nuget.org/v3/index.json
-  generate_load_scripts: true
-
-  nuget Http.fs
-  nuget Newtonsoft.Json 11.0.2
-  nuget System.Net.WebSockets.Client
-  nuget Hopac
-  nuget FSharp.Core ~> 4.5
-  nuget Argu ~> 5.2.0
 
 group SourceLink
   storage: none
