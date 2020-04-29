@@ -15,6 +15,7 @@ type State =
     Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
     LastCheckedVersion: ConcurrentDictionary<SourceFilePath, int>
     ProjectController: ProjectController
+    ScriptProjectOptions: ConcurrentDictionary<SourceFilePath, int * FSharpProjectOptions>
 
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
     Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * pos * SourceFilePath>
@@ -32,6 +33,7 @@ type State =
     { Files = ConcurrentDictionary()
       LastCheckedVersion = ConcurrentDictionary()
       ProjectController = ProjectController(checker)
+      ScriptProjectOptions = ConcurrentDictionary()
       HelpText = ConcurrentDictionary()
       Declarations = ConcurrentDictionary()
       CurrentAST = None
@@ -157,3 +159,14 @@ type State =
                pos.Column <= lines.[pos.Line - 1].Length + 1 && pos.Column >= 1
       if not ok then ResultOrString.Error "Position is out of range"
       else Ok (opts, lines, lines.[pos.Line - 1])
+
+  member this.TryGetScriptProjectOptions (file, referencesVersion) = 
+    this.ScriptProjectOptions.TryFind file
+    |> Option.filter (fun (v,_) -> v = referencesVersion)
+    |> Option.map snd
+
+  member this.UpdateScriptProjectOptions (file, referencesVersion, projectOptions) =
+    this.ScriptProjectOptions.[file] <- (referencesVersion, projectOptions)
+
+  member this.PurgeScriptProjectOptions() =
+    this.ScriptProjectOptions.Clear()

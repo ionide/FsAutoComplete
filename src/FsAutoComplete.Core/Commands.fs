@@ -47,6 +47,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
+    let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
@@ -61,6 +62,8 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let commandsLogger = LogProvider.getLoggerByName "Commands"
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+
+    
 
     do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
 
@@ -232,6 +235,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.FileChecked = fileChecked.Publish
 
+    member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
     member __.IsWorkspaceReady
         with get() = state.ProjectController.IsWorkspaceReady
@@ -389,7 +393,22 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                let scriptReferencesVersion =
+                    lines
+                    |> Array.filter (fun line -> line.StartsWith("#r") || line.StartsWith("#load") || line.StartsWith("#I"))
+                    |> String.Concat
+                    |> hash
+
+                let! checkOptions = 
+                    match state.TryGetScriptProjectOptions(file, scriptReferencesVersion) with
+                    | Some c -> async.Return c
+                    | None -> async {
+                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                        state.UpdateScriptProjectOptions(file, scriptReferencesVersion, checkOptions)
+                        return checkOptions
+                    }
+
+                scriptFileProjectOptions.Trigger checkOptions
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
@@ -1005,3 +1024,6 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     member __.SetLinterConfigRelativePath (relativePath: string option) =
       linterConfigFileRelativePath <- relativePath
       linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
+
+    member __.PurgeScriptProjectOptions() =
+        state.PurgeScriptProjectOptions()

@@ -75,6 +75,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
+        commands.PurgeScriptProjectOptions()
 #if ANALYZER_SUPPORT
         match config.AnalyzersPath with
         | [||] ->
@@ -1939,6 +1940,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
       return res
     }
+
+    member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()

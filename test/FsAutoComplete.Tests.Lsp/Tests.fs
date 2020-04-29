@@ -1159,6 +1159,35 @@ let highlightingTets =
     // Expect.equal res.Length 2 "Document Symbol has all symbols"
   ))
 
+let scriptProjectOptionsCacheTests =
+  let serverStart () =
+    let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
+    let previewEnabledConfig =
+      { defaultConfigDto with
+          FSIExtraParameters = Some [| "--langversion:preview" |] }
+    let (server, events) = serverInitialize workingDir previewEnabledConfig
+    let scriptPath = Path.Combine(workingDir, "Script.fsx")
+    do waitForWorkspaceFinishedParsing events
+    server, events, workingDir, scriptPath
+
+  let serverTestAsync f = f (serverStart ())
+
+  testList "ScriptProjectOptionsCache" [
+    testCaseAsync "reopening the script file should return same project options for file" (serverTestAsync (fun (server, events, workingDir, testFilePath) -> async {
+      let projectOptsList = ResizeArray<_>()
+      use _ = server.ScriptFileProjectOptions.Subscribe projectOptsList.Add
+
+      for _ in 1 .. 3 do
+        do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+
+      Expect.isGreaterThanOrEqual (projectOptsList.Count) 3 "At least three options should have been triggered"
+
+      let distinctProjOptionsLength = projectOptsList |> Seq.distinct |> Seq.length
+      Expect.equal distinctProjOptionsLength 1 "Only one unique cached option should have been triggered"
+
+    }))
+  ]
+
 
 ///Global list of tests
 let tests =
@@ -1182,4 +1211,5 @@ let tests =
     analyzerTests
     //dependencyManagerTests //Requires .Net 5 preview
     highlightingTets
+    scriptProjectOptionsCacheTests
   ]
