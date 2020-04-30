@@ -47,6 +47,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
+    let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
@@ -76,16 +77,10 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     )
 
     do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
-        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
-        let mutable count = 0
-        state.FSharpProjectOptions
-        |> Seq.choose (function | (path, _) when path.EndsWith ".fsx" -> Some path
-                                | _ -> None)
-        |> Seq.iter (fun path ->
-            state.RemoveProjectOptions path
-            count <- count + 1
-        )
-        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContextDestructured "optionCount" count)
+        checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
+        let count = state.ScriptProjectOptions.Count
+        state.ScriptProjectOptions.Clear ()
+        checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContextDestructured "optionCount" count)
     )
 
     do if not backgroundServiceEnabled then
@@ -232,6 +227,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.FileChecked = fileChecked.Publish
 
+    member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
     member __.IsWorkspaceReady
         with get() = state.ProjectController.IsWorkspaceReady
@@ -389,7 +385,25 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                commandsLogger.info (Log.setMessage "Checking script file '{file}'" >> Log.addContextDestructured "file" file)
+                let hash  =
+                  lines
+                  |> Array.filter (fun n -> n.StartsWith "#r" || n.StartsWith "#load" || n.StartsWith "#I")
+                  |> Array.toList
+                  |> fun n -> n.GetHashCode ()
+
+                let! checkOptions =
+                  match state.ScriptProjectOptions.TryFind file with
+                  | Some (h, opts) when h = hash ->
+                    async.Return opts
+                  | _ ->
+                    async {
+                      let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                      state.ScriptProjectOptions.AddOrUpdate(file, (hash, checkOptions), (fun _ _ -> (hash, checkOptions))) |> ignore
+                      return checkOptions
+                    }
+
+                scriptFileProjectOptions.Trigger checkOptions
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions

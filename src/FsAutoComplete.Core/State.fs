@@ -25,6 +25,8 @@ type State =
     ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
 
+    ScriptProjectOptions: ConcurrentDictionary<SourceFilePath, int * FSharpProjectOptions>
+
     mutable ColorizationOutput: bool
   }
 
@@ -39,6 +41,7 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ParseResults = ConcurrentDictionary()
+      ScriptProjectOptions = ConcurrentDictionary()
       ColorizationOutput = false }
 
   member x.GetCheckerOptions(file: SourceFilePath, lines: LineStr[]) : FSharpProjectOptions option =
