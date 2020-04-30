@@ -1001,16 +1001,19 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             return None
     }
 
-    member x.GetHighlighting (file: SourceFilePath) = async {
+    member x.GetHighlighting (file: SourceFilePath) =
       let file = Path.GetFullPath file
-      let! res = x.TryGetLatestTypeCheckResultsForFile file
-      match res with
-      | Some res ->
-        let r = res.GetCheckResults.GetSemanticClassification(None)
-        return Some r
-      | None ->
-       return None
-    }
+      async {
+        let! res = x.TryGetLatestTypeCheckResultsForFile file
+        let res =
+          match res with
+          | Some res ->
+            let r = res.GetCheckResults.GetSemanticClassification(None)
+            Some r
+          | None ->
+            None
+        return CoreResponse.Res res
+      } |> x.AsCancellable file
 
     member __.SetWorkspaceRoot (root: string option) =
       workspaceRoot <- root
