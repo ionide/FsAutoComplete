@@ -47,7 +47,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
-    let scriptFilePropjectOptions = Event<FSharpProjectOptions>()
+    let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
@@ -227,7 +227,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.FileChecked = fileChecked.Publish
 
-    member __.ScriptFilePropjectOptions = scriptFilePropjectOptions.Publish
+    member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
     member __.IsWorkspaceReady
         with get() = state.ProjectController.IsWorkspaceReady
@@ -403,7 +403,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                       return checkOptions
                     }
 
-                scriptFilePropjectOptions.Trigger checkOptions
+                scriptFileProjectOptions.Trigger checkOptions
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions

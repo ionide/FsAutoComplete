@@ -1940,7 +1940,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
       return res
     }
 
-    member __.ScriptFilePropjectOptions = commands.ScriptFilePropjectOptions
+    member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()

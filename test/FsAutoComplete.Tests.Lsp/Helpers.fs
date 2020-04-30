@@ -189,9 +189,11 @@ let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
     if o.Content.Contains """{"Kind":"error","""
     then failtestf "error loading project: %A" o
 
+//This is currently used for single tests, hence the naive implementation is working just fine.
+//Revisit if more tests will use this scenario.
 let mutable projectOptsList : FSharp.Compiler.SourceCodeServices.FSharpProjectOptions list = []
 let waitForScriptFilePropjectOptions (server: FsharpLspServer) =
-  server.ScriptFilePropjectOptions
+  server.ScriptFileProjectOptions
   |> Event.add (fun n -> projectOptsList <- n::projectOptsList)
 
 let expectExitCodeZero (exitCode, _) =
