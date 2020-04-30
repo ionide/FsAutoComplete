@@ -1932,10 +1932,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
       let! res = commands.GetHighlighting fn
       let res =
         match res with
-        | None -> LspResult.internalError "No highlights found"
-        | Some res ->
-          { Content = CommandResponse.highlighting FsAutoComplete.JsonSerializer.writeJson res }
-          |> success
+        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+            LspResult.internalError msg
+        | CoreResponse.Res (res) ->
+          match res with
+          | None -> LspResult.internalError "No highlights found"
+          | Some res ->
+            { Content = CommandResponse.highlighting FsAutoComplete.JsonSerializer.writeJson res }
+            |> success
 
       return res
     }
