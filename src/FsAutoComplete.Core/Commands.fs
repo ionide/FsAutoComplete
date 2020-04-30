@@ -1013,7 +1013,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
           | None ->
             None
         return CoreResponse.Res res
-      } |> x.AsCancellable file
+      }
 
     member __.SetWorkspaceRoot (root: string option) =
       workspaceRoot <- root
