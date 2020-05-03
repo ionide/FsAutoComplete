@@ -445,7 +445,7 @@ type Version = int
 type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let checker =
     FSharpChecker.Create(
-      projectCacheSize = (if backgroundServiceEnabled then 3 else 200),
+      projectCacheSize = 200,
       keepAllBackgroundResolutions = not backgroundServiceEnabled,
       keepAssemblyContents = true,
       suggestNamesForErrors = true)
