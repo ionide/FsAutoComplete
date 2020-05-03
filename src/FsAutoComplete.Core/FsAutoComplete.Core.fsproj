@@ -31,6 +31,7 @@
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="Decompiler.fs" />
     <Compile Include="FakeSupport.fs" />
+    <Compile Include="ParseAndCheckResults.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
     <Compile Include="State.fs" />
     <Compile Include="CodeGeneration.fs" />
