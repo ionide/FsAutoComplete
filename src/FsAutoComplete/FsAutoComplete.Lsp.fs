@@ -134,7 +134,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 n.Range.Start.Line
             )
             |> Seq.toArray
-        logger.info (Log.setMessage "SendDiag for {file}: {diags}" >> Log.addContextDestructured "file" uri >> Log.addContextDestructured "diags" diags )
+        logger.info (Log.setMessage "SendDiag for {file}: {diags} entries" >> Log.addContextDestructured "file" uri >> Log.addContextDestructured "diags" diags.Length )
         {Uri = uri; Diagnostics = diags}
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
@@ -354,7 +354,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath()
-            logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
+            // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
             return!
                 match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
@@ -387,7 +387,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath()
-            logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
+            // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
             return!
                     try
@@ -420,6 +420,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     override __.Initialize(p: InitializeParams) = async {
+        logger.info (Log.setMessage "Initialize Request")
+
         let actualRootPath =
           match p.RootUri with
           | Some rootUri -> Some (fileUriToLocalPath rootUri)
@@ -566,15 +568,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.Initialized(p: InitializedParams) = async {
+        logger.info (Log.setMessage "Initialized request")
+
         return ()
     }
 
     override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) = async {
-
         let doc = p.TextDocument
         let filePath = doc. GetFilePath()
         let content = doc.Text.Split('\n')
         let tfmConfig = config.UseSdkScripts
+        logger.info (Log.setMessage "TextDocumentDidOpen Request: {parms}" >> Log.addContextDestructured "parms" filePath )
 
         commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
@@ -596,6 +600,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let doc = p.TextDocument
         let filePath = doc.GetFilePath()
         let contentChange = p.ContentChanges |> Seq.tryLast
+
+        logger.info (Log.setMessage "TextDocumentDidChange Request: {parms}" >> Log.addContextDestructured "parms" filePath )
         match contentChange, doc.Version with
         | Some contentChange, Some version ->
             if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
@@ -609,12 +615,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     //TODO: Investigate if this should be done at all
     override __.TextDocumentDidSave(p) = async {
+      logger.info (Log.setMessage "TextDocumentDidSave Request: {parms}" >> Log.addContextDestructured "parms" p )
       ()
     }
 
     override __.TextDocumentCompletion(p: CompletionParams) = async {
 
-        logger.info (Log.setMessage "TextDocumentCompletion triggered with {context}" >> Log.addContextDestructured "context" p.Context)
+        logger.info (Log.setMessage "TextDocumentCompletion Request: {context}" >> Log.addContextDestructured "context" p)
         // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
         let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
         let doc = p.TextDocument
@@ -683,7 +690,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.CompletionItemResolve(ci) = async {
-
+        logger.info (Log.setMessage "CompletionItemResolve Request: {parms}" >> Log.addContextDestructured "parms" ci )
         let res = commands.Helptext ci.InsertText.Value
         let res =
             match res with
@@ -701,7 +708,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override x.TextDocumentSignatureHelp(p) =
-
+        logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandlerWithLatest (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.Methods tyRes  pos lines
@@ -739,7 +746,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     override x.TextDocumentHover(p: TextDocumentPositionParams) =
-
+        logger.info (Log.setMessage "TextDocumentHover Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.ToolTip tyRes pos lineStr
@@ -801,7 +808,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentRename(p) =
-
+        logger.info (Log.setMessage "TextDocumentRename Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolUseProject tyRes pos lineStr
@@ -865,7 +872,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentDefinition(p) =
-
+        logger.info (Log.setMessage "TextDocumentDefinition Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 //TODO: Add #load reference
@@ -883,7 +890,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentTypeDefinition(p) =
-
+        logger.info (Log.setMessage "TextDocumentTypeDefinition Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.FindTypeDeclaration tyRes pos lineStr
@@ -900,7 +907,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentReferences(p) =
-
+        logger.info (Log.setMessage "TextDocumentReferences Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolUseProject tyRes pos lineStr
@@ -922,7 +929,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentDocumentHighlight(p) =
-
+        logger.info (Log.setMessage "TextDocumentDocumentHighlight Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolUse tyRes pos lineStr
@@ -943,7 +950,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             })
 
     override x.TextDocumentImplementation(p) =
-
+        logger.info (Log.setMessage "TextDocumentImplementation Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
                 let! res = commands.SymbolImplementationProject tyRes pos lineStr
@@ -968,7 +975,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     override __.TextDocumentDocumentSymbol(p) = async {
-
+        logger.info (Log.setMessage "TextDocumentDocumentSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
         let fn = p.TextDocument.GetFilePath()
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
         let res =
@@ -986,7 +993,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceSymbol(p) = async {
-
+        logger.info (Log.setMessage "WorkspaceSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
         let! res = commands.DeclarationsInProjects ()
         let res =
             match res with
@@ -1006,6 +1013,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentFormatting(p: DocumentFormattingParams) = async {
+        logger.info (Log.setMessage "TextDocumentFormatting Request: {parms}" >> Log.addContextDestructured "parms" p )
         let doc = p.TextDocument
         let fileName = doc.GetFilePath()
         let! res = commands.FormatDocument fileName
@@ -1375,6 +1383,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async.Return []
 
     override x.TextDocumentCodeAction(p) =
+        logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.TextDocument.GetFilePath()
         match commands.TryGetFileCheckerOptionsWithLines fn with
@@ -1416,6 +1425,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
     override __.TextDocumentCodeLens(p) = async {
+        logger.info (Log.setMessage "TextDocumentCodeLens Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.TextDocument.GetFilePath()
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
@@ -1448,13 +1458,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.CodeLensResolve(p) =
+        logger.info (Log.setMessage "CodeLensResolve Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let handler f (arg: CodeLens) =
             async {
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
                 let file = fileUriToLocalPath data.[0]
-                logger.info (Log.setMessage "CodeLensResolve - Position request for {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
@@ -1550,6 +1560,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         ) p
 
     override __.WorkspaceDidChangeWatchedFiles(p) = async {
+        logger.info (Log.setMessage "WorkspaceDidChangeWatchedFiles Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p.Changes
         |> Array.iter (fun c ->
@@ -1567,6 +1578,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) = async {
+        logger.info (Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}" >> Log.addContextDestructured "parms" p )
+
         let dto =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>
@@ -1577,6 +1590,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) = async {
+        logger.info (Log.setMessage "TextDocumentFoldingRange Request: {parms}" >> Log.addContextDestructured "parms" rangeP )
 
         let file = rangeP.TextDocument.GetFilePath()
         match! commands.ScopesForFile file with
@@ -1588,6 +1602,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member x.FSharpSignature(p: TextDocumentPositionParams) =
+        logger.info (Log.setMessage "FSharpSignature Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
@@ -1605,6 +1620,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member x.FSharpSignatureData(p: TextDocumentPositionParams) =
+        logger.info (Log.setMessage "FSharpSignatureData Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let handler f (arg: TextDocumentPositionParams) =
             async {
@@ -1652,6 +1668,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member x.FSharpDocumentationGenerator(p: TextDocumentPositionParams) =
+        logger.info (Log.setMessage "FSharpDocumentationGenerator Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
@@ -1669,6 +1686,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member __.FSharpLineLense(p) = async {
+        logger.info (Log.setMessage "FSharpLineLense Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
         let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
@@ -1683,6 +1701,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member x.LineLensResolve(p) =
+        logger.info (Log.setMessage "LineLensResolve Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
@@ -1700,6 +1719,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member __.FSharpCompilerLocation(p) = async {
+        logger.info (Log.setMessage "FSharpCompilerLocation Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let res = commands.CompilerLocation ()
         let res =
@@ -1714,6 +1734,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpCompile(p) = async {
+        logger.info (Log.setMessage "FSharpCompile Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
         let! res = commands.Compile fn
@@ -1729,6 +1750,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpWorkspaceLoad(p) = async {
+        logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
         let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences config.ScriptTFM
@@ -1744,6 +1766,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpWorkspacePeek(p: WorkspacePeekRequest) = async {
+        logger.info (Log.setMessage "FSharpWorkspacePeek Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let! res = commands.WorkspacePeek p.Directory p.Deep (p.ExcludedDirs |> List.ofArray)
         let res =
@@ -1760,6 +1783,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpProject(p) = async {
+        logger.info (Log.setMessage "FSharpProject Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
         let! res = commands.Project fn ignore config.ScriptTFM
@@ -1778,6 +1802,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpFsdn(p: FsdnRequest) = async {
+        logger.info (Log.setMessage "FSharpFsdn Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let! res = commands.Fsdn p.Query
         let res =
@@ -1792,6 +1817,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpDotnetNewList(p: DotnetNewListRequest) = async {
+        logger.info (Log.setMessage "FSharpDotnetNewList Request: {parms}" >> Log.addContextDestructured "parms" p )
+
         let! res = commands.DotnetNewList ()
         let res =
             match res with
@@ -1805,6 +1832,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FSharpDotnetNewRun(p: DotnetNewRunRequest) = async {
+        logger.info (Log.setMessage "FSharpDotnetNewRun Request: {parms}" >> Log.addContextDestructured "parms" p )
+
         let! res = commands.DotnetNewRun p.Template p.Name p.Output []
         let res =
             match res with
@@ -1818,6 +1847,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member x.FSharpHelp(p: TextDocumentPositionParams) =
+        logger.info (Log.setMessage "FSharpHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
@@ -1835,6 +1865,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member x.FSharpDocumentation(p: TextDocumentPositionParams) =
+        logger.info (Log.setMessage "FSharpDocumentation Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
@@ -1853,6 +1884,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     member x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
+        logger.info (Log.setMessage "FSharpDocumentationSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
+
         match commands.LastCheckResult with
         | None -> AsyncLspResult.internalError "error"
         | Some tyRes ->
@@ -1870,6 +1903,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
 
     member __.FakeTargets(p:FakeTargetsRequest) = async {
+        logger.info (Log.setMessage "FakeTargets Request: {parms}" >> Log.addContextDestructured "parms" p )
+
         let! res = commands.FakeTargets (p.FileName) (p.FakeContext)
         let res =
             match res with
@@ -1883,6 +1918,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.FakeRuntimePath(p) = async {
+        logger.info (Log.setMessage "FakeRuntimePath Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+
         let! res = commands.FakeRuntime ()
         let res =
             match res with
@@ -1895,6 +1933,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.LoadAnalyzers(path) = async {
+        logger.info (Log.setMessage "LoadAnalyzers Request: {parms}" >> Log.addContextDestructured "parms" path )
+
 #if ANALYZER_SUPPORT
         try
             if config.EnableAnalyzers then
@@ -1928,6 +1968,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     member __.GetHighlighting(p : HighlightingRequest) = async {
+      logger.info (Log.setMessage "GetHighlighting Request: {parms}" >> Log.addContextDestructured "parms" p )
+
       let fn = p.FileName
       let! res = commands.GetHighlighting fn
       let res =
