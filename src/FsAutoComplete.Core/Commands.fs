@@ -836,8 +836,10 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     }
 
     member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts = async {
+        commandsLogger.info (Log.setMessage "Workspace loading started '{files}'" >> Log.addContextDestructured "files" files)
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
         let! res = state.ProjectController.LoadWorkspace onChange files tfmForScripts onProjectLoaded
+        commandsLogger.info (Log.setMessage "Workspace loading finished ")
         return CoreResponse.Res res
     }
 

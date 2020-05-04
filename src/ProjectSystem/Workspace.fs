@@ -20,7 +20,77 @@ let extractOptionsDPW (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOpt
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
-let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: string) =
+let private bindResults fn res =
+  res
+  |> Result.bind (fun po ->
+    extractOptionsDPW po
+    |> Result.bind (fun optsDPW ->
+        let logMap = [ fn, "" ] |> Map.ofList
+        let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
+        let view = projViewer.Render optsDPW
+        let items =
+            if obj.ReferenceEquals(view.Items, null) then [] else view.Items
+        Result.Ok (po, optsDPW, items, logMap)))
+
+let private loaderNotificationHandler (fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) ((loader, state): Loader * WorkspaceProjectState) =
+  match state with
+  | WorkspaceProjectState.Loading(_,_) -> None //we just ignore loading notifications in this case
+  | WorkspaceProjectState.Loaded(po, _) ->
+    let projectFileName = po.ProjectFileName
+    let x =
+      fcsBinder.GetProjectOptions projectFileName
+      |> bindResults projectFileName
+
+    Some x
+  | WorkspaceProjectState.Failed(projectFileName, _) ->
+    let x =
+      fcsBinder.GetProjectOptions projectFileName
+      |> bindResults projectFileName
+
+    Some x
+
+let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (onLoaded: ProjectSystem.WorkspaceProjectState -> unit) (projectFileNames: string list) =
+    let existing, notExisting = projectFileNames |> List.partition (File.Exists)
+    for e in notExisting do
+      let error = GenericError(e, sprintf "File '%s' does not exist" e)
+      onLoaded (ProjectSystem.WorkspaceProjectState.Failed (e, error))
+
+    let supported, notSupported = existing |> List.partition (isSupported)
+    for e in notSupported do
+      let error = GenericError(e, (sprintf "Project file '%s' not supported" e))
+      onLoaded (ProjectSystem.WorkspaceProjectState.Failed (e, error))
+
+    let handler res =
+      loaderNotificationHandler fcsBinder res
+      |> Option.iter (fun n ->
+          match n with
+          | Ok (opts, optsDPW, projViewerItems, logMap) ->
+              onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
+          | Error error ->
+              onLoaded (ProjectSystem.WorkspaceProjectState.Failed (error.ProjFile, error))
+      )
+
+    use notif = loader.Notifications.Subscribe handler
+    loader.LoadProjects supported
+
+let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = async {
+    let (resProjects, otherProjects) =
+      projects |> List.partition (fun n -> n.Response.IsSome)
+
+    for project in resProjects do
+      match project.Response with
+      | Some res ->
+          onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
+      | None ->
+        () //Shouldn't happen
+
+    otherProjects
+    |> List.map (fun n -> n.FileName)
+    |> getProjectOptions loader fcsBinder onLoaded
+  }
+
+
+let private getProjectOptionsSingle (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: string) =
     if not (File.Exists projectFileName) then
         Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
     else
@@ -46,27 +116,7 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBind
         | Unsupported ->
             Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
 
-let private parseProject' (loader, fcsBinder) projectFileName =
-    projectFileName
-    |> getProjectOptions (loader, fcsBinder)
 
 let internal parseProject (loader, fcsBinder) projectFileName =
     projectFileName
-    |> parseProject' (loader, fcsBinder)
-
-let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = async {
-
-    for project in projects do
-        match project.Response with
-        | Some res ->
-            onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
-        | None ->
-            project.FileName
-            |> parseProject' (loader, fcsBinder)
-            |> function
-               | Ok (opts, optsDPW, projViewerItems, logMap) ->
-                   onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
-               | Error error ->
-                   onLoaded (ProjectSystem.WorkspaceProjectState.Failed (project.FileName, error))
-
-    }
+    |> getProjectOptionsSingle (loader, fcsBinder)
