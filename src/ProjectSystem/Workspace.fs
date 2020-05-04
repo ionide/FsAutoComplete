@@ -55,7 +55,7 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBin
       let error = GenericError(e, sprintf "File '%s' does not exist" e)
       onLoaded (ProjectSystem.WorkspaceProjectState.Failed (e, error))
 
-    let supproted, notSupported = existing |> List.partition (isSupported)
+    let supported, notSupported = existing |> List.partition (isSupported)
     for e in notSupported do
       let error = GenericError(e, (sprintf "Project file '%s' not supported" e))
       onLoaded (ProjectSystem.WorkspaceProjectState.Failed (e, error))
