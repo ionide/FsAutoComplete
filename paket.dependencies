@@ -3,6 +3,7 @@ version 5.241.6
 framework: net461, netstandard2.0, netcoreapp2.1
 
 source https://api.nuget.org/v3/index.json
+source ../dotnet-proj-info/bin/nupkg
 
 storage: none
 
