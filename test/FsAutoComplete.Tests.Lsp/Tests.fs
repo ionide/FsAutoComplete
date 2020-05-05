@@ -398,7 +398,7 @@ let analyzerEvents file events =
   |> Event.map snd
   |> Event.filter (fun payload -> payload.Diagnostics |> Array.exists (fun d -> d.Source.StartsWith "F# Analyzers"))
 
-let waitForParseResultsForFile file (events: Event<string*obj>) =
+let waitForParseResultsForFileA file (events: Event<string*obj>) =
   let matchingFileEvents = fileDiagnostics file events
   async {
     let! (filename, args) = Async.AwaitEvent matchingFileEvents
@@ -406,7 +406,8 @@ let waitForParseResultsForFile file (events: Event<string*obj>) =
     | [||] -> return Ok ()
     | errors -> return Core.Result.Error errors
   }
-  |> Async.RunSynchronously
+
+let waitForParseResultsForFile file events = waitForParseResultsForFileA file events |> Async.RunSynchronously
 
 let waitForParsed (m: System.Threading.ManualResetEvent) files (event: Event<string * obj>) =
 
@@ -868,6 +869,30 @@ let linterTests =
      ))
   ]
 
+let scriptGlobalJsonRefsTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptGlobalJson")
+    let scriptPath = Path.Combine(path, "script.fsx")
+    let (server, events) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing events
+
+    server, events, scriptPath
+  )
+  let serverTest f = f serverStart.Value
+
+  testList "script refs global.json tests" [
+    testCaseAsync "can typecheck scripts that use global.json" (serverTest (fun (server, events, scriptPath) -> async {
+      do! Async.Sleep 5000
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+      match! waitForParseResultsForFileA "script.fsx" events with
+      | Ok () ->
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" scriptPath errors
+    }))
+
+  ]
+
 let scriptPreviewTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
@@ -1205,6 +1230,7 @@ let tests =
     linterTests
     scriptPreviewTests
     scriptEvictionTests
+    scriptGlobalJsonRefsTests
     tooltipTests
     formattingTests
     fakeInteropTests

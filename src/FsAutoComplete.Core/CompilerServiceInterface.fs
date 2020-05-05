@@ -12,6 +12,13 @@ open FsAutoComplete.Logging
 
 type Version = int
 
+/// determines how the compiler service finds references for F# Scripts
+type ScriptSdkDiscoveryMode =
+/// find references by probing well-known SDK locations startiing at the current dotnet sdk root path
+| Probing
+/// find reference for a specific SDK version and associated runtime version within the current dotnet sdk root path
+| Specified of sdkVersion: NugetVersion.NugetVersion
+
 type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   let checker =
     FSharpChecker.Create(
@@ -42,6 +49,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   /// the root path to the dotnet sdk installations, eg /usr/local/share/dotnet
   let mutable sdkRoot = None
+  let mutable sdkScriptDiscoveryMode = Probing
   /// the chosen version of the dotnet sdk for deriving F# compiler FSI references, eg 3.0.100
   let mutable sdkVersion = lazy(None)
   /// the chosen version of the dotnet runtime for deriving BCL references, eg 3.0.0
@@ -87,6 +95,22 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       refs
       |> List.map (fun path -> Path.GetFileNameWithoutExtension path, path)
       |> Map.ofList
+
+  let rediscoverScriptReferences () =
+    match sdkScriptDiscoveryMode, sdkRoot with
+    | _ , None -> ()
+    | Probing, Some root ->
+      sdkVersion <- Environment.latest3xSdkVersion root
+      runtimeVersion <- Environment.latest3xRuntimeVersion root
+    | Specified pinnedSdkVersion, Some root ->
+      sdkVersion <- lazy(Some pinnedSdkVersion)
+      Environment.runtimeVersionForSdk pinnedSdkVersion
+      |> Async.map (fun r ->
+        runtimeVersion <- lazy(r)
+      )
+      |> Async.Start
+
+    discoveredAssembliesByName <- lazy(computeAssemblyMap ())
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
     if s.StartsWith(prefix) then Some (s.[prefix.Length..]) else None
@@ -292,10 +316,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     then ()
     else
       sdkRoot <- Some path
-      sdkVersion <- Environment.latest3xSdkVersion path
-      runtimeVersion <- Environment.latest3xRuntimeVersion path
-      discoveredAssembliesByName <- lazy(computeAssemblyMap ())
+      rediscoverScriptReferences ()
       scriptTypecheckRequirementsChanged.Trigger ()
+
+  member __.SetSdkDiscoveryMode(mode) =
+    if sdkScriptDiscoveryMode = mode
+    then ()
+    else
+     sdkScriptDiscoveryMode <- mode
+     rediscoverScriptReferences ()
 
   member __.GetDotnetRoot () = sdkRoot
 

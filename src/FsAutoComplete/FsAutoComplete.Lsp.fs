@@ -2,6 +2,7 @@ module FsAutoComplete.Lsp
 
 open Argu
 open System
+open System.IO
 open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
@@ -202,6 +203,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           EndCharacter     = Some lsp.End.Character
           EndLine          = lsp.End.Line
           Kind             = kind }
+
+    let discoverAndUseGlobalJson (workspaceRoot: string) =
+      let globalJsonPath = Path.Combine(workspaceRoot, "global.json")
+      if File.Exists globalJsonPath
+      then
+        // get initial value and hook up watcher
+        let read () = Environment.versionFromGlobalJson globalJsonPath |> Option.iter commands.UseVersionForScriptRefs
+        read ()
+        let fsw = new System.IO.FileSystemWatcher(Path = workspaceRoot, Filter = "global.json", NotifyFilter = NotifyFilters.LastWrite)
+        do fsw.Changed.Add (fun _ -> read())
+        do fsw.EnableRaisingEvents <- true
+      else
+        ()
 
     do
         commands.Notify.Subscribe(fun n ->
@@ -430,6 +444,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.StartBackgroundService actualRootPath
         rootPath <- actualRootPath
         commands.SetWorkspaceRoot actualRootPath
+        actualRootPath |> Option.iter discoverAndUseGlobalJson
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities

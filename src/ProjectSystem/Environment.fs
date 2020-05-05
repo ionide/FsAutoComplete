@@ -2,15 +2,16 @@ namespace ProjectSystem
 
 open System
 open System.IO
+open Dotnet.ProjInfo.Workspace
+open Newtonsoft.Json.Linq
+open System.Collections.Generic
+
 #if NETSTANDARD2_0
 open System.Runtime.InteropServices
 #endif
-open Dotnet.ProjInfo.Workspace
 
 [<RequireQualifiedAccess>]
 module Environment =
-
-
 
   /// Determines if the current system is an Unix system.
   /// See http://www.mono-project.com/docs/faq/technical/#how-to-detect-the-execution-platform
@@ -141,16 +142,16 @@ module Environment =
       defaultArg fromEnv FSIRefs.defaultDotNetSDKRoot
     )
 
-  let private maxVersionWithThreshold (minVersion: FSIRefs.NugetVersion) (versions: FSIRefs.NugetVersion []) =
+  let private maxVersionWithThreshold (minVersion: NugetVersion.NugetVersion) (versions: NugetVersion.NugetVersion []) =
     versions
-    |> Array.filter (fun v -> FSIRefs.compareNugetVersion v minVersion >= 0) // get all versions that compare as greater than the minVersion
-    |> Array.sortWith FSIRefs.compareNugetVersion
+    |> Array.filter (fun v -> NugetVersion.compareNugetVersion v minVersion >= 0) // get all versions that compare as greater than the minVersion
+    |> Array.sortWith NugetVersion.compareNugetVersion
     |> Array.tryLast
 
   /// because 3.x is the minimum SDK that we support for FSI, we want to float to the latest
   /// 3.x sdk that the user has installed, to prevent hard-coding.
   let latest3xSdkVersion dotnetRoot =
-    let minSDKVersion = FSIRefs.NugetVersion(3,0,100,"")
+    let minSDKVersion = NugetVersion.NugetVersion(3,0,100,"")
     lazy (
       match FSIRefs.sdkVersions dotnetRoot with
       | None -> None
@@ -161,10 +162,96 @@ module Environment =
   /// because 3.x is the minimum runtime that we support for FSI, we want to float to the latest
   /// 3.x runtime that the user has installed, to prevent hard-coding.
   let latest3xRuntimeVersion dotnetRoot =
-    let minRuntimeVersion = FSIRefs.NugetVersion(3,0,0,"")
+    let minRuntimeVersion = NugetVersion.NugetVersion(3,0,0,"")
     lazy (
       match FSIRefs.runtimeVersions dotnetRoot with
       | None -> None
       | Some sortedRuntimeVersions ->
         maxVersionWithThreshold minRuntimeVersion sortedRuntimeVersions
     )
+
+  /// attempts to read the specified SDK version from the global.json file in the workspace root.
+  let versionFromGlobalJson (globalJsonPath: string): NugetVersion.NugetVersion option =
+    if not (File.Exists globalJsonPath)
+    then None
+    else
+      use file = File.OpenText globalJsonPath
+      use reader = new Newtonsoft.Json.JsonTextReader(file)
+      let content = Newtonsoft.Json.Linq.JObject.Load reader
+      let sdkVersion: string = content.SelectToken("sdk.version") |> JToken.op_Explicit
+      NugetVersion.tryDeconstructVersion sdkVersion
+
+  type private MajorMinor = MajorMinor of major: int * minor: int
+  with
+    static member ofNugetVersion (NugetVersion.NugetVersion(maj, min, _, _)) = MajorMinor(maj, min)
+
+  //oddjob httpclient, singleton so that we don't spam the OS TCP connections
+  let private httpclient = new System.Net.Http.HttpClient()
+
+  [<CLIMutable>]
+  type Release = { runtime : {| version: string |}; sdk: {| version: string |} }
+  [<CLIMutable>]
+  type ChannelReleases = { ``releases``: Release [] }
+  [<CLIMutable>]
+  type ChannelReleaseMeta = { ``channel-version``: string; ``releases.json``: string }
+  [<CLIMutable>]
+  type Channels = { ``releases-index``: ChannelReleaseMeta []}
+
+  /// reads `releases.json` from the microsoft downloads to find the matching runtime version number for the given SDK version.
+  let runtimeVersionForSdk =
+    let allChannels =
+        httpclient.GetStringAsync("https://raw.githubusercontent.com/dotnet/core/master/release-notes/releases-index.json")
+        |> Async.AwaitTask
+        |> Async.map Newtonsoft.Json.JsonConvert.DeserializeObject<Channels>
+
+    let discoverReleases (MajorMinor(maj, min))= async {
+      let! allReleases = allChannels |> Async.map (fun channels -> channels.``releases-index``)
+      let release = allReleases |> Array.tryFind (fun c -> c.``channel-version`` = sprintf "%d.%d" maj min)
+      let releaseManifestUrl: string = release.Value.``releases.json``
+      let! releaseManifest =
+        httpclient.GetStringAsync(releaseManifestUrl)
+        |> Async.AwaitTask
+        |> Async.map Newtonsoft.Json.JsonConvert.DeserializeObject<ChannelReleases>
+      let releaseList = releaseManifest.releases
+      let versionMaps =
+        releaseList
+        |> Seq.choose (fun release ->
+          let sdkVersion =
+            let v = release.sdk.version
+            NugetVersion.tryDeconstructVersion v
+          let runtimeVersion =
+            let v = release.runtime.version
+            NugetVersion.tryDeconstructVersion v
+          match sdkVersion, runtimeVersion with
+          | Some s, Some r -> Some (s, Some r)
+          | _ -> None
+        )
+
+      let d = Dictionary<_,_>()
+      for (k,v) in versionMaps do
+        d.Add(k, v)
+      return d
+    }
+
+    let findOrSetNone (releases: Dictionary<NugetVersion.NugetVersion, NugetVersion.NugetVersion option>) sdkVersion =
+      match releases.TryGetValue sdkVersion with
+      | true, discoveredVersion ->
+        async.Return discoveredVersion
+      | false, _ ->
+        releases.[sdkVersion] <- None
+        async.Return None
+
+    let channels = Dictionary<MajorMinor, Dictionary<NugetVersion.NugetVersion, NugetVersion.NugetVersion option>>()
+
+    fun (sdkVersion: NugetVersion.NugetVersion) ->
+      let channel = MajorMinor.ofNugetVersion sdkVersion
+      match channels.TryGetValue channel with
+      | true, releases ->
+        findOrSetNone releases sdkVersion
+      | false, _ ->
+        async {
+          // populate channels listing, then discover runtime version
+          let! releasesForChannel = discoverReleases channel
+          channels.[channel] <- releasesForChannel
+          return! findOrSetNone releasesForChannel sdkVersion
+        }

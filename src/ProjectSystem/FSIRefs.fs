@@ -19,56 +19,12 @@ type TFM =
 | NetFx
 | NetCore
 
-[<NoComparison>]
-type NugetVersion = NugetVersion of major: int * minor: int * build: int * suffix: string
-with
-  override x.ToString() =
-    match x with
-    | NugetVersion(major, minor, build, suffix) when String.IsNullOrWhiteSpace suffix -> sprintf "%d.%d.%d" major minor build
-    | NugetVersion(major, minor, build, suffix) -> sprintf "%d.%d.%d-%s" major minor build suffix
-
-/// custom comparison for these versions means that you compare major/minor/build,
-/// but an empty preview string marks a stable version, which is greater
-let compareNugetVersion (NugetVersion(lM, lm, lb, ls)) (NugetVersion(rM, rm, rb, rs)) =
-  match compare lM rM with
-  | 0 ->
-    match compare lm rm with
-    | 0 ->
-      match compare lb rb with
-      | 0 ->
-        match ls, rs with
-        | "", s -> 1 // no preview string means left is a stable release and so is greater than right
-        | s, "" -> -1 // no preview string means right is a stable release and so is greater than left
-        | ls, rs -> compare ls rs // no shortcut means compare lexigrapically
-      | n -> n
-    | n -> n
-  | n -> n
-
-/// Parse nuget version strings into numeric and suffix parts
-///
-/// Format: `$(Major).$(Minor).$(Build) [-SomeSuffix]`
-let deconstructVersion (version: string): NugetVersion =
-  let version, suffix =
-    let pos = version.IndexOf("-")
-    if pos >= 0
-    then
-      version.Substring(0, pos), version.Substring(pos + 1)
-    else
-      version, ""
-
-  let elements = version.Split('.')
-
-  if elements.Length < 3 then
-      NugetVersion(0, 0, 0, suffix)
-  else
-      NugetVersion(Int32.Parse(elements.[0]), Int32.Parse(elements.[1]), Int32.Parse(elements.[2]), suffix)
-
 let versionDirectoriesIn (baseDir: string) =
   baseDir
   |> Directory.EnumerateDirectories
   |> Array.ofSeq // have to convert to array to get a sortWith that takes our custom comparison function
-  |> Array.map (Path.GetFileName >> deconstructVersion)
-  |> Array.sortWith compareNugetVersion
+  |> Array.map (Path.GetFileName >> NugetVersion.deconstructVersion)
+  |> Array.sortWith NugetVersion.compareNugetVersion
 
 /// path to the directory where .Net SDK versions are stored
 let sdkDir dotnetRoot = Path.Combine (dotnetRoot, "sdk")
@@ -122,7 +78,7 @@ let findRuntimeRefs packDir runtimeDir =
     // SUPER IMPORTANT: netstandard/netcore assembly resolution _must not_ contain mscorlib or else
     // its presence triggers old netfx fallbacks, which end up bringing assemblies that aren't part
     // of netcore.
-    |> Seq.filter (fun r -> not (Path.GetFileNameWithoutExtension(r) = "mscorlib"))
+    |> Seq.filter (fun r -> Path.GetFileNameWithoutExtension(r) <> "mscorlib")
     |> Seq.toArray
   | None, None -> [||]
 
@@ -145,10 +101,10 @@ let netCoreRefs dotnetRoot sdkVersion runtimeVersion tfm useFsiAuxLib =
 
 /// picks a TFM for F# scripts based on the provided SDK version.
 let tfmForRuntime =
-  let netcore3 = NugetVersion(3, 0, 100, "")
-  let netcore31 = NugetVersion(3, 1, 100, "")
-  fun (sdkVersion: NugetVersion) ->
-    match compareNugetVersion sdkVersion netcore3 with
-    | 1 | 0 when compareNugetVersion sdkVersion netcore31 = -1 -> "netcoreapp3.0"
+  let netcore3 = NugetVersion.NugetVersion(3, 0, 100, "")
+  let netcore31 = NugetVersion.NugetVersion(3, 1, 100, "")
+  fun (sdkVersion: NugetVersion.NugetVersion) ->
+    match NugetVersion.compareNugetVersion sdkVersion netcore3 with
+    | 1 | 0 when NugetVersion.compareNugetVersion sdkVersion netcore31 = -1 -> "netcoreapp3.0"
     | 1 | 0 -> "netcoreapp3.1"
     | _ -> "netcoreapp2.2"

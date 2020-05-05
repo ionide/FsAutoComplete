@@ -19,6 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\ProjectSystem\Utils.fs" />
+    <Compile Include="..\ProjectSystem\NugetVersion.fs" />
     <Compile Include="..\ProjectSystem\FSIRefs.fs" />
     <Compile Include="..\ProjectSystem\Environment.fs" />
     <Compile Include="..\FsAutoComplete.Core\Utils.fs" />

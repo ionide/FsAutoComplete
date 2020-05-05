@@ -3,6 +3,9 @@ namespace ProjectSystem
 open System.IO
 open System.Collections.Concurrent
 
+module Async =
+  let inline map f a = async.Bind(a, f >> async.Return)
+
 [<AutoOpen>]
 module internal Utils =
   let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])

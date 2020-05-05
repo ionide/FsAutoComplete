@@ -173,8 +173,10 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                     | None -> ()
                     | Some source ->
                         let opts = state.GetProjectOptions' file |> Utils.projectOptionsToParseOptions
-                        let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
-                        fileParsed.Trigger parseRes
+                        async {
+                          let! parseRes = checker.ParseFile(file, source |> String.concat "\n", opts)
+                          fileParsed.Trigger parseRes
+                        } |> Async.Start
                 with
                 | :? System.Threading.ThreadAbortException as ex ->
                     // on mono, if background parsing is aborted a ThreadAbortException
@@ -966,6 +968,8 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
+    member __.UseVersionForScriptRefs v = checker.SetSdkDiscoveryMode (ScriptSdkDiscoveryMode.Specified v)
+    member __.UseProbeForScriptRefs () = checker.SetSdkDiscoveryMode ScriptSdkDiscoveryMode.Probing
 
     member x.FormatDocument (file: SourceFilePath) = async {
         let file = Path.GetFullPath file
