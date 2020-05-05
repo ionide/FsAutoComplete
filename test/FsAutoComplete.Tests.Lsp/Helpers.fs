@@ -47,7 +47,8 @@ let defaultConfigDto : FSharpConfigDto =
     DotNetRoot = None
     FSIExtraParameters = None
     FSICompilerToolLocations = None
-    TooltipMode = None }
+    TooltipMode = None
+    GenerateBinlog = None }
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}
