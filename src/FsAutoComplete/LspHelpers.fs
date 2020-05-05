@@ -434,6 +434,7 @@ type FSharpConfigDto = {
     FSIExtraParameters: string [] option
     FSICompilerToolLocations: string [] option
     TooltipMode : string option
+    GenerateBinlog: bool option
 }
 
 type FSharpConfigRequest = {
@@ -469,9 +470,10 @@ type FSharpConfig = {
     FSIExtraParameters: string []
     FSICompilerToolLocations: string []
     TooltipMode : string
+    GenerateBinlog: bool
 }
 with
-    static member Default =
+    static member Default : FSharpConfig =
         {
             AutomaticWorkspaceInit = false
             WorkspaceModePeekDeepLevel = 2
@@ -504,6 +506,7 @@ with
             FSIExtraParameters = [||]
             FSICompilerToolLocations = [||]
             TooltipMode = "full"
+            GenerateBinlog = false
         }
 
     static member FromDto(dto: FSharpConfigDto) =
@@ -542,6 +545,7 @@ with
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
             FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode "full"
+            GenerateBinlog = defaultArg dto.GenerateBinlog false
         }
 
     /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -582,6 +586,7 @@ with
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
             FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
+            GenerateBinlog = defaultArg dto.GenerateBinlog x.GenerateBinlog
         }
 
     member x.ScriptTFM =

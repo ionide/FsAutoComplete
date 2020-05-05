@@ -49,7 +49,7 @@ let private loaderNotificationHandler (fcsBinder: Dotnet.ProjInfo.Workspace.FCS.
 
     Some x
 
-let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (onLoaded: ProjectSystem.WorkspaceProjectState -> unit) (projectFileNames: string list) =
+let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (onLoaded: ProjectSystem.WorkspaceProjectState -> unit) (generateBinlog: bool) (projectFileNames: string list) =
     let existing, notExisting = projectFileNames |> List.partition (File.Exists)
     for e in notExisting do
       let error = GenericError(e, sprintf "File '%s' does not exist" e)
@@ -71,9 +71,9 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBin
       )
 
     use notif = loader.Notifications.Subscribe handler
-    loader.LoadProjects supported
+    loader.LoadProjects(supported, generateBinlog)
 
-let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) = async {
+let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) (generateBinlog: bool) = async {
     let (resProjects, otherProjects) =
       projects |> List.partition (fun n -> n.Response.IsSome)
 
@@ -86,18 +86,18 @@ let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project li
 
     otherProjects
     |> List.map (fun n -> n.FileName)
-    |> getProjectOptions loader fcsBinder onLoaded
+    |> getProjectOptions loader fcsBinder onLoaded generateBinlog
   }
 
 
-let private getProjectOptionsSingle (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (projectFileName: string) =
+let private getProjectOptionsSingle (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (generateBinlog: bool) (projectFileName: string) =
     if not (File.Exists projectFileName) then
         Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
     else
         match projectFileName with
         | Net45
         | NetCoreSdk ->
-            loader.LoadProjects [projectFileName]
+            loader.LoadProjects([projectFileName], generateBinlog)
 
             fcsBinder.GetProjectOptions (projectFileName)
             |> Result.bind (fun po ->
@@ -117,6 +117,6 @@ let private getProjectOptionsSingle (loader: Dotnet.ProjInfo.Workspace.Loader, f
             Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
 
 
-let internal parseProject (loader, fcsBinder) projectFileName =
+let internal parseProject (loader, fcsBinder) (generateBinlog: bool) projectFileName =
     projectFileName
-    |> getProjectOptionsSingle (loader, fcsBinder)
+    |> getProjectOptionsSingle (loader, fcsBinder) generateBinlog
