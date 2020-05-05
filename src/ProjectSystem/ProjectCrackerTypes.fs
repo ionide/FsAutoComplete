@@ -7,7 +7,7 @@ type GetProjectOptionsErrors = Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors
 
 type [<RequireQualifiedAccess>] WorkspaceProjectState =
     | Loading of string
-    | Loaded of FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * Dotnet.ProjInfo.Workspace.ProjectViewerItem list * Map<string,string>
+    | Loaded of FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * Dotnet.ProjInfo.Workspace.ProjectViewerItem list * Map<string,string> * fromDpiCache: bool
     | Failed of string * GetProjectOptionsErrors
 
 module internal ProjectRecognizer =

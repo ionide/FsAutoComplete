@@ -137,7 +137,7 @@ type ProjectController(checker : FSharpChecker) =
             match projResponse with
             | Result.Ok (projectFileName, response) ->
                 updateState response
-                onProjectLoaded projectFileName response tfmForScripts
+                onProjectLoaded projectFileName response tfmForScripts false
                 let responseFiles =
                     response.Items
                     |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
@@ -186,9 +186,9 @@ type ProjectController(checker : FSharpChecker) =
             | WorkspaceProjectState.Loading projectFileName ->
                 ProjectResponse.ProjectLoading projectFileName
                 |> notify.Trigger
-            | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
+            | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap, isFromCache) ->
                 let projectFileName, response = toProjectCache(opts, extraInfo, projectFiles, logMap)
-                projectLoadedSuccessfully projectFileName response tfmForScripts
+                projectLoadedSuccessfully projectFileName response tfmForScripts isFromCache
 
                 let responseFiles =
                     response.Items
@@ -228,13 +228,13 @@ type ProjectController(checker : FSharpChecker) =
             match n with
             | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loading (path, _) ->
                 Some (WorkspaceProjectState.Loading path)
-            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap) ->
+            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap, isFromCache) ->
                 match fcsBinder.GetProjectOptions(opts.ProjectFileName) with
                 | Ok fcsOpts ->
                     match Workspace.extractOptionsDPW fcsOpts with
                     | Ok optsDPW ->
                         let view = projViewer.Render optsDPW
-                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap))
+                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap, isFromCache))
                     | Error _ ->
                         None //TODO not ignore the error
                 | Error _ ->

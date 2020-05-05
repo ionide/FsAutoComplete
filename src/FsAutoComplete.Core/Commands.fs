@@ -212,14 +212,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
-    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts =
+    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts (isFromCache: bool) =
         if backgroundServiceEnabled then
             BackgroundServices.updateProject(projectFileName, response.Options)
 
-        response.Items
-        |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-        |> parseFilesInTheBackground tfmForScripts
-        |> Async.Start
+        if not isFromCache then
+          response.Items
+          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+          |> parseFilesInTheBackground tfmForScripts
+          |> Async.Start
+        else
+          commandsLogger.info (Log.setMessage "Project from cahce '{file}'" >> Log.addContextDestructured "file" projectFileName)
 
     member __.Notify = notify.Publish
 
