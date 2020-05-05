@@ -105,7 +105,7 @@ type ProjectController(checker : FSharpChecker) =
         projects
         |> Seq.map (|KeyValue|)
 
-    member __.LoadProject projectFileName onChange (tfmForScripts: FSIRefs.TFM) onProjectLoaded = async {
+    member __.LoadProject projectFileName onChange (tfmForScripts: FSIRefs.TFM) (generateBinlog: bool) onProjectLoaded = async {
         let projectFileName = Path.GetFullPath projectFileName
         let project =
             match projects.TryFind projectFileName with
@@ -124,7 +124,7 @@ type ProjectController(checker : FSharpChecker) =
             | None ->
                 let projectCached =
                     projectFileName
-                    |> Workspace.parseProject workspaceBinder
+                    |> Workspace.parseProject workspaceBinder generateBinlog
                     |> Result.map (fun (opts, optsDPW, projectFiles, logMap) -> toProjectCache(opts, optsDPW.ExtraProjectInfo, projectFiles, logMap) )
                 match projectCached with
                 | Result.Ok (projectFileName, response) ->
@@ -156,7 +156,7 @@ type ProjectController(checker : FSharpChecker) =
                 ProjectResponse.ProjectError error
     }
 
-    member __.LoadWorkspace onChange (files: string list) (tfmForScripts: FSIRefs.TFM) onProjectLoaded = async {
+    member __.LoadWorkspace onChange (files: string list) (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool) = async {
         //TODO check full path
         let projectFileNames = files |> List.map Path.GetFullPath
 
@@ -247,7 +247,7 @@ type ProjectController(checker : FSharpChecker) =
         loader.Notifications.Add(fun (_, arg) ->
             arg |> bindNewOnloaded |> Option.iter onLoaded )
 
-        do! Workspace.loadInBackground onLoaded (loader, fcsBinder) (prjs |> List.map snd)
+        do! Workspace.loadInBackground onLoaded (loader, fcsBinder) (prjs |> List.map snd) generateBinlog
 
         ProjectResponse.WorkspaceLoad true
         |> notify.Trigger
