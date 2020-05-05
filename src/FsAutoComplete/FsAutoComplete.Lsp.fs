@@ -206,13 +206,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     do
         commands.Notify.Subscribe(fun n ->
             try
-                // logger.info (Log.setMessage "Notify {event}" >> Log.addContextDestructured "event" n)
                 match n with
                 | NotificationEvent.FileParsed fn ->
                     {Content = fn}
                     |> lspClient.NotifyFileParsed
                     |> Async.Start
                 | NotificationEvent.Workspace ws ->
+                    logger.info (Log.setMessage "Workspace Notify {ws}" >> Log.addContextDestructured "ws" ws)
                     let ws =
                         match ws with
                         | ProjectResponse.Project x -> CommandResponse.project JsonSerializer.writeJson x
