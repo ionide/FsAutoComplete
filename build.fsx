@@ -178,7 +178,7 @@ Target.create "Release" ignore
   ==> "Test"
   ==> "All"
 
-"Build"
+"ReplaceFsLibLogNamespaces"
   ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "ReleaseGitHub"
