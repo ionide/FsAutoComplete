@@ -20,7 +20,7 @@ let extractOptionsDPW (opts: FSharp.Compiler.SourceCodeServices.FSharpProjectOpt
         | x ->
             Error (GenericError(opts.ProjectFileName, (sprintf "expected ExtraProjectInfo after project parsing, was %A" x)))
 
-let private bindResults fn res =
+let private bindResults isFromCache fn res  =
   res
   |> Result.bind (fun po ->
     extractOptionsDPW po
@@ -30,22 +30,22 @@ let private bindResults fn res =
         let view = projViewer.Render optsDPW
         let items =
             if obj.ReferenceEquals(view.Items, null) then [] else view.Items
-        Result.Ok (po, optsDPW, items, logMap)))
+        Result.Ok (po, optsDPW, items, logMap, isFromCache)))
 
 let private loaderNotificationHandler (fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) ((loader, state): Loader * WorkspaceProjectState) =
   match state with
   | WorkspaceProjectState.Loading(_,_) -> None //we just ignore loading notifications in this case
-  | WorkspaceProjectState.Loaded(po, _) ->
+  | WorkspaceProjectState.Loaded(po, _, isFromCache) ->
     let projectFileName = po.ProjectFileName
     let x =
       fcsBinder.GetProjectOptions projectFileName
-      |> bindResults projectFileName
+      |> bindResults isFromCache projectFileName
 
     Some x
   | WorkspaceProjectState.Failed(projectFileName, _) ->
     let x =
       fcsBinder.GetProjectOptions projectFileName
-      |> bindResults projectFileName
+      |> bindResults false projectFileName
 
     Some x
 
@@ -64,14 +64,14 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBin
       loaderNotificationHandler fcsBinder res
       |> Option.iter (fun n ->
           match n with
-          | Ok (opts, optsDPW, projViewerItems, logMap) ->
-              onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap))
+          | Ok (opts, optsDPW, projViewerItems, logMap, isFromCache) ->
+              onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (opts, optsDPW.ExtraProjectInfo, projViewerItems, logMap, isFromCache))
           | Error error ->
               onLoaded (ProjectSystem.WorkspaceProjectState.Failed (error.ProjFile, error))
       )
 
     use notif = loader.Notifications.Subscribe handler
-    loader.LoadProjects(supported, generateBinlog)
+    loader.LoadProjects(supported, generateBinlog, 1)
 
 let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) (generateBinlog: bool) = async {
     let (resProjects, otherProjects) =
@@ -80,7 +80,7 @@ let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project li
     for project in resProjects do
       match project.Response with
       | Some res ->
-          onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log))
+          onLoaded (ProjectSystem.WorkspaceProjectState.Loaded (res.Options, res.ExtraInfo, res.Items, res.Log, false))
       | None ->
         () //Shouldn't happen
 
