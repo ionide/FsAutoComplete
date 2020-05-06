@@ -71,7 +71,7 @@ let private getProjectOptions (loader: Dotnet.ProjInfo.Workspace.Loader) (fcsBin
       )
 
     use notif = loader.Notifications.Subscribe handler
-    loader.LoadProjects(supported, generateBinlog, 3)
+    loader.LoadProjects(supported, generateBinlog, 1)
 
 let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project list) (generateBinlog: bool) = async {
     let (resProjects, otherProjects) =
