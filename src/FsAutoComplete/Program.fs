@@ -19,6 +19,15 @@ let entry args =
     try
       System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
+      let allowedCategories = Set.empty
+      let filterFn (allowedCategories: Set<string>) (e: LogEvent) =
+        let ctx = e.Properties.["SourceContext"]
+        match ctx with
+        | :? ScalarValue as s ->
+          let category = s.Value :?> string
+          allowedCategories.Contains category
+        | _ -> false // don't allow untagged messages through
+
       // default the verbosity to warning
       let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
       let outputTemplate = "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
@@ -45,6 +54,10 @@ let entry args =
           exit 0 )
 
       Options.apply verbositySwitch logConf results
+
+      let allowedCategories = Set.empty //TODO: turn args into a set of allowed categories
+      let logConf = // TODO: conditionally apply this filter function to the log configuration instead of applying it every time
+          logConf.Filter.ByExcluding (Func<_,_> (filterFn allowedCategories))
 
       let logger = logConf.CreateLogger()
       Serilog.Log.Logger <- logger
