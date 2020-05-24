@@ -711,7 +711,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandlerWithLatest (fun p pos tyRes lineStr lines ->
             async {
-                let! res = commands.Methods tyRes  pos lines
+                let pos' = FcsRange.Pos.fromZ p.Position.Line p.Position.Character
+                let! res = commands.Methods tyRes pos' lines
                 let res =
                     match res with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
