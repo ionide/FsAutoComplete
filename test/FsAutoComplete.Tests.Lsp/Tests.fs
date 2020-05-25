@@ -1188,6 +1188,46 @@ let scriptProjectOptionsCacheTests =
     ))
   ]
 
+let signatureHelpTests =
+  
+  let serverStart scriptFileName =
+    let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
+    let (server, events) = serverInitialize workingDir defaultConfigDto
+    let scriptPath = Path.Combine(workingDir, scriptFileName)
+    do waitForWorkspaceFinishedParsing events
+    server, events, workingDir, scriptPath
+
+  testList "SignatureHelp" [
+    testCaseAsync "signature help is also shown for overload without parameters" (async {
+      let server, _, _, testFilePath = serverStart "Script1.fsx"
+
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+
+      let getSignatureHelpAt line character = server.TextDocumentSignatureHelp { TextDocument = { Uri = filePathToUri testFilePath }; Position = { Line = line; Character = character } }
+
+      let expectSomeOverloads sigHelpLspRes = 
+        let sigHelp : SignatureHelp = 
+          sigHelpLspRes
+          |> Flip.Expect.wantOk "Expected success SLP result"
+          |> Flip.Expect.wantSome "Expected some signature help"
+        sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
+
+      // let __ = new System.IO.MemoryStream(|)
+      let! result = getSignatureHelpAt 0 36
+      result |> expectSomeOverloads
+
+      // let ___ = new System.IO.MemoryStream (|||)
+      for c in 38 .. 40 do
+        let! result = getSignatureHelpAt 1 c
+        result |> expectSomeOverloads
+
+      // let _____ = new System.IO.MemoryStream(|4|2|)
+      for c in 39 .. 41 do
+        let! result = getSignatureHelpAt 2 c
+        result |> expectSomeOverloads
+    })
+  ]
+
 
 ///Global list of tests
 let tests =
@@ -1212,4 +1252,5 @@ let tests =
     //dependencyManagerTests //Requires .Net 5 preview
     highlightingTets
     scriptProjectOptionsCacheTests
+    signatureHelpTests
   ]
