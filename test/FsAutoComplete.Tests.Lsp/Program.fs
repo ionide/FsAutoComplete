@@ -21,7 +21,7 @@ let tests =
     gotoTest
     foldingTests
     tooltipTests
-    highlightingTets
+    // highlightingTets
     signatureHelpTests
 
     scriptPreviewTests
