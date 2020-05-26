@@ -14,7 +14,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
-    <Compile Include="Tests.fs" />
+    <Compile Include="CoreTests.fs" />
+    <Compile Include="ScriptTests.fs" />
+    <Compile Include="ExtensionsTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
