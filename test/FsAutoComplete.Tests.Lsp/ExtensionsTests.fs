@@ -12,7 +12,7 @@ open Helpers
 
 let fsdnTest =
   let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FsdnTest")
     let (server, event) = serverInitialize path defaultConfigDto
     waitForWorkspaceFinishedParsing event
     server
