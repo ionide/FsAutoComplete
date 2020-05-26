@@ -92,7 +92,7 @@ let linterTests =
     let (server, path, bag) = serverStart.Value
     f server path bag
 
-  testSequenced <| testList "Linter Test" [
+  testSequenced <| ptestList "Linter Test" [
     testCase "Linter Diagnostics" (serverTest (fun server path bag ->
       let (b,v) = bag.TryPeek()
       if b then
