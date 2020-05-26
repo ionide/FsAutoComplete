@@ -228,6 +228,13 @@ let formattingTests =
     ))
   ]
 
+let useFile filePath (server: Lsp.FsharpLspServer) =
+  do server.TextDocumentDidOpen { TextDocument = loadDocument filePath } |> Async.RunSynchronously
+  { new IDisposable with
+     member _.Dispose () =
+      do server.TextDocumentDidClose { TextDocument = { Uri = filePathToUri filePath } } |> Async.RunSynchronously
+    }
+
 let fakeInteropTests =
   let serverStart = lazy (
     let folderPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FakeInterop")
@@ -238,14 +245,38 @@ let fakeInteropTests =
   )
   let serverTest f () = f serverStart.Value
 
-  testList "fake integration" [
+  testSequenced <| testList "fake integration" [
     testCase "can typecheck a fake script including uses of paket-delivered types" (serverTest (fun (server, events, rootPath, scriptName) ->
-        do server.TextDocumentDidOpen { TextDocument = loadDocument (Path.Combine(rootPath, scriptName)) } |> Async.RunSynchronously
+        let scriptFilePath = Path.Combine (rootPath, scriptName)
+        use __ = useFile scriptFilePath server
         match waitForParseResultsForFile scriptName events with
         | Ok () ->
           () // all good, no parsing/checking errors
         | Core.Result.Error errors ->
           failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, scriptName)) errors
+        ))
+    testCase "can determine fake targets list for a fake script" (serverTest (fun (server, events, rootPath, scriptName) ->
+        let dotnetBinary =
+          match System.Environment.OSVersion.Platform with
+          | System.PlatformID.Win32NT
+          | System.PlatformID.Win32S
+          | System.PlatformID.WinCE
+          | System.PlatformID.Win32Windows -> "dotnet.exe"
+          | _ -> "dotnet"
+        let dotnetPath = Path.Combine(server.Config.DotNetRoot, dotnetBinary)
+        let expectedTargets = [|"Default"|]
+        let scriptFilePath = Path.Combine(rootPath, scriptName)
+        use __ = useFile scriptFilePath server
+        match server.FakeTargets({ FileName = Path.Combine(rootPath, scriptName)
+                                   FakeContext = { DotNetRuntime = dotnetPath } }) |> Async.RunSynchronously with
+        | Ok { WarningsAndErrors = warnings; Targets = targets } ->
+          match warnings with
+          | [||] -> ()
+          | warnings -> printfn "FAKE warnings: %A" warnings
+          let targetNames = targets |> Array.map (fun t -> t.Name)
+          Expect.equal targetNames expectedTargets "should have found all targets"
+        | Core.Result.Error errors ->
+          failwithf "Errors while getting targets outline for %s: %A" (Path.Combine(rootPath, scriptName)) errors
         ))
   ]
 
