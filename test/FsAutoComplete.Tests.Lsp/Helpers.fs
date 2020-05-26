@@ -10,6 +10,54 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+type Async =
+  /// Creates an asynchronous workflow that non-deterministically returns the
+  /// result of one of the two specified workflows (the one that completes
+  /// first). This is similar to Task.WhenAny.
+  static member WhenAny([<ParamArray>] works:Async<'T>[]) : Async<'T> =
+    Async.FromContinuations(fun (cont, econt, ccont) ->
+      // Results from the two
+      let results = Array.map (fun _ -> Choice1Of3()) works
+      let handled = ref false
+      let lockObj = new obj()
+      let synchronized f = lock lockObj f
+
+      // Called when one of the workflows completes
+      let complete () =
+        let op =
+          synchronized (fun () ->
+            // If we already handled result (and called continuation)
+            // then ignore. Otherwise, if the computation succeeds, then
+            // run the continuation and mark state as handled.
+            // Only throw if all workflows failed.
+            if !handled then ignore
+            else
+              let succ = Seq.tryPick (function Choice2Of3 v -> Some v | _ -> None) results
+              match succ with
+              | Some value -> handled := true; (fun () -> cont value)
+              | _ ->
+                  if Seq.forall (function Choice3Of3 _ -> true | _ -> false) results then
+                    let exs = Array.map (function Choice3Of3 ex -> ex | _ -> failwith "!") results
+                    (fun () -> econt (AggregateException(exs)))
+                  else ignore )
+        // Actually run the continuation
+        // (this shouldn't be done in the lock)
+        op()
+
+            // Run a workflow and write result (or exception to a ref cell)
+      let run index workflow = async {
+        try
+          let! res = workflow
+          synchronized (fun () -> results.[index] <- Choice2Of3 res)
+        with e ->
+          synchronized (fun () -> results.[index] <- Choice3Of3 e)
+        complete() }
+
+      // Start all work items - using StartImmediate, because it
+      // should be started on the current synchronization context
+      works |> Seq.iteri (fun index work ->
+        Async.StartImmediate(run index work)) )
+
 let logger = Expecto.Logging.Log.create "LSPTests"
 
 let createServer () =
@@ -133,10 +181,60 @@ let clientCaps : ClientCapabilities =
 open Expecto.Logging
 open Expecto.Logging.Message
 
+
 let logEvent n =
   logger.debug (eventX "event: {e}" >> setField "e" n)
 
+let logDotnetRestore section line =
+  if not (String.IsNullOrWhiteSpace(line)) then
+    logger.debug (eventX "[{section}] dotnet restore: {line}" >> setField "section" section >> setField "line" line)
+
+let dotnetCleanup baseDir =
+  ["obj"; "bin"]
+  |> List.map (fun f -> Path.Combine(baseDir, f))
+  |> List.filter Directory.Exists
+  |> List.iter (fun path -> Directory.Delete(path, true))
+
+
+
+let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
+  let psi = System.Diagnostics.ProcessStartInfo()
+  psi.FileName <- exePath
+  psi.WorkingDirectory <- workingDir
+  psi.RedirectStandardOutput <- true
+  psi.RedirectStandardError <- true
+  psi.Arguments <- args
+  psi.CreateNoWindow <- true
+  psi.UseShellExecute <- false
+
+  use p = new System.Diagnostics.Process()
+  p.StartInfo <- psi
+
+  p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+
+  p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+
+  p.Start() |> ignore
+  p.BeginOutputReadLine()
+  p.BeginErrorReadLine()
+  p.WaitForExit()
+
+  let exitCode = p.ExitCode
+
+  exitCode, (workingDir, exePath, args)
+
+let expectExitCodeZero (exitCode, _) =
+  Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
+
+
 let serverInitialize path (config: FSharpConfigDto) =
+  dotnetCleanup path
+  let files = Directory.GetFiles(path)
+
+  if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
+    runProcess (logDotnetRestore ("Restore" + path)) path "dotnet" "restore"
+    |> expectExitCodeZero
+
   let server, event = createServer()
 
   event.Publish
@@ -179,16 +277,32 @@ let parseProject projectFilePath (server: FsharpLspServer) = async {
 }
 
 let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
+  let withTimeout dueTime comp =
+    let success = async {
+        let! x = comp
+        return (Some x)
+    }
+    let timeout = async {
+        do! Async.Sleep(dueTime)
+        return None
+    }
+    Async.WhenAny(success, timeout)
+
   event.Publish
   |> Event.map (fun n -> System.Diagnostics.Debug.WriteLine(sprintf "n: %A" n); n)
   |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
   |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
   |> Event.filter (fun o -> (o.Content.Contains "error") || (o.Content.Contains "workspaceLoad" && o.Content.Contains "finished"))
   |> Async.AwaitEvent
+  |> withTimeout 5000
   |> Async.RunSynchronously
   |> fun o ->
-    if o.Content.Contains """{"Kind":"error","""
-    then failtestf "error loading project: %A" o
+    match o with
+    | Some o ->
+      if o.Content.Contains """{"Kind":"error","""
+      then failtestf "error loading project: %A" o
+    | None ->
+      logger.debug (eventX "Timeout waiting for workspace finished")
 
 //This is currently used for single tests, hence the naive implementation is working just fine.
 //Revisit if more tests will use this scenario.
@@ -197,39 +311,59 @@ let waitForScriptFilePropjectOptions (server: FsharpLspServer) =
   server.ScriptFileProjectOptions
   |> Event.add (fun n -> projectOptsList <- n::projectOptsList)
 
-let expectExitCodeZero (exitCode, _) =
-  Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
+let private typedEvents typ =
+  Event.filter (fun (typ', _o) -> typ' = typ)
 
-let dotnetCleanup baseDir =
-  ["obj"; "bin"]
-  |> List.map (fun f -> Path.Combine(baseDir, f))
-  |> List.filter Directory.Exists
-  |> List.iter (fun path -> Directory.Delete(path, true))
+let private payloadAs<'t> =
+  Event.map (fun (_typ, o) -> unbox<'t> o)
 
+let private getDiagnosticsEvents =
+  typedEvents "textDocument/publishDiagnostics"
+  >> payloadAs<LanguageServerProtocol.Types.PublishDiagnosticsParams>
 
+/// note that the files here are intended to be the filename only., not the full URI.
+let private matchFiles (files: string Set) =
+  Event.choose (fun (p: LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
+    let filename = p.Uri.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
+    if Set.contains filename files
+    then Some (filename, p)
+    else None
+  )
 
-let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
-  let psi = System.Diagnostics.ProcessStartInfo()
-  psi.FileName <- exePath
-  psi.WorkingDirectory <- workingDir
-  psi.RedirectStandardOutput <- true
-  psi.RedirectStandardError <- true
-  psi.Arguments <- args
-  psi.CreateNoWindow <- true
-  psi.UseShellExecute <- false
+let private fileDiagnostics file (events: Event<string*obj>) =
+  logger.info (eventX "waiting for events on file {file}" >> setField "file" file)
+  events.Publish
+  |> getDiagnosticsEvents
+  |> matchFiles (Set.ofList [file])
 
-  use p = new System.Diagnostics.Process()
-  p.StartInfo <- psi
+let analyzerEvents file events =
+  fileDiagnostics file events
+  |> Event.map snd
+  |> Event.filter (fun payload -> payload.Diagnostics |> Array.exists (fun d -> d.Source.StartsWith "F# Analyzers"))
 
-  p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+let waitForParseResultsForFile file (events: Event<string*obj>) =
+  let matchingFileEvents = fileDiagnostics file events
+  async {
+    let! (filename, args) = Async.AwaitEvent matchingFileEvents
+    match args.Diagnostics with
+    | [||] -> return Ok ()
+    | errors -> return Core.Result.Error errors
+  }
+  |> Async.RunSynchronously
 
-  p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+let inline waitForParsedScript (m: System.Threading.ManualResetEvent) (event: Event<string * obj>) =
 
-  p.Start() |> ignore
-  p.BeginOutputReadLine()
-  p.BeginErrorReadLine()
-  p.WaitForExit()
+  let bag = new System.Collections.Concurrent.ConcurrentBag<LanguageServerProtocol.Types.PublishDiagnosticsParams>()
 
-  let exitCode = p.ExitCode
+  event.Publish
+  |> Event.filter (fun (typ, o) -> typ = "textDocument/publishDiagnostics")
+  |> Event.map (fun (typ, o) -> unbox<LanguageServerProtocol.Types.PublishDiagnosticsParams> o)
+  |> Event.filter (fun n ->
+    let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
+    filename = "Script.fs")
+  |> Event.add (fun n ->
+    bag.Add(n)
+    m.Set() |> ignore
+  )
 
-  exitCode, (workingDir, exePath, args)
+  bag
