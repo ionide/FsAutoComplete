@@ -1,8 +1,6 @@
 
 # FsAutoComplete
 
-[![Build Status](https://dev.azure.com/fsautocomplete/fsautocomplete/_apis/build/status/fsharp.FsAutoComplete?branchName=master)](https://dev.azure.com/fsautocomplete/fsautocomplete/_build/latest?definitionId=1&branchName=master)
-
 The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or intellisense features for editors.
 
 It can be hosted using the Language Server Protocol.
