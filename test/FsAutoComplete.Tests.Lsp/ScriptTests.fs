@@ -40,7 +40,7 @@ let scriptEvictionTests =
   )
   let serverTest f () = f serverStart.Value
 
-  testList "script eviction tests" [
+  ptestList "script eviction tests" [
     testCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
       let openScript () = do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
 
