@@ -248,6 +248,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         with get() = lastCheckResult
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
+        let file = Path.GetFullPath file
         state.AddFileText(file, lines, version)
         let payload =
             if Utils.isAScript file
