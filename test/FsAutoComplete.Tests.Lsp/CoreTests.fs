@@ -609,7 +609,7 @@ let tooltipTests =
         failwithf "Error while getting hover text: %A" errors
     )
 
-  let verifyDesscription line character expectedTooltip =
+  let verifyDescription line character expectedTooltip =
     testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
       let server, scriptPath = serverStart.Value
       let pos: TextDocumentPositionParams = {
@@ -624,13 +624,16 @@ let tooltipTests =
       | Result.Error errors ->
         failwithf "Error while getting hover text: %A" errors
     )
+    
+  let concatLines = String.concat Environment.NewLine
 
   testList "tooltip evaluation" [
     verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
     verifyTooltip 1 4 "val listOfTuples : list<int * int>"
     verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
     verifyTooltip 3 4 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
-    //verifyDesscription 4 4 """**Description**\n\nPrint to a string using the given format.\n\n**Parameters**\n\n* `format`: The formatter.\n\n**Returns**\n\nThe formatted result.\n\n**Generic parameters**\n\n* `'T` is `string`"""
+    //verifyDescription 4 4 """**Description**\n\nPrint to a string using the given format.\n\n**Parameters**\n\n* `format`: The formatter.\n\n**Returns**\n\nThe formatted result.\n\n**Generic parameters**\n\n* `'T` is `string`"""
+    verifyDescription 13 10 (concatLines ["**Description**"; ""; "\nMy super summary\n "; ""; "**Parameters**"; ""; "* `c`: foo"; "* `b`: bar"; "* `a`: baz"; ""; "**Returns**"; ""; ""])
   ]
 
 

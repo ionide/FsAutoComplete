@@ -6,6 +6,7 @@ module FsAutoComplete.TipFormatter
 open System
 open System.IO
 open System.Xml
+open System.Collections.Generic
 open System.Text.RegularExpressions
 open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.Logging
@@ -24,8 +25,8 @@ module private Section =
         else
             nl + nl + content
 
-    let fromMap (name : string) (content : Map<string, string>) =
-        if content.Count = 0 then
+    let fromKeyValueList (name : string) (content : list<KeyValuePair<string, string>>) = 
+        if List.isEmpty content then
             ""
         else
             content
@@ -786,7 +787,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         doc.DocumentElement.GetElementsByTagName name
         |> Seq.cast<XmlNode>
         |> Seq.map (fun node -> Format.extractMemberText node.Attributes.[0].InnerText, node)
-        |> Map.ofSeq
+        |> Seq.toList
 
     let readRemarks (doc : XmlDocument) =
         doc.DocumentElement.GetElementsByTagName "remarks"
@@ -804,12 +805,14 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     let rawExamples =
         doc.DocumentElement.GetElementsByTagName "example"
         |> Seq.cast<XmlNode>
+    let readNamedContentAsKvPair (key, content) = KeyValuePair(key, readContentForTooltip content)
 
     let summary = readContentForTooltip rawSummary
-    let parameters = rawParameters |> Map.map (fun _ n -> readContentForTooltip n)
+
+    let parameters = rawParameters |> List.map readNamedContentAsKvPair
     let remarks = rawRemarks |> Seq.map readContentForTooltip
-    let exceptions = rawExceptions |> Map.map (fun _ n -> readContentForTooltip n)
-    let typeParams = rawTypeParams |> Map.map (fun _ n -> readContentForTooltip n)
+    let exceptions = rawExceptions |> List.map readNamedContentAsKvPair
+    let typeParams = rawTypeParams |> List.map readNamedContentAsKvPair
     let examples = rawExamples |> Seq.map readContentForTooltip
     let returns = rawReturns |> Option.map readContentForTooltip
     let seeAlso =
@@ -822,7 +825,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     override x.ToString() =
         summary + nl + nl +
         (parameters |> Seq.map (fun kv -> "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl) +
-        (if exceptions.Count = 0 then ""
+        (if exceptions.Length = 0 then ""
          else nl + nl + "Exceptions:" + nl +
                 (exceptions |> Seq.map (fun kv -> "\t" + "`" + kv.Key + "`" + ": " + kv.Value) |> String.concat nl))
 
@@ -839,10 +842,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         let content =
             summary
             + Section.fromList "" remarks
-            + Section.fromMap "Type parameters" typeParams
-            + Section.fromMap "Parameters" parameters
+            + Section.fromKeyValueList "Type parameters" typeParams
+            + Section.fromKeyValueList "Parameters" parameters
             + Section.fromOption "Returns" returns
-            + Section.fromMap "Exceptions" exceptions
+            + Section.fromKeyValueList "Exceptions" exceptions
             + Section.fromList "Examples" examples
             + Section.fromList "See also" seeAlso
 
@@ -858,10 +861,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
         "**Description**" + nl + nl
         + summary
         + Section.fromList "" remarks
-        + Section.fromMap "Type parameters" typeParams
-        + Section.fromMap "Parameters" parameters
+        + Section.fromKeyValueList "Type parameters" typeParams
+        + Section.fromKeyValueList "Parameters" parameters
         + Section.fromOption "Returns" returns
-        + Section.fromMap "Exceptions" exceptions
+        + Section.fromKeyValueList "Exceptions" exceptions
         + Section.fromList "Examples" examples
         + Section.fromList "See also" seeAlso
 
