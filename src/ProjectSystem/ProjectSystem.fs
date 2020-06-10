@@ -75,15 +75,21 @@ type ProjectController(checker : FSharpChecker) =
 
     member private x.LoaderLoop = MailboxProcessor.Start(fun agent ->
       let rec loop () = async {
-        let event = Event<_>()
         let! ((oc, fn, tfm, ol, gb), reply : AsyncReplyChannel<_>) = agent.Receive()
-        let opl str cache tfm bl =
-          event.Trigger ()
-          ol str cache tfm bl
+        let mutable wasInvoked = false
+        let! x =
+            Async.FromContinuations( fun (succ, err, cancl) ->
+                let opl str cache tfm bl =
+                    ol str cache tfm bl
+                    if wasInvoked then ()
+                    else
+                        wasInvoked <- true
+                        succ ()
+                x.LoadWorkspace oc [fn] tfm opl gb |> Async.Ignore |> Async.Start
+            )
 
-        let! _ = x.LoadWorkspace oc [fn] tfm opl gb
-        do! event.Publish |> Async.AwaitEvent
         reply.Reply true
+        return ()
       }
 
       loop ()
