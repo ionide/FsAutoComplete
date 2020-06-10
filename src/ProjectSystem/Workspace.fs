@@ -88,35 +88,3 @@ let internal loadInBackground onLoaded (loader, fcsBinder) (projects: Project li
     |> List.map (fun n -> n.FileName)
     |> getProjectOptions loader fcsBinder onLoaded generateBinlog
   }
-
-
-let private getProjectOptionsSingle (loader: Dotnet.ProjInfo.Workspace.Loader, fcsBinder: Dotnet.ProjInfo.Workspace.FCS.FCSBinder) (generateBinlog: bool) (projectFileName: string) =
-    if not (File.Exists projectFileName) then
-        Error (GenericError(projectFileName, sprintf "File '%s' does not exist" projectFileName))
-    else
-        match projectFileName with
-        | Net45
-        | NetCoreSdk ->
-            loader.LoadProjects([projectFileName], generateBinlog)
-
-            fcsBinder.GetProjectOptions (projectFileName)
-            |> Result.bind (fun po ->
-                extractOptionsDPW po
-                |> Result.bind (fun optsDPW ->
-                    let logMap = [ projectFileName, "" ] |> Map.ofList
-                    let projViewer = Dotnet.ProjInfo.Workspace.ProjectViewer ()
-                    let view = projViewer.Render optsDPW
-                    let items =
-                        if obj.ReferenceEquals(view.Items, null) then [] else view.Items
-                    Result.Ok (po, optsDPW, items, logMap)))
-        | NetCoreProjectJson ->
-            Error (GenericError(projectFileName, (sprintf "Project file '%s' format project.json not supported" projectFileName)))
-        | FSharpNetSdk ->
-            Error (GenericError(projectFileName, (sprintf "Project file '%s' using FSharp.NET.Sdk not supported" projectFileName)))
-        | Unsupported ->
-            Error (GenericError(projectFileName, (sprintf "Project file '%s' not supported" projectFileName)))
-
-
-let internal parseProject (loader, fcsBinder) (generateBinlog: bool) projectFileName =
-    projectFileName
-    |> getProjectOptionsSingle (loader, fcsBinder) generateBinlog

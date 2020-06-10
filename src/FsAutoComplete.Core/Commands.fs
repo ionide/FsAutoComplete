@@ -222,7 +222,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
           |> parseFilesInTheBackground tfmForScripts
           |> Async.Start
         else
-          commandsLogger.info (Log.setMessage "Project from cahce '{file}'" >> Log.addContextDestructured "file" projectFileName)
+          commandsLogger.info (Log.setMessage "Project from cache '{file}'" >> Log.addContextDestructured "file" projectFileName)
 
     member __.Notify = notify.Publish
 
@@ -427,10 +427,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         } |> x.AsCancellable file
 
 
-    member x.Project projectFileName onChange (generateBinlog: bool) tfmForScripts = async {
-        let! res = state.ProjectController.LoadProject projectFileName onChange tfmForScripts generateBinlog onProjectLoaded
-        return CoreResponse.Res res
-    }
+
 
     member x.Declarations file lines version = async {
         let file = Path.GetFullPath file
@@ -844,6 +841,12 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
         let! res = state.ProjectController.LoadWorkspace onChange files tfmForScripts onProjectLoaded generateBinlog
         commandsLogger.info (Log.setMessage "Workspace loading finished ")
+        return CoreResponse.Res res
+    }
+
+    member x.Project onChange projectFileName tfmForScripts (generateBinlog: bool)  = async {
+        commandsLogger.info (Log.setMessage "Project loading '{file}'" >> Log.addContextDestructured "file" projectFileName)
+        let! res = state.ProjectController.LoadProject onChange projectFileName tfmForScripts onProjectLoaded generateBinlog
         return CoreResponse.Res res
     }
 
