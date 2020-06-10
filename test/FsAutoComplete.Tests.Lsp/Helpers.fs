@@ -264,13 +264,7 @@ let loadDocument path : TextDocumentItem =
 let parseProject projectFilePath (server: FsharpLspServer) = async {
   let projectParams: ProjectParms =
     { Project = { Uri = filePathToUri projectFilePath } }
-  // first restore the project
-  let psi = System.Diagnostics.ProcessStartInfo()
-  psi.FileName <- "dotnet"
-  psi.Arguments <- sprintf "restore %s" projectFilePath
-  let proc = System.Diagnostics.Process.Start(psi)
-  proc.WaitForExit()
-  if 0 <> proc.ExitCode then failwithf "could not restore project %s" projectFilePath
+
   let projectName = Path.GetFileNameWithoutExtension projectFilePath
   let! result = server.FSharpProject projectParams
   logger.debug (eventX "{project} parse result: {result}" >> setField "result" (sprintf "%A" result) >> setField "project" projectName)
