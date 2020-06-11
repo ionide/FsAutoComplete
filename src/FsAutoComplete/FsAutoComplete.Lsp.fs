@@ -1779,26 +1779,20 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 |> success
 
         return res
-
-
     }
 
     member __.FSharpProject(p) = async {
         logger.info (Log.setMessage "FSharpProject Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn ignore config.GenerateBinlog config.ScriptTFM
+        let! res = commands.Project ignore fn config.ScriptTFM config.GenerateBinlog
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
-            | CoreResponse.Res (ProjectResponse.Project proj) ->
-                { Content =  CommandResponse.project FsAutoComplete.JsonSerializer.writeJson proj }
+            | CoreResponse.Res fin ->
+                { Content =  CommandResponse.projectLoad FsAutoComplete.JsonSerializer.writeJson fin }
                 |> success
-            | CoreResponse.Res (ProjectResponse.ProjectError er) ->
-                { Content =  CommandResponse.projectError FsAutoComplete.JsonSerializer.writeJson er }
-                |> success
-            | _ -> LspResult.notImplemented
         return res
     }
 

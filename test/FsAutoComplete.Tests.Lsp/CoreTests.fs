@@ -624,7 +624,7 @@ let tooltipTests =
       | Result.Error errors ->
         failwithf "Error while getting hover text: %A" errors
     )
-    
+
   let concatLines = String.concat Environment.NewLine
 
   testList "tooltip evaluation" [

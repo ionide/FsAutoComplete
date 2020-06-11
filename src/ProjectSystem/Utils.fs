@@ -30,3 +30,15 @@ module internal Utils =
       match x.TryGetValue key with
       | true, value -> Some value
       | _ -> None
+
+  [<RequireQualifiedAccess>]
+  module Async =
+      /// Transforms an Async value using the specified function.
+      [<CompiledName("Map")>]
+      let map (mapping : 'a -> 'b) (value : Async<'a>) : Async<'b> =
+          async {
+              // Get the input value.
+              let! x = value
+              // Apply the mapping function and return the result.
+              return mapping x
+          }
