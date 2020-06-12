@@ -108,10 +108,12 @@ type ParseAndCheckResults
         return ResultOrString.Error (sprintf "Could not find declaration. %s" elaboration)
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
-        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" range)
+        let rangeStr = range.ToString()
+        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" rangeStr)
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
-        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" rangeInNonexistentFile)
+        let range = rangeInNonexistentFile.ToString()
+        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" range)
         return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
         return decompile assembly externalSym

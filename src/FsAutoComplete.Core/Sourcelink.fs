@@ -51,7 +51,7 @@ let private tryGetSourcesForDll (dllPath: string) =
             tryGetSourcesForPdb (pdbForDll dllPath)
     with
     | e ->
-        logger.info (Log.setMessage "Reading metadata information for DLL {dllPath}" >> Log.addContextDestructured "dllPath" dllPath >> Log.addExn e)
+        logger.error (Log.setMessage "Reading metadata information for DLL {dllPath} failed" >> Log.addContextDestructured "dllPath" dllPath >> Log.addExn e)
         tryGetSourcesForPdb (pdbForDll dllPath)
 
 let private tryGetSourcelinkJson (reader: MetadataReader) =
