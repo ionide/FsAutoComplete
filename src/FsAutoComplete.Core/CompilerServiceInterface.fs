@@ -7,6 +7,8 @@ open Utils
 open FSharp.Compiler.Range
 open FSharp.Compiler
 open FSharp.Compiler.Text
+open FsAutoComplete.Logging
+open ProjectSystem
 
 type Version = int
 

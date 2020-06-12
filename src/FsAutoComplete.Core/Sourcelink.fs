@@ -6,6 +6,9 @@ open System.Reflection.PortableExecutable
 open System.Text.RegularExpressions
 open Newtonsoft.Json
 open FSharp.Data
+open FsAutoComplete.Logging
+
+let logger = LogProvider.getLoggerByName "Sourcelink"
 
 let private sourceLinkGuid = System.Guid "CC110556-A091-4D38-9FEC-25AB9A351A6A"
 let private embeddedSourceGuid = System.Guid "0E8A571B-6926-466E-B4AD-8AB04611F5FE"
@@ -26,7 +29,7 @@ let private pdbForDll (dllPath: string) =
     Path.ChangeExtension(dllPath, ".pdb")
 
 let private tryGetSourcesForPdb (pdbPath: string) =
-    Debug.print "Reading sourcelink information for PDB %s" pdbPath
+    logger.info (Log.setMessage "Reading metadata information for PDB {pdbPath}" >> Log.addContextDestructured "pdbPath" pdbPath)
     match File.Exists pdbPath with
     | true ->
         let pdbData = File.OpenRead pdbPath
@@ -35,7 +38,7 @@ let private tryGetSourcesForPdb (pdbPath: string) =
         None
 
 let private tryGetSourcesForDll (dllPath: string) =
-    Debug.print "Reading sourcelink information for DLL %s" dllPath
+    logger.info (Log.setMessage "Reading metadata information for DLL {dllPath}" >> Log.addContextDestructured "dllPath" dllPath)
     let file = File.OpenRead dllPath
     let embeddedReader = new PEReader(file)
     try
@@ -48,7 +51,7 @@ let private tryGetSourcesForDll (dllPath: string) =
             tryGetSourcesForPdb (pdbForDll dllPath)
     with
     | e ->
-        Debug.print "Error during dll read: %A" e
+        logger.info (Log.setMessage "Reading metadata information for DLL {dllPath}" >> Log.addContextDestructured "dllPath" dllPath >> Log.addExn e)
         tryGetSourcesForPdb (pdbForDll dllPath)
 
 let private tryGetSourcelinkJson (reader: MetadataReader) =
@@ -61,11 +64,11 @@ let private tryGetSourcelinkJson (reader: MetadataReader) =
         then Some (reader.GetBlobBytes info.Value)
         else None
     )
-    |> Option.map (fun bytes -> 
+    |> Option.map (fun bytes ->
         let byteString = System.Text.Encoding.UTF8.GetString(bytes)
-        Debug.print "Sourcelink data is '%s'" byteString
+        logger.info (Log.setMessage "Read sourcelink json in as {json}" >> Log.addContextDestructured "json" byteString)
         let blob = JsonConvert.DeserializeObject<SourceLinkJson>(byteString)
-        Debug.print "Blob is %A" blob
+        logger.info (Log.setMessage "Read sourcelink structure {blob}" >> Log.addContextDestructured "blog" blob)
         blob
     )
 
@@ -106,7 +109,7 @@ let private tryGetUrlWithExactMatch (pathPattern: string) (urlPattern: string) (
     if pathPattern.Equals(document.Name, System.StringComparison.Ordinal) then Some (urlPattern, pathPattern, document) else None
 
 let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
-    Debug.print "finding source for document %A" document
+    logger.info (Log.setMessage "finding source for document {doc}" >> Log.addContextDestructured "doc" document)
     match json.documents with
     | null -> None
     | documents ->
@@ -122,11 +125,11 @@ let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
 let private downloadFileToTempDir (url: string) (repoPathFragment: string) (document: Document) =
     let tempFile = System.IO.Path.GetTempPath() </> toHex document.Hash </> repoPathFragment
     let tempDir = Path.GetDirectoryName tempFile
-    Directory.CreateDirectory tempDir |> ignore 
-    
+    Directory.CreateDirectory tempDir |> ignore
+
     async {
         use fileStream = File.OpenWrite tempFile
-        Debug.print "Getting file from '%s' for document '%s'" url repoPathFragment
+        logger.info (Log.setMessage "Getting file from {url} for document {repoPath}" >> Log.addContextDestructured "url" url >> Log.addContextDestructured "repoPath" repoPathFragment)
         let! response = Http.AsyncRequestStream(url, httpMethod = "GET")
         do! response.ResponseStream.CopyToAsync fileStream |> Async.AwaitTask
         return tempFile
@@ -139,12 +142,12 @@ type Errors =
 
 let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
     // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
-    Debug.print "Reading from %s for source file %s" dllPath targetFile
-    let targetFile = 
+    logger.info (Log.setMessage "Reading from {dll} for source file {file}" >> Log.addContextDestructured "dll" dllPath >> Log.addContextDestructured "file" targetFile)
+    let targetFile =
         if targetFile.StartsWith System.Environment.CurrentDirectory
         then targetFile.Replace(System.Environment.CurrentDirectory + "/", "")
         else targetFile
-    Debug.print "Target file is %s" targetFile
+    logger.info (Log.setMessage "Target file is {file}" >> Log.addContextDestructured "file" targetFile)
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
     | Some sourceReaderProvider ->
@@ -154,11 +157,11 @@ let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
         | None ->
             return Error InvalidJson
         | Some json ->
-            let docs = documentsFromReader sourceReader 
-            Debug.print "trying to find document %s in %A" targetFile docs
+            let docs = documentsFromReader sourceReader
+            logger.info (Log.setMessage "trying to find document {doc} in {sources}" >> Log.addContextDestructured "doc" targetFile >> Log.addContextDestructured "sources" docs)
             let doc =
                 docs
-                |> Seq.tryFind (fun d -> d.Name = targetFile) 
+                |> Seq.tryFind (fun d -> d.Name = targetFile)
                 |> Option.bind (tryGetUrlForDocument json)
             match doc with
             | None ->
