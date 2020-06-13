@@ -256,14 +256,14 @@ let serverInitialize path (config: FSharpConfigDto) =
     failwith "Initialization failed"
 
 let loadDocument path : TextDocumentItem =
-  { Uri = filePathToUri path
+  { Uri = Path.FilePathToUri path
     LanguageId = "fsharp"
     Version = 0
     Text = File.ReadAllText path  }
 
 let parseProject projectFilePath (server: FsharpLspServer) = async {
   let projectParams: ProjectParms =
-    { Project = { Uri = filePathToUri projectFilePath } }
+    { Project = { Uri = Path.FilePathToUri projectFilePath } }
 
   let projectName = Path.GetFileNameWithoutExtension projectFilePath
   let! result = server.FSharpProject projectParams

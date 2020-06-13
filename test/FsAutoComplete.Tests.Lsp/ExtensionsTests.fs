@@ -39,12 +39,12 @@ let fsdnTest =
 
 let uriTests =
   let verifyUri (given: string) (expectedLocal: string) = test (sprintf "roundtrip '%s' -> '%s'" given expectedLocal) {
-    let actual = LspHelpers.Conversions.fileUriToLocalPath given
+    let actual = Path.FileUriToLocalPath given
     Expect.equal actual expectedLocal (sprintf "LocalPath of '%s' should be '%s'" given expectedLocal)
   }
 
   let convertRawPathToUri (rawPath: string) (expectedPath: string) = test (sprintf "convert '%s' -> '%s'" rawPath expectedPath) {
-    let createdFilePath = filePathToUri rawPath
+    let createdFilePath = Path.FilePathToUri rawPath
     let createdUri = createdFilePath |> Uri |> string
     Expect.equal createdUri expectedPath (sprintf "converting raw path '%s' should generate a Uri with LocalPath '%s'" createdFilePath expectedPath)
   }
@@ -209,7 +209,7 @@ let formattingTests =
     do server.TextDocumentDidOpen { TextDocument = loadDocument sourceFile } |> Async.RunSynchronously
     match waitForParseResultsForFile (Path.GetFileName sourceFile) events with
     | Ok () ->
-      match server.TextDocumentFormatting { TextDocument = { Uri = filePathToUri sourceFile }
+      match server.TextDocumentFormatting { TextDocument = { Uri = Path.FilePathToUri sourceFile }
                                             Options = { TabSize = 4
                                                         InsertSpaces = true
                                                         AdditionalData = dict [] } } |> Async.RunSynchronously with

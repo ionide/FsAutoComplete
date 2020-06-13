@@ -40,44 +40,8 @@ module Conversions =
             End = { Line = range.EndLine - 1; Character = range.EndColumn - 1 }
         }
 
-    /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
-    /// modified slightly to not rely on the System.Path members because they vary per-platform
-    let filePathToUri (filePath: string): DocumentUri =
-        let filePath, finished =
-            if filePath.Contains "Untitled-" then
-                let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
-                if rg.Success then
-                    rg.Groups.[1].Value, true
-                else
-                    filePath, false
-            else
-                filePath, false
-
-        if not finished then
-            let uri = StringBuilder(filePath.Length)
-            for c in filePath do
-                if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                    c = '+' || c = '/' || c = '.' || c = '-' || c = '_' || c = '~' ||
-                    c > '\xFF' then
-                    uri.Append(c) |> ignore
-                // handle windows path separator chars.
-                // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
-                // logic to work cross-platform (for tests)
-                else if c = '\\' then
-                    uri.Append('/') |> ignore
-                else
-                    uri.Append('%') |> ignore
-                    uri.Append((int c).ToString("X2")) |> ignore
-
-            if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-                "file:" + uri.ToString()
-            else
-                "file:///" + (uri.ToString()).TrimStart('/')
-        else
-            "untitled:" + filePath
-
     let fcsRangeToLspLocation(range: FSharp.Compiler.Range.range): Lsp.Location =
-        let fileUri = filePathToUri range.FileName
+        let fileUri = Path.FilePathToUri range.FileName
         let lspRange = fcsRangeToLsp range
         {
             Uri = fileUri
@@ -85,7 +49,7 @@ module Conversions =
         }
 
     let symbolUseRangeToLspLocation (range: SymbolCache.SymbolUseRange): Lsp.Location =
-        let fileUri = filePathToUri range.FileName
+        let fileUri = Path.FilePathToUri range.FileName
         let lspRange = symbolUseRangeToLsp range
         {
             Uri = fileUri
@@ -95,7 +59,7 @@ module Conversions =
     let findDeclToLspLocation(decl: FsAutoComplete.FindDeclarationResult): Lsp.Location =
         match decl with
         | FsAutoComplete.FindDeclarationResult.ExternalDeclaration ex ->
-            let fileUri = filePathToUri ex.File
+            let fileUri = Path.FilePathToUri ex.File
             {
                 Uri = fileUri
                 Range = {
@@ -105,35 +69,14 @@ module Conversions =
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
 
-    /// a test that checks if the start of the line is a windows-style drive string, for example
-    /// /d:, /c:, /z:, etc.
-    let isWindowsStyleDriveLetterMatch (s: string) =
-        match s.[0..2].ToCharArray() with
-        | [| |]
-        | [| _ |]
-        | [| _; _ |] -> false
-        // 26 windows drive letters allowed, only
-        | [| '/'; c; ':' |] when Char.IsLetter c -> true
-        | _ -> false
-
-    /// handles unifying the local-path logic for windows and non-windows paths,
-    /// without doing a check based on what the current system's OS is.
-    let fileUriToLocalPath (u: DocumentUri) =
-        let initialLocalPath = Uri(u).LocalPath
-        let fn =
-            if isWindowsStyleDriveLetterMatch initialLocalPath
-            then initialLocalPath.TrimStart('/')
-            else initialLocalPath
-        if u.StartsWith "untitled:" then (fn + ".fsx") else fn
-
     type TextDocumentIdentifier with
-        member doc.GetFilePath() = fileUriToLocalPath doc.Uri
+        member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
     type VersionedTextDocumentIdentifier with
-        member doc.GetFilePath() = fileUriToLocalPath doc.Uri
+        member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
     type TextDocumentItem with
-        member doc.GetFilePath() = fileUriToLocalPath doc.Uri
+        member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
     type ITextDocumentPositionParams with
         member p.GetFilePath() = p.TextDocument.GetFilePath()

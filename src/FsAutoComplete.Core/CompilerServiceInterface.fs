@@ -40,7 +40,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           isWindowsStyleRootedPath p
           || isUnixStyleRootedPath p
 
-        member _.GetFullPathShim (f: string) = f
+        member _.GetFullPathShim (f: string) =
+          Path.FilePathToUri f
+          |> Path.FileUriToLocalPath
 
         // delegate all others
         member _.ReadAllBytesShim (f) = older.ReadAllBytesShim f
