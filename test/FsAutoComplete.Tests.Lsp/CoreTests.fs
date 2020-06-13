@@ -540,12 +540,12 @@ let gotoTest =
             ()
       ))
 
-      ftestCase "Go-to-implementation on sourcelink file with sourcelink in PDB" (serverTest (fun server path externalPath definitionPath ->
+      testCase "Go-to-implementation on sourcelink file with sourcelink in PDB" (serverTest (fun server path externalPath definitionPath ->
         // check for the 'button' member in giraffe view engine
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = filePathToUri externalPath}
             Position = { Line = 9; Character = 34} }
-        
+
         let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
@@ -555,7 +555,8 @@ let gotoTest =
           | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "GiraffeViewEngine.fs" "Result should be in GiraffeViewEngine"
-            Expect.isTrue (System.IO.File.Exists res.Uri) "File should exist locally after being downloaded"
+            let localPath = Uri(res.Uri).LocalPath
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
   ]
 

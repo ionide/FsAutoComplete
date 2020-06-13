@@ -41,18 +41,20 @@ let private tryGetSourcesForDll (dllPath: string) =
     logger.info (Log.setMessage "Reading metadata information for DLL {dllPath}" >> Log.addContextDestructured "dllPath" dllPath)
     let file = File.OpenRead dllPath
     let embeddedReader = new PEReader(file)
+    let readFromPDB () = tryGetSourcesForPdb (pdbForDll dllPath)
     try
         if embeddedReader.HasMetadata
         then
             embeddedReader.ReadDebugDirectory()
             |> Seq.tryFind (fun e -> e.Type = DebugDirectoryEntryType.EmbeddedPortablePdb && e <> Unchecked.defaultof<DebugDirectoryEntry>)
             |> Option.map embeddedReader.ReadEmbeddedPortablePdbDebugDirectoryData
+            |> Option.orElseWith readFromPDB
         else
-            tryGetSourcesForPdb (pdbForDll dllPath)
+            readFromPDB()
     with
     | e ->
         logger.error (Log.setMessage "Reading metadata information for DLL {dllPath} failed" >> Log.addContextDestructured "dllPath" dllPath >> Log.addExn e)
-        tryGetSourcesForPdb (pdbForDll dllPath)
+        readFromPDB()
 
 let private tryGetSourcelinkJson (reader: MetadataReader) =
     let handle: EntityHandle = ModuleDefinitionHandle.op_Implicit EntityHandle.ModuleDefinition
