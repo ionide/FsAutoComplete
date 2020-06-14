@@ -510,7 +510,7 @@ type Path with
             | [| _ |]
             | [| _; _ |] -> false
             // 26 windows drive letters allowed, only
-            | [| '/'; c; ':' |] when Char.IsLetter c -> true
+            | [| '/'; driveLetter; ':' |] when Char.IsLetter driveLetter -> true
             | _ -> false
         let initialLocalPath = Uri(uriString).LocalPath
         let fn =
