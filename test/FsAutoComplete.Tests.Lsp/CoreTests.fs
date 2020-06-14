@@ -558,6 +558,25 @@ let gotoTest =
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
+
+      ftestCase "Go-to-implementation on sourcelink file with sourcelink in DLL" (serverTest (fun server path externalPath definitionPath ->
+        // check for the 'List.concat' member in FSharp.Core
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 12; Character = 36} }
+
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/list.fs" "Result should be in FSharp.Core's list.fs"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
   ]
 
 
