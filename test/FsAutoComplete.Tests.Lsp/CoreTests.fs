@@ -559,7 +559,7 @@ let gotoTest =
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
 
-      ftestCase "Go-to-implementation on sourcelink file with sourcelink in DLL" (serverTest (fun server path externalPath definitionPath ->
+      testCase "Go-to-implementation on sourcelink file with sourcelink in DLL" (serverTest (fun server path externalPath definitionPath ->
         // check for the 'List.concat' member in FSharp.Core
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
@@ -575,6 +575,28 @@ let gotoTest =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "FSharp.Core/list.fs" "Result should be in FSharp.Core's list.fs"
             let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      // marked pending because we don't have filename information for C# sources
+      ptestCase "Go-to-implementation on C# file" (serverTest (fun server path externalPath definitionPath ->
+        // check for the 'Stirng.Join' member in the BCL
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 14; Character = 79} }
+
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            let localPath = Path.FileUriToLocalPath res.Uri
+            if localPath.Contains "System.String netstandard_ Version_2.0.0.0_ Culture_neutral_ PublicKeyToken_cc7b13ffcd2ddd51"
+            then failwithf "should not decompile when sourcelink is available"
+            Expect.stringContains localPath "System.String" "Result should be in the BCL's source files"
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
   ]

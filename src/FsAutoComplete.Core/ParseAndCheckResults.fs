@@ -75,6 +75,18 @@ type ParseAndCheckResults
         | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) ->
           Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
 
+      let tryGetSourcelinkedFile dllFilePath sourceFile = Sourcelink.tryFetchSourcelinkFile dllFilePath sourceFile
+
+      /// these are all None because you can't easily get the source file from the external symbol information here.
+      let tryGetSourceRangeForSymbol (sym: ExternalSymbol): (string * int * int) option =
+        match sym with
+        | ExternalSymbol.Type name -> None
+        | ExternalSymbol.Constructor(typeName, args) -> None
+        | ExternalSymbol.Method(typeName, name, paramSyms, genericArity) -> None
+        | ExternalSymbol.Field(typeName, name) -> None
+        | ExternalSymbol.Event(typeName, name) -> None
+        | ExternalSymbol.Property(typeName, name) -> None
+
       // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid declfound for f# members.
       let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range) = async {
@@ -88,11 +100,7 @@ type ParseAndCheckResults
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
             | Some fullFilePath ->
-              match! Sourcelink.tryFetchSourcelinkFile fullFilePath rangeInNonexistentFile.FileName with
-              | Ok newLocalFilePath ->
-                return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = newLocalFilePath; Line = rangeInNonexistentFile.StartLine ; Column = rangeInNonexistentFile.StartColumn + 1 } )
-              | Error reason ->
-                return ResultOrString.Error (sprintf "%A" reason)
+              return Ok (fullFilePath, rangeInNonexistentFile.FileName)
             | None ->
               return ResultOrString.Error (sprintf "Assembly '%s' declaring symbol '%s' has no location on disk" sym.Symbol.Assembly.QualifiedName sym.Symbol.DisplayName)
       }
@@ -114,9 +122,26 @@ type ParseAndCheckResults
       | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
         let range = rangeInNonexistentFile.ToString()
         logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" range)
-        return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
+        match! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile with
+        | Ok (assemblyFile, sourceFile) ->
+          match! tryGetSourcelinkedFile assemblyFile sourceFile with
+          | Ok localFilePath ->
+            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = localFilePath; Line = rangeInNonexistentFile.StartLine; Column = rangeInNonexistentFile.StartColumn })
+          | Error reason ->
+            return ResultOrString.Error (sprintf "%A" reason)
+        | Error e -> return Error e
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
-        return decompile assembly externalSym
+        // not enough info on external symbols to get a range-like thing :(
+        match tryGetSourceRangeForSymbol externalSym with
+        | Some (sourceFile, line, column) ->
+          match! tryGetSourcelinkedFile assembly sourceFile with
+          | Ok localFilePath ->
+            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = localFilePath; Line = line; Column = column })
+          | Error reason ->
+            logger.info (Log.setMessage "no sourcelink info for {assembly}, decompiling instead" >> Log.addContextDestructured "assembly" assembly)
+            return decompile assembly externalSym
+        | None ->
+          return decompile assembly externalSym
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {

@@ -11,3 +11,5 @@ let myButton props children = button props children
 
 //this is used to test sourcelink from dll-embedded data, ie from FSharp.Core
 let myConcat listA listB = List.concat [listA; listB]
+
+let myStringConcat (separator: string) (strings: string []) = System.String.Join(separator, strings)
