@@ -12,7 +12,7 @@ type EnrichedLintWarning =
       Code: string }
 
 let pageForLint (identifier: string) =
-  sprintf "http://fsprojects.github.io/FSharpLint/rules/%s.html" identifier
+  sprintf "http://fsprojects.github.io/FSharpLint/how-tos/rules/%s.html" identifier
 
 /// In addition we add the url to the matching help page for fsharplint
 let enrichLintWarning (w: Suggestion.LintWarning): EnrichedLintWarning =
