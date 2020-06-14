@@ -8,7 +8,7 @@ open Newtonsoft.Json
 open FSharp.Data
 open FsAutoComplete.Logging
 
-let logger = LogProvider.getLoggerByName "Sourcelink"
+let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
 let private sourceLinkGuid = System.Guid "CC110556-A091-4D38-9FEC-25AB9A351A6A"
 let private embeddedSourceGuid = System.Guid "0E8A571B-6926-466E-B4AD-8AB04611F5FE"
@@ -68,7 +68,6 @@ let private tryGetSourcelinkJson (reader: MetadataReader) =
     )
     |> Option.map (fun bytes ->
         let byteString = System.Text.Encoding.UTF8.GetString(bytes)
-        logger.info (Log.setMessage "Read sourcelink json in as {json}" >> Log.addContextDestructured "json" byteString)
         let blob = JsonConvert.DeserializeObject<SourceLinkJson>(byteString)
         logger.info (Log.setMessage "Read sourcelink structure {blob}" >> Log.addContextDestructured "blob" blob)
         blob
@@ -102,7 +101,6 @@ let private tryGetUrlWithWildcard (pathPattern: string) (urlPattern: string) (do
     let regex = Regex(pattern)
     // patch up the slashes because the sourcelink json will have os-specific paths but we're workiing with normalized
     let replaced = document.Name
-    logger.info (Log.setMessage "testing {file} against {pattern}" >> Log.addContextDestructured "file" replaced >> Log.addContextDestructured "pattern" pattern)
     match regex.Match(replaced) with
     | m when not m.Success -> None
     | m ->
@@ -149,7 +147,6 @@ let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
     // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
     logger.info (Log.setMessage "Reading from {dll} for source file {file}" >> Log.addContextDestructured "dll" dllPath >> Log.addContextDestructured "file" targetFile)
     let targetFile = targetFile.Replace(@"\", "/")
-    logger.info (Log.setMessage "Target file is {file}" >> Log.addContextDestructured "file" targetFile)
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
     | Some sourceReaderProvider ->
@@ -159,11 +156,8 @@ let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
         | None ->
             return Error InvalidJson
         | Some json ->
-            let docs = documentsFromReader sourceReader
-            let docNames = docs |> Seq.map (fun d -> d.Name.Replace(@"\", "/"))
-            logger.info (Log.setMessage "trying to find document {doc} in {sources}" >> Log.addContextDestructured "doc" targetFile >> Log.addContextDestructured "sources" docNames)
             let doc =
-                docs
+                documentsFromReader sourceReader
                 |> Seq.tryFind (fun d -> d.Name.Replace(@"\", "/") = targetFile)
                 |> Option.bind (tryGetUrlForDocument json)
             match doc with
