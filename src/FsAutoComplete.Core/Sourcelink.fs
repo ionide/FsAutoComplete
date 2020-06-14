@@ -106,7 +106,7 @@ let private tryGetUrlWithWildcard (pathPattern: string) (urlPattern: string) (do
     match regex.Match(replaced) with
     | m when not m.Success -> None
     | m ->
-        let replacement = m.Groups.[1].Value
+        let replacement = m.Groups.[1].Value.Replace(@"\", "/")
         (urlPattern.Replace("*", replacement), replacement, document)
         |> Some
 
@@ -128,7 +128,7 @@ let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
         )
 
 let private downloadFileToTempDir (url: string) (repoPathFragment: string) (document: Document) =
-    let tempFile = System.IO.Path.GetTempPath() </> toHex document.Hash </> repoPathFragment
+    let tempFile = Path.Combine(Path.GetTempPath(), toHex document.Hash, repoPathFragment)
     let tempDir = Path.GetDirectoryName tempFile
     Directory.CreateDirectory tempDir |> ignore
 
