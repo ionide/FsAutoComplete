@@ -18,7 +18,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   let fixedFileSystem =
     let older = FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem
-
+    let fsLogger = LogProvider.getLoggerByName "FileSystem"
     /// translation of the BCL's Windows logic for Path.IsPathRooted.
     ///
     /// either the first char is '/', or the first char is a drive identifier followed by ':'
@@ -37,12 +37,18 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
     { new IFileSystem with
         member _.IsPathRootedShim (p: string) =
-          isWindowsStyleRootedPath p
-          || isUnixStyleRootedPath p
+          let r =
+            isWindowsStyleRootedPath p
+            || isUnixStyleRootedPath p
+          fsLogger.debug (Log.setMessage "Is {path} rooted? {result}" >> Log.addContext "path" p >> Log.addContext "result" r)
+          r
 
         member _.GetFullPathShim (f: string) =
-          Path.FilePathToUri f
-          |> Path.FileUriToLocalPath
+          let expanded =
+            Path.FilePathToUri f
+            |> Path.FileUriToLocalPath
+          fsLogger.debug (Log.setMessage "{path} expanded to {expanded}" >> Log.addContext "path" f >> Log.addContext "expanded" expanded)
+          expanded
 
         // delegate all others
         member _.ReadAllBytesShim (f) = older.ReadAllBytesShim f
