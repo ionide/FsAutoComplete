@@ -7,6 +7,8 @@ open System.Text.RegularExpressions
 open Newtonsoft.Json
 open FSharp.Data
 open FsAutoComplete.Logging
+open FSharp.UMX
+open FsAutoComplete.Utils
 
 let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
@@ -16,19 +18,28 @@ let private embeddedSourceGuid = System.Guid "0E8A571B-6926-466E-B4AD-8AB04611F5
 let private toHex (bytes: byte[]) =
     System.BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
 
+/// left hand side of sourcelink document mapping, represents a static or partially-static repo root path
+type [<Measure>] SourcelinkPattern
+
+let normalizeRepoPath (repo: string<RepoPathSegment>): string<NormalizedRepoPathSegment> =
+  let s = UMX.untag repo
+  let s' = s.Replace(@"\", "/")
+  UMX.tag<NormalizedRepoPathSegment> s'
+
 type SourceLinkJson =
- { documents: System.Collections.Generic.Dictionary<string,string> }
+ { documents: System.Collections.Generic.Dictionary<string<SourcelinkPattern>, string<Url>> }
 
 type private Document =
-    { Name: string
+    { Name: string<RepoPathSegment>
       Hash: byte[]
       Language: System.Guid
       IsEmbedded: bool }
 
-let private pdbForDll (dllPath: string) =
-    Path.ChangeExtension(dllPath, ".pdb")
+let private pdbForDll (dllPath: string<LocalPath>) =
+    UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
 
-let private tryGetSourcesForPdb (pdbPath: string) =
+let private tryGetSourcesForPdb (pdbPath: string<LocalPath>) =
+    let pdbPath = UMX.untag pdbPath
     logger.info (Log.setMessage "Reading metadata information for PDB {pdbPath}" >> Log.addContextDestructured "pdbPath" pdbPath)
     match File.Exists pdbPath with
     | true ->
@@ -37,9 +48,9 @@ let private tryGetSourcesForPdb (pdbPath: string) =
     | false ->
         None
 
-let private tryGetSourcesForDll (dllPath: string) =
+let private tryGetSourcesForDll (dllPath: string<LocalPath>) =
     logger.info (Log.setMessage "Reading metadata information for DLL {dllPath}" >> Log.addContextDestructured "dllPath" dllPath)
-    let file = File.OpenRead dllPath
+    let file = File.OpenRead (UMX.untag dllPath)
     let embeddedReader = new PEReader(file)
     let readFromPDB () = tryGetSourcesForPdb (pdbForDll dllPath)
     try
@@ -90,26 +101,34 @@ let private documentsFromReader (reader: MetadataReader) =
                 let doc = reader.GetDocument docHandle
                 if not (doc.Name.IsNil || doc.Language.IsNil)
                 then
-                    yield { Name = reader.GetString(doc.Name)
+                    yield { Name = UMX.tag<RepoPathSegment> (reader.GetString(doc.Name))
                             Hash = reader.GetBlobBytes(doc.Hash)
                             Language = reader.GetGuid(doc.Language)
                             IsEmbedded = isEmbedded reader docHandle }
     }
 
-let private tryGetUrlWithWildcard (pathPattern: string) (urlPattern: string) (document: Document) =
-    let pattern = Regex.Escape(pathPattern).Replace(@"\*", "(.+)")
+let replace (url: string<Url>) (replacement: string<NormalizedRepoPathSegment>): string<Url> =
+  UMX.tag<Url> ((UMX.untag url).Replace("*", UMX.untag replacement))
+
+let private tryGetUrlWithWildcard (pathPattern: string<SourcelinkPattern>) (urlPattern: string<Url>) (document: Document) =
+    let pattern = Regex.Escape(UMX.untag pathPattern).Replace(@"\*", "(.+)")
+    // this regex matches the un-normalized repo paths, so we need to compare against the un-normalized paths here
     let regex = Regex(pattern)
     // patch up the slashes because the sourcelink json will have os-specific paths but we're workiing with normalized
     let replaced = document.Name
-    match regex.Match(replaced) with
+    match regex.Match(UMX.untag replaced) with
     | m when not m.Success -> None
     | m ->
-        let replacement = m.Groups.[1].Value.Replace(@"\", "/")
-        (urlPattern.Replace("*", replacement), replacement, document)
+        let replacement = normalizeRepoPath (UMX.tag<RepoPathSegment> m.Groups.[1].Value)
+        (replace urlPattern replacement, replacement, document)
         |> Some
 
-let private tryGetUrlWithExactMatch (pathPattern: string) (urlPattern: string) (document: Document) =
-    if pathPattern.Equals(document.Name, System.StringComparison.Ordinal) then Some (urlPattern, pathPattern, document) else None
+let private tryGetUrlWithExactMatch (pathPattern: string<SourcelinkPattern>) (urlPattern: string<Url>) (document: Document) =
+    if (UMX.untag pathPattern).Equals(UMX.untag document.Name, System.StringComparison.Ordinal)
+    then Some (urlPattern, normalizeRepoPath (UMX.cast<SourcelinkPattern, RepoPathSegment> pathPattern), document) else None
+
+let isWildcardPattern (p: string<SourcelinkPattern>) =
+  (UMX.untag p).Contains("*")
 
 let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
     logger.info (Log.setMessage "finding source for document {doc}" >> Log.addContextDestructured "doc" document.Name)
@@ -118,24 +137,24 @@ let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
     | documents ->
         documents
         |> Seq.tryPick (fun (KeyValue(path, url)) ->
-            if path.Contains("*")
+            if isWildcardPattern path
             then
                 tryGetUrlWithWildcard path url document
             else
                 tryGetUrlWithExactMatch path url document
         )
 
-let private downloadFileToTempDir (url: string) (repoPathFragment: string) (document: Document) =
-    let tempFile = Path.Combine(Path.GetTempPath(), toHex document.Hash, repoPathFragment)
+let private downloadFileToTempDir (url: string<Url>) (repoPathFragment: string<NormalizedRepoPathSegment>) (document: Document): Async<string<LocalPath>> =
+    let tempFile = Path.Combine(Path.GetTempPath(), toHex document.Hash, UMX.untag repoPathFragment)
     let tempDir = Path.GetDirectoryName tempFile
     Directory.CreateDirectory tempDir |> ignore
 
     async {
         use fileStream = File.OpenWrite tempFile
         logger.info (Log.setMessage "Getting file from {url} for document {repoPath}" >> Log.addContextDestructured "url" url >> Log.addContextDestructured "repoPath" repoPathFragment)
-        let! response = Http.AsyncRequestStream(url, httpMethod = "GET")
+        let! response = Http.AsyncRequestStream(UMX.untag url, httpMethod = "GET")
         do! response.ResponseStream.CopyToAsync fileStream |> Async.AwaitTask
-        return tempFile
+        return UMX.tag<LocalPath> tempFile
     }
 
 type Errors =
@@ -143,10 +162,10 @@ type Errors =
 | InvalidJson
 | MissingPatterns
 
-let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
+let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<RepoPathSegment>) =  async {
     // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
     logger.info (Log.setMessage "Reading from {dll} for source file {file}" >> Log.addContextDestructured "dll" dllPath >> Log.addContextDestructured "file" targetFile)
-    let targetFile = targetFile.Replace(@"\", "/")
+    let targetFile = normalizeRepoPath targetFile
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
     | Some sourceReaderProvider ->
@@ -158,7 +177,7 @@ let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
         | Some json ->
             let doc =
                 documentsFromReader sourceReader
-                |> Seq.tryFind (fun d -> d.Name.Replace(@"\", "/") = targetFile)
+                |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = targetFile)
                 |> Option.bind (tryGetUrlForDocument json)
             match doc with
             | None ->

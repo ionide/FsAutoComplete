@@ -9,6 +9,8 @@ open FSharp.Compiler
 open FSharp.Compiler.Text
 open ProjectSystem
 open FsAutoComplete.Logging
+open FsAutoComplete.Utils
+open FSharp.UMX
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -78,7 +80,7 @@ type ParseAndCheckResults
       let tryGetSourcelinkedFile dllFilePath sourceFile = Sourcelink.tryFetchSourcelinkFile dllFilePath sourceFile
 
       /// these are all None because you can't easily get the source file from the external symbol information here.
-      let tryGetSourceRangeForSymbol (sym: ExternalSymbol): (string * int * int) option =
+      let tryGetSourceRangeForSymbol (sym: ExternalSymbol): (string<RepoPathSegment> * int * int) option =
         match sym with
         | ExternalSymbol.Type name -> None
         | ExternalSymbol.Constructor(typeName, args) -> None
@@ -100,7 +102,7 @@ type ParseAndCheckResults
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
             | Some fullFilePath ->
-              return Ok (fullFilePath, rangeInNonexistentFile.FileName)
+              return Ok (UMX.tag<LocalPath> fullFilePath, UMX.tag<RepoPathSegment> rangeInNonexistentFile.FileName)
             | None ->
               return ResultOrString.Error (sprintf "Assembly '%s' declaring symbol '%s' has no location on disk" sym.Symbol.Assembly.QualifiedName sym.Symbol.DisplayName)
       }
@@ -126,7 +128,7 @@ type ParseAndCheckResults
         | Ok (assemblyFile, sourceFile) ->
           match! tryGetSourcelinkedFile assemblyFile sourceFile with
           | Ok localFilePath ->
-            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = localFilePath; Line = rangeInNonexistentFile.StartLine; Column = rangeInNonexistentFile.StartColumn })
+            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = rangeInNonexistentFile.StartLine; Column = rangeInNonexistentFile.StartColumn })
           | Error reason ->
             return ResultOrString.Error (sprintf "%A" reason)
         | Error e -> return Error e
@@ -134,9 +136,9 @@ type ParseAndCheckResults
         // not enough info on external symbols to get a range-like thing :(
         match tryGetSourceRangeForSymbol externalSym with
         | Some (sourceFile, line, column) ->
-          match! tryGetSourcelinkedFile assembly sourceFile with
+          match! tryGetSourcelinkedFile (UMX.tag<LocalPath> assembly) sourceFile with
           | Ok localFilePath ->
-            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = localFilePath; Line = line; Column = column })
+            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = line; Column = column })
           | Error reason ->
             logger.info (Log.setMessage "no sourcelink info for {assembly}, decompiling instead" >> Log.addContextDestructured "assembly" assembly)
             return decompile assembly externalSym

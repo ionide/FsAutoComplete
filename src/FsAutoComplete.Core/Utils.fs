@@ -601,3 +601,12 @@ type Debounce<'a>(timeout, fn) =
 
     /// Calls the function, after debouncing has been applied.
     member __.Bounce(arg) = mailbox.Post(arg)
+
+/// OS-local, normalized path
+type [<Measure>] LocalPath
+/// An HTTP url
+type [<Measure>] Url
+/// OS-Sensitive path segment from some repository root
+type [<Measure>] RepoPathSegment
+// OS-agnostic path segment from some repository root
+type [<Measure>] NormalizedRepoPathSegment
