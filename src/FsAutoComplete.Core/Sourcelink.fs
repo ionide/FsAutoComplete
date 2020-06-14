@@ -70,7 +70,7 @@ let private tryGetSourcelinkJson (reader: MetadataReader) =
         let byteString = System.Text.Encoding.UTF8.GetString(bytes)
         logger.info (Log.setMessage "Read sourcelink json in as {json}" >> Log.addContextDestructured "json" byteString)
         let blob = JsonConvert.DeserializeObject<SourceLinkJson>(byteString)
-        logger.info (Log.setMessage "Read sourcelink structure {blob}" >> Log.addContextDestructured "blog" blob)
+        logger.info (Log.setMessage "Read sourcelink structure {blob}" >> Log.addContextDestructured "blob" blob)
         blob
     )
 
@@ -100,10 +100,13 @@ let private documentsFromReader (reader: MetadataReader) =
 let private tryGetUrlWithWildcard (pathPattern: string) (urlPattern: string) (document: Document) =
     let pattern = Regex.Escape(pathPattern).Replace(@"\*", "(.+)")
     let regex = Regex(pattern)
-    match regex.Match(document.Name) with
+    // patch up the slashes because the sourcelink json will have os-specific paths but we're workiing with normalized
+    let replaced = document.Name
+    logger.info (Log.setMessage "testing {file} against {pattern}" >> Log.addContextDestructured "file" replaced >> Log.addContextDestructured "pattern" pattern)
+    match regex.Match(replaced) with
     | m when not m.Success -> None
     | m ->
-        let replacement = m.Groups.[1].Value.Replace(@"\", "/")
+        let replacement = m.Groups.[1].Value
         (urlPattern.Replace("*", replacement), replacement, document)
         |> Some
 
@@ -111,7 +114,7 @@ let private tryGetUrlWithExactMatch (pathPattern: string) (urlPattern: string) (
     if pathPattern.Equals(document.Name, System.StringComparison.Ordinal) then Some (urlPattern, pathPattern, document) else None
 
 let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
-    logger.info (Log.setMessage "finding source for document {doc}" >> Log.addContextDestructured "doc" document)
+    logger.info (Log.setMessage "finding source for document {doc}" >> Log.addContextDestructured "doc" document.Name)
     match json.documents with
     | null -> None
     | documents ->
@@ -145,10 +148,7 @@ type Errors =
 let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
     // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
     logger.info (Log.setMessage "Reading from {dll} for source file {file}" >> Log.addContextDestructured "dll" dllPath >> Log.addContextDestructured "file" targetFile)
-    let targetFile =
-        if targetFile.StartsWith System.Environment.CurrentDirectory
-        then targetFile.Replace(System.Environment.CurrentDirectory + "/", "")
-        else targetFile
+    let targetFile = targetFile.Replace(@"\", "/")
     logger.info (Log.setMessage "Target file is {file}" >> Log.addContextDestructured "file" targetFile)
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
@@ -160,10 +160,11 @@ let tryFetchSourcelinkFile (dllPath: string) (targetFile: string) =  async {
             return Error InvalidJson
         | Some json ->
             let docs = documentsFromReader sourceReader
-            logger.info (Log.setMessage "trying to find document {doc} in {sources}" >> Log.addContextDestructured "doc" targetFile >> Log.addContextDestructured "sources" docs)
+            let docNames = docs |> Seq.map (fun d -> d.Name.Replace(@"\", "/"))
+            logger.info (Log.setMessage "trying to find document {doc} in {sources}" >> Log.addContextDestructured "doc" targetFile >> Log.addContextDestructured "sources" docNames)
             let doc =
                 docs
-                |> Seq.tryFind (fun d -> d.Name = targetFile)
+                |> Seq.tryFind (fun d -> d.Name.Replace(@"\", "/") = targetFile)
                 |> Option.bind (tryGetUrlForDocument json)
             match doc with
             | None ->
