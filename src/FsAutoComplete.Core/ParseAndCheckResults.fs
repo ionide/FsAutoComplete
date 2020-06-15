@@ -77,10 +77,8 @@ type ParseAndCheckResults
         | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) ->
           Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
 
-      let tryGetSourcelinkedFile dllFilePath sourceFile = Sourcelink.tryFetchSourcelinkFile dllFilePath sourceFile
-
       /// these are all None because you can't easily get the source file from the external symbol information here.
-      let tryGetSourceRangeForSymbol (sym: ExternalSymbol): (string<RepoPathSegment> * int * int) option =
+      let tryGetSourceRangeForSymbol (sym: ExternalSymbol): (string<NormalizedRepoPathSegment> * int * int) option =
         match sym with
         | ExternalSymbol.Type name -> None
         | ExternalSymbol.Constructor(typeName, args) -> None
@@ -91,7 +89,7 @@ type ParseAndCheckResults
 
       // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid declfound for f# members.
-      let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range) = async {
+      let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range): Async<ResultOrString<string<LocalPath> * string<NormalizedRepoPathSegment>>> = async {
         match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
         | Some (col, identIsland) ->
@@ -102,7 +100,7 @@ type ParseAndCheckResults
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
             | Some fullFilePath ->
-              return Ok (UMX.tag<LocalPath> fullFilePath, UMX.tag<RepoPathSegment> rangeInNonexistentFile.FileName)
+              return Ok (UMX.tag<LocalPath> fullFilePath, UMX.tag<NormalizedRepoPathSegment> rangeInNonexistentFile.FileName)
             | None ->
               return ResultOrString.Error (sprintf "Assembly '%s' declaring symbol '%s' has no location on disk" sym.Symbol.Assembly.QualifiedName sym.Symbol.DisplayName)
       }
@@ -126,7 +124,7 @@ type ParseAndCheckResults
         logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" range)
         match! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile with
         | Ok (assemblyFile, sourceFile) ->
-          match! tryGetSourcelinkedFile assemblyFile sourceFile with
+          match! Sourcelink.tryFetchSourcelinkFile assemblyFile sourceFile with
           | Ok localFilePath ->
             return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = rangeInNonexistentFile.StartLine; Column = rangeInNonexistentFile.StartColumn })
           | Error reason ->
@@ -136,7 +134,7 @@ type ParseAndCheckResults
         // not enough info on external symbols to get a range-like thing :(
         match tryGetSourceRangeForSymbol externalSym with
         | Some (sourceFile, line, column) ->
-          match! tryGetSourcelinkedFile (UMX.tag<LocalPath> assembly) sourceFile with
+          match! Sourcelink.tryFetchSourcelinkFile (UMX.tag<LocalPath> assembly) sourceFile with
           | Ok localFilePath ->
             return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = line; Column = column })
           | Error reason ->

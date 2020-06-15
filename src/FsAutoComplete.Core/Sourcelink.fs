@@ -117,11 +117,13 @@ let private tryGetUrlWithWildcard (pathPattern: string<SourcelinkPattern>) (urlP
     // patch up the slashes because the sourcelink json will have os-specific paths but we're workiing with normalized
     let replaced = document.Name
     match regex.Match(UMX.untag replaced) with
-    | m when not m.Success -> None
+    | m when not m.Success ->
+      logger.info (Log.setMessage "document {doc} did not match pettern {pattern}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern)
+      None
     | m ->
         let replacement = normalizeRepoPath (UMX.tag<RepoPathSegment> m.Groups.[1].Value)
-        (replace urlPattern replacement, replacement, document)
-        |> Some
+        logger.info (Log.setMessage "document {doc} did match pettern {pattern} with value {replacement}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern >> Log.addContext "replacement" replacement)
+        Some (replace urlPattern replacement, replacement, document)
 
 let private tryGetUrlWithExactMatch (pathPattern: string<SourcelinkPattern>) (urlPattern: string<Url>) (document: Document) =
     if (UMX.untag pathPattern).Equals(UMX.untag document.Name, System.StringComparison.Ordinal)
@@ -161,11 +163,11 @@ type Errors =
 | NoInformation
 | InvalidJson
 | MissingPatterns
+| MissingSourceFile
 
-let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<RepoPathSegment>) =  async {
+let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<NormalizedRepoPathSegment>) =  async {
     // FCS prepends the CWD to the root of the targetFile for some reason, so we strip it here
     logger.info (Log.setMessage "Reading from {dll} for source file {file}" >> Log.addContextDestructured "dll" dllPath >> Log.addContextDestructured "file" targetFile)
-    let targetFile = normalizeRepoPath targetFile
     match tryGetSourcesForDll dllPath with
     | None -> return Error NoInformation
     | Some sourceReaderProvider ->
@@ -175,14 +177,20 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Repo
         | None ->
             return Error InvalidJson
         | Some json ->
-            let doc =
-                documentsFromReader sourceReader
-                |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = targetFile)
-                |> Option.bind (tryGetUrlForDocument json)
+            let docs = documentsFromReader sourceReader
+            let doc = docs |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = targetFile)
             match doc with
             | None ->
-                return Error MissingPatterns
-            | Some (url, fragment, document) ->
-                let! tempFile = downloadFileToTempDir url fragment document
-                return Ok tempFile
+                logger.warn (Log.setMessage "No sourcelinked source file matched {target}. Available documents were (normalized paths here): {docs}" >> Log.addContextDestructured "docs" (docs |> Seq.map (fun d -> normalizeRepoPath d.Name)) >> Log.addContextDestructured "target" targetFile)
+                return Error MissingSourceFile
+            | Some doc ->
+                match tryGetUrlForDocument json doc with
+                | Some (url, fragment, document) ->
+                  let! tempFile = downloadFileToTempDir url fragment document
+                  return Ok tempFile
+                | None ->
+                  logger.warn (Log.setMessage "Couldn't derive a url for the source file {target}. None of the following patterns matched: {patterns}"
+                               >> Log.addContext "target" doc.Name
+                               >> Log.addContext "patterns" (json.documents |> Seq.map (function (KeyValue(k, _)) -> k)))
+                  return Error MissingPatterns
 }
