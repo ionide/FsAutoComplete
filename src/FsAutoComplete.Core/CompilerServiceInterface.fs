@@ -7,12 +7,65 @@ open Utils
 open FSharp.Compiler.Range
 open FSharp.Compiler
 open FSharp.Compiler.Text
-open ProjectSystem
 open FsAutoComplete.Logging
+open ProjectSystem
+open FSharp.Compiler.AbstractIL.Internal.Library
 
 type Version = int
 
+
 type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
+
+  let fixedFileSystem =
+    let older = FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem
+    let fsLogger = LogProvider.getLoggerByName "FileSystem"
+    /// translation of the BCL's Windows logic for Path.IsPathRooted.
+    ///
+    /// either the first char is '/', or the first char is a drive identifier followed by ':'
+    let isWindowsStyleRootedPath (p: string) =
+        let isAlpha (c: char) =
+            (c >= 'A' && c <= 'Z')
+            || (c >= 'a' && c <= 'z')
+        (p.Length >= 1 && p.[0] = '/')
+        || (p.Length >= 2 && isAlpha p.[0] && p.[1] = ':')
+
+    /// translation of the BCL's Unix logic for Path.IsRooted.
+    ///
+    /// if the first character is '/' then the path is rooted
+    let isUnixStyleRootedPath (p: string) =
+        p.Length > 0 && p.[0] = '/'
+
+    { new IFileSystem with
+        member _.IsPathRootedShim (p: string) =
+          let r =
+            isWindowsStyleRootedPath p
+            || isUnixStyleRootedPath p
+          fsLogger.debug (Log.setMessage "Is {path} rooted? {result}" >> Log.addContext "path" p >> Log.addContext "result" r)
+          r
+
+        member _.GetFullPathShim (f: string) =
+          let expanded =
+            Path.FilePathToUri f
+            |> Path.FileUriToLocalPath
+          fsLogger.debug (Log.setMessage "{path} expanded to {expanded}" >> Log.addContext "path" f >> Log.addContext "expanded" expanded)
+          expanded
+
+        // delegate all others
+        member _.ReadAllBytesShim (f) = older.ReadAllBytesShim f
+        member _.FileStreamReadShim (f) = older.FileStreamReadShim f
+        member _.FileStreamCreateShim (f) = older.FileStreamCreateShim f
+        member _.FileStreamWriteExistingShim (f) = older.FileStreamWriteExistingShim f
+        member _.IsInvalidPathShim (f) = older.IsInvalidPathShim f
+        member _.GetTempPathShim () = older.GetTempPathShim()
+        member _.GetLastWriteTimeShim (f) = older.GetLastWriteTimeShim f
+        member _.SafeExists (f) = older.SafeExists f
+        member _.FileDelete (f) = older.FileDelete f
+        member _.AssemblyLoadFrom (f) = older.AssemblyLoadFrom f
+        member _.AssemblyLoad (f) = older.AssemblyLoad f
+        member _.IsStableFileHeuristic (f) = older.IsStableFileHeuristic f }
+
+  do FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem <- fixedFileSystem
+
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,

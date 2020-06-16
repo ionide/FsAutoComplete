@@ -1,19 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
   </PropertyGroup>
-
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Prefer32Bit>false</Prefer32Bit>
     <Platform>x64</Platform>
   </PropertyGroup>
-
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
     <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN;NETCORE_FSI</DefineConstants>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
@@ -30,6 +26,7 @@
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="Decompiler.fs" />
+    <Compile Include="Sourcelink.fs" />
     <Compile Include="FakeSupport.fs" />
     <Compile Include="ParseAndCheckResults.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
@@ -51,5 +48,4 @@
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
-
 </Project>

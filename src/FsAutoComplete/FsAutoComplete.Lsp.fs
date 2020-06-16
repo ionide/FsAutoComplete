@@ -1,19 +1,22 @@
 module FsAutoComplete.Lsp
 
 open Argu
-open System
-open LanguageServerProtocol.Server
-open LanguageServerProtocol.Types
+open FsAutoComplete
+open FsAutoComplete.Logging
 open FsAutoComplete.Utils
 open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
-open FsAutoComplete
-open Newtonsoft.Json.Linq
+open LanguageServerProtocol.Server
+open LanguageServerProtocol.Types
 open LspHelpers
+open Newtonsoft.Json.Linq
 open ProjectSystem
+open System
+open System.IO
+
 module FcsRange = FSharp.Compiler.Range
-open FsAutoComplete.Logging
+
 #if ANALYZER_SUPPORT
 open FSharp.Analyzers
 #endif
@@ -225,7 +228,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Async.Start
 
                 | NotificationEvent.ParseError (errors, file) ->
-                    let uri = filePathToUri file
+                    let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = errors |> Array.map (fcsErrorToDiagnostic)
@@ -233,7 +236,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     sendDiagnostics uri
 
                 | NotificationEvent.UnusedOpens (file, opens) ->
-                    let uri = filePathToUri file
+                    let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = opens |> Array.map(fun n ->
@@ -243,7 +246,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     sendDiagnostics uri
 
                 | NotificationEvent.UnusedDeclarations (file, decls) ->
-                    let uri = filePathToUri file
+                    let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = decls |> Array.map(fun (n, t) ->
@@ -253,7 +256,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     sendDiagnostics uri
 
                 | NotificationEvent.SimplifyNames (file, decls) ->
-                    let uri = filePathToUri file
+                    let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
 
                     let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
@@ -269,7 +272,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     sendDiagnostics uri
 
                 | NotificationEvent.Lint (file, warnings) ->
-                    let uri = filePathToUri file
+                    let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
                     let fs =
@@ -309,7 +312,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> Async.Start
                 | NotificationEvent.AnalyzerMessage(messages, file) ->
 #if ANALYZER_SUPPORT
-                    let uri = filePathToUri file
+                    let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
                     let fs =
                         messages |> Seq.collect (fun w ->
@@ -424,7 +427,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         let actualRootPath =
           match p.RootUri with
-          | Some rootUri -> Some (fileUriToLocalPath rootUri)
+          | Some rootUri -> Some (Path.FileUriToLocalPath rootUri)
           | None -> p.RootPath
 
         commands.StartBackgroundService actualRootPath
@@ -835,7 +838,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 {
                                     TextDocument =
                                         {
-                                            Uri = filePathToUri fileName
+                                            Uri = Path.FilePathToUri fileName
                                             Version = commands.TryGetFileVersion fileName
                                         }
                                     Edits = edits
@@ -861,7 +864,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 {
                                     TextDocument =
                                         {
-                                            Uri = filePathToUri fileName
+                                            Uri = Path.FilePathToUri fileName
 
                                             Version = commands.TryGetFileVersion fileName
                                         }
@@ -1003,7 +1006,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | CoreResponse.Res (decls) ->
                 decls
                 |> Array.map (fun (n,p) ->
-                    let uri = filePathToUri p
+                    let uri = Path.FilePathToUri p
                     getSymbolInformations uri glyphToSymbolKind n)
                 |> Seq.collect id
                 |> Seq.filter(fun symbolInfo -> symbolInfo.Name.StartsWith(p.Query))
@@ -1160,7 +1163,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member private x.GetLinterCodeAction fn p =
         p |> x.IfDiagnostic "Lint:" (fun d ->
-            let uri = filePathToUri fn
+            let uri = Path.FilePathToUri fn
 
             match fixes.TryGetValue uri with
             | false, _ -> async.Return []
@@ -1175,7 +1178,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member private x.GetAnalyzerCodeAction fn p =
         p |> x.IfDiagnosticType "F# Analyzers" (fun d ->
-            let uri = filePathToUri fn
+            let uri = Path.FilePathToUri fn
 
             let res =
                 analyzerFixes
@@ -1465,7 +1468,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             async {
                 let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
-                let file = fileUriToLocalPath data.[0]
+                let file = Path.FileUriToLocalPath data.[0]
                 return!
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
@@ -1532,7 +1535,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
 
                             let args = [|
-                                JToken.FromObject (filePathToUri file)
+                                JToken.FromObject (Path.FilePathToUri file)
                                 JToken.FromObject (fcsPosToLsp pos)
                                 JToken.FromObject locs
                             |]
@@ -1549,7 +1552,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                 |> Array.map symbolUseRangeToLspLocation
 
                             let args = [|
-                                JToken.FromObject (filePathToUri file)
+                                JToken.FromObject (Path.FilePathToUri file)
                                 JToken.FromObject (fcsPosToLsp pos)
                                 JToken.FromObject locs
                             |]

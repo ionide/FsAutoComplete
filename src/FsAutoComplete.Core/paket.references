@@ -12,5 +12,7 @@ Dapper
 Microsoft.Data.Sqlite
 System.Configuration.ConfigurationManager
 Fantomas
+FSharp.UMX
 
 Microsoft.NETFramework.ReferenceAssemblies
+System.Reflection.Metadata

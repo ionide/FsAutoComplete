@@ -9,6 +9,8 @@ open FSharp.Compiler
 open FSharp.Compiler.Text
 open ProjectSystem
 open FsAutoComplete.Logging
+open FsAutoComplete.Utils
+open FSharp.UMX
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -65,7 +67,7 @@ type ParseAndCheckResults
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
-      let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false)
+      let! declarations = checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, false, sprintf "findDecl:%s" (String.concat "." identIsland))
 
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
@@ -75,9 +77,19 @@ type ParseAndCheckResults
         | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) ->
           Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
 
+      /// these are all None because you can't easily get the source file from the external symbol information here.
+      let tryGetSourceRangeForSymbol (sym: ExternalSymbol): (string<NormalizedRepoPathSegment> * int * int) option =
+        match sym with
+        | ExternalSymbol.Type name -> None
+        | ExternalSymbol.Constructor(typeName, args) -> None
+        | ExternalSymbol.Method(typeName, name, paramSyms, genericArity) -> None
+        | ExternalSymbol.Field(typeName, name) -> None
+        | ExternalSymbol.Event(typeName, name) -> None
+        | ExternalSymbol.Property(typeName, name) -> None
+
       // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid declfound for f# members.
-      let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range) = async {
+      let tryRecoverExternalSymbolForNonexistentDecl (rangeInNonexistentFile: range): Async<ResultOrString<string<LocalPath> * string<NormalizedRepoPathSegment>>> = async {
         match Lexer.findLongIdents(pos.Column - 1, lineStr) with
         | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName)
         | Some (col, identIsland) ->
@@ -86,28 +98,50 @@ type ParseAndCheckResults
           match symbolUse with
           | None -> return ResultOrString.Error (sprintf "Range for nonexistent file found, no symboluse found: %s" rangeInNonexistentFile.FileName)
           | Some sym ->
-            let assembly, externalSym =
-              match sym with
-              | SymbolUse.Field f -> f.Assembly.SimpleName, ExternalSymbol.Field (f.DeclaringEntity.Value.FullName, f.Name)
-              | SymbolUse.Function f -> f.Assembly.SimpleName, ExternalSymbol.Field(f.DeclaringEntity.Value.FullName, f.LogicalName)
-              | _ ->  failwith "boom"
-            return decompile assembly externalSym
+            match sym.Symbol.Assembly.FileName with
+            | Some fullFilePath ->
+              return Ok (UMX.tag<LocalPath> fullFilePath, UMX.tag<NormalizedRepoPathSegment> rangeInNonexistentFile.FileName)
+            | None ->
+              return ResultOrString.Error (sprintf "Assembly '%s' declaring symbol '%s' has no location on disk" sym.Symbol.Assembly.QualifiedName sym.Symbol.DisplayName)
       }
 
       match declarations with
-      | FSharpFindDeclResult.DeclNotFound _ ->
-        return ResultOrString.Error "Could not find declaration"
+      | FSharpFindDeclResult.DeclNotFound reason ->
+        let elaboration =
+          match reason with
+          | FSharpFindDeclFailureReason.NoSourceCode -> "No source code was found for the declaration"
+          | FSharpFindDeclFailureReason.ProvidedMember m -> sprintf "Go-to-declaration is not available for Type Provider-provided member %s" m
+          | FSharpFindDeclFailureReason.ProvidedType t -> sprintf "Go-to-declaration is not available from Type Provider-provided type %s" t
+          | FSharpFindDeclFailureReason.Unknown r -> r
+        return ResultOrString.Error (sprintf "Could not find declaration. %s" elaboration)
       | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) -> return ResultOrString.Error "Could not find declaration"
       | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
-        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" range)
+        let rangeStr = range.ToString()
+        logger.info (Log.setMessage "Got a declresult of {range} that supposedly exists" >> Log.addContextDestructured "range" rangeStr)
         return Ok (FindDeclarationResult.Range range)
       | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
-        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" rangeInNonexistentFile)
-        return Error ("Could not find declaration")
-        // uncomment this to try to workaround the FCS bug
-        //return! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile
+        let range = rangeInNonexistentFile.ToString()
+        logger.warn (Log.setMessage "Got a declresult of {range} that doesn't exist" >> Log.addContextDestructured "range" range)
+        match! tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile with
+        | Ok (assemblyFile, sourceFile) ->
+          match! Sourcelink.tryFetchSourcelinkFile assemblyFile sourceFile with
+          | Ok localFilePath ->
+            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = rangeInNonexistentFile.StartLine; Column = rangeInNonexistentFile.StartColumn })
+          | Error reason ->
+            return ResultOrString.Error (sprintf "%A" reason)
+        | Error e -> return Error e
       | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
-        return decompile assembly externalSym
+        // not enough info on external symbols to get a range-like thing :(
+        match tryGetSourceRangeForSymbol externalSym with
+        | Some (sourceFile, line, column) ->
+          match! Sourcelink.tryFetchSourcelinkFile (UMX.tag<LocalPath> assembly) sourceFile with
+          | Ok localFilePath ->
+            return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = line; Column = column })
+          | Error reason ->
+            logger.info (Log.setMessage "no sourcelink info for {assembly}, decompiling instead" >> Log.addContextDestructured "assembly" assembly)
+            return decompile assembly externalSym
+        | None ->
+          return decompile assembly externalSym
     }
 
   member __.TryFindTypeDeclaration (pos: pos) (lineStr: LineStr) = async {

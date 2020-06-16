@@ -78,7 +78,7 @@ let basicTests =
 
         testCase "Hover Tests - simple symbol" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = filePathToUri path}
+            { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 0; Character = 4}}
           let res = server.TextDocumentHover p |> Async.RunSynchronously
           match res with
@@ -97,7 +97,7 @@ let basicTests =
 
         testCase "Hover Tests - let keyword" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = filePathToUri path}
+            { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 0; Character = 2}}
           let res = server.TextDocumentHover p |> Async.RunSynchronously
           match res with
@@ -114,7 +114,7 @@ let basicTests =
 
         testCase "Hover Tests - out of position" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = filePathToUri path}
+            { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 1; Character = 2}}
           let res = server.TextDocumentHover p |> Async.RunSynchronously
           match res with
@@ -126,7 +126,7 @@ let basicTests =
       ]
       testSequenced <| testList "Document Symbol Tests" [
         testCase "Document Symbol" (serverTest (fun server path ->
-          let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
+          let p : DocumentSymbolParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -138,7 +138,7 @@ let basicTests =
       ]
       testSequenced <| testList "Code Lens Tests" [
         testCase "Get Code Lens" (serverTest (fun server path ->
-          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -149,7 +149,7 @@ let basicTests =
         ))
 
         testCase "Resolve Code Lens" (serverTest (fun server path ->
-          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -185,7 +185,7 @@ let codeLensTest =
 
   testSequenced <| testList "Code Lens Tests" [
       testCase "Get Code Lens" (serverTest (fun server path ->
-          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -195,7 +195,7 @@ let codeLensTest =
             Expect.equal res.Length 18 "Get Code Lens has all locations"
       ))
       testCase "Resolve Code Lens" (serverTest (fun server path ->
-          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -215,7 +215,7 @@ let codeLensTest =
       ))
 
       testCase "Resolve Code Lens 2" (serverTest (fun server path ->
-          let p : CodeLensParams = { TextDocument = { Uri = filePathToUri path}}
+          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -253,7 +253,7 @@ let documentSymbolTest =
 
   testSequenced <| testList "Document Symbols Tests" [
       testCase "Get Document Symbols" (serverTest (fun server path ->
-        let p : DocumentSymbolParams = { TextDocument = { Uri = filePathToUri path}}
+        let p : DocumentSymbolParams = { TextDocument = { Uri = Path.FilePathToUri path}}
         let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
@@ -283,7 +283,7 @@ let autocompleteTest =
 
   testSequenced <| testList "Autocomplete Tests" [
       testCase "Get Autocomplete module members" (serverTest (fun server path ->
-        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+        let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
@@ -298,7 +298,7 @@ let autocompleteTest =
       ))
 
       testCase "Get Autocomplete namespace" (serverTest (fun server path ->
-        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+        let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
@@ -313,7 +313,7 @@ let autocompleteTest =
       ))
 
       testCase "Get Autocomplete namespace members" (serverTest (fun server path ->
-        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+        let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
@@ -328,7 +328,7 @@ let autocompleteTest =
       ))
 
       testCase "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
-        let p : CompletionParams = { TextDocument = { Uri = filePathToUri path}
+        let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
         let res = server.TextDocumentCompletion p |> Async.RunSynchronously
@@ -373,7 +373,7 @@ let renameTest =
   testSequenced <| testList "Rename Tests" [
       testCase "Rename from usage" (serverTest (fun server path _ ->
 
-        let p : RenameParams = { TextDocument = { Uri = filePathToUri path}
+        let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                  Position = { Line = 7; Character = 12}
                                  NewName = "y" }
 
@@ -392,7 +392,7 @@ let renameTest =
       ))
 
       testCase "Rename from definition" (serverTest (fun server path pathTest ->
-        let p : RenameParams = { TextDocument = { Uri = filePathToUri pathTest}
+        let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
         let res = server.TextDocumentRename p |> Async.RunSynchronously
@@ -444,7 +444,7 @@ let gotoTest =
   testSequenced <| testList "GoTo Tests" [
       testCase "Go-to-definition on external symbol (System.Net.HttpWebRequest)" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams = {
-          TextDocument = { Uri = filePathToUri externalPath }
+          TextDocument = { Uri = Path.FilePathToUri externalPath }
           Position = { Line = 4; Character = 30 }
         }
 
@@ -463,7 +463,7 @@ let gotoTest =
 
       testCase "Go-to-definition on external namespace (System.Net) should error when going to a namespace " (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams = {
-          TextDocument = { Uri = filePathToUri externalPath }
+          TextDocument = { Uri = Path.FilePathToUri externalPath }
           Position = { Line = 2; Character = 15 }
         }
 
@@ -476,7 +476,7 @@ let gotoTest =
 
       testCase "Go-to-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
-          { TextDocument = { Uri = filePathToUri path}
+          { TextDocument = { Uri = Path.FilePathToUri path}
             Position = { Line = 2; Character = 29}}
         let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
@@ -492,7 +492,7 @@ let gotoTest =
 
       testCase "Go-to-definition on custom type binding" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
-          { TextDocument = { Uri = filePathToUri path}
+          { TextDocument = { Uri = Path.FilePathToUri path}
             Position = { Line = 4; Character = 24}}
         let res = server.TextDocumentDefinition p |> Async.RunSynchronously
         match res with
@@ -508,7 +508,7 @@ let gotoTest =
 
       testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
-          { TextDocument = { Uri = filePathToUri path}
+          { TextDocument = { Uri = Path.FilePathToUri path}
             Position = { Line = 4; Character = 24}}
         let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
         match res with
@@ -524,7 +524,7 @@ let gotoTest =
 
       testCase "Go-to-implementation-on-interface-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
-          { TextDocument = { Uri = filePathToUri definitionPath}
+          { TextDocument = { Uri = Path.FilePathToUri definitionPath}
             Position = { Line = 8; Character = 11}}
         let res = server.TextDocumentImplementation p |> Async.RunSynchronously
         match res with
@@ -538,6 +538,66 @@ let gotoTest =
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 7; Character = 8 }; End = {Line = 7; Character = 30 }}) "First result should be in Library.fs"
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
             ()
+      ))
+
+      testCase "Go-to-implementation on sourcelink file with sourcelink in PDB" (serverTest (fun server path externalPath definitionPath ->
+        // check for the 'button' member in giraffe view engine
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 9; Character = 34} }
+
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "GiraffeViewEngine.fs" "Result should be in GiraffeViewEngine"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-implementation on sourcelink file with sourcelink in DLL" (serverTest (fun server path externalPath definitionPath ->
+        // check for the 'List.concat' member in FSharp.Core
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 12; Character = 36} }
+
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/list.fs" "Result should be in FSharp.Core's list.fs"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      // marked pending because we don't have filename information for C# sources
+      ptestCase "Go-to-implementation on C# file" (serverTest (fun server path externalPath definitionPath ->
+        // check for the 'Stirng.Join' member in the BCL
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 14; Character = 79} }
+
+        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            let localPath = Path.FileUriToLocalPath res.Uri
+            if localPath.Contains "System.String netstandard_ Version_2.0.0.0_ Culture_neutral_ PublicKeyToken_cc7b13ffcd2ddd51"
+            then failwithf "should not decompile when sourcelink is available"
+            Expect.stringContains localPath "System.String" "Result should be in the BCL's source files"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
   ]
 
@@ -557,7 +617,7 @@ let foldingTests =
   let serverTest f () = f serverStart.Value
   testList "folding tests" [
     testCase "can get ranges for sample file" (serverTest (fun (server, libraryPath) ->
-      let rangeResponse = server.TextDocumentFoldingRange({ TextDocument = { Uri = filePathToUri libraryPath } }) |> Async.RunSynchronously
+      let rangeResponse = server.TextDocumentFoldingRange({ TextDocument = { Uri = Path.FilePathToUri libraryPath } }) |> Async.RunSynchronously
       match rangeResponse with
       | Ok(Some(ranges)) ->
         Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
@@ -677,7 +737,7 @@ let signatureHelpTests =
 
       do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
 
-      let getSignatureHelpAt line character = server.TextDocumentSignatureHelp { TextDocument = { Uri = filePathToUri testFilePath }; Position = { Line = line; Character = character } }
+      let getSignatureHelpAt line character = server.TextDocumentSignatureHelp { TextDocument = { Uri = Path.FilePathToUri testFilePath }; Position = { Line = line; Character = character } }
 
       let expectSomeOverloads sigHelpLspRes =
         let sigHelp : SignatureHelp =
