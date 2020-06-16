@@ -64,6 +64,9 @@ let createServer () =
   let event = Event<string * obj> ()
   let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
   let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false)
+  let originalFs = FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem
+  let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
+  FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem <- fs
   let server = FsharpLspServer(commands, client)
   server, event
 
