@@ -36,6 +36,10 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
         p.Length > 0 && p.[0] = '/'
 
     interface IFileSystem with
+        (* for these two members we have to be incredibly careful to root/extend paths in an OS-agnostic way,
+           as they handle paths for windows and unix file systems regardless of your host OS.
+           Therefore, you cannot use the BCL's Path.IsPathRooted/Path.GetFullPath members *)
+
         member _.IsPathRootedShim (p: string) =
           let r =
             isWindowsStyleRootedPath p
@@ -50,7 +54,11 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
           fsLogger.debug (Log.setMessage "{path} expanded to {expanded}" >> Log.addContext "path" f >> Log.addContext "expanded" expanded)
           expanded
 
-              // delegate all others
+        (* These next members all make use of the VolatileFile concept, and so need to check that before delegating to the original FS implementation *)
+
+        (* Note that in addition to this behavior, we _also_ do not normalize the file paths anymore for any other members of this interfact,
+           because these members are always used by the compiler with paths returned from `GetFullPathShim`, which has done the normalization *)
+
         member _.ReadAllBytesShim (f) =
           getContent f
           |> Option.defaultWith (fun _ -> actualFs.ReadAllBytesShim f)
