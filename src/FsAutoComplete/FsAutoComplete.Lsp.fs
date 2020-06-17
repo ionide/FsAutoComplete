@@ -879,7 +879,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "TextDocumentDefinition Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
-                //TODO: Add #load reference
                 let! res = commands.FindDeclaration tyRes pos lineStr
                 let res =
                     match res with
