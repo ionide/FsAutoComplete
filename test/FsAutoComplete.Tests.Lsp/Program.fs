@@ -8,6 +8,7 @@ open Serilog.Events
 open FsAutoComplete.Tests.CoreTest
 open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
+open FsAutoComplete.Tests.InteractiveDirectivesTests
 
 ///Global list of tests
 let tests =
@@ -28,6 +29,8 @@ let tests =
     scriptEvictionTests
     scriptProjectOptionsCacheTests
     //dependencyManagerTests //Requires .Net 5 preview
+    scriptGotoTests
+    interactiveDirectivesUnitTests
 
     fsdnTest
     uriTests

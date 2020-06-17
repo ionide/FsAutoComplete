@@ -68,6 +68,15 @@ module Conversions =
                 }
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
+        | FsAutoComplete.FindDeclarationResult.File file ->
+            let fileUri = Path.FilePathToUri file
+            {
+                Uri = fileUri
+                Range = {
+                    Start = { Line = 0; Character = 0 }
+                    End = { Line = 0; Character = 0 }
+                }
+            }
 
     type TextDocumentIdentifier with
         member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri

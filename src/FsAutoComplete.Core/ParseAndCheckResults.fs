@@ -16,6 +16,8 @@ open FSharp.UMX
 type FindDeclarationResult =
     | ExternalDeclaration of Decompiler.ExternalContentPosition
     | Range of FSharp.Compiler.Range.range
+    /// The declaration refers to a file.
+    | File of string
 
 type ParseAndCheckResults
     (
@@ -63,6 +65,39 @@ type ParseAndCheckResults
       return Ok(meth, commas) }
 
   member __.TryFindDeclaration (pos: pos) (lineStr: LineStr) = async {
+    // try find identifier first
+    let! identResult = __.TryFindIdentifierDeclaration pos lineStr
+    match identResult with
+    | Ok r -> return Ok r
+    | Error identErr ->
+    // then #load directive
+    let! loadResult = __.TryFindLoadDirectiveSource pos lineStr
+    match loadResult with
+    | Ok r -> return Ok r
+    | Error _ -> return Error identErr
+  }
+
+  member __.TryFindLoadDirectiveSource (pos: pos) (lineStr: LineStr) = async {
+    let tryGetFullPath fileName =
+      try
+        // use the parsed file name directory as base path
+        let basePath = Path.GetDirectoryName(__.FileName)
+        Some (Path.Combine(basePath, fileName))
+      with
+      | :? ArgumentException -> None
+      | :? PathTooLongException -> None
+      | :? NotSupportedException -> None
+
+    let result =
+      InteractiveDirectives.tryParseLoad lineStr pos.Column
+      |> Option.bind tryGetFullPath
+
+    match result with
+    | Some file -> return Ok (FindDeclarationResult.File file)
+    | None -> return Error "load directive not recognized"
+  }
+
+  member __.TryFindIdentifierDeclaration (pos: pos) (lineStr: LineStr) = async {
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
     | None -> return ResultOrString.Error "Could not find ident at this location"
     | Some(col, identIsland) ->
