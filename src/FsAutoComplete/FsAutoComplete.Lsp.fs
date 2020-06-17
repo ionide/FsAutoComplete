@@ -640,6 +640,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 let word = lineStr.Substring(0, col)
                 let ok = line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
                 if not ok then
+                    logger.info (Log.setMessage "TextDocumentCompletion Not OK:\n COL: {col}\n LINE_STR: {lineStr}\n LINE_STR_LENGTH: {lineStrLength}"
+                                 >> Log.addContextDestructured "col" col
+                                 >> Log.addContextDestructured "lineStr" lineStr
+                                 >> Log.addContextDestructured "lineStrLength" lineStr.Length)
+
                     AsyncLspResult.internalError "not ok"
                 elif (lineStr.StartsWith "#" && (KeywordList.hashDirectives.Keys |> Seq.exists (fun k -> k.StartsWith word ) || word.Contains "\n" )) then
                     let completionList = { IsIncomplete = false; Items = KeywordList.hashSymbolCompletionItems }
@@ -657,7 +662,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
 
                         match tyResOpt with
-                        | None -> return LspResult.internalError "no type check results"
+                        | None ->
+                          logger.info (Log.setMessage "TextDocumentCompletion - no type check results")
+                          return LspResult.internalError "no type check results"
                         | Some tyRes ->
                             let! res = commands.Completion tyRes pos lineStr lines file None (config.KeywordsAutocomplete) (config.ExternalAutocomplete)
                             let res =
@@ -686,7 +693,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     let its = if not keywords then items else Array.append items KeywordList.keywordCompletionItems
                                     let completionList = { IsIncomplete = false; Items = its}
                                     success (Some completionList)
-                                | _ -> noCompletion
+                                | _ ->
+                                  logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
+                                  noCompletion
                             return res
                     }
         return res

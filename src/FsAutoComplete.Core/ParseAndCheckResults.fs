@@ -26,7 +26,7 @@ type ParseAndCheckResults
         entityCache: EntityCache
     ) =
 
-  let logger = LogProvider.getLoggerByName "FindDeclaration"
+  let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
   member __.TryGetMethodOverrides (lines: LineStr[]) (pos: pos) = async {
     // Find the number of `,` in the current signature
@@ -429,14 +429,18 @@ type ParseAndCheckResults
     try
       let longName = FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 2)
       let residue = longName.PartialIdent
+      logger.info (Log.setMessage "TryGetCompletions - long name: {longName}" >> Log.addContextDestructured "longName" longName)
 
       let getAllSymbols() =
         getAllSymbols()
         |> List.filter (fun entity -> entity.FullName.Contains "." && not (PrettyNaming.IsOperatorName entity.Symbol.DisplayName))
 
       let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.Simple [||]
+      logger.info (Log.setMessage "TryGetCompletions - token: {token}" >> Log.addContextDestructured "token" token)
+      let isEmpty = longName.QualifyingIdents.IsEmpty && String.IsNullOrWhiteSpace longName.PartialIdent && longName.LastDotPos.IsNone
+
       match token with
-      | Some k when k.Kind = Other -> return None
+      | Some k when k.Kind = Other && not isEmpty -> return None
       | Some k when k.Kind = Operator  -> return None
       | Some k when k.Kind = Keyword  -> return None
       | _ ->
