@@ -133,3 +133,40 @@ let scriptProjectOptionsCacheTests =
       Expect.equal opts1 opts2 "Project opts should be eqaul"
     ))
   ]
+
+
+
+
+let scriptGotoTests =
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+
+    let (server, event) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing event
+
+    let scriptPath = Path.Combine(path, "Script.fsx")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+
+    (server, scriptPath)
+  )
+  let serverTest f () =
+    let (server, path) = serverStart.Value
+    f server path
+
+  testSequenced <| testList "Script GoTo Tests" [
+    testCase "Go-to-definition on #load integration test" (serverTest (fun server scriptPath ->
+      let p : TextDocumentPositionParams = {
+        TextDocument = { Uri = Path.FilePathToUri scriptPath }
+        Position = { Line = 0; Character = 10 }
+      }
+      let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+      match res with
+      | Error e -> failtestf "Request failed: %A" e
+      | Ok None -> failtest "Request none"
+      | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+      | Ok (Some (GotoResult.Single r)) ->
+        Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
+        ()
+    ))
+  ]
