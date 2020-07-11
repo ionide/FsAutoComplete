@@ -511,4 +511,4 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
   member __.GetParseResults = parseResults
-  member __.FileName = parseResults.FileName
+  member __.FileName: string = parseResults.FileName
