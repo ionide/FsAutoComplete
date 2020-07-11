@@ -471,39 +471,41 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res decls
     }
 
-    member __.Helptext sym =
+    member __.Helptext sym = async {
         match KeywordList.keywordDescriptions.TryGetValue sym with
         | true, s ->
-            CoreResponse.Res (HelpText.Simple (sym, s))
+            return CoreResponse.Res (HelpText.Simple (sym, s))
         | _ ->
         match KeywordList.hashDirectives.TryGetValue sym with
         | true, s ->
-            CoreResponse.Res (HelpText.Simple (sym, s))
+            return CoreResponse.Res (HelpText.Simple (sym, s))
         | _ ->
         let sym = if sym.StartsWith "``" && sym.EndsWith "``" then sym.TrimStart([|'`'|]).TrimEnd([|'`'|]) else sym
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
-            CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
+            return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
         | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
             let source =
                 state.Files.TryFind fn
                 |> Option.map (fun n -> n.Lines)
             match source with
-            | None -> CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
+            | None -> return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
             | Some source ->
                 let getSource = fun i -> source.[i - 1]
 
-                let tip =
+                let! tip = async {
                     match state.HelpText.TryFind sym with
-                    | None -> decl.DescriptionText
-                    | Some tip -> tip
+                    | None -> return! decl.DescriptionTextAsync
+                    | Some tip -> return tip
+                }
                 state.HelpText.[sym] <- tip
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
                     | None -> calculateNamespaceInser decl pos getSource
                     | Some s -> Some s
-                CoreResponse.Res (HelpText.Full (sym, tip, n))
+                return CoreResponse.Res (HelpText.Full (sym, tip, n))
+    }
 
     member x.CompilerLocation () = CoreResponse.Res (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())
     member x.Colorization enabled = state.ColorizationOutput <- enabled
@@ -985,20 +987,11 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
             let config =
                 let currentFolder = Path.GetDirectoryName(file)
-                let result = Fantomas.CodeFormatter.ReadConfiguration currentFolder
-                match result with
-                | Fantomas.FormatConfig.Success c -> c
-                | Fantomas.FormatConfig.PartialSuccess(c,warnings) ->
-                    match warnings with
-                    | [] ->
-                      c
-                    | warnings ->
-                      fantomasLogger.warn (Log.setMessage "Warnings while parsing the configuration file at {path}" >> Log.addContextDestructured "path" currentFolder >> Log.addContextDestructured "warnings" warnings)
-                      c
-                | Fantomas.FormatConfig.Failure err ->
-                    fantomasLogger.error (Log.setMessage "Error while parsing the configuration files at {path}. Using default configuration" >> Log.addContextDestructured "path" currentFolder >> Log.addExn err)
-                    Fantomas.FormatConfig.FormatConfig.Default
-
+                match Fantomas.CodeFormatter.TryReadConfiguration currentFolder with
+                | Some c -> c
+                | None ->
+                  fantomasLogger.warn (Log.setMessage "No fantomas configuration found in {path} or parent directories. Using the default configuration." >> Log.addContextDestructured "path" currentFolder)
+                  Fantomas.FormatConfig.FormatConfig.Default
             let! formatted =
                 Fantomas.CodeFormatter.FormatDocumentAsync(file,
                                                            Fantomas.SourceOrigin.SourceString source,

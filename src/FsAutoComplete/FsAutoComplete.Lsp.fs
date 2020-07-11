@@ -703,7 +703,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.CompletionItemResolve(ci) = async {
         logger.info (Log.setMessage "CompletionItemResolve Request: {parms}" >> Log.addContextDestructured "parms" ci )
-        let res = commands.Helptext ci.InsertText.Value
+        let! res = commands.Helptext ci.InsertText.Value
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
