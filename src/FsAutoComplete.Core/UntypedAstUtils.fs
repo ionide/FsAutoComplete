@@ -842,6 +842,9 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         | SynType.StaticConstant(constant, r) -> addIfInside r
         | SynType.StaticConstantExpr(expr, r) -> addIfInside r
         | SynType.StaticConstantNamed(expr, _, r) -> addIfInside r
+        | SynType.Paren(innerType, r) ->
+          addIfInside r
+          walkType innerType
 
 
     and walkClause (Clause (pat, e1, e2, r, _)) =
