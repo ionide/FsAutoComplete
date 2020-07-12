@@ -137,12 +137,12 @@ Target.create "ReleaseGitHub" (fun _ ->
 
     let client =
         let user =
-            match Environment.getBuildParam "github-user" with
-            | s when not (String.isNullOrWhiteSpace s) -> s
+            match Environment.environVarOrNone "github-user" with
+            | Some s when not (String.isNullOrWhiteSpace s) -> s
             | _ -> UserInput.getUserInput "Username: "
         let pw =
-            match Environment.getBuildParam "github-pw" with
-            | s when not (String.isNullOrWhiteSpace s) -> s
+            match Environment.environVarOrNone "github-pw" with
+            | Some s when not (String.isNullOrWhiteSpace s) -> s
             | _ -> UserInput.getUserPassword "Password: "
 
         // Git.createClient user pw
