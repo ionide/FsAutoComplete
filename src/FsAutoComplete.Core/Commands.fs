@@ -977,23 +977,22 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
     member x.FormatDocument (file: SourceFilePath) = async {
-        let file = Path.GetFullPath file
+        let filePath = Path.GetFullPath file
 
-        match x.TryGetFileCheckerOptionsWithLines file with
+        match x.TryGetFileCheckerOptionsWithLines filePath with
         | Result.Ok (opts, lines) ->
             let source = String.concat "\n" lines
             let parsingOptions = Utils.projectOptionsToParseOptions opts
             let checker : FSharpChecker = checker.GetFSharpChecker()
             // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
             let config =
-                let currentFolder = Path.GetDirectoryName(file)
-                match Fantomas.CodeFormatter.TryReadConfiguration currentFolder with
+                match Fantomas.CodeFormatter.TryReadConfiguration filePath with
                 | Some c -> c
                 | None ->
-                  fantomasLogger.warn (Log.setMessage "No fantomas configuration found in {path} or parent directories. Using the default configuration." >> Log.addContextDestructured "path" currentFolder)
+                  fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
                   Fantomas.FormatConfig.FormatConfig.Default
             let! formatted =
-                Fantomas.CodeFormatter.FormatDocumentAsync(file,
+                Fantomas.CodeFormatter.FormatDocumentAsync(filePath,
                                                            Fantomas.SourceOrigin.SourceString source,
                                                            config,
                                                            parsingOptions,
