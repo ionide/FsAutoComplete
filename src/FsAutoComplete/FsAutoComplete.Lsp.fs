@@ -1994,6 +1994,22 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
+    member __.FSharpLiterate (p: FSharpLiterateRequest) = async {
+      logger.info (Log.setMessage "FSharpLiterate Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+      let fn = p.FileName
+      let! res = commands.FSharpLiterate fn
+      let res =
+        match res with
+        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+            LspResult.internalError msg
+        | CoreResponse.Res (res) ->
+            { Content = CommandResponse.fsharpLiterate FsAutoComplete.JsonSerializer.writeJson res }
+            |> success
+
+      return res
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -2017,6 +2033,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
         |> Map.add "fsharp/highlighting" (requestHandling (fun s p -> s.GetHighlighting(p) ))
+        |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
 

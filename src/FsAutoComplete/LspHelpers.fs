@@ -357,6 +357,8 @@ type DotnetNewListRequest = { Query: string }
 
 type DotnetNewRunRequest = { Template: string; Output: string option; Name: string option }
 
+type FSharpLiterateRequest = {FileName : string; }
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option

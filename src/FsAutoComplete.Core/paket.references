@@ -16,3 +16,4 @@ FSharp.UMX
 
 Microsoft.NETFramework.ReferenceAssemblies
 System.Reflection.Metadata
+FSharp.Formatting

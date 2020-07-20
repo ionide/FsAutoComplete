@@ -507,3 +507,6 @@ module CommandResponse =
           )
       }
     }
+
+  let fsharpLiterate (serialize: Serializer) (content: string) =
+    serialize { Kind = "fsharpLiterate"; Data = content}
