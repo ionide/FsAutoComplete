@@ -3,18 +3,15 @@ version 5.241.6
 framework: net461, netstandard2.0, netcoreapp2.1
 
 source https://api.nuget.org/v3/index.json
-git https://github.com/baronfel/FSharpLint.git pass-version build: "build.sh -t Package", Packages: ./packaging, OS: mac
-git https://github.com/baronfel/FSharpLint.git pass-version build: "build.cmd -t Package", Packages: ./packaging, OS: win
 
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas 4.0.0-alpha-002
-nuget FSharp.Compiler.Service 35.0.0
-nuget Dotnet.ProjInfo
-nuget Dotnet.ProjInfo.Workspace.FCS
+nuget Fantomas ~> 4.0 prerelease
+nuget FSharp.Compiler.Service 36.0.3
+nuget Dotnet.ProjInfo.Workspace.FCS 0.41.1
 nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
@@ -36,10 +33,11 @@ nuget Serilog.Sinks.File
 nuget Serilog.Sinks.Console
 nuget Serilog.Sinks.Async
 nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
+nuget FSharp.UMX
 
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
-nuget FSharp.DependencyManager.Nuget 35.0.0
+nuget FSharp.DependencyManager.Nuget 36.0.3
 
 group Build
   source https://api.nuget.org/v3/index.json
@@ -61,7 +59,7 @@ group Build
   nuget Microsoft.Build
 
 group Test
-  framework: net461, netstandard2.0, netcoreapp2.0, netcoreapp2.1, netcoreapp3.1
+  framework: netstandard2.0, netcoreapp2.1, netcoreapp3.1
   source https://api.nuget.org/v3/index.json
   storage: none
 
@@ -69,18 +67,6 @@ group Test
   nuget NUnit3TestAdapter 3.10.0
   nuget Microsoft.NET.Test.Sdk 15.8.0
   nuget Expecto
-
-group IntegrationTests
-  framework: net461
-  source https://api.nuget.org/v3/index.json
-  generate_load_scripts: true
-
-  nuget Http.fs
-  nuget Newtonsoft.Json 11.0.2
-  nuget System.Net.WebSockets.Client
-  nuget Hopac
-  nuget FSharp.Core ~> 4.5
-  nuget Argu ~> 5.2.0
 
 group SourceLink
   storage: none

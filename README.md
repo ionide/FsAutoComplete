@@ -1,8 +1,6 @@
 
 # FsAutoComplete
 
-[![Build Status](https://dev.azure.com/fsautocomplete/fsautocomplete/_apis/build/status/fsharp.FsAutoComplete?branchName=master)](https://dev.azure.com/fsautocomplete/fsautocomplete/_build/latest?definitionId=1&branchName=master)
-
 The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or intellisense features for editors.
 
 It can be hosted using the Language Server Protocol.
@@ -18,6 +16,7 @@ It's based on:
 * [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
 * [Dotnet.ProjInfo](https://github.com/enricosada/dotnet-proj-info/) for project/solution management.
 * [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
+* [Fantomas](https://github.com/fsprojects/fantomas) for F# code formatting.
 
 ## Required software
 
@@ -152,7 +151,6 @@ Options that should be send as `initializationOptions` as part of `initialize` r
         "FSharp.fsiExtraParameters": ["--langversion:preview"]
     ```
 
-
 ## Troubleshooting
 
 ### FileWatcher exceptions
@@ -163,14 +161,14 @@ You may see a stack trace finishing with `System.IO.IOException: kqueue() error 
 
 The maintainers of this repository are:
 
-* [Steffen Forkmann](http://github.com/forki)
-* [Karl Nilsson](http://github.com/kjnilsson)
-* [Enrico Sada](http://github.com/enricosada)
 * [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
 * [Chester Husk](http://github.com/baronfel)
 
-The primary maintainer for this repository is [Enrico Sada](http://github.com/enricosada)
+The primary maintainer for this repository is [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak))
 
 Previous maintainers:
 
 * [Robin Neatherway](https://github.com/rneatherway)
+* [Steffen Forkmann](http://github.com/forki)
+* [Karl Nilsson](http://github.com/kjnilsson)
+* [Enrico Sada](http://github.com/enricosada)

@@ -38,7 +38,7 @@ Target.create "LspTest" (fun _ ->
           { p with
               Timeout = Some (System.TimeSpan.FromMinutes 10.) })
       "run"
-      """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug"""
+      """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --debug --summary"""
   |> fun r -> if not r.OK then failwithf "Errors while running LSP tests:\n%s" (r.Errors |> String.concat "\n\t")
 )
 
@@ -137,12 +137,12 @@ Target.create "ReleaseGitHub" (fun _ ->
 
     let client =
         let user =
-            match Environment.getBuildParam "github-user" with
-            | s when not (String.isNullOrWhiteSpace s) -> s
+            match Environment.environVarOrNone "github-user" with
+            | Some s when not (String.isNullOrWhiteSpace s) -> s
             | _ -> UserInput.getUserInput "Username: "
         let pw =
-            match Environment.getBuildParam "github-pw" with
-            | s when not (String.isNullOrWhiteSpace s) -> s
+            match Environment.environVarOrNone "github-pw" with
+            | Some s when not (String.isNullOrWhiteSpace s) -> s
             | _ -> UserInput.getUserPassword "Password: "
 
         // Git.createClient user pw
@@ -178,7 +178,7 @@ Target.create "Release" ignore
   ==> "Test"
   ==> "All"
 
-"Build"
+"ReplaceFsLibLogNamespaces"
   ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "ReleaseGitHub"

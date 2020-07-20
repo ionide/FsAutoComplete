@@ -6,12 +6,14 @@ module ProjectSystem.FSIRefs
 
 open System
 open System.IO
+open System.Runtime.InteropServices
 
 let defaultDotNetSDKRoot =
-  match Environment.OSVersion.Platform with
-  | PlatformID.MacOSX -> "/usr/local/share/dotnet"
-  | PlatformID.Unix -> "/usr/share/dotnet"
-  | _ -> @"C:\Program Files\dotnet"
+  if RuntimeInformation.IsOSPlatform OSPlatform.OSX
+  then "/usr/local/share/dotnet"
+  else if RuntimeInformation.IsOSPlatform OSPlatform.Linux
+  then "/usr/share/dotnet"
+  else @"C:\Program Files\dotnet"
 
 type TFM =
 | NetFx

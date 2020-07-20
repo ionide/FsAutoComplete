@@ -73,6 +73,28 @@ type ProjectController(checker : FSharpChecker) =
         let binder = Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
         loader, binder
 
+    member private x.LoaderLoop = MailboxProcessor.Start(fun agent ->
+      let rec loop () = async {
+        let! ((oc, fn, tfm, ol, gb), reply : AsyncReplyChannel<_>) = agent.Receive()
+        let mutable wasInvoked = false
+        let! x =
+            Async.FromContinuations( fun (succ, err, cancl) ->
+                let opl str cache tfm bl =
+                    ol str cache tfm bl
+                    if wasInvoked then ()
+                    else
+                        wasInvoked <- true
+                        succ ()
+                x.LoadWorkspace oc [fn] tfm opl gb |> Async.Ignore |> Async.Start
+            )
+
+        reply.Reply true
+        return ()
+      }
+
+      loop ()
+    )
+
     member __.WorkspaceReady = workspaceReady.Publish
 
     member __.NotifyWorkspace = notify.Publish
@@ -105,58 +127,11 @@ type ProjectController(checker : FSharpChecker) =
         projects
         |> Seq.map (|KeyValue|)
 
-    member __.LoadProject projectFileName onChange (tfmForScripts: FSIRefs.TFM) onProjectLoaded = async {
-        let projectFileName = Path.GetFullPath projectFileName
-        let project =
-            match projects.TryFind projectFileName with
-            | Some prj -> prj
-            | None ->
-                let proj = new Project(projectFileName, onChange)
-                projects.[projectFileName] <- proj
-                proj
+    member x.LoadProject onChange projectFileName  (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool)  =
+      x.LoaderLoop.PostAndAsyncReply(fun acr -> (onChange, projectFileName, tfmForScripts, onProjectLoaded, generateBinlog ), acr )
 
-        let workspaceBinder = workspaceBinder ()
 
-        let projResponse =
-            match project.Response with
-            | Some response ->
-                Result.Ok (projectFileName, response)
-            | None ->
-                let projectCached =
-                    projectFileName
-                    |> Workspace.parseProject workspaceBinder
-                    |> Result.map (fun (opts, optsDPW, projectFiles, logMap) -> toProjectCache(opts, optsDPW.ExtraProjectInfo, projectFiles, logMap) )
-                match projectCached with
-                | Result.Ok (projectFileName, response) ->
-                    project.Response <- Some response
-                    Result.Ok (projectFileName, response)
-                | Result.Error error ->
-                    project.Response <- None
-                    Result.Error error
-        return
-            match projResponse with
-            | Result.Ok (projectFileName, response) ->
-                updateState response
-                onProjectLoaded projectFileName response tfmForScripts
-                let responseFiles =
-                    response.Items
-                    |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-                let projInfo : ProjectResult =
-                    { projectFileName = projectFileName
-                      projectFiles = responseFiles
-                      outFileOpt = response.OutFile
-                      references = response.References
-                      logMap = response.Log
-                      extra = response.ExtraInfo
-                      projectItems = response.Items
-                      additionals = Map.empty}
-
-                ProjectResponse.Project projInfo
-            | Result.Error error ->
-                ProjectResponse.ProjectError error
-    }
-
-    member __.LoadWorkspace onChange (files: string list) (tfmForScripts: FSIRefs.TFM) onProjectLoaded = async {
+    member __.LoadWorkspace onChange (files: string list) (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool) = async {
         //TODO check full path
         let projectFileNames = files |> List.map Path.GetFullPath
 
@@ -186,9 +161,9 @@ type ProjectController(checker : FSharpChecker) =
             | WorkspaceProjectState.Loading projectFileName ->
                 ProjectResponse.ProjectLoading projectFileName
                 |> notify.Trigger
-            | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap) ->
+            | WorkspaceProjectState.Loaded (opts, extraInfo, projectFiles, logMap, isFromCache) ->
                 let projectFileName, response = toProjectCache(opts, extraInfo, projectFiles, logMap)
-                projectLoadedSuccessfully projectFileName response tfmForScripts
+                projectLoadedSuccessfully projectFileName response tfmForScripts isFromCache
 
                 let responseFiles =
                     response.Items
@@ -228,13 +203,13 @@ type ProjectController(checker : FSharpChecker) =
             match n with
             | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loading (path, _) ->
                 Some (WorkspaceProjectState.Loading path)
-            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap) ->
+            | Dotnet.ProjInfo.Workspace.WorkspaceProjectState.Loaded (opts, logMap, isFromCache) ->
                 match fcsBinder.GetProjectOptions(opts.ProjectFileName) with
                 | Ok fcsOpts ->
                     match Workspace.extractOptionsDPW fcsOpts with
                     | Ok optsDPW ->
                         let view = projViewer.Render optsDPW
-                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap))
+                        Some (WorkspaceProjectState.Loaded (fcsOpts, optsDPW.ExtraProjectInfo, view.Items, logMap, isFromCache))
                     | Error _ ->
                         None //TODO not ignore the error
                 | Error _ ->
@@ -247,7 +222,7 @@ type ProjectController(checker : FSharpChecker) =
         loader.Notifications.Add(fun (_, arg) ->
             arg |> bindNewOnloaded |> Option.iter onLoaded )
 
-        do! Workspace.loadInBackground onLoaded (loader, fcsBinder) (prjs |> List.map snd)
+        do! Workspace.loadInBackground onLoaded (loader, fcsBinder) (prjs |> List.map snd) generateBinlog
 
         ProjectResponse.WorkspaceLoad true
         |> notify.Trigger

@@ -549,8 +549,8 @@ module DocumentationFormatter =
                         let setter = v |> Seq.exists (fun f -> f.IsPropertySetterMethod)
                         [getFuncSignatureForTypeSignature displayContext prop getter setter] //Ensure properties are displayed only once, properly report
                     | None ->
-                        let f = Seq.head v
                         [
+                          for f in v do
                             yield getFuncSignatureForTypeSignature displayContext f false false
                             yield! f.Overloads false |> Option.map (Seq.map (fun f -> getFuncSignatureForTypeSignature displayContext f false false)) |> Option.defaultValue Seq.empty
                         ])

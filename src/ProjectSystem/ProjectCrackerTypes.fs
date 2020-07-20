@@ -4,17 +4,10 @@ open System
 open System.IO
 
 type GetProjectOptionsErrors = Dotnet.ProjInfo.Workspace.GetProjectOptionsErrors
-    //| ProjectNotRestored of projFile:string
-    //| LanguageNotSupported of projFile:string
-    //| ProjectNotLoaded of projFile:string
-    //| MissingExtraProjectInfos of projFile:string
-    //| InvalidExtraProjectInfos of projFile:string * error:string
-    //| ReferencesNotLoaded of projFile:string * referenceErrors:seq<string*GetProjectOptionsErrors>
-    //| GenericError of projFile:string * string
 
 type [<RequireQualifiedAccess>] WorkspaceProjectState =
     | Loading of string
-    | Loaded of FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * Dotnet.ProjInfo.Workspace.ProjectViewerItem list * Map<string,string>
+    | Loaded of FSharp.Compiler.SourceCodeServices.FSharpProjectOptions * Dotnet.ProjInfo.Workspace.ExtraProjectInfoData * Dotnet.ProjInfo.Workspace.ProjectViewerItem list * Map<string,string> * fromDpiCache: bool
     | Failed of string * GetProjectOptionsErrors
 
 module internal ProjectRecognizer =
@@ -48,3 +41,10 @@ module internal ProjectRecognizer =
             |> Seq.truncate 3
             |> List.ofSeq
             |> getProjectType
+
+    ///We only support Old Verbose projects and modern SDK projects. We don't support .Net Core preview `project.json` nor .Net Core 1.X `FSharp.NET.Sdk`
+    let isSupported (file: string) =
+      match file with
+      | Net45
+      | NetCoreSdk -> true
+      | _ -> false

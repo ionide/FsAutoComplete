@@ -47,6 +47,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let state = State.Initial (checker.GetFSharpChecker())
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
+    let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
@@ -76,16 +77,10 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     )
 
     do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
-        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
-        let mutable count = 0
-        state.FSharpProjectOptions
-        |> Seq.choose (function | (path, _) when path.EndsWith ".fsx" -> Some path
-                                | _ -> None)
-        |> Seq.iter (fun path ->
-            state.RemoveProjectOptions path
-            count <- count + 1
-        )
-        checkerLogger.debug (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContextDestructured "optionCount" count)
+        checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
+        let count = state.ScriptProjectOptions.Count
+        state.ScriptProjectOptions.Clear ()
+        checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContextDestructured "optionCount" count)
     )
 
     do if not backgroundServiceEnabled then
@@ -217,14 +212,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
         } |> Async.Start
 
-    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts =
+    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts (isFromCache: bool) =
         if backgroundServiceEnabled then
             BackgroundServices.updateProject(projectFileName, response.Options)
 
-        response.Items
-        |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-        |> parseFilesInTheBackground tfmForScripts
-        |> Async.Start
+        if not isFromCache then
+          response.Items
+          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+          |> parseFilesInTheBackground tfmForScripts
+          |> Async.Start
+        else
+          commandsLogger.info (Log.setMessage "Project from cache '{file}'" >> Log.addContextDestructured "file" projectFileName)
 
     member __.Notify = notify.Publish
 
@@ -232,6 +230,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.FileChecked = fileChecked.Publish
 
+    member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
     member __.IsWorkspaceReady
         with get() = state.ProjectController.IsWorkspaceReady
@@ -249,6 +248,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         with get() = lastCheckResult
 
     member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
+        let file = Path.GetFullPath file
         state.AddFileText(file, lines, version)
         let payload =
             if Utils.isAScript file
@@ -389,7 +389,25 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             let text = String.concat "\n" lines
 
             if Utils.isAScript file then
-                let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                commandsLogger.info (Log.setMessage "Checking script file '{file}'" >> Log.addContextDestructured "file" file)
+                let hash  =
+                  lines
+                  |> Array.filter (fun n -> n.StartsWith "#r" || n.StartsWith "#load" || n.StartsWith "#I")
+                  |> Array.toList
+                  |> fun n -> n.GetHashCode ()
+
+                let! checkOptions =
+                  match state.ScriptProjectOptions.TryFind file with
+                  | Some (h, opts) when h = hash ->
+                    async.Return opts
+                  | _ ->
+                    async {
+                      let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+                      state.ScriptProjectOptions.AddOrUpdate(file, (hash, checkOptions), (fun _ _ -> (hash, checkOptions))) |> ignore
+                      return checkOptions
+                    }
+
+                scriptFileProjectOptions.Trigger checkOptions
                 state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
@@ -409,10 +427,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         } |> x.AsCancellable file
 
 
-    member x.Project projectFileName onChange tfmForScripts = async {
-        let! res = state.ProjectController.LoadProject projectFileName onChange tfmForScripts onProjectLoaded
-        return CoreResponse.Res res
-    }
+
 
     member x.Declarations file lines version = async {
         let file = Path.GetFullPath file
@@ -456,39 +471,41 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res decls
     }
 
-    member __.Helptext sym =
+    member __.Helptext sym = async {
         match KeywordList.keywordDescriptions.TryGetValue sym with
         | true, s ->
-            CoreResponse.Res (HelpText.Simple (sym, s))
+            return CoreResponse.Res (HelpText.Simple (sym, s))
         | _ ->
         match KeywordList.hashDirectives.TryGetValue sym with
         | true, s ->
-            CoreResponse.Res (HelpText.Simple (sym, s))
+            return CoreResponse.Res (HelpText.Simple (sym, s))
         | _ ->
         let sym = if sym.StartsWith "``" && sym.EndsWith "``" then sym.TrimStart([|'`'|]).TrimEnd([|'`'|]) else sym
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
-            CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
+            return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
         | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
             let source =
                 state.Files.TryFind fn
                 |> Option.map (fun n -> n.Lines)
             match source with
-            | None -> CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
+            | None -> return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
             | Some source ->
                 let getSource = fun i -> source.[i - 1]
 
-                let tip =
+                let! tip = async {
                     match state.HelpText.TryFind sym with
-                    | None -> decl.DescriptionText
-                    | Some tip -> tip
+                    | None -> return! decl.DescriptionTextAsync
+                    | Some tip -> return tip
+                }
                 state.HelpText.[sym] <- tip
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
                     | None -> calculateNamespaceInser decl pos getSource
                     | Some s -> Some s
-                CoreResponse.Res (HelpText.Full (sym, tip, n))
+                return CoreResponse.Res (HelpText.Full (sym, tip, n))
+    }
 
     member x.CompilerLocation () = CoreResponse.Res (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())
     member x.Colorization enabled = state.ColorizationOutput <- enabled
@@ -821,9 +838,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res d
     }
 
-    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts = async {
+    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts (generateBinlog: bool) = async {
+        commandsLogger.info (Log.setMessage "Workspace loading started '{files}'" >> Log.addContextDestructured "files" files)
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-        let! res = state.ProjectController.LoadWorkspace onChange files tfmForScripts onProjectLoaded
+        let! res = state.ProjectController.LoadWorkspace onChange files tfmForScripts onProjectLoaded generateBinlog
+        commandsLogger.info (Log.setMessage "Workspace loading finished ")
+        return CoreResponse.Res res
+    }
+
+    member x.Project onChange projectFileName tfmForScripts (generateBinlog: bool)  = async {
+        commandsLogger.info (Log.setMessage "Project loading '{file}'" >> Log.addContextDestructured "file" projectFileName)
+        let! res = state.ProjectController.LoadProject onChange projectFileName tfmForScripts onProjectLoaded generateBinlog
         return CoreResponse.Res res
     }
 
@@ -952,32 +977,22 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
     member x.FormatDocument (file: SourceFilePath) = async {
-        let file = Path.GetFullPath file
+        let filePath = Path.GetFullPath file
 
-        match x.TryGetFileCheckerOptionsWithLines file with
+        match x.TryGetFileCheckerOptionsWithLines filePath with
         | Result.Ok (opts, lines) ->
             let source = String.concat "\n" lines
             let parsingOptions = Utils.projectOptionsToParseOptions opts
             let checker : FSharpChecker = checker.GetFSharpChecker()
             // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
             let config =
-                let currentFolder = Path.GetDirectoryName(file)
-                let result = Fantomas.CodeFormatter.ReadConfiguration currentFolder
-                match result with
-                | Fantomas.FormatConfig.Success c -> c
-                | Fantomas.FormatConfig.PartialSuccess(c,warnings) ->
-                    match warnings with
-                    | [] ->
-                      c
-                    | warnings ->
-                      fantomasLogger.warn (Log.setMessage "Warnings while parsing the configuration file at {path}" >> Log.addContextDestructured "path" currentFolder >> Log.addContextDestructured "warnings" warnings)
-                      c
-                | Fantomas.FormatConfig.Failure err ->
-                    fantomasLogger.error (Log.setMessage "Error while parsing the configuration files at {path}. Using default configuration" >> Log.addContextDestructured "path" currentFolder >> Log.addExn err)
-                    Fantomas.FormatConfig.FormatConfig.Default
-
+                match Fantomas.CodeFormatter.TryReadConfiguration filePath with
+                | Some c -> c
+                | None ->
+                  fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
+                  Fantomas.FormatConfig.FormatConfig.Default
             let! formatted =
-                Fantomas.CodeFormatter.FormatDocumentAsync(file,
+                Fantomas.CodeFormatter.FormatDocumentAsync(filePath,
                                                            Fantomas.SourceOrigin.SourceString source,
                                                            config,
                                                            parsingOptions,
@@ -987,16 +1002,19 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             return None
     }
 
-    member x.GetHighlighting (file: SourceFilePath) = async {
+    member x.GetHighlighting (file: SourceFilePath) =
       let file = Path.GetFullPath file
-      let! res = x.TryGetLatestTypeCheckResultsForFile file
-      match res with
-      | Some res ->
-        let r = res.GetCheckResults.GetSemanticClassification(None)
-        return Some r
-      | None ->
-       return None
-    }
+      async {
+        let! res = x.TryGetLatestTypeCheckResultsForFile file
+        let res =
+          match res with
+          | Some res ->
+            let r = res.GetCheckResults.GetSemanticClassification(None)
+            Some r
+          | None ->
+            None
+        return CoreResponse.Res res
+      }
 
     member __.SetWorkspaceRoot (root: string option) =
       workspaceRoot <- root
