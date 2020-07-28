@@ -188,23 +188,67 @@ type ParseAndCheckResults
       let! symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
       match symbol with
       | None ->
-        return Error "Cannot find symbol at this locaion"
+        return Error "Cannot find symbol at this location"
       | Some sym ->
-        let r =
-          match sym with
-          | SymbolUse.Field f -> Some f.FieldType.TypeDefinition.DeclarationLocation
-          | SymbolUse.Val v -> v.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
-          | SymbolUse.Entity (e, _) -> Some e.DeclarationLocation
-          | SymbolUse.Parameter p -> Some p.Type.TypeDefinition.DeclarationLocation
-          | SymbolUse.TypeAbbreviation t -> Some t.DeclarationLocation
-          | SymbolUse.Property p -> p.FullTypeSafe |> Option.map (fun f -> f.TypeDefinition.DeclarationLocation)
-          | _ -> None
-        match r with
-        | Some r when File.Exists r.FileName ->
-          return (Ok r)
-        | _ ->
-          return Error "No type information for the symbol at this location"
 
+        let tryGetTypeDef (t: FSharpType option) =
+          t |> Option.bind (fun t -> if t.HasTypeDefinition then Some t.TypeDefinition else None)
+
+        let rec tryGetSource (ty: FSharpEntity option) = async {
+            match ty |> Option.map (fun ty -> ty, ty.DeclarationLocation) with
+            | Some (_, loc) when File.Exists loc.FileName ->
+                return Ok (FindDeclarationResult.Range loc)
+            | Some (ty, loc) ->
+                match ty.Assembly.FileName with
+                | Some dllFile ->
+                    let dllFile = UMX.tag<LocalPath> dllFile
+                    let sourceFile = UMX.tag<NormalizedRepoPathSegment> loc.FileName
+                    let! source = Sourcelink.tryFetchSourcelinkFile dllFile sourceFile
+                    match source with
+                    | Ok localFilePath ->
+                        return Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = loc.StartLine; Column = loc.StartColumn })
+                    | Error _ -> 
+                        return! tryDecompile ty
+                | None ->
+                    return! tryDecompile ty
+            | None ->  
+                return Error "No type information for the symbol at this location"
+          }
+        and tryDecompile (ty: FSharpEntity) = async {
+            match ty.TryFullName with
+            | Some fullName ->
+                let externalSym = ExternalSymbol.Type fullName
+                // from TryFindIdentifierDeclaration
+                let decompile assembly externalSym =
+                  match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
+                  | Ok extDec -> ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration extDec)
+                  | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
+                  | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) -> ResultOrString.Error (sprintf "External declaration assembly '%s' not found" assy)
+                  | Error(Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception(symbol, file, exn))) ->
+                      Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
+
+                return decompile ty.Assembly.SimpleName externalSym
+            | None ->
+                // might be abbreviated type (like string)
+                return!
+                  if ty.IsFSharpAbbreviation then Some ty.AbbreviatedType else None
+                  |> tryGetTypeDef
+                  |> tryGetSource
+          }
+
+        let ty =
+          match sym with
+          | SymbolUse.Field f -> Some f.FieldType |> tryGetTypeDef
+          | SymbolUse.Constructor c -> c.DeclaringEntity
+          | SymbolUse.Property p when p.IsPropertyGetterMethod -> 
+              Some p.ReturnParameter.Type |> tryGetTypeDef
+          | SymbolUse.Val v -> v.FullTypeSafe |> tryGetTypeDef
+          | SymbolUse.Entity (e, _) -> Some e
+          | SymbolUse.UnionCase c -> Some c.ReturnType |> tryGetTypeDef
+          | SymbolUse.Parameter p -> Some p.Type |> tryGetTypeDef
+          | _ -> None
+        
+        return! tryGetSource ty
   }
 
   member __.TryGetToolTip (pos: pos) (lineStr: LineStr) = async {

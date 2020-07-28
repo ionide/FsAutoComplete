@@ -911,7 +911,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         LspResult.internalError msg
                     | CoreResponse.Res r ->
-                        fcsRangeToLspLocation r
+                        findDeclToLspLocation r
                         |> GotoResult.Single
                         |> Some
                         |> success
