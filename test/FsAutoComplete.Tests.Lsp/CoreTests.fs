@@ -506,22 +506,6 @@ let gotoTest =
             Expect.equal res.Range { Start = {Line = 6; Character = 4 }; End = {Line = 6; Character = 19 }} "Result should have correct range"
       ))
 
-      testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
-        let p : TextDocumentPositionParams  =
-          { TextDocument = { Uri = Path.FilePathToUri path}
-            Position = { Line = 4; Character = 24}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
-        match res with
-        | Result.Error e -> failtestf "Request failed: %A" e
-        | Result.Ok None -> failtest "Request none"
-        | Result.Ok (Some res) ->
-          match res with
-          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-          | GotoResult.Single res ->
-            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
-            Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
-      ))
-
       testCase "Go-to-implementation-on-interface-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri definitionPath}
@@ -597,6 +581,137 @@ let gotoTest =
             if localPath.Contains "System.String netstandard_ Version_2.0.0.0_ Culture_neutral_ PublicKeyToken_cc7b13ffcd2ddd51"
             then failwithf "should not decompile when sourcelink is available"
             Expect.stringContains localPath "System.String" "Result should be in the BCL's source files"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri path}
+            Position = { Line = 4; Character = 24}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
+      ))
+
+      testCase "Go-to-type-defintion on parameter" (serverTest (fun server path externalPath definitionPath ->
+        // check for parameter of type `'a list` -> FSharp.Core
+        (*
+          `let myConcat listA listB = List.concat [listA; listB]`
+                          ^
+                          position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 12; Character = 16}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on variable" (serverTest (fun server path externalPath definitionPath ->
+        // check for variable of type `System.Collections.Generic.List<_>`
+        (*
+          `let myList = System.Collections.Generic.List<string>()`
+                 ^
+                 position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 16; Character = 6}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.stringContains res.Uri "System.Collections.Generic.List" "Result should be for System.Collections.Generic.List"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on constructor" (serverTest (fun server path externalPath definitionPath ->
+        // check for constructor of type `System.Collections.Generic.List<_>`
+        (*
+          `let myList = System.Collections.Generic.List<string>()`
+                                                     ^
+                                                     position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 16; Character = 42}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.stringContains res.Uri "System.Collections.Generic.List" "Result should be for System.Collections.Generic.List"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on union case" (serverTest (fun server path externalPath definitionPath ->
+        // check for union case of type `_ option`
+        (*
+          `let o v = Some v`
+                       ^
+                       position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 18; Character = 12}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on property" (serverTest (fun server path externalPath definitionPath ->
+        // check for property of type `string option`
+        (*
+          `b.Value |> ignore`
+                ^
+                position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 24; Character = 5}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
+            let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
   ]
