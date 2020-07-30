@@ -1170,7 +1170,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         )
 
     member private x.GetLinterCodeAction fn p =
-        p |> x.IfDiagnostic "Lint:" (fun d ->
+        p |> x.IfDiagnosticType "F# Linter" (fun d ->
             let uri = Path.FilePathToUri fn
 
             match fixes.TryGetValue uri with
