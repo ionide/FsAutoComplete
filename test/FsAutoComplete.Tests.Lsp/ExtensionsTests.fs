@@ -185,7 +185,15 @@ let linterTests =
      ))
 
     testCase "Linter Code Action" (serverTest (fun server path _ -> 
-        let createCodeAction newText diag = {
+        // different versions on differen operating systems
+        // Windows:   Version = None
+        // Linux/Mac: Version = Some 0
+        // -> use version of returned action
+        let getDocumentVersion (codeAction: CodeAction) =
+          codeAction.Edit.DocumentChanges
+          |> Option.bind Array.tryHead
+          |> Option.bind (fun e -> e.TextDocument.Version)
+        let createCodeAction newText diag version = {
           Title = sprintf "Replace with %s" newText
           Kind = Some "quickfix"
           Diagnostics = Some [| diag |]
@@ -195,7 +203,7 @@ let linterTests =
               {
                 TextDocument = {
                   Uri = Path.FilePathToUri path
-                  Version = None
+                  Version = version
                 }
                 Edits = [|
                   {
@@ -235,7 +243,7 @@ let linterTests =
               Expect.equal (actions.Length) 1 <| sprintf "[%i] Wrong number of code actions" i
               match actions with
               | [| action |] ->
-                  let expected = createCodeAction newText diag
+                  let expected = createCodeAction newText diag (getDocumentVersion action)
                   Expect.equal action expected <| sprintf "[%i] Wrong Code Action for Linter received" i
               | _ -> ()
 
