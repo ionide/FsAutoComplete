@@ -19,7 +19,7 @@ let scriptPreviewTests =
   )
   let serverTest f () = f serverStart.Value
 
-  ptestList "script preview language features" [
+  testList "script preview language features" [
     testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
       match waitForParseResultsForFile "Script.fsx" events with
@@ -40,7 +40,7 @@ let scriptEvictionTests =
   )
   let serverTest f () = f serverStart.Value
 
-  ptestList "script eviction tests" [
+  testList "script eviction tests" [
     testCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
       let openScript () = do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
 
@@ -69,37 +69,40 @@ let scriptEvictionTests =
 
 
 let dependencyManagerTests =
-  let serverStart useCorrectPaths =
+  let serverStart =
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
     let dependencyManagerAssemblyDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "FsAutoComplete.DependencyManager.Dummy", "bin", "Debug", "netstandard2.0")
     let dependencyManagerEnabledConfig =
       { defaultConfigDto with
-          FSIExtraParameters = Some [| "--langversion:preview" |]
-          FSICompilerToolLocations = Some [| if useCorrectPaths then dependencyManagerAssemblyDir |] }
+          FSIExtraParameters = Some [| "--langversion:preview" |] }
     let (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig
-    let scriptPath = Path.Combine(workingDir, "Script.fsx")
     do waitForWorkspaceFinishedParsing events
-    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-    server, events, workingDir, scriptPath
+    server, events, workingDir
 
-  let serverTest correctManagerPaths f = fun () -> f (serverStart correctManagerPaths)
+  let serverTest f = fun () -> f serverStart
 
   testList "dependencyManager integrations" [
-    testCase "can typecheck script that depends on #r dummy dependency manager" (serverTest true (fun (server, events, workingDir, testFilePath) ->
-      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-      match waitForParseResultsForFile "Script.fsx" events with
+    testCase "can typecheck script that depends on #r dummy dependency manager" (serverTest (fun (server, events, workingDir) ->
+      let scriptName = "DepManagerPresentScript.fsx"
+      let scriptPath = Path.Combine(workingDir, scriptName)
+      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+      match waitForParseResultsForFile scriptName events with
       | Ok _ -> ()
       | Core.Result.Error e ->
         failwithf "Error during typechecking: %A" e
     ))
-    testCase "fails to typecheck script when dependency manager is missing" (serverTest false (fun (server, events, workingDir, testFilePath) ->
-      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-      match waitForParseResultsForFile "Script.fsx" events with
+
+    testCase "fails to typecheck script when dependency manager is missing" (serverTest (fun (server, events, workingDir) ->
+      let scriptName = "DepManagerAbsentScript.fsx"
+      let scriptPath = Path.Combine(workingDir, scriptName)
+      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+
+      match waitForParseResultsForFile scriptName events with
       | Ok _ ->
         failwith "Expected to fail typechecking a script with a dependency manager that's missing"
       | Core.Result.Error e ->
         match e with
-        | [| { Code = Some "3216" } |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
+        | [| { Code = Some "3216" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
         | e -> failwithf "Unexpected error during typechecking: %A" e
     ))
   ]
