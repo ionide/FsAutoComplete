@@ -76,7 +76,7 @@ module internal ClassificationUtils =
       | SemanticClassificationType.Literal -> "variable.readonly.defaultLibrary"
       | SemanticClassificationType.RecordField
       | SemanticClassificationType.RecordFieldAsFunction -> "property.readonly"
-      | SemanticClassificationType.Exception -> "exception"
+      | SemanticClassificationType.Exception -> "member"
       | SemanticClassificationType.Field -> "member"
       | SemanticClassificationType.Event -> "member"
       | SemanticClassificationType.Delegate -> "member"
