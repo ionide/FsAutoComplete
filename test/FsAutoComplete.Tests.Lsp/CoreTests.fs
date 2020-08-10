@@ -277,16 +277,33 @@ let autocompleteTest =
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
   )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
 
-  testSequenced <| testList "Autocomplete Tests" [
-      testCase "Get Autocomplete module members" (serverTest (fun server path ->
+  let scriptProjServerStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
+    let (server, event) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing event
+    let path = Path.Combine(path, "Script.fsx")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    (server, path)
+  )
+
+  let makeAutocompleteTestList (forScriptProject:bool) = [
+    let serverTest =
+      let serverStart =
+        if forScriptProject
+          then scriptProjServerStart
+          else serverStart
+      fun f ->
+        let (server, path) = serverStart.Value
+        f server path
+
+    testCaseAsync "Get Autocomplete module members" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -295,13 +312,14 @@ let autocompleteTest =
           Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
-      ))
+      }))
 
-      testCase "Get Autocomplete namespace" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -310,13 +328,14 @@ let autocompleteTest =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
-      ))
+      }))
 
-      testCase "Get Autocomplete namespace members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace members" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -325,13 +344,14 @@ let autocompleteTest =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
-      ))
+      }))
 
-      testCase "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -339,10 +359,31 @@ let autocompleteTest =
 
           Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
+      }))
 
-      ))
-
+    testCaseAsync "Autocomplete record members" (serverTest (fun server path ->
+      async {
+        let p : CompletionParams = {
+          TextDocument = { Uri = Path.FilePathToUri path }
+          Position = { Line = 25; Character = 4 }
+          Context = None
+        }
+        let! res = server.TextDocumentCompletion p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
+          Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
+      }))
   ]
+
+  testSequenced (
+    testList "Autocomplete Tests" [
+      testList "Autocomplete within project files" (makeAutocompleteTestList false)
+      testList "Autocomplete within script files" (makeAutocompleteTestList true)
+    ]      
+  )
 
 ///Rename tests
 let renameTest =
@@ -506,22 +547,6 @@ let gotoTest =
             Expect.equal res.Range { Start = {Line = 6; Character = 4 }; End = {Line = 6; Character = 19 }} "Result should have correct range"
       ))
 
-      testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
-        let p : TextDocumentPositionParams  =
-          { TextDocument = { Uri = Path.FilePathToUri path}
-            Position = { Line = 4; Character = 24}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
-        match res with
-        | Result.Error e -> failtestf "Request failed: %A" e
-        | Result.Ok None -> failtest "Request none"
-        | Result.Ok (Some res) ->
-          match res with
-          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-          | GotoResult.Single res ->
-            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
-            Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
-      ))
-
       testCase "Go-to-implementation-on-interface-definition" (serverTest (fun server path externalPath definitionPath ->
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri definitionPath}
@@ -597,6 +622,137 @@ let gotoTest =
             if localPath.Contains "System.String netstandard_ Version_2.0.0.0_ Culture_neutral_ PublicKeyToken_cc7b13ffcd2ddd51"
             then failwithf "should not decompile when sourcelink is available"
             Expect.stringContains localPath "System.String" "Result should be in the BCL's source files"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri path}
+            Position = { Line = 4; Character = 24}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
+      ))
+
+      testCase "Go-to-type-defintion on parameter" (serverTest (fun server path externalPath definitionPath ->
+        // check for parameter of type `'a list` -> FSharp.Core
+        (*
+          `let myConcat listA listB = List.concat [listA; listB]`
+                          ^
+                          position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 12; Character = 16}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on variable" (serverTest (fun server path externalPath definitionPath ->
+        // check for variable of type `System.Collections.Generic.List<_>`
+        (*
+          `let myList = System.Collections.Generic.List<string>()`
+                 ^
+                 position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 16; Character = 6}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.stringContains res.Uri "System.Collections.Generic.List" "Result should be for System.Collections.Generic.List"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on constructor" (serverTest (fun server path externalPath definitionPath ->
+        // check for constructor of type `System.Collections.Generic.List<_>`
+        (*
+          `let myList = System.Collections.Generic.List<string>()`
+                                                     ^
+                                                     position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 16; Character = 42}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.stringContains res.Uri "System.Collections.Generic.List" "Result should be for System.Collections.Generic.List"
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on union case" (serverTest (fun server path externalPath definitionPath ->
+        // check for union case of type `_ option`
+        (*
+          `let o v = Some v`
+                       ^
+                       position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 18; Character = 12}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
+            let localPath = Path.FileUriToLocalPath res.Uri
+            Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
+      ))
+
+      testCase "Go-to-type-defintion on property" (serverTest (fun server path externalPath definitionPath ->
+        // check for property of type `string option`
+        (*
+          `b.Value |> ignore`
+                ^
+                position
+        *)
+        let p: TextDocumentPositionParams =
+          { TextDocument = { Uri = Path.FilePathToUri externalPath}
+            Position = { Line = 24; Character = 5}}
+        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
+            let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       ))
   ]

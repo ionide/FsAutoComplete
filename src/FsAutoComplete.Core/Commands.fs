@@ -1023,3 +1023,22 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     member __.SetLinterConfigRelativePath (relativePath: string option) =
       linterConfigFileRelativePath <- relativePath
       linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
+
+
+    member __.FSharpLiterate (file: SourceFilePath) =
+      let file = Path.GetFullPath file
+      async {
+        let cnt =
+          match state.TryGetFileSource file with
+          | Ok ctn -> String.concat "\n" ctn
+          | _ ->  File.ReadAllText file
+        let parsedFile =
+          if Utils.isAScript file then
+            FSharp.Formatting.Literate.Literate.ParseScriptString cnt
+          else
+             FSharp.Formatting.Literate.Literate.ParseMarkdownString cnt
+
+        let html =  FSharp.Formatting.Literate.Literate.ToHtml parsedFile
+        return CoreResponse.Res html
+      }
+
