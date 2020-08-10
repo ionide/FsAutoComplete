@@ -277,16 +277,33 @@ let autocompleteTest =
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
   )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
 
-  testSequenced <| testList "Autocomplete Tests" [
-      testCase "Get Autocomplete module members" (serverTest (fun server path ->
+  let scriptProjServerStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
+    let (server, event) = serverInitialize path defaultConfigDto
+    do waitForWorkspaceFinishedParsing event
+    let path = Path.Combine(path, "Script.fsx")
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+    (server, path)
+  )
+
+  let makeAutocompleteTestList (forScriptProject:bool) = [
+    let serverTest =
+      let serverStart =
+        if forScriptProject
+          then scriptProjServerStart
+          else serverStart
+      fun f ->
+        let (server, path) = serverStart.Value
+        f server path
+
+    testCaseAsync "Get Autocomplete module members" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -295,13 +312,14 @@ let autocompleteTest =
           Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
-      ))
+      }))
 
-      testCase "Get Autocomplete namespace" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -310,13 +328,14 @@ let autocompleteTest =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
-      ))
+      }))
 
-      testCase "Get Autocomplete namespace members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace members" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -325,13 +344,14 @@ let autocompleteTest =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
-      ))
+      }))
 
-      testCase "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
+      async {
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
-        let res = server.TextDocumentCompletion p |> Async.RunSynchronously
+        let! res = server.TextDocumentCompletion p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -339,10 +359,31 @@ let autocompleteTest =
 
           Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
+      }))
 
-      ))
-
+    testCaseAsync "Autocomplete record members" (serverTest (fun server path ->
+      async {
+        let p : CompletionParams = {
+          TextDocument = { Uri = Path.FilePathToUri path }
+          Position = { Line = 25; Character = 4 }
+          Context = None
+        }
+        let! res = server.TextDocumentCompletion p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
+          Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
+      }))
   ]
+
+  testSequenced (
+    testList "Autocomplete Tests" [
+      testList "Autocomplete within project files" (makeAutocompleteTestList false)
+      testList "Autocomplete within script files" (makeAutocompleteTestList true)
+    ]      
+  )
 
 ///Rename tests
 let renameTest =
