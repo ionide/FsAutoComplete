@@ -861,6 +861,12 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
             addIfInside r
             walkSimplePats pats
             walkType ty
+    and walkInterpolatedStringPart = function
+      | SynInterpolatedStringPart.FillExpr(expr, ident) ->
+        ident |> Option.iter (fun ident -> addIfInside ident.idRange)
+        walkExpr expr
+      | SynInterpolatedStringPart.String (s, r) ->
+        addIfInside r
 
     and walkExpr = function
         | SynExpr.Typed (e, _, r) ->
@@ -1006,6 +1012,10 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         | SynExpr.FromParseError(expr, r) -> addIfInside r
         | SynExpr.DiscardAfterMissingQualificationAfterDot(_, r) -> addIfInside r
         | SynExpr.Fixed(expr, r) -> addIfInside r
+        | SynExpr.InterpolatedString(parts, r) ->
+          addIfInside r
+          for part in parts do
+            walkInterpolatedStringPart part
 
     and walkMeasure = function
         | SynMeasure.Product (m1, m2, r)

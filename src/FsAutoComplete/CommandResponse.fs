@@ -43,6 +43,48 @@ module internal CompletionUtils =
     | FSharpEnclosingEntityKind.Enum -> "En"
     | FSharpEnclosingEntityKind.DU -> "D"
 
+module internal ClassificationUtils =
+
+  // See https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-scope-map for the built-in scopes
+  // if new token-type strings are added here, make sure to update the 'legend' in any downstream consumers.
+  let map (t: SemanticClassificationType) : string =
+      match t with
+      | SemanticClassificationType.Operator -> "operator"
+      | SemanticClassificationType.ReferenceType
+      | SemanticClassificationType.Type
+      | SemanticClassificationType.TypeDef
+      | SemanticClassificationType.ConstructorForReferenceType -> "type"
+      | SemanticClassificationType.ValueType
+      | SemanticClassificationType.ConstructorForValueType -> "struct"
+      | SemanticClassificationType.UnionCase
+      | SemanticClassificationType.UnionCaseField -> "enumMember"
+      | SemanticClassificationType.Function
+      | SemanticClassificationType.Method
+      | SemanticClassificationType.ExtensionMethod -> "function"
+      | SemanticClassificationType.Property -> "property"
+      | SemanticClassificationType.MutableVar
+      | SemanticClassificationType.MutableRecordField -> "mutable"
+      | SemanticClassificationType.Module
+      | SemanticClassificationType.NameSpace -> "namespace"
+      | SemanticClassificationType.Printf -> "regexp"
+      | SemanticClassificationType.ComputationExpression -> "cexpr"
+      | SemanticClassificationType.IntrinsicFunction -> "function"
+      | SemanticClassificationType.Enumeration -> "enum"
+      | SemanticClassificationType.Interface -> "interface"
+      | SemanticClassificationType.TypeArgument -> "typeParameter"
+      | SemanticClassificationType.DisposableValue
+      | SemanticClassificationType.DisposableType -> "disposable"
+      | SemanticClassificationType.Literal -> "variable.readonly.defaultLibrary"
+      | SemanticClassificationType.RecordField
+      | SemanticClassificationType.RecordFieldAsFunction -> "property.readonly"
+      | SemanticClassificationType.Exception
+      | SemanticClassificationType.Field
+      | SemanticClassificationType.Event
+      | SemanticClassificationType.Delegate
+      | SemanticClassificationType.NamedArgument -> "member"
+      | SemanticClassificationType.Value
+      | SemanticClassificationType.LocalValue -> "variable"
+
 module CommandResponse =
   open FSharp.Compiler.Range
 
@@ -479,31 +521,12 @@ module CommandResponse =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
 
   let highlighting (serialize: Serializer) ranges =
-    let map (t: SemanticClassificationType) : string =
-      match t with
-      | SemanticClassificationType.Operator -> "operator"
-      | SemanticClassificationType.ReferenceType -> "type"
-      | SemanticClassificationType.ValueType -> "struct"
-      | SemanticClassificationType.UnionCase -> "enumMember"
-      | SemanticClassificationType.Function -> "function"
-      | SemanticClassificationType.Property -> "property"
-      | SemanticClassificationType.MutableVar -> "mutable"
-      | SemanticClassificationType.Module -> "namespace"
-      | SemanticClassificationType.Printf -> "regexp"
-      | SemanticClassificationType.ComputationExpression -> "cexpr"
-      | SemanticClassificationType.IntrinsicFunction -> "function"
-      | SemanticClassificationType.Enumeration -> "enum"
-      | SemanticClassificationType.Interface -> "interface"
-      | SemanticClassificationType.TypeArgument -> "typeParameter"
-      | SemanticClassificationType.Disposable -> "disposable"
-
-
     serialize {
       Kind = "highlighting"
       Data = {
         Highlights =
           ranges |> Array.map (fun struct (r, tk) ->
-            {Range = r; TokenType = map tk }
+            { Range = r; TokenType = ClassificationUtils.map tk }
           )
       }
     }
