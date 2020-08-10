@@ -11,6 +11,7 @@
       <Name>FsAutoComplete.Core.fsproj</Name>
     </ProjectReference>
     <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />

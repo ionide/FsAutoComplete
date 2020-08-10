@@ -22,13 +22,13 @@ let tests =
     gotoTest
     foldingTests
     tooltipTests
-    // highlightingTets
+    highlightingTests
     signatureHelpTests
 
     scriptPreviewTests
     scriptEvictionTests
     scriptProjectOptionsCacheTests
-    //dependencyManagerTests //Requires .Net 5 preview
+    dependencyManagerTests //Requires .Net 5 preview
     scriptGotoTests
     interactiveDirectivesUnitTests
 

@@ -853,7 +853,7 @@ let tooltipTests =
   ]
 
 
-let highlightingTets =
+let highlightingTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
     let (server, event) = serverInitialize path defaultConfigDto
