@@ -986,7 +986,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             let checker : FSharpChecker = checker.GetFSharpChecker()
             // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
             let config =
-                match Fantomas.CodeFormatter.TryReadConfiguration filePath with
+                match Fantomas.Extras.EditorConfig.tryReadConfiguration filePath with
                 | Some c -> c
                 | None ->
                   fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
