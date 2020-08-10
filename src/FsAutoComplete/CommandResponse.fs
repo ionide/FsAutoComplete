@@ -46,6 +46,7 @@ module internal CompletionUtils =
 module internal ClassificationUtils =
 
   // See https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-scope-map for the built-in scopes
+  // if new token-type strings are added here, make sure to update the 'legend' in any downstream consumers.
   let map (t: SemanticClassificationType) : string =
       match t with
       | SemanticClassificationType.Operator -> "operator"
@@ -76,12 +77,12 @@ module internal ClassificationUtils =
       | SemanticClassificationType.Literal -> "variable.readonly.defaultLibrary"
       | SemanticClassificationType.RecordField
       | SemanticClassificationType.RecordFieldAsFunction -> "property.readonly"
-      | SemanticClassificationType.Exception -> "member"
-      | SemanticClassificationType.Field -> "member"
-      | SemanticClassificationType.Event -> "member"
-      | SemanticClassificationType.Delegate -> "member"
+      | SemanticClassificationType.Exception
+      | SemanticClassificationType.Field
+      | SemanticClassificationType.Event
+      | SemanticClassificationType.Delegate
       | SemanticClassificationType.NamedArgument -> "member"
-      | SemanticClassificationType.Value -> "variable"
+      | SemanticClassificationType.Value
       | SemanticClassificationType.LocalValue -> "variable"
 
 module CommandResponse =
