@@ -121,6 +121,19 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           // don't include the private imple assemblies that the compiler APIs want to give us
           if assemblyName.Contains "System.Private"
           then None
+          // per https://github.com/fsharp/FSharp.Compiler.Service/blob/122520fa62edec7be5d00854989b282bf3ce7315/src/fsharp/DotNetFrameworkDependencies.fs#L262-L273
+          // The Windows compatibility pack included in the runtime contains a reference to
+          // System.Runtime.WindowsRuntime, but to properly use that type the runtime also needs a
+          // reference to the Windows.md meta-package, which isn't referenced by default.  To avoid
+          // a bug where types from `Windows, Version=255.255.255.255` can't be found we're going to
+          // not default include this assembly.  It can still be manually referenced if it's needed
+          // via the System.Runtime.WindowsRuntime NuGet package.
+          //
+          // In the future this branch can be removed because WinRT support is being removed from the
+          // .NET 5 SDK (https://github.com/dotnet/runtime/pull/36715)
+          else if assemblyName.Contains "System.Runtime.WindowsRuntime"
+            || assemblyName.Contains "System.Runtime.WindowsRuntime.UI.Xaml"
+          then None
           else Some (assemblyName, path)
       )
       |> Map.ofArray
