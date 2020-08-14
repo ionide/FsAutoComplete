@@ -328,6 +328,10 @@ module CommandResponse =
     Highlights: HighlightingRange []
   }
 
+  type PieplineHint = {
+    Line: int
+    Types: string []
+  }
 
   let private errorG (serialize : Serializer) (errorData: ErrorData) message =
     let inline ser code data =
@@ -533,3 +537,11 @@ module CommandResponse =
 
   let fsharpLiterate (serialize: Serializer) (content: string) =
     serialize { Kind = "fsharpLiterate"; Data = content}
+
+  let pipelineHint (serialize: Serializer) (content: (int * string list) []) =
+    let ctn =
+      content |> Array.map (fun (l, tt) -> {
+        Line = l
+        Types = Array.ofList tt
+      })
+    serialize { Kind = "pipelineHint"; Data = ctn }
