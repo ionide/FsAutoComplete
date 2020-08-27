@@ -359,6 +359,8 @@ type DotnetNewRunRequest = { Template: string; Output: string option; Name: stri
 
 type FSharpLiterateRequest = {FileName : string; }
 
+type FSharpPipelineHintRequest = {FileName : string; }
+
 type FSharpConfigDto = {
     AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option

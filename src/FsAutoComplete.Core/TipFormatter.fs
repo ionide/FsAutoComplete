@@ -25,7 +25,7 @@ module private Section =
         else
             nl + nl + content
 
-    let fromKeyValueList (name : string) (content : list<KeyValuePair<string, string>>) = 
+    let fromKeyValueList (name : string) (content : list<KeyValuePair<string, string>>) =
         if List.isEmpty content then
             ""
         else
@@ -1104,3 +1104,13 @@ let extractSignature (FSharpToolTipText tips) =
     |> Seq.tryPick firstResult
     |> Option.map getSignature
     |> Option.defaultValue ""
+
+let extractGenerics (FSharpToolTipText tips) =
+    let firstResult x =
+        match x with
+        | FSharpToolTipElement.Group gs -> List.tryPick (fun (t : FSharpToolTipElementData<string>) -> if not (t.TypeMapping.IsEmpty) then Some t.TypeMapping else None) gs
+        | _ -> None
+
+    tips
+    |> Seq.tryPick firstResult
+    |> Option.defaultValue []
