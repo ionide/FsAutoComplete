@@ -421,6 +421,38 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         AsyncLspResult.internalError e.Message
         }
 
+    ///Helper function for handling file requests using **recent** type check results
+    member x.fileHandler<'a> (f: SourceFilePath -> ParseAndCheckResults -> string [] -> AsyncLspResult<'a>) (file: SourceFilePath) : AsyncLspResult<'a> =
+        async {
+
+            // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
+
+            return!
+                match commands.TryGetFileCheckerOptionsWithLines(file) with
+                | ResultOrString.Error s ->
+                    logger.error (Log.setMessage "FileHandler - Getting file checker options for {file} failed" >> Log.addContextDestructured "error" s >> Log.addContextDestructured "file" file)
+                    AsyncLspResult.internalError s
+                | ResultOrString.Ok (options, lines) ->
+                    try
+                        let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                        match tyResOpt with
+                        | None ->
+                            logger.info (Log.setMessage "FileHandler - Cached typecheck results not yet available for {file}" >> Log.addContextDestructured "file" file)
+                            AsyncLspResult.internalError "Cached typecheck results not yet available"
+                        | Some tyRes ->
+                            async {
+                                let! r = Async.Catch (f file tyRes lines)
+                                match r with
+                                | Choice1Of2 r -> return r
+                                | Choice2Of2 e ->
+                                    logger.error (Log.setMessage "FileHandler - Failed during child operation on file {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
+                                    return LspResult.internalError e.Message
+                            }
+                    with e ->
+                        logger.error (Log.setMessage "FileHandler - Operation failed for file {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
+                        AsyncLspResult.internalError e.Message
+        }
+
 
     override __.Initialize(p: InitializeParams) = async {
         logger.info (Log.setMessage "Initialize Request")
@@ -2010,6 +2042,27 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
       return res
     }
 
+    member x.FSharpPipelineHints (p: FSharpPipelineHintRequest) = async {
+      logger.info (Log.setMessage "FSharpPipelineHints Request: {parms}" >> Log.addContextDestructured "parms" p )
+      let fn = p.FileName
+      let res =
+        fn |> x.fileHandler (fun fn tyRes lines ->
+          async {
+            let! res = commands.PipelineHints tyRes
+            let r =
+              match res with
+              | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+              | CoreResponse.Res (res) ->
+                { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+                |> success
+
+            return r
+          }
+        )
+      return! res
+    }
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -2034,6 +2087,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
         |> Map.add "fsharp/highlighting" (requestHandling (fun s p -> s.GetHighlighting(p) ))
         |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
+        |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
 
