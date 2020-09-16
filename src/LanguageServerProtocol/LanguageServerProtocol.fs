@@ -554,6 +554,9 @@ module Types =
 
         /// capabilities for the `textDocument/foldingRange`
         FoldingRange: FoldingRangeCapabilities option
+        
+        /// Capabilities for the `textDocument/selectionRange`
+        SelectionRange: DynamicCapabilities option
     }
 
     type ClientCapabilities = {
@@ -719,6 +722,8 @@ module Types =
         ///
         FoldingRangeProvider: bool option
 
+        SelectionRangeProvider: bool option
+
     }
     with
         static member Default =
@@ -744,6 +749,7 @@ module Types =
                 ExecuteCommandProvider = None
                 Experimental = None
                 FoldingRangeProvider = None
+                SelectionRangeProvider = None
             }
 
     type InitializeResult = {
@@ -1688,6 +1694,22 @@ module Types =
         Kind: string option
     }
 
+    type SelectionRangeParams = {
+        /// The document to generate ranges for
+        TextDocument: TextDocumentIdentifier
+
+        /// The positions inside the text document.
+        Positions: Position[]
+    }
+
+    type SelectionRange = {
+        /// The range of this selection range.
+        Range: Range
+
+        /// The parent selection range containing this range. Therefore `parent.range` must contain `this.range`.
+        Parent: SelectionRange option
+    }
+
 module LowLevel =
     open System
     open System.IO
@@ -2152,6 +2174,11 @@ type LspServer() =
     /// The folding range request is sent from the client to the server to return all folding ranges found in a given text document.
     abstract member TextDocumentFoldingRange: FoldingRangeParams -> AsyncLspResult<FoldingRange list option>
     default __.TextDocumentFoldingRange(_) = notImplemented
+    
+    /// The selection range request is sent from the client to the server to return suggested selection ranges at an array of given positions. 
+    /// A selection range is a range around the cursor position which the user might be interested in selecting.
+    abstract member TextDocumentSelectionRange: SelectionRangeParams -> AsyncLspResult<SelectionRange list option>
+    default __.TextDocumentSelectionRange(_) = notImplemented
 
 module Server =
     open System
@@ -2258,6 +2285,7 @@ module Server =
             "textDocument/didClose", requestHandling (fun s p -> s.TextDocumentDidClose(p) |> notificationSuccess)
             "textDocument/documentSymbol", requestHandling (fun s p -> s.TextDocumentDocumentSymbol(p))
             "textDocument/foldingRange", requestHandling (fun s p -> s.TextDocumentFoldingRange(p))
+            "textDocument/selectionRange", requestHandling (fun s p -> s.TextDocumentSelectionRange(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "workspace/didChangeWorkspaceFolders", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
             "workspace/didChangeConfiguration", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)

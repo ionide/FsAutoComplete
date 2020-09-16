@@ -597,6 +597,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                      Save = Some { IncludeText = Some true }
                                  }
                         FoldingRangeProvider = Some true
+                        SelectionRangeProvider = Some true
                     }
             }
             |> success
@@ -1643,6 +1644,25 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             return LspResult.success (Some ranges)
         | Result.Error error ->
             return LspResult.internalError error
+    }
+
+    override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) = async {
+        logger.info (Log.setMessage "TextDocumentSelectionRange Request: {parms}" >> Log.addContextDestructured "parms" selectionRangeP)
+
+        let rec mkSelectionRanges = function
+            | [] -> None
+            | r :: xs -> Some { Range = fcsRangeToLsp r; Parent = mkSelectionRanges xs }
+
+        let file = selectionRangeP.TextDocument.GetFilePath()
+        let poss = selectionRangeP.Positions |> Array.map protocolPosToPos |> Array.toList
+        let res = commands.GetRangesAtPosition file poss
+        match res with
+        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+            return internalError msg
+        | CoreResponse.Res ranges ->
+            let response = ranges |> List.choose mkSelectionRanges
+            // logger.info (Log.setMessage "TextDocumentSelectionRange Response: {parms}" >> Log.addContextDestructured "parms" response)
+            return success (Some response)
     }
 
     member x.FSharpSignature(p: TextDocumentPositionParams) =
