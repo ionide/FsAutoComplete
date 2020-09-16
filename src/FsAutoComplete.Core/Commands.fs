@@ -1042,3 +1042,52 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res html
       }
 
+    member __.PipelineHints (tyRes : ParseAndCheckResults) =
+      let file = Path.GetFullPath tyRes.FileName
+      async {
+        match state.TryGetFileSource file with
+        | Ok ctn ->
+
+          let getGenerics line (token: FSharpTokenInfo) =
+            async {
+              let lineStr = ctn.[line]
+              let! res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
+              return
+                match res with
+                | Ok tip ->
+                  TipFormatter.extractGenerics tip
+                | _ ->
+                  commandsLogger.info (Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}" >> Log.addContextDestructured "token" token >> Log.addContextDestructured "line" lineStr)
+                  []
+            }
+
+          let! hints =
+            ctn
+            |> Array.map (Lexer.tokenizeLine [||])
+            |> Array.pairwise
+            |> Array.mapi (fun currentIndex (currentTokens, nextTokens) -> currentIndex, currentTokens, nextTokens)
+            |> Array.choose (fun (id, tok, nextTok) ->
+                match nextTok with
+                | x::y::xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
+                  Some (async {
+                    let! gens = getGenerics (id + 1) y
+                    return (id, gens)
+                  })
+                | y::xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
+                  Some (async {
+                    let! gens = getGenerics (id + 1) y
+                    return  (id, gens)
+                  })
+                | _ ->
+                  None
+
+            )
+            |> Async.Parallel
+          return CoreResponse.Res hints
+
+        | _ ->
+          return CoreResponse.InfoRes "Couldn't find file content"
+
+
+      }
+

@@ -68,7 +68,7 @@ let isAScript (fileName: string) =
 
 
 let normalizePath (file : string) =
-  if file.EndsWith ".fs" || file.EndsWith ".fsi" then
+  if file.EndsWith ".fs" || file.EndsWith ".fsi" || file.EndsWith ".fsx" then
       let p = Path.GetFullPath file
       (p.Chars 0).ToString().ToLower() + p.Substring(1)
   else file
