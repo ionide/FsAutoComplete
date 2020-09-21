@@ -1,13 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <Prefer32Bit>false</Prefer32Bit>
-    <Platform>x64</Platform>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>NO_EXTENSIONTYPING;$(DefineConstants);DOTNET_SPAWN;NETCORE_FSI</DefineConstants>
   </PropertyGroup>
   <ItemGroup>

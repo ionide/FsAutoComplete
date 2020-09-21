@@ -46,8 +46,6 @@ Target.create "ReleaseArchive" (fun _ ->
     Shell.cleanDirs [ "bin/pkgs" ]
     Directory.ensure "bin/pkgs"
 
-    !! "bin/release/**/*"
-    |> Zip.zip "bin/release" releaseArchive
 
     !! "bin/release_netcore/**/*"
     |> Zip.zip "bin/release_netcore" releaseArchiveNetCore
@@ -62,13 +60,6 @@ Target.create "ReleaseArchive" (fun _ ->
 Target.create "LocalRelease" (fun _ ->
     Directory.ensure "bin/release"
     Shell.cleanDirs [ "bin/release"; "bin/release_netcore" ]
-
-    DotNet.publish (fun p ->
-       { p with
-           OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release")
-           Framework = Some "net461"
-           Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
 
     Shell.cleanDirs [ "bin/release_netcore" ]
     DotNet.publish (fun p ->
