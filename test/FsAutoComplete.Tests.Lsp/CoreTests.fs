@@ -382,7 +382,7 @@ let autocompleteTest =
     testList "Autocomplete Tests" [
       testList "Autocomplete within project files" (makeAutocompleteTestList false)
       testList "Autocomplete within script files" (makeAutocompleteTestList true)
-    ]      
+    ]
   )
 
 ///Rename tests
@@ -412,7 +412,7 @@ let renameTest =
     f server path pathTest
 
   testSequenced <| testList "Rename Tests" [
-      testCase "Rename from usage" (serverTest (fun server path _ ->
+      ptestCase "Rename from usage" (serverTest (fun server path _ ->
 
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                  Position = { Line = 7; Character = 12}
@@ -432,7 +432,7 @@ let renameTest =
             ()
       ))
 
-      testCase "Rename from definition" (serverTest (fun server path pathTest ->
+      ptestCase "Rename from definition" (serverTest (fun server path pathTest ->
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
@@ -880,40 +880,49 @@ let highlightingTests =
 
 let signatureHelpTests =
 
-  let serverStart scriptFileName =
-    let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
-    let (server, events) = serverInitialize workingDir defaultConfigDto
-    let scriptPath = Path.Combine(workingDir, scriptFileName)
+
+  let serverStart = lazy (
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
+    let scriptPath = Path.Combine(path, "Script1.fsx")
+    let (server, events) = serverInitialize path defaultConfigDto
     do waitForWorkspaceFinishedParsing events
-    server, events, workingDir, scriptPath
+    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+    match waitForParseResultsForFile "Script1.fsx" events with
+    | Ok () ->
+      () // all good, no parsing/checking errors
+    | Core.Result.Error errors ->
+      failwithf "Errors while parsing script %s: %A" scriptPath errors
 
-  testList "SignatureHelp" [
-    testCaseAsync "signature help is also shown for overload without parameters" (async {
-      let server, _, _, testFilePath = serverStart "Script1.fsx"
+    server, scriptPath
+  )
 
-      do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+  testSequenced <| testList "SignatureHelp" [
+    ptestCase "signature help is also shown for overload without parameters" (fun _ ->
+        let server, testFilePath = serverStart.Value
 
-      let getSignatureHelpAt line character = server.TextDocumentSignatureHelp { TextDocument = { Uri = Path.FilePathToUri testFilePath }; Position = { Line = line; Character = character } }
+        do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
 
-      let expectSomeOverloads sigHelpLspRes =
-        let sigHelp : SignatureHelp =
-          sigHelpLspRes
-          |> Flip.Expect.wantOk "Expected success SLP result"
-          |> Flip.Expect.wantSome "Expected some signature help"
-        sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
+        let getSignatureHelpAt line character = server.TextDocumentSignatureHelp { TextDocument = { Uri = Path.FilePathToUri testFilePath }; Position = { Line = line; Character = character } }
 
-      // let __ = new System.IO.MemoryStream(|)
-      let! result = getSignatureHelpAt 0 36
-      result |> expectSomeOverloads
+        let expectSomeOverloads sigHelpLspRes =
+          let sigHelp : SignatureHelp =
+            sigHelpLspRes
+            |> Flip.Expect.wantOk "Expected success SLP result"
+            |> Flip.Expect.wantSome "Expected some signature help"
+          sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
 
-      // let ___ = new System.IO.MemoryStream (|||)
-      for c in 38 .. 40 do
-        let! result = getSignatureHelpAt 1 c
+        // let __ = new System.IO.MemoryStream(|)
+        let result = getSignatureHelpAt 0 36 |> Async.RunSynchronously
         result |> expectSomeOverloads
 
-      // let _____ = new System.IO.MemoryStream(|4|2|)
-      for c in 39 .. 41 do
-        let! result = getSignatureHelpAt 2 c
-        result |> expectSomeOverloads
-    })
+        // let ___ = new System.IO.MemoryStream (|||)
+        for c in 38 .. 40 do
+          let result = getSignatureHelpAt 1 c |> Async.RunSynchronously
+          result |> expectSomeOverloads
+
+        // let _____ = new System.IO.MemoryStream(|4|2|)
+        for c in 39 .. 41 do
+          let result = getSignatureHelpAt 2 c |> Async.RunSynchronously
+          result |> expectSomeOverloads
+      )
   ]
