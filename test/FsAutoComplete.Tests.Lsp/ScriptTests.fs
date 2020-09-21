@@ -20,7 +20,7 @@ let scriptPreviewTests =
   let serverTest f () = f serverStart.Value
 
   testList "script preview language features" [
-    testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
+    ptestCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
       match waitForParseResultsForFile "Script.fsx" events with
       | Ok () ->
@@ -41,7 +41,7 @@ let scriptEvictionTests =
   let serverTest f () = f serverStart.Value
 
   testList "script eviction tests" [
-    testCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
+    ptestCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
       let openScript () = do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
 
       openScript ()
