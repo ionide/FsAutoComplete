@@ -6,7 +6,6 @@
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
-    <DefineConstants>ANALYZER_SUPPORT;$(DefineConstants);</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Options.fs" />

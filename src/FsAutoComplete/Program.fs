@@ -11,12 +11,7 @@ open Serilog.Events
 open FsAutoComplete.Logging
 
 type Commands =
-#if ANALYZER_SUPPORT
   Commands<FSharp.Analyzers.SDK.Message>
-#else
-  Commands<obj>
-#endif
-
 
 [<EntryPoint>]
 let entry args =

@@ -17,9 +17,7 @@ open System.IO
 
 module FcsRange = FSharp.Compiler.Range
 
-#if ANALYZER_SUPPORT
 open FSharp.Analyzers
-#endif
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     inherit LspClient ()
@@ -51,11 +49,7 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     // TODO: Implement requests
 
 type Commands =
-#if ANALYZER_SUPPORT
   Commands<SDK.Message>
-#else
-  Commands<obj>
-#endif
 
 type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     inherit LspServer()
@@ -78,7 +72,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.SetDotnetSDKRoot config.DotNetRoot
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
-#if ANALYZER_SUPPORT
         match config.AnalyzersPath with
         | [||] ->
           Loggers.analyzers.info(Log.setMessage "Analyzers unregistered")
@@ -89,7 +82,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Loggers.analyzers.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
           let total = SDK.Client.registeredAnalyzers.Count
           Loggers.analyzers.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
-#endif
+
 
     //TODO: Thread safe version
     let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -311,7 +304,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     |> lspClient.TextDocumentPublishDiagnostics
                     |> Async.Start
                 | NotificationEvent.AnalyzerMessage(messages, file) ->
-#if ANALYZER_SUPPORT
+
                     let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
                     let fs =
@@ -345,9 +338,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         )
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
                     sendDiagnostics uri
-#else
-                    ()
-#endif
             with
             | _ -> ()
         ) |> subscriptions.Add
@@ -469,7 +459,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
-#if ANALYZER_SUPPORT
         let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
             FileName = file
@@ -508,7 +497,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                     >> Log.addContextDestructured "file" file)
             [||]
         commands.AnalyzerHandler <- Some analyzerHandler
-#endif
         let c =
             p.InitializationOptions
             |> Option.bind (fun options -> if options.HasValues then Some options else None)
@@ -1973,7 +1961,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.LoadAnalyzers(path) = async {
         logger.info (Log.setMessage "LoadAnalyzers Request: {parms}" >> Log.addContextDestructured "parms" path )
 
-#if ANALYZER_SUPPORT
         try
             if config.EnableAnalyzers then
 
@@ -2000,9 +1987,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | ex ->
             Loggers.analyzers.error (Log.setMessage "Loading failed" >> Log.addExn ex)
             return LspResult.success ()
-#else
-        return LspResult.success ()
-#endif
     }
 
     member __.GetHighlighting(p : HighlightingRequest) = async {
