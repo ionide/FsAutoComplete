@@ -2,7 +2,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DefineConstants>$(DefineConstants);NETCORE_FSI</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
