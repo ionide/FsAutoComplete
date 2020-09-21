@@ -61,14 +61,7 @@ let client =
             return None
         } ))
 
-    #if DOTNET_SPAWN
     Client.Client("dotnet", Path.Combine(p, "fsautocomplete.backgroundservices.dll") + " " + pid, notificationsHandler)
-    #else
-    if Environment.runningOnMono then
-        Client.Client("mono", Path.Combine(p, "fsautocomplete.backgroundservices.exe")+ " " + pid, notificationsHandler)
-    else
-        Client.Client(Path.Combine(p, "fsautocomplete.backgroundservices.exe"), pid, notificationsHandler)
-    #endif
 
 let start () =
     client.Start ()
