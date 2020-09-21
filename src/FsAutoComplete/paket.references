@@ -1,4 +1,3 @@
-System.ValueTuple condition:net461
 FSharp.Compiler.Service
 Argu
 Newtonsoft.Json
@@ -14,7 +13,7 @@ FSharp.Data
 Microsoft.Data.Sqlite
 ICSharpCode.Decompiler
 Fantomas
-FSharp.Analyzers.SDK framework: netcoreapp2.1
+FSharp.Analyzers.SDK
 FSharp.DependencyManager.Nuget
 
 Serilog

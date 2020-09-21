@@ -2,17 +2,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>netcoreapp2.1;net461</TargetFrameworks>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <Prefer32Bit>false</Prefer32Bit>
-    <Platform>x64</Platform>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
     <DefineConstants>ANALYZER_SUPPORT;$(DefineConstants);</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -23,8 +16,6 @@
     <Compile Include="FsAutoComplete.Lsp.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
-  </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
     <Content Include="default.win32manifest">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -35,11 +26,7 @@
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
     <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
   </ItemGroup>
-
-  <!-- do not bundle the net461 exe inside the .net core tool package -->
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
-    <TargetFrameworks></TargetFrameworks>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
     <AssemblyName>dotnet-fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
 
@@ -55,8 +42,7 @@
   </Target>
 
   <Target Name="CopyBackgroundServiceJsonToOutputDir"
-          AfterTargets="ComputeFilesToPublish"
-          Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+          AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
       <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\netcoreapp2.1\fsautocomplete.backgroundservices.deps.json"
                              RelativePath="fsautocomplete.backgroundservices.deps.json" />
