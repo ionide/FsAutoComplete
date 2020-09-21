@@ -66,13 +66,8 @@ module SymbolUse =
         | _ -> None
 
     let (|StaticParameter|_|) (symbol : FSharpSymbolUse) =
-        #if NO_EXTENSIONTYPING
         Some
-        #else
-        match symbol.Symbol with
-        | :? FSharpStaticParameter as sp -> Some sp
-        | _ -> None
-        #endif
+
 
     let (|UnionCase|_|) (symbol : FSharpSymbolUse) =
         match symbol.Symbol with
@@ -324,12 +319,7 @@ module SymbolPatterns =
         else None
 
     let (|Class|_|) (original: FSharpEntity, abbreviated: FSharpEntity, _) =
-        if abbreviated.IsClass
-#if NO_EXTENSIONTYPING
-            && original.IsFSharpAbbreviation then Some()
-#else
-            && (not abbreviated.IsStaticInstantiation || original.IsFSharpAbbreviation) then Some()
-#endif
+        if abbreviated.IsClass && original.IsFSharpAbbreviation then Some()
         else None
 
     let (|Record|_|) (e: FSharpEntity) = if e.IsFSharpRecord then Some() else None
@@ -347,13 +337,8 @@ module SymbolPatterns =
         else None
 
     let (|ProvidedType|_|) (e: FSharpEntity) =
-#if NO_EXTENSIONTYPING
         None
-#else
-        if (e.IsProvided || e.IsProvidedAndErased || e.IsProvidedAndGenerated) && e.CompiledName = e.DisplayName then
-            Some()
-        else None
-#endif
+
 
     let (|ByRef|_|) (e: FSharpEntity) = if e.IsByRef then Some() else None
     let (|Array|_|) (e: FSharpEntity) = if e.IsArrayType then Some() else None
@@ -361,11 +346,7 @@ module SymbolPatterns =
 
     let (|Namespace|_|) (entity: FSharpEntity) = if entity.IsNamespace then Some() else None
     let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) =
-#if NO_EXTENSIONTYPING
         None
-#else
-        if entity.IsProvidedAndErased then Some() else None
-#endif
 
     let (|Enum|_|) (entity: FSharpEntity) = if entity.IsEnum then Some() else None
 
