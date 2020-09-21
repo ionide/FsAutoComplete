@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DefineConstants>$(DefineConstants);DOTNET_SPAWN;NETCORE_FSI</DefineConstants>
+    <DefineConstants>$(DefineConstants);NETCORE_FSI</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
