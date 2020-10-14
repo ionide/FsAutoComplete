@@ -75,6 +75,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         if di.Exists
         then
           commands.SetDotnetSDKRoot di
+        else
+          // if we were mistakenly given the path to a dotnet binary
+          // then use the parent directory as the dotnet root instead
+          let fi = FileInfo (di.FullName)
+          if fi.Exists &&
+            ( fi.Name = "dotnet" || fi.Name = "dotnet.exe")
+          then
+            commands.SetDotnetSDKRoot (fi.Directory)
 
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
