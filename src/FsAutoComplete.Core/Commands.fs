@@ -973,7 +973,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 return Ok ranges
     }
 
-    member __.SetDotnetSDKRoot(path) = checker.SetDotnetRoot(path)
+    member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
     member x.FormatDocument (file: SourceFilePath) = async {
