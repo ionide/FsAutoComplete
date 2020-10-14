@@ -458,7 +458,7 @@ with
                 Prefix =""
             }
             UseSdkScripts = false
-            DotNetRoot = Environment.dotnetSDKRoot.Value
+            DotNetRoot = Environment.dotnetSDKRoot.Value.FullName
             FSIExtraParameters = [||]
             FSICompilerToolLocations = [||]
             TooltipMode = "full"
@@ -497,7 +497,7 @@ with
             DotNetRoot =
                 dto.DotNetRoot
                 |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
-                |> Option.defaultValue Environment.dotnetSDKRoot.Value
+                |> Option.defaultValue Environment.dotnetSDKRoot.Value.FullName
             FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
             FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode "full"

@@ -303,13 +303,13 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   member internal __.GetFSharpChecker() = checker
 
-  member __.SetDotnetRoot(path) =
-    if sdkRoot = Some path
+  member __.SetDotnetRoot(directory: DirectoryInfo) =
+    if sdkRoot = Some directory
     then ()
     else
-      sdkRoot <- Some path
-      sdkVersion <- Environment.latest3xSdkVersion path
-      runtimeVersion <- Environment.latest3xRuntimeVersion path
+      sdkRoot <- Some directory
+      sdkVersion <- Environment.latest3xSdkVersion directory
+      runtimeVersion <- Environment.latest3xRuntimeVersion directory
       discoveredAssembliesByName <- lazy(computeAssemblyMap ())
       scriptTypecheckRequirementsChanged.Trigger ()
 

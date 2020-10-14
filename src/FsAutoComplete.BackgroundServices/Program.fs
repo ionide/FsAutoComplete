@@ -108,11 +108,15 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = true)
 
     do checker.ImplicitlyStartBackgroundWork <- false
-
+    let mutable latestSdkVersion = lazy None
+    let mutable latestRuntimeVersion = lazy None
     //TODO: does the backgroundservice ever get config updates?
-    let sdkRoot = Environment.dotnetSDKRoot.Value
-    let latestSdkVersion = Environment.latest3xSdkVersion sdkRoot
-    let latestRuntimeVersion = Environment.latest3xRuntimeVersion sdkRoot
+    do
+      let sdkRoot = Environment.dotnetSDKRoot.Value
+      if sdkRoot.Exists
+      then
+        latestSdkVersion <- Environment.latest3xSdkVersion sdkRoot
+        latestRuntimeVersion <- Environment.latest3xRuntimeVersion sdkRoot
 
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =

@@ -138,6 +138,11 @@ module Environment =
       let fromEnv =
         Environment.GetEnvironmentVariable "DOTNET_ROOT"
         |> Option.ofObj
+        |> Option.bind (fun d ->
+          let di = DirectoryInfo d
+          if di.Exists then Some di
+          else None
+        )
       defaultArg fromEnv FSIRefs.defaultDotNetSDKRoot
     )
 
@@ -149,7 +154,7 @@ module Environment =
 
   /// because 3.x is the minimum SDK that we support for FSI, we want to float to the latest
   /// 3.x sdk that the user has installed, to prevent hard-coding.
-  let latest3xSdkVersion dotnetRoot =
+  let latest3xSdkVersion (dotnetRoot: DirectoryInfo) =
     let minSDKVersion = FSIRefs.NugetVersion(3,0,100,"")
     lazy (
       match FSIRefs.sdkVersions dotnetRoot with
@@ -160,7 +165,7 @@ module Environment =
 
   /// because 3.x is the minimum runtime that we support for FSI, we want to float to the latest
   /// 3.x runtime that the user has installed, to prevent hard-coding.
-  let latest3xRuntimeVersion dotnetRoot =
+  let latest3xRuntimeVersion (dotnetRoot: DirectoryInfo) =
     let minRuntimeVersion = FSIRefs.NugetVersion(3,0,0,"")
     lazy (
       match FSIRefs.runtimeVersions dotnetRoot with

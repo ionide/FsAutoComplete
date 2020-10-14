@@ -69,7 +69,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let updateConfig (newConfig: FSharpConfig) =
         let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
         config <- newConfig
-        commands.SetDotnetSDKRoot config.DotNetRoot
+
+        // only update the dotnet root if it's both a directory and exists
+        let di = DirectoryInfo config.DotNetRoot
+        if di.Exists
+        then
+          commands.SetDotnetSDKRoot di
+
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
         match config.AnalyzersPath with
@@ -1779,7 +1785,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                 LspResult.internalError msg
             | CoreResponse.Res (fsc, fsi, msbuild, sdk) ->
-                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuild sdk}
+                { Content =  CommandResponse.compilerLocation FsAutoComplete.JsonSerializer.writeJson fsc fsi msbuild (sdk |> Option.map (fun (di: DirectoryInfo) -> di.FullName)) }
                 |> success
 
         return res
