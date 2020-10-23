@@ -41,12 +41,12 @@ NUGET
       Mono.Cecil (>= 0.11.2)
       Paket.Core (>= 5.249)
       System.Runtime.Loader (>= 4.3)
-    Fantomas (4.1.1)
+    Fantomas (4.2)
       FSharp.Compiler.Service (>= 37.0)
       FSharp.Core (>= 4.7.2)
-    Fantomas.Extras (4.1.1)
+    Fantomas.Extras (4.2)
       editorconfig (>= 0.12.2)
-      Fantomas (>= 4.1.1)
+      Fantomas (>= 4.2)
       FSharp.Core (>= 4.7.2)
       MAB.DotIgnore (>= 3.0.1)
     FParsec (1.1.1)
@@ -678,7 +678,7 @@ NUGET
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
-    System.ValueTuple (4.5) - condition: net461, redirects: force
+    System.ValueTuple (4.5)
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
@@ -1337,7 +1337,7 @@ NUGET
       Microsoft.NETCore.Platforms (>= 3.1) - restriction: || (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp2.0))
       System.Security.Principal.Windows (>= 4.7)
     System.Security.Principal.Windows (4.7) - restriction: || (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp1.0)) (&& (== netstandard2.0) (>= netcoreapp2.0))
-      Microsoft.NETCore.Platforms (>= 3.1) - restriction: || (== netcoreapp2.1) (&& (== netcoreapp3.1) (< netcoreapp2.1)) (&& (== netcoreapp3.1) (< netcoreapp3.0)) (&& (== netstandard2.0) (>= netcoreapp2.0)) (&& (== netstandard2.0) (>= netcoreapp2.1))
+      Microsoft.NETCore.Platforms (>= 3.1) - restriction: || (== netcoreapp2.1) (&& (== netcoreapp3.1) (== netstandard2.0)) (&& (== netcoreapp3.1) (< netcoreapp2.1)) (&& (== netcoreapp3.1) (< netcoreapp3.0)) (&& (== netstandard2.0) (>= netcoreapp2.0)) (&& (== netstandard2.0) (>= netcoreapp2.1))
     System.Text.Encoding (4.3) - restriction: || (== netcoreapp2.1) (== netcoreapp3.1) (&& (== netstandard2.0) (>= netcoreapp1.0))
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
