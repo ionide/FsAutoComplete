@@ -174,7 +174,8 @@ let clientCaps : ClientCapabilities =
       CodeLens = Some dynCaps
       DocumentLink = Some dynCaps
       Rename = Some dynCaps
-      FoldingRange = Some foldingRangeCaps }
+      FoldingRange = Some foldingRangeCaps
+      SelectionRange = Some dynCaps }
 
 
   { Workspace = Some workspaceCaps
