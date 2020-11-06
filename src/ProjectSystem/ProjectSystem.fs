@@ -75,7 +75,7 @@ type ProjectController(checker : FSharpChecker) =
 
     member private x.LoaderLoop = MailboxProcessor.Start(fun agent ->
       let rec loop () = async {
-        let! ((oc, fn, tfm, ol, gb), reply : AsyncReplyChannel<_>) = agent.Receive()
+        let! ((fn, tfm, ol, gb), reply : AsyncReplyChannel<_>) = agent.Receive()
         let mutable wasInvoked = false
         let! x =
             Async.FromContinuations( fun (succ, err, cancl) ->
@@ -85,7 +85,7 @@ type ProjectController(checker : FSharpChecker) =
                     else
                         wasInvoked <- true
                         succ ()
-                x.LoadWorkspace oc [fn] tfm opl gb |> Async.Ignore |> Async.Start
+                x.LoadWorkspace [fn] tfm opl gb |> Async.Ignore |> Async.Start
             )
 
         reply.Reply true
@@ -127,13 +127,18 @@ type ProjectController(checker : FSharpChecker) =
         projects
         |> Seq.map (|KeyValue|)
 
-    member x.LoadProject onChange projectFileName  (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool)  =
-      x.LoaderLoop.PostAndAsyncReply(fun acr -> (onChange, projectFileName, tfmForScripts, onProjectLoaded, generateBinlog ), acr )
+    member x.LoadProject projectFileName  (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool)  =
+      x.LoaderLoop.PostAndAsyncReply(fun acr -> (projectFileName, tfmForScripts, onProjectLoaded, generateBinlog ), acr )
 
 
-    member __.LoadWorkspace onChange (files: string list) (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool) = async {
+    member x.LoadWorkspace (files: string list) (tfmForScripts: FSIRefs.TFM) onProjectLoaded (generateBinlog: bool) = async {
         //TODO check full path
         let projectFileNames = files |> List.map Path.GetFullPath
+
+        let onChange fn =
+          x.LoadProject fn tfmForScripts onProjectLoaded generateBinlog
+          |> Async.Ignore
+          |> Async.Start
 
         let prjs =
             projectFileNames

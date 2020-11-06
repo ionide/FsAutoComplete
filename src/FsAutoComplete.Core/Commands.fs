@@ -838,17 +838,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res d
     }
 
-    member x.WorkspaceLoad onChange (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts (generateBinlog: bool) = async {
+    member x.WorkspaceLoad (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts (generateBinlog: bool) = async {
         commandsLogger.info (Log.setMessage "Workspace loading started '{files}'" >> Log.addContextDestructured "files" files)
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-        let! res = state.ProjectController.LoadWorkspace onChange files tfmForScripts onProjectLoaded generateBinlog
+        let! res = state.ProjectController.LoadWorkspace files tfmForScripts onProjectLoaded generateBinlog
         commandsLogger.info (Log.setMessage "Workspace loading finished ")
         return CoreResponse.Res res
     }
 
-    member x.Project onChange projectFileName tfmForScripts (generateBinlog: bool)  = async {
+    member x.Project projectFileName tfmForScripts (generateBinlog: bool)  = async {
         commandsLogger.info (Log.setMessage "Project loading '{file}'" >> Log.addContextDestructured "file" projectFileName)
-        let! res = state.ProjectController.LoadProject onChange projectFileName tfmForScripts onProjectLoaded generateBinlog
+        let! res = state.ProjectController.LoadProject projectFileName tfmForScripts onProjectLoaded generateBinlog
         return CoreResponse.Res res
     }
 
