@@ -532,7 +532,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
-                        commands.WorkspaceLoad ignore projs.Fsprojs false config.ScriptTFM config.GenerateBinlog
+                        commands.WorkspaceLoad projs.Fsprojs false config.ScriptTFM config.GenerateBinlog
                         |> Async.Ignore
                         |> Async.Start
                     | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
@@ -540,7 +540,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             sln.Items
                             |> List.collect Workspace.foldFsproj
                             |> List.map fst
-                        commands.WorkspaceLoad ignore projs false config.ScriptTFM config.GenerateBinlog
+                        commands.WorkspaceLoad projs false config.ScriptTFM config.GenerateBinlog
                         |> Async.Ignore
                         |> Async.Start
                     | _ ->
@@ -1805,7 +1805,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
-        let! res = commands.WorkspaceLoad ignore fns config.DisableInMemoryProjectReferences config.ScriptTFM config.GenerateBinlog
+        let! res = commands.WorkspaceLoad fns config.DisableInMemoryProjectReferences config.ScriptTFM config.GenerateBinlog
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1836,7 +1836,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "FSharpProject Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project ignore fn config.ScriptTFM config.GenerateBinlog
+        let! res = commands.Project fn config.ScriptTFM config.GenerateBinlog
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
