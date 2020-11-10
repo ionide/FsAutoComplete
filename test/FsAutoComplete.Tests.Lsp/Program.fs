@@ -4,6 +4,7 @@ open Expecto
 open Serilog
 open FsAutoComplete.Logging
 open System
+open Serilog.Core
 open Serilog.Events
 open FsAutoComplete.Tests.CoreTest
 open FsAutoComplete.Tests.ScriptTest
@@ -44,10 +45,18 @@ let tests =
 [<EntryPoint>]
 let main args =
   let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+
+  let switch = LoggingLevelSwitch()
+  if args |> Seq.contains "--debug"
+  then
+    switch.MinimumLevel <- LogEventLevel.Verbose
+  else
+    switch.MinimumLevel <- LogEventLevel.Information
+
   let serilogLogger =
     LoggerConfiguration()
       .Enrich.FromLogContext()
-      .MinimumLevel.Information()
+      .MinimumLevel.ControlledBy(switch)
       .Destructure.FSharpTypes()
       .WriteTo.Async(
         fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
