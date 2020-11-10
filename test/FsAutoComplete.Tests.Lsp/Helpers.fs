@@ -184,6 +184,7 @@ let clientCaps : ClientCapabilities =
 
 open Expecto.Logging
 open Expecto.Logging.Message
+open System.Threading
 
 
 let logEvent n =
@@ -276,32 +277,7 @@ let parseProject projectFilePath (server: FsharpLspServer) = async {
 }
 
 let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
-  let withTimeout (dueTime: TimeSpan) comp =
-    let success = async {
-        let! x = comp
-        return (Some x)
-    }
-    let timeout = async {
-        do! Async.Sleep(dueTime)
-        return None
-    }
-    Async.WhenAny(success, timeout)
-
-  event.Publish
-  |> Event.map (fun n -> printfn "%A" n; n)
-  |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
-  |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
-  |> Event.filter (fun o -> (o.Content.Contains "error") || (o.Content.Contains "workspaceLoad" && o.Content.Contains "finished"))
-  |> Async.AwaitEvent
-  |> withTimeout (TimeSpan.FromSeconds 5000.)
-  |> Async.RunSynchronously
-  |> fun o ->
-    match o with
-    | Some o ->
-      if o.Content.Contains """{"Kind":"error","""
-      then failtestf "error loading project: %A" o
-    | None ->
-      logger.debug (eventX "Timeout waiting for workspace finished")
+  Thread.Sleep (TimeSpan.FromSeconds 1.)
 
 //This is currently used for single tests, hence the naive implementation is working just fine.
 //Revisit if more tests will use this scenario.
