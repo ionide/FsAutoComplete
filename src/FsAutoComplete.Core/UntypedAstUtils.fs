@@ -169,7 +169,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
         | SynExpr.Assert (e, _)
         | SynExpr.Lazy (e, _)
         | SynExpr.YieldOrReturnFrom (_, e, _) -> walkExpr e
-        | SynExpr.Lambda (_, _, pats, e, _) ->
+        | SynExpr.Lambda (_, _, pats, e, _, _) ->
             walkSimplePats pats
             walkExpr e
         | SynExpr.New (_, t, e, _)
@@ -300,7 +300,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
     and walkMember = function
         | SynMemberDefn.AbstractSlot (valSig, _, _) -> walkValSig valSig
         | SynMemberDefn.Member (binding, _) -> walkBinding binding
-        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _) ->
+        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _, _) ->
             List.iter walkAttribute attrs
             List.iter walkSimplePat pats
         | SynMemberDefn.ImplicitInherit (t, e, _, _) -> walkType t; walkExpr e
@@ -496,7 +496,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
         | SynExpr.Assert (e, _)
         | SynExpr.Lazy (e, _)
         | SynExpr.YieldOrReturnFrom (_, e, _) -> walkExpr e
-        | SynExpr.Lambda (_, _, pats, e, _) ->
+        | SynExpr.Lambda (_, _, pats, e, _, _) ->
             walkSimplePats pats
             walkExpr e
         | SynExpr.New (_, t, e, _)
@@ -619,7 +619,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
     and walkMember = function
         | SynMemberDefn.AbstractSlot (valSig, _, _) -> walkValSig valSig
         | SynMemberDefn.Member (binding, _) -> walkBinding binding
-        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _) ->
+        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _, _) ->
             List.iter walkAttribute attrs
             List.iter walkSimplePat pats
         | SynMemberDefn.ImplicitInherit (t, e, _, _) -> walkType t; walkExpr e
@@ -892,7 +892,7 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
             walkExpr e1
             walkExpr e2
             walkExpr ifNotE
-        | SynExpr.Lambda (_, _, pats, e, r) ->
+        | SynExpr.Lambda (_, _, pats, e, _, r) ->
             addIfInside r
             walkSimplePats pats
             walkExpr e
@@ -1090,7 +1090,7 @@ let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range li
         | SynMemberDefn.Member (binding, r) ->
             addIfInside r
             walkBinding binding
-        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, r) ->
+        | SynMemberDefn.ImplicitCtor (_, AllAttrs attrs, AllSimplePats pats, _, _, r) ->
             addIfInside r
             List.iter walkAttribute attrs
             List.iter walkSimplePat pats
@@ -1250,7 +1250,7 @@ let getQuotationRanges ast =
         | SynExpr.Upcast (expr, _, _)
         | SynExpr.InferredUpcast (expr, _)
         | SynExpr.InferredDowncast (expr, _)
-        | SynExpr.Lambda (_, _, _, expr, _)
+        | SynExpr.Lambda (_, _, _, expr, _, _)
         | SynExpr.AddressOf (_, expr, _, _) ->
             visitExpr expr
         | SynExpr.App (_,_, expr1(*funcExpr*),expr2(*argExpr*), _)
@@ -1348,7 +1348,7 @@ let internal getStringLiterals ast : Range.range list =
     let rec visitExpr = function
         | SynExpr.ArrayOrListOfSeqExpr (_, expr, _)
         | SynExpr.CompExpr (_, _, expr, _)
-        | SynExpr.Lambda (_, _, _, expr, _)
+        | SynExpr.Lambda (_, _, _, expr, _, _)
         | SynExpr.YieldOrReturn (_, expr, _)
         | SynExpr.YieldOrReturnFrom (_, expr, _)
         | SynExpr.New (_, _, expr, _)
@@ -1795,7 +1795,7 @@ module Outlining =
             | SynExpr.While (_,_,e,r) ->
                 yield! rcheck Scope.While Collapse.Below  r
                 yield! parseExpr e
-            | SynExpr.Lambda (_,_,pats,e,r) ->
+            | SynExpr.Lambda (_, _, pats, e, _, r) ->
                 match pats with
                 | SynSimplePats.SimplePats (_,pr)
                 | SynSimplePats.Typed (_,_,pr) ->
@@ -2233,7 +2233,7 @@ module Printf =
                 | SynExpr.Assert (e, _)
                 | SynExpr.Lazy (e, _)
                 | SynExpr.YieldOrReturnFrom (_, e, _) -> walkExpr e
-                | SynExpr.Lambda (_, _, pats, e, _) ->
+                | SynExpr.Lambda (_, _, pats, e, _, _) ->
                     walkSimplePats pats
                     walkExpr e
                 | SynExpr.New (_, t, e, _)
@@ -2322,7 +2322,7 @@ module Printf =
 
         and walkMember = function
             | SynMemberDefn.Member (binding, _) -> walkBinding binding
-            | SynMemberDefn.ImplicitCtor (_, _, AllSimplePats pats, _, _) -> List.iter walkSimplePat pats
+            | SynMemberDefn.ImplicitCtor (_, _, AllSimplePats pats, _, _, _) -> List.iter walkSimplePat pats
             | SynMemberDefn.ImplicitInherit (t, e, _, _) -> walkType t; walkExpr e
             | SynMemberDefn.LetBindings (bindings, _, _, _) -> List.iter walkBinding bindings
             | SynMemberDefn.Interface (t, members, _) ->

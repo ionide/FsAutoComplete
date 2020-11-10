@@ -957,10 +957,11 @@ type FormatCommentStyle =
 // --------------------------------------------------------------------------------------
 let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: string option) =
     match cmt with
-    | FSharpXmlDoc.Text s ->
+    | FSharpXmlDoc.Text (unprocessed, processed) ->
         try
+            let document = processed |> String.concat "\n"
             // We create a "fake" XML document in order to use the same parser for both libraries and user code
-            let xml = sprintf "<fake>%s</fake>" s
+            let xml = sprintf "<fake>%s</fake>" document
             let doc = XmlDocument()
             doc.LoadXml(xml)
 
@@ -976,7 +977,7 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
                 | [] -> 0
 
             let indentationSize =
-                s.Replace("\r\n", "\n").Split('\n')
+                processed
                 |> Array.toList
                 |> findIndentationSize
 

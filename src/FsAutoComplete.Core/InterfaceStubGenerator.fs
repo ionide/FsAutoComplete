@@ -706,7 +706,7 @@ let private tryFindInterfaceDeclarationParsedInput (pos: pos) (parsedInput: Pars
                 walkExpr synExpr
             | SynExpr.CompExpr(_, _, synExpr, _range) ->
                 walkExpr synExpr
-            | SynExpr.Lambda(_, _, _synSimplePats, synExpr, _range) ->
+            | SynExpr.Lambda(_, _, _synSimplePats, synExpr, _, _range) ->
                  walkExpr synExpr
 
             | SynExpr.MatchLambda(_isExnMatch, _argm, synMatchClauseList, _spBind, _wholem) ->
@@ -938,30 +938,32 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
 /// Return None, if we failed to handle the interface implementation
 /// Return Some (insertPosition, generatedString):
 /// `insertPosition`: representation the position where the editor should insert the `generatedString`
-let handleImplementInterface (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) =
+let handleImplementInterface (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) =
     async {
         let! result = asyncMaybe {
-            let! _symbol, symbolUse =
-                codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
-
+            let! _symbol, symbolUse = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
             return!
-                match symbolUse.Symbol with
-                | :? FSharpEntity as entity ->
-                    if isInterface entity then
-                        Some (interfaceData, symbolUse.DisplayContext, entity)
-                    else
-                        None
-                | _ -> None
+                match symbolUse with
+                | None -> None
+                | Some symbolUse ->
+                  match symbolUse.Symbol with
+                  | :? FSharpEntity as entity ->
+                      if isInterface entity then
+                          match  checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos) with
+                          | Some displayContext ->
+                            Some (interfaceData, displayContext, entity)
+                          | None -> None
+                      else
+                          None
+                  | _ -> None
         }
 
         match result with
         | Some (interfaceData, displayContext, entity) ->
-            let getMemberByLocation(_name, range: range) =
+            let getMemberByLocation (name, range: range) =
                 asyncMaybe {
                     let pos = Pos.fromZ (range.StartLine - 1) (range.StartColumn + 1)
-                    let! _symbol, symbolUse =
-                        codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
-                    return symbolUse
+                    return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation (pos.Line, pos.Column, lineStr, [])
                 }
 
             let insertInfo =

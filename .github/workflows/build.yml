@@ -4,11 +4,12 @@ on: [push, pull_request]
 
 jobs:
   build:
-
+    timeout-minutes: 15 # we have a locking issue, so cap the runs at ~15m to account for varying build times, etc
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-        dotnet: [3.1.201]
+        dotnet: [5.0.100]
+      fail-fast: false # we have timing issues on some OS, so we want them all to run
     runs-on: ${{ matrix.os }}
 
     steps:

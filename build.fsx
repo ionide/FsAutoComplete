@@ -65,7 +65,7 @@ Target.create "LocalRelease" (fun _ ->
     DotNet.publish (fun p ->
        { p with
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_netcore")
-           Framework = Some "netcoreapp2.1"
+           Framework = Some "net5.0"
            Configuration = DotNet.BuildConfiguration.fromString configuration
            MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
 
