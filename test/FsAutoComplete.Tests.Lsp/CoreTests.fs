@@ -107,7 +107,7 @@ let basicTests =
             let expected =
               MarkedStrings
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
-                    MarkedString.String "Used to associate, or bind, a name to a value or function."|]
+                    MarkedString.String "**Description**\n\n\nUsed to associate, or bind, a name to a value or function.\n"|]
 
             Expect.equal res.Contents expected "Hover test - let keyword"
         ))
