@@ -36,6 +36,7 @@ nuget Serilog.Sinks.Async
 nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
 nuget FSharp.UMX
 nuget FSharp.Formatting
+nuget Microsoft.Build.Utilities.Core 16.7
 
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0

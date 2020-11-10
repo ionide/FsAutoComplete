@@ -321,37 +321,42 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
                     let uri = Path.FilePathToUri file
                     diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
-                    let fs =
-                        messages |> Seq.collect (fun w ->
-                            w.Fixes
-                            |> List.map (fun f ->
-                                let range = fcsRangeToLsp f.FromRange
-                                range, {Range = range; NewText = f.ToText})
-                        )
-                        |> Seq.toList
-                    let aName = (messages |> Seq.head).Type
+                    match messages with
+                    | [||] ->
+                      diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
+                    | messages ->
+                      let fs =
+                          messages
+                          |> Seq.collect (fun w ->
+                              w.Fixes
+                              |> List.map (fun f ->
+                                  let range = fcsRangeToLsp f.FromRange
+                                  range, {Range = range; NewText = f.ToText})
+                          )
+                          |> Seq.toList
+                      let aName = messages.[0].Type
 
 
-                    analyzerFixes.[(uri, aName)] <- fs
+                      analyzerFixes.[(uri, aName)] <- fs
 
-                    let diag =
-                        messages |> Array.map (fun m ->
-                            let range = fcsRangeToLsp m.Range
-                            let s =
-                                match m.Severity with
-                                | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
-                                | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
-                                | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
-                            { Diagnostic.Range = range
-                              Code = None
-                              Severity = Some s
-                              Source = sprintf "F# Analyzers (%s)" m.Type
-                              Message = m.Message
-                              RelatedInformation = None
-                              Tags = None }
-                        )
-                    diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
-                    sendDiagnostics uri
+                      let diag =
+                          messages |> Array.map (fun m ->
+                              let range = fcsRangeToLsp m.Range
+                              let s =
+                                  match m.Severity with
+                                  | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
+                                  | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
+                                  | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
+                              { Diagnostic.Range = range
+                                Code = None
+                                Severity = Some s
+                                Source = sprintf "F# Analyzers (%s)" m.Type
+                                Message = m.Message
+                                RelatedInformation = None
+                                Tags = None }
+                          )
+                      diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
+                      sendDiagnostics uri
             with
             | _ -> ()
         ) |> subscriptions.Add
