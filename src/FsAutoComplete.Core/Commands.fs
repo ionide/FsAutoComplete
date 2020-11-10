@@ -273,15 +273,31 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         }
 
     member x.DotnetNewList () = async {
-            let results = DotnetNewTemplate.installedTemplates ()
-            return CoreResponse.Res results
-        }
+        let results = DotnetNewTemplate.installedTemplates ()
+        return CoreResponse.Res results
+    }
 
 
     member x.DotnetNewRun (templateShortName : string) (name: string option) (output: string option) (parameterStr : (string * obj) list) = async {
-            let! results = DotnetNewTemplate.dotnetnewCreateCli templateShortName name output parameterStr
-            return CoreResponse.Res results
-        }
+        let! results = DotnetCli.dotnetNew templateShortName name output parameterStr
+        return CoreResponse.Res results
+    }
+
+    member x.DotnetAddProject (toProject: string) (reference: string) =  async {
+      let! result = DotnetCli.dotnetAddProject toProject reference
+      return CoreResponse.Res result
+    }
+
+    member x.DotnetRemoveProject (fromProject: string) (reference: string) =  async {
+      let! result = DotnetCli.dotnetRemoveProject fromProject reference
+      return CoreResponse.Res result
+    }
+
+    member x.DotnetSlnAdd (sln: string) (project: string) = async {
+      let! result = DotnetCli.dotnetSlnAdd sln project
+      return CoreResponse.Res result
+    }
+
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse<'b>>) =
         let cts = new CancellationTokenSource()

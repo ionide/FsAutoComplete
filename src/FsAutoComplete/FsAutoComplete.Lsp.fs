@@ -1906,6 +1906,51 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.FSharpDotnetAddProject(p: DotnetProjectRequest) = async {
+        logger.info (Log.setMessage "FSharpDotnetAddProject Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.DotnetAddProject p.Target p.Reference
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
+    member __.FSharpDotnetRemoveProject(p: DotnetProjectRequest) = async {
+        logger.info (Log.setMessage "FSharpDotnetRemoveProject Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.DotnetRemoveProject p.Target p.Reference
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
+    member __.FSharpDotnetSlnAdd(p: DotnetProjectRequest) = async {
+        logger.info (Log.setMessage "FSharpDotnetSlnAdd Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.DotnetSlnAdd p.Target p.Reference
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
     member x.FSharpHelp(p: TextDocumentPositionParams) =
         logger.info (Log.setMessage "FSharpHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
 
@@ -2099,6 +2144,9 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/fsdn" (requestHandling (fun s p -> s.FSharpFsdn(p) ))
         |> Map.add "fsharp/dotnetnewlist" (requestHandling (fun s p -> s.FSharpDotnetNewList(p) ))
         |> Map.add "fsharp/dotnetnewrun" (requestHandling (fun s p -> s.FSharpDotnetNewRun(p) ))
+        |> Map.add "fsharp/dotnetaddproject" (requestHandling (fun s p -> s.FSharpDotnetAddProject(p) ))
+        |> Map.add "fsharp/dotnetremoveproject" (requestHandling (fun s p -> s.FSharpDotnetRemoveProject(p) ))
+        |> Map.add "fsharp/dotnetaddsln" (requestHandling (fun s p -> s.FSharpDotnetSlnAdd(p) ))
         |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
