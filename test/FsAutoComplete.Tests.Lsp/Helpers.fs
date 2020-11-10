@@ -271,12 +271,12 @@ let parseProject projectFilePath (server: FsharpLspServer) = async {
 
   let projectName = Path.GetFileNameWithoutExtension projectFilePath
   let! result = server.FSharpProject projectParams
-  do! Async.Sleep 1000
+  do! Async.Sleep (TimeSpan.FromSeconds 1.)
   logger.debug (eventX "{project} parse result: {result}" >> setField "result" (sprintf "%A" result) >> setField "project" projectName)
 }
 
 let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
-  let withTimeout dueTime comp =
+  let withTimeout (dueTime: TimeSpan) comp =
     let success = async {
         let! x = comp
         return (Some x)
@@ -288,12 +288,12 @@ let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
     Async.WhenAny(success, timeout)
 
   event.Publish
-  |> Event.map (fun n -> System.Diagnostics.Debug.WriteLine(sprintf "n: %A" n); n)
+  |> Event.map (fun n -> printfn "%A" n; n)
   |> Event.filter (fun (typ, o) -> typ = "fsharp/notifyWorkspace")
   |> Event.map (fun (typ, o) -> unbox<PlainNotification> o)
   |> Event.filter (fun o -> (o.Content.Contains "error") || (o.Content.Contains "workspaceLoad" && o.Content.Contains "finished"))
   |> Async.AwaitEvent
-  |> withTimeout 5000
+  |> withTimeout (TimeSpan.FromSeconds 5000.)
   |> Async.RunSynchronously
   |> fun o ->
     match o with

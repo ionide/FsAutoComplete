@@ -22,7 +22,7 @@ nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
 nuget FSharpLint.Core
-nuget FSharp.Core ~> 5.0
+nuget FSharp.Core prerelease
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
 nuget Microsoft.Data.Sqlite.Core 2.2.4
@@ -40,6 +40,7 @@ nuget FSharp.Formatting
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
 nuget FSharp.DependencyManager.Nuget 37
+nuget Expecto
 
 group Build
   source https://api.nuget.org/v3/index.json
@@ -61,18 +62,6 @@ group Build
   nuget Fake.DotNet.MsBuild
   nuget Fake.Api.GitHub
   nuget Microsoft.Build
-
-group Test
-  framework: netstandard2.0, net5.0
-  source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
-  source https://api.nuget.org/v3/index.json
-  storage: none
-
-  nuget FSharp.Core ~> 5.0
-  nuget NUnit 3.10.1
-  nuget NUnit3TestAdapter 3.10.0
-  nuget Microsoft.NET.Test.Sdk 15.8.0
-  nuget Expecto
 
 group SourceLink
   storage: none
