@@ -12,6 +12,9 @@ open Utils
 open FSharp.Compiler.Range
 open ProjectSystem
 
+module Result =
+  let bimap okF errF r = match r with | Ok x -> okF x | Error y -> errF y
+
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
     | Use of 'a
@@ -152,37 +155,38 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     let parseFilesInTheBackground fsiScriptTFM files =
         async {
-            files
-            |> List.toArray
-            |> Array.Parallel.iter (fun file ->
-                try
-                    let sourceOpt =
-                        match state.Files.TryFind file with
-                        | Some f -> Some (f.Lines)
-                        | None when File.Exists(file) ->
-                            let ctn = File.ReadAllLines file
-                            state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
-                            let payload =
-                                if Utils.isAScript file
-                                then BackgroundServices.ScriptFile(file, fsiScriptTFM)
-                                else BackgroundServices.SourceFile file
-                            if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
-                            Some (ctn)
-                        | None -> None
-                    match sourceOpt with
-                    | None -> ()
-                    | Some source ->
-                        let opts = state.GetProjectOptions' file |> Utils.projectOptionsToParseOptions
-                        let parseRes = checker.ParseFile(file, source |> String.concat "\n", opts) |> Async.RunSynchronously
-                        fileParsed.Trigger parseRes
-                with
-                | :? System.Threading.ThreadAbortException as ex ->
-                    // on mono, if background parsing is aborted a ThreadAbortException
-                    // is raised, who can be ignored
-                    ()
-                | ex ->
-                    commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContextDestructured "file" file >> Log.addExn ex)
-            ) }
+          for file in files do
+            try
+                let sourceOpt =
+                    match state.Files.TryFind file with
+                    | Some f -> Some (f.Lines)
+                    | None when File.Exists(file) ->
+                        let ctn = File.ReadAllLines file
+                        state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
+                        let payload =
+                            if Utils.isAScript file
+                            then BackgroundServices.ScriptFile(file, fsiScriptTFM)
+                            else BackgroundServices.SourceFile file
+                        if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
+                        Some (ctn)
+                    | None -> None
+                match sourceOpt with
+                | None -> ()
+                | Some source ->
+                    let opts = state.GetProjectOptions' file |> Utils.projectOptionsToParseOptions
+                    async {
+                      let! parseRes = checker.ParseFile(file, source |> String.concat "\n", opts)
+                      fileParsed.Trigger parseRes
+                    }
+                    |> Async.Start
+            with
+            | :? System.Threading.ThreadAbortException as ex ->
+                // on mono, if background parsing is aborted a ThreadAbortException
+                // is raised, who can be ignored
+                ()
+            | ex ->
+                commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContextDestructured "file" file >> Log.addExn ex)
+         }
 
     let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
         let getLine i =
@@ -452,7 +456,8 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 }
             let text = String.concat "\n" lines
 
-            if Utils.isAScript file then
+            if Utils.isAScript file
+            then
                 commandsLogger.info (Log.setMessage "Checking script file '{file}'" >> Log.addContextDestructured "file" file)
                 let hash  =
                   lines
@@ -535,90 +540,82 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res decls
     }
 
-    member __.Helptext sym = async {
+    member __.Helptext sym =
         match KeywordList.keywordDescriptions.TryGetValue sym with
         | true, s ->
-            return CoreResponse.Res (HelpText.Simple (sym, s))
+            CoreResponse.Res (HelpText.Simple (sym, s))
         | _ ->
         match KeywordList.hashDirectives.TryGetValue sym with
         | true, s ->
-            return CoreResponse.Res (HelpText.Simple (sym, s))
+            CoreResponse.Res (HelpText.Simple (sym, s))
         | _ ->
         let sym = if sym.StartsWith "``" && sym.EndsWith "``" then sym.TrimStart([|'`'|]).TrimEnd([|'`'|]) else sym
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
-            return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
+            CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
         | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
             let source =
                 state.Files.TryFind fn
                 |> Option.map (fun n -> n.Lines)
             match source with
-            | None -> return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
+            | None -> CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
             | Some source ->
                 let getSource = fun i -> source.[i - 1]
 
-                let! tip = async {
-                    match state.HelpText.TryFind sym with
-                    | None -> return! decl.DescriptionTextAsync
-                    | Some tip -> return tip
-                }
+                let tip =
+                  state.HelpText.TryFind sym |> Option.defaultValue decl.DescriptionText
+
                 state.HelpText.[sym] <- tip
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
                     | None -> calculateNamespaceInser decl pos getSource
                     | Some s -> Some s
-                return CoreResponse.Res (HelpText.Full (sym, tip, n))
-    }
+                CoreResponse.Res (HelpText.Full (sym, tip, n))
 
     member x.CompilerLocation () = CoreResponse.Res (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
     member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal =
-        async {
+        let fileName = Path.GetFullPath fileName
+        let getAllSymbols () =
+            if includeExternal then tyRes.GetAllEntities true else []
+        let res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
+        match res with
+        | Some (decls, residue, shouldKeywords) ->
+            let declName (d: FSharpDeclarationListItem) = d.Name
+            let getLine = fun i -> lines.[i - 1]
 
-            let fileName = Path.GetFullPath fileName
-            let getAllSymbols () =
-                if includeExternal then tyRes.GetAllEntities true else []
-            let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
-            return
-                match res with
-                | Some (decls, residue, shouldKeywords) ->
-                    let declName (d: FSharpDeclarationListItem) = d.Name
-                    let getLine = fun i -> lines.[i - 1]
+            //Init cache for current list
+            state.Declarations.Clear()
+            state.HelpText.Clear()
+            state.CompletionNamespaceInsert.Clear()
+            state.CurrentAST <- tyRes.GetAST
 
-                    //Init cache for current list
-                    state.Declarations.Clear()
-                    state.HelpText.Clear()
-                    state.CompletionNamespaceInsert.Clear()
-                    state.CurrentAST <- tyRes.GetAST
+            //Fill cache for current list
+            do fillHelpTextInTheBackground decls pos fileName getLine
 
-                    //Fill cache for current list
-                    do fillHelpTextInTheBackground decls pos fileName getLine
+            // Send the first helptext without being requested.
+            // This allows it to be displayed immediately in the editor.
+            let firstMatchOpt =
+              decls
+              |> Array.sortBy declName
+              |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
 
-                    // Send the first helptext without being requested.
-                    // This allows it to be displayed immediately in the editor.
-                    let firstMatchOpt =
-                      decls
-                      |> Array.sortBy declName
-                      |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+            let includeKeywords = includeKeywords && shouldKeywords
 
-                    let includeKeywords = includeKeywords && shouldKeywords
+            CoreResponse.Res (decls, includeKeywords)
 
-                    CoreResponse.Res (decls, includeKeywords)
-
-                | None -> CoreResponse.ErrorRes "Timed out while fetching completions"
-        }
+        | None -> CoreResponse.ErrorRes "Timed out while fetching completions"
 
     member x.ToolTip (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetToolTipEnhanced pos lineStr
-        |> x.MapResult CoreResponse.Res
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.FormattedDocumentation (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetFormattedDocumentation pos lineStr
-        |> x.MapResult CoreResponse.Res
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.FormattedDocumentationForSymbol (tyRes : ParseAndCheckResults) (xmlSig: string) (assembly: string) =
         tyRes.TryGetFormattedDocumentationForSymbol xmlSig assembly
@@ -626,85 +623,84 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.Typesig (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetToolTip pos lineStr
-        |> x.MapResult CoreResponse.Res
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetSymbolUse pos lineStr
-        |> x.MapResult CoreResponse.Res
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.SignatureData (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetSignatureData pos lineStr
-        |> x.MapResult CoreResponse.Res
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.Help (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryGetF1Help pos lineStr
-        |> x.MapResult CoreResponse.Res
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
-        let fn = tyRes.FileName
-        tyRes.TryGetSymbolUse pos lineStr |> x.MapResultAsync (fun (sym, usages) ->
-            async {
-                let fsym = sym.Symbol
-                if fsym.IsPrivateToFile then
-                    return CoreResponse.Res (LocationResponse.Use (sym, usages))
-                elif backgroundServiceEnabled then
-                    match! SymbolCache.getSymbols fsym.FullName with
-                    | None ->
-                        if fsym.IsInternalToProject then
-                            let opts = state.GetProjectOptions' tyRes.FileName
-                            let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                            return CoreResponse.Res (LocationResponse.Use (sym, symbols))
-                        else
-                            let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
-                            return CoreResponse.Res (LocationResponse.Use (sym, symbols))
-                    | Some res ->
-                        return CoreResponse.Res (LocationResponse.UseRange res)
-                elif fsym.IsInternalToProject then
-                    let opts = state.GetProjectOptions' tyRes.FileName
-                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                    return CoreResponse.Res (LocationResponse.Use (sym, symbols))
-                else
-                    let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
-                    return CoreResponse.Res (LocationResponse.Use (sym, symbols))
-            })
-        |> x.AsCancellable (Path.GetFullPath fn)
+      let fn = tyRes.FileName
+      async {
+          match tyRes.TryGetSymbolUse pos lineStr with
+          | Ok (sym, usages) ->
+            let fsym = sym.Symbol
+            if fsym.IsPrivateToFile then
+                return CoreResponse.Res (LocationResponse.Use (sym, usages))
+            elif backgroundServiceEnabled then
+                match! SymbolCache.getSymbols fsym.FullName with
+                | None ->
+                    if fsym.IsInternalToProject then
+                        let opts = state.GetProjectOptions' tyRes.FileName
+                        let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                        return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+                    else
+                        let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                        return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+                | Some res ->
+                    return CoreResponse.Res (LocationResponse.UseRange res)
+            elif fsym.IsInternalToProject then
+                let opts = state.GetProjectOptions' tyRes.FileName
+                let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+            else
+                let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+          | Error x -> return CoreResponse.ErrorRes x
+      }
+      |> x.AsCancellable (Path.GetFullPath fn)
 
     member x.SymbolImplementationProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         let fn = tyRes.FileName
         let filterSymbols symbols =
             symbols
             |> Array.where (fun (su: FSharpSymbolUse) -> su.IsFromDispatchSlotImplementation || (su.IsFromType && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.RangeAlternate )) )
-
-        tyRes.TryGetSymbolUse pos lineStr |> x.MapResultAsync (fun (sym, usages) ->
-            async {
-                let fsym = sym.Symbol
-                if fsym.IsPrivateToFile then
-                    return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols usages))
-                elif backgroundServiceEnabled then
-                    match! SymbolCache.getImplementation fsym.FullName with
-                    | None ->
-                        if fsym.IsInternalToProject then
-                            let opts = state.GetProjectOptions' tyRes.FileName
-                            let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                            return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
-                        else
-                            let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
-                            return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols))
-                    | Some res ->
-                        return CoreResponse.Res (LocationResponse.UseRange res)
-                elif fsym.IsInternalToProject then
-                    let opts = state.GetProjectOptions' tyRes.FileName
-                    let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
-                    return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
-                else
-                    let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
-                    let symbols = filterSymbols symbols
-                    return CoreResponse.Res (LocationResponse.Use (sym, symbols ))
-            })
+        async {
+          match tyRes.TryGetSymbolUse pos lineStr with
+          | Ok (sym, usages) ->
+            let fsym = sym.Symbol
+            if fsym.IsPrivateToFile then
+                return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols usages))
+            elif backgroundServiceEnabled then
+                match! SymbolCache.getImplementation fsym.FullName with
+                | None ->
+                    if fsym.IsInternalToProject then
+                        let opts = state.GetProjectOptions' tyRes.FileName
+                        let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                        return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
+                    else
+                        let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                        return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols))
+                | Some res ->
+                    return CoreResponse.Res (LocationResponse.UseRange res)
+            elif fsym.IsInternalToProject then
+                let opts = state.GetProjectOptions' tyRes.FileName
+                let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
+            else
+                let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                let symbols = filterSymbols symbols
+                return CoreResponse.Res (LocationResponse.Use (sym, symbols ))
+          | Error e -> return CoreResponse.ErrorRes e
+        }
         |> x.AsCancellable (Path.GetFullPath fn)
 
     member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
@@ -719,8 +715,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.Methods (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
-        |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.Lint (file: SourceFilePath) =
         let file = Path.GetFullPath file
@@ -889,7 +884,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             match res with
             | None -> return CoreResponse.InfoRes "Interface at position not found"
             | Some interfaceData ->
-                let! stubInfo = handleImplementInterface codeGenServer pos doc lines lineStr interfaceData
+                let! stubInfo = handleImplementInterface codeGenServer tyRes pos doc lines lineStr interfaceData
 
                 match stubInfo with
                 | Some (insertPosition, generatedCode) ->
@@ -920,20 +915,18 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         let file = Path.GetFullPath file
         let isScript = file.EndsWith ".fsx"
 
-        async {
-            match state.TryGetFileCheckerOptionsWithSource file with
-            | Error s ->  return CoreResponse.ErrorRes s
-            | Ok (opts, _) ->
-                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
-                match tyResOpt with
-                | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
-                | Some tyRes ->
-                    let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
-                    let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
-                    let res = CoreResponse.Res (file, unused)
-                    notify.Trigger (NotificationEvent.UnusedDeclarations (file, unused))
-                    return res
-        } |> x.AsCancellable file
+        match state.TryGetFileCheckerOptionsWithSource file with
+        | Error s -> CoreResponse.ErrorRes s
+        | Ok (opts, _) ->
+            let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+            match tyResOpt with
+            | None -> CoreResponse.InfoRes "Cached typecheck results not yet available"
+            | Some tyRes ->
+                let allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
+                let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
+                let res = CoreResponse.Res (file, unused)
+                notify.Trigger (NotificationEvent.UnusedDeclarations (file, unused))
+                res
 
     member x.GetSimplifiedNames file =
         let file = Path.GetFullPath file
@@ -1113,19 +1106,16 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         | Ok ctn ->
 
           let getGenerics line (token: FSharpTokenInfo) =
-            async {
               let lineStr = ctn.[line]
-              let! res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
-              return
-                match res with
-                | Ok tip ->
-                  TipFormatter.extractGenerics tip
-                | _ ->
-                  commandsLogger.info (Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}" >> Log.addContextDestructured "token" token >> Log.addContextDestructured "line" lineStr)
-                  []
-            }
+              let res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
+              match res with
+              | Ok tip ->
+                TipFormatter.extractGenerics tip
+              | _ ->
+                commandsLogger.info (Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}" >> Log.addContextDestructured "token" token >> Log.addContextDestructured "line" lineStr)
+                []
 
-          let! hints =
+          let hints =
             ctn
             |> Array.map (Lexer.tokenizeLine [||])
             |> Array.pairwise
@@ -1133,20 +1123,19 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             |> Array.choose (fun (id, tok, nextTok) ->
                 match nextTok with
                 | x::y::xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
-                  Some (async {
-                    let! gens = getGenerics (id + 1) y
-                    return (id, gens)
-                  })
+                  Some (
+                    let gens = getGenerics (id + 1) y
+                    id, gens
+                  )
                 | y::xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
-                  Some (async {
-                    let! gens = getGenerics (id + 1) y
-                    return  (id, gens)
-                  })
+                  Some (
+                    let gens = getGenerics (id + 1) y
+                    id, gens
+                  )
                 | _ ->
                   None
-
             )
-            |> Async.Parallel
+
           return CoreResponse.Res hints
 
         | _ ->

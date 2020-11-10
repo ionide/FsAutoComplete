@@ -252,18 +252,18 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       let source = SourceText.ofString source
       let options = clearProjectReferences options
       let fixedFilePath = ensureAbsolutePath filePath
-      let! res = Async.Catch (checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName))
-      return
-          match res with
-          | Choice1Of2 (p,c)->
-            let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
-            match c with
-            | FSharpCheckFileAnswer.Aborted ->
-              logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
-              ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
-            | FSharpCheckFileAnswer.Succeeded(c) ->
-              Ok (ParseAndCheckResults(p,c, entityCache))
-          | Choice2Of2 e -> ResultOrString.Error e.Message
+      try
+        let! (p, c) = checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName)
+        let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
+        match c with
+        | FSharpCheckFileAnswer.Aborted ->
+          logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
+          return ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
+        | FSharpCheckFileAnswer.Succeeded(c) ->
+          return Ok (ParseAndCheckResults(p, c, entityCache))
+      with
+      | ex ->
+        return ResultOrString.Error (ex.ToString())
     }
 
   member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
@@ -286,7 +286,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           |> Seq.map (fun (opts) -> async {
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
-              return! res.GetUsesOfSymbol symbol
+              return res.GetUsesOfSymbol symbol
             })
           |> Async.Parallel
         return res |> Array.concat }

@@ -150,8 +150,17 @@ let netCoreRefs dotnetRoot sdkVersion runtimeVersion tfm useFsiAuxLib =
 let tfmForRuntime =
   let netcore3 = NugetVersion(3, 0, 100, "")
   let netcore31 = NugetVersion(3, 1, 100, "")
+  let netcore5 = NugetVersion(5, 0, 100, "")
+
   fun (sdkVersion: NugetVersion) ->
-    match compareNugetVersion sdkVersion netcore3 with
-    | 1 | 0 when compareNugetVersion sdkVersion netcore31 = -1 -> "netcoreapp3.0"
-    | 1 | 0 -> "netcoreapp3.1"
-    | _ -> "netcoreapp2.2"
+    let compare = compareNugetVersion sdkVersion
+
+    match compare netcore5 with
+    | 1 | 0 -> "net5.0"
+    | _ ->
+      match compare netcore31 with
+      | 1 | 0 -> "netcoreapp3.1"
+      | _ ->
+        match compare netcore3 with
+        | 1 | 0 -> "netcoreapp3.0"
+        | _ -> "netcoreapp2.2"

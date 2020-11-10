@@ -32,20 +32,18 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             | _ -> None
 
     member x.GetSymbolAndUseAtPositionOfKind(fileName, pos, kind) =
-        asyncMaybe {
+        maybe {
             let! symbol = x.GetSymbolAtPosition(fileName,pos)
             if symbol.Kind = kind then
                 match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
                 | ResultOrString.Error _ -> return! None
                 | ResultOrString.Ok (opts, _, line) ->
                     let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts)
-                    let! symbolUse =
-                        async {
-                            let! r = result.TryGetSymbolUse pos line
-                            match r with
-                            | ResultOrString.Error _ -> return None
-                            | ResultOrString.Ok (suse, _) -> return Some suse
-                    }
+                    let symbolUse =
+                      let r = result.TryGetSymbolUse pos line
+                      match r with
+                      | ResultOrString.Error _ -> None
+                      | ResultOrString.Ok (suse, _) -> Some suse
                     return! Some (symbol, symbolUse)
             else
                 return! None

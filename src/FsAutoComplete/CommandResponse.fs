@@ -65,14 +65,15 @@ module internal ClassificationUtils =
       | SemanticClassificationType.MutableVar
       | SemanticClassificationType.MutableRecordField -> "mutable"
       | SemanticClassificationType.Module
-      | SemanticClassificationType.NameSpace -> "namespace"
+      | SemanticClassificationType.Namespace -> "namespace"
       | SemanticClassificationType.Printf -> "regexp"
       | SemanticClassificationType.ComputationExpression -> "cexpr"
       | SemanticClassificationType.IntrinsicFunction -> "function"
       | SemanticClassificationType.Enumeration -> "enum"
       | SemanticClassificationType.Interface -> "interface"
       | SemanticClassificationType.TypeArgument -> "typeParameter"
-      | SemanticClassificationType.DisposableValue
+      | SemanticClassificationType.DisposableTopLevelValue
+      | SemanticClassificationType.DisposableLocalValue
       | SemanticClassificationType.DisposableType -> "disposable"
       | SemanticClassificationType.Literal -> "variable.readonly.defaultLibrary"
       | SemanticClassificationType.RecordField
@@ -84,6 +85,7 @@ module internal ClassificationUtils =
       | SemanticClassificationType.NamedArgument -> "member"
       | SemanticClassificationType.Value
       | SemanticClassificationType.LocalValue -> "variable"
+      | SemanticClassificationType.Plaintext -> "text"
 
 module CommandResponse =
   open FSharp.Compiler.Range

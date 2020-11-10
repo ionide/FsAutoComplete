@@ -12,7 +12,9 @@ module KeywordList =
     let keywordTooltips =
       keywordDescriptions
       |> Seq.map (fun kv ->
-        let tip = FSharpToolTipText [FSharpToolTipElement.Single(kv.Key, FSharpXmlDoc.Text kv.Value)]
+        let lines = kv.Value.Replace("\r\n", "\n").Split('\n')
+        let allLines = Array.concat [| [|"<summary>"|]; lines; [| "</summary>" |] |]
+        let tip = FSharpToolTipText [FSharpToolTipElement.Single(kv.Key, FSharpXmlDoc.Text (allLines, allLines))]
         kv.Key, tip)
       |> dict
 
@@ -44,7 +46,7 @@ module KeywordList =
     let allKeywords : string list =
         FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription
         |> List.map fst
-        
+
     let keywordCompletionItems =
         allKeywords
         |> List.mapi (fun id k ->

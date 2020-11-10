@@ -333,7 +333,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
             | SynExpr.New(_, _, synExpr, _)
             | SynExpr.ArrayOrListOfSeqExpr(_, synExpr, _)
             | SynExpr.CompExpr(_, _, synExpr, _)
-            | SynExpr.Lambda(_, _, _, synExpr, _)
+            | SynExpr.Lambda(_, _, _, synExpr, _, _)
             | SynExpr.Lazy(synExpr, _)
             | SynExpr.Do(synExpr, _)
             | SynExpr.Assert(synExpr, _) ->
@@ -545,7 +545,7 @@ let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos:
 
         let! symbol, symbolUse =
             codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
-
+        let! symbolUse = symbolUse
         match symbolUse.Symbol with
         | :? FSharpEntity as entity when entity.IsFSharpRecord && entity.DisplayName = symbol.Text ->
             return! Some (recordExpression, Some entity, insertionPos)
