@@ -575,21 +575,21 @@ let tryFindUnionDefinitionFromPos (codeGenService: CodeGenerationService) pos do
         let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
 
 
-        let! superficialTypeDefinition =
-            match symbolUse with
-            | Some symbol ->
-              match symbol.Symbol with
-              | SymbolPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
-                  Some case.ReturnType.TypeDefinition
-              | SymbolPatterns.FSharpEntity(entity, _, _) -> Some entity
-              | _ -> None
-            | None -> None
+        let! superficialTypeDefinition = asyncMaybe {
+            let! symbolUse = symbolUse
+            match symbolUse.Symbol with
+            | SymbolPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
+                return Some case.ReturnType.TypeDefinition
+            | SymbolPatterns.FSharpEntity(entity, _, _) -> return Some entity
+            | _ -> return None
+        }
 
+        let! realTypeDefinition = superficialTypeDefinition
         let! realTypeDefinition =
             match superficialTypeDefinition with
-            | AbbreviatedType(TypeWithDefinition typeDef) when typeDef.IsFSharpUnion ->
+            | Some(AbbreviatedType(TypeWithDefinition typeDef)) when typeDef.IsFSharpUnion ->
                 Some typeDef
-            | UnionType(_) -> Some superficialTypeDefinition
+            | Some(UnionType(_)) -> superficialTypeDefinition
             | _ -> None
 
         return patMatchExpr, realTypeDefinition, insertionParams

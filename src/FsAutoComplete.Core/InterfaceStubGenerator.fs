@@ -942,20 +942,22 @@ let handleImplementInterface (codeGenServer : CodeGenerationService) (checkResul
     async {
         let! result = asyncMaybe {
             let! _symbol, symbolUse = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
-            return!
-                match symbolUse with
-                | None -> None
+            let! thing = async {
+                match! symbolUse with
+                | None -> return None
                 | Some symbolUse ->
                   match symbolUse.Symbol with
                   | :? FSharpEntity as entity ->
                       if isInterface entity then
-                          match  checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos) with
+                          match! checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos) with
                           | Some displayContext ->
-                            Some (interfaceData, displayContext, entity)
-                          | None -> None
+                            return Some (interfaceData, displayContext, entity)
+                          | None -> return None
                       else
-                          None
-                  | _ -> None
+                          return None
+                  | _ -> return None
+            }
+            return thing
         }
 
         match result with

@@ -286,7 +286,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           |> Seq.map (fun (opts) -> async {
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
-              return res.GetUsesOfSymbol symbol
+              return! res.GetUsesOfSymbol symbol
             })
           |> Async.Parallel
         return res |> Array.concat }
