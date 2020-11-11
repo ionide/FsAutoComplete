@@ -8,7 +8,6 @@
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Tets.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="DotnetNewTemplate.fs" />
