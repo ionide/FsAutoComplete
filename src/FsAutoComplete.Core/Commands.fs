@@ -298,6 +298,54 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
       return CoreResponse.Res result
     }
 
+    member _.FsProjMoveFileUp (fsprojPath: string) (file: string) = async {
+      FsProjEditor.moveFileUp fsprojPath file
+      return CoreResponse.Res ()
+    }
+
+    member _.FsProjMoveFileDown (fsprojPath: string) (file: string) = async {
+      FsProjEditor.moveFileDown fsprojPath file
+      return CoreResponse.Res ()
+    }
+
+    member _.FsProjAddFileAbove (fsprojPath: string) (file: string) (newFileName: string) = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, newFileName)
+        File.Create newFilePath |> ignore
+
+        FsProjEditor.addFileAbove fsprojPath file newFileName
+        return CoreResponse.Res ()
+      with
+      | ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+    member _.FsProjAddFileBelow (fsprojPath: string) (file: string) (newFileName: string) = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, newFileName)
+        File.Create newFilePath |> ignore
+
+        FsProjEditor.addFileBelow fsprojPath file newFileName
+        return CoreResponse.Res ()
+      with
+      | ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+    member _.FsProjAddFile (fsprojPath: string) (file: string) = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, file)
+        File.Create newFilePath |> ignore
+
+        FsProjEditor.addFile fsprojPath file
+        return CoreResponse.Res ()
+      with
+      | ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse<'b>>) =
         let cts = new CancellationTokenSource()

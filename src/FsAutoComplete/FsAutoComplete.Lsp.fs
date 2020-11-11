@@ -1951,6 +1951,81 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
+    member __.FsProjMoveFileUp(p: DotnetFileRequest) = async {
+        logger.info (Log.setMessage "FsProjMoveFileUp Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.FsProjMoveFileUp p.FsProj p.File
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
+    member __.FsProjMoveFileDown(p: DotnetFileRequest) = async {
+        logger.info (Log.setMessage "FsProjMoveFileDown Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.FsProjMoveFileDown p.FsProj p.File
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
+    member __.FsProjAddFileAbove(p: DotnetFile2Request) = async {
+        logger.info (Log.setMessage "FsProjAddFileAbove Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.FsProjAddFileAbove p.FsProj p.File p.NewFile
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
+    member __.FsProjAddFileBelow(p: DotnetFile2Request) = async {
+        logger.info (Log.setMessage "FsProjAddFileBelow Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.FsProjAddFileBelow p.FsProj p.File p.NewFile
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
+    member __.FsProjAddFile(p: DotnetFileRequest) = async {
+        logger.info (Log.setMessage "FsProjAddFile Request: {parms}" >> Log.addContextDestructured "parms" p )
+
+        let! res = commands.FsProjAddFile p.FsProj p.File
+        let res =
+            match res with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res (_) ->
+                { Content = "" }
+                |> success
+
+        return res
+    }
+
     member x.FSharpHelp(p: TextDocumentPositionParams) =
         logger.info (Log.setMessage "FSharpHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
 
@@ -2156,6 +2231,11 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
+        |> Map.add "fsproj/moveFileUp" (requestHandling (fun s p -> s.FsProjMoveFileUp(p) ))
+        |> Map.add "fsproj/moveFileDown" (requestHandling (fun s p -> s.FsProjMoveFileDown(p) ))
+        |> Map.add "fsproj/addFileAbove" (requestHandling (fun s p -> s.FsProjAddFileAbove(p) ))
+        |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p) ))
+        |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p) ))
 
 
 

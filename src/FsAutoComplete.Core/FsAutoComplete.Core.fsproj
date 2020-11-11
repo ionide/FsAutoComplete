@@ -3,10 +3,17 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
+    <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Tets.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="DotnetCli.fs" />
+    <Compile Include="FsprojEdit.fs" />
     <Compile Include="ProcessWatcher.fs" />
     <Compile Include="UntypedAstUtils.fs" />
     <Compile Include="TypedAstUtils.fs" />
@@ -34,12 +41,6 @@
     <Compile Include="Fsdn.fs" />
     <Compile Include="Lint.fs" />
     <Compile Include="Commands.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
-    <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
-    <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
