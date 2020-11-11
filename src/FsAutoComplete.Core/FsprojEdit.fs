@@ -39,7 +39,7 @@ module FsProjEditor =
     let childXPath = sprintf "//Compile[@Include='%s']" aboveFile
     let aboveNode = itemGroup.SelectSingleNode(childXPath)
     let node = aboveNode.Clone ()
-    let attr = node.Attributes.Item 0
+    let attr = node.Attributes.GetNamedItem "Include"
     attr.Value <- newFileName
     itemGroup.InsertBefore(node, aboveNode) |> ignore
     xdoc.Save fsprojPath
@@ -52,7 +52,7 @@ module FsProjEditor =
     let childXPath = sprintf "//Compile[@Include='%s']" belowFile
     let aboveNode = itemGroup.SelectSingleNode(childXPath)
     let node = aboveNode.Clone ()
-    let attr = node.Attributes.Item 0
+    let attr = node.Attributes.GetNamedItem "Include"
     attr.Value <- newFileName
     itemGroup.InsertAfter(node, aboveNode) |> ignore
     xdoc.Save fsprojPath
@@ -63,7 +63,7 @@ module FsProjEditor =
     let itemGroup = xdoc.SelectSingleNode("//Compile/.." )
     let x = itemGroup.FirstChild
     let node = x.Clone ()
-    let attr = node.Attributes.Item 0
+    let attr = node.Attributes.GetNamedItem "Include"
     attr.Value <- newFileName
     itemGroup.InsertBefore(node, x) |> ignore
     xdoc.Save fsprojPath
