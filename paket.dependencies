@@ -9,6 +9,7 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
+git https://github.com/baronfel/FSharpLint fcs-38-nightly build: "dotnet fake build -s -t Pack", Packages: ./out
 
 nuget Argu ~> 5.2.0
 nuget Fantomas ~> 4.0 prerelease
@@ -22,7 +23,7 @@ nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
-nuget FSharpLint.Core
+nuget FSharpLint.Core prerelease
 nuget FSharp.Core
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
