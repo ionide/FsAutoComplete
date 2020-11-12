@@ -357,6 +357,12 @@ type DotnetNewListRequest = { Query: string }
 
 type DotnetNewRunRequest = { Template: string; Output: string option; Name: string option }
 
+type DotnetProjectRequest = { Target: string; Reference: string }
+
+type DotnetFileRequest = { FsProj: string; File: string }
+
+type DotnetFile2Request = { FsProj: string; File: string; NewFile: string }
+
 type FSharpLiterateRequest = {FileName : string; }
 
 type FSharpPipelineHintRequest = {FileName : string; }

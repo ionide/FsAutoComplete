@@ -273,15 +273,79 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         }
 
     member x.DotnetNewList () = async {
-            let results = DotnetNewTemplate.installedTemplates ()
-            return CoreResponse.Res results
-        }
+        let results = DotnetNewTemplate.installedTemplates ()
+        return CoreResponse.Res results
+    }
 
 
     member x.DotnetNewRun (templateShortName : string) (name: string option) (output: string option) (parameterStr : (string * obj) list) = async {
-            let! results = DotnetNewTemplate.dotnetnewCreateCli templateShortName name output parameterStr
-            return CoreResponse.Res results
-        }
+        let! results = DotnetCli.dotnetNew templateShortName name output parameterStr
+        return CoreResponse.Res results
+    }
+
+    member x.DotnetAddProject (toProject: string) (reference: string) =  async {
+      let! result = DotnetCli.dotnetAddProject toProject reference
+      return CoreResponse.Res result
+    }
+
+    member x.DotnetRemoveProject (fromProject: string) (reference: string) =  async {
+      let! result = DotnetCli.dotnetRemoveProject fromProject reference
+      return CoreResponse.Res result
+    }
+
+    member x.DotnetSlnAdd (sln: string) (project: string) = async {
+      let! result = DotnetCli.dotnetSlnAdd sln project
+      return CoreResponse.Res result
+    }
+
+    member _.FsProjMoveFileUp (fsprojPath: string) (file: string) = async {
+      FsProjEditor.moveFileUp fsprojPath file
+      return CoreResponse.Res ()
+    }
+
+    member _.FsProjMoveFileDown (fsprojPath: string) (file: string) = async {
+      FsProjEditor.moveFileDown fsprojPath file
+      return CoreResponse.Res ()
+    }
+
+    member _.FsProjAddFileAbove (fsprojPath: string) (file: string) (newFileName: string) = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, newFileName)
+        File.Create newFilePath |> ignore
+
+        FsProjEditor.addFileAbove fsprojPath file newFileName
+        return CoreResponse.Res ()
+      with
+      | ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+    member _.FsProjAddFileBelow (fsprojPath: string) (file: string) (newFileName: string) = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, newFileName)
+        File.Create newFilePath |> ignore
+
+        FsProjEditor.addFileBelow fsprojPath file newFileName
+        return CoreResponse.Res ()
+      with
+      | ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+    member _.FsProjAddFile (fsprojPath: string) (file: string) = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, file)
+        File.Create newFilePath |> ignore
+
+        FsProjEditor.addFile fsprojPath file
+        return CoreResponse.Res ()
+      with
+      | ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
 
     member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse<'b>>) =
         let cts = new CancellationTokenSource()
