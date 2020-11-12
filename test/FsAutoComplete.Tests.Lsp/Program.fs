@@ -57,6 +57,17 @@ let main args =
     LoggerConfiguration()
       .Enrich.FromLogContext()
       .MinimumLevel.ControlledBy(switch)
+      .Filter.ByExcluding(fun ev ->
+        match ev.Properties.["SourceContext"] with
+        | null -> false
+        | :? ScalarValue as scalar ->
+          match scalar.Value with
+          | null -> false
+          | :? string as text when text = "FileSystem" -> true
+          | _ -> false
+        | _ -> false
+      )
+
       .Destructure.FSharpTypes()
       .WriteTo.Async(
         fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
