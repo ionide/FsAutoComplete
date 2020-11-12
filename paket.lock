@@ -649,7 +649,7 @@ NUGET
     System.ValueTuple (4.5)
     System.Windows.Extensions (5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
       System.Drawing.Common (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
-  remote: paket-files/github.com/baronfel/FSharpLint/out
+  remote: ./libs
     FSharpLint.Core (0.17.0-alpha01)
       Dotnet.ProjInfo (>= 0.44)
       Dotnet.ProjInfo.Workspace (>= 0.41.1)
@@ -662,11 +662,6 @@ NUGET
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
-GIT
-  remote: https://github.com/baronfel/FSharpLint
-     (19b98584f5f4ceb0cd395270d6f4bb45a8cd769f)
-      build: dotnet fake build -s -t Pack
-      path: ./out
 GROUP Build
 STORAGE: NONE
 RESTRICTION: == netstandard2.0
