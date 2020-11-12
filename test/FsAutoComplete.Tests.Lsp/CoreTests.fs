@@ -242,7 +242,7 @@ let documentSymbolTest =
     let (server, event) = serverInitialize path defaultConfigDto
     let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs")
+    let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
@@ -272,7 +272,7 @@ let autocompleteTest =
     let (server, event) = serverInitialize path defaultConfigDto
     let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs")
+    let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     (server, path)
