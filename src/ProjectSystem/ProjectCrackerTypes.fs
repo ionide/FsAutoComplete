@@ -37,6 +37,14 @@ module internal ProjectRecognizer =
         if Path.GetExtension(file) = ".json" then
             NetCoreProjectJson // dotnet core preview 2 or earlier
         else
+          try
+            File.ReadLines(file)
+            |> Seq.truncate 3
+            |> List.ofSeq
+            |> getProjectType
+          with
+          | ex ->
+            Threading.Thread.Sleep 100
             File.ReadLines(file)
             |> Seq.truncate 3
             |> List.ofSeq
