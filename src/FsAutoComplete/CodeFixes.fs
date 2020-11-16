@@ -5,6 +5,8 @@ module FsAutoComplete.CodeFix
 open FsAutoComplete.LspHelpers
 open LanguageServerProtocol.Types
 
+type FcsRange = FSharp.Compiler.SourceCodeServices.Range
+
 module Types =
   type IsEnabled = unit -> bool
 
@@ -46,21 +48,22 @@ let ifEnabled enabled codeFix: CodeFix =
   fun codeActionParams -> if enabled () then codeFix codeActionParams else async.Return []
 
 let ifDiagnosticByMessage handler (checkMessage: string) =
-    (fun codeActionParams ->
-      match codeActionParams.Context.Diagnostics
-            |> Array.tryFind (fun n -> n.Message.Contains checkMessage) with
-      | None -> async.Return []
-      | Some d -> handler d codeActionParams)
+  (fun codeActionParams ->
+    match codeActionParams.Context.Diagnostics
+          |> Array.tryFind (fun n -> n.Message.Contains checkMessage) with
+    | None -> async.Return []
+    | Some d -> handler d codeActionParams)
 
 let ifDiagnosticByType handler (diagnosticType: string) =
-    (fun codeActionParams ->
-      match codeActionParams.Context.Diagnostics
-            |> Seq.tryFind (fun n -> n.Source.Contains diagnosticType) with
-      | None -> async.Return []
-      | Some d -> handler d)
+  (fun codeActionParams ->
+    match codeActionParams.Context.Diagnostics
+          |> Seq.tryFind (fun n -> n.Source.Contains diagnosticType) with
+    | None -> async.Return []
+    | Some d -> handler d)
 
 module Fixes =
   open FSharp.Compiler.SourceCodeServices
+  open FsToolkit.ErrorHandling
 
   /// insert a line of text at a given line
   let private insertLine line lineStr =
@@ -167,7 +170,6 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
-
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -190,68 +192,129 @@ module Fixes =
 
   /// a codefix that replaces the use of an unknown identifier with a suggested identitfier
   let errorSuggestion =
-    ifDiagnosticByMessage (fun diagnostic codeActionParams ->
-      diagnostic.Message.Split('\n').[1..]
-      |> Array.map (fun suggestion ->
-          let suggestion = suggestion.Trim()
-          let suggestion =
-              if System.Text.RegularExpressions.Regex.IsMatch(suggestion, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                  suggestion
-              else
-                  $"``%s{s}``"
-          {
-            Edits = [| { Range = diagnostic.Range; NewText = suggestion } |]
-            Title = $"Replace with %s{suggestion}"
-            File = codeActionParams.TextDocument
-            SourceDiagnostic = Some diagnostic
-          }
-      )
-      |> Array.toList
-      |> async.Return
-    ) "Maybe you want one of the following:"
+    ifDiagnosticByMessage
+      (fun diagnostic codeActionParams ->
+        diagnostic.Message.Split('\n').[1..]
+        |> Array.map
+             (fun suggestion ->
+               let suggestion = suggestion.Trim()
+
+               let suggestion =
+                 if System.Text.RegularExpressions.Regex.IsMatch(suggestion, """^[a-zA-Z][a-zA-Z0-9']+$""")
+                 then suggestion
+                 else $"``%s{suggestion}``"
+
+               { Edits =
+                   [| { Range = diagnostic.Range
+                        NewText = suggestion } |]
+                 Title = $"Replace with %s{suggestion}"
+                 File = codeActionParams.TextDocument
+                 SourceDiagnostic = Some diagnostic })
+        |> Array.toList
+        |> async.Return)
+      "Maybe you want one of the following:"
 
   /// a codefix that removes unnecessary qualifiers from an identifier
   let redundantQualifier =
-    ifDiagnosticByMessage (fun diagnostic codeActionParams ->
-      async.Return [ {
-        Edits = [| { Range = diagnostic.Range; NewText = "" } |]
-        File = codeActionParams.TextDocument
-        Title = "Remove redundant qualifier"
-        SourceDiagnostic = Some diagnostic
-      } ]
-    ) "This qualifier is redundant"
+    ifDiagnosticByMessage
+      (fun diagnostic codeActionParams ->
+        async.Return [ { Edits =
+                           [| { Range = diagnostic.Range
+                                NewText = "" } |]
+                         File = codeActionParams.TextDocument
+                         Title = "Remove redundant qualifier"
+                         SourceDiagnostic = Some diagnostic } ])
+      "This qualifier is redundant"
 
   /// a codefix that suggests prepending a _ to unused values
   let unusedValue getFileLines =
-    ifDiagnosticByMessage (fun diagnostic codeActionParams -> async {
-      match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
-      | Ok lines ->
-        match diagnostic.Code with
-        | Some _ ->
-          return [{
-            SourceDiagnostic = Some diagnostic
-            File = codeActionParams.TextDocument
-            Title = "Replace with __"
-            Edits = [| { Range = diagnostic.Range; NewText = "__" } |]
-          }
-          ]
-        | None ->
-          let replaceSuggestion = "_"
-          let prefixSuggestion = $"_{getText lines diagnostic.Range}"
-          return [
-            {
-              SourceDiagnostic = Some diagnostic
-              File = codeActionParams.TextDocument
-              Title = "Replace with _"
-              Edits = [| { Range = diagnostic.Range; NewText = replaceSuggestion } |]
-            }
-            {
-              SourceDiagnostic = Some diagnostic
-              File = codeActionParams.TextDocument
-              Title = "Prefix with _"
-              Edits = [| { Range = diagnostic.Range; NewText = prefixSuggestion } |]
-            }]
-      | Error _ ->
-        return []
-    }
-    ) "is unused"
+    ifDiagnosticByMessage
+      (fun diagnostic codeActionParams ->
+        async {
+          match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
+          | Ok lines ->
+              match diagnostic.Code with
+              | Some _ ->
+                  return
+                    [ { SourceDiagnostic = Some diagnostic
+                        File = codeActionParams.TextDocument
+                        Title = "Replace with __"
+                        Edits =
+                          [| { Range = diagnostic.Range
+                               NewText = "__" } |] } ]
+              | None ->
+                  let replaceSuggestion = "_"
+                  let prefixSuggestion = $"_{getText lines diagnostic.Range}"
+
+                  return
+                    [ { SourceDiagnostic = Some diagnostic
+                        File = codeActionParams.TextDocument
+                        Title = "Replace with _"
+                        Edits =
+                          [| { Range = diagnostic.Range
+                               NewText = replaceSuggestion } |] }
+                      { SourceDiagnostic = Some diagnostic
+                        File = codeActionParams.TextDocument
+                        Title = "Prefix with _"
+                        Edits =
+                          [| { Range = diagnostic.Range
+                               NewText = prefixSuggestion } |] } ]
+          | Error _ -> return []
+        })
+      "is unused"
+
+  /// a codefix that suggestes using the 'new' keyword on IDisposables
+  let newWithDisposables getFileLines =
+    ifDiagnosticByMessage
+      (fun diagnostic codeActionParams ->
+        match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
+        | Ok lines ->
+            async.Return [ { SourceDiagnostic = Some diagnostic
+                             File = codeActionParams.TextDocument
+                             Title = "Add new"
+                             Edits =
+                               [| { Range = diagnostic.Range
+                                    NewText = $"new {getText lines diagnostic.Range}" } |] } ]
+        | Error _ -> async.Return [])
+      "It is recommended that objects supporting the IDisposable interface are created using the syntax"
+
+  /// a codefix that generates union cases for an incomplete match expression
+  let generateUnionCases (getFileLines: string -> Result<string [], _>)
+                         (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                         (generateCases: _ -> _ -> _ -> _ -> Async<Result<CoreResponse<_>, _>>)
+                         getUnionCaseStub
+                         =
+    ifDiagnosticByMessage
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let! (lines: string []) = getFileLines fileName
+          let caseLine = diagnostic.Range.Start.Line + 1
+          let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
+
+          let pos =
+            FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
+
+          let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
+          match! generateCases tyRes pos lines line with
+          | CoreResponse.Res (insertString: string, insertPosition) ->
+              let range =
+                { Start = fcsPosToLsp insertPosition
+                  End = fcsPosToLsp insertPosition }
+
+              let text =
+                insertString.Replace("$1", getUnionCaseStub ())
+              // x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text
+              return
+                [ { SourceDiagnostic = Some diagnostic
+                    File = codeActionParams.TextDocument
+                    Title = "Generate union pattern match cases"
+                    Edits = [| { Range = range; NewText = text } |] } ]
+
+          | _ -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      "Incomplete pattern matches on this expression. For example"

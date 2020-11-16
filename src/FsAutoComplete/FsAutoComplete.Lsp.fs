@@ -425,13 +425,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           | Some tyRes ->
             return tyRes, lineAtPos, fileLines
         }
+
+        let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+
         codeFixes <- fun p ->
           [|
             ifEnabled (fun _ -> config.UnusedOpensAnalyzer) Fixes.unusedOpens
             ifEnabled (fun _ -> config.ResolveNamespaces) (Fixes.resolveNamespace tryGetParseResultsForFile commands.GetNamespaceSuggestions)
             Fixes.errorSuggestion
             Fixes.redundantQualifier
-            Fixes.unusedValue (commands.TryGetFileCheckerOptionsWithLines >> Result.map snd)
+            Fixes.unusedValue getFileLines
+            Fixes.newWithDisposables getFileLines
+            ifEnabled (fun _ -> config.UnionCaseStubGeneration)
+              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GenerateUnionCases (fun _ ->config.UnionCaseStubGenerationBody))
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
@@ -1108,32 +1114,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           Edit = we
           Command = None}
 
-
-    member private x.GetNewKeywordSuggestionCodeAction fn p lines =
-        p |> x.IfDiagnostic "It is recommended that objects supporting the IDisposable interface are created using the syntax" (fun d ->
-            let s = "new " + getText lines d.Range
-            x.CreateFix p.TextDocument.Uri fn "Add new" (Some d) d.Range s
-            |> List.singleton
-            |> async.Return
-        )
-
-    member private x.GetUnusedCodeAction fn p lines =
-        p |> x.IfDiagnostic "is unused" (fun d ->
-            match d.Code with
-            | None ->
-                let s = "_"
-                let s2 = "_" + getText lines d.Range
-                [
-                    x.CreateFix p.TextDocument.Uri fn "Replace with _" (Some d) d.Range s
-                    x.CreateFix p.TextDocument.Uri fn "Prefix with _" (Some d) d.Range s2
-                ] |> async.Return
-            | Some _ ->
-                [
-                    x.CreateFix p.TextDocument.Uri fn "Replace with __" (Some d) d.Range "__"
-                ] |> async.Return
-
-        )
-
     member private x.GetLinterCodeAction fn p =
         p |> x.IfDiagnosticType "F# Linter" (fun d ->
             let uri = Path.FilePathToUri fn
@@ -1252,9 +1232,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! actions =
               Async.Parallel (codeFixes codeActionParams)
               // Async.Parallel [|
-              //     x.GetRedundantQualfierCodeAction fn p
-              //     x.GetUnusedCodeAction fn p lines
-              //     x.GetNewKeywordSuggestionCodeAction fn p lines
               //     x.GetUnionCaseGeneratorCodeAction fn p lines
               //     x.GetLinterCodeAction fn p
               //     x.GetAnalyzerCodeAction fn p
