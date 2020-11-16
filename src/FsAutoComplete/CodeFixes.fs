@@ -9,6 +9,8 @@ open System.IO
 
 type FcsRange = FSharp.Compiler.SourceCodeServices.Range
 
+module LspTypes = LanguageServerProtocol.Types
+
 module Types =
   type IsEnabled = unit -> bool
 
@@ -62,6 +64,12 @@ let ifDiagnosticByType handler (diagnosticType: string) =
           |> Seq.tryFind (fun n -> n.Source.Contains diagnosticType) with
     | None -> async.Return []
     | Some d -> handler d codeActionParams)
+
+let ifDiagnosticByCode handler codes: CodeFix =
+  fun codeActionParams ->
+    match codeActionParams.Context.Diagnostics |> Seq.tryFind (fun d -> match d.Code with | None -> false | Some code -> Set.contains code codes) with
+    | None -> async.Return []
+    | Some d -> handler d codeActionParams
 
 module Fixes =
   open FSharp.Compiler.SourceCodeServices
@@ -424,3 +432,75 @@ module Fixes =
         | _ -> return []
       }
       |> AsyncResult.foldResult id (fun _ -> [])
+
+  let findPosForCharacter (lines: string []) (pos: int) =
+    let mutable lineNumber = 0
+    let mutable runningLength = 0
+    let mutable found = false
+    let mutable fcsPos = Unchecked.defaultof<FSharp.Compiler.Range.pos>
+    while not found do
+      let line = lines.[lineNumber]
+      let lineLength = line.Length
+      if pos <= runningLength + lineLength
+      then
+        let column = pos - runningLength
+        found <- true
+        fcsPos <- FSharp.Compiler.Range.mkPos lineNumber column
+      else
+        lineNumber <- lineNumber + 1
+        runningLength <- runningLength + lineLength
+    fcsPos
+
+  /// given an FCS pos, walk backwards until the last whitespace character before a non-whitespace character is found
+  let findLastWhitespaceCharacterBeforePos (lines: string[]) (pos: LspTypes.Position): LspTypes.Position =
+    let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
+    let dec (pos: LspTypes.Position): LspTypes.Position =
+      if pos.Character = 0
+      then
+        let newLine = pos.Line - 1
+        // decrement to end of previous line
+        { pos with
+            Line = newLine
+            Character = lines.[newLine].Length - 1 }
+      else
+        { pos with
+            Character = pos.Character - 1 }
+
+    let mutable lastPos = dec pos
+    let rec loop pos =
+      if System.Char.IsWhiteSpace (charAt pos)
+      then
+        lastPos <- pos
+        loop (dec pos)
+      else
+        lastPos
+
+    loop lastPos
+
+
+  let addMissingEquals (getFileLines: string -> Result<string [], _>) =
+    ifDiagnosticByCode (fun diagnostic codeActionParams ->
+    asyncResult {
+      if diagnostic.Message.Contains "'='" || diagnostic.Message.Contains "Unexpected symbol '{' in type definition"
+      then
+        let fileName = codeActionParams.TextDocument.GetFilePath()
+        let! lines = getFileLines fileName
+        let insertPos = findLastWhitespaceCharacterBeforePos lines diagnostic.Range.Start
+
+        return [{
+          SourceDiagnostic = Some diagnostic
+          Title = "Add missing '=' to type definition"
+          File = codeActionParams.TextDocument
+          Edits = [|{
+            Range = {
+              Start = insertPos
+              End = insertPos
+            }
+            NewText = " ="
+          }|]
+        }]
+
+      else return []
+    }
+    |> AsyncResult.foldResult id (fun _ -> [])
+    ) (Set.ofList ["10"; "3360"])

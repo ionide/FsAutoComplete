@@ -427,22 +427,28 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
-        let getInterfaceStubReplacements () =
+
+        let interfaceStubReplacements =
           Map.ofList [
             "$objectIdent", config.InterfaceStubGenerationObjectIdentifier
             "$methodBody", config.InterfaceStubGenerationMethodBody
           ]
 
-        let getUnionCaseStubReplacements () =
+        let getInterfaceStubReplacements () = interfaceStubReplacements
+
+        let unionCaseStubReplacements =
           Map.ofList [
             "$1", config.UnionCaseStubGenerationBody
           ]
 
+        let getUnionCaseStubReplacements () = unionCaseStubReplacements
 
-        let getRecordStubReplacements () =
+        let recordStubReplacements =
           Map.ofList [
             "$1", config.RecordStubGenerationBody
           ]
+
+        let getRecordStubReplacements () = recordStubReplacements
 
         codeFixes <- fun p ->
           [|
@@ -460,6 +466,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
               (Fixes.generateInterfaceStub getFileLines tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
             ifEnabled (fun _ -> config.RecordStubGeneration)
               (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
+            Fixes.addMissingEquals getFileLines
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
