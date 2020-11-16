@@ -16,6 +16,7 @@ open Newtonsoft.Json.Linq
 open ProjectSystem
 open System
 open System.IO
+open FsToolkit.ErrorHandling
 
 module FcsRange = FSharp.Compiler.Range
 
@@ -124,9 +125,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
                         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-                        if config.UnusedOpensAnalyzer then  Async.Start (commands.GetUnusedOpens filePath |> Async.Ignore)
-                        if config.UnusedDeclarationsAnalyzer then Async.Start (async { ignore (commands.GetUnusedDeclarations filePath) }) //fire and forget this analyzer now that it's syncronous
-                        if config.SimplifyNameAnalyzer then Async.Start (commands.GetSimplifiedNames filePath |> Async.Ignore)
+                        if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
+                        if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
+                        if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
                     else
                         logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
                 | _ ->
@@ -480,15 +481,23 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
+
+        let tryGetParseResultsForFile fileName pos = asyncResult {
+          let! (projectOptions, fileLines, lineAtPos) = commands.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos)
+          match! commands.TryGetLatestTypeCheckResultsForFile(fileName) with
+          | None -> return! Error $"No typecheck results available for %s{fileName}"
+          | Some tyRes ->
+            return tyRes, lineAtPos, fileLines
+        }
         codeFixes <- fun p ->
           [|
-            Fixes.unusedOpens (fun () -> config.UnusedOpensAnalyzer)
+            Fixes.unusedOpens (fun _ -> config.UnusedOpensAnalyzer)
+            Fixes.resolveNamespace (fun _ -> config.ResolveNamespaces) tryGetParseResultsForFile commands.GetNamespaceSuggestions
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
               return List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value) fixes
            })
-
 
         let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
@@ -645,9 +654,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-        if config.UnusedOpensAnalyzer then Async.Start (commands.GetUnusedOpens filePath |> Async.Ignore)
-        if config.UnusedDeclarationsAnalyzer then Async.Start (async { ignore (commands.GetUnusedDeclarations filePath) })
-        if config.SimplifyNameAnalyzer then Async.Start (commands.GetSimplifiedNames filePath |> Async.Ignore)
+        if config.UnusedOpensAnalyzer then Async.Start (commands.CheckUnusedOpens filePath)
+        if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath)
+        if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
     }
 
     override __.TextDocumentDidChange(p) = async {
@@ -1160,18 +1169,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           Edit = we
           Command = None}
 
-    member private x.GetUnusedOpensCodeActions fn p =
-        if config.UnusedOpensAnalyzer then
-            p |> x.IfDiagnostic "Unused open statement" (fun d ->
-                let range = {
-                    Start = {Line = d.Range.Start.Line - 1; Character = 1000}
-                    End = {Line = d.Range.End.Line; Character = d.Range.End.Character}
-                }
-                let action = x.CreateFix p.TextDocument.Uri fn "Remove unused open" (Some d) range ""
-                async.Return [action])
-        else
-            async.Return []
-
     member private x.GetErrorSuggestionsCodeActions fn p =
         p |> x.IfDiagnostic "Maybe you want one of the following:" (fun d ->
             d.Message.Split('\n').[1..]
@@ -1327,127 +1324,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 return []
         }
 
-    member private x.GetResolveNamespaceActions fn (p: CodeActionParams) =
-        let insertLine line lineStr =
-            {
-                Range = {
-                    Start = {Line = line; Character = 0}
-                    End = {Line = line; Character = 0}
-                }
-                NewText = lineStr
-            }
-
-
-        let adjustInsertionPoint (lines: string[]) (ctx : InsertContext) =
-            let l = ctx.Pos.Line
-            match ctx.ScopeKind with
-            | TopModule when l > 1 ->
-                let line = lines.[l - 2]
-                let isImpliciteTopLevelModule = not (line.StartsWith "module" && not (line.EndsWith "="))
-                if isImpliciteTopLevelModule then 1 else l
-            | TopModule -> 1
-            | ScopeKind.Namespace when l > 1 ->
-                [0..l - 1]
-                |> List.mapi (fun i line -> i, lines.[line])
-                |> List.tryPick (fun (i, lineStr) ->
-                    if lineStr.StartsWith "namespace" then Some i
-                    else None)
-                |> function
-                    // move to the next line below "namespace" and convert it to F# 1-based line number
-                    | Some line -> line + 2
-                    | None -> l
-            | ScopeKind.Namespace -> 1
-            | _ -> l
-
-        if config.ResolveNamespaces then
-            p |> x.IfDiagnostic "is not defined" (fun d ->
-                async {
-                    let pos = protocolPosToPos d.Range.Start
-                    return!
-                        x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines ->
-                            async {
-                                let! res = commands.GetNamespaceSuggestions tyRes pos line
-                                let res =
-                                    match res with
-                                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                                        []
-                                    | CoreResponse.Res (word, opens, qualifiers) ->
-                                        let quals =
-                                            qualifiers
-                                            |> List.map (fun (name, qual) ->
-                                                let e =
-                                                    {
-                                                        Range = d.Range
-                                                        NewText = qual
-                                                    }
-                                                let edit =
-                                                    {
-                                                        TextDocument =
-                                                            {
-                                                                Uri = p.TextDocument.Uri
-                                                                Version = commands.TryGetFileVersion fn
-                                                            }
-                                                        Edits = [|e|]
-                                                    }
-                                                let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
-
-
-                                                { CodeAction.Title = sprintf "Use %s" qual
-                                                  Kind = Some "quickfix"
-                                                  Diagnostics = Some [| d |]
-                                                  Edit = we
-                                                  Command = None}
-                                            )
-                                        let ops =
-                                            opens
-                                            |> List.map (fun (ns, name, ctx, multiple) ->
-                                                let insertPoint = adjustInsertionPoint lines ctx
-                                                let docLine = insertPoint - 1
-                                                let s =
-                                                    if name.EndsWith word && name <> word then
-                                                        let prefix = name.Substring(0, name.Length - word.Length).TrimEnd('.')
-                                                        ns + "." + prefix
-                                                    else ns
-
-
-
-                                                let lineStr = (String.replicate ctx.Pos.Column " ") + "open " + s + "\n"
-                                                let edits =
-                                                    [|
-                                                        yield insertLine docLine lineStr
-                                                        if lines.[docLine + 1].Trim() <> "" then yield insertLine (docLine + 1) ""
-                                                        if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace) && docLine > 0 && not ((lines.[docLine - 1]).StartsWith "open" ) then
-                                                            yield insertLine (docLine - 1) ""
-                                                    |]
-                                                let edit =
-                                                    {
-                                                        TextDocument =
-                                                            {
-                                                                Uri = p.TextDocument.Uri
-                                                                Version = commands.TryGetFileVersion fn
-                                                            }
-                                                        Edits = edits
-                                                    }
-                                                let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
-
-
-                                                { CodeAction.Title = sprintf "Open %s" s
-                                                  Kind = Some "quickfix"
-                                                  Diagnostics = Some [| d |]
-                                                  Edit = we
-                                                  Command = None}
-
-                                            )
-                                        [yield! ops; yield! quals; ]
-                                return res
-                            }
-                        )
-                })
-        else
-            async.Return []
-
     override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
-        logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" p )
+        logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" codeActionParams )
 
         let fn = codeActionParams.TextDocument.GetFilePath()
         match commands.TryGetFileCheckerOptionsWithLines fn with

@@ -14,6 +14,7 @@ System.Configuration.ConfigurationManager
 Fantomas
 Fantomas.Extras
 FSharp.UMX
+FsToolkit.ErrorHandling
 
 Microsoft.NETFramework.ReferenceAssemblies
 System.Reflection.Metadata

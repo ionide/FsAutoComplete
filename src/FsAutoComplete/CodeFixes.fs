@@ -17,21 +17,13 @@ module Types =
   type CodeFix = CodeActionParams -> Async<Fix list>
 
   type CodeAction with
-
     static member OfFix getFileVersion clientCapabilities (fix: Fix) =
       let filePath = fix.File.GetFilePath()
       let fileVersion = getFileVersion filePath
 
-      CodeAction.OfDiagnostic
-        fix.File
-        fileVersion
-        fix.Title
-        fix.SourceDiagnostic
-        fix.Edits
-        clientCapabilities
+      CodeAction.OfDiagnostic fix.File fileVersion fix.Title fix.SourceDiagnostic fix.Edits clientCapabilities
 
-    static member OfDiagnostic (fileUri) (fileVersion) title (diagnostic) (edits) clientCapabilities
-                               : CodeAction =
+    static member OfDiagnostic (fileUri) (fileVersion) title (diagnostic) (edits) clientCapabilities: CodeAction =
 
       let edit =
         { TextDocument =
@@ -81,7 +73,6 @@ module Fixes =
           End = { Line = line; Character = 0 } }
       NewText = lineStr }
 
-
   let private adjustInsertionPoint (lines: string []) (ctx: InsertContext) =
     let l = ctx.Pos.Line
 
@@ -107,6 +98,7 @@ module Fixes =
     | ScopeKind.Namespace -> 1
     | _ -> l
 
+  /// a codefix that removes unused open statements from the source
   let unusedOpens enabled =
     ifDiagnosticByMessage
       enabled
@@ -120,7 +112,7 @@ module Fixes =
                 Character = d.Range.End.Character } }
 
         let fix =
-          { Edits = [| { Range = range; NewText = ""} |]
+          { Edits = [| { Range = range; NewText = "" } |]
             File = codeActionParams.TextDocument
             Title = "Remove unused open"
             SourceDiagnostic = Some d }
@@ -129,23 +121,26 @@ module Fixes =
       "Unused open statement"
 
 
-  let resolveNamespace enabled getParseResultsForFile getNameSpaceSuggestions =
+  /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
+  let resolveNamespace enabled getParseResultsForFile getNamespaceSuggestions =
     let qualifierFix file diagnostic qual =
-      { Edits = [| { Range = diagnostic.Range; NewText = qual } |]
+      { SourceDiagnostic = Some diagnostic
+        Edits =
+          [| { Range = diagnostic.Range
+               NewText = qual } |]
         File = file
-        Title = $"Use %s{qual}"
-        SourceDiagnostic = Some diagnostic }
+        Title = $"Use %s{qual}" }
 
-    let openFix fileLines file diagnostic (ns, name, ctx, multiple): Fix =
-      let insertPoint = adjustInsertionPoint lines ctx
+    let openFix fileLines file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
+      let insertPoint = adjustInsertionPoint fileLines ctx
       let docLine = insertPoint - 1
 
       let actualOpen =
         if name.EndsWith word && name <> word then
           let prefix =
             name
-             .Substring(0, name.Length - word.Length)
-             .TrimEnd('.')
+              .Substring(0, name.Length - word.Length)
+              .TrimEnd('.')
 
           $"%s{ns}.%s{prefix}"
         else
@@ -158,45 +153,43 @@ module Fixes =
         $"%s{whitespace}open %s{actualOpen}\n"
 
       let edits =
-        [|  yield insertLine docLine lineStr
-            if lines.[docLine + 1].Trim() <> "" then yield insertLine (docLine + 1) ""
-            if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace)
+        [| yield insertLine docLine lineStr
+           if fileLines.[docLine + 1].Trim() <> "" then yield insertLine (docLine + 1) ""
+           if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace)
               && docLine > 0
-              && not ((lines.[docLine - 1]).StartsWith "open")
-            then
-              yield insertLine (docLine - 1) "" |]
+              && not ((fileLines.[docLine - 1]).StartsWith "open") then
+             yield insertLine (docLine - 1) "" |]
 
-      {
-        Edits = edits
+      { Edits = edits
         File = file
         SourceDiagnostic = Some diagnostic
-        Title = $"open %s{actualOpen}"
-      }
+        Title = $"open %s{actualOpen}" }
 
     ifDiagnosticByMessage
       enabled
-      (fun d codeActionParameter ->
+      (fun diagnostic codeActionParameter ->
         async {
-          let pos = protocolPosToPos d.Range.Start
-          let filePath = codeActionParameter.TextDocument.GetFilePath()
+          let pos = protocolPosToPos diagnostic.Range.Start
+
+          let filePath =
+            codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
-            match getNamespaceSuggestions tyRes pos line with
-            | CoreResponse.InfoRes msg
-            | CoreResponse.ErrorRes msg -> return []
-            | CoreResponse.Res (word, opens, qualifiers) ->
-                let quals =
-                  qualifiers
-                  |> List.map (fun (_, qual) -> qualifierFix codeActionParameter.TextDocument d qual)
+              match! getNamespaceSuggestions tyRes pos line with
+              | CoreResponse.InfoRes msg
+              | CoreResponse.ErrorRes msg -> return []
+              | CoreResponse.Res (word, opens, qualifiers) ->
+                  let quals =
+                    qualifiers
+                    |> List.map (fun (_, qual) -> qualifierFix codeActionParameter.TextDocument diagnostic qual)
 
-                let ops =
-                  opens
-                  |> List.map (openFix lines codeActionParameter.TextDocument)
+                  let ops =
+                    opens
+                    |> List.map (openFix lines codeActionParameter.TextDocument diagnostic word)
 
-                return [ yield! ops; yield! quals ]
+                  return [ yield! ops; yield! quals ]
 
-            return res
-          | Error _ ->
-            return []
+          | Error _ -> return []
         })
       "is not defined"

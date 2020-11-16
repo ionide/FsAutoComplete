@@ -11,13 +11,7 @@ open System.Threading
 open Utils
 open FSharp.Compiler.Range
 open ProjectSystem
-
-module AsyncResult =
-  let bimap okF errF ar = async {
-    match! ar with
-    | Ok a -> return okF a
-    | Error e -> return errF e
-  }
+open FsToolkit.ErrorHandling
 
 module Result =
   let bimap okF errF r = match r with | Ok x -> okF x | Error y -> errF y
@@ -38,6 +32,19 @@ type CoreResponse<'a> =
     | InfoRes of text: string
     | ErrorRes of text: string
     | Res of 'a
+
+module AsyncResult =
+  let bimap okF errF ar = async {
+    match! ar with
+    | Ok a -> return okF a
+    | Error e -> return errF e
+  }
+
+  let inline mapErrorRes ar: Async<CoreResponse<'a>> =
+    AsyncResult.foldResult id CoreResponse.ErrorRes ar
+
+  let recoverCancellation (ar: Async<Result<CoreResponse<'t>, exn>>) = AsyncResult.foldResult id (sprintf "Request cancelled (exn was %A)" >> CoreResponse.InfoRes) ar
+  let recoverCancellationIgnore (ar: Async<Result<unit, exn>>) = AsyncResult.foldResult id ignore ar
 
 [<RequireQualifiedAccess>]
 type NotificationEvent<'analyzer> =
@@ -358,17 +365,18 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.ErrorRes ex.Message
     }
 
-    member private x.AsCancellable (filename : SourceFilePath) (action : Async<CoreResponse<'b>>) =
+    member private x.AsCancellable (filename : SourceFilePath) (action : Async<'t>) =
         let cts = new CancellationTokenSource()
         state.AddCancellationToken(filename, cts)
         Async.StartCatchCancellation(action, cts.Token)
         |> Async.Catch
         |> Async.map (function
-            | Choice1Of2 res -> res
+            | Choice1Of2 res -> Ok res
             | Choice2Of2 err ->
-                let cld = CoreResponse.InfoRes (sprintf "Request cancelled (exn was %A)" err)
                 notify.Trigger (NotificationEvent.Canceled (sprintf "Request cancelled (exn was %A)" err))
-                cld)
+                Error err
+            )
+
 
     member private x.CancelQueue (filename : SourceFilePath) =
         let filename = Path.GetFullPath filename
@@ -500,9 +508,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                     }
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
-        } |> x.AsCancellable file
-
-
+        } |> x.AsCancellable file |> AsyncResult.recoverCancellation
 
 
     member x.Declarations file lines version = async {
@@ -679,7 +685,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 return CoreResponse.Res (LocationResponse.Use (sym, symbols))
           | Error x -> return CoreResponse.ErrorRes x
       }
-      |> x.AsCancellable (Path.GetFullPath fn)
+      |> x.AsCancellable (Path.GetFullPath fn) |> AsyncResult.recoverCancellation
 
     member x.SymbolImplementationProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         let fn = tyRes.FileName
@@ -714,47 +720,49 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 return CoreResponse.Res (LocationResponse.Use (sym, symbols ))
           | Error e -> return CoreResponse.ErrorRes e
         }
-        |> x.AsCancellable (Path.GetFullPath fn)
+        |> x.AsCancellable (Path.GetFullPath fn)|> AsyncResult.recoverCancellation
 
     member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)|> AsyncResult.recoverCancellation
 
     member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindTypeDeclaration pos lineStr
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName) |> AsyncResult.recoverCancellation
 
     member x.Methods (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
         |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.Lint (file: SourceFilePath) =
+    member x.Lint (file: SourceFilePath): Async<unit> =
         let file = Path.GetFullPath file
-        async {
-            match state.TryGetFileCheckerOptionsWithSource file with
-            | Error s -> return CoreResponse.ErrorRes s
-            | Ok (options, source) ->
-                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, options)
+        asyncResult {
+          let! (options, source) = state.TryGetFileCheckerOptionsWithSource file
+          match checker.TryGetRecentCheckResultsForFile(file, options) with
+          | None -> return ()
+          | Some tyRes ->
+            match tyRes.GetAST with
+            | None -> return ()
+            | Some tree ->
+              try
+                let! ctok = Async.CancellationToken
+                let! enrichedWarnings = Lint.lintWithConfiguration linterConfiguration ctok tree source tyRes.GetCheckResults
+                let res = CoreResponse.Res (file, enrichedWarnings)
+                notify.Trigger (NotificationEvent.Lint (file, enrichedWarnings))
+                return ()
+              with ex ->
+                commandsLogger.error (Log.setMessage "error while linting {file}: {message}"
+                                      >> Log.addContextDestructured "file" file
+                                      >> Log.addContextDestructured "message" ex.Message
+                                      >> Log.addExn ex)
+                return ()
+        }
+        |> Async.Ignore
+        |> x.AsCancellable file
 
-                match tyResOpt with
-                | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
-                | Some tyRes ->
-                    match tyRes.GetAST with
-                    | None -> return CoreResponse.InfoRes "Something went wrong during parsing"
-                    | Some tree ->
-                        try
-                            let! ctok = Async.CancellationToken
-                            match Lint.lintWithConfiguration linterConfiguration ctok tree source tyRes.GetCheckResults with
-                            | Error e -> return CoreResponse.InfoRes e
-                            | Ok enrichedWarnings ->
-                                let res = CoreResponse.Res (file, enrichedWarnings)
-                                notify.Trigger (NotificationEvent.Lint (file, enrichedWarnings))
-                                return res
-                        with _ex ->
-                            return CoreResponse.InfoRes "Something went wrong during linter"
-        } |> x.AsCancellable file
+        |> AsyncResult.recoverCancellationIgnore
 
     member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: pos) (line: LineStr) =
         async {
@@ -831,7 +839,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 |> List.sort
 
             return CoreResponse.Res (word, openNamespace, qualifySymbolActions)
-        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        }
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> AsyncResult.recoverCancellation
 
     member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
         async {
@@ -856,7 +866,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 return CoreResponse.Res (result, pos)
             else
                 return CoreResponse.InfoRes "Union at position not found"
-        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        }
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> AsyncResult.recoverCancellation
 
     member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
         async {
@@ -880,7 +892,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 else
                     return CoreResponse.InfoRes "Record at position not found"
             | _ -> return CoreResponse.InfoRes "Record at position not found"
-        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        }
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> AsyncResult.recoverCancellation
 
     member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =
         async {
@@ -903,7 +917,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 | Some (insertPosition, generatedCode) ->
                     return CoreResponse.Res (generatedCode, insertPosition)
                 | None -> return CoreResponse.InfoRes "Interface at position not found"
-        } |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        }
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> AsyncResult.recoverCancellation
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
         let d = state.ProjectController.PeekWorkspace dir deep excludedDirs
@@ -924,57 +940,54 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res res
     }
 
-    member x.GetUnusedDeclarations file = async {
-        let file = Path.GetFullPath file
-        let isScript = file.EndsWith ".fsx"
+    member x.CheckUnusedDeclarations file: Async<unit> =
+      asyncResult {
+          let file = Path.GetFullPath file
+          let isScript = file.EndsWith ".fsx"
 
-        match state.TryGetFileCheckerOptionsWithSource file with
-        | Error s -> return CoreResponse.ErrorRes s
-        | Ok (opts, _) ->
+          let! (opts, _) = state.TryGetFileCheckerOptionsWithSource file
+          let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+          match tyResOpt with
+          | None -> ()
+          | Some tyRes ->
+              let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
+              let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
+              notify.Trigger (NotificationEvent.UnusedDeclarations (file, unused))
+      }
+      |> Async.Ignore<Result<unit, _>>
+
+    member x.CheckSimplifiedNames file: Async<unit> =
+        let file = Path.GetFullPath file
+        asyncResult {
+            let! (opts, source) =  state.TryGetFileCheckerOptionsWithLines file
             let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
             match tyResOpt with
-            | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
+            | None -> ()
             | Some tyRes ->
-                let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
-                let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
-                let res = CoreResponse.Res (file, unused)
-                notify.Trigger (NotificationEvent.UnusedDeclarations (file, unused))
-                return res
-    }
+                let getSourceLine lineNo = source.[lineNo - 1]
+                let! simplified = SimplifyNames.getSimplifiableNames(tyRes.GetCheckResults, getSourceLine)
+                let simplified = Array.ofList simplified
+                notify.Trigger (NotificationEvent.SimplifyNames (file, simplified))
+        }
+        |> Async.Ignore<Result<unit, _>>
+        |> x.AsCancellable file
+        |> AsyncResult.recoverCancellationIgnore
 
-    member x.GetSimplifiedNames file =
+    member x.CheckUnusedOpens file: Async<unit> =
         let file = Path.GetFullPath file
-        async {
-            match state.TryGetFileCheckerOptionsWithLines file with
-            | Error s ->  return CoreResponse.ErrorRes s
-            | Ok (opts, source) ->
-                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
-                match tyResOpt with
-                | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
-                | Some tyRes ->
-                    let getSourceLine lineNo = source.[lineNo - 1]
-                    let! simplified = SimplifyNames.getSimplifiableNames(tyRes.GetCheckResults, getSourceLine)
-                    let simplified = Array.ofList simplified
-                    let res = CoreResponse.Res (file, simplified)
-                    notify.Trigger (NotificationEvent.SimplifyNames (file, simplified))
-                    return res
-        } |> x.AsCancellable file
+        asyncResult {
+            let! (opts, source) =  state.TryGetFileCheckerOptionsWithLines file
+            match checker.TryGetRecentCheckResultsForFile(file, opts) with
+            | None ->
+              return ()
+            | Some tyRes ->
+                let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
+                notify.Trigger (NotificationEvent.UnusedOpens (file, (unused |> List.toArray)))
 
-    member x.GetUnusedOpens file =
-        let file = Path.GetFullPath file
-        async {
-            match state.TryGetFileCheckerOptionsWithLines file with
-            | Error s ->  return CoreResponse.ErrorRes s
-            | Ok (opts, source) ->
-                let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
-                match tyResOpt with
-                | None -> return CoreResponse.InfoRes "Cached typecheck results not yet available"
-                | Some tyRes ->
-                    let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
-                    let res = CoreResponse.Res (file, (unused |> List.toArray))
-                    notify.Trigger (NotificationEvent.UnusedOpens (file, (unused |> List.toArray)))
-                    return res
-        } |> x.AsCancellable file
+        }
+        |> Async.Ignore<Result<unit, _>>
+        |> x.AsCancellable file
+        |> AsyncResult.recoverCancellationIgnore
 
 
     member x.GetRangesAtPosition file positions =
@@ -1029,49 +1042,45 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         return CoreResponse.Res runtimePath
     }
 
-    member x.ScopesForFile (file: string) = async {
+    member x.ScopesForFile (file: string) = asyncResult {
         let file = Path.GetFullPath file
-        match state.TryGetFileCheckerOptionsWithLines file with
-        | Error s -> return Error s
-        | Ok (opts, sourceLines) ->
-            let parseOpts = Utils.projectOptionsToParseOptions opts
-            let allSource = sourceLines |> String.concat "\n"
-            let! ast = checker.ParseFile(file, allSource, parseOpts)
-            match ast.ParseTree with
-            | None -> return Error (ast.Errors |> Array.map string |> String.concat "\n")
-            | Some ast' ->
-                let ranges = Structure.getOutliningRanges sourceLines ast'
-                return Ok ranges
+        let! (opts, sourceLines) = state.TryGetFileCheckerOptionsWithLines file
+        let parseOpts = Utils.projectOptionsToParseOptions opts
+        let allSource = sourceLines |> String.concat "\n"
+        let! ast = checker.ParseFile(file, allSource, parseOpts)
+        match ast.ParseTree with
+        | None -> return! Error (ast.Errors |> Array.map string |> String.concat "\n")
+        | Some ast' ->
+            let ranges = Structure.getOutliningRanges sourceLines ast'
+            return ranges
     }
 
     member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
-    member x.FormatDocument (file: SourceFilePath) = async {
-        let filePath = Path.GetFullPath file
-
-        match x.TryGetFileCheckerOptionsWithLines filePath with
-        | Result.Ok (opts, lines) ->
-            let source = String.concat "\n" lines
-            let parsingOptions = Utils.projectOptionsToParseOptions opts
-            let checker : FSharpChecker = checker.GetFSharpChecker()
-            // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
-            let config =
-                match Fantomas.Extras.EditorConfig.tryReadConfiguration filePath with
-                | Some c -> c
-                | None ->
-                  fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
-                  Fantomas.FormatConfig.FormatConfig.Default
-            let! formatted =
-                Fantomas.CodeFormatter.FormatDocumentAsync(filePath,
-                                                           Fantomas.SourceOrigin.SourceString source,
-                                                           config,
-                                                           parsingOptions,
-                                                           checker)
-            return Some (lines, formatted)
-        | Result.Error er ->
-            return None
-    }
+    member x.FormatDocument (file: SourceFilePath) =
+      asyncResult {
+          let filePath = Path.GetFullPath file
+          let! (opts, lines) = x.TryGetFileCheckerOptionsWithLines filePath
+          let source = String.concat "\n" lines
+          let parsingOptions = Utils.projectOptionsToParseOptions opts
+          let checker : FSharpChecker = checker.GetFSharpChecker()
+          // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
+          let config =
+              match Fantomas.Extras.EditorConfig.tryReadConfiguration filePath with
+              | Some c -> c
+              | None ->
+                fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
+                Fantomas.FormatConfig.FormatConfig.Default
+          let! formatted =
+              Fantomas.CodeFormatter.FormatDocumentAsync(filePath,
+                                                         Fantomas.SourceOrigin.SourceString source,
+                                                         config,
+                                                         parsingOptions,
+                                                         checker)
+          return lines, formatted
+      }
+      |> AsyncResult.foldResult Some (fun _ -> None)
 
     member x.GetHighlighting (file: SourceFilePath) =
       let file = Path.GetFullPath file
@@ -1115,48 +1124,42 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member __.PipelineHints (tyRes : ParseAndCheckResults) =
       let file = Path.GetFullPath tyRes.FileName
-      async {
-        match state.TryGetFileSource file with
-        | Ok ctn ->
+      asyncResult {
+        let! contents = state.TryGetFileSource file
+        let getGenerics line (token: FSharpTokenInfo) = async {
+            let lineStr = contents.[line]
+            let! res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
+            match res with
+            | Ok tip ->
+              return TipFormatter.extractGenerics tip
+            | _ ->
+              commandsLogger.info (Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}" >> Log.addContextDestructured "token" token >> Log.addContextDestructured "line" lineStr)
+              return []
+        }
 
-          let getGenerics line (token: FSharpTokenInfo) = async {
-              let lineStr = ctn.[line]
-              let! res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
-              match res with
-              | Ok tip ->
-                return TipFormatter.extractGenerics tip
+        let! hints =
+          contents
+          |> Array.map (Lexer.tokenizeLine [||])
+          |> Array.pairwise
+          |> Array.mapi (fun currentIndex (currentTokens, nextTokens) -> currentIndex, currentTokens, nextTokens)
+          |> Array.choose (fun (id, tok, nextTok) ->
+              match nextTok with
+              | x::y::xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
+                Some (async {
+                  let! gens = getGenerics (id + 1) y
+                  return id, gens
+                })
+              | y::xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
+                Some (async {
+                  let! gens = getGenerics (id + 1) y
+                  return id, gens
+                })
               | _ ->
-                commandsLogger.info (Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}" >> Log.addContextDestructured "token" token >> Log.addContextDestructured "line" lineStr)
-                return []
-          }
+                None
+          )
+          |> Async.Parallel
 
-          let! hints =
-            ctn
-            |> Array.map (Lexer.tokenizeLine [||])
-            |> Array.pairwise
-            |> Array.mapi (fun currentIndex (currentTokens, nextTokens) -> currentIndex, currentTokens, nextTokens)
-            |> Array.choose (fun (id, tok, nextTok) ->
-                match nextTok with
-                | x::y::xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
-                  Some (async {
-                    let! gens = getGenerics (id + 1) y
-                    return id, gens
-                  })
-                | y::xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
-                  Some (async {
-                    let! gens = getGenerics (id + 1) y
-                    return id, gens
-                  })
-                | _ ->
-                  None
-            )
-            |> Async.Parallel
-
-          return CoreResponse.Res hints
-
-        | _ ->
-          return CoreResponse.InfoRes "Couldn't find file content"
-
-
+        return CoreResponse.Res hints
       }
+      |> AsyncResult.foldResult id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 

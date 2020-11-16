@@ -15,7 +15,7 @@ ICSharpCode.Decompiler
 Fantomas
 FSharp.Analyzers.SDK
 FSharp.DependencyManager.Nuget
-
+FsToolkit.ErrorHandling
 Serilog
 Serilog.Sinks.File
 Serilog.Sinks.Console

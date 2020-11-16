@@ -87,6 +87,8 @@ NUGET
       FSharp.Compiler.Service (>= 36.0.3)
     FSharp.UMX (1.0)
       FSharp.Core (>= 4.3.4)
+    FsToolkit.ErrorHandling (1.4.3)
+      FSharp.Core (>= 4.3.4)
     Humanizer.Core (2.8.26)
     ICSharpCode.Decompiler (6.2.1.6137)
       Humanizer.Core (>= 2.2)
