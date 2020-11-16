@@ -437,7 +437,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.unusedValue getFileLines
             Fixes.newWithDisposables getFileLines
             ifEnabled (fun _ -> config.UnionCaseStubGeneration)
-              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GenerateUnionCases (fun _ ->config.UnionCaseStubGenerationBody))
+              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases (fun _ ->config.UnionCaseStubGenerationBody))
+            Fixes.mapLinterDiagnostics (fun fileUri -> match fixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
@@ -1114,20 +1115,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           Edit = we
           Command = None}
 
-    member private x.GetLinterCodeAction fn p =
-        p |> x.IfDiagnosticType "F# Linter" (fun d ->
-            let uri = Path.FilePathToUri fn
-
-            match fixes.TryGetValue uri with
-            | false, _ -> async.Return []
-            | true, lst ->
-                match lst |> Seq.tryFind (fun (r, te) -> r = d.Range) with
-                | None -> async.Return []
-                | Some (r, te) ->
-                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
-                    |> List.singleton
-                    |> async.Return
-        )
 
     member private x.GetAnalyzerCodeAction fn p =
         p |> x.IfDiagnosticType "F# Analyzers" (fun d ->
@@ -1232,8 +1219,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! actions =
               Async.Parallel (codeFixes codeActionParams)
               // Async.Parallel [|
-              //     x.GetUnionCaseGeneratorCodeAction fn p lines
-              //     x.GetLinterCodeAction fn p
               //     x.GetAnalyzerCodeAction fn p
               //     x.GetInterfaceStubCodeAction fn p lines
               //     x.GetRecordStubCodeAction fn p lines

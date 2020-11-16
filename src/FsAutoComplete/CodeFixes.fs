@@ -4,6 +4,8 @@ module FsAutoComplete.CodeFix
 
 open FsAutoComplete.LspHelpers
 open LanguageServerProtocol.Types
+open FsAutoComplete.Utils
+open System.IO
 
 type FcsRange = FSharp.Compiler.SourceCodeServices.Range
 
@@ -59,7 +61,7 @@ let ifDiagnosticByType handler (diagnosticType: string) =
     match codeActionParams.Context.Diagnostics
           |> Seq.tryFind (fun n -> n.Source.Contains diagnosticType) with
     | None -> async.Return []
-    | Some d -> handler d)
+    | Some d -> handler d codeActionParams)
 
 module Fixes =
   open FSharp.Compiler.SourceCodeServices
@@ -170,6 +172,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -281,7 +284,7 @@ module Fixes =
   /// a codefix that generates union cases for an incomplete match expression
   let generateUnionCases (getFileLines: string -> Result<string [], _>)
                          (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                         (generateCases: _ -> _ -> _ -> _ -> Async<Result<CoreResponse<_>, _>>)
+                         (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
                          getUnionCaseStub
                          =
     ifDiagnosticByMessage
@@ -298,8 +301,7 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
-          match! generateCases tyRes pos lines line with
+          match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
                 { Start = fcsPosToLsp insertPosition
@@ -318,3 +320,25 @@ module Fixes =
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       "Incomplete pattern matches on this expression. For example"
+
+  /// a codefix that generates fixes reported by FSharpLint
+  let mapLinterDiagnostics currentFixesForFile =
+    ifDiagnosticByType
+      (fun diagnostic codeActionParams ->
+        let fileName =
+          codeActionParams.TextDocument.GetFilePath()
+
+        let normalizedUri = Path.FilePathToUri fileName
+
+        match currentFixesForFile normalizedUri
+              |> Option.bind
+                   (fun fixes ->
+                     fixes
+                     |> List.tryFind (fun (range, textEdit) -> range = diagnostic.Range)) with
+        | Some (range, textEdit) ->
+            async.Return [ { SourceDiagnostic = Some diagnostic
+                             File = codeActionParams.TextDocument
+                             Title = $"Replace with %s{textEdit.NewText}"
+                             Edits = [| textEdit |] } ]
+        | None -> async.Return [])
+      "F# Linter"
