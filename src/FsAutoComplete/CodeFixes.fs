@@ -193,3 +193,36 @@ module Fixes =
           | Error _ -> return []
         })
       "is not defined"
+
+  /// a codefix that replaces the use of an unknown identifier with a suggested identitfier
+  let errorSuggestion =
+    ifDiagnosticByMessage (fun _ -> true) (fun diagnostic codeActionParams ->
+      diagnostic.Message.Split('\n').[1..]
+      |> Array.map (fun suggestion ->
+          let suggestion = suggestion.Trim()
+          let suggestion =
+              if System.Text.RegularExpressions.Regex.IsMatch(suggestion, """^[a-zA-Z][a-zA-Z0-9']+$""") then
+                  suggestion
+              else
+                  $"``%s{s}``"
+          {
+            Edits = [| { Range = diagnostic.Range; NewText = suggestion } |]
+            Title = $"Replace with %s{suggestion}"
+            File = codeActionParams.TextDocument
+            SourceDiagnostic = Some diagnostic
+          }
+      )
+      |> Array.toList
+      |> async.Return
+    ) "Maybe you want one of the following:"
+
+  /// a codefix that removes unnecessary qualifiers from an identifier
+  let redundantQualifier =
+    ifDiagnosticByMessage (fun _ -> true) (fun diagnostic codeActionParams ->
+      async.Return [ {
+        Edits = [| { Range = diagnostic.Range; NewText = "" } |]
+        File = codeActionParams.TextDocument
+        Title = "Remove redundant qualifier"
+        SourceDiagnostic = Some diagnostic
+      } ]
+    ) "This qualifier is redundant"

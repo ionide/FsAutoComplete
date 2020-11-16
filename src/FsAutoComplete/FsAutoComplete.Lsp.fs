@@ -493,6 +493,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           [|
             Fixes.unusedOpens (fun _ -> config.UnusedOpensAnalyzer)
             Fixes.resolveNamespace (fun _ -> config.ResolveNamespaces) tryGetParseResultsForFile commands.GetNamespaceSuggestions
+            Fixes.errorSuggestion
+            Fixes.redundantQualifier
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
@@ -1169,22 +1171,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           Edit = we
           Command = None}
 
-    member private x.GetErrorSuggestionsCodeActions fn p =
-        p |> x.IfDiagnostic "Maybe you want one of the following:" (fun d ->
-            d.Message.Split('\n').[1..]
-            |> Array.map (fun suggestion ->
-                let s = suggestion.Trim()
-                let s =
-                    if System.Text.RegularExpressions.Regex.IsMatch(s, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                        s
-                    else
-                        "``" + s + "``"
-                let title = sprintf "Replace with %s" s
-                let action = x.CreateFix p.TextDocument.Uri fn title (Some d) d.Range s
-                action)
-            |> Array.toList
-            |> async.Return
-        )
 
     member private x.GetNewKeywordSuggestionCodeAction fn p lines =
         p |> x.IfDiagnostic "It is recommended that objects supporting the IDisposable interface are created using the syntax" (fun d ->
@@ -1209,13 +1195,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     x.CreateFix p.TextDocument.Uri fn "Replace with __" (Some d) d.Range "__"
                 ] |> async.Return
 
-        )
-
-    member private x.GetRedundantQualfierCodeAction fn p =
-        p |> x.IfDiagnostic "This qualifier is redundant" (fun d ->
-            [
-                x.CreateFix p.TextDocument.Uri fn "Remove redundant qualifier" (Some d) d.Range ""
-            ] |> async.Return
         )
 
     member private x.GetLinterCodeAction fn p =
@@ -1336,8 +1315,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             let! actions =
               Async.Parallel (codeFixes codeActionParams)
               // Async.Parallel [|
-              //     x.GetResolveNamespaceActions fn p |> Async.map List.concat
-              //     x.GetErrorSuggestionsCodeActions fn p
               //     x.GetRedundantQualfierCodeAction fn p
               //     x.GetUnusedCodeAction fn p lines
               //     x.GetNewKeywordSuggestionCodeAction fn p lines
