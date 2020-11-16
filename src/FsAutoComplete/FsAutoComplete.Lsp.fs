@@ -491,10 +491,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
         codeFixes <- fun p ->
           [|
-            Fixes.unusedOpens (fun _ -> config.UnusedOpensAnalyzer)
-            Fixes.resolveNamespace (fun _ -> config.ResolveNamespaces) tryGetParseResultsForFile commands.GetNamespaceSuggestions
+            ifEnabled (fun _ -> config.UnusedOpensAnalyzer) Fixes.unusedOpens
+            ifEnabled (fun _ -> config.ResolveNamespaces) (Fixes.resolveNamespace tryGetParseResultsForFile commands.GetNamespaceSuggestions)
             Fixes.errorSuggestion
             Fixes.redundantQualifier
+            Fixes.unusedValue (commands.TryGetFileCheckerOptionsWithLines >> Result.map snd)
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p

@@ -45,18 +45,14 @@ open Types
 let ifEnabled enabled codeFix: CodeFix =
   fun codeActionParams -> if enabled () then codeFix codeActionParams else async.Return []
 
-let ifDiagnosticByMessage enabled handler (checkMessage: string) =
-  ifEnabled
-    enabled
+let ifDiagnosticByMessage handler (checkMessage: string) =
     (fun codeActionParams ->
       match codeActionParams.Context.Diagnostics
             |> Array.tryFind (fun n -> n.Message.Contains checkMessage) with
       | None -> async.Return []
       | Some d -> handler d codeActionParams)
 
-let ifDiagnosticByType enabled handler (diagnosticType: string) =
-  ifEnabled
-    enabled
+let ifDiagnosticByType handler (diagnosticType: string) =
     (fun codeActionParams ->
       match codeActionParams.Context.Diagnostics
             |> Seq.tryFind (fun n -> n.Source.Contains diagnosticType) with
@@ -99,9 +95,8 @@ module Fixes =
     | _ -> l
 
   /// a codefix that removes unused open statements from the source
-  let unusedOpens enabled =
+  let unusedOpens =
     ifDiagnosticByMessage
-      enabled
       (fun d codeActionParams ->
         let range =
           { Start =
@@ -122,7 +117,7 @@ module Fixes =
 
 
   /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
-  let resolveNamespace enabled getParseResultsForFile getNamespaceSuggestions =
+  let resolveNamespace getParseResultsForFile getNamespaceSuggestions =
     let qualifierFix file diagnostic qual =
       { SourceDiagnostic = Some diagnostic
         Edits =
@@ -166,7 +161,6 @@ module Fixes =
         Title = $"open %s{actualOpen}" }
 
     ifDiagnosticByMessage
-      enabled
       (fun diagnostic codeActionParameter ->
         async {
           let pos = protocolPosToPos diagnostic.Range.Start
@@ -196,7 +190,7 @@ module Fixes =
 
   /// a codefix that replaces the use of an unknown identifier with a suggested identitfier
   let errorSuggestion =
-    ifDiagnosticByMessage (fun _ -> true) (fun diagnostic codeActionParams ->
+    ifDiagnosticByMessage (fun diagnostic codeActionParams ->
       diagnostic.Message.Split('\n').[1..]
       |> Array.map (fun suggestion ->
           let suggestion = suggestion.Trim()
@@ -218,7 +212,7 @@ module Fixes =
 
   /// a codefix that removes unnecessary qualifiers from an identifier
   let redundantQualifier =
-    ifDiagnosticByMessage (fun _ -> true) (fun diagnostic codeActionParams ->
+    ifDiagnosticByMessage (fun diagnostic codeActionParams ->
       async.Return [ {
         Edits = [| { Range = diagnostic.Range; NewText = "" } |]
         File = codeActionParams.TextDocument
@@ -226,3 +220,38 @@ module Fixes =
         SourceDiagnostic = Some diagnostic
       } ]
     ) "This qualifier is redundant"
+
+  /// a codefix that suggests prepending a _ to unused values
+  let unusedValue getFileLines =
+    ifDiagnosticByMessage (fun diagnostic codeActionParams -> async {
+      match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
+      | Ok lines ->
+        match diagnostic.Code with
+        | Some _ ->
+          return [{
+            SourceDiagnostic = Some diagnostic
+            File = codeActionParams.TextDocument
+            Title = "Replace with __"
+            Edits = [| { Range = diagnostic.Range; NewText = "__" } |]
+          }
+          ]
+        | None ->
+          let replaceSuggestion = "_"
+          let prefixSuggestion = $"_{getText lines diagnostic.Range}"
+          return [
+            {
+              SourceDiagnostic = Some diagnostic
+              File = codeActionParams.TextDocument
+              Title = "Replace with _"
+              Edits = [| { Range = diagnostic.Range; NewText = replaceSuggestion } |]
+            }
+            {
+              SourceDiagnostic = Some diagnostic
+              File = codeActionParams.TextDocument
+              Title = "Prefix with _"
+              Edits = [| { Range = diagnostic.Range; NewText = prefixSuggestion } |]
+            }]
+      | Error _ ->
+        return []
+    }
+    ) "is unused"
