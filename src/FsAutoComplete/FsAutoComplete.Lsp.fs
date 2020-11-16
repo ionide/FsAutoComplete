@@ -1443,37 +1443,22 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             AsyncLspResult.internalError s
         | ResultOrString.Ok (opts, lines) ->
         async {
-            let! unusedOpensActions = x.GetUnusedOpensCodeActions fn p
-            let! resolveNamespaceActions = x.GetResolveNamespaceActions fn p
-            let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
-            let! unusedActions = x.GetUnusedCodeAction fn p lines
-            let! redundantActions = x.GetRedundantQualfierCodeAction fn p
-            let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
-            let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
-            let! linterActions = x.GetLinterCodeAction fn p
-            let! analyzerActions = x.GetAnalyzerCodeAction fn p
-
-            let! interfaceGenerator = x.GetInterfaceStubCodeAction fn p lines
-            let! recordGenerator = x.GetRecordStubCodeAction fn p lines
-
-
-            let res =
-                [|
-                    yield! unusedOpensActions
-                    yield! (List.concat resolveNamespaceActions)
-                    yield! errorSuggestionActions
-                    yield! unusedActions
-                    yield! newKeywordAction
-                    yield! duCaseActions
-                    yield! linterActions
-                    yield! analyzerActions
-                    yield! interfaceGenerator
-                    yield! recordGenerator
-                    yield! redundantActions
-                |]
-
-
-            return res |> TextDocumentCodeActionResult.CodeActions |> Some |> success
+            let! actions =
+              Async.Parallel [|
+                  x.GetUnusedOpensCodeActions fn p
+                  x.GetResolveNamespaceActions fn p |> Async.map List.concat
+                  x.GetErrorSuggestionsCodeActions fn p
+                  x.GetRedundantQualfierCodeAction fn p
+                  x.GetUnusedCodeAction fn p lines
+                  x.GetNewKeywordSuggestionCodeAction fn p lines
+                  x.GetUnionCaseGeneratorCodeAction fn p lines
+                  x.GetLinterCodeAction fn p
+                  x.GetAnalyzerCodeAction fn p
+                  x.GetInterfaceStubCodeAction fn p lines
+                  x.GetRecordStubCodeAction fn p lines
+              |]
+              |> Async.map (List.concat >> Array.ofList)
+            return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
         }
 
     override __.TextDocumentCodeLens(p) = async {
