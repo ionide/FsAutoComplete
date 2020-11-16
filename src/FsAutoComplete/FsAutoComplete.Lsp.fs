@@ -103,8 +103,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     //TODO: Thread safe version
-    let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
-    let analyzerFixes = System.Collections.Generic.Dictionary<(DocumentUri * string), (LanguageServerProtocol.Types.Range * TextEdit) list>()
+    let lintFixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
+    let analyzerFixes = System.Collections.Generic.Dictionary<DocumentUri, System.Collections.Generic.Dictionary<string, (LanguageServerProtocol.Types.Range * TextEdit) list>>()
 
 
     let parseFile (p: DidChangeTextDocumentParams) =
@@ -232,7 +232,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             )
                         )
 
-                    fixes.[uri] <- fs
+                    lintFixes.[uri] <- fs
                     let diags =
                         warnings |> List.map(fun w ->
                             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
@@ -276,8 +276,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                           |> Seq.toList
                       let aName = messages.[0].Type
 
-
-                      analyzerFixes.[(uri, aName)] <- fs
+                      if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
+                      analyzerFixes.[uri].[aName] <- fs
 
                       let diag =
                           messages |> Array.map (fun m ->
@@ -427,6 +427,22 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let getInterfaceStubReplacements () =
+          Map.ofList [
+            "$objectIdent", config.InterfaceStubGenerationObjectIdentifier
+            "$methodBody", config.InterfaceStubGenerationMethodBody
+          ]
+
+        let getUnionCaseStubReplacements () =
+          Map.ofList [
+            "$1", config.UnionCaseStubGenerationBody
+          ]
+
+
+        let getRecordStubReplacements () =
+          Map.ofList [
+            "$1", config.RecordStubGenerationBody
+          ]
 
         codeFixes <- fun p ->
           [|
@@ -437,8 +453,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.unusedValue getFileLines
             Fixes.newWithDisposables getFileLines
             ifEnabled (fun _ -> config.UnionCaseStubGeneration)
-              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases (fun _ ->config.UnionCaseStubGenerationBody))
-            Fixes.mapLinterDiagnostics (fun fileUri -> match fixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
+              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
+            Fixes.mapLinterDiagnostics (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
+            Fixes.mapAnalyzerDiagnostics (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
+            ifEnabled (fun _ -> config.InterfaceStubGeneration)
+              (Fixes.generateInterfaceStub getFileLines tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
+            ifEnabled (fun _ -> config.RecordStubGeneration)
+              (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
@@ -1115,98 +1136,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           Edit = we
           Command = None}
 
-
-    member private x.GetAnalyzerCodeAction fn p =
-        p |> x.IfDiagnosticType "F# Analyzers" (fun d ->
-            let uri = Path.FilePathToUri fn
-
-            let res =
-                analyzerFixes
-                |> Seq.map (|KeyValue|)
-                |> Seq.tryPick (fun ((u, _), lst) ->
-                    if u = uri then Some lst else None
-                )
-
-            match res with
-            | None -> async.Return []
-            | Some lst ->
-                lst
-                |> List.filter (fun (r, te) -> r = d.Range)
-                |> List.map (fun (r,te) ->
-                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
-                )
-                |> async.Return
-        )
-
-    member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
-        p |> x.IfDiagnostic "Incomplete pattern matches on this expression. For example" (fun d ->
-            async {
-                if config.UnionCaseStubGeneration then
-                    let caseLine = d.Range.Start.Line + 1
-                    let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
-                    let pos = FcsRange.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
-                    let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetUnionPatternMatchCases tyRes pos lines line)
-                    let res =
-                        match res.[0] with
-                        | CoreResponse.Res (text, position) ->
-                            let range = {
-                                Start = fcsPosToLsp position
-                                End = fcsPosToLsp position
-                            }
-                            let text = text.Replace("$1", config.UnionCaseStubGenerationBody)
-                            [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text ]
-                        | _ ->
-                            []
-                    return res
-                else
-                    return []
-            }
-        )
-
-    member private x.GetInterfaceStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
-        async {
-            if config.InterfaceStubGeneration then
-                let pos = protocolPosToPos p.Range.Start
-                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetInterfaceStub tyRes pos lines line)
-                let res =
-                    match res with
-                    | CoreResponse.Res (text, position)::_ ->
-                        let range = {
-                            Start = fcsPosToLsp position
-                            End = fcsPosToLsp position
-                        }
-                        let text =
-                            text.Replace("$objectIdent", config.InterfaceStubGenerationObjectIdentifier)
-                                .Replace("$methodBody", config.InterfaceStubGenerationMethodBody)
-                        [x.CreateFix p.TextDocument.Uri fn "Generate interface stubs" None range text ]
-                    | _ ->
-                        []
-                return res
-            else
-                return []
-        }
-
-    member private x.GetRecordStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
-        async {
-            if config.RecordStubGeneration then
-                let pos = protocolPosToPos p.Range.Start
-                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetRecordStub tyRes pos lines line)
-                let res =
-                    match res with
-                    | CoreResponse.Res (text, position)::_ ->
-                        let range = {
-                            Start = fcsPosToLsp position
-                            End = fcsPosToLsp position
-                        }
-                        let text = text.Replace("$1", config.RecordStubGenerationBody)
-                        [x.CreateFix p.TextDocument.Uri fn "Generate record stubs" None range text ]
-                    | _ ->
-                        []
-                return res
-            else
-                return []
-        }
-
     override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
         logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" codeActionParams )
 
@@ -1218,11 +1147,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         async {
             let! actions =
               Async.Parallel (codeFixes codeActionParams)
-              // Async.Parallel [|
-              //     x.GetAnalyzerCodeAction fn p
-              //     x.GetInterfaceStubCodeAction fn p lines
-              //     x.GetRecordStubCodeAction fn p lines
-              // |]
               |> Async.map (List.concat >> Array.ofList)
             return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
         }

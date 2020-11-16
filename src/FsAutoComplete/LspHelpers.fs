@@ -34,6 +34,14 @@ module Conversions =
     let protocolRangeToRange fn (range: Lsp.Range): FcsRange.range =
         FcsRange.mkRange fn (protocolPosToPos range.Start) (protocolPosToPos range.End)
 
+    /// convert an FCS position to a single-character range in LSP
+    let fcsPosToProtocolRange (pos: FcsRange.pos): Lsp.Range =
+      {
+        Start = fcsPosToLsp pos
+        End = fcsPosToLsp pos
+      }
+
+
     let symbolUseRangeToLsp (range: SymbolCache.SymbolUseRange): Lsp.Range =
         {
             Start = { Line = range.StartLine - 1; Character = range.StartColumn - 1 }

@@ -172,7 +172,6 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
-
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -285,7 +284,7 @@ module Fixes =
   let generateUnionCases (getFileLines: string -> Result<string [], _>)
                          (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
                          (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
-                         getUnionCaseStub
+                         (getTextReplacements: unit -> Map<string, string>)
                          =
     ifDiagnosticByMessage
       (fun diagnostic codeActionParams ->
@@ -301,28 +300,31 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
                 { Start = fcsPosToLsp insertPosition
                   End = fcsPosToLsp insertPosition }
 
-              let text =
-                insertString.Replace("$1", getUnionCaseStub ())
+              let replacements = getTextReplacements ()
+
+              let replaced =
+                (insertString, replacements)
+                ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
               // x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text
               return
                 [ { SourceDiagnostic = Some diagnostic
                     File = codeActionParams.TextDocument
                     Title = "Generate union pattern match cases"
-                    Edits = [| { Range = range; NewText = text } |] } ]
+                    Edits = [| { Range = range; NewText = replaced } |] } ]
 
           | _ -> return []
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       "Incomplete pattern matches on this expression. For example"
 
-  /// a codefix that generates fixes reported by FSharpLint
-  let mapLinterDiagnostics currentFixesForFile =
+  let private mapExternalDiagnostic diagnosticType getFixesForFile =
     ifDiagnosticByType
       (fun diagnostic codeActionParams ->
         let fileName =
@@ -330,7 +332,7 @@ module Fixes =
 
         let normalizedUri = Path.FilePathToUri fileName
 
-        match currentFixesForFile normalizedUri
+        match getFixesForFile normalizedUri
               |> Option.bind
                    (fun fixes ->
                      fixes
@@ -341,4 +343,84 @@ module Fixes =
                              Title = $"Replace with %s{textEdit.NewText}"
                              Edits = [| textEdit |] } ]
         | None -> async.Return [])
-      "F# Linter"
+      diagnosticType
+
+  /// a codefix that generates fixes reported by FSharpLint
+  let mapLinterDiagnostics = mapExternalDiagnostic "F# Linter"
+
+  /// a codefix that generates fixes reported by F# Analyzers
+  let mapAnalyzerDiagnostics = mapExternalDiagnostic "F# Analyzers"
+
+  let generateInterfaceStub (getFileLines: string -> Result<string [], _>)
+                            (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                            (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+                            (getTextReplacements: unit -> Map<string, string>)
+                            : CodeFix =
+    fun codeActionParams ->
+      asyncResult {
+        let fileName =
+          codeActionParams.TextDocument.GetFilePath()
+
+        let! (lines: string []) = getFileLines fileName
+
+        let pos =
+          protocolPosToPos codeActionParams.Range.Start
+
+        let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
+        match! genInterfaceStub tyRes pos lines line with
+        | CoreResponse.Res (text, position) ->
+            let replacements = getTextReplacements ()
+
+            let replaced =
+              (text, replacements)
+              ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
+
+            return
+              [ { SourceDiagnostic = None
+                  Title = "Generate interface stub"
+                  File = codeActionParams.TextDocument
+                  Edits =
+                    [| { Range = fcsPosToProtocolRange pos
+                         NewText = replaced } |] } ]
+        | _ -> return []
+
+      }
+      |> AsyncResult.foldResult id (fun _ -> [])
+
+
+  let generateRecordStub (getFileLines: string -> Result<string [], _>)
+                         (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                         (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+                         (getTextReplacements: unit -> Map<string, string>)
+                         : CodeFix =
+    fun codeActionParams ->
+      asyncResult {
+        let fileName =
+          codeActionParams.TextDocument.GetFilePath()
+
+        let! (lines: string []) = getFileLines fileName
+
+        let pos =
+          protocolPosToPos codeActionParams.Range.Start
+
+        let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
+        match! genRecordStub tyRes pos lines line with
+        | CoreResponse.Res (text, position) ->
+            let replacements = getTextReplacements ()
+
+            let replaced =
+              (text, replacements)
+              ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
+
+            return
+              [ { SourceDiagnostic = None
+                  Title = "Generate record stub"
+                  File = codeActionParams.TextDocument
+                  Edits =
+                    [| { Range = fcsPosToProtocolRange pos
+                         NewText = replaced } |] } ]
+        | _ -> return []
+      }
+      |> AsyncResult.foldResult id (fun _ -> [])
