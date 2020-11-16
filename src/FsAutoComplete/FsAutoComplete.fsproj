@@ -12,6 +12,7 @@
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="LspHelpers.fs" />
+    <Compile Include="CodeFixes.fs" />
     <Compile Include="FsAutoComplete.Lsp.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />

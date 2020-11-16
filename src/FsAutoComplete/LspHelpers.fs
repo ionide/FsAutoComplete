@@ -16,15 +16,15 @@ module FcsRange = FSharp.Compiler.Range
 module Conversions =
     module Lsp = LanguageServerProtocol.Types
 
+    /// convert an LSP position to a compiler position
     let protocolPosToPos (pos: Lsp.Position): FcsRange.pos =
-        FcsRange.mkPos (pos.Line + 1) (pos.Character + 1)
+        FcsRange.mkPos (pos.Line + 1) (pos.Character)
 
-    let posToProtocolPos (pos: FcsRange.pos): Lsp.Position =
-        { Line = pos.Line - 1; Character = pos.Column - 1 }
-
+    /// convert a compiler position to an LSP position
     let fcsPosToLsp (pos: FcsRange.pos): Lsp.Position =
         { Line = pos.Line - 1; Character = pos.Column }
 
+    /// convert a compiler range to an LSP range
     let fcsRangeToLsp(range: FcsRange.range): Lsp.Range =
         {
             Start = fcsPosToLsp range.Start

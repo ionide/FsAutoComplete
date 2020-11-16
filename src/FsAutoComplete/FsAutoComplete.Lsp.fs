@@ -2,6 +2,8 @@ module FsAutoComplete.Lsp
 
 open Argu
 open FsAutoComplete
+open FsAutoComplete.CodeFix
+open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
 open FsAutoComplete.Utils
 open FSharp.Compiler.SourceCodeServices
@@ -64,6 +66,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     let mutable config = FSharpConfig.Default
     let mutable rootPath : string option = None
+    let mutable codeFixes = fun p -> [||]
 
     /// centralize any state changes when the config is updated here
     let updateConfig (newConfig: FSharpConfig) =
@@ -477,6 +480,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
+        codeFixes <- fun p ->
+          [|
+            Fixes.unusedOpens (fun () -> config.UnusedOpensAnalyzer)
+          |]
+          |> Array.map (fun fixer -> async {
+              let! fixes = fixer p
+              return List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value) fixes
+           })
+
 
         let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
@@ -1434,29 +1446,29 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         else
             async.Return []
 
-    override x.TextDocumentCodeAction(p) =
+    override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
         logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let fn = p.TextDocument.GetFilePath()
+        let fn = codeActionParams.TextDocument.GetFilePath()
         match commands.TryGetFileCheckerOptionsWithLines fn with
         | ResultOrString.Error s ->
             AsyncLspResult.internalError s
         | ResultOrString.Ok (opts, lines) ->
         async {
             let! actions =
-              Async.Parallel [|
-                  x.GetUnusedOpensCodeActions fn p
-                  x.GetResolveNamespaceActions fn p |> Async.map List.concat
-                  x.GetErrorSuggestionsCodeActions fn p
-                  x.GetRedundantQualfierCodeAction fn p
-                  x.GetUnusedCodeAction fn p lines
-                  x.GetNewKeywordSuggestionCodeAction fn p lines
-                  x.GetUnionCaseGeneratorCodeAction fn p lines
-                  x.GetLinterCodeAction fn p
-                  x.GetAnalyzerCodeAction fn p
-                  x.GetInterfaceStubCodeAction fn p lines
-                  x.GetRecordStubCodeAction fn p lines
-              |]
+              Async.Parallel (codeFixes codeActionParams)
+              // Async.Parallel [|
+              //     x.GetResolveNamespaceActions fn p |> Async.map List.concat
+              //     x.GetErrorSuggestionsCodeActions fn p
+              //     x.GetRedundantQualfierCodeAction fn p
+              //     x.GetUnusedCodeAction fn p lines
+              //     x.GetNewKeywordSuggestionCodeAction fn p lines
+              //     x.GetUnionCaseGeneratorCodeAction fn p lines
+              //     x.GetLinterCodeAction fn p
+              //     x.GetAnalyzerCodeAction fn p
+              //     x.GetInterfaceStubCodeAction fn p lines
+              //     x.GetRecordStubCodeAction fn p lines
+              // |]
               |> Async.map (List.concat >> Array.ofList)
             return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
         }
