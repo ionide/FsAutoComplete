@@ -67,7 +67,12 @@ let ifDiagnosticByType handler (diagnosticType: string) =
 
 let ifDiagnosticByCode handler codes: CodeFix =
   fun codeActionParams ->
-    match codeActionParams.Context.Diagnostics |> Seq.tryFind (fun d -> match d.Code with | None -> false | Some code -> Set.contains code codes) with
+    match codeActionParams.Context.Diagnostics
+          |> Seq.tryFind
+               (fun d ->
+                 match d.Code with
+                 | None -> false
+                 | Some code -> Set.contains code codes) with
     | None -> async.Return []
     | Some d -> handler d codeActionParams
 
@@ -437,54 +442,54 @@ module Fixes =
     let mutable lineNumber = 0
     let mutable runningLength = 0
     let mutable found = false
-    let mutable fcsPos = Unchecked.defaultof<FSharp.Compiler.Range.pos>
+
+    let mutable fcsPos =
+      Unchecked.defaultof<FSharp.Compiler.Range.pos>
+
     while not found do
       let line = lines.[lineNumber]
       let lineLength = line.Length
-      if pos <= runningLength + lineLength
-      then
+
+      if pos <= runningLength + lineLength then
         let column = pos - runningLength
         found <- true
         fcsPos <- FSharp.Compiler.Range.mkPos lineNumber column
       else
         lineNumber <- lineNumber + 1
         runningLength <- runningLength + lineLength
+
     fcsPos
 
   /// advance along positions from a starting location, incrementing in a known way until a condition is met.
   /// when the condition is met, return that position.
   /// if the condition is never met, return None
-  let walkPos (lines: string[]) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
+  let walkPos (lines: string []) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
     let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
 
     let firstPos = { Line = 0; Character = 0 }
 
-    let finalPos = { Line = lines.Length - 1; Character = lines.[lines.Length - 1].Length - 1 }
+    let finalPos =
+      { Line = lines.Length - 1
+        Character = lines.[lines.Length - 1].Length - 1 }
 
     let rec loop pos =
       if firstPos = pos || finalPos = pos then None
-      else
-        if not (condition (charAt pos))
-        then
-          loop (posChange pos)
-        else
-          Some pos
+      else if not (condition (charAt pos)) then loop (posChange pos)
+      else Some pos
 
     loop pos
 
-  let inc (lines: string[]) (pos: LspTypes.Position): LspTypes.Position =
+  let inc (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
     let lineLength = lines.[pos.Line].Length
-    if pos.Character = lineLength - 1
-    then
-      { Line = pos.Line + 1
-        Character = 0 }
+
+    if pos.Character = lineLength - 1 then
+      { Line = pos.Line + 1; Character = 0 }
     else
       { pos with
           Character = pos.Character + 1 }
 
   let dec (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
-    if pos.Character = 0
-    then
+    if pos.Character = 0 then
       let newLine = pos.Line - 1
       // decrement to end of previous line
       { pos with
@@ -494,95 +499,106 @@ module Fixes =
       { pos with
           Character = pos.Character - 1 }
 
-  let walkBackUntilCondition (lines: string[]) (pos: LspTypes.Position) condition =
+  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
     walkPos lines pos (dec lines) condition
 
-  let walkForwardUntilCondition (lines: string[]) (pos: LspTypes.Position) condition =
+  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
     walkPos lines pos (inc lines) condition
 
   /// a codefix that adds in missing '=' characters in type declarations
-  let addMissingEqualsToTypeDefintion (getFileLines: string -> Result<string [], _>) =
-    ifDiagnosticByCode (fun diagnostic codeActionParams ->
-    asyncResult {
-      if diagnostic.Message.Contains "Unexpected symbol '{' in type definition"
-         || diagnostic.Message.Contains "Unexpected keyword 'member' in type definition"
-      then
-        let fileName = codeActionParams.TextDocument.GetFilePath()
-        let! lines = getFileLines fileName
-        match walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not) with
-        | Some firstNonWhitespaceChar ->
-          let insertPos = inc lines firstNonWhitespaceChar
-          return [{
-            SourceDiagnostic = Some diagnostic
-            Title = "Add missing '=' to type definition"
-            File = codeActionParams.TextDocument
-            Edits = [|{
-              Range = {
-                Start = insertPos
-                End = insertPos
-              }
-              NewText = " ="
-            }|]
-          }]
-        | None -> return []
-      else return []
-    }
-    |> AsyncResult.foldResult id (fun _ -> [])
-    ) (Set.ofList ["10"; "3360"])
+  let addMissingEqualsToTypeDefinition (getFileLines: string -> Result<string [], _>) =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          if diagnostic.Message.Contains "Unexpected symbol '{' in type definition"
+             || diagnostic.Message.Contains "Unexpected keyword 'member' in type definition" then
+            let fileName =
+              codeActionParams.TextDocument.GetFilePath()
+
+            let! lines = getFileLines fileName
+
+            match walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not) with
+            | Some firstNonWhitespaceChar ->
+                let insertPos = inc lines firstNonWhitespaceChar
+
+                return
+                  [ { SourceDiagnostic = Some diagnostic
+                      Title = "Add missing '=' to type definition"
+                      File = codeActionParams.TextDocument
+                      Edits =
+                        [| { Range = { Start = insertPos; End = insertPos }
+                             NewText = " =" } |] } ]
+            | None -> return []
+          else
+            return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "10"; "3360" ])
 
   /// a codefix that corrects -<something> to - <something> when negation is not intended
   let changeNegationToSubtraction (getFileLines: string -> Result<string [], _>): CodeFix =
-    ifDiagnosticByCode (fun diagnostic codeActionParams ->
-    asyncResult {
-      let fileName = codeActionParams.TextDocument.GetFilePath()
-      let! lines = getFileLines fileName
-      match walkForwardUntilCondition lines (inc lines diagnostic.Range.End) (fun ch -> ch = '-') with
-      | Some dash ->
-        return [{
-          SourceDiagnostic = Some diagnostic
-          Title = "Use subtraction instead of negation"
-          File = codeActionParams.TextDocument
-          Edits = [|{
-            Range = {
-              Start = dash
-              End = inc lines dash
-            }
-            NewText = "- "
-          }|]
-        }]
-      | None ->
-        return []
-    }
-    |> AsyncResult.foldResult id  (fun _ -> [])
-    ) (Set.ofList ["3"])
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let! lines = getFileLines fileName
+
+          match walkForwardUntilCondition lines (inc lines diagnostic.Range.End) (fun ch -> ch = '-') with
+          | Some dash ->
+              return
+                [ { SourceDiagnostic = Some diagnostic
+                    Title = "Use subtraction instead of negation"
+                    File = codeActionParams.TextDocument
+                    Edits =
+                      [| { Range = { Start = dash; End = inc lines dash }
+                           NewText = "- " } |] } ]
+          | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "3" ])
 
   /// a codefix that corrects == equality to = equality
   let doubleEqualsToSingleEquality: CodeFix =
-    ifDiagnosticByCode (fun diagnostic codeActionParams ->
-      async.Return [{
-        Title = "Use '=' for equality check"
-        File = codeActionParams.TextDocument
-        SourceDiagnostic = Some diagnostic
-        Edits = [|{
-          Range = diagnostic.Range
-          NewText = "="
-        }|]
-      }]
-    ) (Set.ofList ["43"])
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        async.Return [ { Title = "Use '=' for equality check"
+                         File = codeActionParams.TextDocument
+                         SourceDiagnostic = Some diagnostic
+                         Edits =
+                           [| { Range = diagnostic.Range
+                                NewText = "=" } |] } ])
+      (Set.ofList [ "43" ])
 
+  /// a codefix that fixes a malformed record type annotation to use colon instead of equals
   let addMissingColonToFieldDefinition: CodeFix =
-    ifDiagnosticByCode (fun diagnostic codeActionParams ->
-      if diagnostic.Message = "Unexpected symbol '=' in field declaration. Expected ':' or other token."
-      then
-        async.Return [{
-          File = codeActionParams.TextDocument
-          Title = "Use ':' for type in field declaration"
-          SourceDiagnostic = Some diagnostic
-          Edits = [|{
-            Range = diagnostic.Range
-            NewText = ":"
-          }|]
-        }]
-      else
-        async.Return []
-    ) (Set.ofList ["10"])
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        if diagnostic.Message = "Unexpected symbol '=' in field declaration. Expected ':' or other token." then
+          async.Return [ { File = codeActionParams.TextDocument
+                           Title = "Use ':' for type in field declaration"
+                           SourceDiagnostic = Some diagnostic
+                           Edits =
+                             [| { Range = diagnostic.Range
+                                  NewText = ":" } |] } ]
+        else
+          async.Return [])
+      (Set.ofList [ "10" ])
+
+  /// a codefix that parenthesizes a membe rexpression that needs it
+  let parenthesizeExpression (getFileLines: string -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
+        | Ok lines ->
+            let erroringExpression = getText lines diagnostic.Range
+
+            async.Return [ { Title = "Wrap expression in parentheses"
+                             File = codeActionParams.TextDocument
+                             SourceDiagnostic = Some diagnostic
+                             Edits =
+                               [| { Range = diagnostic.Range
+                                    NewText = $"(%s{erroringExpression})" } |] } ]
+        | Error _ -> async.Return [])
+      (Set.ofList [ "597" ])

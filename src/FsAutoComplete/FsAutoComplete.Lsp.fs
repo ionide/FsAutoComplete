@@ -466,10 +466,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
               (Fixes.generateInterfaceStub getFileLines tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
             ifEnabled (fun _ -> config.RecordStubGeneration)
               (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
-            Fixes.addMissingEqualsToTypeDefintion getFileLines
+            Fixes.addMissingEqualsToTypeDefinition getFileLines
             Fixes.changeNegationToSubtraction getFileLines
             Fixes.doubleEqualsToSingleEquality
             Fixes.addMissingColonToFieldDefinition
+            Fixes.parenthesizeExpression getFileLines
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
