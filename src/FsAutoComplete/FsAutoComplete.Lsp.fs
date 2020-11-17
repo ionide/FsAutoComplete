@@ -472,6 +472,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.addMissingColonToFieldDefinition
             Fixes.parenthesizeExpression getFileLines
             Fixes.refCellDerefToNot getFileLines
+            Fixes.upcastUsage getFileLines
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p

@@ -185,7 +185,6 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
-
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -314,6 +313,7 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -380,6 +380,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -417,6 +418,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -620,3 +622,33 @@ module Fixes =
             | None -> async.Return []
         | Error _ -> async.Return [])
       (Set.ofList [ "1" ])
+
+  let upcastUsage (getFileLines: string -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
+        | Ok lines ->
+            let expressionText = getText lines diagnostic.Range
+            let isDowncastOperator = expressionText.Contains(":?>")
+            let isDowncastKeyword = expressionText.Contains("downcast")
+
+            match isDowncastOperator, isDowncastKeyword with
+            // must be either/or here, cannot be both
+            | true, true -> async.Return []
+            | false, false -> async.Return []
+            | true, false ->
+                async.Return [ { File = codeActionParams.TextDocument
+                                 SourceDiagnostic = Some diagnostic
+                                 Title = "Use ':>' operator"
+                                 Edits =
+                                   [| { Range = diagnostic.Range
+                                        NewText = expressionText.Replace(":?>", ":>") } |] } ]
+            | false, true ->
+                async.Return [ { File = codeActionParams.TextDocument
+                                 SourceDiagnostic = Some diagnostic
+                                 Title = "Use 'upcast' function"
+                                 Edits =
+                                   [| { Range = diagnostic.Range
+                                        NewText = expressionText.Replace("downcast", "upcast") } |] } ]
+        | Error _ -> async.Return [])
+      (Set.ofList [ "3198" ])
