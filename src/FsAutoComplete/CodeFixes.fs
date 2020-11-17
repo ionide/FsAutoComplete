@@ -697,23 +697,37 @@ module Fixes =
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "27" ])
 
-  /// a codefix that changes equality checking to mutalbe assignment when the compiler thinks it's relevant
-  let comparisonToMutableAssignment (getFileLines: string -> Result<string [], string>): CodeFix =
+  /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
+  let comparisonToMutableAssignment
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
-        match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
-        | Ok lines ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+          let! (symbol, _) = tyRes.TryGetSymbolUse fcsPos line
+          match symbol.Symbol with
+          // only do anything if the value is mutable
+          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsValue && mfv.IsMutable ->
             // try to find the '=' at from the start of the range
-            match walkForwardUntilCondition lines diagnostic.Range.Start (fun c -> c = '=') with
+            let endOfMutableValue = fcsPosToLsp symbol.RangeAlternate.End
+            match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
             | Some equalsPos ->
-                async.Return [ { File = codeActionParams.TextDocument
-                                 Title = "Use mutable assignment instead of equality"
-                                 SourceDiagnostic = Some diagnostic
-                                 Edits =
-                                   [| { Range =
-                                          { Start = equalsPos
-                                            End = (inc lines equalsPos) }
-                                        NewText = "<-" } |] } ]
-            | None -> async.Return []
-        | Error _ -> async.Return [])
+                return [ { File = codeActionParams.TextDocument
+                           Title = "Use '<-' to mutate value"
+                           SourceDiagnostic = Some diagnostic
+                           Edits =
+                             [| { Range =
+                                    { Start = equalsPos
+                                      End = (inc lines equalsPos) }
+                                  NewText = "<-" } |] } ]
+            | None ->
+              return []
+          | _ -> return []
+        } |> AsyncResult.foldResult id (fun _ -> [])
+        )
       (Set.ofList [ "20" ])

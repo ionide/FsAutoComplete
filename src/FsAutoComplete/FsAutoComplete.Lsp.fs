@@ -475,7 +475,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.refCellDerefToNot getFileLines
             Fixes.upcastUsage getFileLines
             Fixes.makeDeclarationMutable tryGetParseResultsForFile tryGetProjectOptions
-            Fixes.comparisonToMutableAssignment getFileLines
+            Fixes.comparisonToMutableAssignment tryGetParseResultsForFile
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
