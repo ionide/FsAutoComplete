@@ -554,3 +554,17 @@ module Fixes =
     }
     |> AsyncResult.foldResult id  (fun _ -> [])
     ) (Set.ofList ["3"])
+
+  /// a codefix that corrects == equality to = equality
+  let doubleEqualsToSingleEquality: CodeFix =
+    ifDiagnosticByCode (fun diagnostic codeActionParams ->
+      async.Return [{
+        Title = "Use '=' for equality check"
+        File = codeActionParams.TextDocument
+        SourceDiagnostic = Some diagnostic
+        Edits = [|{
+          Range = diagnostic.Range
+          NewText = "="
+        }|]
+      }]
+    ) (Set.ofList ["43"])
