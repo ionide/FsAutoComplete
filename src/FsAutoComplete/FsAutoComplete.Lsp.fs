@@ -427,6 +427,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
 
         let interfaceStubReplacements =
           Map.ofList [
@@ -473,6 +474,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.parenthesizeExpression getFileLines
             Fixes.refCellDerefToNot getFileLines
             Fixes.upcastUsage getFileLines
+            Fixes.makeDeclarationMutable tryGetParseResultsForFile tryGetProjectOptions
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p

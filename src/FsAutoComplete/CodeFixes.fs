@@ -46,6 +46,75 @@ module Types =
         Edit = workspaceEdit
         Command = None }
 
+module Util =
+
+  let findPosForCharacter (lines: string []) (pos: int) =
+    let mutable lineNumber = 0
+    let mutable runningLength = 0
+    let mutable found = false
+
+    let mutable fcsPos =
+      Unchecked.defaultof<FSharp.Compiler.Range.pos>
+
+    while not found do
+      let line = lines.[lineNumber]
+      let lineLength = line.Length
+
+      if pos <= runningLength + lineLength then
+        let column = pos - runningLength
+        found <- true
+        fcsPos <- FSharp.Compiler.Range.mkPos lineNumber column
+      else
+        lineNumber <- lineNumber + 1
+        runningLength <- runningLength + lineLength
+
+    fcsPos
+
+  /// advance along positions from a starting location, incrementing in a known way until a condition is met.
+  /// when the condition is met, return that position.
+  /// if the condition is never met, return None
+  let walkPos (lines: string []) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
+    let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
+
+    let firstPos = { Line = 0; Character = 0 }
+
+    let finalPos =
+      { Line = lines.Length - 1
+        Character = lines.[lines.Length - 1].Length - 1 }
+
+    let rec loop pos =
+      if firstPos = pos || finalPos = pos then None
+      else if not (condition (charAt pos)) then loop (posChange pos)
+      else Some pos
+
+    loop pos
+
+  let inc (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
+    let lineLength = lines.[pos.Line].Length
+
+    if pos.Character = lineLength - 1 then
+      { Line = pos.Line + 1; Character = 0 }
+    else
+      { pos with
+          Character = pos.Character + 1 }
+
+  let dec (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
+    if pos.Character = 0 then
+      let newLine = pos.Line - 1
+      // decrement to end of previous line
+      { pos with
+          Line = newLine
+          Character = lines.[newLine].Length - 1 }
+    else
+      { pos with
+          Character = pos.Character - 1 }
+
+  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
+    walkPos lines pos (dec lines) condition
+
+  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
+    walkPos lines pos (inc lines) condition
+
 open Types
 
 let ifEnabled enabled codeFix: CodeFix =
@@ -79,6 +148,8 @@ let ifDiagnosticByCode handler codes: CodeFix =
 module Fixes =
   open FSharp.Compiler.SourceCodeServices
   open FsToolkit.ErrorHandling
+  open Util
+  open FsAutoComplete.FCSPatches
 
   /// insert a line of text at a given line
   let private insertLine line lineStr =
@@ -185,6 +256,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -313,7 +385,6 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -364,6 +435,7 @@ module Fixes =
   /// a codefix that generates fixes reported by F# Analyzers
   let mapAnalyzerDiagnostics = mapExternalDiagnostic "F# Analyzers"
 
+  /// a codefix that generates member stubs for an interface declaration
   let generateInterfaceStub (getFileLines: string -> Result<string [], _>)
                             (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
                             (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
@@ -380,7 +452,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -401,7 +472,7 @@ module Fixes =
       }
       |> AsyncResult.foldResult id (fun _ -> [])
 
-
+  /// a codefix that generates member stubs for a record declaration
   let generateRecordStub (getFileLines: string -> Result<string [], _>)
                          (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
                          (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
@@ -418,7 +489,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -437,73 +507,6 @@ module Fixes =
         | _ -> return []
       }
       |> AsyncResult.foldResult id (fun _ -> [])
-
-  let findPosForCharacter (lines: string []) (pos: int) =
-    let mutable lineNumber = 0
-    let mutable runningLength = 0
-    let mutable found = false
-
-    let mutable fcsPos =
-      Unchecked.defaultof<FSharp.Compiler.Range.pos>
-
-    while not found do
-      let line = lines.[lineNumber]
-      let lineLength = line.Length
-
-      if pos <= runningLength + lineLength then
-        let column = pos - runningLength
-        found <- true
-        fcsPos <- FSharp.Compiler.Range.mkPos lineNumber column
-      else
-        lineNumber <- lineNumber + 1
-        runningLength <- runningLength + lineLength
-
-    fcsPos
-
-  /// advance along positions from a starting location, incrementing in a known way until a condition is met.
-  /// when the condition is met, return that position.
-  /// if the condition is never met, return None
-  let walkPos (lines: string []) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
-    let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
-
-    let firstPos = { Line = 0; Character = 0 }
-
-    let finalPos =
-      { Line = lines.Length - 1
-        Character = lines.[lines.Length - 1].Length - 1 }
-
-    let rec loop pos =
-      if firstPos = pos || finalPos = pos then None
-      else if not (condition (charAt pos)) then loop (posChange pos)
-      else Some pos
-
-    loop pos
-
-  let inc (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
-    let lineLength = lines.[pos.Line].Length
-
-    if pos.Character = lineLength - 1 then
-      { Line = pos.Line + 1; Character = 0 }
-    else
-      { pos with
-          Character = pos.Character + 1 }
-
-  let dec (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
-    if pos.Character = 0 then
-      let newLine = pos.Line - 1
-      // decrement to end of previous line
-      { pos with
-          Line = newLine
-          Character = lines.[newLine].Length - 1 }
-    else
-      { pos with
-          Character = pos.Character - 1 }
-
-  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
-    walkPos lines pos (dec lines) condition
-
-  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
-    walkPos lines pos (inc lines) condition
 
   /// a codefix that adds in missing '=' characters in type declarations
   let addMissingEqualsToTypeDefinition (getFileLines: string -> Result<string [], _>) =
@@ -623,6 +626,7 @@ module Fixes =
         | Error _ -> async.Return [])
       (Set.ofList [ "1" ])
 
+  /// a codefix that replaces unsafe casts with safe casts
   let upcastUsage (getFileLines: string -> Result<string [], _>): CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -652,3 +656,41 @@ module Fixes =
                                         NewText = expressionText.Replace("downcast", "upcast") } |] } ]
         | Error _ -> async.Return [])
       (Set.ofList [ "3198" ])
+
+  /// a codefix that makes a binding mutable when a user attempts to mutably set it
+  let makeDeclarationMutable (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                             (getProjectOptionsForFile: string -> Result<FSharpProjectOptions, string>)
+                             : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+          let! opts = getProjectOptionsForFile fileName
+
+          match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy opts.OtherOptions with
+          | Some symbol ->
+              match! tyRes.TryFindDeclaration fcsPos line with
+              | FindDeclarationResult.Range declRange when declRange.FileName = fileName ->
+                  let lspRange = fcsRangeToLsp declRange
+
+                  if tyRes.GetParseResults.IsPositionContainedInACurriedParameter declRange.Start then
+                    return []
+                  else
+                    return
+                      [ { File = codeActionParams.TextDocument
+                          SourceDiagnostic = Some diagnostic
+                          Title = "Make declaration 'mutable'"
+                          Edits =
+                            [| { Range =
+                                   { Start = lspRange.Start
+                                     End = lspRange.Start }
+                                 NewText = "mutable " } |] } ]
+              | _ -> return []
+          | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "27" ])
