@@ -501,10 +501,11 @@ module Fixes =
     walkPos lines pos (inc lines) condition
 
   /// a codefix that adds in missing '=' characters in type declarations
-  let addMissingEquals (getFileLines: string -> Result<string [], _>) =
+  let addMissingEqualsToTypeDefintion (getFileLines: string -> Result<string [], _>) =
     ifDiagnosticByCode (fun diagnostic codeActionParams ->
     asyncResult {
-      if diagnostic.Message.Contains "'='" || diagnostic.Message.Contains "Unexpected symbol '{' in type definition"
+      if diagnostic.Message.Contains "Unexpected symbol '{' in type definition"
+         || diagnostic.Message.Contains "Unexpected keyword 'member' in type definition"
       then
         let fileName = codeActionParams.TextDocument.GetFilePath()
         let! lines = getFileLines fileName
@@ -568,3 +569,20 @@ module Fixes =
         }|]
       }]
     ) (Set.ofList ["43"])
+
+  let addMissingColonToFieldDefinition: CodeFix =
+    ifDiagnosticByCode (fun diagnostic codeActionParams ->
+      if diagnostic.Message = "Unexpected symbol '=' in field declaration. Expected ':' or other token."
+      then
+        async.Return [{
+          File = codeActionParams.TextDocument
+          Title = "Use ':' for type in field declaration"
+          SourceDiagnostic = Some diagnostic
+          Edits = [|{
+            Range = diagnostic.Range
+            NewText = ":"
+          }|]
+        }]
+      else
+        async.Return []
+    ) (Set.ofList ["10"])
