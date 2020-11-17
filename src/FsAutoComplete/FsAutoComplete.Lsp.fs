@@ -467,6 +467,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             ifEnabled (fun _ -> config.RecordStubGeneration)
               (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
             Fixes.addMissingEquals getFileLines
+            Fixes.changeNegationToSubtraction getFileLines
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p

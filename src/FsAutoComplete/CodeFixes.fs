@@ -451,33 +451,56 @@ module Fixes =
         runningLength <- runningLength + lineLength
     fcsPos
 
-  /// given an FCS pos, walk backwards until the last whitespace character before a non-whitespace character is found
-  let findLastWhitespaceCharacterBeforePos (lines: string[]) (pos: LspTypes.Position): LspTypes.Position =
+  /// advance along positions from a starting location, incrementing in a known way until a condition is met.
+  /// when the condition is met, return that position.
+  /// if the condition is never met, return None
+  let walkPos (lines: string[]) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
     let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
-    let dec (pos: LspTypes.Position): LspTypes.Position =
-      if pos.Character = 0
-      then
-        let newLine = pos.Line - 1
-        // decrement to end of previous line
-        { pos with
-            Line = newLine
-            Character = lines.[newLine].Length - 1 }
-      else
-        { pos with
-            Character = pos.Character - 1 }
 
-    let mutable lastPos = dec pos
+    let firstPos = { Line = 0; Character = 0 }
+
+    let finalPos = { Line = lines.Length - 1; Character = lines.[lines.Length - 1].Length - 1 }
+
     let rec loop pos =
-      if System.Char.IsWhiteSpace (charAt pos)
-      then
-        lastPos <- pos
-        loop (dec pos)
+      if firstPos = pos || finalPos = pos then None
       else
-        lastPos
+        if not (condition (charAt pos))
+        then
+          loop (posChange pos)
+        else
+          Some pos
 
-    loop lastPos
+    loop pos
 
+  let inc (lines: string[]) (pos: LspTypes.Position): LspTypes.Position =
+    let lineLength = lines.[pos.Line].Length
+    if pos.Character = lineLength - 1
+    then
+      { Line = pos.Line + 1
+        Character = 0 }
+    else
+      { pos with
+          Character = pos.Character + 1 }
 
+  let dec (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
+    if pos.Character = 0
+    then
+      let newLine = pos.Line - 1
+      // decrement to end of previous line
+      { pos with
+          Line = newLine
+          Character = lines.[newLine].Length - 1 }
+    else
+      { pos with
+          Character = pos.Character - 1 }
+
+  let walkBackUntilCondition (lines: string[]) (pos: LspTypes.Position) condition =
+    walkPos lines pos (dec lines) condition
+
+  let walkForwardUntilCondition (lines: string[]) (pos: LspTypes.Position) condition =
+    walkPos lines pos (inc lines) condition
+
+  /// a codefix that adds in missing '=' characters in type declarations
   let addMissingEquals (getFileLines: string -> Result<string [], _>) =
     ifDiagnosticByCode (fun diagnostic codeActionParams ->
     asyncResult {
@@ -485,22 +508,49 @@ module Fixes =
       then
         let fileName = codeActionParams.TextDocument.GetFilePath()
         let! lines = getFileLines fileName
-        let insertPos = findLastWhitespaceCharacterBeforePos lines diagnostic.Range.Start
-
-        return [{
-          SourceDiagnostic = Some diagnostic
-          Title = "Add missing '=' to type definition"
-          File = codeActionParams.TextDocument
-          Edits = [|{
-            Range = {
-              Start = insertPos
-              End = insertPos
-            }
-            NewText = " ="
-          }|]
-        }]
-
+        match walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not) with
+        | Some firstNonWhitespaceChar ->
+          let insertPos = inc lines firstNonWhitespaceChar
+          return [{
+            SourceDiagnostic = Some diagnostic
+            Title = "Add missing '=' to type definition"
+            File = codeActionParams.TextDocument
+            Edits = [|{
+              Range = {
+                Start = insertPos
+                End = insertPos
+              }
+              NewText = " ="
+            }|]
+          }]
+        | None -> return []
       else return []
     }
     |> AsyncResult.foldResult id (fun _ -> [])
     ) (Set.ofList ["10"; "3360"])
+
+  /// a codefix that corrects -<something> to - <something> when negation is not intended
+  let changeNegationToSubtraction (getFileLines: string -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode (fun diagnostic codeActionParams ->
+    asyncResult {
+      let fileName = codeActionParams.TextDocument.GetFilePath()
+      let! lines = getFileLines fileName
+      match walkForwardUntilCondition lines (inc lines diagnostic.Range.End) (fun ch -> ch = '-') with
+      | Some dash ->
+        return [{
+          SourceDiagnostic = Some diagnostic
+          Title = "Use subtraction instead of negation"
+          File = codeActionParams.TextDocument
+          Edits = [|{
+            Range = {
+              Start = dash
+              End = inc lines dash
+            }
+            NewText = "- "
+          }|]
+        }]
+      | None ->
+        return []
+    }
+    |> AsyncResult.foldResult id  (fun _ -> [])
+    ) (Set.ofList ["3"])
