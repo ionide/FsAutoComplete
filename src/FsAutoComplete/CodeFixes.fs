@@ -185,6 +185,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -313,7 +314,6 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -380,7 +380,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -418,7 +417,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -602,3 +600,23 @@ module Fixes =
                                     NewText = $"(%s{erroringExpression})" } |] } ]
         | Error _ -> async.Return [])
       (Set.ofList [ "597" ])
+
+  /// a codefix that changes a ref cell deref (!) to a call to 'not'
+  let refCellDerefToNot (getFileLines: string -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
+        | Ok lines ->
+            match walkBackUntilCondition lines diagnostic.Range.Start (fun c -> c = '!') with
+            | Some bangChar ->
+                async.Return [ { SourceDiagnostic = Some diagnostic
+                                 Title = "Use 'not' to negate expression"
+                                 File = codeActionParams.TextDocument
+                                 Edits =
+                                   [| { Range =
+                                          { Start = bangChar
+                                            End = inc lines bangChar }
+                                        NewText = "not " } |] } ]
+            | None -> async.Return []
+        | Error _ -> async.Return [])
+      (Set.ofList [ "1" ])

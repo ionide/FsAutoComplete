@@ -471,6 +471,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.doubleEqualsToSingleEquality
             Fixes.addMissingColonToFieldDefinition
             Fixes.parenthesizeExpression getFileLines
+            Fixes.refCellDerefToNot getFileLines
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
