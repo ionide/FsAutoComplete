@@ -256,6 +256,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -384,7 +385,6 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -452,7 +452,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -490,7 +489,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -609,23 +607,29 @@ module Fixes =
       (Set.ofList [ "597" ])
 
   /// a codefix that changes a ref cell deref (!) to a call to 'not'
-  let refCellDerefToNot (getFileLines: string -> Result<string [], _>): CodeFix =
+  let refCellDerefToNot (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                        : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
-        match getFileLines (codeActionParams.TextDocument.GetFilePath()) with
-        | Ok lines ->
-            match walkBackUntilCondition lines diagnostic.Range.Start (fun c -> c = '!') with
-            | Some bangChar ->
-                async.Return [ { SourceDiagnostic = Some diagnostic
-                                 Title = "Use 'not' to negate expression"
-                                 File = codeActionParams.TextDocument
-                                 Edits =
-                                   [| { Range =
-                                          { Start = bangChar
-                                            End = inc lines bangChar }
-                                        NewText = "not " } |] } ]
-            | None -> async.Return []
-        | Error _ -> async.Return [])
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+
+          match tyRes.GetParseResults.TryRangeOfRefCellDereferenceContainingPos fcsPos with
+          | Some derefRange ->
+              return
+                [ { SourceDiagnostic = Some diagnostic
+                    Title = "Use 'not' to negate expression"
+                    File = codeActionParams.TextDocument
+                    Edits =
+                      [| { Range = fcsRangeToLsp derefRange
+                           NewText = "not " } |] } ]
+          | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "1" ])
 
   /// a codefix that replaces unsafe casts with safe casts
@@ -698,9 +702,8 @@ module Fixes =
       (Set.ofList [ "27" ])
 
   /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
-  let comparisonToMutableAssignment
-    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-    : CodeFix =
+  let comparisonToMutableAssignment (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                                    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -710,24 +713,66 @@ module Fixes =
           let fcsPos = protocolPosToPos diagnostic.Range.Start
           let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
           let! (symbol, _) = tyRes.TryGetSymbolUse fcsPos line
+
           match symbol.Symbol with
           // only do anything if the value is mutable
           | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsValue && mfv.IsMutable ->
-            // try to find the '=' at from the start of the range
-            let endOfMutableValue = fcsPosToLsp symbol.RangeAlternate.End
-            match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
-            | Some equalsPos ->
-                return [ { File = codeActionParams.TextDocument
-                           Title = "Use '<-' to mutate value"
-                           SourceDiagnostic = Some diagnostic
-                           Edits =
-                             [| { Range =
-                                    { Start = equalsPos
-                                      End = (inc lines equalsPos) }
-                                  NewText = "<-" } |] } ]
-            | None ->
-              return []
+              // try to find the '=' at from the start of the range
+              let endOfMutableValue = fcsPosToLsp symbol.RangeAlternate.End
+
+              match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
+              | Some equalsPos ->
+                  return
+                    [ { File = codeActionParams.TextDocument
+                        Title = "Use '<-' to mutate value"
+                        SourceDiagnostic = Some diagnostic
+                        Edits =
+                          [| { Range =
+                                 { Start = equalsPos
+                                   End = (inc lines equalsPos) }
+                               NewText = "<-" } |] } ]
+              | None -> return []
           | _ -> return []
-        } |> AsyncResult.foldResult id (fun _ -> [])
-        )
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "20" ])
+
+  /// a codefix that converts unknown/partial record expressions to anonymous records
+  let partialOrInvalidRecordExpressionToAnonymousRecord (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                                                        : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+
+          match tyRes.GetParseResults.TryRangeOfRecordExpressionContainingPos fcsPos with
+          | Some recordExpressionRange ->
+              let recordExpressionRange = fcsRangeToLsp recordExpressionRange
+
+              let startInsertRange =
+                let next = inc lines recordExpressionRange.Start
+                { Start = next; End = next }
+
+              let endInsertRange =
+                let prev = dec lines recordExpressionRange.End
+                { Start = prev; End = prev }
+
+              let recordExpressionText = getText lines recordExpressionRange
+
+              return
+                [ { Title = "Convert to anonymous record"
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diagnostic
+                    Edits =
+                      [| { Range = startInsertRange
+                           NewText = "|" }
+                         { Range = endInsertRange
+                           NewText = "|" } |] } ]
+          | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "39" ])
