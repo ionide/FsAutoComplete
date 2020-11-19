@@ -13,7 +13,12 @@ let defaultDotNetSDKRoot =
     if RuntimeInformation.IsOSPlatform OSPlatform.OSX
     then "/usr/local/share/dotnet"
     else if RuntimeInformation.IsOSPlatform OSPlatform.Linux
-    then "/usr/share/dotnet"
+    then
+      let snapPath = "/snap/dotnet-sdk/current"
+      if Directory.Exists(snapPath)
+      then snapPath
+      else
+        "/usr/share/dotnet"
     else @"C:\Program Files\dotnet"
   DirectoryInfo path
 

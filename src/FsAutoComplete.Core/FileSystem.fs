@@ -11,6 +11,12 @@ type VolatileFile =
 
 open System.IO
 
+/// A wraper around another IFileSystem implementation that normalizes paths in an
+/// operating system-independent way.  This allows for winidows paths to be handled consistently on unix
+/// and vice versa.
+///
+/// Without this ability, it becomes very hard to have consistent path behavior while operating
+/// and testing on mulltiple platforms.
 type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileFile option) =
     let getContent (filename: string) =
          filename
@@ -56,7 +62,7 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
 
         (* These next members all make use of the VolatileFile concept, and so need to check that before delegating to the original FS implementation *)
 
-        (* Note that in addition to this behavior, we _also_ do not normalize the file paths anymore for any other members of this interfact,
+        (* Note that in addition to this behavior, we _also_ do not normalize the file paths anymore for any other members of this interface,
            because these members are always used by the compiler with paths returned from `GetFullPathShim`, which has done the normalization *)
 
         member _.ReadAllBytesShim (f) =

@@ -290,13 +290,12 @@ let autocompleteTest =
 
   let makeAutocompleteTestList (forScriptProject:bool) = [
     let serverTest =
-      let serverStart = lazy (
+      let serverStart =
         if forScriptProject
           then scriptProjServerStart
           else serverStart
-      )
       fun f ->
-        let (server, path) = serverStart.Value.Value
+        let (server, path) = serverStart.Value
         f server path
 
     testCaseAsync "Get Autocomplete module members" (serverTest (fun server path ->
