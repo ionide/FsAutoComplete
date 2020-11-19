@@ -250,7 +250,7 @@ let serverInitialize path (config: FSharpConfigDto) =
   let files = Directory.GetFiles(path)
 
   if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
-    runProcess (logDotnetRestore ("Restore " + path)) path "dotnet" "restore -v d"
+    runProcess (logDotnetRestore ("Restore " + path)) path "dotnet" "restore"
     |> expectExitCodeZero
 
   let server, event = createServer()
