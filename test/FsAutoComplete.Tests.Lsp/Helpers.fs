@@ -218,6 +218,7 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
   let psi = System.Diagnostics.ProcessStartInfo()
   psi.FileName <- defaultArg (probeForTool exePath) exePath
   psi.WorkingDirectory <- workingDir
+  printfn $"running %s{psi.FileName} from %s{psi.WorkingDirectory} with args %s{args}"
   psi.RedirectStandardOutput <- true
   psi.RedirectStandardError <- true
   psi.Arguments <- args
@@ -249,7 +250,7 @@ let serverInitialize path (config: FSharpConfigDto) =
   let files = Directory.GetFiles(path)
 
   if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
-    runProcess (logDotnetRestore ("Restore" + path)) path "dotnet" "restore"
+    runProcess (logDotnetRestore ("Restore " + path)) path "dotnet" "restore"
     |> expectExitCodeZero
 
   let server, event = createServer()
