@@ -239,10 +239,10 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
 
   let exitCode = p.ExitCode
 
-  exitCode, (workingDir, exePath, args)
+  exitCode, (workingDir, psi.FileName, args)
 
-let expectExitCodeZero (exitCode, _) =
-  Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
+let expectExitCodeZero (exitCode, (workdir, exePath, args)) =
+  Expect.equal exitCode 0 (sprintf "expected exit code 0 but was %i from invoking '%s %s' in directory %s" exitCode exePath args workdir)
 
 
 let serverInitialize path (config: FSharpConfigDto) =
