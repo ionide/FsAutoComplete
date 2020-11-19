@@ -7,18 +7,28 @@ jobs:
     timeout-minutes: 15 # we have a locking issue, so cap the runs at ~15m to account for varying build times, etc
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest, ubuntu-20.04]
         dotnet: [5.0.100]
       fail-fast: false # we have timing issues on some OS, so we want them all to run
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: ${{ matrix.dotnet }}
-    - name: Restore tools
-      run: dotnet tool restore
-    - name: Run Test
-      run: dotnet fake build -t Test
+      - uses: actions/checkout@v1
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+        if: matrix.os != 'ubuntu-20.04'
+
+      - name: Setup .NET Core via Snap
+        run: |
+          sudo snap install dotnet-sdk --classic --channel=5.0
+          sudo snap alias dotnet-sdk.dotnet dotnet
+        if: matrix.os == 'ubuntu-20.04'
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run Test
+        run: dotnet fake build -t Test
