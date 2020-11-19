@@ -185,6 +185,7 @@ let clientCaps : ClientCapabilities =
 open Expecto.Logging
 open Expecto.Logging.Message
 open System.Threading
+open System.Runtime.InteropServices
 
 
 let logEvent n =
@@ -200,11 +201,22 @@ let dotnetCleanup baseDir =
   |> List.filter Directory.Exists
   |> List.iter (fun path -> Directory.Delete(path, true))
 
+let probeForTool (toolName: string) =
+  let toolNameVariations = [toolName; System.IO.Path.ChangeExtension(toolName, ".exe") ]
+  let pathSplitter = if RuntimeInformation.IsOSPlatform OSPlatform.Windows then ";" else ":"
+  let paths = System.Environment.GetEnvironmentVariable("PATH").Split(pathSplitter)
+  let combinations =
+    [| for path in paths do
+        for tool in toolNameVariations do
+          yield path, tool |]
+  combinations
+  |> Array.map System.IO.Path.Combine
+  |> Array.tryFind (fun fullPath -> System.IO.FileInfo(fullPath).Exists)
 
 
 let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
   let psi = System.Diagnostics.ProcessStartInfo()
-  psi.FileName <- exePath
+  psi.FileName <- defaultArg (probeForTool exePath) exePath
   psi.WorkingDirectory <- workingDir
   psi.RedirectStandardOutput <- true
   psi.RedirectStandardError <- true
