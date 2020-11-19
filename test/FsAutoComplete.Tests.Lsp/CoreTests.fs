@@ -380,8 +380,8 @@ let autocompleteTest =
 
   testSequenced (
     testList "Autocomplete Tests" [
-      testList "Autocomplete within project files" (makeAutocompleteTestList false)
-      testList "Autocomplete within script files" (makeAutocompleteTestList true)
+      // testList "Autocomplete within project files" (makeAutocompleteTestList false)
+      // testList "Autocomplete within script files" (makeAutocompleteTestList true)
     ]
   )
 
