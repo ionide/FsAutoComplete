@@ -219,22 +219,22 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
   psi.FileName <- defaultArg (probeForTool exePath) exePath
   psi.WorkingDirectory <- workingDir
   printfn $"running %s{psi.FileName} from %s{psi.WorkingDirectory} with args %s{args}"
-  psi.RedirectStandardOutput <- true
-  psi.RedirectStandardError <- true
+  psi.RedirectStandardOutput <- false
+  psi.RedirectStandardError <- false
   psi.Arguments <- args
   psi.CreateNoWindow <- true
-  psi.UseShellExecute <- false
+  psi.UseShellExecute <- true
 
   use p = new System.Diagnostics.Process()
   p.StartInfo <- psi
 
-  p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+  // p.OutputDataReceived.Add(fun ea -> log (ea.Data))
 
-  p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+  // p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
   p.Start() |> ignore
-  p.BeginOutputReadLine()
-  p.BeginErrorReadLine()
+  // p.BeginOutputReadLine()
+  // p.BeginErrorReadLine()
   p.WaitForExit()
 
   let exitCode = p.ExitCode
@@ -250,7 +250,7 @@ let serverInitialize path (config: FSharpConfigDto) =
   let files = Directory.GetFiles(path)
 
   if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
-    runProcess (logDotnetRestore ("Restore " + path)) path "dotnet" "restore"
+    runProcess (logDotnetRestore ("Restore " + path)) path "dotnet" "restore -v d"
     |> expectExitCodeZero
 
   let server, event = createServer()
