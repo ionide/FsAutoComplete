@@ -38,7 +38,7 @@ nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has diff
 nuget FSharp.UMX
 nuget FSharp.Formatting
 nuget Microsoft.Build.Utilities.Core 16.7
-
+nuget Emet.FileSystems
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
 nuget FSharp.DependencyManager.Nuget 37

@@ -186,7 +186,8 @@ open Expecto.Logging
 open Expecto.Logging.Message
 open System.Threading
 open System.Runtime.InteropServices
-
+open System.IO
+open Emet.FileSystems
 
 let logEvent n =
   logger.debug (eventX "event: {e}" >> setField "e" n)
@@ -201,6 +202,17 @@ let dotnetCleanup baseDir =
   |> List.filter Directory.Exists
   |> List.iter (fun path -> Directory.Delete(path, true))
 
+let rec followLink (path: string) =
+  let directoryEntry = DirectoryEntry(path, FileSystem.FollowSymbolicLinks.Always).ResolveSymbolicLink()
+  let ft = directoryEntry.FileType // cause evaluation of the properties
+  let isLink = ft.HasFlag FileType.SymbolicLink
+  if isLink
+  then
+    directoryEntry.ResolveSymbolicLink().Path
+  else
+    path
+
+
 let probeForTool (toolName: string) =
   let toolNameVariations = [toolName; System.IO.Path.ChangeExtension(toolName, ".exe") ]
   let pathSplitter = if RuntimeInformation.IsOSPlatform OSPlatform.Windows then ";" else ":"
@@ -212,29 +224,30 @@ let probeForTool (toolName: string) =
   combinations
   |> Array.map System.IO.Path.Combine
   |> Array.tryFind (fun fullPath -> System.IO.FileInfo(fullPath).Exists)
+  |> Option.map followLink
 
 
 let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
   let psi = System.Diagnostics.ProcessStartInfo()
   psi.FileName <- defaultArg (probeForTool exePath) exePath
   psi.WorkingDirectory <- workingDir
-  printfn $"running %s{psi.FileName} from %s{psi.WorkingDirectory} with args %s{args}"
-  psi.RedirectStandardOutput <- false
-  psi.RedirectStandardError <- false
+  psi.RedirectStandardOutput <- true
+  psi.RedirectStandardError <- true
   psi.Arguments <- args
   psi.CreateNoWindow <- true
-  psi.UseShellExecute <- true
+  psi.UseShellExecute <- false
 
+  printfn $"running %s{psi.FileName} from %s{psi.WorkingDirectory} with args %s{args}"
   use p = new System.Diagnostics.Process()
   p.StartInfo <- psi
 
-  // p.OutputDataReceived.Add(fun ea -> log (ea.Data))
+  p.OutputDataReceived.Add(fun ea -> log (ea.Data))
 
-  // p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
+  p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
 
   p.Start() |> ignore
-  // p.BeginOutputReadLine()
-  // p.BeginErrorReadLine()
+  p.BeginOutputReadLine()
+  p.BeginErrorReadLine()
   p.WaitForExit()
 
   let exitCode = p.ExitCode

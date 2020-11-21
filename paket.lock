@@ -28,6 +28,7 @@ NUGET
       FSharp.Core (>= 4.6.2)
       Microsoft.NETFramework.ReferenceAssemblies (>= 1.0)
     editorconfig (0.12.2)
+    Emet.FileSystems (0.0.3)
     Expecto (9.0.2)
       FSharp.Core (>= 4.6)
       Mono.Cecil (>= 0.11.2)
