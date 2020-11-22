@@ -187,7 +187,9 @@ open Expecto.Logging.Message
 open System.Threading
 open System.Runtime.InteropServices
 open System.IO
-open Emet.FileSystems
+open Mono.Unix
+open SymbolicLinkSupport
+
 
 let logEvent n =
   logger.debug (eventX "event: {e}" >> setField "e" n)
@@ -202,17 +204,15 @@ let dotnetCleanup baseDir =
   |> List.filter Directory.Exists
   |> List.iter (fun path -> Directory.Delete(path, true))
 
-let rec followLink (path: string) =
-  let directoryEntry = DirectoryEntry(path, FileSystem.FollowSymbolicLinks.Always).ResolveSymbolicLink()
-  let ft = directoryEntry.FileType // cause evaluation of the properties
-  let isLink = ft.HasFlag FileType.SymbolicLink
-  if isLink
-  then
-    directoryEntry.ResolveSymbolicLink().Path
-  else
-    path
-
-
+let followLink (path: string) =
+  match Environment.OSVersion.Platform with
+  | PlatformID.Win32NT ->
+    let fi = System.IO.FileInfo(path)
+    if fi.IsSymbolicLink () then fi.GetSymbolicLinkTarget() else path
+  | PlatformID.Unix
+  | PlatformID.MacOSX ->
+    UnixPath.GetCompleteRealPath path
+  | _ -> path
 let probeForTool (toolName: string) =
   let toolNameVariations = [toolName; System.IO.Path.ChangeExtension(toolName, ".exe") ]
   let pathSplitter = if RuntimeInformation.IsOSPlatform OSPlatform.Windows then ";" else ":"

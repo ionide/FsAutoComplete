@@ -1,4 +1,5 @@
 FSharp.Core
 FSharp.Compiler.Service
 Expecto
-Emet.FileSystems
+Mono.Posix.NETStandard
+SymbolicLinkSupport
