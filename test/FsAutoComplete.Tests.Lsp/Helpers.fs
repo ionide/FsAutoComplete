@@ -213,6 +213,11 @@ let followLink (path: string) =
   | PlatformID.MacOSX ->
     UnixPath.GetCompleteRealPath path
   | _ -> path
+
+type ToolResult =
+| ExactPath of path: string
+| Snap of path: string
+
 let probeForTool (toolName: string) =
   let toolNameVariations = [toolName; System.IO.Path.ChangeExtension(toolName, ".exe") ]
   let pathSplitter = if RuntimeInformation.IsOSPlatform OSPlatform.Windows then ";" else ":"
@@ -224,12 +229,30 @@ let probeForTool (toolName: string) =
   combinations
   |> Array.map System.IO.Path.Combine
   |> Array.tryFind (fun fullPath -> System.IO.FileInfo(fullPath).Exists)
-  |> Option.map followLink
+  |> Option.map (fun path ->
+    let followed = followLink path
+    if Path.GetFileName followed = "snap"
+    then Snap path
+    else ExactPath path
+  )
 
-
-let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
+let invokeToolWithoutRedirection toolAlias workingDir args =
   let psi = System.Diagnostics.ProcessStartInfo()
-  psi.FileName <- defaultArg (probeForTool exePath) exePath
+  psi.FileName <- toolAlias
+  psi.WorkingDirectory <- workingDir
+  psi.Arguments <- args
+  psi.CreateNoWindow <- true
+  psi.UseShellExecute <- true
+
+  printfn $"running %s{psi.FileName} from %s{psi.WorkingDirectory} with args %s{args}"
+  let p = new System.Diagnostics.Process()
+  p.StartInfo <- psi
+  p.Start() |> ignore
+  p
+
+let invokeToolWithRedirection log tool workingDir args =
+  let psi = System.Diagnostics.ProcessStartInfo()
+  psi.FileName <- tool
   psi.WorkingDirectory <- workingDir
   psi.RedirectStandardOutput <- true
   psi.RedirectStandardError <- true
@@ -238,7 +261,7 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
   psi.UseShellExecute <- false
 
   printfn $"running %s{psi.FileName} from %s{psi.WorkingDirectory} with args %s{args}"
-  use p = new System.Diagnostics.Process()
+  let p = new System.Diagnostics.Process()
   p.StartInfo <- psi
 
   p.OutputDataReceived.Add(fun ea -> log (ea.Data))
@@ -248,15 +271,21 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
   p.Start() |> ignore
   p.BeginOutputReadLine()
   p.BeginErrorReadLine()
+  p
+let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) =
+  use p =
+    match defaultArg (probeForTool exePath) (ExactPath exePath) with
+    | Snap toolAlias -> invokeToolWithoutRedirection toolAlias workingDir args
+    | ExactPath tool -> invokeToolWithRedirection log tool workingDir args
+
   p.WaitForExit()
 
   let exitCode = p.ExitCode
 
-  exitCode, (workingDir, psi.FileName, args)
+  exitCode, (workingDir, p.StartInfo.FileName, args)
 
 let expectExitCodeZero (exitCode, (workdir, exePath, args)) =
   Expect.equal exitCode 0 (sprintf "expected exit code 0 but was %i from invoking '%s %s' in directory %s" exitCode exePath args workdir)
-
 
 let serverInitialize path (config: FSharpConfigDto) =
   dotnetCleanup path
