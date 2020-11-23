@@ -16,15 +16,15 @@ module FcsRange = FSharp.Compiler.Range
 module Conversions =
     module Lsp = LanguageServerProtocol.Types
 
+    /// convert an LSP position to a compiler position
     let protocolPosToPos (pos: Lsp.Position): FcsRange.pos =
         FcsRange.mkPos (pos.Line + 1) (pos.Character + 1)
 
-    let posToProtocolPos (pos: FcsRange.pos): Lsp.Position =
-        { Line = pos.Line - 1; Character = pos.Column - 1 }
-
+    /// convert a compiler position to an LSP position
     let fcsPosToLsp (pos: FcsRange.pos): Lsp.Position =
         { Line = pos.Line - 1; Character = pos.Column }
 
+    /// convert a compiler range to an LSP range
     let fcsRangeToLsp(range: FcsRange.range): Lsp.Range =
         {
             Start = fcsPosToLsp range.Start
@@ -33,6 +33,14 @@ module Conversions =
 
     let protocolRangeToRange fn (range: Lsp.Range): FcsRange.range =
         FcsRange.mkRange fn (protocolPosToPos range.Start) (protocolPosToPos range.End)
+
+    /// convert an FCS position to a single-character range in LSP
+    let fcsPosToProtocolRange (pos: FcsRange.pos): Lsp.Range =
+      {
+        Start = fcsPosToLsp pos
+        End = fcsPosToLsp pos
+      }
+
 
     let symbolUseRangeToLsp (range: SymbolCache.SymbolUseRange): Lsp.Range =
         {
@@ -325,7 +333,70 @@ module SigantureData =
 
         if String.IsNullOrEmpty args then typ else args + " -> " + formatType typ
 
+module Structure =
+      /// convert structure scopes to known kinds of folding range.
+    /// this lets commands like 'fold all comments' work sensibly.
+    /// impl note: implemented as an exhaustive match here so that
+    /// if new structure kinds appear we have to handle them.
+    let scopeToKind (scope: Structure.Scope): string option =
+        match scope with
+        | Structure.Scope.Open -> Some FoldingRangeKind.Imports
+        | Structure.Scope.Comment
+        | Structure.Scope.XmlDocComment -> Some FoldingRangeKind.Comment
+        | Structure.Scope.Namespace
+        | Structure.Scope.Module
+        | Structure.Scope.Type
+        | Structure.Scope.Member
+        | Structure.Scope.LetOrUse
+        | Structure.Scope.Val
+        | Structure.Scope.CompExpr
+        | Structure.Scope.IfThenElse
+        | Structure.Scope.ThenInIfThenElse
+        | Structure.Scope.ElseInIfThenElse
+        | Structure.Scope.TryWith
+        | Structure.Scope.TryInTryWith
+        | Structure.Scope.WithInTryWith
+        | Structure.Scope.TryFinally
+        | Structure.Scope.TryInTryFinally
+        | Structure.Scope.FinallyInTryFinally
+        | Structure.Scope.ArrayOrList
+        | Structure.Scope.ObjExpr
+        | Structure.Scope.For
+        | Structure.Scope.While
+        | Structure.Scope.Match
+        | Structure.Scope.MatchBang
+        | Structure.Scope.MatchLambda
+        | Structure.Scope.MatchClause
+        | Structure.Scope.Lambda
+        | Structure.Scope.CompExprInternal
+        | Structure.Scope.Quote
+        | Structure.Scope.Record
+        | Structure.Scope.SpecialFunc
+        | Structure.Scope.Do
+        | Structure.Scope.New
+        | Structure.Scope.Attribute
+        | Structure.Scope.Interface
+        | Structure.Scope.HashDirective
+        | Structure.Scope.LetOrUseBang
+        | Structure.Scope.TypeExtension
+        | Structure.Scope.YieldOrReturn
+        | Structure.Scope.YieldOrReturnBang
+        | Structure.Scope.Tuple
+        | Structure.Scope.UnionCase
+        | Structure.Scope.EnumCase
+        | Structure.Scope.RecordField
+        | Structure.Scope.RecordDefn
+        | Structure.Scope.UnionDefn -> None
 
+    let toFoldingRange (item: Structure.ScopeRange): FoldingRange =
+        let kind = scopeToKind item.Scope
+        // map the collapserange to the foldingRange
+        let lsp = fcsRangeToLsp item.CollapseRange
+        { StartCharacter   = Some lsp.Start.Character
+          StartLine        = lsp.Start.Line
+          EndCharacter     = Some lsp.End.Character
+          EndLine          = lsp.End.Line
+          Kind             = kind }
 
 type PlainNotification= { Content: string }
 

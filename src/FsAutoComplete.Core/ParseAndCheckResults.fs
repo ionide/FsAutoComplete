@@ -11,6 +11,7 @@ open ProjectSystem
 open FsAutoComplete.Logging
 open FsAutoComplete.Utils
 open FSharp.UMX
+open FSharp.Compiler.SyntaxTree
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -18,6 +19,73 @@ type FindDeclarationResult =
     | Range of FSharp.Compiler.Range.range
     /// The declaration refers to a file.
     | File of string
+
+/// TODO: remove this extension when we get https://github.com/dotnet/fsharp/pull/10480/files#diff-5d99a1a2e89452abe0d275ce060600f65c0c24d995703b5bc067106c38cb5e67R108 merged
+module FCSPatches =
+  type FSharpParseFileResults with
+    member scope.IsPositionContainedInACurriedParameter pos =
+      match scope.ParseTree with
+      | Some input ->
+          let result =
+              AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
+                  member __.VisitExpr(_path, traverseSynExpr, defaultTraverse, expr) =
+                      defaultTraverse(expr)
+
+                  override __.VisitBinding (_, binding) =
+                      match binding with
+                      | SynBinding.Binding(_, _, _, _, _, _, valData, _, _, _, range, _) when rangeContainsPos range pos ->
+                          let info = valData.SynValInfo.CurriedArgInfos
+                          let mutable found = false
+                          for group in info do
+                              for arg in group do
+                                  match arg.Ident with
+                                  | Some ident when rangeContainsPos ident.idRange pos ->
+                                      found <- true
+                                  | _ -> ()
+                          if found then Some range else None
+                      | _ ->
+                          None
+              })
+          result.IsSome
+      | _ -> false
+
+    member scope.TryRangeOfRefCellDereferenceContainingPos expressionPos =
+      match scope.ParseTree with
+      | Some input ->
+          AstTraversal.Traverse(expressionPos, input, { new AstTraversal.AstVisitorBase<_>() with
+              member _.VisitExpr(_, _, defaultTraverse, expr) =
+                  match expr with
+                  | SynExpr.App(_, false, SynExpr.Ident funcIdent, expr, _) ->
+                      if funcIdent.idText = "op_Dereference" && rangeContainsPos expr.Range expressionPos then
+                          Some funcIdent.idRange
+                      else
+                          None
+                  | _ -> defaultTraverse expr })
+      | None -> None
+
+    member scope.TryRangeOfRecordExpressionContainingPos pos =
+      match scope.ParseTree with
+      | Some input ->
+          AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
+              member _.VisitExpr(_, _, defaultTraverse, expr) =
+                  match expr with
+                  | SynExpr.Record(_, _, _, range) when rangeContainsPos range pos ->
+                      Some range
+                  | _ -> defaultTraverse expr })
+      | None ->
+          None
+
+    member scope.TryRangeOfExprInYieldOrReturn pos =
+        match scope.ParseTree with
+        | Some parseTree ->
+            AstTraversal.Traverse(pos, parseTree, { new AstTraversal.AstVisitorBase<_>() with
+                member __.VisitExpr(_path, _, defaultTraverse, expr) =
+                    match expr with
+                    | SynExpr.YieldOrReturn(_, expr, range)
+                    | SynExpr.YieldOrReturnFrom(_, expr, range) when rangeContainsPos range pos ->
+                        Some expr.Range
+                    | _ -> defaultTraverse expr })
+        | None -> None
 
 type ParseAndCheckResults
     (

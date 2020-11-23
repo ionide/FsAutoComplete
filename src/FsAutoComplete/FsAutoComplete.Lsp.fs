@@ -2,6 +2,8 @@ module FsAutoComplete.Lsp
 
 open Argu
 open FsAutoComplete
+open FsAutoComplete.CodeFix
+open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
 open FsAutoComplete.Utils
 open FSharp.Compiler.SourceCodeServices
@@ -14,6 +16,7 @@ open Newtonsoft.Json.Linq
 open ProjectSystem
 open System
 open System.IO
+open FsToolkit.ErrorHandling
 
 module FcsRange = FSharp.Compiler.Range
 
@@ -64,6 +67,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     let mutable config = FSharpConfig.Default
     let mutable rootPath : string option = None
+    let mutable codeFixes = fun p -> [||]
 
     /// centralize any state changes when the config is updated here
     let updateConfig (newConfig: FSharpConfig) =
@@ -99,8 +103,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     //TODO: Thread safe version
-    let fixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
-    let analyzerFixes = System.Collections.Generic.Dictionary<(DocumentUri * string), (LanguageServerProtocol.Types.Range * TextEdit) list>()
+    let lintFixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
+    let analyzerFixes = System.Collections.Generic.Dictionary<DocumentUri, System.Collections.Generic.Dictionary<string, (LanguageServerProtocol.Types.Range * TextEdit) list>>()
 
 
     let parseFile (p: DidChangeTextDocumentParams) =
@@ -121,9 +125,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
                         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-                        if config.UnusedOpensAnalyzer then  Async.Start (commands.GetUnusedOpens filePath |> Async.Ignore)
-                        if config.UnusedDeclarationsAnalyzer then Async.Start (async { ignore (commands.GetUnusedDeclarations filePath) }) //fire and forget this analyzer now that it's syncronous
-                        if config.SimplifyNameAnalyzer then Async.Start (commands.GetSimplifiedNames filePath |> Async.Ignore)
+                        if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
+                        if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
+                        if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
                     else
                         logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
                 | _ ->
@@ -148,70 +152,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         {Uri = uri; Diagnostics = diags}
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
-
-    /// convert structure scopes to known kinds of folding range.
-    /// this lets commands like 'fold all comments' work sensibly.
-    /// impl note: implemented as an exhaustive match here so that
-    /// if new structure kinds appear we have to handle them.
-    let scopeToKind (scope: Structure.Scope): string option =
-        match scope with
-        | Structure.Scope.Open -> Some FoldingRangeKind.Imports
-        | Structure.Scope.Comment
-        | Structure.Scope.XmlDocComment -> Some FoldingRangeKind.Comment
-        | Structure.Scope.Namespace
-        | Structure.Scope.Module
-        | Structure.Scope.Type
-        | Structure.Scope.Member
-        | Structure.Scope.LetOrUse
-        | Structure.Scope.Val
-        | Structure.Scope.CompExpr
-        | Structure.Scope.IfThenElse
-        | Structure.Scope.ThenInIfThenElse
-        | Structure.Scope.ElseInIfThenElse
-        | Structure.Scope.TryWith
-        | Structure.Scope.TryInTryWith
-        | Structure.Scope.WithInTryWith
-        | Structure.Scope.TryFinally
-        | Structure.Scope.TryInTryFinally
-        | Structure.Scope.FinallyInTryFinally
-        | Structure.Scope.ArrayOrList
-        | Structure.Scope.ObjExpr
-        | Structure.Scope.For
-        | Structure.Scope.While
-        | Structure.Scope.Match
-        | Structure.Scope.MatchBang
-        | Structure.Scope.MatchLambda
-        | Structure.Scope.MatchClause
-        | Structure.Scope.Lambda
-        | Structure.Scope.CompExprInternal
-        | Structure.Scope.Quote
-        | Structure.Scope.Record
-        | Structure.Scope.SpecialFunc
-        | Structure.Scope.Do
-        | Structure.Scope.New
-        | Structure.Scope.Attribute
-        | Structure.Scope.Interface
-        | Structure.Scope.HashDirective
-        | Structure.Scope.LetOrUseBang
-        | Structure.Scope.TypeExtension
-        | Structure.Scope.YieldOrReturn
-        | Structure.Scope.YieldOrReturnBang
-        | Structure.Scope.Tuple
-        | Structure.Scope.UnionCase
-        | Structure.Scope.EnumCase
-        | Structure.Scope.RecordField
-        | Structure.Scope.RecordDefn
-        | Structure.Scope.UnionDefn -> None
-
-    let toFoldingRange (item: Structure.ScopeRange): FoldingRange =
-        let kind = scopeToKind item.Scope
-        // map the collapserange to the foldingRange
-        let lsp = fcsRangeToLsp item.CollapseRange
-        { StartCharacter   = Some lsp.Start.Character
-          StartLine        = lsp.Start.Line
-          EndCharacter     = Some lsp.End.Character
-          EndLine          = lsp.End.Line
-          Kind             = kind }
 
     do
         commands.Notify.Subscribe(fun n ->
@@ -292,7 +232,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             )
                         )
 
-                    fixes.[uri] <- fs
+                    lintFixes.[uri] <- fs
                     let diags =
                         warnings |> List.map(fun w ->
                             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
@@ -336,8 +276,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                           |> Seq.toList
                       let aName = messages.[0].Type
 
-
-                      analyzerFixes.[(uri, aName)] <- fs
+                      if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
+                      analyzerFixes.[uri].[aName] <- fs
 
                       let diag =
                           messages |> Array.map (fun m ->
@@ -477,6 +417,72 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
+
+        let tryGetParseResultsForFile fileName pos = asyncResult {
+          let! (projectOptions, fileLines, lineAtPos) = commands.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos)
+          match! commands.TryGetLatestTypeCheckResultsForFile(fileName) with
+          | None -> return! Error $"No typecheck results available for %s{fileName}"
+          | Some tyRes ->
+            return tyRes, lineAtPos, fileLines
+        }
+
+        let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
+
+        let interfaceStubReplacements =
+          Map.ofList [
+            "$objectIdent", config.InterfaceStubGenerationObjectIdentifier
+            "$methodBody", config.InterfaceStubGenerationMethodBody
+          ]
+
+        let getInterfaceStubReplacements () = interfaceStubReplacements
+
+        let unionCaseStubReplacements =
+          Map.ofList [
+            "$1", config.UnionCaseStubGenerationBody
+          ]
+
+        let getUnionCaseStubReplacements () = unionCaseStubReplacements
+
+        let recordStubReplacements =
+          Map.ofList [
+            "$1", config.RecordStubGenerationBody
+          ]
+
+        let getRecordStubReplacements () = recordStubReplacements
+
+        codeFixes <- fun p ->
+          [|
+            ifEnabled (fun _ -> config.UnusedOpensAnalyzer) Fixes.unusedOpens
+            ifEnabled (fun _ -> config.ResolveNamespaces) (Fixes.resolveNamespace tryGetParseResultsForFile commands.GetNamespaceSuggestions)
+            Fixes.errorSuggestion
+            Fixes.redundantQualifier
+            Fixes.unusedValue getFileLines
+            Fixes.newWithDisposables getFileLines
+            ifEnabled (fun _ -> config.UnionCaseStubGeneration)
+              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
+            Fixes.mapLinterDiagnostics (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
+            Fixes.mapAnalyzerDiagnostics (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
+            ifEnabled (fun _ -> config.InterfaceStubGeneration)
+              (Fixes.generateInterfaceStub getFileLines tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
+            ifEnabled (fun _ -> config.RecordStubGeneration)
+              (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
+            Fixes.addMissingEqualsToTypeDefinition getFileLines
+            Fixes.changeNegationToSubtraction getFileLines
+            Fixes.doubleEqualsToSingleEquality
+            Fixes.addMissingColonToFieldDefinition
+            Fixes.parenthesizeExpression getFileLines
+            Fixes.refCellDerefToNot tryGetParseResultsForFile
+            Fixes.upcastUsage getFileLines
+            Fixes.makeDeclarationMutable tryGetParseResultsForFile tryGetProjectOptions
+            Fixes.comparisonToMutableAssignment tryGetParseResultsForFile
+            Fixes.partialOrInvalidRecordExpressionToAnonymousRecord tryGetParseResultsForFile
+            Fixes.removeUnnecessaryReturnOrYield tryGetParseResultsForFile
+          |]
+          |> Array.map (fun fixer -> async {
+              let! fixes = fixer p
+              return List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value) fixes
+           })
 
         let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
@@ -633,9 +639,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
         if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-        if config.UnusedOpensAnalyzer then Async.Start (commands.GetUnusedOpens filePath |> Async.Ignore)
-        if config.UnusedDeclarationsAnalyzer then Async.Start (async { ignore (commands.GetUnusedDeclarations filePath) })
-        if config.SimplifyNameAnalyzer then Async.Start (commands.GetSimplifiedNames filePath |> Async.Ignore)
+        if config.UnusedOpensAnalyzer then Async.Start (commands.CheckUnusedOpens filePath)
+        if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath)
+        if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
     }
 
     override __.TextDocumentDidChange(p) = async {
@@ -1148,332 +1154,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           Edit = we
           Command = None}
 
-    member private x.GetUnusedOpensCodeActions fn p =
-        if config.UnusedOpensAnalyzer then
-            p |> x.IfDiagnostic "Unused open statement" (fun d ->
-                let range = {
-                    Start = {Line = d.Range.Start.Line - 1; Character = 1000}
-                    End = {Line = d.Range.End.Line; Character = d.Range.End.Character}
-                }
-                let action = x.CreateFix p.TextDocument.Uri fn "Remove unused open" (Some d) range ""
-                async.Return [action])
-        else
-            async.Return []
+    override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
+        logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" codeActionParams )
 
-    member private x.GetErrorSuggestionsCodeActions fn p =
-        p |> x.IfDiagnostic "Maybe you want one of the following:" (fun d ->
-            d.Message.Split('\n').[1..]
-            |> Array.map (fun suggestion ->
-                let s = suggestion.Trim()
-                let s =
-                    if System.Text.RegularExpressions.Regex.IsMatch(s, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                        s
-                    else
-                        "``" + s + "``"
-                let title = sprintf "Replace with %s" s
-                let action = x.CreateFix p.TextDocument.Uri fn title (Some d) d.Range s
-                action)
-            |> Array.toList
-            |> async.Return
-        )
-
-    member private x.GetNewKeywordSuggestionCodeAction fn p lines =
-        p |> x.IfDiagnostic "It is recommended that objects supporting the IDisposable interface are created using the syntax" (fun d ->
-            let s = "new " + getText lines d.Range
-            x.CreateFix p.TextDocument.Uri fn "Add new" (Some d) d.Range s
-            |> List.singleton
-            |> async.Return
-        )
-
-    member private x.GetUnusedCodeAction fn p lines =
-        p |> x.IfDiagnostic "is unused" (fun d ->
-            match d.Code with
-            | None ->
-                let s = "_"
-                let s2 = "_" + getText lines d.Range
-                [
-                    x.CreateFix p.TextDocument.Uri fn "Replace with _" (Some d) d.Range s
-                    x.CreateFix p.TextDocument.Uri fn "Prefix with _" (Some d) d.Range s2
-                ] |> async.Return
-            | Some _ ->
-                [
-                    x.CreateFix p.TextDocument.Uri fn "Replace with __" (Some d) d.Range "__"
-                ] |> async.Return
-
-        )
-
-    member private x.GetRedundantQualfierCodeAction fn p =
-        p |> x.IfDiagnostic "This qualifier is redundant" (fun d ->
-            [
-                x.CreateFix p.TextDocument.Uri fn "Remove redundant qualifier" (Some d) d.Range ""
-            ] |> async.Return
-        )
-
-    member private x.GetLinterCodeAction fn p =
-        p |> x.IfDiagnosticType "F# Linter" (fun d ->
-            let uri = Path.FilePathToUri fn
-
-            match fixes.TryGetValue uri with
-            | false, _ -> async.Return []
-            | true, lst ->
-                match lst |> Seq.tryFind (fun (r, te) -> r = d.Range) with
-                | None -> async.Return []
-                | Some (r, te) ->
-                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
-                    |> List.singleton
-                    |> async.Return
-        )
-
-    member private x.GetAnalyzerCodeAction fn p =
-        p |> x.IfDiagnosticType "F# Analyzers" (fun d ->
-            let uri = Path.FilePathToUri fn
-
-            let res =
-                analyzerFixes
-                |> Seq.map (|KeyValue|)
-                |> Seq.tryPick (fun ((u, _), lst) ->
-                    if u = uri then Some lst else None
-                )
-
-            match res with
-            | None -> async.Return []
-            | Some lst ->
-                lst
-                |> List.filter (fun (r, te) -> r = d.Range)
-                |> List.map (fun (r,te) ->
-                    x.CreateFix p.TextDocument.Uri fn (sprintf "Replace with %s" te.NewText) (Some d) te.Range te.NewText
-                )
-                |> async.Return
-        )
-
-    member private x.GetUnionCaseGeneratorCodeAction fn p (lines: string[]) =
-        p |> x.IfDiagnostic "Incomplete pattern matches on this expression. For example" (fun d ->
-            async {
-                if config.UnionCaseStubGeneration then
-                    let caseLine = d.Range.Start.Line + 1
-                    let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
-                    let pos = FcsRange.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
-                    let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetUnionPatternMatchCases tyRes pos lines line)
-                    let res =
-                        match res.[0] with
-                        | CoreResponse.Res (text, position) ->
-                            let range = {
-                                Start = fcsPosToLsp position
-                                End = fcsPosToLsp position
-                            }
-                            let text = text.Replace("$1", config.UnionCaseStubGenerationBody)
-                            [x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text ]
-                        | _ ->
-                            []
-                    return res
-                else
-                    return []
-            }
-        )
-
-    member private x.GetInterfaceStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
-        async {
-            if config.InterfaceStubGeneration then
-                let pos = protocolPosToPos p.Range.Start
-                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetInterfaceStub tyRes pos lines line)
-                let res =
-                    match res with
-                    | CoreResponse.Res (text, position)::_ ->
-                        let range = {
-                            Start = fcsPosToLsp position
-                            End = fcsPosToLsp position
-                        }
-                        let text =
-                            text.Replace("$objectIdent", config.InterfaceStubGenerationObjectIdentifier)
-                                .Replace("$methodBody", config.InterfaceStubGenerationMethodBody)
-                        [x.CreateFix p.TextDocument.Uri fn "Generate interface stubs" None range text ]
-                    | _ ->
-                        []
-                return res
-            else
-                return []
-        }
-
-    member private x.GetRecordStubCodeAction fn (p: CodeActionParams) (lines: string[]) =
-        async {
-            if config.RecordStubGeneration then
-                let pos = protocolPosToPos p.Range.Start
-                let! res = x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines -> commands.GetRecordStub tyRes pos lines line)
-                let res =
-                    match res with
-                    | CoreResponse.Res (text, position)::_ ->
-                        let range = {
-                            Start = fcsPosToLsp position
-                            End = fcsPosToLsp position
-                        }
-                        let text = text.Replace("$1", config.RecordStubGenerationBody)
-                        [x.CreateFix p.TextDocument.Uri fn "Generate record stubs" None range text ]
-                    | _ ->
-                        []
-                return res
-            else
-                return []
-        }
-
-    member private x.GetResolveNamespaceActions fn (p: CodeActionParams) =
-        let insertLine line lineStr =
-            {
-                Range = {
-                    Start = {Line = line; Character = 0}
-                    End = {Line = line; Character = 0}
-                }
-                NewText = lineStr
-            }
-
-
-        let adjustInsertionPoint (lines: string[]) (ctx : InsertContext) =
-            let l = ctx.Pos.Line
-            match ctx.ScopeKind with
-            | TopModule when l > 1 ->
-                let line = lines.[l - 2]
-                let isImpliciteTopLevelModule = not (line.StartsWith "module" && not (line.EndsWith "="))
-                if isImpliciteTopLevelModule then 1 else l
-            | TopModule -> 1
-            | ScopeKind.Namespace when l > 1 ->
-                [0..l - 1]
-                |> List.mapi (fun i line -> i, lines.[line])
-                |> List.tryPick (fun (i, lineStr) ->
-                    if lineStr.StartsWith "namespace" then Some i
-                    else None)
-                |> function
-                    // move to the next line below "namespace" and convert it to F# 1-based line number
-                    | Some line -> line + 2
-                    | None -> l
-            | ScopeKind.Namespace -> 1
-            | _ -> l
-
-        if config.ResolveNamespaces then
-            p |> x.IfDiagnostic "is not defined" (fun d ->
-                async {
-                    let pos = protocolPosToPos d.Range.Start
-                    return!
-                        x.HandleTypeCheckCodeAction fn pos (fun tyRes line lines ->
-                            async {
-                                let! res = commands.GetNamespaceSuggestions tyRes pos line
-                                let res =
-                                    match res with
-                                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                                        []
-                                    | CoreResponse.Res (word, opens, qualifiers) ->
-                                        let quals =
-                                            qualifiers
-                                            |> List.map (fun (name, qual) ->
-                                                let e =
-                                                    {
-                                                        Range = d.Range
-                                                        NewText = qual
-                                                    }
-                                                let edit =
-                                                    {
-                                                        TextDocument =
-                                                            {
-                                                                Uri = p.TextDocument.Uri
-                                                                Version = commands.TryGetFileVersion fn
-                                                            }
-                                                        Edits = [|e|]
-                                                    }
-                                                let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
-
-
-                                                { CodeAction.Title = sprintf "Use %s" qual
-                                                  Kind = Some "quickfix"
-                                                  Diagnostics = Some [| d |]
-                                                  Edit = we
-                                                  Command = None}
-                                            )
-                                        let ops =
-                                            opens
-                                            |> List.map (fun (ns, name, ctx, multiple) ->
-                                                let insertPoint = adjustInsertionPoint lines ctx
-                                                let docLine = insertPoint - 1
-                                                let s =
-                                                    if name.EndsWith word && name <> word then
-                                                        let prefix = name.Substring(0, name.Length - word.Length).TrimEnd('.')
-                                                        ns + "." + prefix
-                                                    else ns
-
-
-
-                                                let lineStr = (String.replicate ctx.Pos.Column " ") + "open " + s + "\n"
-                                                let edits =
-                                                    [|
-                                                        yield insertLine docLine lineStr
-                                                        if lines.[docLine + 1].Trim() <> "" then yield insertLine (docLine + 1) ""
-                                                        if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace) && docLine > 0 && not ((lines.[docLine - 1]).StartsWith "open" ) then
-                                                            yield insertLine (docLine - 1) ""
-                                                    |]
-                                                let edit =
-                                                    {
-                                                        TextDocument =
-                                                            {
-                                                                Uri = p.TextDocument.Uri
-                                                                Version = commands.TryGetFileVersion fn
-                                                            }
-                                                        Edits = edits
-                                                    }
-                                                let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
-
-
-                                                { CodeAction.Title = sprintf "Open %s" s
-                                                  Kind = Some "quickfix"
-                                                  Diagnostics = Some [| d |]
-                                                  Edit = we
-                                                  Command = None}
-
-                                            )
-                                        [yield! ops; yield! quals; ]
-                                return res
-                            }
-                        )
-                })
-        else
-            async.Return []
-
-    override x.TextDocumentCodeAction(p) =
-        logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" p )
-
-        let fn = p.TextDocument.GetFilePath()
+        let fn = codeActionParams.TextDocument.GetFilePath()
         match commands.TryGetFileCheckerOptionsWithLines fn with
         | ResultOrString.Error s ->
             AsyncLspResult.internalError s
         | ResultOrString.Ok (opts, lines) ->
         async {
-            let! unusedOpensActions = x.GetUnusedOpensCodeActions fn p
-            let! resolveNamespaceActions = x.GetResolveNamespaceActions fn p
-            let! errorSuggestionActions = x.GetErrorSuggestionsCodeActions fn p
-            let! unusedActions = x.GetUnusedCodeAction fn p lines
-            let! redundantActions = x.GetRedundantQualfierCodeAction fn p
-            let! newKeywordAction = x.GetNewKeywordSuggestionCodeAction fn p lines
-            let! duCaseActions = x.GetUnionCaseGeneratorCodeAction fn p lines
-            let! linterActions = x.GetLinterCodeAction fn p
-            let! analyzerActions = x.GetAnalyzerCodeAction fn p
-
-            let! interfaceGenerator = x.GetInterfaceStubCodeAction fn p lines
-            let! recordGenerator = x.GetRecordStubCodeAction fn p lines
-
-
-            let res =
-                [|
-                    yield! unusedOpensActions
-                    yield! (List.concat resolveNamespaceActions)
-                    yield! errorSuggestionActions
-                    yield! unusedActions
-                    yield! newKeywordAction
-                    yield! duCaseActions
-                    yield! linterActions
-                    yield! analyzerActions
-                    yield! interfaceGenerator
-                    yield! recordGenerator
-                    yield! redundantActions
-                |]
-
-
-            return res |> TextDocumentCodeActionResult.CodeActions |> Some |> success
+            let! actions =
+              Async.Parallel (codeFixes codeActionParams)
+              |> Async.map (List.concat >> Array.ofList)
+            return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
         }
 
     override __.TextDocumentCodeLens(p) = async {
@@ -1647,7 +1340,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let file = rangeP.TextDocument.GetFilePath()
         match! commands.ScopesForFile file with
         | Ok scopes ->
-            let ranges = scopes |> Seq.map toFoldingRange |> Set.ofSeq |> List.ofSeq
+            let ranges = scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> List.ofSeq
             return LspResult.success (Some ranges)
         | Result.Error error ->
             return LspResult.internalError error
