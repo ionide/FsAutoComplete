@@ -534,7 +534,7 @@ with
                 Enabled = "never"
                 Prefix =""
             }
-            UseSdkScripts = false
+            UseSdkScripts = true
             DotNetRoot = Environment.dotnetSDKRoot.Value.FullName
             FSIExtraParameters = [||]
             FSICompilerToolLocations = [||]
@@ -570,7 +570,7 @@ with
                 Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
                 Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
             }
-            UseSdkScripts = defaultArg dto.UseSdkScripts false
+            UseSdkScripts = defaultArg dto.UseSdkScripts true
             DotNetRoot =
                 dto.DotNetRoot
                 |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
