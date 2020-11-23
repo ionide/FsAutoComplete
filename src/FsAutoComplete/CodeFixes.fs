@@ -256,7 +256,6 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
-
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -385,6 +384,7 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -452,6 +452,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -489,6 +490,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -776,3 +778,46 @@ module Fixes =
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "39" ])
+
+  /// a codefix that removes 'return' or 'yield' (or bang-variants) when the compiler says they're not necessary
+  let removeUnnecessaryReturnOrYield (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                                     : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+          let fcsErrorPos = protocolPosToPos diagnostic.Range.Start
+
+          match tyRes.GetParseResults.TryRangeOfExprInYieldOrReturn fcsErrorPos with
+          | None -> return []
+          | Some exprRange ->
+              let protocolExprRange = fcsRangeToLsp exprRange
+              let exprText = getText lines protocolExprRange
+              let errorText = getText lines diagnostic.Range
+
+              let! title =
+                if errorText.StartsWith "return!"
+                then Ok "Remove 'return!'"
+                elif errorText.StartsWith "yield!"
+                then Ok "Remove 'yield!'"
+                elif errorText.StartsWith "return"
+                then Ok "Remove 'return'"
+                elif errorText.StartsWith "yield"
+                then Ok "Remove 'yield'"
+                else Error "unknown start token for remove return or yield codefix"
+
+              return
+                [ { Title = title
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diagnostic
+                    Edits =
+                      [| { Range = diagnostic.Range
+                           NewText = exprText } |] } ]
+
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "748"; "747" ])
