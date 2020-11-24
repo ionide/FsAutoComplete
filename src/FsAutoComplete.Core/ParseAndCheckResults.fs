@@ -56,6 +56,9 @@ module FCSPatches =
       | _ -> false
 
     member scope.TryRangeOfParenEnclosingOpEqualsGreaterUsage opGreaterEqualPos =
+      let (|InfixAppOfOpEqualsGreater|_|) =
+        function | SynExpr.App(ExprAtomicFlag.NonAtomic, false, SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, _), actualLambdaBodyExpr, _) -> Some (actualParamListExpr, actualLambdaBodyExpr)
+                 | _ -> None
       match scope.ParseTree with
       | None -> None
       | Some input ->
@@ -63,9 +66,14 @@ module FCSPatches =
           new AstTraversal.AstVisitorBase<_>() with
             member _.VisitExpr(_, _, defaultTraverse, expr) =
               match expr with
-              | SynExpr.Paren(SynExpr.App(ExprAtomicFlag.NonAtomic, false, SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, _), actualLambdaBodyExpr, _), _, _, fullParenRange) ->
-                Some (fullParenRange, actualParamListExpr.Range, actualLambdaBodyExpr.Range)
+              | SynExpr.Paren((InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _, _) ->
+                Some (app.Range, lambdaArgs.Range, lambdaBody.Range)
               | _ -> defaultTraverse expr
+            member _.VisitBinding(defaultTraverse, binding) =
+              match binding with
+              | SynBinding.Binding (_, SynBindingKind.NormalBinding, _, _, _, _, _, _, _, (InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _) ->
+                Some(app.Range, lambdaArgs.Range, lambdaBody.Range)
+              | _ -> defaultTraverse binding
           }
         AstTraversal.Traverse(opGreaterEqualPos, input, visitor)
 

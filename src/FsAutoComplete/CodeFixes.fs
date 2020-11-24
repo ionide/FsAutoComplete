@@ -840,7 +840,7 @@ module Fixes =
                  |> List.map (fun (fullParenRange, lambdaArgRange, lambdaBodyRange) ->
                     let argExprText = getText lines (fcsRangeToLsp lambdaArgRange)
                     let bodyExprText = getText lines (fcsRangeToLsp lambdaBodyRange)
-                    let replacementText = $"(fun {argExprText} -> {bodyExprText})"
+                    let replacementText = $"fun {argExprText} -> {bodyExprText}"
                     let replacementRange = fcsRangeToLsp fullParenRange
 
                     { Title = "Replace C#-style lambda with F# lambda"
