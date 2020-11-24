@@ -478,6 +478,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.comparisonToMutableAssignment tryGetParseResultsForFile
             Fixes.partialOrInvalidRecordExpressionToAnonymousRecord tryGetParseResultsForFile
             Fixes.removeUnnecessaryReturnOrYield tryGetParseResultsForFile
+            Fixes.rewriteCSharpLambdaToFSharpLambda tryGetParseResultsForFile
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p

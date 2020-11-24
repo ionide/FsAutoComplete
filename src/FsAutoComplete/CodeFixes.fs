@@ -204,7 +204,6 @@ module Fixes =
         async.Return [ fix ])
       "Unused open statement"
 
-
   /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
   let resolveNamespace getParseResultsForFile getNamespaceSuggestions =
     let qualifierFix file diagnostic qual =
@@ -821,3 +820,33 @@ module Fixes =
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "748"; "747" ])
+
+  /// a codefix that rewrites C#-style '=>' lambdas to F#-style 'fun _ -> _' lambdas
+  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>) : CodeFix =
+    fun codeActionParams ->
+    asyncResult {
+      let fileName = codeActionParams.TextDocument.GetFilePath()
+      let zeroPos: FSharp.Compiler.Range.pos = protocolPosToPos { Position.Character = 0; Position.Line = 0 }
+      let! (tyRes, line, lines) = getParseResultsForFile fileName zeroPos
+      match tyRes.GetAST with
+      | None -> return []
+      | Some ast ->
+        match UntypedAstUtils.getIdentUsagesByName ast [| "op_EqualsGreater" |] with
+        | [] -> return []
+        | usages ->
+          return usages
+                 |> List.choose tyRes.GetParseResults.TryRangeOfParenEnclosingOpEqualsGreaterUsage
+
+                 |> List.map (fun (fullParenRange, lambdaArgRange, lambdaBodyRange) ->
+                    let argExprText = getText lines (fcsRangeToLsp lambdaArgRange)
+                    let bodyExprText = getText lines (fcsRangeToLsp lambdaBodyRange)
+                    let replacementText = $"(fun {argExprText} -> {bodyExprText})"
+                    let replacementRange = fcsRangeToLsp fullParenRange
+
+                    { Title = "Replace C#-style lambda with F# lambda"
+                      File = codeActionParams.TextDocument
+                      SourceDiagnostic = None
+                      Edits = [| { Range = replacementRange; NewText = replacementText } |] }
+                 )
+    }
+    |> AsyncResult.foldResult id (fun _ -> [])
