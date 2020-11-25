@@ -14,13 +14,17 @@ module LspTypes = LanguageServerProtocol.Types
 module Types =
   type IsEnabled = unit -> bool
 
-  type FixKind = Fix | Refactor | Rewrite
+  type FixKind =
+    | Fix
+    | Refactor
+    | Rewrite
+
   type Fix =
     { Edits: TextEdit []
       File: TextDocumentIdentifier
       Title: string
       SourceDiagnostic: Diagnostic option
-      Kind: FixKind  }
+      Kind: FixKind }
 
   type CodeFix = CodeActionParams -> Async<Fix list>
 
@@ -31,7 +35,8 @@ module Types =
 
       CodeAction.OfDiagnostic fix.File fileVersion fix.Title fix.SourceDiagnostic fix.Edits fix.Kind clientCapabilities
 
-    static member OfDiagnostic (fileUri) (fileVersion) title (diagnostic) (edits) fixKind clientCapabilities: CodeAction =
+    static member OfDiagnostic (fileUri) (fileVersion) title (diagnostic) (edits) fixKind clientCapabilities
+                               : CodeAction =
 
       let edit =
         { TextDocument =
@@ -43,12 +48,12 @@ module Types =
         WorkspaceEdit.Create([| edit |], clientCapabilities)
 
       { CodeAction.Title = title
-        Kind = Some (
-                match fixKind with
-                | Fix -> "quickfix"
-                | Refactor -> "refactor"
-                | Rewrite -> "refactor.rewrite"
-              )
+        Kind =
+          Some
+            (match fixKind with
+             | Fix -> "quickfix"
+             | Refactor -> "refactor"
+             | Rewrite -> "refactor.rewrite")
         Diagnostics = diagnostic |> Option.map Array.singleton
         Edit = workspaceEdit
         Command = None }
@@ -265,6 +270,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -399,7 +405,6 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -469,7 +474,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -508,7 +512,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -586,16 +589,29 @@ module Fixes =
       (Set.ofList [ "3" ])
 
   /// a codefix that corrects == equality to = equality
-  let doubleEqualsToSingleEquality: CodeFix =
+  let doubleEqualsToSingleEquality (getFileLines: string -> Result<string [], _>): CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
-        async.Return [ { Title = "Use '=' for equality check"
-                         File = codeActionParams.TextDocument
-                         SourceDiagnostic = Some diagnostic
-                         Edits =
-                           [| { Range = diagnostic.Range
-                                NewText = "=" } |]
-                         Kind = Fix} ])
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let! lines = getFileLines fileName
+          let errorText = getText lines diagnostic.Range
+
+          match errorText with
+          | "==" ->
+              return
+                [ { Title = "Use '=' for equality check"
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diagnostic
+                    Edits =
+                      [| { Range = diagnostic.Range
+                           NewText = "=" } |]
+                    Kind = Fix } ]
+          | _ -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "43" ])
 
   /// a codefix that fixes a malformed record type annotation to use colon instead of equals
@@ -854,40 +870,38 @@ module Fixes =
       (Set.ofList [ "748"; "747" ])
 
   /// a codefix that rewrites C#-style '=>' lambdas to F#-style 'fun _ -> _' lambdas
-  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>) : CodeFix =
-    fun codeActionParams ->
-    asyncResult {
-      let fileName = codeActionParams.TextDocument.GetFilePath()
-      let zeroPos: FSharp.Compiler.Range.pos = protocolPosToPos { Position.Character = 0; Position.Line = 0 }
-      let! (tyRes, line, lines) = getParseResultsForFile fileName zeroPos
-      match tyRes.GetAST with
-      | None -> return []
-      | Some ast ->
-        match UntypedAstUtils.getIdentUsagesByName ast [| "op_EqualsGreater" |] with
-        | [] -> return []
-        | usages ->
-          return usages
-                 |> List.choose tyRes.GetParseResults.TryRangeOfParenEnclosingOpEqualsGreaterUsage
+  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                                        : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
 
-                 |> List.map (fun (fullParenRange, lambdaArgRange, lambdaBodyRange) ->
-                    let argExprText = getText lines (fcsRangeToLsp lambdaArgRange)
-                    let bodyExprText = getText lines (fcsRangeToLsp lambdaBodyRange)
-                    let replacementText = $"fun {argExprText} -> {bodyExprText}"
-                    let replacementRange = fcsRangeToLsp fullParenRange
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, _, lines) = getParseResultsForFile fileName fcsPos
 
-                    { Title = "Replace C#-style lambda with F# lambda"
-                      File = codeActionParams.TextDocument
-                      SourceDiagnostic = Some ({
-                        Range = replacementRange
-                        Severity = Some DiagnosticSeverity.Hint
-                        Code = None
-                        Source = "Ionide"
-                        Message = "Rewrite C# lambda to F# lambda"
-                        RelatedInformation = None
-                        Tags = None
-                       })
-                      Edits = [| { Range = replacementRange; NewText = replacementText } |]
-                      Kind = Refactor }
-                 )
-    }
-    |> AsyncResult.foldResult id (fun _ -> [])
+          match tyRes.GetParseResults.TryRangeOfParenEnclosingOpEqualsGreaterUsage fcsPos with
+          | Some (fullParenRange, lambdaArgRange, lambdaBodyRange) ->
+              let argExprText =
+                getText lines (fcsRangeToLsp lambdaArgRange)
+
+              let bodyExprText =
+                getText lines (fcsRangeToLsp lambdaBodyRange)
+
+              let replacementText = $"fun {argExprText} -> {bodyExprText}"
+              let replacementRange = fcsRangeToLsp fullParenRange
+
+              return
+                [ { Title = "Replace C#-style lambda with F# lambda"
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diagnostic
+                    Edits =
+                      [| { Range = replacementRange
+                           NewText = replacementText } |]
+                    Kind = Refactor } ]
+          | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "39" // undefined value
+                    "43" ]) // operator not defined
