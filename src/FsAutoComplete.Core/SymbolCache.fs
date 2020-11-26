@@ -33,7 +33,7 @@ module private PersistenCacheImpl =
     open Dapper
     open System.Data
 
-    let mutable connection : SqliteConnection option = None
+    let mutable connection : Lazy<SqliteConnection> option = None
 
     let insertHelper (connection: SqliteConnection) file (sugs: SymbolUseRange[]) =
         if connection.State <> ConnectionState.Open then connection.Open()
@@ -115,8 +115,12 @@ module private PersistenCacheImpl =
 
             conn.Execute(cmd)
             |> ignore
-        connection <- Some conn
+
         conn
+
+    let initLazyCache dir =
+        let lazyConn = Lazy<SqliteConnection>(fun _ -> initializeCache dir)
+        connection <- Some lazyConn
 
 let fromSymbolUse (su : FSharpSymbolUse) =
     {   StartLine = su.RangeAlternate.StartLine
@@ -135,20 +139,19 @@ let fromSymbolUse (su : FSharpSymbolUse) =
         SymbolIsLocal = su.Symbol.IsPrivateToFile  }
 
 let initCache dir =
-    PersistenCacheImpl.initializeCache dir
-    |> ignore
+    PersistenCacheImpl.initLazyCache dir
 
 let updateSymbols fn (symbols: FSharpSymbolUse[]) =
     let sus = symbols |> Array.map(fromSymbolUse)
 
     PersistenCacheImpl.connection
-    |> Option.iter (fun con -> PersistenCacheImpl.insert(con,fn,sus) )
+    |> Option.iter (fun con -> PersistenCacheImpl.insert(con.Value,fn,sus) )
 
 let getSymbols symbolName =
     async {
         match PersistenCacheImpl.connection with
         | Some conn ->
-            let! res = PersistenCacheImpl.loadSymbolUses conn symbolName
+            let! res = PersistenCacheImpl.loadSymbolUses conn.Value symbolName
             return Some res
         | None -> return None
     }
@@ -157,7 +160,7 @@ let getImplementation symbolName =
     async {
         match PersistenCacheImpl.connection with
         | Some conn ->
-            let! res = PersistenCacheImpl.loadImplementations conn symbolName
+            let! res = PersistenCacheImpl.loadImplementations conn.Value symbolName
             return Some res
         | None -> return None
     }
