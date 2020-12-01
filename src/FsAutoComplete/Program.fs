@@ -16,7 +16,12 @@ type Commands =
 [<EntryPoint>]
 let entry args =
 
+
     try
+      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
+
+      let results = parser.Parse args
+
       System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
       // default the verbosity to warning
@@ -31,9 +36,6 @@ let entry args =
             fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
           ) // make it so that every console log is logged to stderr
 
-      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
-
-      let results = parser.Parse args
 
       results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)
       |> Option.iter (ignore >> Debug.waitForDebugger)

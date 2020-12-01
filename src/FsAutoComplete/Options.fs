@@ -16,7 +16,7 @@ module Options =
       | [<AltCommandLine("-v")>] Verbose
       | AttachDebugger
       | [<EqualsAssignment; AltCommandLine("-l")>] Logfile of path:string
-      | VFilter of filter:string
+      | Filter of filter: string list
       | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
@@ -28,7 +28,7 @@ module Options =
                   | AttachDebugger -> "launch the system debugger and break."
                   | Verbose -> "enable verbose mode"
                   | Logfile _ -> "send verbose output to specified log file"
-                  | VFilter _ -> "apply a comma-separated {FILTER} to verbose output"
+                  | Filter _ -> "filter out messages that match the provided category"
                   | WaitForDebugger _ -> "wait for a debugger to attach to the process"
                   | HostPID _ -> "the Host process ID."
                   | BackgroundServiceEnabled -> "enable background service"
@@ -66,10 +66,9 @@ module Options =
           | e ->
             printfn "Bad log file: %s" e.Message
             exit 1
-      | VFilter v ->
-          let filters = v.Split([|','|], StringSplitOptions.RemoveEmptyEntries)
-          filters
-          |> Array.iter (fun category ->
+      | Filter categories ->
+          categories
+          |> List.iter (fun category ->
             // category is encoded in the SourceContext property, so we filter messages based on that property's value
             logConfig.Filter.ByExcluding(Func<_,_>(isCategory category)) |> ignore
           )
