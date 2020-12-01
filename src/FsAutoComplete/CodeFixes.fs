@@ -14,11 +14,17 @@ module LspTypes = LanguageServerProtocol.Types
 module Types =
   type IsEnabled = unit -> bool
 
+  type FixKind =
+    | Fix
+    | Refactor
+    | Rewrite
+
   type Fix =
     { Edits: TextEdit []
       File: TextDocumentIdentifier
       Title: string
-      SourceDiagnostic: Diagnostic option }
+      SourceDiagnostic: Diagnostic option
+      Kind: FixKind }
 
   type CodeFix = CodeActionParams -> Async<Fix list>
 
@@ -27,9 +33,10 @@ module Types =
       let filePath = fix.File.GetFilePath()
       let fileVersion = getFileVersion filePath
 
-      CodeAction.OfDiagnostic fix.File fileVersion fix.Title fix.SourceDiagnostic fix.Edits clientCapabilities
+      CodeAction.OfDiagnostic fix.File fileVersion fix.Title fix.SourceDiagnostic fix.Edits fix.Kind clientCapabilities
 
-    static member OfDiagnostic (fileUri) (fileVersion) title (diagnostic) (edits) clientCapabilities: CodeAction =
+    static member OfDiagnostic (fileUri) (fileVersion) title (diagnostic) (edits) fixKind clientCapabilities
+                               : CodeAction =
 
       let edit =
         { TextDocument =
@@ -41,7 +48,12 @@ module Types =
         WorkspaceEdit.Create([| edit |], clientCapabilities)
 
       { CodeAction.Title = title
-        Kind = Some "quickfix"
+        Kind =
+          Some
+            (match fixKind with
+             | Fix -> "quickfix"
+             | Refactor -> "refactor"
+             | Rewrite -> "refactor.rewrite")
         Diagnostics = diagnostic |> Option.map Array.singleton
         Edit = workspaceEdit
         Command = None }
@@ -199,11 +211,11 @@ module Fixes =
           { Edits = [| { Range = range; NewText = "" } |]
             File = codeActionParams.TextDocument
             Title = "Remove unused open"
-            SourceDiagnostic = Some d }
+            SourceDiagnostic = Some d
+            Kind = Refactor }
 
         async.Return [ fix ])
       "Unused open statement"
-
 
   /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
   let resolveNamespace getParseResultsForFile getNamespaceSuggestions =
@@ -213,7 +225,8 @@ module Fixes =
           [| { Range = diagnostic.Range
                NewText = qual } |]
         File = file
-        Title = $"Use %s{qual}" }
+        Title = $"Use %s{qual}"
+        Kind = Fix }
 
     let openFix fileLines file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
       let insertPoint = adjustInsertionPoint fileLines ctx
@@ -247,7 +260,8 @@ module Fixes =
       { Edits = edits
         File = file
         SourceDiagnostic = Some diagnostic
-        Title = $"open %s{actualOpen}" }
+        Title = $"open %s{actualOpen}"
+        Kind = Fix }
 
     ifDiagnosticByMessage
       (fun diagnostic codeActionParameter ->
@@ -256,6 +270,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -295,7 +310,8 @@ module Fixes =
                         NewText = suggestion } |]
                  Title = $"Replace with %s{suggestion}"
                  File = codeActionParams.TextDocument
-                 SourceDiagnostic = Some diagnostic })
+                 SourceDiagnostic = Some diagnostic
+                 Kind = Fix })
         |> Array.toList
         |> async.Return)
       "Maybe you want one of the following:"
@@ -309,7 +325,8 @@ module Fixes =
                                 NewText = "" } |]
                          File = codeActionParams.TextDocument
                          Title = "Remove redundant qualifier"
-                         SourceDiagnostic = Some diagnostic } ])
+                         SourceDiagnostic = Some diagnostic
+                         Kind = Refactor } ])
       "This qualifier is redundant"
 
   /// a codefix that suggests prepending a _ to unused values
@@ -327,7 +344,8 @@ module Fixes =
                         Title = "Replace with __"
                         Edits =
                           [| { Range = diagnostic.Range
-                               NewText = "__" } |] } ]
+                               NewText = "__" } |]
+                        Kind = Refactor } ]
               | None ->
                   let replaceSuggestion = "_"
                   let prefixSuggestion = $"_{getText lines diagnostic.Range}"
@@ -338,13 +356,15 @@ module Fixes =
                         Title = "Replace with _"
                         Edits =
                           [| { Range = diagnostic.Range
-                               NewText = replaceSuggestion } |] }
+                               NewText = replaceSuggestion } |]
+                        Kind = Refactor }
                       { SourceDiagnostic = Some diagnostic
                         File = codeActionParams.TextDocument
                         Title = "Prefix with _"
                         Edits =
                           [| { Range = diagnostic.Range
-                               NewText = prefixSuggestion } |] } ]
+                               NewText = prefixSuggestion } |]
+                        Kind = Refactor } ]
           | Error _ -> return []
         })
       "is unused"
@@ -360,7 +380,8 @@ module Fixes =
                              Title = "Add new"
                              Edits =
                                [| { Range = diagnostic.Range
-                                    NewText = $"new {getText lines diagnostic.Range}" } |] } ]
+                                    NewText = $"new {getText lines diagnostic.Range}" } |]
+                             Kind = Refactor } ]
         | Error _ -> async.Return [])
       "It is recommended that objects supporting the IDisposable interface are created using the syntax"
 
@@ -384,7 +405,6 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -401,7 +421,8 @@ module Fixes =
                 [ { SourceDiagnostic = Some diagnostic
                     File = codeActionParams.TextDocument
                     Title = "Generate union pattern match cases"
-                    Edits = [| { Range = range; NewText = replaced } |] } ]
+                    Edits = [| { Range = range; NewText = replaced } |]
+                    Kind = Fix } ]
 
           | _ -> return []
         }
@@ -425,7 +446,8 @@ module Fixes =
             async.Return [ { SourceDiagnostic = Some diagnostic
                              File = codeActionParams.TextDocument
                              Title = $"Replace with %s{textEdit.NewText}"
-                             Edits = [| textEdit |] } ]
+                             Edits = [| textEdit |]
+                             Kind = Fix } ]
         | None -> async.Return [])
       diagnosticType
 
@@ -452,7 +474,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -467,7 +488,8 @@ module Fixes =
                   File = codeActionParams.TextDocument
                   Edits =
                     [| { Range = fcsPosToProtocolRange pos
-                         NewText = replaced } |] } ]
+                         NewText = replaced } |]
+                  Kind = Fix } ]
         | _ -> return []
 
       }
@@ -490,7 +512,6 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -505,7 +526,8 @@ module Fixes =
                   File = codeActionParams.TextDocument
                   Edits =
                     [| { Range = fcsPosToProtocolRange pos
-                         NewText = replaced } |] } ]
+                         NewText = replaced } |]
+                  Kind = Fix } ]
         | _ -> return []
       }
       |> AsyncResult.foldResult id (fun _ -> [])
@@ -532,7 +554,8 @@ module Fixes =
                       File = codeActionParams.TextDocument
                       Edits =
                         [| { Range = { Start = insertPos; End = insertPos }
-                             NewText = " =" } |] } ]
+                             NewText = " =" } |]
+                      Kind = Fix } ]
             | None -> return []
           else
             return []
@@ -558,22 +581,37 @@ module Fixes =
                     File = codeActionParams.TextDocument
                     Edits =
                       [| { Range = { Start = dash; End = inc lines dash }
-                           NewText = "- " } |] } ]
+                           NewText = "- " } |]
+                    Kind = Fix } ]
           | None -> return []
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "3" ])
 
   /// a codefix that corrects == equality to = equality
-  let doubleEqualsToSingleEquality: CodeFix =
+  let doubleEqualsToSingleEquality (getFileLines: string -> Result<string [], _>): CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
-        async.Return [ { Title = "Use '=' for equality check"
-                         File = codeActionParams.TextDocument
-                         SourceDiagnostic = Some diagnostic
-                         Edits =
-                           [| { Range = diagnostic.Range
-                                NewText = "=" } |] } ])
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let! lines = getFileLines fileName
+          let errorText = getText lines diagnostic.Range
+
+          match errorText with
+          | "==" ->
+              return
+                [ { Title = "Use '=' for equality check"
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diagnostic
+                    Edits =
+                      [| { Range = diagnostic.Range
+                           NewText = "=" } |]
+                    Kind = Fix } ]
+          | _ -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "43" ])
 
   /// a codefix that fixes a malformed record type annotation to use colon instead of equals
@@ -586,12 +624,13 @@ module Fixes =
                            SourceDiagnostic = Some diagnostic
                            Edits =
                              [| { Range = diagnostic.Range
-                                  NewText = ":" } |] } ]
+                                  NewText = ":" } |]
+                           Kind = Fix } ]
         else
           async.Return [])
       (Set.ofList [ "10" ])
 
-  /// a codefix that parenthesizes a membe rexpression that needs it
+  /// a codefix that parenthesizes a member expression that needs it
   let parenthesizeExpression (getFileLines: string -> Result<string [], _>): CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -604,7 +643,8 @@ module Fixes =
                              SourceDiagnostic = Some diagnostic
                              Edits =
                                [| { Range = diagnostic.Range
-                                    NewText = $"(%s{erroringExpression})" } |] } ]
+                                    NewText = $"(%s{erroringExpression})" } |]
+                             Kind = Fix } ]
         | Error _ -> async.Return [])
       (Set.ofList [ "597" ])
 
@@ -628,7 +668,8 @@ module Fixes =
                     File = codeActionParams.TextDocument
                     Edits =
                       [| { Range = fcsRangeToLsp derefRange
-                           NewText = "not " } |] } ]
+                           NewText = "not " } |]
+                    Kind = Fix } ]
           | None -> return []
         }
         |> AsyncResult.foldResult id (fun _ -> []))
@@ -654,14 +695,16 @@ module Fixes =
                                  Title = "Use ':>' operator"
                                  Edits =
                                    [| { Range = diagnostic.Range
-                                        NewText = expressionText.Replace(":?>", ":>") } |] } ]
+                                        NewText = expressionText.Replace(":?>", ":>") } |]
+                                 Kind = Refactor } ]
             | false, true ->
                 async.Return [ { File = codeActionParams.TextDocument
                                  SourceDiagnostic = Some diagnostic
                                  Title = "Use 'upcast' function"
                                  Edits =
                                    [| { Range = diagnostic.Range
-                                        NewText = expressionText.Replace("downcast", "upcast") } |] } ]
+                                        NewText = expressionText.Replace("downcast", "upcast") } |]
+                                 Kind = Refactor } ]
         | Error _ -> async.Return [])
       (Set.ofList [ "3198" ])
 
@@ -696,7 +739,8 @@ module Fixes =
                             [| { Range =
                                    { Start = lspRange.Start
                                      End = lspRange.Start }
-                                 NewText = "mutable " } |] } ]
+                                 NewText = "mutable " } |]
+                          Kind = Refactor } ]
               | _ -> return []
           | None -> return []
         }
@@ -732,7 +776,8 @@ module Fixes =
                           [| { Range =
                                  { Start = equalsPos
                                    End = (inc lines equalsPos) }
-                               NewText = "<-" } |] } ]
+                               NewText = "<-" } |]
+                        Kind = Refactor } ]
               | None -> return []
           | _ -> return []
         }
@@ -773,7 +818,8 @@ module Fixes =
                       [| { Range = startInsertRange
                            NewText = "|" }
                          { Range = endInsertRange
-                           NewText = "|" } |] } ]
+                           NewText = "|" } |]
+                    Kind = Refactor } ]
           | None -> return []
         }
         |> AsyncResult.foldResult id (fun _ -> []))
@@ -816,8 +862,46 @@ module Fixes =
                     SourceDiagnostic = Some diagnostic
                     Edits =
                       [| { Range = diagnostic.Range
-                           NewText = exprText } |] } ]
+                           NewText = exprText } |]
+                    Kind = Refactor } ]
 
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "748"; "747" ])
+
+  /// a codefix that rewrites C#-style '=>' lambdas to F#-style 'fun _ -> _' lambdas
+  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                                        : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let fcsPos = protocolPosToPos diagnostic.Range.Start
+          let! (tyRes, _, lines) = getParseResultsForFile fileName fcsPos
+
+          match tyRes.GetParseResults.TryRangeOfParenEnclosingOpEqualsGreaterUsage fcsPos with
+          | Some (fullParenRange, lambdaArgRange, lambdaBodyRange) ->
+              let argExprText =
+                getText lines (fcsRangeToLsp lambdaArgRange)
+
+              let bodyExprText =
+                getText lines (fcsRangeToLsp lambdaBodyRange)
+
+              let replacementText = $"fun {argExprText} -> {bodyExprText}"
+              let replacementRange = fcsRangeToLsp fullParenRange
+
+              return
+                [ { Title = "Replace C#-style lambda with F# lambda"
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diagnostic
+                    Edits =
+                      [| { Range = replacementRange
+                           NewText = replacementText } |]
+                    Kind = Refactor } ]
+          | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "39" // undefined value
+                    "43" ]) // operator not defined

@@ -1483,6 +1483,11 @@ let getModuleOrNamespacePath (pos: pos) (ast: ParsedInput) =
     |> Seq.map (fun ident -> ident.idText)
     |> String.concat "."
 
+let getIdentUsagesByName ast name =
+  let idents = getLongIdents (Some ast)
+  idents
+  |> Seq.choose (fun (KeyValue(pos, ident)) -> if ident = name then Some pos else None)
+  |> List.ofSeq
 
 module HashDirectiveInfo =
     open System.IO

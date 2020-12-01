@@ -469,7 +469,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
               (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
             Fixes.addMissingEqualsToTypeDefinition getFileLines
             Fixes.changeNegationToSubtraction getFileLines
-            Fixes.doubleEqualsToSingleEquality
+            Fixes.doubleEqualsToSingleEquality getFileLines
             Fixes.addMissingColonToFieldDefinition
             Fixes.parenthesizeExpression getFileLines
             Fixes.refCellDerefToNot tryGetParseResultsForFile
@@ -478,6 +478,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.comparisonToMutableAssignment tryGetParseResultsForFile
             Fixes.partialOrInvalidRecordExpressionToAnonymousRecord tryGetParseResultsForFile
             Fixes.removeUnnecessaryReturnOrYield tryGetParseResultsForFile
+            Fixes.rewriteCSharpLambdaToFSharpLambda tryGetParseResultsForFile
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p

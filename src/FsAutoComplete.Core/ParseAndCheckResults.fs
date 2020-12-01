@@ -20,9 +20,15 @@ type FindDeclarationResult =
     /// The declaration refers to a file.
     | File of string
 
+
 /// TODO: remove this extension when we get https://github.com/dotnet/fsharp/pull/10480/files#diff-5d99a1a2e89452abe0d275ce060600f65c0c24d995703b5bc067106c38cb5e67R108 merged
 module FCSPatches =
+  let (|Ident|_|) ofName =
+    function | SynExpr.Ident ident when ident.idText = ofName -> Some ()
+             | _ -> None
+
   type FSharpParseFileResults with
+
     member scope.IsPositionContainedInACurriedParameter pos =
       match scope.ParseTree with
       | Some input ->
@@ -48,6 +54,28 @@ module FCSPatches =
               })
           result.IsSome
       | _ -> false
+
+    member scope.TryRangeOfParenEnclosingOpEqualsGreaterUsage opGreaterEqualPos =
+      let (|InfixAppOfOpEqualsGreater|_|) =
+        function | SynExpr.App(ExprAtomicFlag.NonAtomic, false, SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, _), actualLambdaBodyExpr, _) -> Some (actualParamListExpr, actualLambdaBodyExpr)
+                 | _ -> None
+      match scope.ParseTree with
+      | None -> None
+      | Some input ->
+        let visitor = {
+          new AstTraversal.AstVisitorBase<_>() with
+            member _.VisitExpr(_, _, defaultTraverse, expr) =
+              match expr with
+              | SynExpr.Paren((InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _, _) ->
+                Some (app.Range, lambdaArgs.Range, lambdaBody.Range)
+              | _ -> defaultTraverse expr
+            member _.VisitBinding(defaultTraverse, binding) =
+              match binding with
+              | SynBinding.Binding (_, SynBindingKind.NormalBinding, _, _, _, _, _, _, _, (InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _) ->
+                Some(app.Range, lambdaArgs.Range, lambdaBody.Range)
+              | _ -> defaultTraverse binding
+          }
+        AstTraversal.Traverse(opGreaterEqualPos, input, visitor)
 
     member scope.TryRangeOfRefCellDereferenceContainingPos expressionPos =
       match scope.ParseTree with
