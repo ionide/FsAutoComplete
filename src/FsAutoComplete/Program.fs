@@ -16,17 +16,13 @@ type Commands =
 [<EntryPoint>]
 let entry args =
 
-    try
-      System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
-      let allowedCategories = Set.empty
-      let filterFn (allowedCategories: Set<string>) (e: LogEvent) =
-        let ctx = e.Properties.["SourceContext"]
-        match ctx with
-        | :? ScalarValue as s ->
-          let category = s.Value :?> string
-          allowedCategories.Contains category
-        | _ -> false // don't allow untagged messages through
+    try
+      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
+
+      let results = parser.Parse args
+
+      System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
 
       // default the verbosity to warning
       let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
@@ -40,9 +36,6 @@ let entry args =
             fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
           ) // make it so that every console log is logged to stderr
 
-      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
-
-      let results = parser.Parse args
 
       results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)
       |> Option.iter (ignore >> Debug.waitForDebugger)
@@ -54,10 +47,6 @@ let entry args =
           exit 0 )
 
       Options.apply verbositySwitch logConf results
-
-      let allowedCategories = Set.empty //TODO: turn args into a set of allowed categories
-      let logConf = // TODO: conditionally apply this filter function to the log configuration instead of applying it every time
-          logConf.Filter.ByExcluding (Func<_,_> (filterFn allowedCategories))
 
       let logger = logConf.CreateLogger()
       Serilog.Log.Logger <- logger
