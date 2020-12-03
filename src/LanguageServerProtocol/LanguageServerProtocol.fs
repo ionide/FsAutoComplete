@@ -1665,6 +1665,40 @@ module Types =
         ActiveParameter: int option
     }
 
+    type SignatureHelpTriggerKind =
+    /// manually invoked via command
+    | Invoked = 1
+    /// trigger by a configured trigger character
+    | TriggerCharacter = 2
+    /// triggered by cursor movement or document content changing
+    | ContentChange = 3
+
+    type SignatureHelpContext =
+      {
+        /// action that caused signature help to be triggered
+        TriggerKind: SignatureHelpTriggerKind
+        /// character that caused signature help to be triggered. None when kind is not TriggerCharacter.
+        TriggerCharacter: string option
+        /// true if signature help was already showing when this was triggered
+        IsRetrigger: bool
+        /// the current active SignatureHelp
+        ActiveSignatureHelp: SignatureHelp option
+
+      }
+
+    type SignatureHelpParams =
+      {
+        /// the text document
+        TextDocument: TextDocumentIdentifier
+        /// the position inside the text document
+        Position: Position
+        /// Additional information about the context in which a signature help request was triggered.
+        Context: SignatureHelpContext option
+      }
+      interface ITextDocumentPositionParams with
+        member this.TextDocument with get () = this.TextDocument
+        member this.Position with get () = this.Position
+
     type FoldingRangeParams = {
         /// the document to generate ranges for
         TextDocument: TextDocumentIdentifier
@@ -2080,7 +2114,7 @@ type LspServer() =
 
     /// The signature help request is sent from the client to the server to request signature information at
     /// a given cursor position.
-    abstract member TextDocumentSignatureHelp: TextDocumentPositionParams -> AsyncLspResult<SignatureHelp option>
+    abstract member TextDocumentSignatureHelp: SignatureHelpParams -> AsyncLspResult<SignatureHelp option>
     default __.TextDocumentSignatureHelp(_) = notImplemented
 
     /// The document link resolve request is sent from the client to the server to resolve the target of

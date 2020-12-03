@@ -132,14 +132,14 @@ open Types
 let ifEnabled enabled codeFix: CodeFix =
   fun codeActionParams -> if enabled () then codeFix codeActionParams else async.Return []
 
-let ifDiagnosticByMessage handler (checkMessage: string) =
+let ifDiagnosticByMessage handler (checkMessage: string): CodeFix =
   (fun codeActionParams ->
     match codeActionParams.Context.Diagnostics
           |> Array.tryFind (fun n -> n.Message.Contains checkMessage) with
     | None -> async.Return []
     | Some d -> handler d codeActionParams)
 
-let ifDiagnosticByType handler (diagnosticType: string) =
+let ifDiagnosticByType handler (diagnosticType: string): CodeFix =
   (fun codeActionParams ->
     match codeActionParams.Context.Diagnostics
           |> Seq.tryFind (fun n -> n.Source.Contains diagnosticType) with
@@ -270,7 +270,6 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
-
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -405,6 +404,7 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -416,7 +416,7 @@ module Fixes =
               let replaced =
                 (insertString, replacements)
                 ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
-              // x.CreateFix p.TextDocument.Uri fn "Generate union pattern match case" (Some d) range text
+
               return
                 [ { SourceDiagnostic = Some diagnostic
                     File = codeActionParams.TextDocument
@@ -474,6 +474,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -512,6 +513,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
