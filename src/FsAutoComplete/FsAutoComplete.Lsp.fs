@@ -669,84 +669,80 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
       ()
     }
 
-    override __.TextDocumentCompletion(p: CompletionParams) = async {
+    override __.TextDocumentCompletion(p: CompletionParams) =
+      let ensureInBounds (lines: LineStr array) (line, col) =
+        let lineStr = lines.[line]
+        if line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
+        then Ok ()
+        else
+          logger.info (Log.setMessage "TextDocumentCompletion Not OK:\n COL: {col}\n LINE_STR: {lineStr}\n LINE_STR_LENGTH: {lineStrLength}"
+                           >> Log.addContextDestructured "col" col
+                           >> Log.addContextDestructured "lineStr" lineStr
+                           >> Log.addContextDestructured "lineStrLength" lineStr.Length)
 
-        logger.info (Log.setMessage "TextDocumentCompletion Request: {context}" >> Log.addContextDestructured "context" p)
-        // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
-        let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
-        let doc = p.TextDocument
-        let file = doc.GetFilePath()
-        let pos = p.GetFcsPos()
-        let! res =
-            match commands.TryGetFileCheckerOptionsWithLines file with
-            | ResultOrString.Error s -> AsyncLspResult.internalError s
-            | ResultOrString.Ok (options, lines) ->
-                let line = p.Position.Line
-                let col = p.Position.Character
-                let lineStr = lines.[line]
-                let word = lineStr.Substring(0, col)
-                let ok = line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
-                if not ok then
-                    logger.info (Log.setMessage "TextDocumentCompletion Not OK:\n COL: {col}\n LINE_STR: {lineStr}\n LINE_STR_LENGTH: {lineStrLength}"
-                                 >> Log.addContextDestructured "col" col
-                                 >> Log.addContextDestructured "lineStr" lineStr
-                                 >> Log.addContextDestructured "lineStrLength" lineStr.Length)
+          Error (JsonRpc.Error.InternalErrorMessage "not ok")
 
-                    AsyncLspResult.internalError "not ok"
-                elif (lineStr.StartsWith "#" && (KeywordList.hashDirectives.Keys |> Seq.exists (fun k -> k.StartsWith word ) || word.Contains "\n" )) then
-                    let completionList = { IsIncomplete = false; Items = KeywordList.hashSymbolCompletionItems }
-                    async.Return (success (Some completionList))
-                else
-                    async {
-                        let! tyResOpt =
-                            match p.Context with
-                            | None -> commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
-                            | Some ctx ->
-                                //ctx.triggerKind = CompletionTriggerKind.Invoked ||
-                                if  (ctx.triggerCharacter = Some ".") then
-                                    commands.TryGetLatestTypeCheckResultsForFile(file)
-                                else
-                                    commands.TryGetRecentTypeCheckResultsForFile(file, options) |> async.Return
+      asyncResult {
+          logger.info (Log.setMessage "TextDocumentCompletion Request: {context}" >> Log.addContextDestructured "context" p)
+          // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
+          let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
+          let doc = p.TextDocument
+          let file = doc.GetFilePath()
+          let pos = p.GetFcsPos()
+          let! (options, lines) = commands.TryGetFileCheckerOptionsWithLines file |> Result.mapError JsonRpc.Error.InternalErrorMessage
+          let line, col = p.Position.Line, p.Position.Character
+          let lineStr = lines.[line]
+          let word = lineStr.Substring(0, col)
 
-                        match tyResOpt with
-                        | None ->
-                          logger.info (Log.setMessage "TextDocumentCompletion - no type check results")
-                          return LspResult.internalError "no type check results"
-                        | Some tyRes ->
-                            let! res = commands.Completion tyRes pos lineStr lines file None (config.KeywordsAutocomplete) (config.ExternalAutocomplete)
-                            let res =
-                                match res with
-                                | CoreResponse.Res(decls, keywords) ->
-                                    let items =
-                                        decls
-                                        |> Array.mapi (fun id d ->
-                                            let code =
-                                                if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then d.Name
-                                                elif d.NamespaceToOpen.IsSome then d.Name
-                                                else PrettyNaming.QuoteIdentifierIfNeeded d.Name
-                                            let label =
-                                                match d.NamespaceToOpen with
-                                                | Some no -> sprintf "%s (open %s)" d.Name no
-                                                | None -> d.Name
+          do! ensureInBounds lines (line, col)
 
-                                            { CompletionItem.Create(d.Name) with
-                                                Kind = glyphToCompletionKind d.Glyph
-                                                InsertText = Some code
-                                                SortText = Some (sprintf "%06d" id)
-                                                FilterText = Some d.Name
-                                                Label = label
-                                            }
-                                        )
-                                    let its = if not keywords then items else Array.append items KeywordList.keywordCompletionItems
-                                    let completionList = { IsIncomplete = false; Items = its}
-                                    success (Some completionList)
-                                | _ ->
-                                  logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
-                                  noCompletion
-                            return res
-                    }
-        return res
-    }
+          if (lineStr.StartsWith "#" && (KeywordList.hashDirectives.Keys |> Seq.exists (fun k -> k.StartsWith word ) || word.Contains "\n" )) then
+              let completionList = { IsIncomplete = false; Items = KeywordList.hashSymbolCompletionItems }
+              return! success (Some completionList)
+          else
+            let! typeCheckResults =
+              match p.Context with
+              | None ->
+                commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
+                |> async.Return
+              | Some ctx ->
+                  //ctx.triggerKind = CompletionTriggerKind.Invoked ||
+                  if  (ctx.triggerCharacter = Some ".") then
+                      commands.TryGetLatestTypeCheckResultsForFile(file)
+                      |> Async.map (Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results"))
+                  else
+                      commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                      |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
+                      |> async.Return
+            match! commands.Completion typeCheckResults pos lineStr lines file None (config.KeywordsAutocomplete) (config.ExternalAutocomplete) with
+            | CoreResponse.Res(decls, keywords) ->
+                let items =
+                    decls
+                    |> Array.mapi (fun id d ->
+                        let code =
+                            if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then d.Name
+                            elif d.NamespaceToOpen.IsSome then d.Name
+                            else PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                        let label =
+                            match d.NamespaceToOpen with
+                            | Some no -> sprintf "%s (open %s)" d.Name no
+                            | None -> d.Name
+
+                        { CompletionItem.Create(d.Name) with
+                            Kind = glyphToCompletionKind d.Glyph
+                            InsertText = Some code
+                            SortText = Some (sprintf "%06d" id)
+                            FilterText = Some d.Name
+                        }
+                    )
+                let its = if not keywords then items else Array.append items KeywordList.keywordCompletionItems
+                let completionList = { IsIncomplete = false; Items = its}
+                return! success (Some completionList)
+            | _ ->
+              logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
+              return! noCompletion
+      }
 
     override __.CompletionItemResolve(ci) = async {
         logger.info (Log.setMessage "CompletionItemResolve Request: {parms}" >> Log.addContextDestructured "parms" ci )
@@ -768,10 +764,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override x.TextDocumentSignatureHelp(p) =
         logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
-        p |> x.positionHandlerWithLatest (fun p pos tyRes lineStr lines ->
+        p |> x.positionHandlerWithLatest (fun p fcsPos tyRes lineStr lines ->
             async {
-                let pos' = FcsRange.Pos.fromZ p.Position.Line p.Position.Character
-                let! res = commands.Methods tyRes pos' lines
+                let! res = commands.Methods tyRes fcsPos lines
                 let res =
                     match res with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
