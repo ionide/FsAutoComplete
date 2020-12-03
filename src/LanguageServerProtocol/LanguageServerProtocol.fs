@@ -1824,6 +1824,7 @@ module JsonRpc =
         static member MethodNotFound = Error.Create(ErrorCodes.methodNotFound, "Method not found")
         static member InvalidParams = Error.Create(ErrorCodes.invalidParams, "Invalid params")
         static member InternalError = Error.Create(ErrorCodes.internalError, "Internal error")
+        static member InternalErrorMessage message = Error.Create(ErrorCodes.internalError, message)
 
     type Response = {
         [<JsonProperty("jsonrpc")>] Version: string
