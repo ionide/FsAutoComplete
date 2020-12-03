@@ -769,9 +769,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return success res
     }
 
-    override x.TextDocumentSignatureHelp(p) =
-        logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
-        p |> x.positionHandlerWithLatest (fun p fcsPos tyRes lineStr lines ->
+    override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
+        logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" sigHelpParams )
+        sigHelpParams |> x.positionHandlerWithLatest (fun p fcsPos tyRes lineStr lines ->
             async {
                 let! res = commands.Methods tyRes fcsPos lines
                 let res =
