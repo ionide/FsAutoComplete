@@ -1119,44 +1119,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             async.Return []
             }
 
-    member private __.IfDiagnostic (str: string) handler p =
-        let diag =
-            p.Context.Diagnostics |> Seq.tryFind (fun n -> n.Message.Contains str)
-        match diag with
-        | None -> async.Return []
-        | Some d -> handler d
-
-    member private __.IfDiagnosticType (str: string) handler p =
-        let diag =
-            p.Context.Diagnostics |> Seq.tryFind (fun n -> n.Source.Contains str)
-        match diag with
-        | None -> async.Return []
-        | Some d -> handler d
-
-    member private __.CreateFix uri fn title (d: Diagnostic option) range replacement  =
-        let e =
-            {
-                Range = range
-                NewText = replacement
-            }
-        let edit =
-            {
-                TextDocument =
-                    {
-                        Uri = uri
-                        Version = commands.TryGetFileVersion fn
-                    }
-                Edits = [|e|]
-            }
-        let we = WorkspaceEdit.Create([|edit|], clientCapabilities.Value)
-
-
-        { CodeAction.Title = title
-          Kind = Some "quickfix"
-          Diagnostics = d |> Option.map Array.singleton
-          Edit = we
-          Command = None}
-
     override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
         logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" codeActionParams )
 
