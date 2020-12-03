@@ -589,12 +589,27 @@ module Types =
 
         /// The characters that trigger completion automatically.
         TriggerCharacters: string[] option
+
+        /// The list of all possible characters that commit a completion.
+        /// This field can be used if clients don't support individual commit
+        /// characters per completion item.
+        ///
+        /// See `ClientCapabilities.textDocument.completion.completionItem.commitCharactersSupport`.
+        ///
+        /// If a server provides both `allCommitCharacters` and commit characters
+        /// on an individual completion item, the ones on the completion item win.
+        AllCommitCharacters: string[] option
     }
 
     /// Signature help options.
     type SignatureHelpOptions = {
         /// The characters that trigger signature help automatically.
         TriggerCharacters: string[] option
+        /// List of characters that re-trigger signature help.
+        ///
+        /// These trigger characters are only active when signature help is already showing.
+        /// All trigger characters are also counted as re-trigger characters.
+        RetriggerCharacters: string[] option
     }
 
     /// Code Lens options.

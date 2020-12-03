@@ -20,6 +20,11 @@ open FsToolkit.ErrorHandling
 
 module FcsRange = FSharp.Compiler.Range
 
+module AsyncResult =
+  let ofCoreResponse (ar: Async<CoreResponse<'a>>) =
+    ar |> Async.map (function | CoreResponse.Res a -> Ok a | CoreResponse.ErrorRes msg | CoreResponse.InfoRes msg -> Error (JsonRpc.Error.InternalErrorMessage msg))
+
+
 open FSharp.Analyzers
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
@@ -593,12 +598,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentFormattingProvider = Some true
                         DocumentRangeFormattingProvider = Some false
                         SignatureHelpProvider = Some {
-                            SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]
+                            TriggerCharacters = Some [| "("; ","; "<"; " "; |]
+                            RetriggerCharacters = Some [| ")"; ">"; "=" |]
                         }
                         CompletionProvider =
                             Some {
                                 ResolveProvider = Some true
                                 TriggerCharacters = Some ([| "."; "'"; |])
+                                AllCommitCharacters = None //TODO: what chars shoudl commit completions?
                             }
                         CodeLensProvider = Some {
                             CodeLensOptions.ResolveProvider = Some true
@@ -685,9 +692,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
       asyncResult {
           logger.info (Log.setMessage "TextDocumentCompletion Request: {context}" >> Log.addContextDestructured "context" p)
           // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
-          let noCompletion = success (Some { IsIncomplete = true; Items = [||] })
-          let doc = p.TextDocument
-          let file = doc.GetFilePath()
+          let file = p.TextDocument.GetFilePath()
           let pos = p.GetFcsPos()
           let! (options, lines) = commands.TryGetFileCheckerOptionsWithLines file |> Result.mapError JsonRpc.Error.InternalErrorMessage
           let line, col = p.Position.Line, p.Position.Character
@@ -741,7 +746,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 return! success (Some completionList)
             | _ ->
               logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
-              return! noCompletion
+              return! success (Some { IsIncomplete = true; Items = [||] })
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) = async {
@@ -772,38 +777,30 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
         logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" sigHelpParams )
         sigHelpParams |> x.positionHandlerWithLatest (fun p fcsPos tyRes lineStr lines ->
-            async {
-                let! res = commands.Methods tyRes fcsPos lines
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (methods, commas) ->
-                        let sigs =
-                            methods.Methods |> Array.map(fun m ->
-                                let (sign, comm) = TipFormatter.formatTip m.Description |> List.head |> List.head
-                                let parameters =
-                                    m.Parameters |> Array.map (fun p ->
-                                        {ParameterInformation.Label = p.ParameterName; Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting)}
-                                    )
-                                let d = Documentation.Markup (markdown comm)
-                                { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
+            asyncResult {
+                let! (methods, commas) = commands.Methods tyRes fcsPos lines |> AsyncResult.ofCoreResponse
+                let sigs =
+                    methods.Methods |> Array.map(fun m ->
+                        let (sign, comm) = TipFormatter.formatTip m.Description |> List.head |> List.head
+                        let parameters =
+                            m.Parameters |> Array.map (fun p ->
+                                {ParameterInformation.Label = p.ParameterName; Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting)}
                             )
+                        let d = Documentation.Markup (markdown comm)
+                        { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
+                    )
 
-                        let activSig =
-                            let sigs = sigs |> Seq.sortBy (fun n -> n.Parameters.Value.Length)
-                            sigs
-                            |> Seq.findIndex (fun s -> s.Parameters.Value.Length >= commas)
-                            |> fun index -> if index + 1 >= (sigs |> Seq.length) then index else index + 1
+                let activSig =
+                    let sigs = sigs |> Seq.sortBy (fun n -> n.Parameters.Value.Length)
+                    sigs
+                    |> Seq.findIndex (fun s -> s.Parameters.Value.Length >= commas)
+                    |> fun index -> if index + 1 >= (sigs |> Seq.length) then index else index + 1
 
-                        let res = {Signatures = sigs;
-                                   ActiveSignature = Some activSig;
-                                   ActiveParameter = Some commas }
+                let res = {Signatures = sigs;
+                           ActiveSignature = Some activSig;
+                           ActiveParameter = Some commas }
 
-
-
-                        success (Some res)
-                return res
+                return! success (Some res)
             }
         )
 
@@ -1033,7 +1030,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         |> success
                 return res
             })
-
 
     override __.TextDocumentDocumentSymbol(p) = async {
         logger.info (Log.setMessage "TextDocumentDocumentSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
