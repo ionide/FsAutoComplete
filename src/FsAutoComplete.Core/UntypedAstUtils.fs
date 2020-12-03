@@ -27,6 +27,19 @@ let (|ConstructorPats|) = function
     | SynArgPats.Pats ps -> ps
     | SynArgPats.NamePatPairs(xs, _) -> List.map snd xs
 
+/// matches if the range contains the position
+let (|ContainsPos|_|) pos range =
+  if rangeContainsPos range pos then Some () else None
+
+/// Active pattern that matches an ident on a given name by the ident's `idText`
+let (|Ident|_|) ofName =
+  function | SynExpr.Ident ident when ident.idText = ofName -> Some ()
+           | _ -> None
+
+/// matches if the range contains the position
+let (|IdentContainsPos|_|) pos (ident: Ident) =
+  (|ContainsPos|_|) pos ident.idRange
+
 /// A pattern that collects all attributes from a `SynAttributes` into a single flat list
 let (|AllAttrs|) (attrs: SynAttributes) =
     attrs |> List.collect (fun attrList -> attrList.Attributes)
