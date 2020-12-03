@@ -554,7 +554,7 @@ module Types =
 
         /// capabilities for the `textDocument/foldingRange`
         FoldingRange: FoldingRangeCapabilities option
-        
+
         /// Capabilities for the `textDocument/selectionRange`
         SelectionRange: DynamicCapabilities option
     }
@@ -2174,8 +2174,8 @@ type LspServer() =
     /// The folding range request is sent from the client to the server to return all folding ranges found in a given text document.
     abstract member TextDocumentFoldingRange: FoldingRangeParams -> AsyncLspResult<FoldingRange list option>
     default __.TextDocumentFoldingRange(_) = notImplemented
-    
-    /// The selection range request is sent from the client to the server to return suggested selection ranges at an array of given positions. 
+
+    /// The selection range request is sent from the client to the server to return suggested selection ranges at an array of given positions.
     /// A selection range is a range around the cursor position which the user might be interested in selecting.
     abstract member TextDocumentSelectionRange: SelectionRangeParams -> AsyncLspResult<SelectionRange list option>
     default __.TextDocumentSelectionRange(_) = notImplemented
@@ -2246,7 +2246,7 @@ module Server =
 
         { Run = tokenRun }
 
-    /// Notifications don't generate a response or error, but to unify things we considere them as always successful.
+    /// Notifications don't generate a response or error, but to unify things we consider them as always successful.
     /// They will still not send any response because their ID is null.
     let private notificationSuccess (response: Async<unit>) = async {
         do! response
