@@ -756,15 +756,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 {ci with Detail = Some name; Documentation = Some d  }
             | CoreResponse.Res (HelpText.Full (name, tip, additionalEdit)) ->
                 let (si, comment) = (TipFormatter.formatTip tip) |> List.collect id |> List.head
-                let edits =
+                let edits, label =
                   match additionalEdit with
-                  | None -> None
+                  | None -> None, ci.Label
                   | Some { Namespace = ns; Position = fcsPos } ->
-                    Some [| { TextEdit.NewText = $"open {ns}"; TextEdit.Range = fcsPosToProtocolRange fcsPos } |]
+                    Some [| { TextEdit.NewText = $"open {ns}"; TextEdit.Range = fcsPosToProtocolRange fcsPos } |], $"{ci.Label} (open {ns})"
                 let d = Documentation.Markup (markdown comment)
                 { ci with Detail = Some si
                           Documentation = Some d
-                          AdditionalTextEdits = edits }
+                          AdditionalTextEdits = edits
+                          Label = label }
         return success res
     }
 
