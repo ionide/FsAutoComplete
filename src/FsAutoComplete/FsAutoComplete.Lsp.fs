@@ -744,7 +744,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
               return! noCompletion
       }
 
-    override __.CompletionItemResolve(ci) = async {
+    override __.CompletionItemResolve(ci: CompletionItem) = async {
         logger.info (Log.setMessage "CompletionItemResolve Request: {parms}" >> Log.addContextDestructured "parms" ci )
         let! res = commands.Helptext ci.InsertText.Value
         let res =
@@ -756,9 +756,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 {ci with Detail = Some name; Documentation = Some d  }
             | CoreResponse.Res (HelpText.Full (name, tip, additionalEdit)) ->
                 let (si, comment) = (TipFormatter.formatTip tip) |> List.collect id |> List.head
-                //TODO: Add insert namespace
+                let edits =
+                  match additionalEdit with
+                  | None -> None
+                  | Some { Namespace = ns; Position = fcsPos } ->
+                    Some [| { TextEdit.NewText = $"open {ns}"; TextEdit.Range = fcsPosToProtocolRange fcsPos } |]
                 let d = Documentation.Markup (markdown comment)
-                {ci with Detail = Some si; Documentation = Some d  }
+                { ci with Detail = Some si
+                          Documentation = Some d
+                          AdditionalTextEdits = edits }
         return success res
     }
 

@@ -8,7 +8,7 @@ open FSharp.Compiler.Range
 open ProjectSystem
 
 type DeclName = string
-type CompletionNamespaceInsert = string * int * int * string
+type CompletionNamespaceInsert = { Namespace: string; Position: pos; Scope : ScopeKind }
 
 type State =
   {

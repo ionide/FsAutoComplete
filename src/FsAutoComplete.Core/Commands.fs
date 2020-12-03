@@ -25,7 +25,7 @@ type LocationResponse<'a,'b> =
 [<RequireQualifiedAccess>]
 type HelpText =
     | Simple of symbol: string * text: string
-    | Full of symbol: string * tip: FSharpToolTipText * moreInfo: option<string * int * int * string>
+    | Full of symbol: string * tip: FSharpToolTipText * textEdits: CompletionNamespaceInsert option
 
 
 [<RequireQualifiedAccess>]
@@ -203,7 +203,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContextDestructured "file" file >> Log.addExn ex)
          }
 
-    let calculateNamespaceInser (decl : FSharpDeclarationListItem) (pos : pos) getLine =
+    let calculateNamespaceInsert (decl : FSharpDeclarationListItem) (pos : pos) getLine: CompletionNamespaceInsert option =
         let getLine i =
             try
                 getLine i
@@ -213,8 +213,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
             state.CurrentAST
-            |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents TopLevel )
-            |> Option.map (fun ic -> n, ic.Pos.Line, ic.Pos.Column, ic.ScopeKind.ToString()))
+            |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents Nearest)
+            |> Option.map (fun ic -> { Namespace = n; Position = ic.Pos; Scope = ic.ScopeKind })
+        )
 
     let fillHelpTextInTheBackground decls (pos : pos) fn getLine =
         let declName (d: FSharpDeclarationListItem) = d.Name
@@ -227,8 +228,9 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         async {
             for decl in decls do
                 let n = declName decl
-                let insert = calculateNamespaceInser decl pos getLine
-                if insert.IsSome then state.CompletionNamespaceInsert.[n] <- insert.Value
+                match calculateNamespaceInsert decl pos getLine with
+                | Some insert -> state.CompletionNamespaceInsert.[n] <- insert
+                | None -> ()
         } |> Async.Start
 
     let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts (isFromCache: bool) =
@@ -587,7 +589,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
-                    | None -> calculateNamespaceInser decl pos getSource
+                    | None -> calculateNamespaceInsert decl pos getSource
                     | Some s -> Some s
                 return CoreResponse.Res (HelpText.Full (sym, tip, n))
     }
