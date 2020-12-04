@@ -598,13 +598,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentFormattingProvider = Some true
                         DocumentRangeFormattingProvider = Some false
                         SignatureHelpProvider = Some {
-                            TriggerCharacters = Some [| "("; ","; "<"; " "; |]
-                            RetriggerCharacters = Some [| ")"; ">"; "=" |]
+                            TriggerCharacters = Some [| '('; ','; |]
+                            RetriggerCharacters = Some [| ')'; |]
                         }
                         CompletionProvider =
                             Some {
                                 ResolveProvider = Some true
-                                TriggerCharacters = Some ([| "."; "'"; |])
+                                TriggerCharacters = Some ([| '.'; '''; |])
                                 AllCommitCharacters = None //TODO: what chars shoudl commit completions?
                             }
                         CodeLensProvider = Some {
@@ -713,7 +713,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 |> async.Return
               | Some ctx ->
                   //ctx.triggerKind = CompletionTriggerKind.Invoked ||
-                  if  (ctx.triggerCharacter = Some ".") then
+                  if  (ctx.triggerCharacter = Some '.') then
                       commands.TryGetLatestTypeCheckResultsForFile(file)
                       |> Async.map (Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results"))
                   else

@@ -40,7 +40,10 @@ let initTests =
       Expect.equal res.Capabilities.ImplementationProvider (Some true) "Implementation Provider"
       Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
       Expect.equal res.Capabilities.RenameProvider (Some true) "Rename Provider"
-      Expect.equal res.Capabilities.SignatureHelpProvider (Some {SignatureHelpOptions.TriggerCharacters = Some [| "("; ","|]} ) "Signature Help Provider"
+      Expect.equal res.Capabilities.SignatureHelpProvider (Some {
+        TriggerCharacters = Some [| '('; ','|]
+        RetriggerCharacters = Some [| ')' |]
+      } ) "Signature Help Provider"
       let td =
         { TextDocumentSyncOptions.Default with
             OpenClose = Some true
@@ -902,7 +905,17 @@ let signatureHelpTests =
 
         do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
 
-        let getSignatureHelpAt line character = server.TextDocumentSignatureHelp { TextDocument = { Uri = Path.FilePathToUri testFilePath }; Position = { Line = line; Character = character } }
+        let getSignatureHelpAt line character =
+          let sigHelpParams: SignatureHelpParams =
+            { TextDocument = { Uri = Path.FilePathToUri testFilePath }
+              Position = { Line = line; Character = character }
+              Context = Some {
+                TriggerKind = SignatureHelpTriggerKind.Invoked
+                TriggerCharacter = None
+                IsRetrigger = false
+                ActiveSignatureHelp = None
+              } }
+          server.TextDocumentSignatureHelp sigHelpParams
 
         let expectSomeOverloads sigHelpLspRes =
           let sigHelp : SignatureHelp =

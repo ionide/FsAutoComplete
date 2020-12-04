@@ -588,7 +588,7 @@ module Types =
         ResolveProvider: bool option
 
         /// The characters that trigger completion automatically.
-        TriggerCharacters: string[] option
+        TriggerCharacters: char[] option
 
         /// The list of all possible characters that commit a completion.
         /// This field can be used if clients don't support individual commit
@@ -598,18 +598,18 @@ module Types =
         ///
         /// If a server provides both `allCommitCharacters` and commit characters
         /// on an individual completion item, the ones on the completion item win.
-        AllCommitCharacters: string[] option
+        AllCommitCharacters: char[] option
     }
 
     /// Signature help options.
     type SignatureHelpOptions = {
         /// The characters that trigger signature help automatically.
-        TriggerCharacters: string[] option
+        TriggerCharacters: char[] option
         /// List of characters that re-trigger signature help.
         ///
         /// These trigger characters are only active when signature help is already showing.
         /// All trigger characters are also counted as re-trigger characters.
-        RetriggerCharacters: string[] option
+        RetriggerCharacters: char[] option
     }
 
     /// Code Lens options.
@@ -621,10 +621,10 @@ module Types =
     /// Format document on type options
     type DocumentOnTypeFormattingOptions = {
         /// A character on which formatting should be triggered, like `}`.
-        FirstTriggerCharacter: string
+        FirstTriggerCharacter: char
 
         /// More trigger characters.
-        MoreTriggerCharacter: string[] option
+        MoreTriggerCharacter: char[] option
     }
 
     /// Document link options
@@ -1043,7 +1043,7 @@ module Types =
         Position: Position
 
         /// The character that has been typed.
-        Ch: string
+        Ch: char
 
         /// The format options.
         Options: FormattingOptions
@@ -1231,7 +1231,7 @@ module Types =
 
         /// The trigger character (a single character) that has trigger code complete.
         /// Is undefined if `triggerKind !== CompletionTriggerKind.TriggerCharacter`
-        triggerCharacter: string option
+        triggerCharacter: char option
     }
 
     type CompletionParams =
@@ -1344,7 +1344,7 @@ module Types =
         /// An optional set of characters that when pressed while this completion is active will accept it first and
         /// then type that character. *Note* that all commit characters should have `length=1` and that superfluous
         /// characters will be ignored.
-        CommitCharacters: string[] option
+        CommitCharacters: char[] option
 
         /// An optional command that is executed *after* inserting this completion. *Note* that
         /// additional modifications to the current document should be described with the
@@ -1693,7 +1693,7 @@ module Types =
         /// action that caused signature help to be triggered
         TriggerKind: SignatureHelpTriggerKind
         /// character that caused signature help to be triggered. None when kind is not TriggerCharacter.
-        TriggerCharacter: string option
+        TriggerCharacter: char option
         /// true if signature help was already showing when this was triggered
         IsRetrigger: bool
         /// the current active SignatureHelp
