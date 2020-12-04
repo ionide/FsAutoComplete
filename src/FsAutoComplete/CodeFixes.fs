@@ -488,7 +488,7 @@ module Fixes =
                   Title = "Generate interface stub"
                   File = codeActionParams.TextDocument
                   Edits =
-                    [| { Range = fcsPosToProtocolRange pos
+                    [| { Range = fcsPosToProtocolRange position
                          NewText = replaced } |]
                   Kind = Fix } ]
         | _ -> return []
@@ -527,7 +527,7 @@ module Fixes =
                   Title = "Generate record stub"
                   File = codeActionParams.TextDocument
                   Edits =
-                    [| { Range = fcsPosToProtocolRange pos
+                    [| { Range = fcsPosToProtocolRange position
                          NewText = replaced } |]
                   Kind = Fix } ]
         | _ -> return []
