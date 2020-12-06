@@ -598,8 +598,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         DocumentFormattingProvider = Some true
                         DocumentRangeFormattingProvider = Some false
                         SignatureHelpProvider = Some {
-                            TriggerCharacters = Some [| '('; ','; |]
-                            RetriggerCharacters = Some [| ')'; |]
+                            TriggerCharacters = Some [| '('; ','; ' ' |]
+                            RetriggerCharacters = Some [| ','; ')'; ' '|]
                         }
                         CompletionProvider =
                             Some {
