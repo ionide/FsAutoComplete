@@ -24,7 +24,6 @@
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
-    <ProjectReference Include="..\ProjectSystem\ProjectSystem.fsproj" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>dotnet-fsautocomplete</AssemblyName>
