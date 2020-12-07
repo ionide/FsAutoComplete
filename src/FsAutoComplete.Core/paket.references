@@ -1,8 +1,8 @@
 FSharp.Compiler.Service
 FSharpLint.Core
-Sln
 Dotnet.ProjInfo
-Dotnet.ProjInfo.Workspace.FCS
+Dotnet.ProjInfo.FCS
+Dotnet.ProjInfo.ProjectSystem
 Newtonsoft.Json
 Fake.Runtime
 ICSharpCode.Decompiler
@@ -16,7 +16,6 @@ Fantomas.Extras
 FSharp.UMX
 FsToolkit.ErrorHandling
 
-Microsoft.NETFramework.ReferenceAssemblies
 System.Reflection.Metadata
 FSharp.Formatting
 Microsoft.Build.Utilities.Core

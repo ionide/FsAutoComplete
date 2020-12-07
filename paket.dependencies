@@ -14,11 +14,12 @@ nuget Argu ~> 5.2.0
 nuget Fantomas ~> 4.0 prerelease
 nuget Fantomas.Extras ~> 4.0 prerelease
 nuget FSharp.Compiler.Service ~> 38
-nuget Dotnet.ProjInfo.Workspace.FCS ~> 0.44.0
+nuget Dotnet.ProjInfo ~> 0.45 prerelease
+nuget Dotnet.ProjInfo.FCS ~> 0.45 prerelease
+nuget Dotnet.ProjInfo.ProjectSystem ~> 0.45 prerelease
 nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
-nuget Sln ~> 0.3.0
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 nuget Fake.Runtime prerelease
