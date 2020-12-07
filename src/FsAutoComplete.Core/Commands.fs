@@ -469,7 +469,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 }
             let normalizeOptions (opts : FSharpProjectOptions) =
                 { opts with
-                    SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
+                    SourceFiles = opts.SourceFiles |> Array.filter FscArguments.isCompileFile |> Array.map (Path.GetFullPath)
                     OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
                 }
             let text = String.concat "\n" lines

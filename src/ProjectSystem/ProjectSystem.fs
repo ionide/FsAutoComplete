@@ -35,7 +35,7 @@ type ProjectController(checker : FSharpChecker) =
     let updateState (response: ProjectCrackerCache) =
         let normalizeOptions (opts : FSharpProjectOptions) =
             { opts with
-                SourceFiles = opts.SourceFiles |> Array.map (Path.GetFullPath)
+                SourceFiles = opts.SourceFiles |> Array.filter FscArguments.isCompileFile |> Array.map (Path.GetFullPath)
                 OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
             }
 
