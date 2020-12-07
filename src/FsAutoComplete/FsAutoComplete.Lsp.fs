@@ -456,6 +456,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         let getRecordStubReplacements () = recordStubReplacements
 
+        let abstractClassStubReplacements =
+          Map.ofList [
+            "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
+            "$methodBody", config.AbstractClassStubGenerationMethodBody
+          ]
+
+        let getAbstractClassStubReplacements () = abstractClassStubReplacements
+
         codeFixes <- fun p ->
           [|
             ifEnabled (fun _ -> config.UnusedOpensAnalyzer) Fixes.unusedOpens
@@ -469,9 +477,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.mapLinterDiagnostics (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
             Fixes.mapAnalyzerDiagnostics (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
             ifEnabled (fun _ -> config.InterfaceStubGeneration)
-              (Fixes.generateInterfaceStub getFileLines tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
+              (Fixes.generateInterfaceStub tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
             ifEnabled (fun _ -> config.RecordStubGeneration)
-              (Fixes.generateRecordStub getFileLines tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
+              (Fixes.generateRecordStub tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
+            ifEnabled (fun _ -> config.AbstractClassStubGeneration)
+              (Fixes.generateAbstractClassStub tryGetParseResultsForFile commands.GetAbstractClassStub getAbstractClassStubReplacements)
             Fixes.addMissingEqualsToTypeDefinition getFileLines
             Fixes.changeNegationToSubtraction getFileLines
             Fixes.doubleEqualsToSingleEquality getFileLines

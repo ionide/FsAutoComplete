@@ -468,6 +468,10 @@ type FSharpConfigDto = {
     FSICompilerToolLocations: string [] option
     TooltipMode : string option
     GenerateBinlog: bool option
+    AbstractClassStubGeneration: bool option
+    AbstractClassStubGenerationObjectIdentifier: string option
+    AbstractClassStubGenerationMethodBody: string option
+
 }
 
 type FSharpConfigRequest = {
@@ -486,6 +490,9 @@ type FSharpConfig = {
     UnionCaseStubGenerationBody: string
     RecordStubGeneration: bool
     RecordStubGenerationBody: string
+    AbstractClassStubGeneration: bool
+    AbstractClassStubGenerationObjectIdentifier: string
+    AbstractClassStubGenerationMethodBody: string
     InterfaceStubGeneration: bool
     InterfaceStubGenerationObjectIdentifier: string
     InterfaceStubGenerationMethodBody: string
@@ -519,6 +526,9 @@ with
             UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
             RecordStubGeneration = false
             RecordStubGenerationBody = "failwith \"Not Implemented\""
+            AbstractClassStubGeneration = true
+            AbstractClassStubGenerationObjectIdentifier = "this"
+            AbstractClassStubGenerationMethodBody = "failwith \"Not Implemented\""
             InterfaceStubGeneration = false
             InterfaceStubGenerationObjectIdentifier = "this"
             InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
@@ -542,7 +552,7 @@ with
             GenerateBinlog = false
         }
 
-    static member FromDto(dto: FSharpConfigDto) =
+    static member FromDto(dto: FSharpConfigDto): FSharpConfig =
         {
             AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel 2
@@ -579,6 +589,9 @@ with
             FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode "full"
             GenerateBinlog = defaultArg dto.GenerateBinlog false
+            AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
+            AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
+            AbstractClassStubGenerationMethodBody = defaultArg dto.AbstractClassStubGenerationMethodBody "failwith \Not Implemented\""
         }
 
     /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -586,6 +599,9 @@ with
     member x.AddDto(dto: FSharpConfigDto) =
         {
             AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
+            AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration x.AbstractClassStubGeneration
+            AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier x.AbstractClassStubGenerationObjectIdentifier
+            AbstractClassStubGenerationMethodBody = defaultArg dto.AbstractClassStubGenerationMethodBody x.AbstractClassStubGenerationMethodBody
             WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel x.WorkspaceModePeekDeepLevel
             ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories x.ExcludeProjectDirectories
             KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete

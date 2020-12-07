@@ -203,6 +203,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContextDestructured "file" file >> Log.addExn ex)
          }
 
+    let codeGenServer = CodeGenerationService(checker, state)
+
+    let docForText (lines: string []) (tyRes: ParseAndCheckResults): Document =
+      {
+          LineCount = lines.Length
+          FullName = tyRes.FileName
+          GetText = fun _ -> lines |> String.concat "\n"
+          GetLineText0 = fun i -> lines.[i]
+          GetLineText1 = fun i -> lines.[i - 1]
+      }
+
     let calculateNamespaceInsert (decl : FSharpDeclarationListItem) (pos : pos) getLine: CompletionNamespaceInsert option =
         let getLine i =
             try
@@ -239,7 +250,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
         if not isFromCache then
           response.Items
-          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
+          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> if p.Contains "--embed:" then None else Some p)
           |> parseFilesInTheBackground tfmForScripts
           |> Async.Start
         else
@@ -875,15 +886,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
         async {
-            let codeGenServer = CodeGenerationService(checker, state)
-            let doc = {
-                Document.LineCount = lines.Length
-                FullName = tyRes.FileName
-                GetText = fun _ -> lines |> String.concat "\n"
-                GetLineText0 = fun i -> lines.[i]
-                GetLineText1 = fun i -> lines.[i - 1]
-            }
-
+            let doc = docForText lines tyRes
             let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
             match res with
             | None -> return CoreResponse.InfoRes "Record at position not found"
@@ -901,15 +904,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
     member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =
         async {
-            let codeGenServer = CodeGenerationService(checker, state)
-            let doc = {
-                Document.LineCount = lines.Length
-                FullName = tyRes.FileName
-                GetText = fun _ -> lines |> String.concat "\n"
-                GetLineText0 = fun i -> lines.[i]
-                GetLineText1 = fun i -> lines.[i - 1]
-            }
-
+            let doc = docForText lines tyRes
             let! res = tryFindInterfaceExprInBufferAtPos codeGenServer pos doc
             match res with
             | None -> return CoreResponse.InfoRes "Interface at position not found"
@@ -920,6 +915,22 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 | Some (insertPosition, generatedCode) ->
                     return CoreResponse.Res (generatedCode, insertPosition)
                 | None -> return CoreResponse.InfoRes "Interface at position not found"
+        }
+        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> AsyncResult.recoverCancellation
+
+    member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: range) (lines: LineStr[]) (lineStr: LineStr) =
+        async {
+            let doc = docForText lines tyRes
+            let! res = AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer objExprRange.Start doc
+            match res with
+            | None -> return CoreResponse.InfoRes "Abstract class at position not found"
+            | Some abstractClass ->
+                let! stubInfo = AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass
+                match stubInfo with
+                | Some (insertPosition, generatedCode) ->
+                    return CoreResponse.Res (generatedCode, insertPosition)
+                | None -> return CoreResponse.InfoRes "Abstract class at position not found"
         }
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
         |> AsyncResult.recoverCancellation

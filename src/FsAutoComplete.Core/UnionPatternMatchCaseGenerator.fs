@@ -8,6 +8,7 @@ open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SyntaxTreeOps
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
+open FsAutoComplete.CodeGenerationUtils
 
 [<NoEquality; NoComparison>]
 type PatternMatchExpr = {

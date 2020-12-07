@@ -270,6 +270,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -404,7 +405,6 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -458,8 +458,7 @@ module Fixes =
   let mapAnalyzerDiagnostics = mapExternalDiagnostic "F# Analyzers"
 
   /// a codefix that generates member stubs for an interface declaration
-  let generateInterfaceStub (getFileLines: string -> Result<string [], _>)
-                            (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+  let generateInterfaceStub (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
                             (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
                             (getTextReplacements: unit -> Map<string, string>)
                             : CodeFix =
@@ -468,13 +467,10 @@ module Fixes =
         let fileName =
           codeActionParams.TextDocument.GetFilePath()
 
-        let! (lines: string []) = getFileLines fileName
-
         let pos =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -497,8 +493,7 @@ module Fixes =
       |> AsyncResult.foldResult id (fun _ -> [])
 
   /// a codefix that generates member stubs for a record declaration
-  let generateRecordStub (getFileLines: string -> Result<string [], _>)
-                         (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+  let generateRecordStub (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
                          (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
                          (getTextReplacements: unit -> Map<string, string>)
                          : CodeFix =
@@ -507,13 +502,10 @@ module Fixes =
         let fileName =
           codeActionParams.TextDocument.GetFilePath()
 
-        let! (lines: string []) = getFileLines fileName
-
         let pos =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -533,6 +525,41 @@ module Fixes =
         | _ -> return []
       }
       |> AsyncResult.foldResult id (fun _ -> [])
+
+  /// a codefix that generates stubs for required override members in abstract types
+  let generateAbstractClassStub (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                                (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+                                (getTextReplacements: unit -> Map<string, string>)
+                                : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let objExprRange = protocolRangeToRange fileName codeActionParams.Range
+
+          let! (tyRes, line, lines) = getParseResultsForFile fileName objExprRange.Start
+          match! genAbstractClassStub tyRes objExprRange lines line with
+          | CoreResponse.Res (text, position) ->
+              let replacements = getTextReplacements ()
+
+              let replaced =
+                (text, replacements)
+                ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
+
+              return
+                [ { SourceDiagnostic = None
+                    Title = "Generate record stub"
+                    File = codeActionParams.TextDocument
+                    Edits =
+                      [| { Range = fcsPosToProtocolRange position
+                           NewText = replaced } |]
+                    Kind = Fix } ]
+          | _ -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> [])
+      ) (Set.ofList ["365"])
 
   /// a codefix that adds in missing '=' characters in type declarations
   let addMissingEqualsToTypeDefinition (getFileLines: string -> Result<string [], _>) =
