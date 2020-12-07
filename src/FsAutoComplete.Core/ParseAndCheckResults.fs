@@ -6,12 +6,8 @@ open FSharp.Compiler.SourceCodeServices
 open Utils
 open FSharp.Compiler.Range
 open FSharp.Compiler
-open FSharp.Compiler.Text
-open ProjectSystem
 open FsAutoComplete.Logging
-open FsAutoComplete.Utils
 open FSharp.UMX
-open FSharp.Compiler.SyntaxTree
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =

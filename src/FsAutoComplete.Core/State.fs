@@ -5,7 +5,7 @@ open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
 open FSharp.Compiler.Range
-open ProjectSystem
+open Dotnet.ProjInfo.ProjectSystem
 
 type DeclName = string
 type CompletionNamespaceInsert = { Namespace: string; Position: pos; Scope : ScopeKind }
@@ -30,10 +30,10 @@ type State =
     mutable ColorizationOutput: bool
   }
 
-  static member Initial checker =
+  static member Initial checker toolsPath =
     { Files = ConcurrentDictionary()
       LastCheckedVersion = ConcurrentDictionary()
-      ProjectController = ProjectController(checker)
+      ProjectController = ProjectController(checker, toolsPath)
       HelpText = ConcurrentDictionary()
       Declarations = ConcurrentDictionary()
       CurrentAST = None
@@ -66,10 +66,6 @@ type State =
     x.ProjectController.RemoveProjectOptions file
 
   member x.FSharpProjectOptions = x.ProjectController.ProjectOptions
-
-  member x.GetProject file : Project option =
-    let file = Utils.normalizePath file
-    x.ProjectController.GetProject file
 
   member x.TryGetFileVersion (file: SourceFilePath) : int option =
     let file = Utils.normalizePath file

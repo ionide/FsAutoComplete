@@ -12,33 +12,33 @@ open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 
 ///Global list of tests
-let tests =
+let tests toolsPath =
    testSequenced <| testList "lsp" [
     // initTests
-    basicTests
-    codeLensTest
-    documentSymbolTest
-    autocompleteTest
-    renameTest
-    gotoTest
-    foldingTests
-    tooltipTests
-    highlightingTests
-    signatureHelpTests
+    basicTests toolsPath
+    codeLensTest toolsPath
+    documentSymbolTest toolsPath
+    autocompleteTest toolsPath
+    renameTest toolsPath
+    gotoTest toolsPath
+    foldingTests toolsPath
+    tooltipTests toolsPath
+    highlightingTests toolsPath
+    signatureHelpTests toolsPath
 
-    scriptPreviewTests
-    scriptEvictionTests
-    scriptProjectOptionsCacheTests
-    dependencyManagerTests //Requires .Net 5 preview
-    scriptGotoTests
+    scriptPreviewTests toolsPath
+    scriptEvictionTests toolsPath
+    scriptProjectOptionsCacheTests toolsPath
+    dependencyManagerTests  toolsPath//Requires .Net 5 preview
+    scriptGotoTests toolsPath
     interactiveDirectivesUnitTests
 
-    fsdnTest
+    fsdnTest toolsPath
     uriTests
-    linterTests
-    formattingTests
-    fakeInteropTests
-    analyzerTests
+    linterTests toolsPath
+    formattingTests toolsPath
+    fakeInteropTests toolsPath
+    analyzerTests toolsPath
   ]
 
 
@@ -74,6 +74,6 @@ let main args =
       ).CreateLogger() // make it so that every console log is logged to stderr
   Serilog.Log.Logger <- serilogLogger
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
+  let toolsPath = Dotnet.ProjInfo.Init.init ()
 
-
-  runTestsWithArgs defaultConfig args tests
+  runTestsWithArgs defaultConfig args (tests toolsPath)

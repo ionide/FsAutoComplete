@@ -9,11 +9,11 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 
-let scriptPreviewTests =
+let scriptPreviewTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
     let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] }
+    let (server, events) = serverInitialize path { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] } toolsPath
     do waitForWorkspaceFinishedParsing events
     server, events, scriptPath
   )
@@ -30,11 +30,11 @@ let scriptPreviewTests =
     ))
   ]
 
-let scriptEvictionTests =
+let scriptEvictionTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
     let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto
+    let (server, events) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing events
     server, events, scriptPath
   )
@@ -68,14 +68,14 @@ let scriptEvictionTests =
   ]
 
 
-let dependencyManagerTests =
+let dependencyManagerTests toolsPath =
   let serverStart =
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
     let dependencyManagerAssemblyDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "FsAutoComplete.DependencyManager.Dummy", "bin", "Debug", "netstandard2.0")
     let dependencyManagerEnabledConfig =
       { defaultConfigDto with
           FSIExtraParameters = Some [| "--langversion:preview" |] }
-    let (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig
+    let (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig toolsPath
     do waitForWorkspaceFinishedParsing events
     server, events, workingDir
 
@@ -109,13 +109,13 @@ let dependencyManagerTests =
 
 
 
-let scriptProjectOptionsCacheTests =
+let scriptProjectOptionsCacheTests toolsPath =
   let serverStart () =
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
     let previewEnabledConfig =
       { defaultConfigDto with
           FSIExtraParameters = Some [| "--langversion:preview" |] }
-    let (server, events) = serverInitialize workingDir previewEnabledConfig
+    let (server, events) = serverInitialize workingDir previewEnabledConfig toolsPath
     let scriptPath = Path.Combine(workingDir, "Script.fsx")
     do waitForWorkspaceFinishedParsing events
     server, events, workingDir, scriptPath
@@ -140,11 +140,11 @@ let scriptProjectOptionsCacheTests =
 
 
 
-let scriptGotoTests =
+let scriptGotoTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing event
 
     let scriptPath = Path.Combine(path, "Script.fsx")

@@ -17,6 +17,9 @@ nuget FSharp.Compiler.Service ~> 38
 nuget Dotnet.ProjInfo ~> 0.45 prerelease
 nuget Dotnet.ProjInfo.FCS ~> 0.45 prerelease
 nuget Dotnet.ProjInfo.ProjectSystem ~> 0.45 prerelease
+nuget Microsoft.Build copy_local:false
+nuget Microsoft.Build.Framework copy_local:false
+nuget Microsoft.Build.Utilities.Core copy_local:false
 nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
@@ -38,7 +41,6 @@ nuget Serilog.Sinks.Async
 nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
 nuget FSharp.UMX
 nuget FSharp.Formatting
-nuget Microsoft.Build.Utilities.Core 16.7
 nuget FsToolkit.ErrorHandling
 
 nuget Microsoft.SourceLink.GitHub copy_local:true

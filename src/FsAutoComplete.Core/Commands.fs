@@ -10,7 +10,8 @@ open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
 open FSharp.Compiler.Range
-open ProjectSystem
+open Dotnet.ProjInfo
+open Dotnet.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
 
 [<RequireQualifiedAccess>]
@@ -52,9 +53,9 @@ type NotificationEvent<'analyzer> =
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string
 
-type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
+type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
-    let state = State.Initial (checker.GetFSharpChecker())
+    let state = State.Initial (checker.GetFSharpChecker()) toolsPath
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
     let scriptFileProjectOptions = Event<FSharpProjectOptions>()
@@ -73,7 +74,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
-    do state.ProjectController.NotifyWorkspace.Add (NotificationEvent.Workspace >> notify.Trigger)
+    do state.ProjectController.Notifications.Add (NotificationEvent.Workspace >> notify.Trigger)
 
     do BackgroundServices.messageRecived.Publish.Add (fun n ->
        match n with
@@ -160,7 +161,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         } |> Async.Start
     )
 
-    let parseFilesInTheBackground fsiScriptTFM files =
+    let parseFilesInTheBackground files =
         async {
           for file in files do
             try
@@ -172,7 +173,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                         state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
                         let payload =
                             if Utils.isAScript file
-                            then BackgroundServices.ScriptFile(file, fsiScriptTFM)
+                            then BackgroundServices.ScriptFile(file, Dotnet.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
                             else BackgroundServices.SourceFile file
                         if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
                         Some (ctn)
@@ -236,17 +237,23 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 | None -> ()
         } |> Async.Start
 
-    let onProjectLoaded projectFileName (response: ProjectCrackerCache) tfmForScripts (isFromCache: bool) =
+
+    do state.ProjectController.Notifications.Add(fun ev ->
+      match ev with
+      | ProjectResponse.Project (p, isFromCache) ->
         if backgroundServiceEnabled then
-            BackgroundServices.updateProject(projectFileName, response.Options)
+            let opts = state.ProjectController.GetProjectOptions p.ProjectFileName
+            opts |> Option.iter (fun opts -> BackgroundServices.updateProject(p.ProjectFileName, opts))
 
         if not isFromCache then
-          response.Items
-          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
-          |> parseFilesInTheBackground tfmForScripts
+          p.ProjectItems
+          |> List.choose (function ProjectViewerItem.Compile(p, _) -> Some p)
+          |> parseFilesInTheBackground
           |> Async.Start
         else
-          commandsLogger.info (Log.setMessage "Project from cache '{file}'" >> Log.addContextDestructured "file" projectFileName)
+          commandsLogger.info (Log.setMessage "Project from cache '{file}'" >> Log.addContextDestructured "file" p.ProjectFileName)
+      | _ ->
+        ())
 
     member __.Notify = notify.Publish
 
@@ -597,7 +604,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 return CoreResponse.Res (HelpText.Full (sym, tip, n))
     }
 
-    member x.CompilerLocation () = CoreResponse.Res (Environment.fsc, Environment.fsi, Environment.msbuild, checker.GetDotnetRoot())
+    member x.CompilerLocation () = CoreResponse.Res (Environment.fsc, Environment.fsi, Some "", checker.GetDotnetRoot())
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
@@ -926,22 +933,22 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         |> AsyncResult.recoverCancellation
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
-        let d = state.ProjectController.PeekWorkspace dir deep excludedDirs
+        let d = state.ProjectController.PeekWorkspace(dir, deep, excludedDirs)
         return CoreResponse.Res d
     }
 
     member x.WorkspaceLoad (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts (generateBinlog: bool) = async {
         commandsLogger.info (Log.setMessage "Workspace loading started '{files}'" >> Log.addContextDestructured "files" files)
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-        let! res = state.ProjectController.LoadWorkspace files tfmForScripts onProjectLoaded generateBinlog
+        state.ProjectController.LoadWorkspace(files, generateBinlog)
         commandsLogger.info (Log.setMessage "Workspace loading finished ")
-        return CoreResponse.Res res
+        return CoreResponse.Res true
     }
 
-    member x.Project projectFileName tfmForScripts (generateBinlog: bool)  = async {
+    member x.Project projectFileName (generateBinlog: bool)  = async {
         commandsLogger.info (Log.setMessage "Project loading '{file}'" >> Log.addContextDestructured "file" projectFileName)
-        let! res = state.ProjectController.LoadProject projectFileName tfmForScripts onProjectLoaded generateBinlog
-        return CoreResponse.Res res
+        state.ProjectController.LoadProject(projectFileName, generateBinlog)
+        return CoreResponse.Res true
     }
 
     member x.CheckUnusedDeclarations file: Async<unit> =
@@ -1004,18 +1011,6 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
                 UntypedAstUtils.getRangesAtPosition pr.ParseTree x
             )
             |> CoreResponse.Res
-
-    member x.Compile projectFileName = async {
-        let projectFileName = Path.GetFullPath projectFileName
-        match state.GetProject projectFileName with
-        | None -> return CoreResponse.InfoRes "Project not found"
-        | Some proj ->
-        match proj.Response with
-        | None -> return CoreResponse.InfoRes "Project not found"
-        | Some proj ->
-            let! errors,code = checker.Compile(proj.Options.OtherOptions)
-            return CoreResponse.Res (errors,code)
-    }
 
     member __.StartBackgroundService (workspaceDir : string option) =
         if backgroundServiceEnabled && workspaceDir.IsSome then

@@ -13,7 +13,7 @@ open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open LspHelpers
 open Newtonsoft.Json.Linq
-open ProjectSystem
+open Dotnet.ProjInfo.ProjectSystem
 open System
 open System.IO
 open FsToolkit.ErrorHandling
@@ -170,10 +170,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     logger.info (Log.setMessage "Workspace Notify {ws}" >> Log.addContextDestructured "ws" ws)
                     let ws =
                         match ws with
-                        | ProjectResponse.Project x -> CommandResponse.project JsonSerializer.writeJson x
-                        | ProjectResponse.ProjectError(errorDetails) -> CommandResponse.projectError JsonSerializer.writeJson errorDetails
+                        | ProjectResponse.Project (x, _) -> CommandResponse.project JsonSerializer.writeJson x
+                        | ProjectResponse.ProjectError(_,errorDetails) -> CommandResponse.projectError JsonSerializer.writeJson errorDetails
                         | ProjectResponse.ProjectLoading(projectFileName) -> CommandResponse.projectLoading JsonSerializer.writeJson projectFileName
                         | ProjectResponse.WorkspaceLoad(finished) -> CommandResponse.workspaceLoad JsonSerializer.writeJson finished
+                        | ProjectResponse.ProjectChanged(projectFileName) -> failwith "Not Implemented"
 
                     {Content = ws}
                     |> lspClient.NotifyWorkspace
@@ -1471,22 +1472,6 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpCompile(p) = async {
-        logger.info (Log.setMessage "FSharpCompile Request: {parms}" >> Log.addContextDestructured "parms" p )
-
-        let fn = p.Project.GetFilePath()
-        let! res = commands.Compile fn
-        let res =
-            match res with
-            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                LspResult.internalError msg
-            | CoreResponse.Res(ers, code) ->
-                { Content =  CommandResponse.compile FsAutoComplete.JsonSerializer.writeJson (ers, code) }
-                |> success
-
-        return res
-    }
-
     member __.FSharpWorkspaceLoad(p) = async {
         logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
@@ -1522,7 +1507,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "FSharpProject Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn config.ScriptTFM config.GenerateBinlog
+        let! res = commands.Project fn config.GenerateBinlog
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1884,7 +1869,6 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/documentationGenerator" (requestHandling (fun s p -> s.FSharpDocumentationGenerator(p) ))
         |> Map.add "fsharp/lineLens" (requestHandling (fun s p -> s.FSharpLineLense(p) ))
         |> Map.add "fsharp/compilerLocation" (requestHandling (fun s p -> s.FSharpCompilerLocation(p) ))
-        |> Map.add "fsharp/compile" (requestHandling (fun s p -> s.FSharpCompile(p) ))
         |> Map.add "fsharp/workspaceLoad" (requestHandling (fun s p -> s.FSharpWorkspaceLoad(p) ))
         |> Map.add "fsharp/workspacePeek" (requestHandling (fun s p -> s.FSharpWorkspacePeek(p) ))
         |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))

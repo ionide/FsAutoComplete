@@ -4,8 +4,8 @@ open System
 
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
-open ProjectSystem
-open ProjectSystem.WorkspacePeek
+open Dotnet.ProjInfo.ProjectSystem
+open Dotnet.ProjInfo.ProjectSystem.WorkspacePeek
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -120,12 +120,7 @@ module CommandResponse =
   and ProjectParsingFailedData = { Project: ProjectFilePath }
   and ProjectData = { Project: ProjectFilePath }
 
-  [<RequireQualifiedAccess>]
-  type ProjectResponseInfo =
-    | DotnetSdk of ProjectResponseInfoDotnetSdk
-    | Verbose
-    | ProjectJson
-  and ProjectResponseInfoDotnetSdk =
+  type ProjectResponseInfoDotnetSdk =
     {
       IsTestProject: bool
       Configuration: string
@@ -151,9 +146,8 @@ module CommandResponse =
       Files: List<SourceFilePath>
       Output: string
       References: List<ProjectFilePath>
-      Logs: Map<string, string>
       OutputType: ProjectOutputType
-      Info: ProjectResponseInfo
+      Info: ProjectResponseInfoDotnetSdk
       Items: List<ProjectResponseItem>
       AdditionalInfo: Map<string, string>
     }
@@ -345,12 +339,9 @@ module CommandResponse =
     | ErrorData.ProjectParsingFailed d -> ser (ErrorCodes.ProjectParsingFailed) d
 
   let project (serialize : Serializer) (projectResult: ProjectResult) =
+    let info = projectResult.Extra.ProjectSdkInfo
     let projectInfo =
-      match projectResult.extra.ProjectSdkType with
-      | Dotnet.ProjInfo.Workspace.ProjectSdkType.Verbose _ ->
-        ProjectResponseInfo.Verbose
-      | Dotnet.ProjInfo.Workspace.ProjectSdkType.DotnetSdk info ->
-        ProjectResponseInfo.DotnetSdk {
+        {
           IsTestProject = info.IsTestProject
           Configuration = info.Configuration
           IsPackable = info.IsPackable
@@ -366,38 +357,38 @@ module CommandResponse =
             | _ -> None
           IsPublishable = info.IsPublishable
         }
-    let mapItemResponse (p: Dotnet.ProjInfo.Workspace.ProjectViewerItem) : ProjectResponseItem =
+    let mapItemResponse (p: Dotnet.ProjInfo.ProjectViewerItem) : ProjectResponseItem =
       match p with
-      | Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile (fullpath, extraInfo) ->
+      | Dotnet.ProjInfo.ProjectViewerItem.Compile (fullpath, extraInfo) ->
         { ProjectResponseItem.Name = "Compile"
           ProjectResponseItem.FilePath = fullpath
           ProjectResponseItem.VirtualPath = extraInfo.Link
           ProjectResponseItem.Metadata = Map.empty }
 
     let projectData =
-      { Project = projectResult.projectFileName
-        Files = projectResult.projectFiles
-        Output = match projectResult.outFileOpt with Some x -> x | None -> "null"
-        References = List.sortBy IO.Path.GetFileName projectResult.references
-        Logs = projectResult.logMap
+      { Project = projectResult.ProjectFileName
+        Files = projectResult.ProjectFiles
+        Output = match projectResult.OutFileOpt with Some x -> x | None -> "null"
+        References = List.sortBy IO.Path.GetFileName projectResult.References
         OutputType =
-          match projectResult.extra.ProjectOutputType with
-          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Library -> Library
-          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Exe -> Exe
-          | Dotnet.ProjInfo.Workspace.ProjectOutputType.Custom outType -> Custom outType
+          match projectResult.Extra.ProjectOutputType with
+          | Dotnet.ProjInfo.Types.ProjectOutputType.Library -> Library
+          | Dotnet.ProjInfo.Types.ProjectOutputType.Exe -> Exe
+          | Dotnet.ProjInfo.Types.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
-        Items = projectResult.projectItems |> List.map mapItemResponse
-        AdditionalInfo = projectResult.additionals }
+        Items = projectResult.ProjectItems |> List.map mapItemResponse
+        AdditionalInfo = projectResult.Additionals }
     serialize { Kind = "project"; Data = projectData }
 
   let projectError (serialize : Serializer) errorDetails =
     let rec getMessageLines errorDetails =
       match errorDetails with
-      | Dotnet.ProjInfo.Workspace.LanguageNotSupported (_) -> [sprintf "this project is not supported, only fsproj"]
-      | Dotnet.ProjInfo.Workspace.ProjectNotLoaded (_) -> [sprintf "this project was not loaded due to some internal error"]
-      | Dotnet.ProjInfo.Workspace.MissingExtraProjectInfos _ -> [sprintf "this project was not loaded because ExtraProjectInfos were missing"]
-      | Dotnet.ProjInfo.Workspace.InvalidExtraProjectInfos (_, err) ->  [sprintf "this project was not loaded because ExtraProjectInfos were invalid: %s" err]
-      | Dotnet.ProjInfo.Workspace.ReferencesNotLoaded (_, referenceErrors) ->
+      | Dotnet.ProjInfo.Types.ProjectNotFound (_) -> ["couldn't find project"]
+      | Dotnet.ProjInfo.Types.LanguageNotSupported (_) -> [sprintf "this project is not supported, only fsproj"]
+      | Dotnet.ProjInfo.Types.ProjectNotLoaded (_) -> [sprintf "this project was not loaded due to some internal error"]
+      | Dotnet.ProjInfo.Types.MissingExtraProjectInfos _ -> [sprintf "this project was not loaded because ExtraProjectInfos were missing"]
+      | Dotnet.ProjInfo.Types.InvalidExtraProjectInfos (_, err) ->  [sprintf "this project was not loaded because ExtraProjectInfos were invalid: %s" err]
+      | Dotnet.ProjInfo.Types.ReferencesNotLoaded (_, referenceErrors) ->
 
         [ yield sprintf "this project was not loaded because some references could not be loaded:"
           yield!
@@ -405,17 +396,18 @@ module CommandResponse =
               |> Seq.collect (fun (projPath, er) ->
                 [ yield sprintf "  - %s:" projPath
                   yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line)]) ]
-      | Dotnet.ProjInfo.Workspace.GenericError (_, errorMessage) -> [errorMessage]
-      | Dotnet.ProjInfo.Workspace.ProjectNotRestored _ -> ["Project not restored"]
+      | Dotnet.ProjInfo.Types.GenericError (_, errorMessage) -> [errorMessage]
+      | Dotnet.ProjInfo.Types.ProjectNotRestored _ -> ["Project not restored"]
     let msg = getMessageLines errorDetails |> fun s -> String.Join("\n", s)
     match errorDetails with
-    | Dotnet.ProjInfo.Workspace.LanguageNotSupported (project) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Dotnet.ProjInfo.Workspace.ProjectNotLoaded project -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Dotnet.ProjInfo.Workspace.MissingExtraProjectInfos project -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Dotnet.ProjInfo.Workspace.InvalidExtraProjectInfos (project, _) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Dotnet.ProjInfo.Workspace.ReferencesNotLoaded (project, _) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Dotnet.ProjInfo.Workspace.GenericError (project, _) -> errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) msg
-    | Dotnet.ProjInfo.Workspace.ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) msg
+    | Dotnet.ProjInfo.Types.ProjectNotFound (project) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Types.LanguageNotSupported (project) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Types.ProjectNotLoaded project -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Types.MissingExtraProjectInfos project -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Types.InvalidExtraProjectInfos (project, _) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Types.ReferencesNotLoaded (project, _) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
+    | Dotnet.ProjInfo.Types.GenericError (project, _) -> errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) msg
+    | Dotnet.ProjInfo.Types.ProjectNotRestored project -> errorG serialize (ErrorData.ProjectNotRestored { Project = project }) msg
 
   let projectLoading (serialize : Serializer) projectFileName =
     serialize { Kind = "projectLoading"; Data = { ProjectLoadingResponse.Project = projectFileName } }
@@ -426,17 +418,17 @@ module CommandResponse =
         | WorkspacePeek.Interesting.Directory (p, fsprojs) ->
             WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
         | WorkspacePeek.Interesting.Solution (p, sd) ->
-            let rec item (x: ProjectSystem.WorkspacePeek.SolutionItem) =
+            let rec item (x: Dotnet.ProjInfo.InspectSln.SolutionItem) =
                 let kind =
                     match x.Kind with
-                    | SolutionItemKind.Unknown
-                    | SolutionItemKind.Unsupported ->
+                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.Unknown
+                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.Unsupported ->
                         None
-                    | SolutionItemKind.MsbuildFormat msbuildProj ->
+                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
                         Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat {
                             WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
                         })
-                    | SolutionItemKind.Folder(children, files) ->
+                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
                         let c = children |> List.choose item
                         Some (WorkspacePeekFoundSolutionItemKind.Folder {
                             WorkspacePeekFoundSolutionItemKindFolder.Items = c

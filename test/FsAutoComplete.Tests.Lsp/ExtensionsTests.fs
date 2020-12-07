@@ -10,10 +10,10 @@ open FsAutoComplete.LspHelpers
 open Helpers
 
 
-let fsdnTest =
+let fsdnTest toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FsdnTest")
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     waitForWorkspaceFinishedParsing event
     server
   )
@@ -69,10 +69,10 @@ let uriTests =
 
 
 ///Tests for linter
-let linterTests =
+let linterTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
-    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true}
+    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} toolsPath
 
     let m = new System.Threading.ManualResetEvent(false)
     let bag = event |> waitForParsedScript m
@@ -91,7 +91,7 @@ let linterTests =
   let serverTest f () =
     let (server, path, bag) = serverStart.Value
     f server path bag
-  
+
   let diagnostics = [|
     {
       Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
@@ -120,7 +120,7 @@ let linterTests =
       Message = "`not (a <> b)` might be able to be refactored into `a = b`."
       RelatedInformation = None
       Tags = None }
-    { 
+    {
       Range = { Start = { Line = 3; Character = 12 }
                 End = { Line = 3; Character = 22 } }
       Severity = Some DiagnosticSeverity.Information
@@ -184,7 +184,7 @@ let linterTests =
       else failtest "No diagnostic message recived"
      ))
 
-    testCase "Linter Code Action" (serverTest (fun server path _ -> 
+    testCase "Linter Code Action" (serverTest (fun server path _ ->
         // different versions on differen operating systems
         // Windows:   Version = None
         // Linux/Mac: Version = Some 0
@@ -223,7 +223,7 @@ let linterTests =
             Context = { Diagnostics = [| diag |] }
           }
           server.TextDocumentCodeAction p |> Async.RunSynchronously
-        
+
         [
           "Test"
           "a <> b"
@@ -239,7 +239,7 @@ let linterTests =
         |> Seq.iteri (fun i (diag, newText) ->
 
           match makeRequest diag with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) -> 
+          | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
               Expect.equal (actions.Length) 1 <| sprintf "[%i] Wrong number of code actions" i
               match actions with
               | [| action |] ->
@@ -253,10 +253,10 @@ let linterTests =
   ]
 
 
-let formattingTests =
+let formattingTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
-    let (server, events) = serverInitialize path defaultConfigDto
+    let (server, events) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing events
     server, events, path
   )
@@ -295,10 +295,10 @@ let formattingTests =
     ))
   ]
 
-let fakeInteropTests =
+let fakeInteropTests toolsPath =
   let serverStart = lazy (
     let folderPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FakeInterop")
-    let (server, events) = serverInitialize folderPath defaultConfigDto
+    let (server, events) = serverInitialize folderPath defaultConfigDto toolsPath
     let buildScript = "build.fsx"
     do waitForWorkspaceFinishedParsing events
     server, events, folderPath, buildScript
@@ -316,7 +316,7 @@ let fakeInteropTests =
         ))
   ]
 
-let analyzerTests =
+let analyzerTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
     // because the analyzer is a project this project has a reference, the analyzer can ber
@@ -330,7 +330,7 @@ let analyzerTests =
     Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
     |> expectExitCodeZero
 
-    let (server, events) = serverInitialize path analyzerEnabledConfig
+    let (server, events) = serverInitialize path analyzerEnabledConfig toolsPath
     let scriptPath = Path.Combine(path, "Script.fs")
     do waitForWorkspaceFinishedParsing events
     do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously

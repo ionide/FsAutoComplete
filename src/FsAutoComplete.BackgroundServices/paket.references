@@ -8,3 +8,4 @@ Dotnet.ProjInfo
 Dotnet.ProjInfo.Workspace.FCS
 
 Microsoft.NETFramework.ReferenceAssemblies
+Dotnet.ProjInfo.ProjectSystem

@@ -11,7 +11,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open FsAutoComplete
-open ProjectSystem
+open Dotnet.ProjInfo.ProjectSystem 
 
 type BackgroundFileCheckType =
 | SourceFile of filePath: string

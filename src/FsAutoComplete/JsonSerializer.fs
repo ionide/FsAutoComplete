@@ -80,22 +80,6 @@ module private JsonSerializerConverters =
     writer.WriteValue(range.EndLine)
     writer.WriteEndObject()
 
-  let projectSdkTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
-    let t, v =
-        match value with
-        | CommandResponse.ProjectResponseInfo.Verbose ->
-            "verbose", (Object())
-        | CommandResponse.ProjectResponseInfo.ProjectJson ->
-            "project.json", (Object())
-        | CommandResponse.ProjectResponseInfo.DotnetSdk d->
-            "dotnet/sdk", box d
-    writer.WriteStartObject()
-    writer.WritePropertyName("SdkType")
-    writer.WriteValue(t)
-    writer.WritePropertyName("Data")
-    serializer.Serialize(writer, v)
-    writer.WriteEndObject()
-
   let projectOutputTypeWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
     let s =
         match value with
@@ -130,7 +114,6 @@ module private JsonSerializerConverters =
        OptionConverter() :> JsonConverter
        writeOnlyConverter workspacePeekFoundWriter sameDU
        writeOnlyConverter workspacePeekFoundSolutionItemKindWriter sameDU
-       writeOnlyConverter projectSdkTypeWriter sameDU
        writeOnlyConverter projectOutputTypeWriter sameDU |]
 
 module JsonSerializer =
