@@ -10,9 +10,9 @@ open FsAutoComplete.LspHelpers
 open Helpers
 
 ///Test for initialization of the server
-let initTests =
+let initTests toolsPath =
   test "InitTest" {
-    let (server, event) = createServer()
+    let (server, event) = createServer(toolsPath)
 
     let p : InitializeParams =
       { ProcessId = Some 1
@@ -60,10 +60,10 @@ let initTests =
 
 
 ///Tests for basic operations like hover, getting document symbols or code lens on simple file
-let basicTests =
+let basicTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     let projectPath = Path.Combine(path, "BasicTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
     let path = Path.Combine(path, "Script.fs")
@@ -171,10 +171,10 @@ let basicTests =
 
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
-let codeLensTest =
+let codeLensTest toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-    let (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true}
+    let (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} toolsPath
     let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
     let path = Path.Combine(path, "Script.fs")
@@ -239,10 +239,10 @@ let codeLensTest =
   ]
 
 ///Tests for getting document symbols
-let documentSymbolTest =
+let documentSymbolTest toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
     let path = Path.Combine(path, "Script.fsx")
@@ -269,10 +269,10 @@ let documentSymbolTest =
   ]
 
 ///Tests for getting autocomplete
-let autocompleteTest =
+let autocompleteTest toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
     let path = Path.Combine(path, "Script.fsx")
@@ -283,7 +283,7 @@ let autocompleteTest =
 
   let scriptProjServerStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing event
     let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
@@ -405,10 +405,10 @@ let autocompleteTest =
   )
 
 ///Rename tests
-let renameTest =
+let renameTest toolsPath =
   let serverStart = lazy (
     let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
-    let (server, event) = serverInitialize testDir defaultConfigDto
+    let (server, event) = serverInitialize testDir defaultConfigDto toolsPath
 
     let pathTest = Path.Combine(testDir, "Test.fs")
     let path = Path.Combine(testDir, "Program.fs")
@@ -473,11 +473,11 @@ let renameTest =
   ]
 
 ///GoTo tests
-let gotoTest =
+let gotoTest toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing event
     System.Threading.Thread.Sleep 1000
     let definitionPath = Path.Combine(path, "Definition.fs")
@@ -777,11 +777,11 @@ let gotoTest =
   ]
 
 
-let foldingTests =
+let foldingTests toolsPath=
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FoldingTests")
 
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing event
     let libraryPath = Path.Combine(path, "Library.fs")
     let libFile = loadDocument libraryPath
@@ -802,7 +802,7 @@ let foldingTests =
   ]
 
 
-let tooltipTests =
+let tooltipTests toolsPath =
   let (|Tooltip|_|) (hover: Hover) =
     match hover with
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }; MarkedString.String newline; MarkedString.String fullname; MarkedString.String assembly |] } -> Some tooltip
@@ -816,7 +816,7 @@ let tooltipTests =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
     let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto
+    let (server, events) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing events
     do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
     match waitForParseResultsForFile "Script.fsx" events with
@@ -872,10 +872,10 @@ let tooltipTests =
   ]
 
 
-let highlightingTests =
+let highlightingTests toolsPath =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-    let (server, event) = serverInitialize path defaultConfigDto
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath
     let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
     parseProject projectPath server |> Async.RunSynchronously
     let path = Path.Combine(path, "Script.fs")
@@ -897,13 +897,13 @@ let highlightingTests =
   ))
 
 
-let signatureHelpTests =
+let signatureHelpTests toolsPath =
 
 
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
     let scriptPath = Path.Combine(path, "Script1.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto
+    let (server, events) = serverInitialize path defaultConfigDto toolsPath
     do waitForWorkspaceFinishedParsing events
     do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
     match waitForParseResultsForFile "Script1.fsx" events with

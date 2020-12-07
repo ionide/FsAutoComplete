@@ -60,10 +60,11 @@ type Async =
 
 let logger = Expecto.Logging.Log.create "LSPTests"
 
-let createServer () =
+let createServer (toolsPath) =
+
   let event = Event<string * obj> ()
   let client = FSharpLspClient (fun name o -> event.Trigger (name,o); AsyncLspResult.success () )
-  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false)
+  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false, toolsPath)
   let originalFs = FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
   FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem <- fs
@@ -235,7 +236,7 @@ let expectExitCodeZero (exitCode, _) =
   Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
 
 
-let serverInitialize path (config: FSharpConfigDto) =
+let serverInitialize path (config: FSharpConfigDto) toolsPath =
   dotnetCleanup path
   let files = Directory.GetFiles(path)
 
@@ -243,7 +244,7 @@ let serverInitialize path (config: FSharpConfigDto) =
     runProcess (logDotnetRestore ("Restore" + path)) path "dotnet" "restore"
     |> expectExitCodeZero
 
-  let server, event = createServer()
+  let server, event = createServer(toolsPath)
 
   event.Publish
   |> Event.add logEvent

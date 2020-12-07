@@ -6,7 +6,7 @@ Microsoft.SourceLink.GitHub
 System.Configuration.ConfigurationManager
 FSharpLint.Core
 Dotnet.ProjInfo
-Dotnet.ProjInfo.Workspace.FCS
+Dotnet.ProjInfo.ProjectSystem
 Fake.Runtime
 Dapper
 FSharp.Data
