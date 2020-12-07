@@ -7,8 +7,9 @@ open System.IO
 
 module FscArguments =
 
-  let isCompileFile (s:string) =
-      s.EndsWith(".fs") || s.EndsWith (".fsi")
+  let isCompileFile (s: string) =
+      let isArg = s.StartsWith("-") && s.Contains(":")
+      (not isArg) && (s.EndsWith(".fs") || s.EndsWith (".fsi") || s.EndsWith (".fsx"))
 
   let references =
       //TODO valid also --reference:
