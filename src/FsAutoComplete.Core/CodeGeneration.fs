@@ -370,6 +370,11 @@ module CodeGenerationUtils =
                     writer.WriteLine(line)
                 writer.Unindent ctx.Indentation
 
+        let memberPrefix (m: FSharpMemberOrFunctionOrValue) =
+          if m.IsDispatchSlot
+          then "override "
+          else "member "
+
         match m with
         | MemberInfo.PropertyGetSet(getter, setter) ->
             let (usage, modifiers, getterArgInfos, retType) = preprocess ctx getter
@@ -377,7 +382,8 @@ module CodeGenerationUtils =
             let writeImplementation = writeImplementation ctx
             let (_, _, setterArgInfos, _) = preprocess ctx setter
             let writer = ctx.Writer
-            writer.Write("member ")
+
+            writer.Write(memberPrefix getter)
             for modifier in modifiers do
                 writer.Write("{0} ", modifier)
             writer.Write("{0}.", ctx.ObjectIdent)
@@ -408,7 +414,7 @@ module CodeGenerationUtils =
             let writer = ctx.Writer
             if isEventMember v then
                 writer.WriteLine("[<CLIEvent>]")
-            writer.Write("member ")
+            writer.Write(memberPrefix v)
             for modifier in modifiers do
                 writer.Write("{0} ", modifier)
             writer.Write("{0}.", ctx.ObjectIdent)
@@ -493,27 +499,44 @@ module CodeGenerationUtils =
         }
         |> Seq.distinct
 
+    /// Use this hack when FCS doesn't return enough information on .NET properties and events.
+    /// we use this to filter out the 'meta' members in favor of providing the underlying members for template generation
+    /// eg: a property _also_ has the relevant get/set members, so we don't need them.
+    let isSyntheticMember (m: FSharpMemberOrFunctionOrValue) =
+      m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod
+
     /// Get members in the decreasing order of inheritance chain
     let getInterfaceMembers (e: FSharpEntity) =
         seq {
             for (iface, instantiations) in getInterfaces e do
                 yield! iface.TryGetMembersFunctionsAndValues
                        |> Seq.choose (fun m ->
-                           // Use this hack when FCS doesn't return enough information on .NET properties and events
-                           if m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod then
+                           if isSyntheticMember m then
                                None
                            else Some (m, instantiations))
          }
 
+    let isAbstractNonVirtualMember (m: FSharpMemberOrFunctionOrValue) =
+      // is an abstract member
+      m.IsDispatchSlot
+      // this member doesn't implement anything
+      && m.ImplementedAbstractSignatures.Count = 0
+      // this member is not an override
+      && not m.IsOverrideOrExplicitInterfaceImplementation
+
+    let isAbstractClass (e: FSharpEntity) =
+      e.TryGetMembersFunctionsAndValues
+      |> Seq.exists isAbstractNonVirtualMember
+
     let getAbstractNonVirtualMembers (e: FSharpEntity) =
       seq {
-         let typeDef, genericParams =
-          let typ = getNonAbbreviatedType e.AbbreviatedType
-          typ.TypeDefinition, Seq.zip typ.TypeDefinition.GenericParameters typ.GenericArguments
+         let genericParams = e.GenericParameters :> seq<_>
+         // todo: generic param instantiations?
          yield!
           e.MembersFunctionsAndValues
           |> Seq.choose (fun m ->
-              if m.IsDispatchSlot then Some(m, genericParams)
+              if isSyntheticMember m then None
+              else if isAbstractNonVirtualMember m then Some(m, Seq.empty)
               else None
           )
       }

@@ -926,11 +926,24 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             match res with
             | None -> return CoreResponse.InfoRes "Abstract class at position not found"
             | Some abstractClass ->
-                let! stubInfo = AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass
+                commandsLogger.info (
+                  Log.setMessage "Found abstract class at pos {pos}"
+                  >> Log.addContextDestructured "pos" objExprRange.Start
+                )
+                let! stubInfo = AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass objExprRange
                 match stubInfo with
                 | Some (insertPosition, generatedCode) ->
+                    commandsLogger.info (
+                      Log.setMessage "Abstract class generated code is at pos {pos}\n{code}"
+                      >> Log.addContextDestructured "pos" insertPosition
+                      >> Log.addContextDestructured "code" generatedCode
+                    )
                     return CoreResponse.Res (generatedCode, insertPosition)
-                | None -> return CoreResponse.InfoRes "Abstract class at position not found"
+                | None ->
+                  commandsLogger.info (
+                    Log.setMessage "No abstract class members generated"
+                    )
+                  return CoreResponse.InfoRes "Abstract class at position not found"
         }
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
         |> AsyncResult.recoverCancellation

@@ -99,7 +99,10 @@ let defaultConfigDto : FSharpConfigDto =
     FSIExtraParameters = None
     FSICompilerToolLocations = None
     TooltipMode = None
-    GenerateBinlog = None }
+    GenerateBinlog = None
+    AbstractClassStubGeneration = None
+    AbstractClassStubGenerationMethodBody = None
+    AbstractClassStubGenerationObjectIdentifier = None }
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}

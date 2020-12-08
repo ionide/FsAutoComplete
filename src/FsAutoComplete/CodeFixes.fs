@@ -537,10 +537,22 @@ module Fixes =
           let fileName =
             codeActionParams.TextDocument.GetFilePath()
 
-          let objExprRange = protocolRangeToRange fileName codeActionParams.Range
+          let interestingRange =
+            (match diagnostic.Code with
+             | Some "365" ->
+              // the object expression diagnostic covers the entire interesting range
+              diagnostic.Range
+             | Some "54" ->
+              // the full-class range is on the typename, which should be enough to enable traversal
+              diagnostic.Range
+             | _ ->
+              // everything else is a best guess
+              codeActionParams.Range
+            )
+            |> protocolRangeToRange fileName
 
-          let! (tyRes, line, lines) = getParseResultsForFile fileName objExprRange.Start
-          match! genAbstractClassStub tyRes objExprRange lines line with
+          let! (tyRes, line, lines) = getParseResultsForFile fileName interestingRange.Start
+          match! genAbstractClassStub tyRes interestingRange lines line with
           | CoreResponse.Res (text, position) ->
               let replacements = getTextReplacements ()
 
@@ -549,8 +561,8 @@ module Fixes =
                 ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
 
               return
-                [ { SourceDiagnostic = None
-                    Title = "Generate record stub"
+                [ { SourceDiagnostic = Some diagnostic
+                    Title = "Generate abstract class members"
                     File = codeActionParams.TextDocument
                     Edits =
                       [| { Range = fcsPosToProtocolRange position
@@ -559,7 +571,7 @@ module Fixes =
           | _ -> return []
         }
         |> AsyncResult.foldResult id (fun _ -> [])
-      ) (Set.ofList ["365"])
+      ) (Set.ofList ["365"; "54"])
 
   /// a codefix that adds in missing '=' characters in type declarations
   let addMissingEqualsToTypeDefinition (getFileLines: string -> Result<string [], _>) =

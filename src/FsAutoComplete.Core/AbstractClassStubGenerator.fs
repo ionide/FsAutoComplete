@@ -5,6 +5,9 @@ open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Range
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SourceCodeServices
+open FsAutoComplete.Logging
+
+let logger = LogProvider.getLoggerByName "AbstractClassStub"
 
 type AbstractClassData =
   | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: range
@@ -19,9 +22,18 @@ type AbstractClassData =
     | ExplicitImpl(t, _, _) -> expandTypeParameters t
 
 let private walkTypeDefn (SynTypeDefn.TypeDefn(info, repr, members, range)) =
-  let inheritMember = members |> List.tryPick (function SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some (inheritType) | _ -> None)
+  let reprMembers =
+    match repr with
+    | SynTypeDefnRepr.ObjectModel (_, members, _) -> members
+    | _ -> []
+  let allMembers = reprMembers @ members
+  let inheritMember =
+    allMembers
+    |> List.tryPick (function SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some (inheritType) | _ -> None)
+
   let otherMembers =
-    members |> List.filter (
+    allMembers
+    |> List.filter (
       // filter out implicit/explicit constructors and inherit statements, as all members _must_ come after these
       function | SynMemberDefn.ImplicitCtor _
                | SynMemberDefn.ImplicitInherit _ -> false
@@ -61,9 +73,6 @@ let tryFindAbstractClassExprInBufferAtPos (codeGenService: CodeGenerationService
             |> Option.bind (tryFindAbstractClassExprInParsedInput pos)
     }
 
-let rec private isAbstractClass (e: FSharpEntity) =
-  e.IsClass || (e.IsFSharpAbbreviation && isAbstractClass e.AbbreviatedType.TypeDefinition)
-
 let getAbstractClassIdentifier (abstractClassData: AbstractClassData) tokens =
   let newKeywordIndex =
     match abstractClassData with
@@ -86,7 +95,6 @@ let getMemberNameAndRanges (abstractClassData) =
     |> Seq.choose (|MemberNameAndRange|_|)
     |> Seq.toList
   | AbstractClassData.ObjExpr (_, bindings, _) -> List.choose (|MemberNameAndRange|_|) bindings
-
 
 /// Try to find the start column, so we know what the base indentation should be
 let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (indentSize : int) =
@@ -112,83 +120,81 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
                 |> Option.defaultValue newExprRange.StartColumn
             | None -> newExprRange.StartColumn
 
-let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) = async {
-  let pos = mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
-  let! result = asyncMaybe {
-        let! _symbol, symbolUse = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
-        let! thing = async {
-            match! symbolUse with
-            | None -> return None
-            | Some symbolUse ->
-              match symbolUse.Symbol with
-              | :? FSharpEntity as entity when isAbstractClass entity ->
-                      match! checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos) with
-                      | Some displayContext ->
-                        return Some (displayContext, entity)
-                      | None -> return None
-              | _ -> return None
+let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (implementedRange: range) =
+  asyncMaybe {
+    let pos = mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
+    logger.info (Log.setMessage "Looking for interface implementation at {pos}" >> Log.addContextDestructured "pos" pos)
+    let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
+    let! usage = usages
+    let! (displayContext, entity) =
+      asyncMaybe {
+        // need the enclosing entity because we're always looking at a ctor, which isn't an Entity, but a MemberOrFunctionOrValue
+        match usage.Symbol with
+        | :? FSharpMemberOrFunctionOrValue as v ->
+          if isAbstractClass v.ApparentEnclosingEntity
+          then
+            let! displayContext  = checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos)
+            return! Some (displayContext, v.ApparentEnclosingEntity)
+          else
+            return! None
+        | _ -> return! None
+      }
+
+    let getMemberByLocation (name, range: range) =
+        asyncMaybe {
+            let pos = Pos.fromZ (range.StartLine - 1) (range.StartColumn + 1)
+            return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation (pos.Line, pos.Column, lineStr, [])
         }
-        return thing
-    }
 
-  match result with
-  | Some (displayContext, entity) ->
-      let getMemberByLocation (name, range: range) =
-          asyncMaybe {
-              let pos = Pos.fromZ (range.StartLine - 1) (range.StartColumn + 1)
-              return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation (pos.Line, pos.Column, lineStr, [])
-          }
-
-      let insertInfo =
-          match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
-          | Some tokens ->
-            match abstractClassData with
-            | AbstractClassData.ObjExpr _ -> findLastPositionOfWithKeyword tokens entity pos (getAbstractClassIdentifier abstractClassData)
-            | AbstractClassData.ExplicitImpl (_, _, safeInsertPosition) -> Some (false, safeInsertPosition)
-          | None -> None
-
-      let desiredMemberNamesWithRanges = getMemberNameAndRanges abstractClassData
-
-      let! implementedSignatures =
-          getImplementedMemberSignatures getMemberByLocation displayContext desiredMemberNamesWithRanges
-
-      let generatedString =
-          let formattedString =
-              formatMembersAt
-                  (inferStartColumn codeGenServer pos doc lines lineStr abstractClassData 4) // 4 here correspond to the indent size
-                  4 // Should we make it a setting from the IDE ?
-                  abstractClassData.TypeParameters
-                  "$objectIdent"
-                  "$methodBody"
-                  displayContext
-                  implementedSignatures
-                  entity
-                  getAbstractNonVirtualMembers
-                  true // Always generate the verbose version of the code
-
-          // If we are in a object expression, we remove the last new line, so the `}` stay on the same line
+    let insertInfo =
+        match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
+        | Some tokens ->
           match abstractClassData with
-          | AbstractClassData.ExplicitImpl _ ->
-              formattedString
-          | AbstractClassData.ObjExpr _ ->
-              formattedString.TrimEnd('\n')
+          | AbstractClassData.ObjExpr _ -> findLastPositionOfWithKeyword tokens entity pos (getAbstractClassIdentifier abstractClassData)
+          | AbstractClassData.ExplicitImpl (_, _, safeInsertPosition) -> Some (false, safeInsertPosition)
+        | None -> None
 
-      // If generatedString is empty it means nothing is missing to the abstract class
-      // So we return None, in order to not show a "Falsy Hint"
-      if System.String.IsNullOrEmpty generatedString then
-          return None
-      else
-          match insertInfo with
-          | Some (shouldAppendWith, insertPosition) ->
-              if shouldAppendWith then
-                  return Some (insertPosition, " with" + generatedString)
-              else
-                  return Some (insertPosition, generatedString)
-          | None ->
-              // Unable to find an optimal insert position so return the position under the cursor
-              // By doing that we allow the user to copy/paste the code if the insertion break the code
-              // If we return None, then user would not benefit from interface stub generation at all
-              return Some (pos, generatedString)
-  | None ->
-      return None
-}
+    let desiredMemberNamesWithRanges = getMemberNameAndRanges abstractClassData
+
+    let! implementedSignatures =
+      getImplementedMemberSignatures getMemberByLocation displayContext desiredMemberNamesWithRanges
+      |> Async.map Some
+
+    let generatedString =
+        let formattedString =
+            formatMembersAt
+                (inferStartColumn codeGenServer pos doc lines lineStr abstractClassData 4) // 4 here correspond to the indent size
+                4 // Should we make it a setting from the IDE ?
+                abstractClassData.TypeParameters
+                "$objectIdent"
+                "$methodBody"
+                displayContext
+                implementedSignatures
+                entity
+                getAbstractNonVirtualMembers
+                true // Always generate the verbose version of the code
+
+        // If we are in a object expression, we remove the last new line, so the `}` stay on the same line
+        match abstractClassData with
+        | AbstractClassData.ExplicitImpl _ ->
+            formattedString
+        | AbstractClassData.ObjExpr _ ->
+            formattedString.TrimEnd('\n')
+
+    // If generatedString is empty it means nothing is missing to the abstract class
+    // So we return None, in order to not show a "Falsy Hint"
+    if System.String.IsNullOrEmpty generatedString then
+        return! None
+    else
+        match insertInfo with
+        | Some (shouldAppendWith, insertPosition) ->
+            if shouldAppendWith then
+                return! Some (insertPosition, " with" + generatedString)
+            else
+                return! Some (insertPosition, generatedString)
+        | None ->
+            // Unable to find an optimal insert position so return the position under the cursor
+            // By doing that we allow the user to copy/paste the code if the insertion break the code
+            // If we return None, then user would not benefit from interface stub generation at all
+            return! Some (pos, generatedString)
+  }
