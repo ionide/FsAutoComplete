@@ -5,9 +5,6 @@ open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Range
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SourceCodeServices
-open FsAutoComplete.Logging
-
-let logger = LogProvider.getLoggerByName "AbstractClassStub"
 
 type AbstractClassData =
   | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: range
@@ -123,7 +120,6 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
 let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (implementedRange: range) =
   asyncMaybe {
     let pos = mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
-    logger.info (Log.setMessage "Looking for interface implementation at {pos}" >> Log.addContextDestructured "pos" pos)
     let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
     let! usage = usages
     let! (displayContext, entity) =
