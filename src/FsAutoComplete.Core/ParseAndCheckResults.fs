@@ -553,6 +553,16 @@ type ParseAndCheckResults
   member __.GetAllSymbolUsesInFile () = checkResults.GetAllUsesOfAllSymbolsInFile()
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
+
+  // member this.GetExpandedType (pos: pos) =
+  //   match parseResults.ParseTree with
+  //   | Some input ->
+  //     AstTraversal.Traverse(pos, input, {
+  //       new AstTraversal.AstVisitorBase<_>() with
+  //     })
+  //   | None -> None
+
+
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
   member __.GetParseResults = parseResults

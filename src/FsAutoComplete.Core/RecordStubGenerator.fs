@@ -6,6 +6,7 @@ open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
 open System.Diagnostics
+open FsAutoComplete.CodeGenerationUtils
 
 // Algorithm
 // [x] Make sure '}' is the last token of the expression
