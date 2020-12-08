@@ -250,7 +250,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
 
         if not isFromCache then
           response.Items
-          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> if p.Contains "--embed:" then None else Some p)
+          |> List.choose (function Dotnet.ProjInfo.Workspace.ProjectViewerItem.Compile(p, _) -> Some p)
           |> parseFilesInTheBackground tfmForScripts
           |> Async.Start
         else
