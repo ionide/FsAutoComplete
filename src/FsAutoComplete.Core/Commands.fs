@@ -44,7 +44,8 @@ module AsyncResult =
   let inline mapErrorRes ar: Async<CoreResponse<'a>> =
     AsyncResult.foldResult id CoreResponse.ErrorRes ar
 
-  let recoverCancellation (ar: Async<Result<CoreResponse<'t>, exn>>) = AsyncResult.foldResult id (sprintf "Request cancelled (exn was %A)" >> CoreResponse.InfoRes) ar
+  let recoverCancellationGeneric (ar: Async<Result<'t, exn>>) recoverInternal = AsyncResult.foldResult id recoverInternal ar
+  let recoverCancellation (ar: Async<Result<CoreResponse<'t>, exn>>) = recoverCancellationGeneric ar (sprintf "Request cancelled (exn was %A)" >> CoreResponse.InfoRes)
   let recoverCancellationIgnore (ar: Async<Result<unit, exn>>) = AsyncResult.foldResult id ignore ar
 
 [<RequireQualifiedAccess>]
@@ -919,19 +920,17 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         |> AsyncResult.recoverCancellation
 
     member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: range) (lines: LineStr[]) (lineStr: LineStr) =
-        async {
+        asyncResult {
             let doc = docForText lines tyRes
-            let! res = AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer objExprRange.Start doc
-            match res with
-            | None -> return CoreResponse.InfoRes "Abstract class at position not found"
-            | Some abstractClass ->
-                let! stubInfo = AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass objExprRange
-                match stubInfo with
-                | Some (insertPosition, generatedCode) ->
-                    return CoreResponse.Res (generatedCode, insertPosition)
-                | None ->
-                  return CoreResponse.InfoRes "Abstract class at position not found"
+            let! abstractClass =
+                AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer objExprRange.Start doc
+                |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
+            let! (insertPosition, generatedCode) =
+                AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass
+                |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
+            return CoreResponse.Res (generatedCode, insertPosition)
         }
+        |> AsyncResult.foldResult id id
         |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
         |> AsyncResult.recoverCancellation
 

@@ -18,6 +18,7 @@ type AbstractClassData =
     | ObjExpr(t, _, _)
     | ExplicitImpl(t, _, _) -> expandTypeParameters t
 
+/// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
 let private walkTypeDefn (SynTypeDefn.TypeDefn(info, repr, members, range)) =
   let reprMembers =
     match repr with
@@ -62,6 +63,8 @@ let private tryFindAbstractClassExprInParsedInput (pos: pos) (parsedInput: Parse
           | _ -> defaultTraverse decl
       })
 
+/// Walk the parse tree for the given document and look for the definition of any abstract classes in use at the given pos.
+/// This looks for implementations of abstract types in object expressions, as well as inheriting of abstract types inside class type declarations.
 let tryFindAbstractClassExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
@@ -117,7 +120,10 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
                 |> Option.defaultValue newExprRange.StartColumn
             | None -> newExprRange.StartColumn
 
-let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (implementedRange: range) =
+/// Try to write any missing members of the given abstract type at the given location.
+/// If the destination type isn't an abstract class, or if there are no missing members to implement,
+/// nothing is written. Otherwise, a list of missing members is generated and written
+let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) =
   asyncMaybe {
     let pos = mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
     let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
@@ -191,6 +197,6 @@ let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultF
         | None ->
             // Unable to find an optimal insert position so return the position under the cursor
             // By doing that we allow the user to copy/paste the code if the insertion break the code
-            // If we return None, then user would not benefit from interface stub generation at all
+            // If we return None, then user would not benefit from abstract stub generation at all
             return! Some (pos, generatedString)
   }
