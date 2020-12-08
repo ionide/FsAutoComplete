@@ -52,9 +52,6 @@ Target.create "ReleaseArchive" (fun _ ->
 
     !! (sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" release.AssemblyVersion)
     |> Shell.copy "bin/pkgs"
-
-    !! (sprintf "bin/project_system/ProjectSystem.%s.nupkg" release.AssemblyVersion)
-    |> Shell.copy "bin/pkgs"
 )
 
 Target.create "LocalRelease" (fun _ ->
@@ -76,14 +73,6 @@ Target.create "LocalRelease" (fun _ ->
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_as_tool")
            Configuration = DotNet.BuildConfiguration.fromString configuration
            MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion; "PackAsTool", "true" ] } }) "src/FsAutoComplete"
-
-
-    Shell.cleanDirs [ "bin/project_system" ]
-    DotNet.pack (fun p ->
-       { p with
-           OutputPath = Some ( __SOURCE_DIRECTORY__ </> "bin/project_system")
-           Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/ProjectSystem"
 )
 
 Target.create "Clean" (fun _ ->
