@@ -140,11 +140,22 @@ module CommandResponse =
       Project: ProjectFilePath
     }
 
+  type ProjectReference =
+    { RelativePath: string
+      ProjectFileName: string }
+
+  type PackageReference =
+    { Name: string
+      Version: string
+      FullPath: string }
+
   type ProjectResponse =
     {
       Project: ProjectFilePath
       Files: List<SourceFilePath>
       Output: string
+      ProjectReferences: List<ProjectReference>
+      PackageReferences: List<PackageReference>
       References: List<ProjectFilePath>
       OutputType: ProjectOutputType
       Info: ProjectResponseInfoDotnetSdk
@@ -369,6 +380,8 @@ module CommandResponse =
       { Project = projectResult.ProjectFileName
         Files = projectResult.ProjectFiles
         Output = match projectResult.OutFileOpt with Some x -> x | None -> "null"
+        ProjectReferences = projectResult.Extra.ReferencedProjects |> List.map (fun n -> {RelativePath = n.RelativePath; ProjectFileName = n.ProjectFileName})
+        PackageReferences = projectResult.Extra.PackageReferences |> List.map (fun n -> {Name = n.Name; Version = n.Version; FullPath = n.FullPath})
         References = List.sortBy IO.Path.GetFileName projectResult.References
         OutputType =
           match projectResult.Extra.ProjectOutputType with
