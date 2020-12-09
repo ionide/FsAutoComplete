@@ -1056,7 +1056,7 @@ module Types =
 
     type ITextDocumentPositionParams =
         /// The text document.
-        abstract member TextDocument : TextDocumentIdentifier with get
+        abstract member TextDocument : ITextDocumentIdentifier with get
         /// The position inside the text document.
         abstract member Position : Position with get
 
@@ -1068,7 +1068,17 @@ module Types =
             Position: Position
         }
         interface ITextDocumentPositionParams with
-            member this.TextDocument with get() = this.TextDocument
+            member this.TextDocument with get() = upcast this.TextDocument
+            member this.Position with get() = this.Position
+
+    type VersionedTextDocumentPositionParams =
+      {     /// The text document and optional version
+            TextDocument: VersionedTextDocumentIdentifier
+            /// The position inside the text document.
+            Position: Position
+        }
+        interface ITextDocumentPositionParams with
+            member this.TextDocument with get() = upcast this.TextDocument
             member this.Position with get() = this.Position
 
     type ReferenceContext = {
@@ -1085,7 +1095,7 @@ module Types =
             Context: ReferenceContext
         }
         interface ITextDocumentPositionParams with
-            member this.TextDocument with get() = this.TextDocument
+            member this.TextDocument with get() = upcast this.TextDocument
             member this.Position with get() = this.Position
 
     /// A `MarkupContent` literal represents a string value which content is interpreted base on its
@@ -1247,7 +1257,7 @@ module Types =
             Context: CompletionContext option
         }
         interface ITextDocumentPositionParams with
-            member this.TextDocument with get() = this.TextDocument
+            member this.TextDocument with get() = upcast this.TextDocument
             member this.Position with get() = this.Position
 
     /// Represents a reference to a command. Provides a title which will be used to represent a command in the UI.
@@ -1483,7 +1493,7 @@ module Types =
             NewName: string
         }
         interface ITextDocumentPositionParams with
-            member this.TextDocument with get() = this.TextDocument
+            member this.TextDocument with get() = upcast this.TextDocument
             member this.Position with get() = this.Position
 
     [<ErasedUnion>]
@@ -1711,7 +1721,7 @@ module Types =
         Context: SignatureHelpContext option
       }
       interface ITextDocumentPositionParams with
-        member this.TextDocument with get () = this.TextDocument
+        member this.TextDocument with get () = upcast this.TextDocument
         member this.Position with get () = this.Position
 
     type FoldingRangeParams = {
@@ -2340,7 +2350,7 @@ module Server =
             "workspace/didChangeWorkspaceFolders", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
             "workspace/didChangeConfiguration", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)
             "workspace/symbol", requestHandling (fun s p -> s.WorkspaceSymbol (p))
-            "workspace/executeCommand ", requestHandling (fun s p -> s.WorkspaceExecuteCommand (p))
+            "workspace/executeCommand", requestHandling (fun s p -> s.WorkspaceExecuteCommand (p))
             "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
             "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
         ]
@@ -2404,7 +2414,7 @@ module Server =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
             let req = JsonRpc.Request.Create(rpcMethod, serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
-            sender.Post(reqString)
+            sender.Post reqString
             // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
             async.Return (LspResult.Ok ())
 

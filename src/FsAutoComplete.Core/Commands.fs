@@ -1176,3 +1176,41 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
       }
       |> AsyncResult.foldResult id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
+    member _.GenerateDocumentationForSignature (returnTy: string) (functionParams: (string * string) list list) (genericParams: string list) (pos: pos) (lineStr: LineStr) =
+      let indent =
+        let trimmed = lineStr.TrimStart(' ')
+        let diff = lineStr.Length - trimmed.Length
+        String.replicate diff " "
+
+      let insertPos = mkPos (pos.Line - 1) indent.Length
+
+      let parameters =
+        functionParams
+        |> List.concat
+        |> List.choose (fun (name, _) ->
+          if String.IsNullOrWhiteSpace name
+          then None
+          else Some $"""<param name="%s{name}"></param>"""
+        )
+
+      let generics =
+        genericParams
+        |> List.map (fun generic -> $"""<typeparam name="'%s{generic}"></typeparam>""")
+
+      let summary =  [
+        "<summary>"
+        " "
+        "</summary>"
+      ]
+
+      let returns = [
+        "<returns><</returns>"
+      ]
+
+      let xmldoc =
+        summary @ parameters @ generics @ returns
+        |> List.map (fun line -> $"%s{indent}/// %s{line}")
+        |> String.concat "\n"
+
+      insertPos, xmldoc
+

@@ -53,6 +53,9 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerRequest "fsharp/fileParsed" (box p) |> Async.Ignore
 
+    member __.WorkspaceApplyEdit (p: ApplyWorkspaceEditParams) =
+      sendServerRequest "workspace/applyEdit" (box p) |> Async.Ignore
+
     // TODO: Add the missing notifications
     // TODO: Implement requests
 
@@ -632,6 +635,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         ExecuteCommandProvider = Some {
                           commands = Some [|
                             "fsharp.expandTypeSignature"
+                            "fsharp.generateXmlDoc"
                           |]
                         }
                     }
@@ -655,9 +659,33 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | "fsharp.expandTypeSignature", Some [| tdpp |] ->
           do! x.FSharpExpandTypeSignature(JToken.toObject tdpp)
           return success (JValue.CreateNull() :> _)
+        | "fsharp.generateXmlDoc", Some [| tdpp |] ->
+          do! x.FSharpGenerateDocEdits(JToken.toObject tdpp)
+          return success (JValue.CreateNull() :> _)
         | _ ->
           return success (JValue.CreateNull() :> _)
     }
+
+    member x.FSharpGenerateDocEdits (p: VersionedTextDocumentPositionParams): Async<unit> =
+      let work = fun (p: VersionedTextDocumentPositionParams) pos tyRes lineStr lines ->
+        asyncResult {
+          logger.info (Log.setMessage "got generatedoc command")
+          let! (returnTy, functionParams, genericParams) as results = commands.SignatureData tyRes pos lineStr |> AsyncResult.ofCoreResponse
+          logger.info (Log.setMessage "got generic param info command {results}" >> Log.addContextDestructured "results" results)
+          let insertPos, formattedDocs = commands.GenerateDocumentationForSignature returnTy functionParams genericParams pos lineStr
+          logger.info (Log.setMessage "insert {docs} at {pos}" >> Log.addContextDestructured "docs" formattedDocs >> Log.addContextDestructured "pos" insertPos)
+          let edit =
+            { Label = Some "Add XML documentation"
+              Edit = WorkspaceEdit.Create([|
+                { TextDocument = p.TextDocument
+                  Edits = [| { Range = fcsPosToProtocolRange insertPos
+                               NewText = formattedDocs } |] } |], clientCapabilities.Value) }
+          lspClient.WorkspaceApplyEdit edit |> Async.Start
+          return! success ()
+        }
+      p
+      |> x.positionHandler work
+      |> AsyncResult.foldResult id ignore
 
     override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) = async {
         let doc = p.TextDocument

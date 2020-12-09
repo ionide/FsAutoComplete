@@ -96,7 +96,7 @@ module Conversions =
         member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
     type ITextDocumentPositionParams with
-        member p.GetFilePath() = p.TextDocument.GetFilePath()
+        member p.GetFilePath() = Path.FileUriToLocalPath p.TextDocument.Uri
         member p.GetFcsPos() = protocolPosToPos p.Position
 
     let fcsSeverityToDiagnostic = function
