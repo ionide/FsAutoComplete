@@ -652,8 +652,8 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override x.WorkspaceExecuteCommand (e: ExecuteCommandParams) = async {
         match e.Command, e.Arguments with
-        | "fsharp.expandTypeSignature", Some args ->
-          do! x.FSharpExpandTypeSignature(JToken.toObject args.[0])
+        | "fsharp.expandTypeSignature", Some [| tdpp |] ->
+          do! x.FSharpExpandTypeSignature(JToken.toObject tdpp)
           return success (JValue.CreateNull() :> _)
         | _ ->
           return success (JValue.CreateNull() :> _)
