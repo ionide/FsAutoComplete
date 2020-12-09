@@ -629,6 +629,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                  }
                         FoldingRangeProvider = Some true
                         SelectionRangeProvider = Some true
+                        ExecuteCommandProvider = Some {
+                          commands = Some [|
+                            "fsharp.expandTypeSignature"
+                          |]
+                        }
                     }
             }
             |> success
@@ -636,8 +641,22 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override __.Initialized(p: InitializedParams) = async {
         logger.info (Log.setMessage "Initialized request")
-
         return ()
+    }
+
+    member x.FSharpExpandTypeSignature(p : TextDocumentPositionParams): Async<unit> =
+      async {
+        logger.info (Log.setMessage "handled expand typesig command")
+        return ()
+      }
+
+    override x.WorkspaceExecuteCommand (e: ExecuteCommandParams) = async {
+        match e.Command, e.Arguments with
+        | "fsharp.expandTypeSignature", Some args ->
+          do! x.FSharpExpandTypeSignature(JToken.toObject args.[0])
+          return success (JValue.CreateNull() :> _)
+        | _ ->
+          return success (JValue.CreateNull() :> _)
     }
 
     override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) = async {

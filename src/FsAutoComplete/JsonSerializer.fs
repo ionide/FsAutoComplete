@@ -2,6 +2,7 @@
 
 open System
 open Newtonsoft.Json
+open Newtonsoft.Json.Linq
 open Newtonsoft.Json.Converters
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
@@ -135,6 +136,14 @@ module private JsonSerializerConverters =
 
 module JsonSerializer =
 
+  let commonSerializer =
+    let s = JsonSerializerSettings()
+    s.Converters <- ResizeArray JsonSerializerConverters.jsonConverters
+    JsonSerializer.Create s
+
   let writeJson(o: obj) = JsonConvert.SerializeObject(o, JsonSerializerConverters.jsonConverters)
 
   let readJson<'T>(s: string) = JsonConvert.DeserializeObject<'T>(s, JsonSerializerConverters.jsonConverters)
+
+module JToken =
+  let toObject<'t> (jt: JToken) = jt.ToObject<'t>(JsonSerializer.commonSerializer)
