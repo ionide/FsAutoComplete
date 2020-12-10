@@ -515,9 +515,17 @@ type ParseAndCheckResults
       let sortedDecls =
           decls
           |> Array.sortWith (fun x y ->
+              let transformKind (item: FSharpDeclarationListItem) =
+                if item.Kind = CompletionItemKind.Field && item.Glyph = FSharpGlyph.Method then
+                  CompletionItemKind.Method false
+                elif item.Kind = CompletionItemKind.Argument && item.Glyph = FSharpGlyph.Property then
+                  CompletionItemKind.Property
+                else
+                  item.Kind
+
               let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
               if n <> 0 then n else
-                  n <- (getKindPriority x.Kind).CompareTo(getKindPriority y.Kind)
+                  n <- (getKindPriority <| transformKind x).CompareTo(getKindPriority <| transformKind y)
                   if n <> 0 then n else
                       n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
                       if n <> 0 then n else

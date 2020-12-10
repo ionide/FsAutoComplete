@@ -379,6 +379,22 @@ let autocompleteTest =
           Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
       }))
+
+    testCaseAsync "Autocomplete class constructor with properties" (serverTest (fun server path ->
+      async {
+        let p : CompletionParams = {
+          TextDocument = { Uri = Path.FilePathToUri path }
+          Position = { Line = 32; Character = 26 }
+          Context = None
+        }
+        let! res = server.TextDocumentCompletion p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Bar")) < 2) "Autocomplete contains given symbol"
+          Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Baz")) < 2) "Autocomplete contains given symbol"
+      }))
   ]
 
   testSequenced (
