@@ -496,6 +496,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.removeUnnecessaryReturnOrYield tryGetParseResultsForFile
             Fixes.rewriteCSharpLambdaToFSharpLambda tryGetParseResultsForFile
             Fixes.addMissingFunKeyword getFileLines
+            Fixes.makeOuterBindingRecursive tryGetParseResultsForFile
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
