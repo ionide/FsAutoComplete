@@ -237,7 +237,7 @@ type FSharpParseFileResults with
       | None -> None
 
   member scope.TryRangeOfNearestOuterBindingContainingPos pos =
-    let identInBinding binding =
+    let tryGetIdentRangeFromBinding binding =
         match binding with
         | SynBinding.Binding (_, _, _, _, _, _, _, headPat, _, _, _, _) ->
             match headPat with
@@ -248,18 +248,18 @@ type FSharpParseFileResults with
             | _ ->
                 None
 
-    let rec walkLetOrUse expr workingRange =
+    let rec walkBinding expr workingRange =
         match expr with
-        | SynExpr.LetOrUse(false, false, bindings, bodyExpr, range) when rangeContainsPos range pos ->
+        | SynExpr.LetOrUse(false, _, bindings, bodyExpr, _) ->
             let potentialNestedRange =
                 bindings
                 |> List.tryFind (fun binding -> rangeContainsPos binding.RangeOfBindingAndRhs pos)
-                |> Option.bind identInBinding
+                |> Option.bind tryGetIdentRangeFromBinding
             match potentialNestedRange with
             | Some range ->
-                walkLetOrUse bodyExpr range
+                walkBinding bodyExpr range
             | None ->
-                Some workingRange
+                walkBinding bodyExpr workingRange
         | _ ->
             Some workingRange
 
@@ -272,9 +272,8 @@ type FSharpParseFileResults with
             override _.VisitBinding(defaultTraverse, binding) =
                 match binding with
                 | SynBinding.Binding (_, _, _, _, _, _, _, _, _, expr, _range, _) as b when rangeContainsPos b.RangeOfBindingAndRhs pos ->
-                    match identInBinding b with
-                    | Some range -> walkLetOrUse expr range
-                    | None -> None
+                    tryGetIdentRangeFromBinding b
+                    |> Option.bind (walkBinding expr)
                 | _ -> defaultTraverse binding
         })
     | None -> None
