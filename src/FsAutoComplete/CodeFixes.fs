@@ -6,8 +6,10 @@ open FsAutoComplete.LspHelpers
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 open System.IO
+open FsAutoComplete.Logging
 
 type FcsRange = FSharp.Compiler.SourceCodeServices.Range
+type FcsPos = FSharp.Compiler.Range.pos
 
 module LspTypes = LanguageServerProtocol.Types
 
@@ -799,7 +801,7 @@ module Fixes =
 
           let fcsPos = protocolPosToPos diagnostic.Range.Start
           let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
-          let! (symbol, _) = tyRes.TryGetSymbolUse fcsPos line
+          let! symbol = tyRes.TryGetSymbolUse fcsPos line |> AsyncResult.ofOption (fun _ -> "No symbol found at position")
 
           match symbol.Symbol with
           // only do anything if the value is mutable
@@ -946,3 +948,48 @@ module Fixes =
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "39" // undefined value
                     "43" ]) // operator not defined
+
+  let rec addMissingFunKeyword
+    (getFileLines: string -> Result<string [], _>)
+    : CodeFix =
+    let logger = LogProvider.getLoggerByName (nameof addMissingFunKeyword)
+    ifDiagnosticByCode (
+      fun diagnostic codeActionParams ->
+      asyncResult {
+        let fileName = codeActionParams.TextDocument.GetFilePath()
+        let! lines = getFileLines fileName
+        let errorText = getText lines diagnostic.Range
+        do! Result.guard (fun _ -> errorText = "->") "Expected error source code text not matched"
+        let lineLen = lines.[diagnostic.Range.Start.Line].Length
+        let line = getText lines { Start = { diagnostic.Range.Start with Character = 0 }; End = { diagnostic.Range.End with Character = lineLen }}
+        let charAtPos = getText lines ({ Start = diagnostic.Range.Start; End = inc lines diagnostic.Range.Start })
+        let adjustedPos = walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not)
+        match adjustedPos with
+        | None -> return []
+        | Some firstNonWhitespacePos ->
+          let pos2Range = ({ Start = firstNonWhitespacePos; End = inc lines firstNonWhitespacePos })
+          let charAtPos2 = getText lines pos2Range
+          logger.info (Log.setMessage "walked pack from {pos}@{char} to {pos2}@{char2}"
+                       >> Log.addContextDestructured "pos" diagnostic.Range.Start
+                       >> Log.addContextDestructured "char" charAtPos
+                       >> Log.addContextDestructured "pos2" firstNonWhitespacePos
+                       >> Log.addContextDestructured "char2" charAtPos2)
+          let fcsPos = protocolPosToPos firstNonWhitespacePos
+          match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
+          | Some lexSym ->
+            let fcsStartPos = FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
+            // let! symbol = tyres.TryGetSymbolUse fcsPos line |> AsyncResult.ofOption (fun _ -> "No symbol found at pos")
+            let symbolStartRange = fcsPosToProtocolRange fcsStartPos
+            return [
+              { Title = "Add missing 'fun' keyword"
+                File = codeActionParams.TextDocument
+                SourceDiagnostic = Some diagnostic
+                Edits = [| { Range = symbolStartRange
+                             NewText = "fun " } |]
+                Kind = Fix
+              }
+            ]
+          | None -> return []
+      }
+      |> AsyncResult.foldResult id (fun _ -> [])
+    ) (Set.ofList ["10"])

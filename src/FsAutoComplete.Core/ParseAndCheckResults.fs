@@ -401,14 +401,16 @@ type ParseAndCheckResults
           return Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
   }
 
-  member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr) = async {
+  member __.TryGetSymbolUse (pos: pos) (lineStr: LineStr): Async<FSharpSymbolUse option> = async {
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
-    | None ->
-      return ResultOrString.Error "No ident at this location"
+    | None -> return None
     | Some(colu, identIsland) ->
+      let identIsland = Array.toList identIsland
+      return! checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+  }
 
-    let identIsland = Array.toList identIsland
-    let! symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+  member x.TryGetSymbolUseAndUsages (pos: pos) (lineStr: LineStr) = async {
+    let! symboluse = x.TryGetSymbolUse pos lineStr
     match symboluse with
     | None ->
       return ResultOrString.Error "No symbol information found"

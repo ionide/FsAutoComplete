@@ -92,6 +92,12 @@ module Option =
   let inline attempt (f: unit -> 'T) = try Some <| f() with _ -> None
 
 [<RequireQualifiedAccess>]
+module Result =
+  let inline bimap okF errF r = match r with | Ok x -> okF x | Error y -> errF y
+  let inline ofOption recover o = match o with | Some x -> Ok x | None -> Error (recover ())
+  let inline guard condition errorValue = if condition () then Ok () else Error errorValue
+
+[<RequireQualifiedAccess>]
 module Async =
     /// Transforms an Async value using the specified function.
     [<CompiledName("Map")>]
@@ -136,7 +142,12 @@ module Async =
 
                 // Return the completed results.
                 return result
-}
+            }
+
+[<RequireQualifiedAccess>]
+module AsyncResult =
+  let inline bimap okF errF r = Async.map (Result.bimap okF errF) r
+  let inline ofOption recover o = Async.map (Result.ofOption recover) o
 
 // Maybe computation expression builder, copied from ExtCore library
 /// https://github.com/jack-pappas/ExtCore/blob/master/ExtCore/Control.fs

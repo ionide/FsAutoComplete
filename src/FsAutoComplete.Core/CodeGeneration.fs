@@ -39,12 +39,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
                 | ResultOrString.Error _ -> return! None
                 | ResultOrString.Ok (opts, _, line) ->
                     let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts)
-                    let symbolUse = async {
-                      let! r = result.TryGetSymbolUse pos line
-                      match r with
-                      | ResultOrString.Error _ -> return None
-                      | ResultOrString.Ok (suse, _) -> return Some suse
-                    }
+                    let symbolUse = result.TryGetSymbolUse pos line
                     return! Some (symbol, symbolUse)
             else
                 return! None
