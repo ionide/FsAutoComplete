@@ -2341,8 +2341,8 @@ module Server =
             "workspace/didChangeConfiguration", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)
             "workspace/symbol", requestHandling (fun s p -> s.WorkspaceSymbol (p))
             "workspace/executeCommand ", requestHandling (fun s p -> s.WorkspaceExecuteCommand (p))
-            "shutdown", requestHandling (fun s _ -> s.Shutdown() |> notificationSuccess)
-            "exit", requestHandling (fun s _ -> s.Exit() |> notificationSuccess)
+            "shutdown", requestHandling (fun s () -> s.Shutdown() |> notificationSuccess)
+            "exit", requestHandling (fun s () -> s.Exit() |> notificationSuccess)
         ]
         |> Map.ofList
 
