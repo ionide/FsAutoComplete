@@ -949,10 +949,10 @@ module Fixes =
       (Set.ofList [ "39" // undefined value
                     "43" ]) // operator not defined
 
+  /// a codefix that adds a missing 'fun' keyword to a lambda
   let rec addMissingFunKeyword
     (getFileLines: string -> Result<string [], _>)
     : CodeFix =
-    let logger = LogProvider.getLoggerByName (nameof addMissingFunKeyword)
     ifDiagnosticByCode (
       fun diagnostic codeActionParams ->
       asyncResult {
@@ -969,11 +969,6 @@ module Fixes =
         | Some firstNonWhitespacePos ->
           let pos2Range = ({ Start = firstNonWhitespacePos; End = inc lines firstNonWhitespacePos })
           let charAtPos2 = getText lines pos2Range
-          logger.info (Log.setMessage "walked pack from {pos}@{char} to {pos2}@{char2}"
-                       >> Log.addContextDestructured "pos" diagnostic.Range.Start
-                       >> Log.addContextDestructured "char" charAtPos
-                       >> Log.addContextDestructured "pos2" firstNonWhitespacePos
-                       >> Log.addContextDestructured "char2" charAtPos2)
           let fcsPos = protocolPosToPos firstNonWhitespacePos
           match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
           | Some lexSym ->
