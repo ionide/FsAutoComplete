@@ -542,15 +542,14 @@ module Fixes =
           let interestingRange =
             (match diagnostic.Code with
              | Some "365" ->
-              // the object expression diagnostic covers the entire interesting range
-              diagnostic.Range
+                 // the object expression diagnostic covers the entire interesting range
+                 diagnostic.Range
              | Some "54" ->
-              // the full-class range is on the typename, which should be enough to enable traversal
-              diagnostic.Range
+                 // the full-class range is on the typename, which should be enough to enable traversal
+                 diagnostic.Range
              | _ ->
-              // everything else is a best guess
-              codeActionParams.Range
-            )
+                 // everything else is a best guess
+                 codeActionParams.Range)
             |> protocolRangeToRange fileName
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName interestingRange.Start
@@ -572,8 +571,8 @@ module Fixes =
                     Kind = Fix } ]
           | _ -> return []
         }
-        |> AsyncResult.foldResult id (fun _ -> [])
-      ) (Set.ofList ["365"; "54"])
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "365"; "54" ])
 
   /// a codefix that adds in missing '=' characters in type declarations
   let addMissingEqualsToTypeDefinition (getFileLines: string -> Result<string [], _>) =
@@ -801,7 +800,10 @@ module Fixes =
 
           let fcsPos = protocolPosToPos diagnostic.Range.Start
           let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
-          let! symbol = tyRes.TryGetSymbolUse fcsPos line |> AsyncResult.ofOption (fun _ -> "No symbol found at position")
+
+          let! symbol =
+            tyRes.TryGetSymbolUse fcsPos line
+            |> AsyncResult.ofOption (fun _ -> "No symbol found at position")
 
           match symbol.Symbol with
           // only do anything if the value is mutable
@@ -950,41 +952,103 @@ module Fixes =
                     "43" ]) // operator not defined
 
   /// a codefix that adds a missing 'fun' keyword to a lambda
-  let rec addMissingFunKeyword
-    (getFileLines: string -> Result<string [], _>)
-    : CodeFix =
-    ifDiagnosticByCode (
-      fun diagnostic codeActionParams ->
-      asyncResult {
-        let fileName = codeActionParams.TextDocument.GetFilePath()
-        let! lines = getFileLines fileName
-        let errorText = getText lines diagnostic.Range
-        do! Result.guard (fun _ -> errorText = "->") "Expected error source code text not matched"
-        let lineLen = lines.[diagnostic.Range.Start.Line].Length
-        let line = getText lines { Start = { diagnostic.Range.Start with Character = 0 }; End = { diagnostic.Range.End with Character = lineLen }}
-        let charAtPos = getText lines ({ Start = diagnostic.Range.Start; End = inc lines diagnostic.Range.Start })
-        let adjustedPos = walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not)
-        match adjustedPos with
-        | None -> return []
-        | Some firstNonWhitespacePos ->
-          let pos2Range = ({ Start = firstNonWhitespacePos; End = inc lines firstNonWhitespacePos })
-          let charAtPos2 = getText lines pos2Range
-          let fcsPos = protocolPosToPos firstNonWhitespacePos
-          match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
-          | Some lexSym ->
-            let fcsStartPos = FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
-            // let! symbol = tyres.TryGetSymbolUse fcsPos line |> AsyncResult.ofOption (fun _ -> "No symbol found at pos")
-            let symbolStartRange = fcsPosToProtocolRange fcsStartPos
-            return [
-              { Title = "Add missing 'fun' keyword"
+  let addMissingFunKeyword (getFileLines: string -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let! lines = getFileLines fileName
+          let errorText = getText lines diagnostic.Range
+          do! Result.guard (fun _ -> errorText = "->") "Expected error source code text not matched"
+
+          let lineLen =
+            lines.[diagnostic.Range.Start.Line].Length
+
+          let line =
+            getText
+              lines
+              { Start =
+                  { diagnostic.Range.Start with
+                      Character = 0 }
+                End =
+                  { diagnostic.Range.End with
+                      Character = lineLen } }
+
+          let charAtPos =
+            getText
+              lines
+              ({ Start = diagnostic.Range.Start
+                 End = inc lines diagnostic.Range.Start })
+
+          let adjustedPos =
+            walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not)
+
+          match adjustedPos with
+          | None -> return []
+          | Some firstNonWhitespacePos ->
+              let pos2Range =
+                ({ Start = firstNonWhitespacePos
+                   End = inc lines firstNonWhitespacePos })
+
+              let charAtPos2 = getText lines pos2Range
+              let fcsPos = protocolPosToPos firstNonWhitespacePos
+
+              match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
+              | Some lexSym ->
+                  let fcsStartPos =
+                    FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
+                  // let! symbol = tyres.TryGetSymbolUse fcsPos line |> AsyncResult.ofOption (fun _ -> "No symbol found at pos")
+                  let symbolStartRange = fcsPosToProtocolRange fcsStartPos
+
+                  return
+                    [ { Title = "Add missing 'fun' keyword"
+                        File = codeActionParams.TextDocument
+                        SourceDiagnostic = Some diagnostic
+                        Edits =
+                          [| { Range = symbolStartRange
+                               NewText = "fun " } |]
+                        Kind = Fix } ]
+              | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "10" ])
+
+  /// a codefix that makes a binding 'rec' if something inside the binding requires recursive access
+  let makeOuterBindingRecursive (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+                                : CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let errorRangeStart = protocolPosToPos diagnostic.Range.Start
+          let! (tyres, _line, lines) = getParseResultsForFile fileName errorRangeStart
+          let missingMemberName = getText lines diagnostic.Range
+
+          let! outerBindingRange =
+            tyres.GetParseResults.TryRangeOfNearestOuterBindingContainingPos errorRangeStart
+            |> Result.ofOption (fun _ -> "No outer binding found at pos")
+
+          let lspOuterBindingRange = fcsRangeToLsp outerBindingRange
+          let outerBindingName = getText lines lspOuterBindingRange
+
+          do! Result.guard
+                (fun _ -> missingMemberName = outerBindingName)
+                "member names didn't match, don't suggest fix"
+
+          return
+            [ { Title = "Make outer binding recursive"
                 File = codeActionParams.TextDocument
                 SourceDiagnostic = Some diagnostic
-                Edits = [| { Range = symbolStartRange
-                             NewText = "fun " } |]
                 Kind = Fix
-              }
-            ]
-          | None -> return []
-      }
-      |> AsyncResult.foldResult id (fun _ -> [])
-    ) (Set.ofList ["10"])
+                Edits =
+                  [| { Range =
+                         { Start = lspOuterBindingRange.Start
+                           End = lspOuterBindingRange.Start }
+                       NewText = "rec " } |] } ]
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "39" ])
