@@ -13,10 +13,6 @@ open FSharp.Compiler.Range
 open ProjectSystem
 open FsToolkit.ErrorHandling
 
-module Result =
-  let bimap okF errF r = match r with | Ok x -> okF x | Error y -> errF y
-  let ofOption recover o = match o with | Some x -> Ok x | None -> Error (recover ())
-
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
     | Use of 'a
@@ -35,11 +31,6 @@ type CoreResponse<'a> =
     | Res of 'a
 
 module AsyncResult =
-  let bimap okF errF ar = async {
-    match! ar with
-    | Ok a -> return okF a
-    | Error e -> return errF e
-  }
 
   let inline mapErrorRes ar: Async<CoreResponse<'a>> =
     AsyncResult.foldResult id CoreResponse.ErrorRes ar
@@ -660,7 +651,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
         |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
-        tyRes.TryGetSymbolUse pos lineStr
+        tyRes.TryGetSymbolUseAndUsages pos lineStr
         |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.SignatureData (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
@@ -674,7 +665,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
       let fn = tyRes.FileName
       async {
-          match! tyRes.TryGetSymbolUse pos lineStr with
+          match! tyRes.TryGetSymbolUseAndUsages pos lineStr with
           | Ok (sym, usages) ->
             let fsym = sym.Symbol
             if fsym.IsPrivateToFile then
@@ -708,7 +699,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled) =
             symbols
             |> Array.where (fun (su: FSharpSymbolUse) -> su.IsFromDispatchSlotImplementation || (su.IsFromType && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.RangeAlternate )) )
         async {
-          match! tyRes.TryGetSymbolUse pos lineStr with
+          match! tyRes.TryGetSymbolUseAndUsages pos lineStr with
           | Ok (sym, usages) ->
             let fsym = sym.Symbol
             if fsym.IsPrivateToFile then

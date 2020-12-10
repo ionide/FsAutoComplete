@@ -432,6 +432,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
         let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
 
         let interfaceStubReplacements =
@@ -494,6 +495,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.partialOrInvalidRecordExpressionToAnonymousRecord tryGetParseResultsForFile
             Fixes.removeUnnecessaryReturnOrYield tryGetParseResultsForFile
             Fixes.rewriteCSharpLambdaToFSharpLambda tryGetParseResultsForFile
+            Fixes.addMissingFunKeyword getFileLines
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
