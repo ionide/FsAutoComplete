@@ -235,3 +235,46 @@ type FSharpParseFileResults with
       match scope.ParseTree with
       | Some input -> SynExprAppLocationsImpl.getAllCurriedArgsAtPosition pos input
       | None -> None
+
+  member scope.TryRangeOfNearestOuterBindingContainingPos pos =
+    let identInBinding binding =
+        match binding with
+        | SynBinding.Binding (_, _, _, _, _, _, _, headPat, _, _, _, _) ->
+            match headPat with
+            | SynPat.LongIdent (longIdentWithDots, _, _, _, _, _) ->
+                Some longIdentWithDots.Range
+            | SynPat.Named(_, ident, false, _, _) ->
+                Some ident.idRange
+            | _ ->
+                None
+
+    let rec walkLetOrUse expr workingRange =
+        match expr with
+        | SynExpr.LetOrUse(false, false, bindings, bodyExpr, range) when rangeContainsPos range pos ->
+            let potentialNestedRange =
+                bindings
+                |> List.tryFind (fun binding -> rangeContainsPos binding.RangeOfBindingAndRhs pos)
+                |> Option.bind identInBinding
+            match potentialNestedRange with
+            | Some range ->
+                walkLetOrUse bodyExpr range
+            | None ->
+                Some workingRange
+        | _ ->
+            Some workingRange
+
+    match scope.ParseTree with
+    | Some input ->
+        AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
+            member _.VisitExpr(_, _, defaultTraverse, expr) =
+                defaultTraverse expr
+
+            override _.VisitBinding(defaultTraverse, binding) =
+                match binding with
+                | SynBinding.Binding (_, _, _, _, _, _, _, _, _, expr, _range, _) as b when rangeContainsPos b.RangeOfBindingAndRhs pos ->
+                    match identInBinding b with
+                    | Some range -> walkLetOrUse expr range
+                    | None -> None
+                | _ -> defaultTraverse binding
+        })
+    | None -> None
