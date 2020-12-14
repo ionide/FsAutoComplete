@@ -139,7 +139,7 @@ let basicTests toolsPath =
           | Result.Ok (Some res) ->
             let expected =
               MarkedStrings
-                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = """val ( .>> ): \n   x: int ->\n   y: int \n   -> int"""}
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( .>> ): \n   x: int ->\n   y: int \n   -> int"}
                     MarkedString.String ""
                     MarkedString.String "*Full name: Script.( .>> )*"
                     MarkedString.String "*Assembly: BasicTest*"|]
@@ -156,7 +156,7 @@ let basicTests toolsPath =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
-            Expect.equal res.Length 2 "Document Symbol has all symbols"
+            Expect.equal res.Length 3  "Document Symbol has all symbols"
         ))
       ]
       testSequenced <| testList "Code Lens Tests" [
