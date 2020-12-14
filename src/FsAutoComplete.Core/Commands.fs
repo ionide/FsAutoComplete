@@ -55,7 +55,7 @@ type NotificationEvent<'analyzer> =
 
 type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
-    let state = State.Initial (checker.GetFSharpChecker()) toolsPath
+    let state = State.Initial toolsPath
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string * int>()
     let scriptFileProjectOptions = Event<FSharpProjectOptions>()
@@ -242,7 +242,7 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, tool
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
         if backgroundServiceEnabled then
-            let opts = state.ProjectController.GetProjectOptions p.ProjectFileName
+            let opts = state.ProjectController.GetProjectOptionsForFsproj p.ProjectFileName
             opts |> Option.iter (fun opts -> BackgroundServices.updateProject(p.ProjectFileName, opts))
 
         if not isFromCache then
