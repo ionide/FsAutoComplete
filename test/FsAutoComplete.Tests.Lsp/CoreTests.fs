@@ -141,7 +141,7 @@ let basicTests toolsPath =
               MarkedStrings
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = """val ( .>> ): \n   x: int ->\n   y: int \n   -> int"""}
                     MarkedString.String ""
-                    MarkedString.String "*Full name: Script.t*"
+                    MarkedString.String "*Full name: Script.( .>> )*"
                     MarkedString.String "*Assembly: BasicTest*"|]
 
             Expect.equal res.Contents expected "Hover test - let keyword"
@@ -168,7 +168,7 @@ let basicTests toolsPath =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
-            Expect.equal res.Length 1 "Get Code Lens has all locations"
+            Expect.equal res.Length 2 "Get Code Lens has all locations"
         ))
 
         testCase "Resolve Code Lens" (serverTest (fun server path ->
@@ -183,7 +183,7 @@ let basicTests toolsPath =
             match res with
             | Result.Error e -> failtestf "Request failed: %A" e
             | Result.Ok cl ->
-              Expect.equal cl.Command.Value.Title "int" "Code Lens contains signature"
+              Expect.equal cl.Command.Value.Title "int -> int -> int" "Code Lens contains signature"
         ))
       ]
 
