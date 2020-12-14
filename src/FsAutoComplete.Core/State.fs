@@ -30,10 +30,10 @@ type State =
     mutable ColorizationOutput: bool
   }
 
-  static member Initial checker toolsPath =
+  static member Initial toolsPath =
     { Files = ConcurrentDictionary()
       LastCheckedVersion = ConcurrentDictionary()
-      ProjectController = ProjectController(checker, toolsPath)
+      ProjectController = ProjectController(toolsPath)
       HelpText = ConcurrentDictionary()
       Declarations = ConcurrentDictionary()
       CurrentAST = None
