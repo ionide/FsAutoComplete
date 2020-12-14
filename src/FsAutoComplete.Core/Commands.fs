@@ -13,6 +13,7 @@ open FSharp.Compiler.Range
 open Dotnet.ProjInfo
 open Dotnet.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
+open FSharp.Analyzers
 
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
@@ -41,10 +42,10 @@ module AsyncResult =
   let recoverCancellationIgnore (ar: Async<Result<unit, exn>>) = AsyncResult.foldResult id ignore ar
 
 [<RequireQualifiedAccess>]
-type NotificationEvent<'analyzer> =
+type NotificationEvent=
     | ParseError of errors: FSharpErrorInfo[] * file: string
     | Workspace of ProjectSystem.ProjectResponse
-    | AnalyzerMessage of  messages: 'analyzer [] * file: string
+    | AnalyzerMessage of  messages: FSharp.Analyzers.SDK.Message [] * file: string
     | UnusedOpens of file: string * opens: range[]
     | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string * decls: (range * bool)[]
@@ -53,7 +54,7 @@ type NotificationEvent<'analyzer> =
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string
 
-type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
+type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial toolsPath
     let fileParsed = Event<FSharpParseFileResults>()
@@ -65,14 +66,52 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, tool
     let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
-    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.SyntaxTree.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> 'analyzer []) option = None
+    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.SyntaxTree.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> FSharp.Analyzers.SDK.Message []) option = None
 
-    let notify = Event<NotificationEvent<_>>()
+    let notify = Event<NotificationEvent>()
 
     let fileStateSet = Event<unit>()
     let commandsLogger = LogProvider.getLoggerByName "Commands"
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+
+    let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
+          let ctx : SDK.Context = {
+            FileName = file
+            Content = content
+            ParseTree = pt
+            TypedTree = tast
+            Symbols = symbols
+            GetAllEntities = getAllEnts
+          }
+
+          let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
+            match r.Output with
+            | Ok results ->
+              Loggers.analyzers.info (Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
+                                      >> Log.addContextDestructured "analyzer" r.AnalyzerName
+                                      >> Log.addContextDestructured "count" results.Length
+                                      >> Log.addContextDestructured "file" file)
+              results
+            | Error e ->
+              Loggers.analyzers.error (Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
+                                       >> Log.addContextDestructured "analyzer" r.AnalyzerName
+                                       >> Log.addContextDestructured "file" file
+                                       >> Log.addContextDestructured "message" e.Message
+                                       >> Log.addExn e)
+              []
+
+          try
+            SDK.Client.runAnalyzersSafely ctx
+            |> List.collect extractResultsFromAnalyzer
+            |> List.toArray
+          with
+          | ex ->
+            Loggers.analyzers.error (Log.setMessage "Error while processing analyzers for {file}: {message}"
+                                    >> Log.addContextDestructured "message" ex.Message
+                                    >> Log.addExn ex
+                                    >> Log.addContextDestructured "file" file)
+            [||]
 
     do state.ProjectController.Notifications.Add (NotificationEvent.Workspace >> notify.Trigger)
 
@@ -131,17 +170,13 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, tool
 
         async {
             try
-              match analyzerHandler with
-              | None -> ()
-              | Some handler ->
-
                 Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
                 match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
                 | Some pt, Some tast ->
                   match state.Files.TryGetValue file with
                   | true, fileData ->
 
-                    let res = handler (file, fileData.Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+                    let res = analyzerHandler (file, fileData.Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
 
                     (res, file)
                     |> NotificationEvent.AnalyzerMessage
@@ -269,11 +304,6 @@ type Commands<'analyzer> (serialize : Serializer, backgroundServiceEnabled, tool
     member __.LastVersionChecked
         with get() = lastVersionChecked
 
-    member __.AnalyzerHandler
-        with get() = analyzerHandler
-        and  set v =
-          Loggers.analyzers.info (Log.setMessage "updated analyzer handler")
-          analyzerHandler <- v
 
     member __.LastCheckResult
         with get() = lastCheckResult

@@ -3,6 +3,7 @@ FSharpLint.Core
 Dotnet.ProjInfo
 Dotnet.ProjInfo.FCS
 Dotnet.ProjInfo.ProjectSystem
+FSharp.Analyzers.SDK
 Newtonsoft.Json
 Fake.Runtime
 ICSharpCode.Decompiler
