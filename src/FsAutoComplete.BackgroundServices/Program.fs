@@ -304,7 +304,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         match files with
         | None -> ()
         | Some files ->
-          for f in files do
+          for f in (Seq.distinct files) do
             if File.Exists f.FileName then ()
             else
               let! _ = SymbolCache.deleteFile f.FileName
