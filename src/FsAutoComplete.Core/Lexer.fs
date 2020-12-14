@@ -109,6 +109,11 @@ module Lexer =
                               DraftToken.Create SymbolKind.Ident ap.Token
                         | Some ( { Kind = SymbolKind.Operator } as op) when token.Tag = FSharpTokenTag.RPAREN ->
                               DraftToken.Create SymbolKind.Operator op.Token
+                        // ^ operator
+                        | Some { Kind = SymbolKind.StaticallyResolvedTypeParameter } ->
+                                { Kind = SymbolKind.Operator
+                                  RightColumn = token.RightColumn - 1
+                                  Token = token }
                         | _ ->
                             let kind =
                                 if isOperator token then Operator
