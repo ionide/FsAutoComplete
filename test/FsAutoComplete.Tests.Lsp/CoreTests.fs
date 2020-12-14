@@ -126,6 +126,19 @@ let basicTests toolsPath =
           | Result.Ok (Some res) ->
             failtest "Expected failure"
         ))
+
+        //Failing test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
+        ptestCase "Hover Tests - operator" (serverTest (fun server path ->
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path}
+              Position = { Line = 2; Character = 7}}
+          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> ()
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            failtest "Expected failure"
+        ))
       ]
       testSequenced <| testList "Document Symbol Tests" [
         testCase "Document Symbol" (serverTest (fun server path ->
