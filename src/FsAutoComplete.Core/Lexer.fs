@@ -78,8 +78,13 @@ module Lexer =
     // we'll get (IDENT, left=2, length=5).
     let private fixTokens lineStr (tokens : FSharpTokenInfo list) =
         tokens
-        |> List.fold (fun (acc, lastToken) token ->
+        |> List.fold (fun (acc, (lastToken: DraftToken option)) token ->
             match lastToken with
+            //Operator starting with . (like .>>) should be operator
+            | Some ( {Kind = SymbolKind.Dot} as lastToken) when isOperator token && token.LeftColumn <= lastToken.RightColumn ->
+              let mergedToken =
+                    {lastToken.Token with Tag = token.Tag; RightColumn = token.RightColumn }
+              acc, Some {lastToken with Token = mergedToken; Kind = SymbolKind.Operator}
             | Some t when token.LeftColumn <= t.RightColumn ->
                 acc, lastToken
             | Some ( {Kind = SymbolKind.ActivePattern} as lastToken) when token.Tag = FSharpTokenTag.BAR || token.Tag = FSharpTokenTag.IDENT || token.Tag = FSharpTokenTag.UNDERSCORE ->
@@ -102,6 +107,8 @@ module Lexer =
                                                                   FullMatchedLength = token.FullMatchedLength + 1 }
                         | Some ( { Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
                               DraftToken.Create SymbolKind.Ident ap.Token
+                        | Some ( { Kind = SymbolKind.Operator } as op) when token.Tag = FSharpTokenTag.RPAREN ->
+                              DraftToken.Create SymbolKind.Operator op.Token
                         | _ ->
                             let kind =
                                 if isOperator token then Operator
