@@ -11,7 +11,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open FsAutoComplete
-open Dotnet.ProjInfo.ProjectSystem 
+open Dotnet.ProjInfo.ProjectSystem
 
 type BackgroundFileCheckType =
 | SourceFile of filePath: string
@@ -298,6 +298,20 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     let bouncer = Debounce(500, reactor.Post)
 
+    let checkExistingFiles () =
+      async {
+        let! files = SymbolCache.getKnownFiles ()
+        match files with
+        | None -> ()
+        | Some files ->
+          for f in files do
+            if File.Exists f.FileName then ()
+            else
+              let! _ = SymbolCache.deleteFile f.FileName
+              do! client.Notify { Value = sprintf "Cleaned file %s" f.FileName }
+              ()
+      }
+
 
     member __.UpdateTextFile(p: UpdateFileParms) =
         async {
@@ -314,7 +328,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     member __.UpdateProject(p: ProjectParms) =
         async {
-
+            checkExistingFiles () |> Async.Start
 
             let sf = getFilesFromOpts p.Options
 

@@ -84,6 +84,20 @@ module private PersistenCacheImpl =
         return Seq.toArray res
     }
 
+    let loadKnownFiles (connection: SqliteConnection) = async {
+        if connection.State <> ConnectionState.Open then connection.Open()
+        let q = "SELECT FileName FROM SYMBOLS"
+        let! res = connection.QueryAsync<{|FileName: string |}>(q) |> Async.AwaitTask
+        return Seq.toArray res
+    }
+
+    let deleteFile (connection: SqliteConnection) file = async {
+        if connection.State <> ConnectionState.Open then connection.Open()
+        let q = sprintf "DELETE FROM SYMBOLS WHERE FileName = \"%s\"" file
+        let! res = connection.ExecuteAsync q |> Async.AwaitTask
+        return res
+    }
+
     let initializeCache dir =
         let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir
 
@@ -161,6 +175,24 @@ let getImplementation symbolName =
         match PersistenCacheImpl.connection with
         | Some conn ->
             let! res = PersistenCacheImpl.loadImplementations conn.Value symbolName
+            return Some res
+        | None -> return None
+    }
+
+let getKnownFiles () =
+  async {
+        match PersistenCacheImpl.connection with
+        | Some conn ->
+            let! res = PersistenCacheImpl.loadKnownFiles conn.Value
+            return Some res
+        | None -> return None
+    }
+
+let deleteFile file =
+  async {
+        match PersistenCacheImpl.connection with
+        | Some conn ->
+            let! res = PersistenCacheImpl.deleteFile conn.Value file
             return Some res
         | None -> return None
     }
