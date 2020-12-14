@@ -272,7 +272,6 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
-
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -407,6 +406,7 @@ module Fixes =
             FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
           match! generateCases tyRes pos lines line |> Async.map Ok with
           | CoreResponse.Res (insertString: string, insertPosition) ->
               let range =
@@ -473,6 +473,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genInterfaceStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -508,6 +509,7 @@ module Fixes =
           protocolPosToPos codeActionParams.Range.Start
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+
         match! genRecordStub tyRes pos lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
@@ -553,6 +555,7 @@ module Fixes =
             |> protocolRangeToRange fileName
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName interestingRange.Start
+
           match! genAbstractClassStub tyRes interestingRange lines line with
           | CoreResponse.Res (text, position) ->
               let replacements = getTextReplacements ()
@@ -988,18 +991,13 @@ module Fixes =
           match adjustedPos with
           | None -> return []
           | Some firstNonWhitespacePos ->
-              let pos2Range =
-                ({ Start = firstNonWhitespacePos
-                   End = inc lines firstNonWhitespacePos })
-
-              let charAtPos2 = getText lines pos2Range
               let fcsPos = protocolPosToPos firstNonWhitespacePos
 
               match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
               | Some lexSym ->
                   let fcsStartPos =
                     FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
-                  // let! symbol = tyres.TryGetSymbolUse fcsPos line |> AsyncResult.ofOption (fun _ -> "No symbol found at pos")
+
                   let symbolStartRange = fcsPosToProtocolRange fcsStartPos
 
                   return
@@ -1052,3 +1050,67 @@ module Fixes =
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "39" ])
+
+  /// a codefix that adds the 'rec' modifier to a binding in a mutually-recursive loop
+  let addMissingRecToMutuallyRecFunctions (getFileLines: string -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode
+      (fun diagnostic codeActionParams ->
+        asyncResult {
+          let fileName =
+            codeActionParams.TextDocument.GetFilePath()
+
+          let! lines = getFileLines fileName
+          let endOfError = diagnostic.Range.End
+          // this next bit is a bit 'extra': we technically could just slap an ' rec' at the end of the error diagnostic,
+          // but instead we're fancy and:
+          // * find the first character of the name of the binding
+          // * resolve that position to a symbol
+          // * get the range of the symbol, in order to
+          // * get the symbol name
+          // * so we can format a nice message in the code fix
+          let firstWhiteSpaceAfterError =
+            walkForwardUntilCondition lines (inc lines endOfError) (System.Char.IsWhiteSpace >> not)
+
+          match firstWhiteSpaceAfterError with
+          | None -> return []
+          | Some startOfBindingName ->
+              let fcsPos = protocolPosToPos startOfBindingName
+
+              let lineLen =
+                lines.[diagnostic.Range.Start.Line].Length
+
+              let line =
+                getText
+                  lines
+                  { Start =
+                      { diagnostic.Range.Start with
+                          Character = 0 }
+                    End =
+                      { diagnostic.Range.End with
+                          Character = lineLen } }
+
+              match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
+              | Some lexSym ->
+                  let fcsStartPos =
+                    FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
+
+                  let fcsEndPos =
+                    FSharp.Compiler.Range.mkPos lexSym.Line lexSym.RightColumn
+
+                  let protocolRange =
+                    fcsRangeToLsp (FSharp.Compiler.Range.mkRange fileName fcsStartPos fcsEndPos)
+
+                  let symbolName = getText lines protocolRange
+
+                  return
+                    [ { Title = $"Make '{symbolName}' recursive"
+                        File = codeActionParams.TextDocument
+                        SourceDiagnostic = Some diagnostic
+                        Edits =
+                          [| { Range = { Start = endOfError; End = endOfError }
+                               NewText = " rec" } |]
+                        Kind = Fix } ]
+              | None -> return []
+        }
+        |> AsyncResult.foldResult id (fun _ -> []))
+      (Set.ofList [ "576" ])
