@@ -10,9 +10,6 @@ open Serilog.Core
 open Serilog.Events
 open FsAutoComplete.Logging
 
-type Commands =
-  Commands<FSharp.Analyzers.SDK.Message>
-
 [<EntryPoint>]
 let entry args =
 
