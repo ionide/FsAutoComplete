@@ -146,6 +146,26 @@ let basicTests toolsPath =
 
             Expect.equal res.Contents expected "Hover test - let keyword"
         ))
+
+        //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
+        testCase "Hover Tests - operator ^" (serverTest (fun server path ->
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path}
+              Position = { Line = 4; Character = 6}}
+          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          match res with
+          | Result.Error e -> ()
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            let expected =
+              MarkedStrings
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( ^ ): \n   x: int ->\n   y: int \n   -> int"}
+                    MarkedString.String ""
+                    MarkedString.String "*Full name: Script.( ^ )*"
+                    MarkedString.String "*Assembly: BasicTest*"|]
+
+            Expect.equal res.Contents expected "Hover test - let keyword"
+        ))
       ]
       testSequenced <| testList "Document Symbol Tests" [
         testCase "Document Symbol" (serverTest (fun server path ->
@@ -156,7 +176,7 @@ let basicTests toolsPath =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
-            Expect.equal res.Length 3  "Document Symbol has all symbols"
+            Expect.equal res.Length 4  "Document Symbol has all symbols"
         ))
       ]
       testSequenced <| testList "Code Lens Tests" [
@@ -168,7 +188,7 @@ let basicTests toolsPath =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
-            Expect.equal res.Length 2 "Get Code Lens has all locations"
+            Expect.equal res.Length 3 "Get Code Lens has all locations"
         ))
 
         testCase "Resolve Code Lens" (serverTest (fun server path ->
