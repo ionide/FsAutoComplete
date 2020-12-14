@@ -127,8 +127,8 @@ let basicTests toolsPath =
             failtest "Expected failure"
         ))
 
-        //Failing test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
-        ptestCase "Hover Tests - operator" (serverTest (fun server path ->
+        //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
+        testCase "Hover Tests - operator" (serverTest (fun server path ->
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 2; Character = 7}}
@@ -137,7 +137,14 @@ let basicTests toolsPath =
           | Result.Error e -> ()
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
-            failtest "Expected failure"
+            let expected =
+              MarkedStrings
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = """val ( .>> ): \n   x: int ->\n   y: int \n   -> int"""}
+                    MarkedString.String ""
+                    MarkedString.String "*Full name: Script.t*"
+                    MarkedString.String "*Assembly: BasicTest*"|]
+
+            Expect.equal res.Contents expected "Hover test - let keyword"
         ))
       ]
       testSequenced <| testList "Document Symbol Tests" [
