@@ -235,20 +235,22 @@ let codeLensTest toolsPath =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
-            Expect.equal res.Length 18 "Get Code Lens has all locations"
+            Expect.equal res.Length 20 "Get Code Lens has all locations"
       ))
-      testCase "Resolve Code Lens" (serverTest (fun server path ->
+      ftestCase "Resolve Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some result) ->
-            let cl = result.[0]
+            let cl = result.[1]
             let res = server.CodeLensResolve cl |> Async.RunSynchronously
-            let cl = result.[9]
+            let cl = result.[11]
             let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
-            match res, res2 with
+            let cl = result.[10]
+            let res3 = server.CodeLensResolve cl |> Async.RunSynchronously
+            match res, res2 with //TODO: Match res3 when FCS is fixed
             | Result.Ok cl, Result.Ok cl2 ->
               //TODO
               //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"

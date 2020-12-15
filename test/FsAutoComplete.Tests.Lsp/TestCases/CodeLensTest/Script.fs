@@ -29,3 +29,8 @@ let u = System.DateTime
 let i () =
     let b = 1
     u
+
+type LocalDbContext() =
+
+  [<DefaultValue>]
+  val mutable private test : int
