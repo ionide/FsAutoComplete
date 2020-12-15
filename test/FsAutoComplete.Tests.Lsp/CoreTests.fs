@@ -237,7 +237,7 @@ let codeLensTest toolsPath =
 
             Expect.equal res.Length 20 "Get Code Lens has all locations"
       ))
-      ftestCase "Resolve Code Lens" (serverTest (fun server path ->
+      testCase "Resolve Code Lens" (serverTest (fun server path ->
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
           let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
           match res with
