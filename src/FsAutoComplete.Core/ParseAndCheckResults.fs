@@ -452,6 +452,9 @@ type ParseAndCheckResults
               return Ok(typ, [ [ ("unit", "unit") ] ], [])
             | _ ->
               return Ok(typ, parms, generics)
+        | :? FSharpField as symbol ->
+          let typ = symbol.FieldType.Format symboluse.DisplayContext
+          return Ok(typ, [], [])
         | _ ->
           return ResultOrString.Error "Not a member, function or value"
   }

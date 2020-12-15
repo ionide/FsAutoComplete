@@ -1257,11 +1257,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
     override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) = async {
-        logger.info (Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}" >> Log.addContextDestructured "parms" p )
-
         let dto =
             p.Settings
             |> Server.deserialize<FSharpConfigRequest>
+        logger.info (Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}" >> Log.addContextDestructured "parms" dto )
+
         let c = config.AddDto dto.FSharp
         updateConfig c
         logger.info (Log.setMessage "Workspace configuration changed" >> Log.addContextDestructured "config" c)
