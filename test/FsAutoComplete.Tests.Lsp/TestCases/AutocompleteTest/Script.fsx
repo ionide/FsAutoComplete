@@ -24,3 +24,10 @@ type Foo = {
 let foo = { bar = "bar"; baz = false }
 
 foo.
+
+type Stub() =
+    member val Foo = "" with get, set
+    member val Bar = "" with get, set
+    member val Baz = "" with get, set
+
+let s = Stub(Foo = "foo", )
