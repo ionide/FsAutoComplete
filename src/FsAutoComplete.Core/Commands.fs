@@ -1166,26 +1166,40 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
               return []
         }
 
+        let areTokensCommentOrWhitespace (tokens : FSharpTokenInfo list) =
+          tokens |> List.exists (fun token -> token.CharClass <> FSharpTokenCharKind.Comment
+                                                && token.CharClass <> FSharpTokenCharKind.WhiteSpace
+                                                && token.CharClass <> FSharpTokenCharKind.LineComment)
+                 |> not
+
+        let getStartingPipe = function
+          | y::xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+          | x::y::xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+          | _ -> None
+
+        let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
+          let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
+          let isPipe = getStartingPipe currentTokens
+          match isCommentOrWhitespace, isPipe with
+          | true, _ ->
+            lastExpressionLine, lastExpressionLineWasPipe, acc
+          | false, Some pipe ->
+            currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe)::acc
+          | false, None ->
+            currentIndex, false, acc
+
         let! hints =
           contents
           |> Array.map (Lexer.tokenizeLine [||])
-          |> Array.pairwise
-          |> Array.mapi (fun currentIndex (currentTokens, nextTokens) -> currentIndex, currentTokens, nextTokens)
-          |> Array.choose (fun (id, tok, nextTok) ->
-              match nextTok with
-              | x::y::xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
-                Some (async {
-                  let! gens = getGenerics (id + 1) y
-                  return id, gens
-                })
-              | y::xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" ->
-                Some (async {
-                  let! gens = getGenerics (id + 1) y
-                  return id, gens
-                })
-              | _ ->
-                None
-          )
+          |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
+          |> Array.fold folder (0, false, [])
+          |> (fun (_, _, third) -> third)
+          |> List.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
+              async {
+                let! gens = getGenerics currentIndex pipeToken
+                let previousNonPipeLine = if lastExpressionLineWasPipe then None else Some lastExpressionLine
+                return currentIndex, previousNonPipeLine, gens
+              })
           |> Async.Parallel
 
         return CoreResponse.Res hints
