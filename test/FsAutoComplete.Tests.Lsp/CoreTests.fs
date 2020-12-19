@@ -268,7 +268,7 @@ let codeLensTest toolsPath =
           | Result.Ok (Some result) ->
             let cl = result.[3]
             let res = server.CodeLensResolve cl |> Async.RunSynchronously
-            let cl = result.[12]
+            let cl = result.[14]
             let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
             match res, res2 with
             | Result.Ok cl, Result.Ok cl2 ->
