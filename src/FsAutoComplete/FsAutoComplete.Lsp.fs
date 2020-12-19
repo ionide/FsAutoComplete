@@ -13,7 +13,7 @@ open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open LspHelpers
 open Newtonsoft.Json.Linq
-open Dotnet.ProjInfo.ProjectSystem
+open Ionide.ProjInfo.ProjectSystem
 open System
 open System.IO
 open FsToolkit.ErrorHandling

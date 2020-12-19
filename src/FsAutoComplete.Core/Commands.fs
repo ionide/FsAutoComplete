@@ -10,8 +10,8 @@ open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
 open FSharp.Compiler.Range
-open Dotnet.ProjInfo
-open Dotnet.ProjInfo.ProjectSystem
+open Ionide.ProjInfo
+open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
 open FSharp.Analyzers
 
@@ -208,7 +208,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                         state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
                         let payload =
                             if Utils.isAScript file
-                            then BackgroundServices.ScriptFile(file, Dotnet.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
+                            then BackgroundServices.ScriptFile(file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
                             else BackgroundServices.SourceFile file
                         if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
                         Some (ctn)

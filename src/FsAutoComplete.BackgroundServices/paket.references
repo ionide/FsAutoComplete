@@ -4,8 +4,8 @@ Microsoft.SourceLink.GitHub
 FSharp.Compiler.Service
 Dapper
 Microsoft.Data.Sqlite
-Dotnet.ProjInfo
-Dotnet.ProjInfo.Workspace.FCS
+Ionide.ProjInfo
+Ionide.ProjInfo.FCS
+Ionide.ProjInfo.ProjectSystem
 
 Microsoft.NETFramework.ReferenceAssemblies
-Dotnet.ProjInfo.ProjectSystem

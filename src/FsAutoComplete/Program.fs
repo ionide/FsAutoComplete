@@ -52,7 +52,7 @@ let entry args =
       let backgroundServiceEnabled =
         results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
 
-      let toolsPath = Dotnet.ProjInfo.Init.init ()
+      let toolsPath = Ionide.ProjInfo.Init.init ()
       let commands = Commands(writeJson, backgroundServiceEnabled, toolsPath)
       let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
       let fs = FileSystem(originalFs, commands.Files.TryFind)
