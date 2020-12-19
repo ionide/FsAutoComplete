@@ -338,6 +338,7 @@ module CommandResponse =
   type PieplineHint = {
     Line: int
     Types: string []
+    PrecedingNonPipeExprLine : int option
   }
 
   let private errorG (serialize : Serializer) (errorData: ErrorData) message =
@@ -545,10 +546,11 @@ module CommandResponse =
   let fsharpLiterate (serialize: Serializer) (content: string) =
     serialize { Kind = "fsharpLiterate"; Data = content}
 
-  let pipelineHint (serialize: Serializer) (content: (int * string list) []) =
+  let pipelineHint (serialize: Serializer) (content: (int * int option * string list) []) =
     let ctn =
-      content |> Array.map (fun (l, tt) -> {
+      content |> Array.map (fun (l, pnp, tt) -> {
         Line = l
         Types = Array.ofList tt
+        PrecedingNonPipeExprLine = pnp
       })
     serialize { Kind = "pipelineHint"; Data = ctn }
