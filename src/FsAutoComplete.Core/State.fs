@@ -5,7 +5,7 @@ open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
 open FSharp.Compiler.Range
-open Dotnet.ProjInfo.ProjectSystem
+open Ionide.ProjInfo.ProjectSystem
 
 type DeclName = string
 type CompletionNamespaceInsert = { Namespace: string; Position: pos; Scope : ScopeKind }

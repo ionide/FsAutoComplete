@@ -8,7 +8,7 @@ open FSharp.Compiler.SourceCodeServices
 open FSharp.Reflection
 open System.Collections.Generic
 open System.Text
-open Dotnet.ProjInfo.ProjectSystem
+open Ionide.ProjInfo.ProjectSystem
 
 module FcsRange = FSharp.Compiler.Range
 
@@ -262,7 +262,7 @@ module internal GlyphConversions =
                 | _ -> [||])
 
 module Workspace =
-    open Dotnet.ProjInfo.ProjectSystem.WorkspacePeek
+    open Ionide.ProjInfo.ProjectSystem.WorkspacePeek
     open FsAutoComplete.CommandResponse
 
     let mapInteresting i =
@@ -270,17 +270,17 @@ module Workspace =
         | Interesting.Directory (p, fsprojs) ->
             WorkspacePeekFound.Directory { WorkspacePeekFoundDirectory.Directory = p; Fsprojs = fsprojs }
         | Interesting.Solution (p, sd) ->
-            let rec item (x: Dotnet.ProjInfo.InspectSln.SolutionItem) =
+            let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
                 let kind =
                     match x.Kind with
-                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.Unknown
-                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.Unsupported ->
+                    | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
+                    | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported ->
                         None
-                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
+                    | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
                         Some (WorkspacePeekFoundSolutionItemKind.MsbuildFormat {
                             WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
                         })
-                    | Dotnet.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
+                    | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
                         let c = children |> List.choose item
                         Some (WorkspacePeekFoundSolutionItemKind.Folder {
                             WorkspacePeekFoundSolutionItemKindFolder.Items = c

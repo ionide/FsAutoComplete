@@ -4,7 +4,7 @@ open FsAutoComplete
 open LanguageServerProtocol
 open System.IO
 open FSharp.Compiler.SourceCodeServices
-open Dotnet.ProjInfo.ProjectSystem
+open Ionide.ProjInfo.ProjectSystem
 open FsAutoComplete.Logging
 
 let logger = LogProvider.getLoggerByName "Background Service"

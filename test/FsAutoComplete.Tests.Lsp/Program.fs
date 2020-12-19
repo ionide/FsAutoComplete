@@ -74,6 +74,6 @@ let main args =
       ).CreateLogger() // make it so that every console log is logged to stderr
   Serilog.Log.Logger <- serilogLogger
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
-  let toolsPath = Dotnet.ProjInfo.Init.init ()
+  let toolsPath = Ionide.ProjInfo.Init.init ()
 
   runTestsWithArgs defaultConfig args (tests toolsPath)

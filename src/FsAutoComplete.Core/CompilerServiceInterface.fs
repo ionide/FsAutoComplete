@@ -6,7 +6,7 @@ open FSharp.Compiler.SourceCodeServices
 open Utils
 open FSharp.Compiler.Text
 open FsAutoComplete.Logging
-open Dotnet.ProjInfo.ProjectSystem
+open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.AbstractIL.Internal.Library
 
 type Version = int
@@ -156,9 +156,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
   let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =
     { projectOptions with SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath }
-
-  member __.CreateFCSBinder(netFwInfo: Dotnet.ProjInfo.Workspace.NetFWInfo, loader: Dotnet.ProjInfo.Workspace.Loader) =
-    Dotnet.ProjInfo.Workspace.FCS.FCSBinder(netFwInfo, loader, checker)
 
   member __.DisableInMemoryProjectReferences
     with get() = disableInMemoryProjectReferences
