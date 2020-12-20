@@ -9,8 +9,14 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
         dotnet: [5.0.100]
+        experimental: [false]
+        include:
+          - os: windows-latest
+            experimental: true
       fail-fast: false # we have timing issues on some OS, so we want them all to run
+
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
 
     steps:
     - uses: actions/checkout@v1
