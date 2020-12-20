@@ -276,12 +276,12 @@ let parseProject projectFilePath (server: FsharpLspServer) = async {
 
   let projectName = Path.GetFileNameWithoutExtension projectFilePath
   let! result = server.FSharpProject projectParams
-  do! Async.Sleep (TimeSpan.FromSeconds 1.)
+  do! Async.Sleep (TimeSpan.FromSeconds 3.)
   logger.debug (eventX "{project} parse result: {result}" >> setField "result" (sprintf "%A" result) >> setField "project" projectName)
 }
 
 let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
-  Thread.Sleep (TimeSpan.FromSeconds 1.)
+  Thread.Sleep (TimeSpan.FromSeconds 3.)
 
 //This is currently used for single tests, hence the naive implementation is working just fine.
 //Revisit if more tests will use this scenario.
