@@ -1251,6 +1251,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
                 diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
                 diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+                sendDiagnostics uri
             ()
         )
 
