@@ -11,6 +11,8 @@ open Fake.DotNet
 open Fake.Core.TargetOperators
 open Fake.Api
 open Fake.Tools
+open Fantomas
+open Fantomas.Extras.FakeHelpers
 
 let project = "FsAutoComplete"
 
@@ -143,6 +145,45 @@ Target.create "ReleaseGitHub" (fun _ ->
     |> Async.RunSynchronously
 )
 
+Target.create "Format" (fun _ ->
+    !! "src/**/*.fs"
+    ++ "src/**/*.fsi"
+    -- "src/*/obj/**/*.fs"
+    |> formatCode
+    |> Async.RunSynchronously
+    |> printfn "Formatted files: %A")
+
+Target.create "FormatChanged" (fun _ ->
+    Fake.Tools.Git.FileStatus.getChangedFilesInWorkingCopy "." "HEAD"
+    |> Seq.choose (fun (_, file) ->
+        let ext = System.IO.Path.GetExtension(file)
+
+        if file.StartsWith("src")
+           && (ext = ".fs" || ext = ".fsi") then
+            Some file
+        else
+            None)
+    |> formatCode
+    |> Async.RunSynchronously
+    |> printfn "Formatted files: %A")
+
+Target.create "CheckFormat" (fun _ ->
+    let result =
+        !! "src/**/*.fs"
+        ++ "src/**/*.fsi"
+        -- "src/*/obj/**/*.fs"
+        |> checkCode
+        |> Async.RunSynchronously
+
+    if result.IsValid then
+        Trace.log "No files need formatting"
+    elif result.NeedsFormatting then
+        Trace.log "The following files need formatting:"
+        List.iter Trace.log result.Formatted
+        failwith "Some files need formatting, check output for more info"
+    else
+        Trace.logf "Errors while formatting: %A" result.Errors)
+
 Target.create "NoOp" ignore
 Target.create "Test" ignore
 Target.create "All" ignore
@@ -153,7 +194,8 @@ Target.create "Release" ignore
   ==> "Build"
 
 
-"Build"
+"CheckFormat"
+  ==> "Build"
   ==> "LspTest"
   ==> "Test"
   ==> "All"
