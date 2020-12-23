@@ -68,7 +68,7 @@ group Build
   nuget Fake.DotNet.MsBuild
   nuget Fake.Api.GitHub
   nuget Microsoft.Build
-  nuget Fantomas.Extras 4.4.0-alpha-004
+  nuget Fantomas.Extras 4.4.0-alpha-005
 
 group SourceLink
   storage: none
