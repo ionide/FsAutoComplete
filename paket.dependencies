@@ -20,6 +20,7 @@ nuget Ionide.ProjInfo.ProjectSystem ~> 0.45
 nuget Microsoft.Build copy_local:false
 nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
+nuget Microsoft.Build.Tasks.Core copy_local: false
 nuget FSharp.Analyzers.SDK
 nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
@@ -45,7 +46,6 @@ nuget FsToolkit.ErrorHandling
 
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
-nuget FSharp.DependencyManager.Nuget 37
 nuget Expecto
 
 group Build
