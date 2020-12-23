@@ -46,7 +46,6 @@ nuget FsToolkit.ErrorHandling
 
 nuget Microsoft.SourceLink.GitHub copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
-nuget FSharp.DependencyManager.Nuget 37
 nuget Expecto
 
 group Build
