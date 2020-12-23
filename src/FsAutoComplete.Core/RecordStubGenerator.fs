@@ -16,546 +16,559 @@ open FsAutoComplete.CodeGenerationUtils
 // [x] If fields are not empty, insert after the last field's expression
 
 [<NoEquality; NoComparison>]
-type RecordExpr = {
-    Expr: SynExpr
+type RecordExpr =
+  { Expr: SynExpr
     CopyExprOption: option<SynExpr * BlockSeparator>
-    FieldExprList: (RecordFieldName * SynExpr option * BlockSeparator option) list
-}
+    FieldExprList: (RecordFieldName * SynExpr option * BlockSeparator option) list }
 
 [<RequireQualifiedAccess>]
 type PositionKind =
-    /// let record = {<insert-here>}
-    | AfterLeftBrace
-    /// let y = { x with<insert-here> }
-    | AfterCopyExpression
-    /// let x = { Field1 = expr<insert-here> }
-    | AfterLastField
+  /// let record = {<insert-here>}
+  | AfterLeftBrace
+  /// let y = { x with<insert-here> }
+  | AfterCopyExpression
+  /// let x = { Field1 = expr<insert-here> }
+  | AfterLastField
 
 [<NoComparison>]
 type RecordStubsInsertionParams =
-    {
-        Kind: PositionKind
-        InsertionPos: pos
-        IndentColumn: int
-    }
-    static member TryCreateFromRecordExpression (expr: RecordExpr) =
-        match expr.FieldExprList with
-        | [] ->
-            match expr.CopyExprOption with
-            | None ->
-                let exprRange = expr.Expr.Range
-                let pos = Pos.fromZ (exprRange.StartLine - 1) (exprRange.StartColumn + 1)
-                { Kind = PositionKind.AfterLeftBrace
-                  IndentColumn = pos.Column + 1
-                  InsertionPos = pos }
-                |> Some
-            | Some(_toCopy, (withSeparator, _)) ->
-                { Kind = PositionKind.AfterCopyExpression
-                  IndentColumn = withSeparator.End.Column + 1
-                  InsertionPos = withSeparator.End }
-                |> Some
+  { Kind: PositionKind
+    InsertionPos: pos
+    IndentColumn: int }
+  static member TryCreateFromRecordExpression(expr: RecordExpr) =
+    match expr.FieldExprList with
+    | [] ->
+        match expr.CopyExprOption with
+        | None ->
+            let exprRange = expr.Expr.Range
 
-        | _ ->
-            // To know the indentation column,
-            // We want to find the first field to be on the last field line
-            // All fields f(i) start at line l(i)
-            // We want to 'f(k)' such that k = min { i >= k such that l(i) = l(k) }
-            // And l(k) = max { l(i) }
-            let fieldAndStartColumnAndLineIdxList =
-                expr.FieldExprList
-                |> List.choose (fun fieldInfo ->
-                    match fieldInfo with
-                    | (LongIdentWithDots(identHead :: _, _), true as _isSyntacticallyCorrect),
-                       _exprOpt, _semiColonOpt ->
-                        let fieldLine = identHead.idRange.StartLine
-                        let indentColumn = identHead.idRange.StartColumn
-                        Some (fieldInfo, indentColumn, fieldLine)
-                    | _ -> None
-                )
+            let pos =
+              Pos.fromZ (exprRange.StartLine - 1) (exprRange.StartColumn + 1)
 
-            maybe {
-                let! maxLineIdx =
-                    fieldAndStartColumnAndLineIdxList
-                    |> List.unzip3
-                    |> (fun (_, _, lineIdx) -> lineIdx)
-                    |> (function
-                        | [] -> None
-                        | nonEmptyList -> Some (List.max nonEmptyList)
-                    )
+            { Kind = PositionKind.AfterLeftBrace
+              IndentColumn = pos.Column + 1
+              InsertionPos = pos }
+            |> Some
+        | Some (_toCopy, (withSeparator, _)) ->
+            { Kind = PositionKind.AfterCopyExpression
+              IndentColumn = withSeparator.End.Column + 1
+              InsertionPos = withSeparator.End }
+            |> Some
 
-                let indentColumn =
-                    fieldAndStartColumnAndLineIdxList
-                    |> List.pick (fun (_, indentColumn, lineIdx) ->
-                        if lineIdx = maxLineIdx
-                        then Some indentColumn
-                        else None
-                    )
+    | _ ->
+        // To know the indentation column,
+        // We want to find the first field to be on the last field line
+        // All fields f(i) start at line l(i)
+        // We want to 'f(k)' such that k = min { i >= k such that l(i) = l(k) }
+        // And l(k) = max { l(i) }
+        let fieldAndStartColumnAndLineIdxList =
+          expr.FieldExprList
+          |> List.choose
+               (fun fieldInfo ->
+                 match fieldInfo with
+                 | (LongIdentWithDots (identHead :: _, _), true as _isSyntacticallyCorrect), _exprOpt, _semiColonOpt ->
+                     let fieldLine = identHead.idRange.StartLine
+                     let indentColumn = identHead.idRange.StartColumn
+                     Some(fieldInfo, indentColumn, fieldLine)
+                 | _ -> None)
 
-                let lastFieldInfo = Seq.last expr.FieldExprList
+        maybe {
+          let! maxLineIdx =
+            fieldAndStartColumnAndLineIdxList
+            |> List.unzip3
+            |> (fun (_, _, lineIdx) -> lineIdx)
+            |> (function
+            | [] -> None
+            | nonEmptyList -> Some(List.max nonEmptyList))
 
-                return!
-                    match lastFieldInfo with
-                    | _recordFieldName, None, _ -> None
-                    | (LongIdentWithDots(_ :: _, _), true as _isSyntacticallyCorrect),
-                      Some expr, semiColonOpt ->
-                        match semiColonOpt with
-                        | None ->
-                            { Kind = PositionKind.AfterLastField
-                              IndentColumn = indentColumn
-                              InsertionPos = expr.Range.End }
-                            |> Some
-                        | Some (_range, Some semiColonEndPos) ->
-                            { Kind = PositionKind.AfterLastField
-                              IndentColumn = indentColumn
-                              InsertionPos = semiColonEndPos }
-                            |> Some
-                        | _ -> None
-                    | _ -> None
-            }
+          let indentColumn =
+            fieldAndStartColumnAndLineIdxList
+            |> List.pick
+                 (fun (_, indentColumn, lineIdx) ->
+                   if lineIdx = maxLineIdx then
+                     Some indentColumn
+                   else
+                     None)
+
+          let lastFieldInfo = Seq.last expr.FieldExprList
+
+          return!
+            match lastFieldInfo with
+            | _recordFieldName, None, _ -> None
+            | (LongIdentWithDots (_ :: _, _), true as _isSyntacticallyCorrect), Some expr, semiColonOpt ->
+                match semiColonOpt with
+                | None ->
+                    { Kind = PositionKind.AfterLastField
+                      IndentColumn = indentColumn
+                      InsertionPos = expr.Range.End }
+                    |> Some
+                | Some (_range, Some semiColonEndPos) ->
+                    { Kind = PositionKind.AfterLastField
+                      IndentColumn = indentColumn
+                      InsertionPos = semiColonEndPos }
+                    |> Some
+                | _ -> None
+            | _ -> None
+        }
 
 
 [<NoComparison>]
-type private Context = {
-    Writer: ColumnIndentedTextWriter
+type private Context =
+  { Writer: ColumnIndentedTextWriter
     /// A single-line skeleton for each field
     FieldDefaultValue: string
     RecordTypeName: string
-    RequireQualifiedAccess: bool
-}
+    RequireQualifiedAccess: bool }
 
-let private formatField (ctxt: Context) prependNewLine
-    prependExtraSpace (field: FSharpField) =
-    let writer = ctxt.Writer
+let private formatField (ctxt: Context) prependNewLine prependExtraSpace (field: FSharpField) =
+  let writer = ctxt.Writer
 
-    if prependNewLine then
-        writer.WriteLine("")
+  if prependNewLine then
+    writer.WriteLine("")
 
-    let name =
-        if ctxt.RequireQualifiedAccess
-        then sprintf "%s.%s" ctxt.RecordTypeName field.Name
-        else field.Name
+  let name =
+    if ctxt.RequireQualifiedAccess then
+      sprintf "%s.%s" ctxt.RecordTypeName field.Name
+    else
+      field.Name
 
-    let prependedSpace = if prependExtraSpace then " " else ""
+  let prependedSpace = if prependExtraSpace then " " else ""
 
-    writer.Write("{0}{1} = {2}", prependedSpace, name, ctxt.FieldDefaultValue)
+  writer.Write("{0}{1} = {2}", prependedSpace, name, ctxt.FieldDefaultValue)
 
-let formatRecord (insertionPos: RecordStubsInsertionParams) (fieldDefaultValue: string)
-                 (entity: FSharpEntity)
-                 (fieldsWritten: (RecordFieldName * _ * Option<_>) list) =
-    Debug.Assert(entity.IsFSharpRecord, "Entity has to be an F# record.")
-    use writer = new ColumnIndentedTextWriter()
-    let ctxt =
-        { RecordTypeName = entity.DisplayName
-          RequireQualifiedAccess = hasAttribute<RequireQualifiedAccessAttribute> entity.Attributes
-          Writer = writer
-          FieldDefaultValue = fieldDefaultValue }
+let formatRecord
+  (insertionPos: RecordStubsInsertionParams)
+  (fieldDefaultValue: string)
+  (entity: FSharpEntity)
+  (fieldsWritten: (RecordFieldName * _ * Option<_>) list)
+  =
+  Debug.Assert(entity.IsFSharpRecord, "Entity has to be an F# record.")
+  use writer = new ColumnIndentedTextWriter()
 
-    let fieldsWritten =
-        fieldsWritten
-        |> List.collect (function
-            ((fieldName, _), _, _) ->
-                // Extract <Field> in qualified identifiers: A.B.<Field> = ...
-                if fieldName.Lid.Length > 0 then
-                    [(fieldName.Lid.Item (fieldName.Lid.Length - 1)).idText]
-                else [])
-        |> Set.ofList
+  let ctxt =
+    { RecordTypeName = entity.DisplayName
+      RequireQualifiedAccess = hasAttribute<RequireQualifiedAccessAttribute> entity.Attributes
+      Writer = writer
+      FieldDefaultValue = fieldDefaultValue }
 
-    let fieldsToWrite =
-        entity.FSharpFields
-        |> Seq.filter (fun field -> not <| fieldsWritten.Contains field.Name)
+  let fieldsWritten =
+    fieldsWritten
+    |> List.collect
+         (function
+         | ((fieldName, _), _, _) ->
+             // Extract <Field> in qualified identifiers: A.B.<Field> = ...
+             if fieldName.Lid.Length > 0 then
+               [ (fieldName.Lid.Item(fieldName.Lid.Length - 1))
+                   .idText ]
+             else
+               [])
+    |> Set.ofList
 
-    writer.Indent insertionPos.IndentColumn
+  let fieldsToWrite =
+    entity.FSharpFields
+    |> Seq.filter (fun field -> not <| fieldsWritten.Contains field.Name)
 
-    match List.ofSeq fieldsToWrite with
-    | [] -> ()
-    | firstField :: otherFields ->
-        let prependNewLineToFstField, prependNewLineToOtherFields =
-            match insertionPos.Kind with
-            | PositionKind.AfterLastField -> true, true
-            | PositionKind.AfterLeftBrace
-            | PositionKind.AfterCopyExpression -> false, true
+  writer.Indent insertionPos.IndentColumn
 
-        let prependExtraSpaceToFstField =
-            match insertionPos.Kind with
-            | PositionKind.AfterCopyExpression
-            | PositionKind.AfterLeftBrace -> true
-            | PositionKind.AfterLastField -> false
+  match List.ofSeq fieldsToWrite with
+  | [] -> ()
+  | firstField :: otherFields ->
+      let prependNewLineToFstField, prependNewLineToOtherFields =
+        match insertionPos.Kind with
+        | PositionKind.AfterLastField -> true, true
+        | PositionKind.AfterLeftBrace
+        | PositionKind.AfterCopyExpression -> false, true
 
-        formatField ctxt prependNewLineToFstField prependExtraSpaceToFstField firstField
-        otherFields
-        |> List.iter (formatField ctxt prependNewLineToOtherFields false)
+      let prependExtraSpaceToFstField =
+        match insertionPos.Kind with
+        | PositionKind.AfterCopyExpression
+        | PositionKind.AfterLeftBrace -> true
+        | PositionKind.AfterLastField -> false
 
-    writer.Dump()
+      formatField ctxt prependNewLineToFstField prependExtraSpaceToFstField firstField
+
+      otherFields
+      |> List.iter (formatField ctxt prependNewLineToOtherFields false)
+
+  writer.Dump()
 
 let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInput) =
-    let inline getIfPosInRange range f =
-        if rangeContainsPos range pos then f()
-        else None
+  let inline getIfPosInRange range f =
+    if rangeContainsPos range pos then
+      f ()
+    else
+      None
 
-    let rec walkImplFileInput (ParsedImplFileInput(_name, _isScript, _fileName, _scopedPragmas, _hashDirectives, moduleOrNamespaceList, _)) =
-        List.tryPick walkSynModuleOrNamespace moduleOrNamespaceList
+  let rec walkImplFileInput
+    (ParsedImplFileInput (_name, _isScript, _fileName, _scopedPragmas, _hashDirectives, moduleOrNamespaceList, _))
+    =
+    List.tryPick walkSynModuleOrNamespace moduleOrNamespaceList
 
-    and walkSynModuleOrNamespace(SynModuleOrNamespace(_, _, _, decls, _, _, _, range)) =
-        getIfPosInRange range (fun () ->
-            List.tryPick walkSynModuleDecl decls
-        )
+  and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, _, _, range)) =
+    getIfPosInRange range (fun () -> List.tryPick walkSynModuleDecl decls)
 
-    and walkSynModuleDecl(decl: SynModuleDecl) =
-        getIfPosInRange decl.Range (fun () ->
-            match decl with
-            | SynModuleDecl.Exception(SynExceptionDefn(_, synMembers, _), _) ->
-                List.tryPick walkSynMemberDefn synMembers
-            | SynModuleDecl.Let(_isRecursive, bindings, _) ->
-                List.tryPick walkBinding bindings
-            | SynModuleDecl.ModuleAbbrev _ ->
-                None
-            | SynModuleDecl.NamespaceFragment(fragment) ->
-                walkSynModuleOrNamespace fragment
-            | SynModuleDecl.NestedModule(_, _, modules, _, _) ->
-                List.tryPick walkSynModuleDecl modules
-            | SynModuleDecl.Types(typeDefs, _range) ->
-                List.tryPick walkSynTypeDefn typeDefs
-            | SynModuleDecl.DoExpr (_, expr, _) ->
-                walkExpr expr
-            | SynModuleDecl.Attributes _
-            | SynModuleDecl.HashDirective _
-            | SynModuleDecl.Open _ ->
-                None
-        )
+  and walkSynModuleDecl (decl: SynModuleDecl) =
+    getIfPosInRange
+      decl.Range
+      (fun () ->
+        match decl with
+        | SynModuleDecl.Exception (SynExceptionDefn (_, synMembers, _), _) -> List.tryPick walkSynMemberDefn synMembers
+        | SynModuleDecl.Let (_isRecursive, bindings, _) -> List.tryPick walkBinding bindings
+        | SynModuleDecl.ModuleAbbrev _ -> None
+        | SynModuleDecl.NamespaceFragment (fragment) -> walkSynModuleOrNamespace fragment
+        | SynModuleDecl.NestedModule (_, _, modules, _, _) -> List.tryPick walkSynModuleDecl modules
+        | SynModuleDecl.Types (typeDefs, _range) -> List.tryPick walkSynTypeDefn typeDefs
+        | SynModuleDecl.DoExpr (_, expr, _) -> walkExpr expr
+        | SynModuleDecl.Attributes _
+        | SynModuleDecl.HashDirective _
+        | SynModuleDecl.Open _ -> None)
 
-    and walkSynTypeDefn(TypeDefn(_componentInfo, representation, members, range)) =
-        getIfPosInRange range (fun () ->
-            walkSynTypeDefnRepr representation
-            |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members)
-        )
+  and walkSynTypeDefn (TypeDefn (_componentInfo, representation, members, range)) =
+    getIfPosInRange
+      range
+      (fun () ->
+        walkSynTypeDefnRepr representation
+        |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members))
 
-    and walkSynTypeDefnRepr(typeDefnRepr: SynTypeDefnRepr) =
-        getIfPosInRange typeDefnRepr.Range (fun () ->
-            match typeDefnRepr with
-            | SynTypeDefnRepr.ObjectModel(_kind, members, _range) ->
-                List.tryPick walkSynMemberDefn members
-            | SynTypeDefnRepr.Simple _
-            | SynTypeDefnRepr.Exception _ -> None
-        )
+  and walkSynTypeDefnRepr (typeDefnRepr: SynTypeDefnRepr) =
+    getIfPosInRange
+      typeDefnRepr.Range
+      (fun () ->
+        match typeDefnRepr with
+        | SynTypeDefnRepr.ObjectModel (_kind, members, _range) -> List.tryPick walkSynMemberDefn members
+        | SynTypeDefnRepr.Simple _
+        | SynTypeDefnRepr.Exception _ -> None)
 
-    and walkSynMemberDefn (memberDefn: SynMemberDefn) =
-        getIfPosInRange memberDefn.Range (fun () ->
-            match memberDefn with
-            | SynMemberDefn.AbstractSlot(_synValSig, _memberFlags, _range) ->
-                None
-            | SynMemberDefn.AutoProperty(_attributes, _isStatic, _id, _type, _memberKind, _memberFlags, _xmlDoc, _access, expr, _r1, _r2) ->
-                walkExpr expr
-            | SynMemberDefn.Interface(_, members, _range) ->
-                Option.bind (List.tryPick walkSynMemberDefn) members
-            | SynMemberDefn.Member(binding, _range) ->
-                walkBinding binding
-            | SynMemberDefn.NestedType(typeDef, _access, _range) ->
-                walkSynTypeDefn typeDef
-            | SynMemberDefn.ValField(_field, _range) ->
-                None
-            | SynMemberDefn.LetBindings(bindings, _isStatic, _isRec, _range) ->
-                List.tryPick walkBinding bindings
-            | SynMemberDefn.Open _
-            | SynMemberDefn.ImplicitInherit _
-            | SynMemberDefn.Inherit _
-            | SynMemberDefn.ImplicitCtor _ ->
-                None
-        )
+  and walkSynMemberDefn (memberDefn: SynMemberDefn) =
+    getIfPosInRange
+      memberDefn.Range
+      (fun () ->
+        match memberDefn with
+        | SynMemberDefn.AbstractSlot (_synValSig, _memberFlags, _range) -> None
+        | SynMemberDefn.AutoProperty (_attributes,
+                                      _isStatic,
+                                      _id,
+                                      _type,
+                                      _memberKind,
+                                      _memberFlags,
+                                      _xmlDoc,
+                                      _access,
+                                      expr,
+                                      _r1,
+                                      _r2) -> walkExpr expr
+        | SynMemberDefn.Interface (_, members, _range) -> Option.bind (List.tryPick walkSynMemberDefn) members
+        | SynMemberDefn.Member (binding, _range) -> walkBinding binding
+        | SynMemberDefn.NestedType (typeDef, _access, _range) -> walkSynTypeDefn typeDef
+        | SynMemberDefn.ValField (_field, _range) -> None
+        | SynMemberDefn.LetBindings (bindings, _isStatic, _isRec, _range) -> List.tryPick walkBinding bindings
+        | SynMemberDefn.Open _
+        | SynMemberDefn.ImplicitInherit _
+        | SynMemberDefn.Inherit _
+        | SynMemberDefn.ImplicitCtor _ -> None)
 
-    and walkBinding (Binding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, retTy, expr, _bindingRange, _seqPoint) as binding) =
-        getIfPosInRange binding.RangeOfBindingAndRhs (fun () ->
-            match retTy with
-            | Some(SynBindingReturnInfo(_ty, _range, _attributes)) ->
-                match expr with
-                // Situation 1:
-                // NOTE: 'buggy' parse tree when a type annotation is given before the '=' (but workable corner case)
-                // Ex: let x: MyRecord = { f1 = e1; f2 = e2; ... }
-                | SynExpr.Typed(SynExpr.Record(_inheritOpt, copyOpt, fields, _range0), synType, _range1) ->
-                    [
-                        // Get type annotation range
-                        yield synType.Range
-
-                        // Get all field identifiers ranges
-                        for (recordFieldIdent, _), _, _ in fields do
-                            yield recordFieldIdent.Range
-                    ]
-                    |> List.tryPick (fun range ->
-                        getIfPosInRange range (fun () ->
-                            Some { Expr = expr
-                                   CopyExprOption = copyOpt
-                                   FieldExprList = fields }
-                        )
-                    )
-                    |> Option.orElseWith (fun () ->
-                        fields
-                        |> List.tryPick walkRecordField
-                    )
-                | _ -> walkExpr expr
-            | None ->
-                walkExpr expr
-        )
-
-    and walkExpr expr =
-        getIfPosInRange expr.Range (fun () ->
+  and walkBinding
+    (Binding (_access,
+              _bindingKind,
+              _isInline,
+              _isMutable,
+              _attrs,
+              _xmldoc,
+              _valData,
+              _headPat,
+              retTy,
+              expr,
+              _bindingRange,
+              _seqPoint) as binding)
+    =
+    getIfPosInRange
+      binding.RangeOfBindingAndRhs
+      (fun () ->
+        match retTy with
+        | Some (SynBindingReturnInfo (_ty, _range, _attributes)) ->
             match expr with
-            | SynExpr.Quote(synExpr1, _, synExpr2, _, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+            // Situation 1:
+            // NOTE: 'buggy' parse tree when a type annotation is given before the '=' (but workable corner case)
+            // Ex: let x: MyRecord = { f1 = e1; f2 = e2; ... }
+            | SynExpr.Typed (SynExpr.Record (_inheritOpt, copyOpt, fields, _range0), synType, _range1) ->
+                [
+                  // Get type annotation range
+                  yield synType.Range
 
-            | SynExpr.Const(_synConst, _range) ->
-                None
-
-            | SynExpr.Typed(synExpr, synType, _) ->
-                match synExpr with
-                // Situation 2: record is typed on the right
-                // { f1 = e1; f2 = e2; ... } : MyRecord
-                | SynExpr.Record(_inheritOpt, copyOpt, fields, _range) ->
-                    [
-                        // Get type annotation range
-                        yield synType.Range
-
-                        // Get all field identifiers ranges
-                        for (recordFieldIdent, _), _, _ in fields do
-                            yield recordFieldIdent.Range
-                    ]
-                    |> List.tryPick (fun range ->
-                        getIfPosInRange range (fun () ->
-                            Some { Expr = expr
-                                   CopyExprOption = copyOpt
-                                   FieldExprList = fields }
-                        )
-                    )
-                    |> Option.orElseWith (fun () ->
-                        fields
-                        |> List.tryPick walkRecordField
-                    )
-                | _ -> walkExpr synExpr
-
-            | SynExpr.Paren(synExpr, _, _, _)
-            | SynExpr.New(_, _, synExpr, _)
-            | SynExpr.ArrayOrListOfSeqExpr(_, synExpr, _)
-            | SynExpr.CompExpr(_, _, synExpr, _)
-            | SynExpr.Lambda(_, _, _, synExpr, _, _)
-            | SynExpr.Lazy(synExpr, _)
-            | SynExpr.Do(synExpr, _)
-            | SynExpr.Assert(synExpr, _) ->
-                walkExpr synExpr
-
-            | SynExpr.Tuple(_, synExprList, _, _range)
-            | SynExpr.ArrayOrList(_, synExprList, _range) ->
-                List.tryPick walkExpr synExprList
-
-            | SynExpr.Record(_inheritOpt, copyOpt, fields, _range) ->
-                fields
-                |> List.tryPick (function
-                    | (recordFieldIdent, _), _, _
-                        when rangeContainsPos (recordFieldIdent.Range) pos ->
-                        Some { Expr = expr
+                  // Get all field identifiers ranges
+                  for (recordFieldIdent, _), _, _ in fields do
+                    yield recordFieldIdent.Range ]
+                |> List.tryPick
+                     (fun range ->
+                       getIfPosInRange
+                         range
+                         (fun () ->
+                           Some
+                             { Expr = expr
                                CopyExprOption = copyOpt
-                               FieldExprList = fields }
-                    | field -> walkRecordField field
-                )
+                               FieldExprList = fields }))
+                |> Option.orElseWith (fun () -> fields |> List.tryPick walkRecordField)
+            | _ -> walkExpr expr
+        | None -> walkExpr expr)
 
-            | SynExpr.ObjExpr(_ty, _baseCallOpt, binds, ifaces, _range1, _range2) ->
-                List.tryPick walkBinding binds
-                |> Option.orElseWith (fun _ -> List.tryPick walkSynInterfaceImpl ifaces)
+  and walkExpr expr =
+    getIfPosInRange
+      expr.Range
+      (fun () ->
+        match expr with
+        | SynExpr.Quote (synExpr1, _, synExpr2, _, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | SynExpr.While(_sequencePointInfoForWhileLoop, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
-            | SynExpr.ForEach(_sequencePointInfoForForLoop, _seqExprOnly, _isFromSource, _synPat, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+        | SynExpr.Const (_synConst, _range) -> None
 
-            | SynExpr.For(_sequencePointInfoForForLoop, _ident, synExpr1, _, synExpr2, synExpr3, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
+        | SynExpr.Typed (synExpr, synType, _) ->
+            match synExpr with
+            // Situation 2: record is typed on the right
+            // { f1 = e1; f2 = e2; ... } : MyRecord
+            | SynExpr.Record (_inheritOpt, copyOpt, fields, _range) ->
+                [
+                  // Get type annotation range
+                  yield synType.Range
 
-            | SynExpr.MatchLambda(_isExnMatch, _argm, synMatchClauseList, _spBind, _wholem) ->
-                synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
-            | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
-                walkExpr synExpr
-                |> Option.orElseWith (fun _ -> synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
+                  // Get all field identifiers ranges
+                  for (recordFieldIdent, _), _, _ in fields do
+                    yield recordFieldIdent.Range ]
+                |> List.tryPick
+                     (fun range ->
+                       getIfPosInRange
+                         range
+                         (fun () ->
+                           Some
+                             { Expr = expr
+                               CopyExprOption = copyOpt
+                               FieldExprList = fields }))
+                |> Option.orElseWith (fun () -> fields |> List.tryPick walkRecordField)
+            | _ -> walkExpr synExpr
 
-            | SynExpr.App(_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+        | SynExpr.Paren (synExpr, _, _, _)
+        | SynExpr.New (_, _, synExpr, _)
+        | SynExpr.ArrayOrListOfSeqExpr (_, synExpr, _)
+        | SynExpr.CompExpr (_, _, synExpr, _)
+        | SynExpr.Lambda (_, _, _, synExpr, _, _)
+        | SynExpr.Lazy (synExpr, _)
+        | SynExpr.Do (synExpr, _)
+        | SynExpr.Assert (synExpr, _) -> walkExpr synExpr
 
-            | SynExpr.TypeApp(synExpr, _, _synTypeList, _commas, _, _, _range) ->
-                walkExpr synExpr
+        | SynExpr.Tuple (_, synExprList, _, _range)
+        | SynExpr.ArrayOrList (_, synExprList, _range) -> List.tryPick walkExpr synExprList
 
-            | SynExpr.LetOrUse(_, _, synBindingList, synExpr, _range) ->
-                walkExpr synExpr
-                |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
+        | SynExpr.Record (_inheritOpt, copyOpt, fields, _range) ->
+            fields
+            |> List.tryPick
+                 (function
+                 | (recordFieldIdent, _), _, _ when rangeContainsPos (recordFieldIdent.Range) pos ->
+                     Some
+                       { Expr = expr
+                         CopyExprOption = copyOpt
+                         FieldExprList = fields }
+                 | field -> walkRecordField field)
 
-            | SynExpr.TryWith(synExpr, _range, _synMatchClauseList, _range2, _range3, _sequencePointInfoForTry, _sequencePointInfoForWith) ->
-                walkExpr synExpr
+        | SynExpr.ObjExpr (_ty, _baseCallOpt, binds, ifaces, _range1, _range2) ->
+            List.tryPick walkBinding binds
+            |> Option.orElseWith (fun _ -> List.tryPick walkSynInterfaceImpl ifaces)
 
-            | SynExpr.TryFinally(synExpr1, synExpr2, _range, _sequencePointInfoForTry, _sequencePointInfoForFinally) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+        | SynExpr.While (_sequencePointInfoForWhileLoop, synExpr1, synExpr2, _range) ->
+            List.tryPick walkExpr [ synExpr1; synExpr2 ]
+        | SynExpr.ForEach (_sequencePointInfoForForLoop,
+                           _seqExprOnly,
+                           _isFromSource,
+                           _synPat,
+                           synExpr1,
+                           synExpr2,
+                           _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | Sequentials exprs ->
-                List.tryPick walkExpr exprs
+        | SynExpr.For (_sequencePointInfoForForLoop, _ident, synExpr1, _, synExpr2, synExpr3, _range) ->
+            List.tryPick walkExpr [ synExpr1; synExpr2; synExpr3 ]
 
-            | SynExpr.IfThenElse(synExpr1, synExpr2, synExprOpt, _sequencePointInfoForBinding, _isRecovery, _range, _range2) ->
-                match synExprOpt with
-                | Some synExpr3 ->
-                    List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
-                | None ->
-                    List.tryPick walkExpr [synExpr1; synExpr2]
+        | SynExpr.MatchLambda (_isExnMatch, _argm, synMatchClauseList, _spBind, _wholem) ->
+            synMatchClauseList
+            |> List.tryPick (fun (Clause (_, _, e, _, _)) -> walkExpr e)
+        | SynExpr.Match (_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
+            walkExpr synExpr
+            |> Option.orElseWith
+                 (fun _ ->
+                   synMatchClauseList
+                   |> List.tryPick (fun (Clause (_, _, e, _, _)) -> walkExpr e))
 
-            | SynExpr.Ident(_ident) ->
-                None
-            | SynExpr.LongIdent(_, _longIdent, _altNameRefCell, _range) ->
-                None
+        | SynExpr.App (_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
+            List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | SynExpr.LongIdentSet(_longIdent, synExpr, _range) ->
-                walkExpr synExpr
-            | SynExpr.DotGet(synExpr, _dotm, _longIdent, _range) ->
-                walkExpr synExpr
+        | SynExpr.TypeApp (synExpr, _, _synTypeList, _commas, _, _, _range) -> walkExpr synExpr
 
-            | SynExpr.DotSet(synExpr1, _longIdent, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+        | SynExpr.LetOrUse (_, _, synBindingList, synExpr, _range) ->
+            walkExpr synExpr
+            |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 
-            | SynExpr.DotIndexedGet(synExpr, IndexerArgList synExprList, _range, _range2) ->
-                synExprList
-                |> List.map fst
-                |> List.tryPick walkExpr
-                |> Option.orElseWith (fun _ -> walkExpr synExpr)
+        | SynExpr.TryWith (synExpr,
+                           _range,
+                           _synMatchClauseList,
+                           _range2,
+                           _range3,
+                           _sequencePointInfoForTry,
+                           _sequencePointInfoForWith) -> walkExpr synExpr
 
-            | SynExpr.DotIndexedSet(synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
-                [ yield synExpr1
-                  yield! synExprList |> List.map fst
-                  yield synExpr2 ]
-                |> List.tryPick walkExpr
+        | SynExpr.TryFinally (synExpr1, synExpr2, _range, _sequencePointInfoForTry, _sequencePointInfoForFinally) ->
+            List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | SynExpr.JoinIn(synExpr1, _range, synExpr2, _range2) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
-            | SynExpr.NamedIndexedPropertySet(_longIdent, synExpr1, synExpr2, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2]
+        | Sequentials exprs -> List.tryPick walkExpr exprs
 
-            | SynExpr.DotNamedIndexedPropertySet(synExpr1, _longIdent, synExpr2, synExpr3, _range) ->
-                List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
+        | SynExpr.IfThenElse (synExpr1, synExpr2, synExprOpt, _sequencePointInfoForBinding, _isRecovery, _range, _range2) ->
+            match synExprOpt with
+            | Some synExpr3 -> List.tryPick walkExpr [ synExpr1; synExpr2; synExpr3 ]
+            | None -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | SynExpr.TypeTest(synExpr, _synType, _range)
-            | SynExpr.Upcast(synExpr, _synType, _range)
-            | SynExpr.Downcast(synExpr, _synType, _range) ->
-                walkExpr synExpr
-            | SynExpr.InferredUpcast(synExpr, _range)
-            | SynExpr.InferredDowncast(synExpr, _range) ->
-                walkExpr synExpr
-            | SynExpr.AddressOf(_, synExpr, _range, _range2) ->
-                walkExpr synExpr
-            | SynExpr.TraitCall(_synTyparList, _synMemberSig, synExpr, _range) ->
-                walkExpr synExpr
+        | SynExpr.Ident (_ident) -> None
+        | SynExpr.LongIdent (_, _longIdent, _altNameRefCell, _range) -> None
 
-            | SynExpr.Null(_range)
-            | SynExpr.ImplicitZero(_range) ->
-                None
+        | SynExpr.LongIdentSet (_longIdent, synExpr, _range) -> walkExpr synExpr
+        | SynExpr.DotGet (synExpr, _dotm, _longIdent, _range) -> walkExpr synExpr
 
-            | SynExpr.YieldOrReturn(_, synExpr, _range)
-            | SynExpr.YieldOrReturnFrom(_, synExpr, _range)
-            | SynExpr.DoBang(synExpr, _range) ->
-                walkExpr synExpr
+        | SynExpr.DotSet (synExpr1, _longIdent, synExpr2, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, ands, synExpr2, _range) ->
-                [ synExpr1
-                  yield! ands |> List.map (fun (_,_,_,_,body,_) -> body)
-                  synExpr2 ] |> List.tryPick walkExpr
+        | SynExpr.DotIndexedGet (synExpr, IndexerArgList synExprList, _range, _range2) ->
+            synExprList
+            |> List.map fst
+            |> List.tryPick walkExpr
+            |> Option.orElseWith (fun _ -> walkExpr synExpr)
 
-            | SynExpr.LibraryOnlyILAssembly _
-            | SynExpr.LibraryOnlyStaticOptimization _
-            | SynExpr.LibraryOnlyUnionCaseFieldGet _
-            | SynExpr.LibraryOnlyUnionCaseFieldSet _ ->
-                None
-            | SynExpr.ArbitraryAfterError(_debugStr, _range) ->
-                None
+        | SynExpr.DotIndexedSet (synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
+            [ yield synExpr1
+              yield! synExprList |> List.map fst
+              yield synExpr2 ]
+            |> List.tryPick walkExpr
 
-            | SynExpr.FromParseError(synExpr, _range)
-            | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, _range) ->
-                walkExpr synExpr
+        | SynExpr.JoinIn (synExpr1, _range, synExpr2, _range2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
+        | SynExpr.NamedIndexedPropertySet (_longIdent, synExpr1, synExpr2, _range) ->
+            List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-            | _ -> None
-        )
+        | SynExpr.DotNamedIndexedPropertySet (synExpr1, _longIdent, synExpr2, synExpr3, _range) ->
+            List.tryPick walkExpr [ synExpr1; synExpr2; synExpr3 ]
 
-    and walkRecordField (_recordFieldName, synExprOpt, _) =
-        match synExprOpt with
-        | Some synExpr when rangeContainsPos synExpr.Range pos -> walkExpr synExpr
-        | _ -> None
+        | SynExpr.TypeTest (synExpr, _synType, _range)
+        | SynExpr.Upcast (synExpr, _synType, _range)
+        | SynExpr.Downcast (synExpr, _synType, _range) -> walkExpr synExpr
+        | SynExpr.InferredUpcast (synExpr, _range)
+        | SynExpr.InferredDowncast (synExpr, _range) -> walkExpr synExpr
+        | SynExpr.AddressOf (_, synExpr, _range, _range2) -> walkExpr synExpr
+        | SynExpr.TraitCall (_synTyparList, _synMemberSig, synExpr, _range) -> walkExpr synExpr
 
-    and walkSynInterfaceImpl (InterfaceImpl(_synType, synBindings, _range)) =
-        List.tryPick walkBinding synBindings
+        | SynExpr.Null (_range)
+        | SynExpr.ImplicitZero (_range) -> None
 
-    match parsedInput with
-    | ParsedInput.SigFile _input -> None
-    | ParsedInput.ImplFile input -> walkImplFileInput input
+        | SynExpr.YieldOrReturn (_, synExpr, _range)
+        | SynExpr.YieldOrReturnFrom (_, synExpr, _range)
+        | SynExpr.DoBang (synExpr, _range) -> walkExpr synExpr
 
-let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
-    asyncMaybe {
-        let! parseResults = codeGenService.ParseFileInProject(document.FullName)
+        | SynExpr.LetOrUseBang (_sequencePointInfoForBinding, _, _, _synPat, synExpr1, ands, synExpr2, _range) ->
+            [ synExpr1
+              yield!
+                ands
+                |> List.map (fun (_, _, _, _, body, _) -> body)
+              synExpr2 ]
+            |> List.tryPick walkExpr
 
-        return!
-            parseResults.ParseTree
-            |> Option.bind (tryFindRecordBindingInParsedInput pos)
-    }
+        | SynExpr.LibraryOnlyILAssembly _
+        | SynExpr.LibraryOnlyStaticOptimization _
+        | SynExpr.LibraryOnlyUnionCaseFieldGet _
+        | SynExpr.LibraryOnlyUnionCaseFieldSet _ -> None
+        | SynExpr.ArbitraryAfterError (_debugStr, _range) -> None
 
-let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (document : Document) (expr: RecordExpr) =
+        | SynExpr.FromParseError (synExpr, _range)
+        | SynExpr.DiscardAfterMissingQualificationAfterDot (synExpr, _range) -> walkExpr synExpr
 
-    maybe {
-        let! rangeWhereToLookForEnclosingRBrace =
-            match expr.FieldExprList with
-            | [] -> Some expr.Expr.Range
-            | _ ->
-                let lastField = Seq.last expr.FieldExprList
-                match lastField with
-                | _fieldName, Some _fieldExpr, Some (semiColonRange, Some _semiColonEndPos) ->
-                    // The last field ends with a ';'
-                    // Look here: { field = expr;<start> ... }<end>
-                    Some (unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)
+        | _ -> None)
+
+  and walkRecordField (_recordFieldName, synExprOpt, _) =
+    match synExprOpt with
+    | Some synExpr when rangeContainsPos synExpr.Range pos -> walkExpr synExpr
+    | _ -> None
+
+  and walkSynInterfaceImpl (InterfaceImpl (_synType, synBindings, _range)) = List.tryPick walkBinding synBindings
+
+  match parsedInput with
+  | ParsedInput.SigFile _input -> None
+  | ParsedInput.ImplFile input -> walkImplFileInput input
+
+let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document: Document) =
+  asyncMaybe {
+    let! parseResults = codeGenService.ParseFileInProject(document.FullName)
+
+    return!
+      parseResults.ParseTree
+      |> Option.bind (tryFindRecordBindingInParsedInput pos)
+  }
+
+let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (document: Document) (expr: RecordExpr) =
+
+  maybe {
+    let! rangeWhereToLookForEnclosingRBrace =
+      match expr.FieldExprList with
+      | [] -> Some expr.Expr.Range
+      | _ ->
+          let lastField = Seq.last expr.FieldExprList
+
+          match lastField with
+          | _fieldName, Some _fieldExpr, Some (semiColonRange, Some _semiColonEndPos) ->
+              // The last field ends with a ';'
+              // Look here: { field = expr;<start> ... }<end>
+              Some(unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)
 
 
-                | _fieldName, Some fieldExpr, _ ->
-                    // The last field doesn't end with a ';'
-                    // Look here: { field = expr<start> ... }<end>
-                    Some (unionRanges fieldExpr.Range.EndRange expr.Expr.Range.EndRange)
+          | _fieldName, Some fieldExpr, _ ->
+              // The last field doesn't end with a ';'
+              // Look here: { field = expr<start> ... }<end>
+              Some(unionRanges fieldExpr.Range.EndRange expr.Expr.Range.EndRange)
 
-                | _fieldName, None, _ ->
-                    // We don't allow generation when the last field isn't assigned an expression
-                    None
+          | _fieldName, None, _ ->
+              // We don't allow generation when the last field isn't assigned an expression
+              None
 
-        return! tryFindTokenLPosInRange codeGenService rangeWhereToLookForEnclosingRBrace document
-                (fun tokenInfo -> tokenInfo.TokenName = "RBRACE")
-    }
-    |> Option.isSome
+    return!
+      tryFindTokenLPosInRange
+        codeGenService
+        rangeWhereToLookForEnclosingRBrace
+        document
+        (fun tokenInfo -> tokenInfo.TokenName = "RBRACE")
+  }
+  |> Option.isSome
 
-let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
-    asyncMaybe {
-        let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
-        if checkThatRecordExprEndsWithRBrace codeGenService document recordExpression then
-            let! insertionPos = RecordStubsInsertionParams.TryCreateFromRecordExpression recordExpression
-            return recordExpression, insertionPos
-        else
-            return! None
-    }
+let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: pos) (document: Document) =
+  asyncMaybe {
+    let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
+
+    if checkThatRecordExprEndsWithRBrace codeGenService document recordExpression then
+      let! insertionPos = RecordStubsInsertionParams.TryCreateFromRecordExpression recordExpression
+      return recordExpression, insertionPos
+    else
+      return! None
+  }
 
 // Check whether the record has been fully defined
 let shouldGenerateRecordStub (recordExpr: RecordExpr) (entity: FSharpEntity) =
-    let fieldCount = entity.FSharpFields.Count
-    let writtenFieldCount = recordExpr.FieldExprList.Length
-    fieldCount > 0 && writtenFieldCount < fieldCount
+  let fieldCount = entity.FSharpFields.Count
+  let writtenFieldCount = recordExpr.FieldExprList.Length
+  fieldCount > 0 && writtenFieldCount < fieldCount
 
-let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
-    asyncMaybe {
-        let! recordExpression, insertionPos =
-            tryFindStubInsertionParamsAtPos codeGenService pos document
+let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: pos) (document: Document) =
+  asyncMaybe {
+    let! recordExpression, insertionPos = tryFindStubInsertionParamsAtPos codeGenService pos document
 
-        let! symbol, symbolUse =
-            codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
-        let! symbolUse = symbolUse
-        match symbolUse.Symbol with
-        | :? FSharpEntity as entity when entity.IsFSharpRecord && entity.DisplayName = symbol.Text ->
-            return! Some (recordExpression, Some entity, insertionPos)
+    let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
+    let! symbolUse = symbolUse
 
-        | :? FSharpField as field ->
-            match field.DeclaringEntity with
-            | Some decl when decl.IsFSharpRecord && field.DisplayName = symbol.Text ->
-                return! Some (recordExpression, field.DeclaringEntity, insertionPos)
-            | _ -> return! None
-        | _ ->
-            return! None
-    }
+    match symbolUse.Symbol with
+    | :? FSharpEntity as entity when
+      entity.IsFSharpRecord
+      && entity.DisplayName = symbol.Text -> return! Some(recordExpression, Some entity, insertionPos)
+
+    | :? FSharpField as field ->
+        match field.DeclaringEntity with
+        | Some decl when
+          decl.IsFSharpRecord
+          && field.DisplayName = symbol.Text -> return! Some(recordExpression, field.DeclaringEntity, insertionPos)
+        | _ -> return! None
+    | _ -> return! None
+  }

@@ -51,11 +51,12 @@ module Types =
 
       { CodeAction.Title = title
         Kind =
-          Some
-            (match fixKind with
-             | Fix -> "quickfix"
-             | Refactor -> "refactor"
-             | Rewrite -> "refactor.rewrite")
+          Some(
+            match fixKind with
+            | Fix -> "quickfix"
+            | Refactor -> "refactor"
+            | Rewrite -> "refactor.rewrite"
+          )
         Diagnostics = diagnostic |> Option.map Array.singleton
         Edit = workspaceEdit
         Command = None }
@@ -97,9 +98,12 @@ module Util =
         Character = lines.[lines.Length - 1].Length - 1 }
 
     let rec loop pos =
-      if firstPos = pos || finalPos = pos then None
-      else if not (condition (charAt pos)) then loop (posChange pos)
-      else Some pos
+      if firstPos = pos || finalPos = pos then
+        None
+      else if not (condition (charAt pos)) then
+        loop (posChange pos)
+      else
+        Some pos
 
     loop pos
 
@@ -132,7 +136,11 @@ module Util =
 open Types
 
 let ifEnabled enabled codeFix: CodeFix =
-  fun codeActionParams -> if enabled () then codeFix codeActionParams else async.Return []
+  fun codeActionParams ->
+    if enabled () then
+      codeFix codeActionParams
+    else
+      async.Return []
 
 let ifDiagnosticByMessage handler (checkMessage: string): CodeFix =
   (fun codeActionParams ->
@@ -180,16 +188,25 @@ module Fixes =
         let line = lines.[l - 2]
 
         let isImplicitTopLevelModule =
-          not
-            (line.StartsWith "module"
-             && not (line.EndsWith "="))
+          not (
+            line.StartsWith "module"
+            && not (line.EndsWith "=")
+          )
 
-        if isImplicitTopLevelModule then 1 else l
+        if isImplicitTopLevelModule then
+          1
+        else
+          l
     | TopModule -> 1
     | ScopeKind.Namespace when l > 1 ->
         [ 0 .. l - 1 ]
         |> List.mapi (fun i line -> i, lines.[line])
-        |> List.tryPick (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
+        |> List.tryPick
+             (fun (i, lineStr) ->
+               if lineStr.StartsWith "namespace" then
+                 Some i
+               else
+                 None)
         |> function
         // move to the next line below "namespace" and convert it to F# 1-based line number
         | Some line -> line + 2
@@ -249,11 +266,14 @@ module Fixes =
 
       let lineStr =
         let whitespace = String.replicate ctx.Pos.Column " "
-        $"%s{whitespace}open %s{actualOpen}\n"
+
+        $"%s{whitespace}open %s{actualOpen}
+"
 
       let edits =
         [| yield insertLine docLine lineStr
-           if fileLines.[docLine + 1].Trim() <> "" then yield insertLine (docLine + 1) ""
+           if fileLines.[docLine + 1].Trim() <> "" then
+             yield insertLine (docLine + 1) ""
            if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace)
               && docLine > 0
               && not ((fileLines.[docLine - 1]).StartsWith "open") then
@@ -272,6 +292,7 @@ module Fixes =
 
           let filePath =
             codeActionParameter.TextDocument.GetFilePath()
+
           match! getParseResultsForFile filePath pos with
           | Ok (tyRes, line, lines) ->
               match! getNamespaceSuggestions tyRes pos line with
@@ -302,9 +323,10 @@ module Fixes =
                let suggestion = suggestion.Trim()
 
                let suggestion =
-                 if System.Text.RegularExpressions.Regex.IsMatch(suggestion, """^[a-zA-Z][a-zA-Z0-9']+$""")
-                 then suggestion
-                 else $"``%s{suggestion}``"
+                 if System.Text.RegularExpressions.Regex.IsMatch(suggestion, """^[a-zA-Z][a-zA-Z0-9']+$""") then
+                   suggestion
+                 else
+                   $"``%s{suggestion}``"
 
                { Edits =
                    [| { Range = diagnostic.Range
@@ -387,11 +409,12 @@ module Fixes =
       "It is recommended that objects supporting the IDisposable interface are created using the syntax"
 
   /// a codefix that generates union cases for an incomplete match expression
-  let generateUnionCases (getFileLines: string -> Result<string [], _>)
-                         (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                         (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
-                         (getTextReplacements: unit -> Map<string, string>)
-                         =
+  let generateUnionCases
+    (getFileLines: string -> Result<string [], _>)
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+    (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
+    (getTextReplacements: unit -> Map<string, string>)
+    =
     ifDiagnosticByMessage
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -460,10 +483,11 @@ module Fixes =
   let mapAnalyzerDiagnostics = mapExternalDiagnostic "F# Analyzers"
 
   /// a codefix that generates member stubs for an interface declaration
-  let generateInterfaceStub (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                            (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
-                            (getTextReplacements: unit -> Map<string, string>)
-                            : CodeFix =
+  let generateInterfaceStub
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+    (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+    (getTextReplacements: unit -> Map<string, string>)
+    : CodeFix =
     fun codeActionParams ->
       asyncResult {
         let fileName =
@@ -496,10 +520,11 @@ module Fixes =
       |> AsyncResult.foldResult id (fun _ -> [])
 
   /// a codefix that generates member stubs for a record declaration
-  let generateRecordStub (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                         (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
-                         (getTextReplacements: unit -> Map<string, string>)
-                         : CodeFix =
+  let generateRecordStub
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+    (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+    (getTextReplacements: unit -> Map<string, string>)
+    : CodeFix =
     fun codeActionParams ->
       asyncResult {
         let fileName =
@@ -531,10 +556,11 @@ module Fixes =
       |> AsyncResult.foldResult id (fun _ -> [])
 
   /// a codefix that generates stubs for required override members in abstract types
-  let generateAbstractClassStub (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                                (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
-                                (getTextReplacements: unit -> Map<string, string>)
-                                : CodeFix =
+  let generateAbstractClassStub
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+    (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+    (getTextReplacements: unit -> Map<string, string>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -694,8 +720,9 @@ module Fixes =
       (Set.ofList [ "597" ])
 
   /// a codefix that changes a ref cell deref (!) to a call to 'not'
-  let refCellDerefToNot (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                        : CodeFix =
+  let refCellDerefToNot
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -754,9 +781,10 @@ module Fixes =
       (Set.ofList [ "3198" ])
 
   /// a codefix that makes a binding mutable when a user attempts to mutably set it
-  let makeDeclarationMutable (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                             (getProjectOptionsForFile: string -> Result<FSharpProjectOptions, string>)
-                             : CodeFix =
+  let makeDeclarationMutable
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    (getProjectOptionsForFile: string -> Result<FSharpProjectOptions, string>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -793,8 +821,9 @@ module Fixes =
       (Set.ofList [ "27" ])
 
   /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
-  let comparisonToMutableAssignment (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                                    : CodeFix =
+  let comparisonToMutableAssignment
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -833,8 +862,9 @@ module Fixes =
       (Set.ofList [ "20" ])
 
   /// a codefix that converts unknown/partial record expressions to anonymous records
-  let partialOrInvalidRecordExpressionToAnonymousRecord (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                                                        : CodeFix =
+  let partialOrInvalidRecordExpressionToAnonymousRecord
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -874,8 +904,9 @@ module Fixes =
       (Set.ofList [ "39" ])
 
   /// a codefix that removes 'return' or 'yield' (or bang-variants) when the compiler says they're not necessary
-  let removeUnnecessaryReturnOrYield (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                                     : CodeFix =
+  let removeUnnecessaryReturnOrYield
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -894,15 +925,16 @@ module Fixes =
               let errorText = getText lines diagnostic.Range
 
               let! title =
-                if errorText.StartsWith "return!"
-                then Ok "Remove 'return!'"
-                elif errorText.StartsWith "yield!"
-                then Ok "Remove 'yield!'"
-                elif errorText.StartsWith "return"
-                then Ok "Remove 'return'"
-                elif errorText.StartsWith "yield"
-                then Ok "Remove 'yield'"
-                else Error "unknown start token for remove return or yield codefix"
+                if errorText.StartsWith "return!" then
+                  Ok "Remove 'return!'"
+                elif errorText.StartsWith "yield!" then
+                  Ok "Remove 'yield!'"
+                elif errorText.StartsWith "return" then
+                  Ok "Remove 'return'"
+                elif errorText.StartsWith "yield" then
+                  Ok "Remove 'yield'"
+                else
+                  Error "unknown start token for remove return or yield codefix"
 
               return
                 [ { Title = title
@@ -918,8 +950,9 @@ module Fixes =
       (Set.ofList [ "748"; "747" ])
 
   /// a codefix that rewrites C#-style '=>' lambdas to F#-style 'fun _ -> _' lambdas
-  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                                        : CodeFix =
+  let rewriteCSharpLambdaToFSharpLambda
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -1014,8 +1047,9 @@ module Fixes =
       (Set.ofList [ "10" ])
 
   /// a codefix that makes a binding 'rec' if something inside the binding requires recursive access
-  let makeOuterBindingRecursive (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
-                                : CodeFix =
+  let makeOuterBindingRecursive
+    (getParseResultsForFile: string -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
         asyncResult {
@@ -1033,9 +1067,8 @@ module Fixes =
           let lspOuterBindingRange = fcsRangeToLsp outerBindingRange
           let outerBindingName = getText lines lspOuterBindingRange
 
-          do! Result.guard
-                (fun _ -> missingMemberName = outerBindingName)
-                "member names didn't match, don't suggest fix"
+          do!
+            Result.guard (fun _ -> missingMemberName = outerBindingName) "member names didn't match, don't suggest fix"
 
           return
             [ { Title = "Make outer binding recursive"

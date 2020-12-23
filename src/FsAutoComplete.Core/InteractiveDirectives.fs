@@ -13,6 +13,7 @@ let private unescapeStandardString (s: string) =
 
   for i in [ 0 .. s.Length - 1 ] do
     let c = s.[i]
+
     if remainingUnicodeChars > 0 then
       if (c >= 'A' && c <= 'Z')
          || (c >= 'a' && c <= 'z')
@@ -32,14 +33,16 @@ let private unescapeStandardString (s: string) =
           + string (unicodeHeaderChar)
           + currentUnicodeChars
           + string (c)
+
         remainingUnicodeChars <- 0
     else if escaped then
       escaped <- false
+
       match c with
-      | 'b' -> result <- result + "\b"
+      | 'b' -> result <- result + ""
       | 'n' -> result <- result + "\n"
       | 'r' -> result <- result + "\r"
-      | 't' -> result <- result + "\t"
+      | 't' -> result <- result + "	"
       | '\\' -> result <- result + "\\"
       | '"' -> result <- result + "\""
       | ''' -> result <- result + "'"
@@ -81,16 +84,19 @@ let private tripleStringRegex = Regex(@"^""""""(.*?)""""""")
 let private tryParseStringFromStart (s: string) (index: int) =
   let s = s.Substring(index)
   let verbatim = verbatimStringRegex.Match(s)
+
   if verbatim.Success then
     let s = verbatim.Groups.[1].Value
     Some(s.Replace("\"\"", "\""))
   else
     let triple = tripleStringRegex.Match(s)
+
     if triple.Success then
       let s = triple.Groups.[1].Value
       Some s
     else
       let standard = standardStringRegex.Match(s)
+
       if standard.Success then
         let s = standard.Groups.[1].Value
         Some(unescapeStandardString s)
@@ -102,6 +108,7 @@ let tryParseLoad (line: string) (column: int) =
   let potential =
     seq {
       let matches = loadRegex.Matches(line)
+
       for i in [ 0 .. matches.Count - 1 ] do
         let m = matches.[i]
         if m.Index <= column then yield m

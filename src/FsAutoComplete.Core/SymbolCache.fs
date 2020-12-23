@@ -10,107 +10,163 @@ open System.IO
 open Newtonsoft.Json
 
 [<CLIMutable>]
-type SymbolUseRange = {
-    FileName: string
+type SymbolUseRange =
+  { FileName: string
     StartLine: int
     StartColumn: int
     EndLine: int
     EndColumn: int
     IsFromDefinition: bool
-    IsFromAttribute : bool
-    IsFromComputationExpression : bool
-    IsFromDispatchSlotImplementation : bool
-    IsFromPattern : bool
-    IsFromType : bool
+    IsFromAttribute: bool
+    IsFromComputationExpression: bool
+    IsFromDispatchSlotImplementation: bool
+    IsFromPattern: bool
+    IsFromType: bool
     SymbolFullName: string
     SymbolDisplayName: string
-    SymbolIsLocal: bool
-}
+    SymbolIsLocal: bool }
 
 
 module private PersistenCacheImpl =
-    open Microsoft.Data.Sqlite
-    open Dapper
-    open System.Data
+  open Microsoft.Data.Sqlite
+  open Dapper
+  open System.Data
 
-    let mutable connection : Lazy<SqliteConnection> option = None
+  let mutable connection: Lazy<SqliteConnection> option = None
 
-    let insertHelper (connection: SqliteConnection) file (sugs: SymbolUseRange[]) =
-        if connection.State <> ConnectionState.Open then connection.Open()
-        use tx = connection.BeginTransaction()
-        let delCmd = sprintf "DELETE FROM Symbols WHERE FileName=\"%s\"" file
-        let inserCmd =
-            sprintf "INSERT INTO SYMBOLS(FileName, StartLine, StartColumn, EndLine, EndColumn, IsFromDefinition, IsFromAttribute, IsFromComputationExpression, IsFromDispatchSlotImplementation, IsFromPattern, IsFromType, SymbolFullName, SymbolDisplayName, SymbolIsLocal) VALUES
+  let insertHelper (connection: SqliteConnection) file (sugs: SymbolUseRange []) =
+    if connection.State <> ConnectionState.Open then
+      connection.Open()
+
+    use tx = connection.BeginTransaction()
+
+    let delCmd =
+      sprintf "DELETE FROM Symbols WHERE FileName=\"%s\"" file
+
+    let inserCmd =
+      sprintf
+        "INSERT INTO SYMBOLS(FileName, StartLine, StartColumn, EndLine, EndColumn, IsFromDefinition, IsFromAttribute, IsFromComputationExpression, IsFromDispatchSlotImplementation, IsFromPattern, IsFromType, SymbolFullName, SymbolDisplayName, SymbolIsLocal) VALUES
             (@FileName, @StartLine, @StartColumn, @EndLine, @EndColumn, @IsFromDefinition, @IsFromAttribute, @IsFromComputationExpression, @IsFromDispatchSlotImplementation, @IsFromPattern, @IsFromType, @SymbolFullName, @SymbolDisplayName, @SymbolIsLocal)"
-        connection.Execute(delCmd, transaction = tx) |> ignore
-        connection.Execute(inserCmd, sugs, transaction = tx) |> ignore
-        tx.Commit()
 
-    let insertQueue = MailboxProcessor.Start(fun agent ->
-        let rec loop () = async {
+    connection.Execute(delCmd, transaction = tx)
+    |> ignore
+
+    connection.Execute(inserCmd, sugs, transaction = tx)
+    |> ignore
+
+    tx.Commit()
+
+  let insertQueue =
+    MailboxProcessor.Start
+      (fun agent ->
+        let rec loop () =
+          async {
             let! (con, file, symbols) = agent.Receive()
             insertHelper con file symbols
             return! loop ()
-        }
-        loop ()
-    )
+          }
 
-    let insert = insertQueue.Post
+        loop ())
+
+  let insert = insertQueue.Post
 
 
-    let loadAll (connection: SqliteConnection) =
-        if connection.State <> ConnectionState.Open then connection.Open()
-        let q = "SELECT * FROM SYMBOLS"
-        let res = connection.Query<SymbolUseRange>(q)
-        res
+  let loadAll (connection: SqliteConnection) =
+    if connection.State <> ConnectionState.Open then
+      connection.Open()
 
-    let loadFile (connection: SqliteConnection) file =
-        if connection.State <> ConnectionState.Open then connection.Open()
-        let q = sprintf "SELECT * FROM SYMBOLS WHERE FileName=\"%s\"" file
-        let res = connection.Query<SymbolUseRange>(q)
-        res
+    let q = "SELECT * FROM SYMBOLS"
+    let res = connection.Query<SymbolUseRange>(q)
+    res
 
-    let loadSymbolUses (connection: SqliteConnection) file = async {
-        if connection.State <> ConnectionState.Open then connection.Open()
-        let q = sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false" file
-        let! res = connection.QueryAsync<SymbolUseRange>(q) |> Async.AwaitTask
-        return Seq.toArray res
+  let loadFile (connection: SqliteConnection) file =
+    if connection.State <> ConnectionState.Open then
+      connection.Open()
+
+    let q =
+      sprintf "SELECT * FROM SYMBOLS WHERE FileName=\"%s\"" file
+
+    let res = connection.Query<SymbolUseRange>(q)
+    res
+
+  let loadSymbolUses (connection: SqliteConnection) file =
+    async {
+      if connection.State <> ConnectionState.Open then
+        connection.Open()
+
+      let q =
+        sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false" file
+
+      let! res =
+        connection.QueryAsync<SymbolUseRange>(q)
+        |> Async.AwaitTask
+
+      return Seq.toArray res
     }
 
-    let loadImplementations (connection: SqliteConnection) file = async {
-        if connection.State <> ConnectionState.Open then connection.Open()
-        let q = sprintf "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false AND (IsFromDispatchSlotImplementation=true OR IsFromType=true)" file
-        let! res = connection.QueryAsync<SymbolUseRange>(q) |> Async.AwaitTask
-        return Seq.toArray res
+  let loadImplementations (connection: SqliteConnection) file =
+    async {
+      if connection.State <> ConnectionState.Open then
+        connection.Open()
+
+      let q =
+        sprintf
+          "SELECT * FROM SYMBOLS WHERE SymbolFullName=\"%s\" AND SymbolIsLocal=false AND (IsFromDispatchSlotImplementation=true OR IsFromType=true)"
+          file
+
+      let! res =
+        connection.QueryAsync<SymbolUseRange>(q)
+        |> Async.AwaitTask
+
+      return Seq.toArray res
     }
 
-    let loadKnownFiles (connection: SqliteConnection) = async {
-        if connection.State <> ConnectionState.Open then connection.Open()
-        let q = "SELECT FileName FROM SYMBOLS"
-        let! res = connection.QueryAsync<{|FileName: string |}>(q) |> Async.AwaitTask
-        return Seq.toArray res
+  let loadKnownFiles (connection: SqliteConnection) =
+    async {
+      if connection.State <> ConnectionState.Open then
+        connection.Open()
+
+      let q = "SELECT FileName FROM SYMBOLS"
+
+      let! res =
+        connection.QueryAsync<{| FileName: string |}>(q)
+        |> Async.AwaitTask
+
+      return Seq.toArray res
     }
 
-    let deleteFile (connection: SqliteConnection) file = async {
-        if connection.State <> ConnectionState.Open then connection.Open()
-        let q = sprintf "DELETE FROM SYMBOLS WHERE FileName = \"%s\"" file
-        let! res = connection.ExecuteAsync q |> Async.AwaitTask
-        return res
+  let deleteFile (connection: SqliteConnection) file =
+    async {
+      if connection.State <> ConnectionState.Open then
+        connection.Open()
+
+      let q =
+        sprintf "DELETE FROM SYMBOLS WHERE FileName = \"%s\"" file
+
+      let! res = connection.ExecuteAsync q |> Async.AwaitTask
+      return res
     }
 
-    let initializeCache dir =
-        let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir
+  let initializeCache dir =
+    let connectionString =
+      sprintf "Data Source=%s/.ionide/symbolCache.db" dir
 
-        let dir = Path.Combine(dir, ".ionide")
-        do if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
-        let dbPath = Path.Combine(dir, "symbolCache.db")
-        let dbExists = File.Exists dbPath
-        let conn = new SqliteConnection(connectionString)
+    let dir = Path.Combine(dir, ".ionide")
 
-        do if not dbExists then
-            let fs = File.Create(dbPath)
-            fs.Close()
-            let cmd = "CREATE TABLE Symbols(
+    do
+      if not (Directory.Exists dir) then
+        Directory.CreateDirectory dir |> ignore
+
+    let dbPath = Path.Combine(dir, "symbolCache.db")
+    let dbExists = File.Exists dbPath
+    let conn = new SqliteConnection(connectionString)
+
+    do
+      if not dbExists then
+        let fs = File.Create(dbPath)
+        fs.Close()
+
+        let cmd = "CREATE TABLE Symbols(
                 FileName TEXT,
                 StartLine INT,
                 StartColumn INT,
@@ -127,72 +183,72 @@ module private PersistenCacheImpl =
                 SymbolIsLocal BOOLEAN
             )"
 
-            conn.Execute(cmd)
-            |> ignore
+        conn.Execute(cmd) |> ignore
 
-        conn
+    conn
 
-    let initLazyCache dir =
-        let lazyConn = Lazy<SqliteConnection>(fun _ -> initializeCache dir)
-        connection <- Some lazyConn
+  let initLazyCache dir =
+    let lazyConn =
+      Lazy<SqliteConnection>(fun _ -> initializeCache dir)
 
-let fromSymbolUse (su : FSharpSymbolUse) =
-    {   StartLine = su.RangeAlternate.StartLine
-        StartColumn = su.RangeAlternate.StartColumn + 1
-        EndLine = su.RangeAlternate.EndLine
-        EndColumn = su.RangeAlternate.EndColumn + 1
-        FileName = su.FileName
-        IsFromDefinition = su.IsFromDefinition
-        IsFromAttribute = su.IsFromAttribute
-        IsFromComputationExpression = su.IsFromComputationExpression
-        IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
-        IsFromPattern = su.IsFromPattern
-        IsFromType = su.IsFromType
-        SymbolFullName = su.Symbol.FullName
-        SymbolDisplayName = su.Symbol.DisplayName
-        SymbolIsLocal = su.Symbol.IsPrivateToFile  }
+    connection <- Some lazyConn
 
-let initCache dir =
-    PersistenCacheImpl.initLazyCache dir
+let fromSymbolUse (su: FSharpSymbolUse) =
+  { StartLine = su.RangeAlternate.StartLine
+    StartColumn = su.RangeAlternate.StartColumn + 1
+    EndLine = su.RangeAlternate.EndLine
+    EndColumn = su.RangeAlternate.EndColumn + 1
+    FileName = su.FileName
+    IsFromDefinition = su.IsFromDefinition
+    IsFromAttribute = su.IsFromAttribute
+    IsFromComputationExpression = su.IsFromComputationExpression
+    IsFromDispatchSlotImplementation = su.IsFromDispatchSlotImplementation
+    IsFromPattern = su.IsFromPattern
+    IsFromType = su.IsFromType
+    SymbolFullName = su.Symbol.FullName
+    SymbolDisplayName = su.Symbol.DisplayName
+    SymbolIsLocal = su.Symbol.IsPrivateToFile }
 
-let updateSymbols fn (symbols: FSharpSymbolUse[]) =
-    let sus = symbols |> Array.map(fromSymbolUse)
+let initCache dir = PersistenCacheImpl.initLazyCache dir
 
-    PersistenCacheImpl.connection
-    |> Option.iter (fun con -> PersistenCacheImpl.insert(con.Value,fn,sus) )
+let updateSymbols fn (symbols: FSharpSymbolUse []) =
+  let sus = symbols |> Array.map (fromSymbolUse)
+
+  PersistenCacheImpl.connection
+  |> Option.iter (fun con -> PersistenCacheImpl.insert (con.Value, fn, sus))
 
 let getSymbols symbolName =
-    async {
-        match PersistenCacheImpl.connection with
-        | Some conn ->
-            let! res = PersistenCacheImpl.loadSymbolUses conn.Value symbolName
-            return Some res
-        | None -> return None
-    }
+  async {
+    match PersistenCacheImpl.connection with
+    | Some conn ->
+        let! res = PersistenCacheImpl.loadSymbolUses conn.Value symbolName
+        return Some res
+    | None -> return None
+  }
 
 let getImplementation symbolName =
-    async {
-        match PersistenCacheImpl.connection with
-        | Some conn ->
-            let! res = PersistenCacheImpl.loadImplementations conn.Value symbolName
-            return Some res
-        | None -> return None
-    }
+  async {
+    match PersistenCacheImpl.connection with
+    | Some conn ->
+        let! res = PersistenCacheImpl.loadImplementations conn.Value symbolName
+        return Some res
+    | None -> return None
+  }
 
 let getKnownFiles () =
   async {
-        match PersistenCacheImpl.connection with
-        | Some conn ->
-            let! res = PersistenCacheImpl.loadKnownFiles conn.Value
-            return Some res
-        | None -> return None
-    }
+    match PersistenCacheImpl.connection with
+    | Some conn ->
+        let! res = PersistenCacheImpl.loadKnownFiles conn.Value
+        return Some res
+    | None -> return None
+  }
 
 let deleteFile file =
   async {
-        match PersistenCacheImpl.connection with
-        | Some conn ->
-            let! res = PersistenCacheImpl.deleteFile conn.Value file
-            return Some res
-        | None -> return None
-    }
+    match PersistenCacheImpl.connection with
+    | Some conn ->
+        let! res = PersistenCacheImpl.deleteFile conn.Value file
+        return Some res
+    | None -> return None
+  }
