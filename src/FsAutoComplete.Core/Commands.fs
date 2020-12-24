@@ -66,7 +66,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
-    let mutable analyzerHandler : ((string * string [] * FSharp.Compiler.SyntaxTree.ParsedInput * FSharpImplementationFileContents * FSharpEntity list * (bool -> AssemblySymbol list)) -> FSharp.Analyzers.SDK.Message []) option = None
 
     let notify = Event<NotificationEvent>()
 
