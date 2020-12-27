@@ -539,18 +539,15 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
             else
-                let! checkOptions =
-                    match state.GetCheckerOptions(file, lines) with
-                    | Some c ->
-                        state.SetFileVersion file version
-                        async.Return c
-                    | None -> async {
-                        let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
-                        state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
-                        return checkOptions
-                    }
-                fileStateSet.Trigger ()
-                return! parse' file text checkOptions
+                match state.GetCheckerOptions(file, lines) with
+                | Some c ->
+                    state.SetFileVersion file version
+                    fileStateSet.Trigger ()
+                    return! parse' file text c
+                | None ->
+                    return CoreResponse.InfoRes "`.fs` file not in project file"
+
+
         } |> x.AsCancellable file |> AsyncResult.recoverCancellation
 
 
