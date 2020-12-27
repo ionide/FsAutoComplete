@@ -112,7 +112,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let parseFile (p: DidChangeTextDocumentParams) =
 
         async {
-            if not commands.IsWorkspaceReady then
+            if not commands.IsWorkspaceReady && rootPath.IsSome then
                 logger.warn (Log.setMessage "ParseFile - Workspace not ready")
             else
                 let doc = p.TextDocument
@@ -407,7 +407,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
 
     override __.Initialize(p: InitializeParams) = async {
-        logger.info (Log.setMessage "Initialize Request")
+        logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p )
 
         let actualRootPath =
           match p.RootUri with
@@ -614,7 +614,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
 
-        if not commands.IsWorkspaceReady then
+        if not commands.IsWorkspaceReady && rootPath.IsSome then
             do! commands.WorkspaceReady |> Async.AwaitEvent
             logger.info (Log.setMessage "TextDocumentDidOpen - workspace ready")
 
