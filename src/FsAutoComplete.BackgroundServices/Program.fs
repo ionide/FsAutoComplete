@@ -256,10 +256,12 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             match msg, lst with
             //Empty
             | None, [] ->
+                checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients ()
                 do! Async.Sleep 300
                 return! loop (false, [])
             //Empty
             | Some (_,_,[]), [] ->
+                checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients ()
                 do! Async.Sleep 300
                 return! loop (false, [])
             //No request we just continue
