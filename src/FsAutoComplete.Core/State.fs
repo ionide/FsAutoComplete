@@ -22,7 +22,6 @@ type State =
     mutable CurrentAST: FSharp.Compiler.SyntaxTree.ParsedInput option
 
     NavigationDeclarations : ConcurrentDictionary<SourceFilePath, FSharpNavigationTopLevelDeclaration[]>
-    ParseResults: ConcurrentDictionary<SourceFilePath, FSharpParseFileResults>
     CancellationTokens: ConcurrentDictionary<SourceFilePath, CancellationTokenSource list>
 
     ScriptProjectOptions: ConcurrentDictionary<SourceFilePath, int * FSharpProjectOptions>
@@ -40,7 +39,6 @@ type State =
       CompletionNamespaceInsert = ConcurrentDictionary()
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
-      ParseResults = ConcurrentDictionary()
       ScriptProjectOptions = ConcurrentDictionary()
       ColorizationOutput = false }
 
