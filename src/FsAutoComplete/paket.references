@@ -9,7 +9,6 @@ Ionide.ProjInfo
 Ionide.ProjInfo.ProjectSystem
 Fake.Runtime
 Dapper
-FSharp.Data
 Microsoft.Data.Sqlite
 ICSharpCode.Decompiler
 Fantomas

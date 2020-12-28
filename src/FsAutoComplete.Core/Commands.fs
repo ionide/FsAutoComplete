@@ -328,7 +328,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         x.MapResultAsync ((fun x -> successToString x |> async.Return), ?failureToString = failureToString)
 
     member x.Fsdn (querystr) = async {
-            let results = Fsdn.query querystr
+            let! results = Fsdn.query querystr
             return CoreResponse.Res results
         }
 
