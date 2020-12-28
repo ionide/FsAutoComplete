@@ -1,9 +1,21 @@
 module FsAutoComplete.Fsdn
 
-open FSharp.Data
-open FSharp.Data.JsonExtensions
+open Newtonsoft.Json
 
-let query (querystr:string) = 
+
+let private httpClient = new System.Net.Http.HttpClient()
+
+type Response = {|
+  values:
+    {| api:
+      {| name:
+        {| ``namespace``: string; class_name: string; id: string |}
+      |}
+    |} []
+|}
+
+let query (querystr:string) =
+  async {
 
     let exclusionList =
         [ "System.Net.Http"; "System.Web"; "System.Xml"; "System.Xml.Linq"; "Argu"; "ExtCore"; "Fake"; "FParsec"; "FSharp.Collections.ParallelSeq"; "FSharp.Compiler.Service"; "FSharp.Control.AsyncSeq"; "FSharp.Control.Reactive"; "FSharp.Data"; "FSharp.ViewModule.Core"; "FsPickler"; "FsUnit"; "Newtonsoft.Json"; "Suave"; "System.Reactive" ]
@@ -26,22 +38,20 @@ let query (querystr:string) =
         |> List.map (fun (k,v) -> sprintf "%s=%s" k v)
         |> String.concat "&"
 
-    // the FSharp.Data Http.RequestString doesnt escape correctly the query args if these are passed in the `query` function argument
-    // for example the `+` is not escaped as `%2B`
-    // as workaround all query args are passed in the `url` function argument
-    let req = Http.RequestString( "https://fsdn.azurewebsites.net/api/search?" + queryString )
+    let! req = httpClient.GetStringAsync("https://fsdn.azurewebsites.net/api/search?" + queryString) |> Async.AwaitTask
 
-    let results = JsonValue.Parse(req)
+    let results = JsonConvert.DeserializeObject<Response> req
 
-    let values = results?values.AsArray()
-    
-    let createResult (v: JsonValue) =
-        let info2 = v?api?name
+
+    return
+      results.values
+      |> Array.map (fun v ->
+
+        let info2 = v.api.name
         //return a list of strings
-        let infonamespace = info2?``namespace``.AsString()
-        let infoclass = info2?class_name.AsString()
-        let infomethod = info2?id.AsString()
-
+        let infonamespace = info2.``namespace``
+        let infoclass = info2.class_name
+        let infomethod = info2.id
         let removeGenerics (s: string) =
             if not (s.Contains("<")) then
                 s
@@ -49,9 +59,7 @@ let query (querystr:string) =
                 s.Substring(0, s.IndexOf('<'))
 
         let finalresp = infoclass + "." + (removeGenerics infomethod)
-        finalresp 
-
-    values
-    |> Array.map createResult
-    |> Array.toList
-
+        finalresp
+      )
+      |> Array.toList
+  }

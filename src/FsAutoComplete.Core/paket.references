@@ -8,7 +8,6 @@ Newtonsoft.Json
 Fake.Runtime
 ICSharpCode.Decompiler
 Microsoft.SourceLink.GitHub
-FSharp.Data
 Dapper
 Microsoft.Data.Sqlite
 System.Configuration.ConfigurationManager

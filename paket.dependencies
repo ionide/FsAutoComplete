@@ -22,7 +22,6 @@ nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
 nuget Microsoft.Build.Tasks.Core copy_local: false
 nuget FSharp.Analyzers.SDK
-nuget FSharp.Data 3.0.1
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json

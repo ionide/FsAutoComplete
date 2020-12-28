@@ -5,7 +5,6 @@ open System.Reflection.Metadata
 open System.Reflection.PortableExecutable
 open System.Text.RegularExpressions
 open Newtonsoft.Json
-open FSharp.Data
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.Utils
@@ -14,6 +13,8 @@ let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
 let private sourceLinkGuid = System.Guid "CC110556-A091-4D38-9FEC-25AB9A351A6A"
 let private embeddedSourceGuid = System.Guid "0E8A571B-6926-466E-B4AD-8AB04611F5FE"
+
+let private httpClient = new System.Net.Http.HttpClient()
 
 let private toHex (bytes: byte[]) =
     System.BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
@@ -154,8 +155,8 @@ let private downloadFileToTempDir (url: string<Url>) (repoPathFragment: string<N
     async {
         use fileStream = File.OpenWrite tempFile
         logger.info (Log.setMessage "Getting file from {url} for document {repoPath}" >> Log.addContextDestructured "url" url >> Log.addContextDestructured "repoPath" repoPathFragment)
-        let! response = Http.AsyncRequestStream(UMX.untag url, httpMethod = "GET")
-        do! response.ResponseStream.CopyToAsync fileStream |> Async.AwaitTask
+        let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
+        do! response.CopyToAsync fileStream |> Async.AwaitTask
         return UMX.tag<LocalPath> tempFile
     }
 
