@@ -105,7 +105,7 @@ type FsacClient(sendServerRequest: ClientNotificationSender) =
 type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
 
-    let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = true)
+    let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = false)
 
     do checker.ImplicitlyStartBackgroundWork <- false
     let mutable latestSdkVersion = lazy None

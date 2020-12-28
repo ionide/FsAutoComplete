@@ -1291,7 +1291,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         let file = selectionRangeP.TextDocument.GetFilePath()
         let poss = selectionRangeP.Positions |> Array.map protocolPosToPos |> Array.toList
-        let res = commands.GetRangesAtPosition file poss
+        let! res = commands.GetRangesAtPosition file poss
         match res with
         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
             return internalError msg

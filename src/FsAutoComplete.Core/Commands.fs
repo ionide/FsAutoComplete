@@ -119,10 +119,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
        | BackgroundServices.Diagnostics d -> notify.Trigger (NotificationEvent.Diagnostics d)
     )
 
+    //Fill declarations cache so we're able to return workspace symbols correctly
     do fileParsed.Publish.Add (fun parseRes ->
         let decls = parseRes.GetNavigationItems().Declarations
         state.NavigationDeclarations.[parseRes.FileName] <- decls
-        state.ParseResults.[parseRes.FileName] <- parseRes
     )
 
     do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
@@ -1027,16 +1027,22 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> AsyncResult.recoverCancellationIgnore
 
 
-    member x.GetRangesAtPosition file positions =
+    member x.GetRangesAtPosition file positions = async {
         let file = Path.GetFullPath file
-        let parseResult = state.ParseResults.TryFind file
-        match parseResult with
-        | None -> CoreResponse.InfoRes "Cached typecheck results not yet available"
-        | Some pr ->
+        match state.TryGetFileCheckerOptionsWithLines file with
+        | Ok (opts, sourceLines) ->
+          let parseOpts = Utils.projectOptionsToParseOptions opts
+          let allSource = sourceLines |> String.concat "\n"
+          let! ast = checker.ParseFile(file, allSource, parseOpts)
+          return
             positions |> List.map (fun x ->
-                UntypedAstUtils.getRangesAtPosition pr.ParseTree x
+                UntypedAstUtils.getRangesAtPosition ast.ParseTree x
             )
             |> CoreResponse.Res
+        | _ ->
+          return CoreResponse.InfoRes "Couldn't find file state"
+
+    }
 
     member __.StartBackgroundService (workspaceDir : string option) =
         if backgroundServiceEnabled && workspaceDir.IsSome then
