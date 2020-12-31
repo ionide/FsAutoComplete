@@ -432,7 +432,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     /// if version of file in memory is grater than last type checked version.
     /// It also waits if there are no FSharpProjectOptions avaliable for given file
     member x.TryGetLatestTypeCheckResultsForFile(file) =
-        let file = Path.GetFullPath file
+        let file = Path.GetFullPath file |> Utils.normalizePath
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
         commandsLogger.debug (Log.setMessage "TryGetLatestTypeCheckResultsFor {file}, State@{stateVersion}, Checked@{checkedVersion}"
@@ -482,7 +482,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     member x.TryGetFileVersion = state.TryGetFileVersion
 
     member x.Parse file lines version (isSdkScript: bool option) =
-        let file = Path.GetFullPath file
+        let file = Path.GetFullPath file |> Utils.normalizePath
         let tmf = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
 
         do x.CancelQueue file
