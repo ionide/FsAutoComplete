@@ -14,6 +14,7 @@ open Ionide.ProjInfo
 open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
 open FSharp.Analyzers
+open FSharp.UMX
 
 [<RequireQualifiedAccess>]
 type LocationResponse<'a,'b> =
@@ -43,22 +44,22 @@ module AsyncResult =
 
 [<RequireQualifiedAccess>]
 type NotificationEvent=
-    | ParseError of errors: FSharpErrorInfo[] * file: string
+    | ParseError of errors: FSharpErrorInfo[] * file: string<LocalPath>
     | Workspace of ProjectSystem.ProjectResponse
-    | AnalyzerMessage of  messages: FSharp.Analyzers.SDK.Message [] * file: string
-    | UnusedOpens of file: string * opens: range[]
-    | Lint of file: string * warningsWithCodes: Lint.EnrichedLintWarning list
-    | UnusedDeclarations of file: string * decls: (range * bool)[]
-    | SimplifyNames of file: string * names: SimplifyNames.SimplifiableRange []
-    | Canceled of string
+    | AnalyzerMessage of  messages: FSharp.Analyzers.SDK.Message [] * file: string<LocalPath>
+    | UnusedOpens of file: string<LocalPath> * opens: range[]
+    | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
+    | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
+    | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange []
+    | Canceled of errorMessage: string
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
-    | FileParsed of string
+    | FileParsed of string<LocalPath>
 
 type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial toolsPath
     let fileParsed = Event<FSharpParseFileResults>()
-    let fileChecked = Event<ParseAndCheckResults * string * int>()
+    let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
     let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let mutable workspaceRoot: string option = None
@@ -74,9 +75,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
-    let analyzerHandler (file, content, pt, tast, symbols, getAllEnts) =
+    let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
-            FileName = file
+            FileName = UMX.untag file
             Content = content
             ParseTree = pt
             TypedTree = tast
@@ -90,12 +91,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
               Loggers.analyzers.info (Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
                                       >> Log.addContextDestructured "analyzer" r.AnalyzerName
                                       >> Log.addContextDestructured "count" results.Length
-                                      >> Log.addContextDestructured "file" file)
+                                      >> Log.addContextDestructured "file" (UMX.untag file))
               results
             | Error e ->
               Loggers.analyzers.error (Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
                                        >> Log.addContextDestructured "analyzer" r.AnalyzerName
-                                       >> Log.addContextDestructured "file" file
+                                       >> Log.addContextDestructured "file" (UMX.untag file)
                                        >> Log.addContextDestructured "message" e.Message
                                        >> Log.addExn e)
               []
@@ -122,7 +123,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     //Fill declarations cache so we're able to return workspace symbols correctly
     do fileParsed.Publish.Add (fun parseRes ->
         let decls = parseRes.GetNavigationItems().Declarations
-        state.NavigationDeclarations.[parseRes.FileName] <- decls
+        // string<LocalPath> is a compiler-approved path, and since this structure comes from the compiler it's safe
+        state.NavigationDeclarations.[UMX.tag parseRes.FileName] <- decls
     )
 
     do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
@@ -133,14 +135,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     )
 
     do if not backgroundServiceEnabled then
-            checker.FileChecked.Add (fun (n,_) ->
+            checker.FileChecked.Add (fun (n, _) ->
                 checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
                 async {
                     try
                         match state.GetProjectOptions n with
                         | Some opts ->
                             let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                            fileChecked.Trigger (res, Utils.normalizePath res.FileName, -1)
+                            fileChecked.Trigger (res, res.FileName, -1) // filename comes from compiler, safe to just tag here
                         | _ -> ()
                     with
                     | _ -> ()
@@ -202,13 +204,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                 let sourceOpt =
                     match state.Files.TryFind file with
                     | Some f -> Some (f.Lines)
-                    | None when File.Exists(file) ->
-                        let ctn = File.ReadAllLines file
+                    | None when File.Exists(UMX.untag file) ->
+                        let ctn = File.ReadAllLines (UMX.untag file)
                         state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
                         let payload =
-                            if Utils.isAScript file
-                            then BackgroundServices.ScriptFile(file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
-                            else BackgroundServices.SourceFile file
+                            if Utils.isAScript (UMX.untag file)
+                            then BackgroundServices.ScriptFile(UMX.untag file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
+                            else BackgroundServices.SourceFile (UMX.untag file)
                         if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
                         Some (ctn)
                     | None -> None
@@ -235,7 +237,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let docForText (lines: string []) (tyRes: ParseAndCheckResults): Document =
       {
           LineCount = lines.Length
-          FullName = tyRes.FileName
+          FullName = tyRes.FileName // from the compiler, assumed safe
           GetText = fun _ -> lines |> String.concat "\n"
           GetLineText0 = fun i -> lines.[i]
           GetLineText1 = fun i -> lines.[i - 1]
@@ -281,7 +283,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
         if not isFromCache then
           p.ProjectItems
-          |> List.choose (function ProjectViewerItem.Compile(p, _) -> Some p)
+          |> List.choose (function ProjectViewerItem.Compile(p, _) -> Some (Utils.normalizePath p))
           |> parseFilesInTheBackground
           |> Async.Start
         else
@@ -307,13 +309,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     member __.LastCheckResult
         with get() = lastCheckResult
 
-    member __.SetFileContent(file: SourceFilePath, lines: LineStr[], version, tfmIfScript) =
-        let file = Path.GetFullPath file
+    member __.SetFileContent(file: string<LocalPath>, lines: LineStr[], version, tfmIfScript) =
         state.AddFileText(file, lines, version)
         let payload =
-            if Utils.isAScript file
-            then BackgroundServices.ScriptFile(file, tfmIfScript)
-            else BackgroundServices.SourceFile file
+            let untagged = UMX.untag file
+            if Utils.isAScript untagged
+            then BackgroundServices.ScriptFile(untagged, tfmIfScript)
+            else BackgroundServices.SourceFile untagged
 
         if backgroundServiceEnabled then BackgroundServices.updateFile(payload, lines |> String.concat "\n", defaultArg version 0)
 
@@ -407,7 +409,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         return CoreResponse.ErrorRes ex.Message
     }
 
-    member private x.AsCancellable (filename : SourceFilePath) (action : Async<'t>) =
+    member private x.AsCancellable (filename : string<LocalPath>) (action : Async<'t>) =
         let cts = new CancellationTokenSource()
         state.AddCancellationToken(filename, cts)
         Async.StartCatchCancellation(action, cts.Token)
@@ -420,19 +422,16 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             )
 
 
-    member private x.CancelQueue (filename : SourceFilePath) =
-        let filename = Path.GetFullPath filename
+    member private x.CancelQueue (filename : string<LocalPath>) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
 
-    member x.TryGetRecentTypeCheckResultsForFile(file, opts) =
-        let file = Path.GetFullPath file
+    member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>, opts) =
         checker.TryGetRecentCheckResultsForFile(file, opts)
 
     ///Gets recent type check results, waiting for the results of in-progress type checking
     /// if version of file in memory is grater than last type checked version.
     /// It also waits if there are no FSharpProjectOptions avaliable for given file
-    member x.TryGetLatestTypeCheckResultsForFile(file) =
-        let file = Path.GetFullPath file |> Utils.normalizePath
+    member x.TryGetLatestTypeCheckResultsForFile(file: string<LocalPath>) =
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
         commandsLogger.debug (Log.setMessage "TryGetLatestTypeCheckResultsFor {file}, State@{stateVersion}, Checked@{checkedVersion}"
@@ -469,12 +468,10 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
 
 
-    member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) =
-        let file = Path.GetFullPath file
+    member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
         state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos)
 
-    member x.TryGetFileCheckerOptionsWithLines(file) =
-        let file = Path.GetFullPath file
+    member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) =
         state.TryGetFileCheckerOptionsWithLines file
 
     member x.Files = state.Files
@@ -482,13 +479,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     member x.TryGetFileVersion = state.TryGetFileVersion
 
     member x.Parse file lines version (isSdkScript: bool option) =
-        let file = Path.GetFullPath file |> Utils.normalizePath
         let tmf = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
 
         do x.CancelQueue file
         async {
             let colorizations = state.ColorizationOutput
-            let parse' fileName text options =
+            let parse' (fileName: string<LocalPath>) text options =
                 async {
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
                     return
@@ -513,7 +509,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                 }
             let text = String.concat "\n" lines
 
-            if Utils.isAScript file
+            if Utils.isAScript (UMX.untag file)
             then
                 commandsLogger.info (Log.setMessage "Checking script file '{file}'" >> Log.addContextDestructured "file" file)
                 let hash  =
@@ -550,22 +546,21 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         } |> x.AsCancellable file |> AsyncResult.recoverCancellation
 
 
-    member x.Declarations file lines version = async {
-        let file = Path.GetFullPath file
+    member x.Declarations (file: string<LocalPath>) lines version = async {
         match state.TryGetFileCheckerOptionsWithSource file, lines with
         | ResultOrString.Error s, None ->
             match state.TryGetFileSource file with
             | ResultOrString.Error s -> return CoreResponse.ErrorRes s
             | ResultOrString.Ok l ->
                 let text = String.concat "\n" l
-                let files = Array.singleton file
+                let files = Array.singleton (UMX.untag file)
                 let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
                 let! decls = checker.GetDeclarations(file, text, parseOptions, version)
                 let decls = decls |> Array.map (fun a -> a,file)
                 return CoreResponse.Res decls
         | ResultOrString.Error _, Some l ->
             let text = String.concat "\n" l
-            let files = Array.singleton file
+            let files = Array.singleton (UMX.untag file)
             let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
             let! decls = checker.GetDeclarations(file, text, parseOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
@@ -634,8 +629,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
-    member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : SourceFilePath) filter includeKeywords includeExternal = async {
-        let fileName = Path.GetFullPath fileName
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : string<LocalPath>) filter includeKeywords includeExternal = async {
         let getAllSymbols () =
             if includeExternal then tyRes.GetAllEntities true else []
         let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
@@ -696,7 +690,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
-      let fn = tyRes.FileName
       async {
           match! tyRes.TryGetSymbolUseAndUsages pos lineStr with
           | Ok (sym, usages) ->
@@ -708,26 +701,25 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                 | None ->
                     if fsym.IsInternalToProject then
                         let opts = state.GetProjectOptions' tyRes.FileName
-                        let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                        let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
                         return CoreResponse.Res (LocationResponse.Use (sym, symbols))
                     else
-                        let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                        let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
                         return CoreResponse.Res (LocationResponse.Use (sym, symbols))
                 | Some res ->
                     return CoreResponse.Res (LocationResponse.UseRange res)
             elif fsym.IsInternalToProject then
                 let opts = state.GetProjectOptions' tyRes.FileName
-                let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
                 return CoreResponse.Res (LocationResponse.Use (sym, symbols))
             else
-                let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
                 return CoreResponse.Res (LocationResponse.Use (sym, symbols))
           | Error x -> return CoreResponse.ErrorRes x
       }
-      |> x.AsCancellable (Path.GetFullPath fn) |> AsyncResult.recoverCancellation
+      |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
     member x.SymbolImplementationProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
-        let fn = tyRes.FileName
         let filterSymbols symbols =
             symbols
             |> Array.where (fun (su: FSharpSymbolUse) -> su.IsFromDispatchSlotImplementation || (su.IsFromType && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.RangeAlternate )) )
@@ -742,41 +734,40 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                 | None ->
                     if fsym.IsInternalToProject then
                         let opts = state.GetProjectOptions' tyRes.FileName
-                        let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                        let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
                         return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
                     else
-                        let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                        let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
                         return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols))
                 | Some res ->
                     return CoreResponse.Res (LocationResponse.UseRange res)
             elif fsym.IsInternalToProject then
                 let opts = state.GetProjectOptions' tyRes.FileName
-                let! symbols = checker.GetUsesOfSymbol (fn, [tyRes.FileName, opts] , sym.Symbol)
+                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
                 return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
             else
-                let! symbols = checker.GetUsesOfSymbol (fn, state.FSharpProjectOptions, sym.Symbol)
+                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
                 let symbols = filterSymbols symbols
                 return CoreResponse.Res (LocationResponse.Use (sym, symbols ))
           | Error e -> return CoreResponse.ErrorRes e
         }
-        |> x.AsCancellable (Path.GetFullPath fn)|> AsyncResult.recoverCancellation
+        |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
     member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)|> AsyncResult.recoverCancellation
+        |> x.AsCancellable tyRes.FileName|> AsyncResult.recoverCancellation
 
     member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
         tyRes.TryFindTypeDeclaration pos lineStr
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName) |> AsyncResult.recoverCancellation
+        |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
     member x.Methods (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
         |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.Lint (file: SourceFilePath): Async<unit> =
-        let file = Path.GetFullPath file
+    member x.Lint (file: string<LocalPath>): Async<unit> =
         asyncResult {
           let! (options, source) = state.TryGetFileCheckerOptionsWithSource file
           match checker.TryGetRecentCheckResultsForFile(file, options) with
@@ -879,7 +870,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
             return CoreResponse.Res (word, openNamespace, qualifySymbolActions)
         }
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
     member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
@@ -906,7 +897,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             else
                 return CoreResponse.InfoRes "Union at position not found"
         }
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
     member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
@@ -924,7 +915,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                     return CoreResponse.InfoRes "Record at position not found"
             | _ -> return CoreResponse.InfoRes "Record at position not found"
         }
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
     member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =
@@ -940,7 +931,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                     return CoreResponse.Res (generatedCode, insertPosition)
                 | None -> return CoreResponse.InfoRes "Interface at position not found"
         }
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
     member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: range) (lines: LineStr[]) (lineStr: LineStr) =
@@ -955,7 +946,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             return CoreResponse.Res (generatedCode, insertPosition)
         }
         |> AsyncResult.foldResult id id
-        |> x.AsCancellable (Path.GetFullPath tyRes.FileName)
+        |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
     member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) = async {
@@ -977,10 +968,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         return CoreResponse.Res true
     }
 
-    member x.CheckUnusedDeclarations file: Async<unit> =
+    member x.CheckUnusedDeclarations (file: string<LocalPath>): Async<unit> =
       asyncResult {
-          let file = Path.GetFullPath file
-          let isScript = file.EndsWith ".fsx"
+          let isScript = Utils.isAScript (UMX.untag file)
 
           let! (opts, _) = state.TryGetFileCheckerOptionsWithSource file
           let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
@@ -994,7 +984,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       |> Async.Ignore<Result<unit, _>>
 
     member x.CheckSimplifiedNames file: Async<unit> =
-        let file = Path.GetFullPath file
         asyncResult {
             let! (opts, source) =  state.TryGetFileCheckerOptionsWithLines file
             let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
@@ -1011,7 +1000,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> AsyncResult.recoverCancellationIgnore
 
     member x.CheckUnusedOpens file: Async<unit> =
-        let file = Path.GetFullPath file
         asyncResult {
             let! (opts, source) =  state.TryGetFileCheckerOptionsWithLines file
             match checker.TryGetRecentCheckResultsForFile(file, opts) with
@@ -1028,7 +1016,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
 
     member x.GetRangesAtPosition file positions = async {
-        let file = Path.GetFullPath file
         match state.TryGetFileCheckerOptionsWithLines file with
         | Ok (opts, sourceLines) ->
           let parseOpts = Utils.projectOptionsToParseOptions opts
@@ -1063,7 +1050,6 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         }
 
     member x.FakeTargets file ctx = async {
-        let file = Path.GetFullPath file
         let! targets = FakeSupport.getTargets file ctx
         return CoreResponse.Res targets
     }
@@ -1073,8 +1059,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         return CoreResponse.Res runtimePath
     }
 
-    member x.ScopesForFile (file: string) = asyncResult {
-        let file = Path.GetFullPath file
+    member x.ScopesForFile (file: string<LocalPath>) = asyncResult {
         let! (opts, sourceLines) = state.TryGetFileCheckerOptionsWithLines file
         let parseOpts = Utils.projectOptionsToParseOptions opts
         let allSource = sourceLines |> String.concat "\n"
@@ -1089,22 +1074,21 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
-    member x.FormatDocument (file: SourceFilePath) =
+    member x.FormatDocument (file: string<LocalPath>) =
       asyncResult {
-          let filePath = Path.GetFullPath file
-          let! (opts, lines) = x.TryGetFileCheckerOptionsWithLines filePath
+          let! (opts, lines) = x.TryGetFileCheckerOptionsWithLines file
           let source = String.concat "\n" lines
           let parsingOptions = Utils.projectOptionsToParseOptions opts
           let checker : FSharpChecker = checker.GetFSharpChecker()
           // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
           let config =
-              match Fantomas.Extras.EditorConfig.tryReadConfiguration filePath with
+              match Fantomas.Extras.EditorConfig.tryReadConfiguration (UMX.untag file) with
               | Some c -> c
               | None ->
                 fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
                 Fantomas.FormatConfig.FormatConfig.Default
           let! formatted =
-              Fantomas.CodeFormatter.FormatDocumentAsync(filePath,
+              Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file,
                                                          Fantomas.SourceOrigin.SourceString source,
                                                          config,
                                                          parsingOptions,
@@ -1113,8 +1097,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       }
       |> AsyncResult.foldResult Some (fun _ -> None)
 
-    member x.GetHighlighting (file: SourceFilePath) =
-      let file = Path.GetFullPath file
+    member x.GetHighlighting (file: string<LocalPath>) =
       async {
         let! res = x.TryGetLatestTypeCheckResultsForFile file
         let res =
@@ -1136,15 +1119,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
 
-    member __.FSharpLiterate (file: SourceFilePath) =
-      let file = Path.GetFullPath file
+    member __.FSharpLiterate (file: string<LocalPath>) =
       async {
         let cnt =
           match state.TryGetFileSource file with
           | Ok ctn -> String.concat "\n" ctn
-          | _ ->  File.ReadAllText file
+          | _ ->  File.ReadAllText (UMX.untag file)
         let parsedFile =
-          if Utils.isAScript file then
+          if Utils.isAScript (UMX.untag file) then
             FSharp.Formatting.Literate.Literate.ParseScriptString cnt
           else
              FSharp.Formatting.Literate.Literate.ParseMarkdownString cnt
@@ -1154,9 +1136,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       }
 
     member __.PipelineHints (tyRes : ParseAndCheckResults) =
-      let file = Path.GetFullPath tyRes.FileName
       asyncResult {
-        let! contents = state.TryGetFileSource file
+        let! contents = state.TryGetFileSource tyRes.FileName
         let getGenerics line (token: FSharpTokenInfo) = async {
             let lineStr = contents.[line]
             let! res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr

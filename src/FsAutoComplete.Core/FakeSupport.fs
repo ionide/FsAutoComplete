@@ -2,6 +2,7 @@ namespace FsAutoComplete
 
 open Fake.Runtime
 open FsAutoComplete.Logging
+open FSharp.UMX
 
 module FakeSupport =
   let getFakeRuntime () =
@@ -20,9 +21,9 @@ module FakeSupport =
       Log.setMessage >> logger
     )
 
-  let detectFakeScript (file) =
+  let detectFakeScript (file: string<LocalPath>) =
     setupLogging()
-    Tooling.detectFakeScript file
+    Tooling.detectFakeScript (UMX.untag file)
 
   let getProjectOptions (detectionInfo:Tooling.DetectionInfo) =
     setupLogging()
@@ -32,6 +33,6 @@ module FakeSupport =
 
   type GetTargetsResult = Tooling.GetTargetsResult
 
-  let getTargets (file:string) (ctx:FakeContext) : Async<GetTargetsResult> =
+  let getTargets (file:string<LocalPath>) (ctx:FakeContext) : Async<GetTargetsResult> =
     setupLogging()
-    Tooling.getTargets file ctx
+    Tooling.getTargets (UMX.untag file) ctx

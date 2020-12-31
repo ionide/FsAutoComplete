@@ -1,6 +1,14 @@
 [<AutoOpen>]
 module FsAutoComplete.Utils
 
+open System.Diagnostics
+open System.Threading.Tasks
+open System.IO
+open System.Collections.Concurrent
+open System
+open FSharp.Compiler.SourceCodeServices
+open FSharp.UMX
+
 module Map =
     /// Combine two maps of identical types by starting with the first map and overlaying the second one.
     /// Because map updates shadow, any keys in the second map will have priority.
@@ -25,9 +33,6 @@ module Map =
                 yield value
         }
 
-open System.Diagnostics
-open System.Threading.Tasks
-
 module ProcessHelper =
     let WaitForExitAsync(p: Process) = async {
         let tcs = new TaskCompletionSource<obj>()
@@ -40,38 +45,40 @@ module ProcessHelper =
         ()
     }
 
-open System.IO
-open System.Collections.Concurrent
-open System
-open FSharp.Compiler.SourceCodeServices
+
 
 type ResultOrString<'a> = Result<'a, string>
-
-
-type Document =
-    { FullName : string
-      LineCount : int
-      GetText : unit -> string
-      GetLineText0 : int -> string
-      GetLineText1 : int -> string}
-
 
 type Serializer = obj -> string
 type ProjectFilePath = string
 type SourceFilePath = string
 type FilePath = string
 type LineStr = string
+/// OS-local, normalized path
+type [<Measure>] LocalPath
+/// An HTTP url
+type [<Measure>] Url
+/// OS-Sensitive path segment from some repository root
+type [<Measure>] RepoPathSegment
+// OS-agnostic path segment from some repository root
+type [<Measure>] NormalizedRepoPathSegment
+
+type Document =
+    { FullName : string<LocalPath>
+      LineCount : int
+      GetText : unit -> string
+      GetLineText0 : int -> string
+      GetLineText1 : int -> string}
 
 let isAScript (fileName: string) =
     let ext = Path.GetExtension(fileName)
     [".fsx";".fsscript";".sketchfs"] |> List.exists ((=) ext)
 
-
-let normalizePath (file : string) =
+let normalizePath (file : string): string<LocalPath> =
   if file.EndsWith ".fs" || file.EndsWith ".fsi" || file.EndsWith ".fsx" then
       let p = Path.GetFullPath file
-      (p.Chars 0).ToString().ToLower() + p.Substring(1)
-  else file
+      UMX.tag<LocalPath> ((p.Chars 0).ToString().ToLower() + p.Substring(1))
+  else UMX.tag<LocalPath> file
 
 let inline combinePaths path1 (path2 : string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
@@ -474,6 +481,8 @@ type Path with
         try Path.GetFileName path
         with _ -> path
 
+    static member LocalPathToUri (filePath: string<LocalPath>) = Path.FilePathToUri (UMX.untag filePath)
+
     /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
     /// modified slightly to not rely on the System.Path members because they vary per-platform
     static member FilePathToUri (filePath: string): string =
@@ -612,12 +621,3 @@ type Debounce<'a>(timeout, fn) =
 
     /// Calls the function, after debouncing has been applied.
     member __.Bounce(arg) = mailbox.Post(arg)
-
-/// OS-local, normalized path
-type [<Measure>] LocalPath
-/// An HTTP url
-type [<Measure>] Url
-/// OS-Sensitive path segment from some repository root
-type [<Measure>] RepoPathSegment
-// OS-agnostic path segment from some repository root
-type [<Measure>] NormalizedRepoPathSegment
