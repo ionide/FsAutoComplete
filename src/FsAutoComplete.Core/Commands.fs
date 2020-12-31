@@ -75,6 +75,45 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
+    // given an enveloping range and the sub-ranges it overlaps, split out the enveloping range into a
+    // set of range segments that are non-overlapping with the children
+    let segmentRanges (parentRange: range) (childRanges: range []): range [] =
+        let firstSegment = mkRange parentRange.FileName parentRange.Start childRanges.[0].Start // from start of parent to start of first child
+        let lastSegment = mkRange parentRange.FileName (Array.last childRanges).End parentRange.End // from end of last child to end of parent
+        // now we can go pairwise, emitting a new range for the area between each end and start
+        let innerSegments =
+            childRanges |> Array.pairwise |> Array.map (fun (left, right) -> mkRange parentRange.FileName left.End right.Start)
+
+        [|
+            firstSegment
+            yield! innerSegments
+            lastSegment
+        |]
+
+    /// because LSP doesn't know how to handle overlapping/nested ranges, we have to dedupe them here
+    let scrubRanges (highlights: struct(range * _) array): struct(range * _) array =
+        highlights
+        |> Array.sortBy(fun (struct(m, _)) -> m.Start.Line, m.Start.Column)
+        |> Array.groupBy (fun (struct(r, _)) -> r.StartLine)
+        |> Array.collect (fun (_, highlights) ->
+
+            // split out any ranges that contain other ranges on this line into the non-overlapping portions of that range
+            let expandParents (struct(parentRange, tokenType) as p) =
+                let children =
+                    highlights
+                    |> Array.except [p]
+                    |> Array.choose (fun (struct(childRange, _)) -> if rangeContainsRange parentRange childRange then Some childRange else None)
+                match children with
+                | [||] -> [| p |]
+                | children ->
+                    let sortedChildren = children |> Array.sortBy (fun r -> r.Start.Line, r.Start.Column)
+                    segmentRanges parentRange sortedChildren
+                    |> Array.map (fun subRange -> struct(subRange, tokenType))
+
+            highlights
+            |> Array.collect expandParents
+        )
+
     let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
             FileName = UMX.untag file
@@ -1108,7 +1147,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
           match res with
           | Some res ->
             let r = res.GetCheckResults.GetSemanticClassification(None)
-            Some r
+            let filteredRanges = scrubRanges r
+            Some filteredRanges
           | None ->
             None
         return CoreResponse.Res res

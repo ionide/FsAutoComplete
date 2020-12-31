@@ -398,6 +398,50 @@ module Structure =
           EndLine          = lsp.End.Line
           Kind             = kind }
 
+module ClassificationUtils =
+
+  // See https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-scope-map for the built-in scopes
+  // if new token-type strings are added here, make sure to update the 'legend' in any downstream consumers.
+  let map (t: SemanticClassificationType) : string =
+      match t with
+      | SemanticClassificationType.Operator -> "operator"
+      | SemanticClassificationType.ReferenceType
+      | SemanticClassificationType.Type
+      | SemanticClassificationType.TypeDef
+      | SemanticClassificationType.ConstructorForReferenceType -> "type"
+      | SemanticClassificationType.ValueType
+      | SemanticClassificationType.ConstructorForValueType -> "struct"
+      | SemanticClassificationType.UnionCase
+      | SemanticClassificationType.UnionCaseField -> "enumMember"
+      | SemanticClassificationType.Function
+      | SemanticClassificationType.Method
+      | SemanticClassificationType.ExtensionMethod -> "function"
+      | SemanticClassificationType.Property -> "property"
+      | SemanticClassificationType.MutableVar
+      | SemanticClassificationType.MutableRecordField -> "mutable"
+      | SemanticClassificationType.Module
+      | SemanticClassificationType.Namespace -> "namespace"
+      | SemanticClassificationType.Printf -> "regexp"
+      | SemanticClassificationType.ComputationExpression -> "cexpr"
+      | SemanticClassificationType.IntrinsicFunction -> "function"
+      | SemanticClassificationType.Enumeration -> "enum"
+      | SemanticClassificationType.Interface -> "interface"
+      | SemanticClassificationType.TypeArgument -> "typeParameter"
+      | SemanticClassificationType.DisposableTopLevelValue
+      | SemanticClassificationType.DisposableLocalValue
+      | SemanticClassificationType.DisposableType -> "disposable"
+      | SemanticClassificationType.Literal -> "variable.readonly.defaultLibrary"
+      | SemanticClassificationType.RecordField
+      | SemanticClassificationType.RecordFieldAsFunction -> "property.readonly"
+      | SemanticClassificationType.Exception
+      | SemanticClassificationType.Field
+      | SemanticClassificationType.Event
+      | SemanticClassificationType.Delegate
+      | SemanticClassificationType.NamedArgument -> "member"
+      | SemanticClassificationType.Value
+      | SemanticClassificationType.LocalValue -> "variable"
+      | SemanticClassificationType.Plaintext -> "text"
+
 type PlainNotification= { Content: string }
 
 type ProjectParms = {

@@ -924,27 +924,50 @@ let tooltipTests toolsPath =
 
 let highlightingTests toolsPath =
   let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
     let (server, event) = serverInitialize path defaultConfigDto toolsPath
-    let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
-    parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs")
+    let path = Path.Combine(path, "Script.fsx")
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
 
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-    )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
+    match waitForParseResultsForFile "Script.fsx" event with
+    | Ok () -> ()
+    | Error e -> failwithf "Errors while parsing highlighting script %A" e
 
-  testCase "Document Highlighting" (serverTest (fun server path ->
-    let p : HighlightingRequest = { FileName =  path}
-    let res = server.GetHighlighting p |> Async.RunSynchronously
-    printfn "%A" res
-    ()
-    // Expect.equal res.Length 2 "Document Symbol has all symbols"
-  ))
+    let p : HighlightingRequest = { FileName =  path }
+    let highlights = server.GetHighlighting p |> Async.RunSynchronously
+    match highlights with
+    | Ok highlights ->
+      let result = highlights.Content |> JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse>>
+      // printfn "%A" result.Data.Highlights
+      result
+    | Error e ->
+      failwithf "error of %A" e
+  )
+  
+  let fcsRangeContainsPos (parent: CommandResponse.MiniRange) ((line, col)) =
+    (parent.StartLine <= line && parent.StartColumn <= col)
+    && (parent.EndLine >= line && parent.EndColumn >= col)
+
+  let rangeContainsRange (parent: Types.Range) (child: Types.Range) =
+    parent.Start <= child.Start && parent.End >= child.End
+  
+  let tokenIsOfType pos testTokenType (highlights: CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse> Lazy) =
+    testCase $"can find token of type {testTokenType} at %A{pos}" (fun () ->
+      Expect.exists
+        highlights.Value.Data.Highlights
+        ((fun { Range = r; TokenType = token } ->
+          fcsRangeContainsPos r pos
+          && token = testTokenType))
+        "Could not find a highlighting range that contained the given position"
+    )
+
+  testList "Document Highlighting Tests" [
+    tokenIsOfType (1, 29) "typeParameter" serverStart // the `^a` type parameter in the SRTP constraint
+    tokenIsOfType (1, 44) "member" serverStart // the `PeePee` member in the SRTP constraint
+    tokenIsOfType (4, 52) "type" serverStart // the `string` type annotation in the PooPoo srtp member
+    tokenIsOfType (7, 21) "enumMember" serverStart // the `PeePee` AP application in the `yeet` function definition
+  ]
 
 
 let signatureHelpTests toolsPath =
