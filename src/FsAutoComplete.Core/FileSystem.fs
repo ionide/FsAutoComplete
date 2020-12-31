@@ -3,6 +3,7 @@ namespace FsAutoComplete
 open FSharp.Compiler.AbstractIL.Internal.Library
 open System
 open FsAutoComplete.Logging
+open FSharp.UMX
 
 type VolatileFile =
   { Touched: DateTime
@@ -11,8 +12,8 @@ type VolatileFile =
 
 open System.IO
 
-type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileFile option) =
-    let getContent (filename: string) =
+type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
+    let getContent (filename: string<LocalPath>) =
          filename
          |> tryFindFile
          |> Option.map (fun file ->
@@ -60,16 +61,22 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: SourceFilePath -> VolatileF
            because these members are always used by the compiler with paths returned from `GetFullPathShim`, which has done the normalization *)
 
         member _.ReadAllBytesShim (f) =
-          getContent f
+          f
+          |> Utils.normalizePath
+          |> getContent
           |> Option.defaultWith (fun _ -> actualFs.ReadAllBytesShim f)
 
         member _.FileStreamReadShim (f) =
-          getContent f
+          f
+          |> Utils.normalizePath
+          |> getContent
           |> Option.map (fun bytes -> new MemoryStream(bytes) :> Stream)
           |> Option.defaultWith (fun _ -> actualFs.FileStreamReadShim f)
 
         member _.GetLastWriteTimeShim (f) =
-          tryFindFile f
+          f
+          |> Utils.normalizePath
+          |> tryFindFile
           |> Option.map (fun f -> f.Touched)
           |> Option.defaultWith (fun _ -> actualFs.GetLastWriteTimeShim f)
 

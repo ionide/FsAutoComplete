@@ -8,9 +8,9 @@ open FSharp.Compiler.Text
 open FsAutoComplete.Logging
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.UMX
 
 type Version = int
-
 
 type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
@@ -24,16 +24,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
   do checker.BeforeBackgroundFileCheck.Add ignore
 
-  /// FCS only accepts absolute file paths, so this ensures that by
-  /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
-  let ensureAbsolutePath path =
-    if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
-    else
-        match Environment.OSVersion.Platform with
-        | PlatformID.Unix
-        | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
-        | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
-        </> Path.GetFileName path
+  // /// FCS only accepts absolute file paths, so this ensures that by
+  // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
+  // let ensureAbsolutePath path =
+  //   if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
+  //   else
+  //       match Environment.OSVersion.Platform with
+  //       | PlatformID.Unix
+  //       | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
+  //       | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
+  //       </> Path.GetFileName path
 
   let entityCache = EntityCache()
 
@@ -161,8 +161,8 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     with get() = disableInMemoryProjectReferences
     and set(value) = disableInMemoryProjectReferences <- value
 
-  member __.GetDependingProjects (file: FilePath) (options : seq<string * FSharpProjectOptions>) =
-    let project = options |> Seq.tryFind (fun (k,_) -> k.ToUpperInvariant() = file.ToUpperInvariant())
+  member __.GetDependingProjects (file: string<LocalPath>) (options : seq<string * FSharpProjectOptions>) =
+    let project = options |> Seq.tryFind (fun (k,_) -> (UMX.untag k).ToUpperInvariant() = (UMX.untag file).ToUpperInvariant())
     project |> Option.map (fun (_, option) ->
       option, [
         yield! options
@@ -171,23 +171,23 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
                |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
       ])
 
-  member private __.GetNetFxScriptOptions(file, source) = async {
+  member private __.GetNetFxScriptOptions(file: string<LocalPath>, source) = async {
     logQueueLength optsLogger (Log.setMessage "Getting NetFX options for script file {file}" >> Log.addContextDestructured "file" file)
     let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
-    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(UMX.untag file, SourceText.ofString source, assumeDotNetFramework = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetFrameworkScriptOptions")
     let allModifications = addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
   }
 
-  member private __.GetNetCoreScriptOptions(file, source) = async {
+  member private __.GetNetCoreScriptOptions(file: string<LocalPath>, source) = async {
     logQueueLength optsLogger (Log.setMessage "Getting NetCore options for script file {file}" >> Log.addContextDestructured "file" file)
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
-    let! (opts, errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
+    let! (opts, errors) = checker.GetProjectOptionsFromScript(UMX.untag file, SourceText.ofString source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
     let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
     return allModifications opts, errors
   }
 
-  member self.GetProjectOptionsFromScript(file, source, tfm) = async {
+  member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm) = async {
     let! (projOptions, errors) =
       match tfm with
       | FSIRefs.TFM.NetFx ->
@@ -223,32 +223,32 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
       return projOptions
   }
 
-  member __.GetBackgroundCheckResultsForFileInProject(fn, opt) =
+  member __.GetBackgroundCheckResultsForFileInProject(fn: string<LocalPath>, opt) =
     logQueueLength checkerLogger (Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}" >> Log.addContextDestructured "file" fn)
     let opt = clearProjectReferences opt
-    checker.GetBackgroundCheckResultsForFileInProject(fn, opt)
+    checker.GetBackgroundCheckResultsForFileInProject(UMX.untag fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
-  member __.FileChecked =
+  member __.FileChecked: IEvent<string<LocalPath> * obj option> =
     checker.FileChecked
+    |> Event.map (fun (fileName, blob) -> UMX.tag fileName, blob) //path comes from the compiler, so it's safe to assume the tag in this case
 
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
 
-  member __.ParseFile(fn, source, fpo) =
+  member __.ParseFile(fn: string<LocalPath>, source, fpo) =
     logQueueLength checkerLogger (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
     let source = SourceText.ofString source
-    checker.ParseFile(fn, source, fpo)
+    checker.ParseFile(UMX.untag fn, source, fpo)
 
-  member __.ParseAndCheckFileInProject(filePath, version, source, options) =
+  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source, options) =
     async {
-      let opName = sprintf "ParseAndCheckFileInProject - %s" filePath
+      let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
       logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
       let source = SourceText.ofString source
       let options = clearProjectReferences options
-      let fixedFilePath = ensureAbsolutePath filePath
       try
-        let! (p, c) = checker.ParseAndCheckFileInProject (fixedFilePath, version, source, options, userOpName = opName)
+        let! (p, c) = checker.ParseAndCheckFileInProject (UMX.untag filePath, version, source, options, userOpName = opName)
         let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
         match c with
         | FSharpCheckFileAnswer.Aborted ->
@@ -261,15 +261,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
         return ResultOrString.Error (ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file, options, ?source) =
-    let opName = sprintf "TryGetRecentCheckResultsForFile - %s" file
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, ?source) =
+    let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
     logQueueLength checkerLogger (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
     let source = source |> Option.map SourceText.ofString
     let options = clearProjectReferences options
-    checker.TryGetRecentCheckResultsForFile(file, options, ?sourceText=source, userOpName=opName)
+    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, ?sourceText=source, userOpName=opName)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults (pr, cr, entityCache))
 
-  member x.GetUsesOfSymbol (file, options : (SourceFilePath * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
+  member x.GetUsesOfSymbol (file: string<LocalPath>, options : (string * FSharpProjectOptions) seq, symbol : FSharpSymbol) = async {
     logQueueLength checkerLogger (Log.setMessage "GetUsesOfSymbol - {file}" >> Log.addContextDestructured "file" file)
     let projects = x.GetDependingProjects file options
     return!
@@ -287,10 +287,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
         return res |> Array.concat }
   }
 
-  member __.GetDeclarations (fileName, source, options, version) = async {
+  member __.GetDeclarations (fileName: string<LocalPath>, source, options, version) = async {
     logQueueLength checkerLogger (Log.setMessage "GetDeclarations - {file}" >> Log.addContextDestructured "file" fileName)
     let source = SourceText.ofString source
-    let! parseResult = checker.ParseFile(fileName, source, options)
+    let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
     return parseResult.GetNavigationItems().Declarations
   }
 

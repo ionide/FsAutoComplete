@@ -12,6 +12,7 @@ open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open FsAutoComplete
 open Ionide.ProjInfo.ProjectSystem
+open FSharp.UMX
 
 type BackgroundFileCheckType =
 | SourceFile of filePath: string
@@ -41,8 +42,8 @@ type FileParms = {
 type Msg = {Value: string}
 
 type State = {
-    Files : ConcurrentDictionary<SourceFilePath, VolatileFile>
-    FileCheckOptions : ConcurrentDictionary<SourceFilePath, FSharpProjectOptions>
+    Files : ConcurrentDictionary<string<LocalPath>, VolatileFile>
+    FileCheckOptions : ConcurrentDictionary<string<LocalPath>, FSharpProjectOptions>
 }
 
 with
@@ -71,7 +72,8 @@ module Helpers =
 
     /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
     /// modified slightly to not rely on the System.Path members because they vary per-platform
-    let filePathToUri (filePath: string): DocumentUri =
+    let filePathToUri (filePath: string<LocalPath>): DocumentUri =
+        let filePath = UMX.untag filePath
         let uri = StringBuilder(filePath.Length)
         for c in filePath do
             if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
@@ -120,10 +122,13 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =
-        if Array.isEmpty opts.SourceFiles then
-            opts.OtherOptions |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") ) |> Seq.toArray
-        else
-            opts.SourceFiles
+        (if Array.isEmpty opts.SourceFiles then
+            opts.OtherOptions
+            |> Seq.where (fun n -> not (n.StartsWith "-") && (n.EndsWith ".fs" || n.EndsWith ".fsi") )
+            |> Seq.toArray
+         else
+            opts.SourceFiles)
+        |> Array.map Utils.normalizePath
 
     let getListOfFilesForProjectChecking (file: BackgroundFileCheckType) =
         let replaceRefs (projOptions: FSharpProjectOptions) =
@@ -158,8 +163,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
                     return
                         sf
-                        |> Array.skipWhile (fun n -> (Utils.normalizePath n) <> (Utils.normalizePath file))
-                        |> Array.map (fun n -> (Utils.normalizePath n))
+                        |> Array.skipWhile (fun n -> n <> (Utils.normalizePath file))
                         |> Array.toList
                 }
             )
@@ -173,22 +177,21 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 let sf = getFilesFromOpts opts
 
                 sf
-                |> Array.skipWhile (fun n -> (Utils.normalizePath n) <> (Utils.normalizePath file))
-                |> Array.map (fun n -> (Utils.normalizePath n))
+                |> Array.skipWhile (fun n -> n <> (Utils.normalizePath file))
                 |> Array.toList
                 |> async.Return
                 |> Some
 
-    let typecheckFile ignoredFile file =
+    let typecheckFile ignoredFile (file: string<LocalPath>) =
         async {
-            do! client.Notify {Value = sprintf "Typechecking %s" file }
+            do! client.Notify {Value = sprintf "Typechecking %s" (UMX.untag file) }
             match state.Files.TryFind file, state.FileCheckOptions.TryFind file with
             | Some vf, Some opts ->
                 let txt = vf.Lines |> String.concat "\n"
-                let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
+                let! pr, cr = checker.ParseAndCheckFileInProject(UMX.untag file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
                 match cr with
                 | FSharpCheckFileAnswer.Aborted ->
-                    do! client.Notify {Value = sprintf "Typechecking aborted %s" file }
+                    do! client.Notify {Value = sprintf "Typechecking aborted %s" (UMX.untag file) }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
                     let! symbols = res.GetAllUsesOfAllSymbolsInFile()
@@ -200,13 +203,13 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                         let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
                         do! client.SendDiagnostics msg
                         return ()
-            | Some vf, None when file.EndsWith ".fsx" ->
+            | Some vf, None when (UMX.untag file).EndsWith ".fsx" ->
                 let txt = vf.Lines |> String.concat "\n"
-                let! (opts, _errors) = checker.GetProjectOptionsFromScript(file, SourceText.ofString txt, assumeDotNetFramework = true, useSdkRefs = false)
-                let! pr, cr = checker.ParseAndCheckFileInProject(file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
+                let! (opts, _errors) = checker.GetProjectOptionsFromScript(UMX.untag file, SourceText.ofString txt, assumeDotNetFramework = true, useSdkRefs = false)
+                let! pr, cr = checker.ParseAndCheckFileInProject(UMX.untag file, defaultArg vf.Version 0, SourceText.ofString txt, opts)
                 match cr with
                 | FSharpCheckFileAnswer.Aborted ->
-                    do! client.Notify {Value = sprintf "Typechecking aborted %s" file }
+                    do! client.Notify {Value = sprintf "Typechecking aborted %s" (UMX.untag file) }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
                     let! symbols = res.GetAllUsesOfAllSymbolsInFile()
@@ -219,11 +222,11 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                         do! client.SendDiagnostics msg
                         return ()
             | _ ->
-                do! client.Notify {Value = sprintf "Couldn't find state %s" file }
+                do! client.Notify {Value = sprintf "Couldn't find state %s" (UMX.untag file) }
                 return ()
         }
 
-    let getDependingProjects (file: FilePath) =
+    let getDependingProjects (file: string<LocalPath>) =
         let project = state.FileCheckOptions.TryFind file
         match project with
         | None -> []
@@ -236,9 +239,6 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName)
                 |> Array.contains s.ProjectFileName )
             |> Seq.toList
-
-
-
 
     let reactor = MailboxProcessor.Start(fun agent ->
         let rec recieveLast last =
@@ -335,8 +335,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let sf = getFilesFromOpts p.Options
 
             sf
-            |> Seq.iter (fun f ->
-                let file = Utils.normalizePath f
+            |> Seq.iter (fun file ->
                 state.FileCheckOptions.AddOrUpdate(file, (fun _ -> p.Options), (fun _ _ -> p.Options))
                 |> ignore
             )
@@ -349,7 +348,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
             let file = Utils.normalizePath p.File.FilePath
 
-            do! client.Notify {Value = sprintf "File Saved %s " file }
+            do! client.Notify {Value = sprintf "File Saved %s " (UMX.untag file) }
 
             let projects = getDependingProjects file
             let! filesToCheck = defaultArg (getListOfFilesForProjectChecking p.File) (async.Return [])

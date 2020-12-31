@@ -6,6 +6,7 @@ open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
 open Ionide.ProjInfo.ProjectSystem
 open Ionide.ProjInfo.ProjectSystem.WorkspacePeek
+open FSharp.UMX
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -491,11 +492,11 @@ module CommandResponse =
                 Data = { CommandName = commandName
                          ParameterStr = parameterStr} }
 
-  let declarations (serialize : Serializer) (decls : (FSharpNavigationTopLevelDeclaration * string) []) =
+  let declarations (serialize : Serializer) (decls : (FSharpNavigationTopLevelDeclaration * string<LocalPath>) []) =
      let decls' =
       decls |> Array.map (fun (d, fn) ->
-        { Declaration = Declaration.OfDeclarationItem (d.Declaration, fn);
-          Nested = d.Nested |> Array.map ( fun a -> Declaration.OfDeclarationItem(a,fn))
+        { Declaration = Declaration.OfDeclarationItem (d.Declaration, UMX.untag fn);
+          Nested = d.Nested |> Array.map ( fun a -> Declaration.OfDeclarationItem(a, UMX.untag fn))
         })
      serialize { Kind = "declarations"; Data = decls' }
 

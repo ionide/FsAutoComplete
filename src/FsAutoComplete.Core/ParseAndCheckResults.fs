@@ -80,7 +80,7 @@ type ParseAndCheckResults
     let tryGetFullPath fileName =
       try
         // use the parsed file name directory as base path
-        let basePath = Path.GetDirectoryName(__.FileName)
+        let basePath = Path.GetDirectoryName(UMX.untag __.FileName)
         Some (Path.Combine(basePath, fileName))
       with
       | :? ArgumentException -> None
@@ -575,4 +575,4 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults = checkResults
   member __.GetParseResults = parseResults
-  member __.FileName: string = parseResults.FileName
+  member __.FileName: string<LocalPath> = UMX.tag parseResults.FileName

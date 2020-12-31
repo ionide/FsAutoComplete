@@ -8,6 +8,7 @@ open FSharp.Compiler.SourceCodeServices
 open System.Net
 open System.IO
 open Newtonsoft.Json
+open FSharp.UMX
 
 [<CLIMutable>]
 type SymbolUseRange = {
@@ -155,11 +156,11 @@ let fromSymbolUse (su : FSharpSymbolUse) =
 let initCache dir =
     PersistenCacheImpl.initLazyCache dir
 
-let updateSymbols fn (symbols: FSharpSymbolUse[]) =
+let updateSymbols (fn: string<LocalPath>) (symbols: FSharpSymbolUse[]) =
     let sus = symbols |> Array.map(fromSymbolUse)
 
     PersistenCacheImpl.connection
-    |> Option.iter (fun con -> PersistenCacheImpl.insert(con.Value,fn,sus) )
+    |> Option.iter (fun con -> PersistenCacheImpl.insert(con.Value, UMX.untag fn, sus) )
 
 let getSymbols symbolName =
     async {
