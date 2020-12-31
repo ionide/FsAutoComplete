@@ -1761,7 +1761,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             return LspResult.success ()
     }
 
-    member __.GetHighlighting(p : HighlightingRequest) = async {
+    member __.GetHighlighting(p : HighlightingRequest): AsyncLspResult<PlainNotification> = async {
       logger.info (Log.setMessage "GetHighlighting Request: {parms}" >> Log.addContextDestructured "parms" p )
 
       let fn = p.FileName |> Utils.normalizePath
@@ -1775,7 +1775,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           | None -> LspResult.internalError "No highlights found"
           | Some res ->
             { Content = CommandResponse.highlighting FsAutoComplete.JsonSerializer.writeJson res }
-            |> success
+            |>  success
 
       return res
     }
