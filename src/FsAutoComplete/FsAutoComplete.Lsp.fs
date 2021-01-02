@@ -1572,7 +1572,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjMoveFileUp(p: DotnetFileRequest) = async {
         logger.info (Log.setMessage "FsProjMoveFileUp Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! res = commands.FsProjMoveFileUp p.FsProj p.File
+        let! res = commands.FsProjMoveFileUp p.FsProj p.FileVirtualPath
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1587,7 +1587,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjMoveFileDown(p: DotnetFileRequest) = async {
         logger.info (Log.setMessage "FsProjMoveFileDown Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! res = commands.FsProjMoveFileDown p.FsProj p.File
+        let! res = commands.FsProjMoveFileDown p.FsProj p.FileVirtualPath
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1602,7 +1602,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjAddFileAbove(p: DotnetFile2Request) = async {
         logger.info (Log.setMessage "FsProjAddFileAbove Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! res = commands.FsProjAddFileAbove p.FsProj p.File p.NewFile
+        let! res = commands.FsProjAddFileAbove p.FsProj p.FileVirtualPath p.NewFile
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1617,7 +1617,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjAddFileBelow(p: DotnetFile2Request) = async {
         logger.info (Log.setMessage "FsProjAddFileBelow Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! res = commands.FsProjAddFileBelow p.FsProj p.File p.NewFile
+        let! res = commands.FsProjAddFileBelow p.FsProj p.FileVirtualPath p.NewFile
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1632,7 +1632,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjAddFile(p: DotnetFileRequest) = async {
         logger.info (Log.setMessage "FsProjAddFile Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! res = commands.FsProjAddFile p.FsProj p.File
+        let! res = commands.FsProjAddFile p.FsProj p.FileVirtualPath
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

@@ -430,9 +430,9 @@ type DotnetNewRunRequest = { Template: string; Output: string option; Name: stri
 
 type DotnetProjectRequest = { Target: string; Reference: string }
 
-type DotnetFileRequest = { FsProj: string; File: string }
+type DotnetFileRequest = { FsProj: string; FileVirtualPath: string }
 
-type DotnetFile2Request = { FsProj: string; File: string; NewFile: string }
+type DotnetFile2Request = { FsProj: string; FileVirtualPath: string; NewFile: string }
 
 type FSharpLiterateRequest = {FileName : string; }
 
