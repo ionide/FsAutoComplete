@@ -76,6 +76,14 @@ let basicTests toolsPath =
     let (server, path) = serverStart.Value
     f server path
 
+  /// normalizes the line endings in returned markdown strings for cross-platform comparisons
+  let normalizeMarkedString = function | MarkedString.WithLanguage l -> MarkedString.WithLanguage l
+                                       | MarkedString.String s -> MarkedString.String (s.Replace("\r\n", "\n"))
+
+  let normalizeHoverContent = function | HoverContent.MarkedStrings strings -> MarkedStrings (strings |> Array.map normalizeMarkedString)
+                                       | HoverContent.MarkedString str -> MarkedString (normalizeMarkedString str)
+                                       | HoverContent.MarkupContent content -> MarkupContent content
+
   testSequenced <| testList "Basic Tests" [
       testSequenced <| testList "Hover Tests" [
 
@@ -95,7 +103,7 @@ let basicTests toolsPath =
                     MarkedString.String "*Full name: Script.t*"
                     MarkedString.String "*Assembly: BasicTest*"|]
 
-            Expect.equal res.Contents expected "Hover test - simple symbol"
+            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - simple symbol"
         ))
 
         testCase "Hover Tests - let keyword" (serverTest (fun server path ->
@@ -112,7 +120,7 @@ let basicTests toolsPath =
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
                     MarkedString.String "**Description**\n\n\nUsed to associate, or bind, a name to a value or function.\n"|]
 
-            Expect.equal res.Contents expected "Hover test - let keyword"
+            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         ))
 
         testCase "Hover Tests - out of position" (serverTest (fun server path ->
@@ -144,7 +152,7 @@ let basicTests toolsPath =
                     MarkedString.String "*Full name: Script.( .>> )*"
                     MarkedString.String "*Assembly: BasicTest*"|]
 
-            Expect.equal res.Contents expected "Hover test - let keyword"
+            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         ))
 
         //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
@@ -164,7 +172,7 @@ let basicTests toolsPath =
                     MarkedString.String "*Full name: Script.( ^ )*"
                     MarkedString.String "*Assembly: BasicTest*"|]
 
-            Expect.equal res.Contents expected "Hover test - let keyword"
+            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         ))
       ]
       testSequenced <| testList "Document Symbol Tests" [

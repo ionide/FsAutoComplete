@@ -262,12 +262,15 @@ let formattingTests toolsPath =
   )
   let serverTest f () = f serverStart.Value
 
+  /// normalize line endings in the tests to ensure OS-independent values/limit variability
+  let normalizeLineEndings (s: string) = s.Replace("\r\n", "\n")
+
   let editForWholeFile sourceFile expectedFile =
     let sourceLines = File.ReadAllLines sourceFile
     let start = { Line = 0; Character = 0 }
     let ``end`` = { Line = sourceLines.Length - 1; Character = sourceLines.[sourceLines.Length - 1].Length }
     let expectedText = File.ReadAllText expectedFile
-    { Range = { Start = start; End = ``end`` }; NewText = expectedText }
+    { Range = { Start = start; End = ``end`` }; NewText = normalizeLineEndings expectedText }
 
   let verifyFormatting (server: Lsp.FsharpLspServer, events, rootPath) scenario =
     let sourceFile = Path.Combine(rootPath, sprintf "%s.input.fsx" scenario)
@@ -281,7 +284,8 @@ let formattingTests toolsPath =
                                                         InsertSpaces = true
                                                         AdditionalData = dict [] } } |> Async.RunSynchronously with
       | Ok (Some [|edit|]) ->
-        Expect.equal edit expectedTextEdit "should replace the entire file range with the expected content"
+        let normalized = { edit with NewText = normalizeLineEndings edit.NewText }
+        Expect.equal normalized expectedTextEdit "should replace the entire file range with the expected content"
       | Ok other ->
         failwithf "Invalid formatting result: %A" other
       | Result.Error e ->
