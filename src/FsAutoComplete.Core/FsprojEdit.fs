@@ -31,6 +31,11 @@ module FsProjEditor =
       itemGroup.InsertAfter(node, downNode) |> ignore
       xdoc.Save fsprojPath
 
+  let private createNewCompileNode (doc: System.Xml.XmlDocument) (includePath: string) =
+    let node = doc.CreateElement("Compile")
+    node.SetAttribute("Include", includePath)
+    node
+
   let addFileAbove (fsprojPath: string) (aboveFile: string) (newFileName: string) =
     let xdoc = System.Xml.XmlDocument()
     xdoc.Load fsprojPath
@@ -38,9 +43,7 @@ module FsProjEditor =
     let itemGroup = xdoc.SelectSingleNode(xpath)
     let childXPath = sprintf "//Compile[@Include='%s']" aboveFile
     let aboveNode = itemGroup.SelectSingleNode(childXPath)
-    let node = aboveNode.Clone ()
-    let attr = node.Attributes.GetNamedItem "Include"
-    attr.Value <- newFileName
+    let node = createNewCompileNode xdoc newFileName
     itemGroup.InsertBefore(node, aboveNode) |> ignore
     xdoc.Save fsprojPath
 
@@ -51,9 +54,7 @@ module FsProjEditor =
     let itemGroup = xdoc.SelectSingleNode(xpath)
     let childXPath = sprintf "//Compile[@Include='%s']" belowFile
     let aboveNode = itemGroup.SelectSingleNode(childXPath)
-    let node = aboveNode.Clone ()
-    let attr = node.Attributes.GetNamedItem "Include"
-    attr.Value <- newFileName
+    let node = createNewCompileNode xdoc newFileName
     itemGroup.InsertAfter(node, aboveNode) |> ignore
     xdoc.Save fsprojPath
 
@@ -62,8 +63,6 @@ module FsProjEditor =
     xdoc.Load fsprojPath
     let itemGroup = xdoc.SelectSingleNode("//Compile/.." )
     let x = itemGroup.FirstChild
-    let node = x.Clone ()
-    let attr = node.Attributes.GetNamedItem "Include"
-    attr.Value <- newFileName
+    let node = createNewCompileNode xdoc newFileName
     itemGroup.InsertBefore(node, x) |> ignore
     xdoc.Save fsprojPath
