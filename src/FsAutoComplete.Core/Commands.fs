@@ -375,7 +375,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
         let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
-        File.Create newFilePath |> ignore
+        (File.Create newFilePath).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
@@ -390,7 +390,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
         let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
-        File.Create newFilePath |> ignore
+        (File.Create newFilePath).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
@@ -404,7 +404,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       try
         let dir = Path.GetDirectoryName fsprojPath
         let newFilePath = Path.Combine(dir, fileVirtPath)
-        File.Create newFilePath |> ignore
+        (File.Create newFilePath).Close()
 
         FsProjEditor.addFile fsprojPath fileVirtPath
         return CoreResponse.Res ()
