@@ -360,49 +360,53 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       return CoreResponse.Res result
     }
 
-    member _.FsProjMoveFileUp (fsprojPath: string) (file: string) = async {
-      FsProjEditor.moveFileUp fsprojPath file
+    member _.FsProjMoveFileUp (fsprojPath: string) (fileVirtPath: string) = async {
+      FsProjEditor.moveFileUp fsprojPath fileVirtPath
       return CoreResponse.Res ()
     }
 
-    member _.FsProjMoveFileDown (fsprojPath: string) (file: string) = async {
-      FsProjEditor.moveFileDown fsprojPath file
+    member _.FsProjMoveFileDown (fsprojPath: string) (fileVirtPath: string) = async {
+      FsProjEditor.moveFileDown fsprojPath fileVirtPath
       return CoreResponse.Res ()
     }
 
-    member _.FsProjAddFileAbove (fsprojPath: string) (file: string) (newFileName: string) = async {
+    member _.FsProjAddFileAbove (fsprojPath: string) (fileVirtPath: string) (newFileName: string) = async {
       try
         let dir = Path.GetDirectoryName fsprojPath
-        let newFilePath = Path.Combine(dir, newFileName)
+        let virtPathDir = Path.GetDirectoryName fileVirtPath
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
         File.Create newFilePath |> ignore
 
-        FsProjEditor.addFileAbove fsprojPath file newFileName
+        let newVirtPath = Path.Combine(virtPathDir, newFileName)
+        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
         return CoreResponse.Res ()
       with
       | ex ->
         return CoreResponse.ErrorRes ex.Message
     }
 
-    member _.FsProjAddFileBelow (fsprojPath: string) (file: string) (newFileName: string) = async {
+    member _.FsProjAddFileBelow (fsprojPath: string) (fileVirtPath: string) (newFileName: string) = async {
       try
         let dir = Path.GetDirectoryName fsprojPath
-        let newFilePath = Path.Combine(dir, newFileName)
+        let virtPathDir = Path.GetDirectoryName fileVirtPath
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
         File.Create newFilePath |> ignore
 
-        FsProjEditor.addFileBelow fsprojPath file newFileName
+        let newVirtPath = Path.Combine(virtPathDir, newFileName)
+        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
         return CoreResponse.Res ()
       with
       | ex ->
         return CoreResponse.ErrorRes ex.Message
     }
 
-    member _.FsProjAddFile (fsprojPath: string) (file: string) = async {
+    member _.FsProjAddFile (fsprojPath: string) (fileVirtPath: string) = async {
       try
         let dir = Path.GetDirectoryName fsprojPath
-        let newFilePath = Path.Combine(dir, file)
+        let newFilePath = Path.Combine(dir, fileVirtPath)
         File.Create newFilePath |> ignore
 
-        FsProjEditor.addFile fsprojPath file
+        FsProjEditor.addFile fsprojPath fileVirtPath
         return CoreResponse.Res ()
       with
       | ex ->
