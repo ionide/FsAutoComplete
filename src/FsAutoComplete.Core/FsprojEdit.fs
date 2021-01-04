@@ -61,8 +61,16 @@ module FsProjEditor =
   let addFile (fsprojPath: string) (newFileName: string) =
     let xdoc = System.Xml.XmlDocument()
     xdoc.Load fsprojPath
-    let itemGroup = xdoc.SelectSingleNode("//Compile/.." )
-    let x = itemGroup.FirstChild
-    let node = createNewCompileNode xdoc newFileName
-    itemGroup.InsertBefore(node, x) |> ignore
+    let newNode = createNewCompileNode xdoc newFileName
+    let compileItemGroups = xdoc.SelectNodes("//Compile/.. | //None/.. | //EmbeddedResource/.. | //Content/..")
+    let hasExistingCompileElement = compileItemGroups.Count > 0
+    if hasExistingCompileElement then
+      let firstCompileItemGroup = compileItemGroups |> Seq.cast<System.Xml.XmlNode> |> Seq.head
+      let x = firstCompileItemGroup.FirstChild
+      firstCompileItemGroup.InsertBefore(newNode, x) |> ignore
+    else
+      let itemGroup = xdoc.CreateElement("ItemGroup")
+      itemGroup.AppendChild(newNode) |> ignore
+      let projectNode = xdoc.SelectSingleNode("//Project")
+      projectNode.AppendChild(itemGroup) |> ignore
     xdoc.Save fsprojPath
