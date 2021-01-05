@@ -2458,7 +2458,7 @@ module Server =
         let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<MessageActionItem option> =
             async {
               let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-              let req = JsonRpc.Request.Create(rpcMethod, serializedResponse)
+              let req = JsonRpc.Request.Create(10000, rpcMethod, serializedResponse)
               let reqString = JsonConvert.SerializeObject(req, jsonSettings)
               sender.Post(reqString)
               let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id.Value, replyChannel)))
