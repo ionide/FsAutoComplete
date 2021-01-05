@@ -1761,24 +1761,24 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             return LspResult.success ()
     }
 
-    member __.GetHighlighting(p : HighlightingRequest): AsyncLspResult<PlainNotification> = async {
-      logger.info (Log.setMessage "GetHighlighting Request: {parms}" >> Log.addContextDestructured "parms" p )
+    member __.GetHighlighting(p : HighlightingRequest): AsyncLspResult<CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse>> =
+      asyncResult {
+        logger.info (Log.setMessage "GetHighlighting Request: {parms}" >> Log.addContextDestructured "parms" p )
+        let fn = p.FileName |> Utils.normalizePath
 
-      let fn = p.FileName |> Utils.normalizePath
-      let! res = commands.GetHighlighting fn
-      let res =
-        match res with
-        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-            LspResult.internalError msg
-        | CoreResponse.Res (res) ->
-          match res with
-          | None -> LspResult.internalError "No highlights found"
-          | Some res ->
-            { Content = CommandResponse.highlighting FsAutoComplete.JsonSerializer.writeJson res }
-            |>  success
+        match! commands.GetHighlighting fn |> AsyncResult.ofCoreResponse with
+        | None -> return! LspResult.internalError "No highlights found"
+        | Some res ->
+          let data: CommandResponse.HighlightingRange [] =
+            res
+            |> Array.map (fun struct ((r: FSharp.Compiler.Range.range), tk) -> { CommandResponse.HighlightingRange.Range = fcsRangeToLsp r; TokenType = ClassificationUtils.map tk })
 
-      return res
-    }
+          let payload: CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse> =
+            { CommandResponse.ResponseMsg.Kind = "highlighting"
+              CommandResponse.ResponseMsg.Data = { Highlights = data } }
+
+          return! success payload
+      }
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
