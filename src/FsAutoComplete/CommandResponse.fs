@@ -330,9 +330,7 @@ module CommandResponse =
     ParameterStr : string
   }
 
-  /// a type that has the same serialized shape as an FCS range, but that can be deserialized as well
-  type MiniRange = { StartLine: int; StartColumn: int; EndLine : int; EndColumn: int }
-  type HighlightingRange = { Range: MiniRange; TokenType: string }
+  type HighlightingRange = { Range: LanguageServerProtocol.Types.Range ; TokenType: string }
 
   type HighlightingResponse = {
     Highlights: HighlightingRange []
@@ -534,18 +532,6 @@ module CommandResponse =
 
   let fakeRuntime (serialize : Serializer) (runtimePath : string) =
      serialize { Kind = "fakeRuntime"; Data = runtimePath }
-
-  let highlighting (serialize: Serializer) ranges =
-    serialize {
-      Kind = "highlighting"
-      Data = {
-        Highlights =
-          ranges |> Array.map (fun struct ((r: range), tk) ->
-            { Range = { StartLine = r.StartLine; StartColumn = r.StartColumn; EndLine = r.EndLine; EndColumn = r.EndColumn }
-              TokenType = ClassificationUtils.map tk }
-          )
-      }
-    }
 
   let fsharpLiterate (serialize: Serializer) (content: string) =
     serialize { Kind = "fsharpLiterate"; Data = content}

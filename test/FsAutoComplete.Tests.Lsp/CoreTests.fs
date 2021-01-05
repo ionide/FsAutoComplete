@@ -938,41 +938,37 @@ let highlightingTests toolsPath =
     let highlights = server.GetHighlighting p |> Async.RunSynchronously
     match highlights with
     | Ok highlights ->
-      let result = highlights.Content |> JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse>>
-      // printfn "%A" result.Data.Highlights
-      result
+      printfn "%A" highlights.Data.Highlights
+      highlights.Data.Highlights
     | Error e ->
       failwithf "error of %A" e
   )
-  
-  let fcsRangeContainsPos (parent: CommandResponse.MiniRange) ((line, col)) =
-    (parent.StartLine <= line && parent.StartColumn <= col)
-    && (parent.EndLine >= line && parent.EndColumn >= col)
 
-  let rangeContainsRange (parent: Types.Range) (child: Types.Range) =
-    parent.Start <= child.Start && parent.End >= child.End
-  
-  let tokenIsOfType pos testTokenType (highlights: CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse> Lazy) =
+  let rangeContainsRange (parent: Types.Range) (child: Types.Position) =
+    parent.Start.Line <= child.Line &&
+    parent.Start.Character <= child.Character &&
+    parent.End.Line >= child.Line &&
+    parent.End.Character >= child.Character
+
+  let tokenIsOfType ((line, char) as pos) testTokenType (highlights: CommandResponse.HighlightingRange [] Lazy) =
     testCase $"can find token of type {testTokenType} at %A{pos}" (fun () ->
+      let pos = { Line = line; Character = char }
       Expect.exists
-        highlights.Value.Data.Highlights
+        highlights.Value
         ((fun { Range = r; TokenType = token } ->
-          fcsRangeContainsPos r pos
+          rangeContainsRange r pos
           && token = testTokenType))
         "Could not find a highlighting range that contained the given position"
     )
 
   testList "Document Highlighting Tests" [
-    tokenIsOfType (1, 29) "typeParameter" serverStart // the `^a` type parameter in the SRTP constraint
-    tokenIsOfType (1, 44) "member" serverStart // the `PeePee` member in the SRTP constraint
-    tokenIsOfType (4, 52) "type" serverStart // the `string` type annotation in the PooPoo srtp member
-    tokenIsOfType (7, 21) "enumMember" serverStart // the `PeePee` AP application in the `yeet` function definition
+    tokenIsOfType (0, 29) "typeParameter" serverStart // the `^a` type parameter in the SRTP constraint
+    tokenIsOfType (0, 44) "member" serverStart // the `PeePee` member in the SRTP constraint
+    tokenIsOfType (3, 52) "type" serverStart // the `string` type annotation in the PooPoo srtp member
+    tokenIsOfType (6, 21) "enumMember" serverStart // the `PeePee` AP application in the `yeet` function definition
   ]
 
-
 let signatureHelpTests toolsPath =
-
-
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
     let scriptPath = Path.Combine(path, "Script1.fsx")
