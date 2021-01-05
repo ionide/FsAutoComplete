@@ -2253,10 +2253,6 @@ module Server =
         Run: 'server -> JToken option -> AsyncLspResult<JToken option>
     }
 
-    type ResponseHandling = {
-        Run: JToken option -> AsyncLspResult<JToken option>
-    }
-
     let deserialize<'t> (token: JToken) = token.ToObject<'t>(jsonSerializer)
 
     let serialize<'t> (o: 't) = JToken.FromObject(o, jsonSerializer)
@@ -2402,12 +2398,9 @@ module Server =
         }
 
     type ClientNotificationSender = string -> obj -> AsyncLspResult<unit>
-    // type ClientRequestSender = Type -> (string -> obj -> -> AsyncLspResult<'t>)
-    // type ClientRequestSender(asd) =
-    //   member __.Asd<'t>() = asd
+
     type ClientRequestSender =
         abstract member f<'a> : string -> obj -> AsyncLspResult<'a>
-
 
     type private RequestHandlingResult =
         | Normal
@@ -2427,22 +2420,6 @@ module Server =
       fun () ->
         counter <- counter + 1
         counter
-
-    // let sendServerRequest<'response> (rpcMethod: string) (requestObj: obj) =
-    //     fun (sender : MailboxProcessor<string>) (responseAgent : MailboxProcessor<msg>) ->
-    //       async {
-    //         let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-    //         let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedResponse)
-    //         let reqString = JsonConvert.SerializeObject(req, jsonSettings)
-    //         sender.Post(reqString)
-    //         let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id.Value, replyChannel)))
-    //         match responseHandling response with
-    //         | Some result -> return (LspResult.Ok result)
-    //         | None -> return (LspResult.notImplemented)
-    //         // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
-    //         // return (LspResult.Ok response)
-    //       }
-
 
     let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: (ClientNotificationSender * ClientRequestSender) -> 'a) (serverCreator: 'a -> 'b) =
         let sender = MailboxProcessor<string>.Start(fun inbox ->

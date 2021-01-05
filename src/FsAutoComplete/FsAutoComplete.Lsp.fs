@@ -27,22 +27,10 @@ module AsyncResult =
 
 
 open FSharp.Analyzers
-type Test = string -> obj -> AsyncLspResult<obj>
-
-
-// let y (w: Wrapper) =
-//    let a = w.f 1
-//    let b = w.f 2L
-//    (a, b)
-
-// let genericFn x = x
-
-// // Calling y:
-// y { new Wrapper with member __.f x = genericFn x }
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender, sendServerActualRequest: ClientRequestSender) =
     inherit LspClient ()
-    // member __.Inner<'response> = sendServerActualRequest<'response>
+
     override __.WindowShowMessage(p) =
         sendServerRequest "window/showMessage" (box p) |> Async.Ignore
 
