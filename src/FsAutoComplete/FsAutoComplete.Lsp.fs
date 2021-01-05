@@ -28,11 +28,14 @@ module AsyncResult =
 
 open FSharp.Analyzers
 
-type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
+type FSharpLspClient(sendServerRequest: ClientNotificationSender, sendServerActualRequest: ClientRequestSender) =
     inherit LspClient ()
 
     override __.WindowShowMessage(p) =
         sendServerRequest "window/showMessage" (box p) |> Async.Ignore
+
+    override __.WindowShowMessageRequest(p) =
+        sendServerActualRequest "window/showMessageRequest" (box p)
 
     override __.WindowLogMessage(p) =
         sendServerRequest "window/logMessage" (box p) |> Async.Ignore

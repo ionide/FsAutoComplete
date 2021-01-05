@@ -95,7 +95,7 @@ module Helpers =
             "file:///" + (uri.ToString()).TrimStart('/')
 
 
-type FsacClient(sendServerRequest: ClientNotificationSender) =
+type FsacClient(sendServerRequest: ClientNotificationSender, sendServerActualRequest: ClientRequestSender) =
     inherit LspClient ()
 
     member __.SendDiagnostics(p: PublishDiagnosticsParams) =
