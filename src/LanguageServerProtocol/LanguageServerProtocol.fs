@@ -2418,6 +2418,14 @@ module Server =
         | Request of int * AsyncReplyChannel<JToken option>
         | Response of int * Response
 
+    let getNextRequestId =
+      let mutable counter = 0
+      fun () ->
+        counter <- counter + 1
+        counter
+
+
+
     let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: (ClientNotificationSender * ClientRequestSender) -> 'a) (serverCreator: 'a -> 'b) =
         let sender = MailboxProcessor<string>.Start(fun inbox ->
             let rec loop () = async {
@@ -2458,7 +2466,7 @@ module Server =
         let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<MessageActionItem option> =
             async {
               let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-              let req = JsonRpc.Request.Create(10000, rpcMethod, serializedResponse)
+              let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedResponse)
               let reqString = JsonConvert.SerializeObject(req, jsonSettings)
               sender.Post(reqString)
               let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id.Value, replyChannel)))
