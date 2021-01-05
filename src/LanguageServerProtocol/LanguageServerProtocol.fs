@@ -1845,11 +1845,11 @@ module JsonRpc =
         Params: JToken option
     }
     with
-        static member Create(id: int, method': string, rpcParams: JToken) =
-            { Version = "2.0"; Id = Some id; Method = method'; Params = Some rpcParams }
+        static member Create(id: int, method': string, rpcParams: JToken option) =
+            { Version = "2.0"; Id = Some id; Method = method'; Params = rpcParams }
 
-        static member Create(method': string, rpcParams: JToken) =
-            { Version = "2.0"; Id = None; Method = method'; Params = Some rpcParams }
+        static member Create(method': string, rpcParams: JToken option) =
+            { Version = "2.0"; Id = None; Method = method'; Params = rpcParams }
 
     module ErrorCodes =
         let parseError = -32700
@@ -2402,7 +2402,11 @@ module Server =
         }
 
     type ClientNotificationSender = string -> obj -> AsyncLspResult<unit>
-    type ClientRequestSender = string -> obj -> AsyncLspResult<MessageActionItem option>
+    // type ClientRequestSender = Type -> (string -> obj -> -> AsyncLspResult<'t>)
+    // type ClientRequestSender(asd) =
+    //   member __.Asd<'t>() = asd
+    type ClientRequestSender =
+        abstract member f<'a> : string -> obj -> AsyncLspResult<'a>
 
 
     type private RequestHandlingResult =
@@ -2424,6 +2428,20 @@ module Server =
         counter <- counter + 1
         counter
 
+    // let sendServerRequest<'response> (rpcMethod: string) (requestObj: obj) =
+    //     fun (sender : MailboxProcessor<string>) (responseAgent : MailboxProcessor<msg>) ->
+    //       async {
+    //         let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
+    //         let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedResponse)
+    //         let reqString = JsonConvert.SerializeObject(req, jsonSettings)
+    //         sender.Post(reqString)
+    //         let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id.Value, replyChannel)))
+    //         match responseHandling response with
+    //         | Some result -> return (LspResult.Ok result)
+    //         | None -> return (LspResult.notImplemented)
+    //         // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
+    //         // return (LspResult.Ok response)
+    //       }
 
 
     let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: (ClientNotificationSender * ClientRequestSender) -> 'a) (serverCreator: 'a -> 'b) =
@@ -2457,15 +2475,19 @@ module Server =
         /// When the server wants to send a request/notification to the client
         let sendServerNotification (rpcMethod: string) (requestObj: obj): AsyncLspResult<unit> =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-            let req = JsonRpc.Request.Create(rpcMethod, serializedResponse)
+            let req = JsonRpc.Request.Create(rpcMethod, Some serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
             sender.Post(reqString)
             // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
             async.Return (LspResult.Ok ())
 
-        let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<MessageActionItem option> =
+        let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<'t> =
             async {
-              let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
+              let serializedResponse =
+                if isNull requestObj then
+                  None
+                else
+                  Some (JToken.FromObject(requestObj, jsonSerializer))
               let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedResponse)
               let reqString = JsonConvert.SerializeObject(req, jsonSettings)
               sender.Post(reqString)
@@ -2477,8 +2499,7 @@ module Server =
               // return (LspResult.Ok response)
             }
 
-
-        let lspClient = clientCreator (sendServerNotification, sendServerRequest)
+        let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.f x t  = sendServerRequest x t})
         let lspServer = serverCreator lspClient
 
         let handleClientRequest (requestString: string): RequestHandlingResult =
@@ -2635,7 +2656,7 @@ module Client =
 
         member __.SendRequest (rpcMethod: string) (requestObj: obj) =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-            let req = JsonRpc.Request.Create(rpcMethod, serializedResponse)
+            let req = JsonRpc.Request.Create(rpcMethod, Some serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
             sender.Post(reqString)
 

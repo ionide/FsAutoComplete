@@ -27,15 +27,27 @@ module AsyncResult =
 
 
 open FSharp.Analyzers
+type Test = string -> obj -> AsyncLspResult<obj>
+
+
+// let y (w: Wrapper) =
+//    let a = w.f 1
+//    let b = w.f 2L
+//    (a, b)
+
+// let genericFn x = x
+
+// // Calling y:
+// y { new Wrapper with member __.f x = genericFn x }
 
 type FSharpLspClient(sendServerRequest: ClientNotificationSender, sendServerActualRequest: ClientRequestSender) =
     inherit LspClient ()
-
+    // member __.Inner<'response> = sendServerActualRequest<'response>
     override __.WindowShowMessage(p) =
         sendServerRequest "window/showMessage" (box p) |> Async.Ignore
 
     override __.WindowShowMessageRequest(p) =
-        sendServerActualRequest "window/showMessageRequest" (box p)
+        sendServerActualRequest.f ("window/showMessageRequest") (box p)
 
     override __.WindowLogMessage(p) =
         sendServerRequest "window/logMessage" (box p) |> Async.Ignore
@@ -57,6 +69,11 @@ type FSharpLspClient(sendServerRequest: ClientNotificationSender, sendServerActu
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerRequest "fsharp/fileParsed" (box p) |> Async.Ignore
 
+    override __.WorkspaceApplyEdit (p) =
+        sendServerActualRequest.f "workspace/applyEdit" (box p)
+
+    override __.WorkspaceWorkspaceFolders () =
+        sendServerActualRequest.f "workspace/workspaceFolders" ()
     // TODO: Add the missing notifications
     // TODO: Implement requests
 
@@ -1635,9 +1652,15 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjAddFile(p: DotnetFileRequest) = async {
         logger.info (Log.setMessage "FsProjAddFile Request: {parms}" >> Log.addContextDestructured "parms" p )
 
+        let! workspacesResponse = lspClient.WorkspaceWorkspaceFolders()
+        let extra =
+            match workspacesResponse with
+            | LspResult.Ok (Some xs) -> xs.[0].Name
+            | _ -> "nothing"
+
         let messageParams = {
           ShowMessageRequestParams.Type = MessageType.Warning
-          Message = "Select a suffix"
+          Message = ("Select a suffix " + extra)
           Actions = Some [| {MessageActionItem.Title = "Give me A"}; {MessageActionItem.Title = "Give me B"} |]
         }
 
