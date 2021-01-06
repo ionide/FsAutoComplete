@@ -2442,7 +2442,8 @@ module Server =
         | RequestedByClient = 0
         | ErrorExitWithoutShutdown = 1
         | ErrorStreamClosed = 2
-    type msg =
+
+    type ResponseMailboxMsg =
         | Request of int * AsyncReplyChannel<JToken option>
         | Response of int * Response
 
@@ -2462,22 +2463,22 @@ module Server =
             }
             loop ())
 
-        let responseAgent = MailboxProcessor<msg>.Start(fun agent ->
+        let responseAgent = MailboxProcessor<ResponseMailboxMsg>.Start(fun agent ->
           let rec loop state =
               async{
                   let! msg = agent.Receive()
                   match msg with
-                  | Request (id, reply) ->
-                      return! loop ((id, reply)::state)
-                  | Response (id, value) ->
-                      let result = state |> List.tryFind (fun (i, _) -> i = id)
+                  | Request (rid, reply) ->
+                      return! loop (state |> Map.add rid reply)
+                  | Response (rid, value) ->
+                      let result = state |> Map.tryFind rid
                       match result with
-                      |Some(_, reply) ->
+                      |Some(reply) ->
                           reply.Reply(value.Result)
-                      |None -> eprintfn "Unexpected response %i" id
-                      return! loop (state |> List.filter (fun (i, _) -> i <> id))
+                      |None -> eprintfn "Unexpected response %i" rid
+                      return! loop (state |> Map.remove rid)
               }
-          loop [])
+          loop Map.empty)
 
 
         /// When the server wants to send a request/notification to the client
