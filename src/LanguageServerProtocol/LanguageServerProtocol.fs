@@ -1838,18 +1838,43 @@ module JsonRpc =
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
 
-    type Request = {
+    type MessageTypeTest = {
         [<JsonProperty("jsonrpc")>] Version: string
         Id: int option
+        Method: string option
+    }
+    [<RequireQualifiedAccess>]
+    type MessageType =
+      | Notification
+      | Request
+      | Response
+      | Error
+
+    let getMessageType messageTest =
+      match messageTest with
+      | { Version = "2.0"; Id = Some _; Method = Some _; } -> MessageType.Request
+      | { Version = "2.0"; Id = Some _; Method = None; } -> MessageType.Response
+      | { Version = "2.0"; Id = None; Method = Some _; } -> MessageType.Notification
+      | _ -> MessageType.Error
+
+    type Request = {
+        [<JsonProperty("jsonrpc")>] Version: string
+        Id: int
         Method: string
         Params: JToken option
     }
     with
         static member Create(id: int, method': string, rpcParams: JToken option) =
-            { Version = "2.0"; Id = Some id; Method = method'; Params = rpcParams }
+            { Version = "2.0"; Id = id; Method = method'; Params = rpcParams }
 
+    type Notification = {
+        [<JsonProperty("jsonrpc")>] Version: string
+        Method: string
+        Params: JToken option
+    }
+    with
         static member Create(method': string, rpcParams: JToken option) =
-            { Version = "2.0"; Id = None; Method = method'; Params = rpcParams }
+            { Version = "2.0"; Method = method'; Params = rpcParams }
 
     module ErrorCodes =
         let parseError = -32700
@@ -1879,13 +1904,14 @@ module JsonRpc =
         [<JsonProperty("jsonrpc")>] Version: string
         Id: int option
         Error: Error option
+        [<JsonProperty(NullValueHandling=NullValueHandling.Include)>]
         Result: JToken option
     }
     with
-        static member Success(id: int option, result: JToken option) =
-            { Version = "2.0"; Id = id; Result = result; Error = None }
-        static member Failure(id: int option, error: Error) =
-            { Version = "2.0"; Id = id; Result = None; Error = Some error }
+        static member Success(id: int, result: JToken option) =
+            { Version = "2.0"; Id = Some id; Result = result; Error = None }
+        static member Failure(id: int, error: Error) =
+            { Version = "2.0"; Id = Some id; Result = None; Error = Some error }
 
 type LspResult<'t> = Result<'t, JsonRpc.Error>
 type AsyncLspResult<'t> = Async<LspResult<'t>>
@@ -2379,22 +2405,27 @@ module Server =
                     methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
             | None -> ()
 
-            match request.Id with
-            | Some _ ->
-                match methodCallResult with
-                | Result.Ok ok ->
-                    return Some (JsonRpc.Response.Success(request.Id, ok))
-                | Result.Error err ->
-                    return Some (JsonRpc.Response.Failure(request.Id, err))
-            | None ->
-                match methodCallResult with
-                | Result.Ok (Some ok) ->
-                    ()
-                | Result.Error err ->
-                    ()
-                | _ ->
-                    ()
-                return None
+            match methodCallResult with
+            | Result.Ok ok ->
+                return Some (JsonRpc.Response.Success(request.Id, ok))
+            | Result.Error err ->
+                return Some (JsonRpc.Response.Failure(request.Id, err))
+
+        }
+
+    let handleNotification<'server when 'server :> LspServer>  (requestHandlings : Map<string,RequestHandling<'server>>) (notification: JsonRpc.Notification) (lspServer: 'server): Async<Result<unit, _>> =
+        async {
+            let mutable methodCallResult = Result.Error (Error.MethodNotFound)
+            match requestHandlings |> Map.tryFind notification.Method with
+            | Some handling ->
+                try
+                    let! _ = handling.Run lspServer notification.Params
+                    methodCallResult <- Result.Ok ()
+                with
+                | ex ->
+                    methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
+            | None -> ()
+            return methodCallResult
         }
 
     type ClientNotificationSender = string -> obj -> AsyncLspResult<unit>
@@ -2402,7 +2433,7 @@ module Server =
     type ClientRequestSender =
         abstract member f<'a> : string -> obj -> AsyncLspResult<'a>
 
-    type private RequestHandlingResult =
+    type private MessageHandlingResult =
         | Normal
         | WasExit
         | WasShutdown
@@ -2452,7 +2483,7 @@ module Server =
         /// When the server wants to send a request/notification to the client
         let sendServerNotification (rpcMethod: string) (requestObj: obj): AsyncLspResult<unit> =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-            let req = JsonRpc.Request.Create(rpcMethod, Some serializedResponse)
+            let req = JsonRpc.Notification.Create(rpcMethod, Some serializedResponse)
             let reqString = JsonConvert.SerializeObject(req, jsonSettings)
             sender.Post(reqString)
             // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
@@ -2468,7 +2499,7 @@ module Server =
               let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedResponse)
               let reqString = JsonConvert.SerializeObject(req, jsonSettings)
               sender.Post(reqString)
-              let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id.Value, replyChannel)))
+              let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id, replyChannel)))
               match responseHandling response with
               | Some result -> return (LspResult.Ok result)
               | None -> return (LspResult.notImplemented)
@@ -2479,32 +2510,48 @@ module Server =
         let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.f x t  = sendServerRequest x t})
         let lspServer = serverCreator lspClient
 
-        let handleClientRequest (requestString: string): RequestHandlingResult =
-            let request = JsonConvert.DeserializeObject<JsonRpc.Request>(requestString, jsonSettings)
-            match request.Method with
-            | x when isNull x ->
-              let response = JsonConvert.DeserializeObject<JsonRpc.Response>(requestString, jsonSettings)
-              if response.Id.IsSome then
+        let handleClientMessage (messageString: string): MessageHandlingResult =
+            let messageTypeTest = JsonConvert.DeserializeObject<JsonRpc.MessageTypeTest>(messageString, jsonSettings)
+            match getMessageType messageTypeTest with
+            | MessageType.Response ->
+                let response = JsonConvert.DeserializeObject<JsonRpc.Response>(messageString, jsonSettings)
                 responseAgent.Post(Response(response.Id.Value, response))
-              else
-                ()
-              RequestHandlingResult.Normal
-            | _ ->
-              async {
+                MessageHandlingResult.Normal
+            | MessageType.Notification ->
+                let notification = JsonConvert.DeserializeObject<JsonRpc.Notification>(messageString, jsonSettings)
+                async {
+                  let! result = handleNotification requestHandlings notification lspServer
+                  match result with
+                  | Result.Ok _ -> ()
+                  | Result.Error _ ->
+                    //TODO: Handle error on receiving notification, send message to user?
+                    ()
+                }
+                |> Async.StartAsTask
+                |> ignore
+
+                match notification.Method with
+                | "exit" -> MessageHandlingResult.WasExit
+                | _ -> MessageHandlingResult.Normal
+            | MessageType.Request ->
+                let request = JsonConvert.DeserializeObject<JsonRpc.Request>(messageString, jsonSettings)
+                async {
                   let! result = handleRequest requestHandlings request lspServer
                   match result with
                   | Some response ->
                       let responseString = JsonConvert.SerializeObject(response, jsonSettings)
                       sender.Post(responseString)
                   | None -> ()
-              }
-              |> Async.StartAsTask
-              |> ignore
+                }
+                |> Async.StartAsTask
+                |> ignore
 
-              match request.Method with
-              | "shutdown" -> RequestHandlingResult.WasShutdown
-              | "exit" -> RequestHandlingResult.WasExit
-              | _ -> RequestHandlingResult.Normal
+                match request.Method with
+                | "shutdown" -> MessageHandlingResult.WasShutdown
+                | _ -> MessageHandlingResult.Normal
+            | MessageType.Error ->
+                //TODO: Handle error on invalid jsonrpc version?
+                MessageHandlingResult.Normal
 
         let mutable shutdownReceived = false
         let mutable quitReceived = false
@@ -2513,12 +2560,12 @@ module Server =
             try
                 let _, requestString = LowLevel.read input
 
-                match handleClientRequest requestString with
-                | RequestHandlingResult.WasShutdown -> shutdownReceived <- true
-                | RequestHandlingResult.WasExit ->
+                match handleClientMessage requestString with
+                | MessageHandlingResult.WasShutdown -> shutdownReceived <- true
+                | MessageHandlingResult.WasExit ->
                     quitReceived <- true
                     quit <- true
-                | RequestHandlingResult.Normal -> ()
+                | MessageHandlingResult.Normal -> ()
             with
             | :? EndOfStreamException ->
                 quit <- true
@@ -2603,22 +2650,62 @@ module Client =
                         methodCallResult <- None
                 | None -> ()
 
-                match request.Id with
-                | Some _ ->
-                    match methodCallResult with
-                    | Some ok ->
-                        return Some (JsonRpc.Response.Success(request.Id, Some ok))
-                    | None ->
-                        return None
+                match methodCallResult with
+                | Some ok ->
+                    return Some (JsonRpc.Response.Success(request.Id, Some ok))
                 | None ->
-                    match methodCallResult with
-                    | Some ok->
-                        return Some (JsonRpc.Response.Success(None, Some ok))
-                    | None ->
-                        return None
+                    return None
+            }
+
+        let handleNotification (notification: JsonRpc.Notification) =
+            async {
+                match notificationHandlings |> Map.tryFind notification.Method with
+                | Some handling ->
+                    try
+                        match notification.Params with
+                        | None -> return Result.Error (Error.InvalidParams)
+                        | Some prms ->
+                            let! result = handling.Run prms
+                            return Result.Ok ()
+                    with
+                    | ex ->
+                        return Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
+                | None ->
+                  return Result.Error (Error.MethodNotFound)
             }
 
         let messageHanlder str =
+            let messageTypeTest = JsonConvert.DeserializeObject<JsonRpc.MessageTypeTest>(str, jsonSettings)
+            match getMessageType messageTypeTest with
+            | MessageType.Notification ->
+                let notification = JsonConvert.DeserializeObject<JsonRpc.Notification>(str, jsonSettings)
+                async {
+                  let! result = handleNotification notification
+                  match result with
+                  | Result.Ok _ -> ()
+                  | Result.Error _ ->
+                    //TODO: Handle error on receiving notification, send message to user?
+                    ()
+                }
+                |> Async.StartAsTask
+                |> ignore
+            | MessageType.Request ->
+                let request = JsonConvert.DeserializeObject<JsonRpc.Request>(str, jsonSettings)
+                async {
+                  let! result = handleRequest request
+                  match result with
+                  | Some response ->
+                      let responseString = JsonConvert.SerializeObject(response, jsonSettings)
+                      sender.Post(responseString)
+                  | None -> ()
+                }
+                |> Async.StartAsTask
+                |> ignore
+            | MessageType.Response
+            | MessageType.Error ->
+                //TODO: Handle error on invalid jsonrpc version?
+                ()
+
             let request = JsonConvert.DeserializeObject<JsonRpc.Request>(str, jsonSettings)
             async {
                 let! result = handleRequest request
@@ -2631,11 +2718,11 @@ module Client =
             |> Async.StartAsTask
             |> ignore
 
-        member __.SendRequest (rpcMethod: string) (requestObj: obj) =
+        member __.SendNotificatoin (rpcMethod: string) (requestObj: obj) =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-            let req = JsonRpc.Request.Create(rpcMethod, Some serializedResponse)
-            let reqString = JsonConvert.SerializeObject(req, jsonSettings)
-            sender.Post(reqString)
+            let notification = JsonRpc.Notification.Create(rpcMethod, Some serializedResponse)
+            let notString = JsonConvert.SerializeObject(notification, jsonSettings)
+            sender.Post(notString)
 
         member __.Start() =
             async {
