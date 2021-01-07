@@ -1908,6 +1908,7 @@ module JsonRpc =
         Result: JToken option
     }
     with
+        member x.ShouldSerializeResult() = x.Error.IsNone
         static member Success(id: int, result: JToken option) =
             { Version = "2.0"; Id = Some id; Result = result; Error = None }
         static member Failure(id: int, error: Error) =
