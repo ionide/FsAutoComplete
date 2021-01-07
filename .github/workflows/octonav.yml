@@ -22,4 +22,4 @@ jobs:
     - name: Run dotnet restore
       run: dotnet restore
     - name: Run octonav
-      run: dotnet octonav --solution FsAutoComplete.sln --repository ${{ github.repository }} --ref {{ github.ref }} --sha {{ github.sha }} --userkey {{ secrets.OCTONAVKEY }}
+      run: dotnet octonav --solution FsAutoComplete.sln --repository ${{ github.repository }} --ref ${{ github.ref }} --sha ${{ github.sha }} --userkey ${{ secrets.OCTONAVKEY }}
