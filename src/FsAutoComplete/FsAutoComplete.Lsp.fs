@@ -35,7 +35,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
         sendServerNotification "window/showMessage" (box p) |> Async.Ignore
 
     override __.WindowShowMessageRequest(p) =
-        sendServerRequest.f ("window/showMessageRequest") (box p)
+        sendServerRequest.Send "window/showMessageRequest" (box p)
 
     override __.WindowLogMessage(p) =
         sendServerNotification "window/logMessage" (box p) |> Async.Ignore
@@ -44,19 +44,19 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
         sendServerNotification "telemetry/event" (box p) |> Async.Ignore
 
     override __.ClientRegisterCapability(p) =
-        sendServerRequest.f ("client/registerCapability") (box p)
+        sendServerRequest.Send "client/registerCapability" (box p)
 
     override __.ClientUnregisterCapability(p) =
-        sendServerRequest.f ("client/unregisterCapability") (box p)
+        sendServerRequest.Send "client/unregisterCapability" (box p)
 
     override __.WorkspaceWorkspaceFolders () =
-        sendServerRequest.f "workspace/workspaceFolders" ()
+        sendServerRequest.Send "workspace/workspaceFolders" ()
 
     override __.WorkspaceConfiguration (p) =
-        sendServerRequest.f "workspace/configuration" (box p)
+        sendServerRequest.Send "workspace/configuration" (box p)
 
     override __.WorkspaceApplyEdit (p) =
-        sendServerRequest.f "workspace/applyEdit" (box p)
+        sendServerRequest.Send "workspace/applyEdit" (box p)
 
     override __.TextDocumentPublishDiagnostics(p) =
         sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore

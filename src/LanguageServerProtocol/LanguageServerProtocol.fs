@@ -2325,22 +2325,18 @@ module Server =
 
     let responseHandling<'response> (responseToken: JToken option)  =
       try
-          let p =
-              match responseToken with
-              | Some responseToken ->
-                  let typedResponse = responseToken.ToObject<'response>(jsonSerializer)
-                  Some typedResponse
-              | None ->
-                  if typeof<'response> = typeof<unit> then
-                      Some (unbox ())
-                  else
-                      None
-          p
-              //  async.Return (Result.Error (Error.Create(ErrorCodes.invalidRequest, "No params found")))
+          match responseToken with
+          | Some responseToken ->
+              let typedResponse = responseToken.ToObject<'response>(jsonSerializer)
+              Some typedResponse
+          | None ->
+              if typeof<'response> = typeof<unit> then
+                  Some (unbox ())
+              else
+                  None
       with
       | :? JsonException as ex ->
         None
-          // async.Return (Result.Error (Error.Create(ErrorCodes.parseError, ex.ToString())))
 
 
     /// Notifications don't generate a response or error, but to unify things we consider them as always successful.
@@ -2405,13 +2401,11 @@ module Server =
                 | ex ->
                     methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
             | None -> ()
-
             match methodCallResult with
             | Result.Ok ok ->
                 return Some (JsonRpc.Response.Success(request.Id, ok))
             | Result.Error err ->
                 return Some (JsonRpc.Response.Failure(request.Id, err))
-
         }
 
     let handleNotification<'server when 'server :> LspServer>  (requestHandlings : Map<string,RequestHandling<'server>>) (notification: JsonRpc.Notification) (lspServer: 'server): Async<Result<unit, _>> =
@@ -2432,7 +2426,7 @@ module Server =
     type ClientNotificationSender = string -> obj -> AsyncLspResult<unit>
 
     type ClientRequestSender =
-        abstract member f<'a> : string -> obj -> AsyncLspResult<'a>
+        abstract member Send<'a> : string -> obj -> AsyncLspResult<'a>
 
     type private MessageHandlingResult =
         | Normal
@@ -2446,7 +2440,7 @@ module Server =
 
     type ResponseMailboxMsg =
         | Request of int * AsyncReplyChannel<JToken option>
-        | Response of int * Response
+        | Response of int option * Response
 
     let getNextRequestId =
       let mutable counter = 0
@@ -2471,45 +2465,47 @@ module Server =
                   match msg with
                   | Request (rid, reply) ->
                       return! loop (state |> Map.add rid reply)
-                  | Response (rid, value) ->
+                  | Response (Some rid, value) ->
                       let result = state |> Map.tryFind rid
                       match result with
                       |Some(reply) ->
                           reply.Reply(value.Result)
                       |None -> eprintfn "Unexpected response %i" rid
                       return! loop (state |> Map.remove rid)
+                  | Response (None, _) ->
+                      //TODO: Log that client believes we sent a corrupted request id?
+                      return! loop state
               }
           loop Map.empty)
 
 
-        /// When the server wants to send a request/notification to the client
-        let sendServerNotification (rpcMethod: string) (requestObj: obj): AsyncLspResult<unit> =
-            let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
-            let req = JsonRpc.Notification.Create(rpcMethod, Some serializedResponse)
-            let reqString = JsonConvert.SerializeObject(req, jsonSettings)
-            sender.Post(reqString)
-            // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
+        /// When the server wants to send a notification to the client
+        let sendServerNotification (rpcMethod: string) (notificationObj: obj): AsyncLspResult<unit> =
+            let serializedNotification = JToken.FromObject(notificationObj, jsonSerializer)
+            let notification = JsonRpc.Notification.Create(rpcMethod, Some serializedNotification)
+            let notString = JsonConvert.SerializeObject(notification, jsonSettings)
+            sender.Post(notString)
             async.Return (LspResult.Ok ())
 
+        /// When the server wants to send a request to the client
         let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<'t> =
             async {
-              let serializedResponse =
+              let serializedRequest =
                 if isNull requestObj then
                   None
                 else
                   Some (JToken.FromObject(requestObj, jsonSerializer))
-              let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedResponse)
+              let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedRequest)
               let reqString = JsonConvert.SerializeObject(req, jsonSettings)
               sender.Post(reqString)
               let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id, replyChannel)))
               match responseHandling response with
               | Some result -> return (LspResult.Ok result)
-              | None -> return (LspResult.notImplemented)
-              // TODO: Really wait for the client answer if not a notification (Necessary to implement requests)
-              // return (LspResult.Ok response)
+              | None -> return (LspResult.invalidParams (sprintf "Response params invalid for %i" req.Id))
+              // TODO: Better handle an invalid response from the client
             }
 
-        let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.f x t  = sendServerRequest x t})
+        let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.Send x t  = sendServerRequest x t})
         let lspServer = serverCreator lspClient
 
         let handleClientMessage (messageString: string): MessageHandlingResult =
@@ -2517,7 +2513,7 @@ module Server =
             match getMessageType messageTypeTest with
             | MessageType.Response ->
                 let response = JsonConvert.DeserializeObject<JsonRpc.Response>(messageString, jsonSettings)
-                responseAgent.Post(Response(response.Id.Value, response))
+                responseAgent.Post(Response(response.Id, response))
                 MessageHandlingResult.Normal
             | MessageType.Notification ->
                 let notification = JsonConvert.DeserializeObject<JsonRpc.Notification>(messageString, jsonSettings)

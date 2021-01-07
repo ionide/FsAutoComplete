@@ -63,7 +63,7 @@ let logger = Expecto.Logging.Log.create "LSPTests"
 let createServer (toolsPath) =
 
   let event = Event<string * obj> ()
-  let client = FSharpLspClient ((fun name o -> event.Trigger (name,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.f _ _ = AsyncLspResult.notImplemented})
+  let client = FSharpLspClient ((fun name o -> event.Trigger (name,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
   let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false, toolsPath)
   let originalFs = FSharp.Compiler.AbstractIL.Internal.Library.Shim.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
