@@ -1650,26 +1650,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     member __.FsProjAddFile(p: DotnetFileRequest) = async {
         logger.info (Log.setMessage "FsProjAddFile Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! workspacesResponse = lspClient.WorkspaceWorkspaceFolders()
-        let extra =
-            match workspacesResponse with
-            | LspResult.Ok (Some xs) -> xs.[0].Name
-            | _ -> "nothing"
-
-        let messageParams = {
-          ShowMessageRequestParams.Type = MessageType.Warning
-          Message = ("Select a suffix " + extra)
-          Actions = Some [| {MessageActionItem.Title = "Give me A"}; {MessageActionItem.Title = "Give me B"} |]
-        }
-
-        let! response = lspClient.WindowShowMessageRequest(messageParams)
-        let newFileVirtualPath =
-          match response with
-          | LspResult.Ok (Some {Title = "Give me A"}) -> p.FileVirtualPath + "A.fs"
-          | LspResult.Ok (Some {Title = "Give me B"}) -> p.FileVirtualPath + "B.fs"
-          | _ -> p.FileVirtualPath
-
-        let! res = commands.FsProjAddFile p.FsProj newFileVirtualPath
+        let! res = commands.FsProjAddFile p.FsProj p.FileVirtualPath
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
