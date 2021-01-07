@@ -29,7 +29,7 @@ type SymbolUseRange = {
 }
 
 
-module private PersistenCacheImpl =
+module private PersistentCacheImpl =
     open Microsoft.Data.Sqlite
     open Dapper
     open System.Data
@@ -154,46 +154,46 @@ let fromSymbolUse (su : FSharpSymbolUse) =
         SymbolIsLocal = su.Symbol.IsPrivateToFile  }
 
 let initCache dir =
-    PersistenCacheImpl.initLazyCache dir
+    PersistentCacheImpl.initLazyCache dir
 
 let updateSymbols (fn: string<LocalPath>) (symbols: FSharpSymbolUse[]) =
     let sus = symbols |> Array.map(fromSymbolUse)
 
-    PersistenCacheImpl.connection
-    |> Option.iter (fun con -> PersistenCacheImpl.insert(con.Value, UMX.untag fn, sus) )
+    PersistentCacheImpl.connection
+    |> Option.iter (fun con -> PersistentCacheImpl.insert(con.Value, UMX.untag fn, sus) )
 
 let getSymbols symbolName =
     async {
-        match PersistenCacheImpl.connection with
+        match PersistentCacheImpl.connection with
         | Some conn ->
-            let! res = PersistenCacheImpl.loadSymbolUses conn.Value symbolName
+            let! res = PersistentCacheImpl.loadSymbolUses conn.Value symbolName
             return Some res
         | None -> return None
     }
 
 let getImplementation symbolName =
     async {
-        match PersistenCacheImpl.connection with
+        match PersistentCacheImpl.connection with
         | Some conn ->
-            let! res = PersistenCacheImpl.loadImplementations conn.Value symbolName
+            let! res = PersistentCacheImpl.loadImplementations conn.Value symbolName
             return Some res
         | None -> return None
     }
 
 let getKnownFiles () =
   async {
-        match PersistenCacheImpl.connection with
+        match PersistentCacheImpl.connection with
         | Some conn ->
-            let! res = PersistenCacheImpl.loadKnownFiles conn.Value
+            let! res = PersistentCacheImpl.loadKnownFiles conn.Value
             return Some res
         | None -> return None
     }
 
 let deleteFile file =
   async {
-        match PersistenCacheImpl.connection with
+        match PersistentCacheImpl.connection with
         | Some conn ->
-            let! res = PersistenCacheImpl.deleteFile conn.Value file
+            let! res = PersistentCacheImpl.deleteFile conn.Value file
             return Some res
         | None -> return None
     }

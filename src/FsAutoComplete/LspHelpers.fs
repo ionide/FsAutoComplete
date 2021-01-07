@@ -120,7 +120,7 @@ module Conversions =
 
     let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration): SymbolInformation seq =
         let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation =
-            // We should nearly always have a kind, if the client doesn't send weird capabilites,
+            // We should nearly always have a kind, if the client doesn't send weird capabilities,
             // if we don't why not assume module...
             let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
             let location = { Uri = uri; Range = fcsRangeToLsp decl.Range }

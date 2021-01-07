@@ -167,7 +167,7 @@ module DocumentationFormatter =
             let typeList =
                 unionCase.UnionCaseFields
                 |> Seq.map (fun unionField ->
-                    if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
+                    if unionField.Name.StartsWith "Item" then //TODO: Some better way of detecting default names for the union cases' fields
                         unionField.FieldType |> format displayContext |> fst
 
                     else
@@ -199,7 +199,7 @@ module DocumentationFormatter =
                 | _ -> ""
 
             let modifier =
-                //F# types are prefixed with new, should non F# types be too for consistancy?
+                //F# types are prefixed with new, should non F# types be too for consistency?
                 if func.IsConstructor then
                     match func.EnclosingEntitySafe with
                     | Some ent -> if ent.IsFSharp then "new" ++ accessibility
@@ -325,7 +325,7 @@ module DocumentationFormatter =
                 | _ -> ""
 
             let modifier =
-                //F# types are prefixed with new, should non F# types be too for consistancy?
+                //F# types are prefixed with new, should non F# types be too for consistency?
                 if func.IsConstructor then
                       accessibility
                 elif func.IsProperty then
@@ -676,7 +676,7 @@ module DocumentationFormatter =
         with
         | _ -> ""
 
-    ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
+    /// Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
     let getTooltipDetailsFromSymbolUse (symbol:FSharpSymbolUse) =
         let cn = compiledNameType symbol
         lastDisplayContext <- symbol.DisplayContext
@@ -765,7 +765,7 @@ module DocumentationFormatter =
             None
 
 
-    ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
+    /// Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
     let getTooltipDetailsFromSymbol (symbol:FSharpSymbol) =
         let cn = compiledNameType' symbol
         match symbol with

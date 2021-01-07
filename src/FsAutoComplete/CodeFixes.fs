@@ -293,7 +293,7 @@ module Fixes =
         })
       "is not defined"
 
-  /// a codefix that replaces the use of an unknown identifier with a suggested identitfier
+  /// a codefix that replaces the use of an unknown identifier with a suggested identifier
   let errorSuggestion =
     ifDiagnosticByMessage
       (fun diagnostic codeActionParams ->
@@ -371,7 +371,7 @@ module Fixes =
         })
       "is unused"
 
-  /// a codefix that suggestes using the 'new' keyword on IDisposables
+  /// a codefix that suggests using the 'new' keyword on IDisposables
   let newWithDisposables getFileLines =
     ifDiagnosticByMessage
       (fun diagnostic codeActionParams ->

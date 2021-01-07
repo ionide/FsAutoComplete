@@ -35,7 +35,7 @@ module Map =
 
 module ProcessHelper =
     let WaitForExitAsync(p: Process) = async {
-        let tcs = new TaskCompletionSource<obj>()
+        let tcs = TaskCompletionSource<obj>()
         p.EnableRaisingEvents <- true
         p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
 
@@ -198,7 +198,7 @@ type MaybeBuilder () =
 
     // 'T * ('T -> M<'U>) -> M<'U> when 'U :> IDisposable
     [<DebuggerStepThrough>]
-    member __.Using (resource: ('T :> System.IDisposable), body: _ -> _ option): _ option =
+    member __.Using (resource: ('T :> IDisposable), body: _ -> _ option): _ option =
         try body resource
         finally
             if not <| obj.ReferenceEquals (null, box resource) then
