@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Robin Neatherway
 // --------------------------------------------------------------------------------------
 namespace FsAutoComplete
@@ -34,7 +34,7 @@ module Debug =
 
       let mutable source = null
 
-      let inflightEvents = new ConcurrentDictionary<Guid, DateTimeOffset>()
+      let inflightEvents = ConcurrentDictionary<Guid, DateTimeOffset>()
 
       let eventLevelToLogLevel (e: EventLevel) =
         match e with

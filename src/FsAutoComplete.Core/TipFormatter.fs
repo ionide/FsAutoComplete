@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -465,12 +465,12 @@ module private Format =
     /// <remarks>
     /// If an 'or' block is found between 2 elements then we remove it as we can't generate a valid markdown for it
     ///
-    /// For example, <td> Some text -or- another text </td> cannot be converted into a multine string
+    /// For example, <td> Some text -or- another text </td> cannot be converted into a multiline string
     /// and so we prefer to remove the 'or' block instead of having some weird markdown artefacts
     ///
     /// For now, we only consider text between <td></td> to be invalid
     /// We can add more in the future if needed, but I want to keep this as minimal as possible to avoid capturing false positive
-    /// /<remarks>
+    /// </remarks>
     let private removeInvalidOrBlock (text : string) =
         let invalidOrBlockPattern = """<td(\s+[^>])*>(?'or_text'(?:(?!<td)[\s\S])*-or-(?:(?!<\/td)[\s\S])*)<\/td(\s+[^>])*>"""
 

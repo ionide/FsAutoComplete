@@ -265,7 +265,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             with
             | :? System.Threading.ThreadAbortException as ex ->
                 // on mono, if background parsing is aborted a ThreadAbortException
-                // is raised, who can be ignored
+                // is raised, which can be ignored
                 ()
             | ex ->
                 commandsLogger.error (Log.setMessage "Failed to parse file '{file}'" >> Log.addContextDestructured "file" file >> Log.addExn ex)
@@ -473,7 +473,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
     ///Gets recent type check results, waiting for the results of in-progress type checking
     /// if version of file in memory is grater than last type checked version.
-    /// It also waits if there are no FSharpProjectOptions avaliable for given file
+    /// It also waits if there are no FSharpProjectOptions available for given file
     member x.TryGetLatestTypeCheckResultsForFile(file: string<LocalPath>) =
         let stateVersion = state.TryGetFileVersion file
         let checkedVersion = state.TryGetLastCheckedVersion file
@@ -643,7 +643,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         match state.Declarations.TryFind sym with
         | None -> //Isn't in sync filled cache, we don't have result
             return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
-        | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled cahces or calculate if it's not there
+        | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
             let source =
                 state.Files.TryFind fn
                 |> Option.map (fun n -> n.Lines)
@@ -690,7 +690,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             //Fill cache for current list
             do fillHelpTextInTheBackground decls pos fileName getLine
 
-            // Send the first helptext without being requested.
+            // Send the first help text without being requested.
             // This allows it to be displayed immediately in the editor.
             let firstMatchOpt =
               decls

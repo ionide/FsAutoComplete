@@ -8,13 +8,13 @@ open System
 type DependencyManagerAttribute() =
     inherit Attribute()
 
-[<assembly: DependencyManager()>]
+[<assembly: DependencyManager>]
 do ()
 
 /// returned structure from the ResolveDependencies method call.
 type ResolveDependenciesResult (success: bool, stdOut: string array, stdError: string array, resolutions: string seq, sourceFiles: string seq, roots: string seq) =
 
-    /// Succeded?
+    /// Succeeded?
     member __.Success = success
 
     /// The resolution output log
@@ -49,7 +49,7 @@ type DummyDependencyManager(outputDir: string option) =
     /// Resolve the dependencies, for the given set of arguments, go find the .dll references, scripts and additional include values.
     member _.ResolveDependencies(_scriptExt: ScriptExtension, _includeLines: HashRLines, _tfm: TFM): obj =
         // generally, here we'd parse the includeLines to determine what to do,
-        // package those results into a `ResolveDepndenciesResult`,
+        // package those results into a `ResolveDependenciesResult`,
         // and return it boxed as obj.
         // but here we will return a dummy
         ResolveDependenciesResult(true, [|"Skipped processing of any hash-r references"|], [||], Seq.empty, Seq.empty, Seq.empty) :> _

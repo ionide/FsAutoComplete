@@ -29,7 +29,7 @@ let initTests toolsPath =
       Expect.equal res.Capabilities.CodeLensProvider (Some {CodeLensOptions.ResolveProvider = Some true}) "Code Lens Provider"
       Expect.equal res.Capabilities.DefinitionProvider (Some true) "Definition Provider"
       Expect.equal res.Capabilities.DocumentFormattingProvider (Some true) "Document Formatting Provider"
-      Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highligthing Provider"
+      Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highlighting Provider"
       Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
       Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
       Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some false) "Document Range Formatting Provider"

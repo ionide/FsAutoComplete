@@ -115,15 +115,15 @@ let private tryGetUrlWithWildcard (pathPattern: string<SourcelinkPattern>) (urlP
     let pattern = Regex.Escape(UMX.untag pathPattern).Replace(@"\*", "(.+)")
     // this regex matches the un-normalized repo paths, so we need to compare against the un-normalized paths here
     let regex = Regex(pattern)
-    // patch up the slashes because the sourcelink json will have os-specific paths but we're workiing with normalized
+    // patch up the slashes because the sourcelink json will have os-specific paths but we're working with normalized
     let replaced = document.Name
     match regex.Match(UMX.untag replaced) with
     | m when not m.Success ->
-      logger.info (Log.setMessage "document {doc} did not match pettern {pattern}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern)
+      logger.info (Log.setMessage "document {doc} did not match pattern {pattern}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern)
       None
     | m ->
         let replacement = normalizeRepoPath (UMX.tag<RepoPathSegment> m.Groups.[1].Value)
-        logger.info (Log.setMessage "document {doc} did match pettern {pattern} with value {replacement}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern >> Log.addContext "replacement" replacement)
+        logger.info (Log.setMessage "document {doc} did match pattern {pattern} with value {replacement}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern >> Log.addContext "replacement" replacement)
         Some (replace urlPattern replacement, replacement, document)
 
 let private tryGetUrlWithExactMatch (pathPattern: string<SourcelinkPattern>) (urlPattern: string<Url>) (document: Document) =

@@ -55,7 +55,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
 
   /// This event is raised when any data that impacts script typechecking
   /// is changed. This can potentially invalidate existing project options
-  /// so we must purge any typecheck results for cripts.
+  /// so we must purge any typecheck results for scripts.
   let scriptTypecheckRequirementsChanged = Event<_>()
 
   let mutable disableInMemoryProjectReferences = false

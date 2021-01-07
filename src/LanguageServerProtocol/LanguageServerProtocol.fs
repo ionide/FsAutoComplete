@@ -226,7 +226,7 @@ module Types =
     /// Describes textual changes on a single text document. The text document is referred to as a
     /// `VersionedTextDocumentIdentifier` to allow clients to check the text document version before an edit is
     /// applied. A `TextDocumentEdit` describes all changes on a version Si and after they are applied move the
-    /// document to version Si+1. So the creator of a `TextDocumentEdit `doesn’t need to sort the array or do any
+    /// document to version Si+1. So the creator of a `TextDocumentEdit `doesn't need to sort the array or do any
     /// kind of ordering. However the edits must be non overlapping.
     type TextDocumentEdit = {
         /// The text document to change.
@@ -457,7 +457,7 @@ module Types =
         SignatureInformation: SignatureInformationCapabilities option
     }
 
-    /// apabilities specific to the `textDocument/documentSymbol`
+    /// capabilities specific to the `textDocument/documentSymbol`
     type DocumentSymbolCapabilities = {
         /// Whether document symbol supports dynamic registration.
         DynamicRegistration: bool option
@@ -525,7 +525,7 @@ module Types =
         /// Whether document highlight supports dynamic registration.
         DocumentHighlight: DynamicCapabilities option
 
-        /// apabilities specific to the `textDocument/documentSymbol`
+        /// Capabilities specific to the `textDocument/documentSymbol`
         DocumentSymbol: DocumentSymbolCapabilities option
 
         /// Capabilities specific to the `textDocument/formatting`
@@ -552,7 +552,7 @@ module Types =
         /// Capabilities specific to the `textDocument/rename`
         Rename: DynamicCapabilities option
 
-        /// capabilities for the `textDocument/foldingRange`
+        /// Capabilities for the `textDocument/foldingRange`
         FoldingRange: FoldingRangeCapabilities option
 
         /// Capabilities for the `textDocument/selectionRange`
@@ -1251,7 +1251,7 @@ module Types =
             member this.Position with get() = this.Position
 
     /// Represents a reference to a command. Provides a title which will be used to represent a command in the UI.
-    /// Commands are identified by a string identifier. The protocol currently doesn’t specify a set of well-known
+    /// Commands are identified by a string identifier. The protocol currently doesn't specify a set of well-known
     /// commands. So executing a command requires some tool extension code.
     type Command = {
         /// Title of the command, like `save`.
@@ -1966,7 +1966,7 @@ type LspClient() =
     /// support, Atom’s project folder support or Sublime’s project support. If a client workspace consists of
     /// multiple roots then a server typically needs to know about this. The protocol up to know assumes one root
     /// folder which is announce to the server by the rootUri property of the InitializeParams.
-    /// If the client supports workspace folders and announces them via the corrsponding workspaceFolders client
+    /// If the client supports workspace folders and announces them via the corresponding workspaceFolders client
     /// capability the InitializeParams contain an additional property workspaceFolders with the configured
     /// workspace folders when the server starts.
     ///
@@ -2038,7 +2038,7 @@ type LspServer() =
     /// documents.
     ///
     /// The document’s truth is now managed by the client and the server must not try to read the document’s
-    /// truth using the document’s uri. Open in this sense means it is managed by the client. It doesn’t
+    /// truth using the document’s uri. Open in this sense means it is managed by the client. It doesn't
     /// necessarily mean that its content is presented in an editor. An open notification must not be sent
     /// more than once without a corresponding close notification send before. This means open and close
     /// notification must be balanced and the max open count for a particular textDocument is one.
@@ -2216,7 +2216,7 @@ type LspServer() =
     /// The document close notification is sent from the client to the server when the document got closed in the
     /// client. The document’s truth now exists where the document’s uri points to (e.g. if the document’s uri is
     /// a file uri the truth now exists on disk). As with the open notification the close notification is about
-    /// managing the document’s content. Receiving a close notification doesn’t mean that the document was open in
+    /// managing the document’s content. Receiving a close notification doesn't mean that the document was open in
     /// an editor before. A close notification requires a previous open notification to be sent.
     abstract member TextDocumentDidClose: DidCloseTextDocumentParams -> Async<unit>
     default __.TextDocumentDidClose(_) = ignoreNotification

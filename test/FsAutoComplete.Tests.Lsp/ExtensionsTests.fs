@@ -181,11 +181,11 @@ let linterTests toolsPath =
       let (b,v) = bag.TryPeek()
       if b then
         Expect.equal v.Diagnostics diagnostics "Linter messages match"
-      else failtest "No diagnostic message recived"
+      else failtest "No diagnostic message received"
      ))
 
     testCase "Linter Code Action" (serverTest (fun server path _ ->
-        // different versions on differen operating systems
+        // different versions on different operating systems
         // Windows:   Version = None
         // Linux/Mac: Version = Some 0
         // -> use version of returned action
