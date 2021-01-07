@@ -1,13 +1,10 @@
 module SymbolCache
 
 open System
-open System.Diagnostics
 open FsAutoComplete
 open FSharp.Compiler.SourceCodeServices
 
-open System.Net
 open System.IO
-open Newtonsoft.Json
 open FSharp.UMX
 
 [<CLIMutable>]

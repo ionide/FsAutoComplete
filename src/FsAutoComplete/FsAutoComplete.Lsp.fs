@@ -1,11 +1,9 @@
 module FsAutoComplete.Lsp
 
-open Argu
 open FsAutoComplete
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
-open FsAutoComplete.Utils
 open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult

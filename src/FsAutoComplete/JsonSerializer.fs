@@ -2,7 +2,6 @@
 
 open System
 open Newtonsoft.Json
-open Newtonsoft.Json.Converters
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Reflection

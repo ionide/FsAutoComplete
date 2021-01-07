@@ -2,7 +2,6 @@
 module FsAutoComplete.UnionPatternMatchCaseGenerator
 
 open System
-open System.Diagnostics
 open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SyntaxTreeOps

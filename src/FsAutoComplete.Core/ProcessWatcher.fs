@@ -1,7 +1,6 @@
 namespace FsAutoComplete
 
 open System.Diagnostics
-open System
 open FsAutoComplete.Logging
 
 module ProcessWatcher =

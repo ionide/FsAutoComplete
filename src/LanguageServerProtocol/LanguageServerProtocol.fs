@@ -8,7 +8,6 @@ module LspJsonConverters =
     open Microsoft.FSharp.Reflection
     open Newtonsoft.Json
     open System
-    open System.Collections.Generic
     open System.Collections.Concurrent
 
     let inline memorise (f: 'a -> 'b) : ('a -> 'b) =
@@ -66,7 +65,6 @@ module LspJsonConverters =
 module Types =
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
-    open Newtonsoft.Json.Converters
     open System
 
     type TextDocumentSyncKind =
@@ -1923,8 +1921,6 @@ let private notImplemented<'t> = async.Return LspResult.notImplemented<'t>
 let private ignoreNotification = async.Return(())
 
 open Types
-open System.Text
-open Newtonsoft.Json.Linq
 open Newtonsoft.Json.Linq
 
 [<AbstractClass>]
@@ -2231,13 +2227,10 @@ type LspServer() =
     default __.TextDocumentSelectionRange(_) = notImplemented
 
 module Server =
-    open System
     open System.IO
     open Newtonsoft.Json
-    open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Serialization
 
-    open Types
     open JsonRpc
 
     let jsonSettings =
@@ -2458,10 +2451,8 @@ module Client =
     open System
     open System.IO
     open Newtonsoft.Json
-    open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Serialization
 
-    open Types
     open JsonRpc
 
     let internal jsonSettings =

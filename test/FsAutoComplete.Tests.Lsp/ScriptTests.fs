@@ -1,6 +1,5 @@
 module FsAutoComplete.Tests.ScriptTest
 
-open System
 open Expecto
 open System.IO
 open LanguageServerProtocol

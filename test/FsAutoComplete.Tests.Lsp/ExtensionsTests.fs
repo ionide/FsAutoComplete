@@ -3,7 +3,6 @@ module FsAutoComplete.Tests.ExtensionsTests
 open System
 open Expecto
 open System.IO
-open LanguageServerProtocol
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers

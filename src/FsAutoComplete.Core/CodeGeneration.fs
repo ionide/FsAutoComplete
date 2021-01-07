@@ -7,7 +7,6 @@ open System.CodeDom.Compiler
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
-open FSharp.UMX
 
 [<Measure>] type Line0
 [<Measure>] type Line1

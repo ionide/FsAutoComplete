@@ -7,7 +7,6 @@ open FsAutoComplete.Utils
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Reflection
 open System.Collections.Generic
-open System.Text
 open Ionide.ProjInfo.ProjectSystem
 
 module FcsRange = FSharp.Compiler.Range

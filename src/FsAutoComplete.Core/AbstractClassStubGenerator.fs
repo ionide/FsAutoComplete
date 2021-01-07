@@ -1,6 +1,5 @@
 module FsAutoComplete.AbstractClassStubGenerator
 
-open System
 open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Range
 open FSharp.Compiler.SyntaxTree
