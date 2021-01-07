@@ -5,7 +5,6 @@ open System
 open FSharp.Compiler
 open FSharp.Compiler.SourceCodeServices
 open Ionide.ProjInfo.ProjectSystem
-open Ionide.ProjInfo.ProjectSystem.WorkspacePeek
 open FSharp.UMX
 
 module internal CompletionUtils =

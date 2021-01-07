@@ -8,7 +8,6 @@ open System.Text.RegularExpressions
 open ICSharpCode.Decompiler.CSharp
 open ICSharpCode.Decompiler.CSharp.OutputVisitor
 open ICSharpCode.Decompiler
-open ICSharpCode.Decompiler.Metadata
 open ICSharpCode.Decompiler.TypeSystem
 open ICSharpCode.Decompiler.CSharp.Syntax
 open ICSharpCode.Decompiler.CSharp.Transforms

@@ -1,6 +1,5 @@
 namespace FsAutoComplete
 
-open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
 open Utils

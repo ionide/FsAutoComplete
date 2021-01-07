@@ -3,7 +3,6 @@ module Helpers
 open System
 open Expecto
 open System.IO
-open System.Diagnostics
 open FsAutoComplete.Lsp
 open LanguageServerProtocol
 open LanguageServerProtocol.Types

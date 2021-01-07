@@ -1,5 +1,4 @@
 namespace FsAutoComplete
-open System
 
 module FsProjEditor =
 

@@ -1,7 +1,6 @@
 module FsAutoComplete.Program
 
 open System
-open System.IO
 open FSharp.Compiler
 open FsAutoComplete.JsonSerializer
 open Argu
