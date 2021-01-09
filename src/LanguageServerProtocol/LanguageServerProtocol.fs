@@ -2260,12 +2260,15 @@ type LspServer() =
 module Server =
     open System
     open System.IO
+    open FsAutoComplete.Logging
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Serialization
 
     open Types
     open JsonRpc
+
+    let logger = LogProvider.getLoggerByName "LSP Server"
 
     let jsonSettings =
         let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
@@ -2322,22 +2325,6 @@ module Server =
                 async.Return (Result.Error (Error.Create(ErrorCodes.parseError, ex.ToString())))
 
         { Run = tokenRun }
-
-    let responseHandling<'response> (responseToken: JToken option)  =
-      try
-          match responseToken with
-          | Some responseToken ->
-              let typedResponse = responseToken.ToObject<'response>(jsonSerializer)
-              Some typedResponse
-          | None ->
-              if typeof<'response> = typeof<unit> then
-                  Some (unbox ())
-              else
-                  None
-      with
-      | :? JsonException as ex ->
-        None
-
 
     /// Notifications don't generate a response or error, but to unify things we consider them as always successful.
     /// They will still not send any response because their ID is null.
@@ -2470,10 +2457,11 @@ module Server =
                       match result with
                       |Some(reply) ->
                           reply.Reply(value.Result)
-                      |None -> eprintfn "Unexpected response %i" rid
+                      |None ->
+                          logger.warn (Log.setMessage "ResponseAgent - Unexpected response (id {rid}) {response}" >> Log.addContextDestructured "response" value >> Log.addContext "rid" rid)
                       return! loop (state |> Map.remove rid)
-                  | Response (None, _) ->
-                      //TODO: Log that client believes we sent a corrupted request id?
+                  | Response (None, response) ->
+                      logger.error (Log.setMessage "ResponseAgent - Client reports we sent a corrupt request id, error: {error}" >> Log.addContextDestructured "error" (response.Error))
                       return! loop state
               }
           loop Map.empty)
@@ -2488,7 +2476,7 @@ module Server =
             async.Return (LspResult.Ok ())
 
         /// When the server wants to send a request to the client
-        let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<'t> =
+        let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<'response> =
             async {
               let serializedRequest =
                 if isNull requestObj then
@@ -2499,10 +2487,21 @@ module Server =
               let reqString = JsonConvert.SerializeObject(req, jsonSettings)
               sender.Post(reqString)
               let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id, replyChannel)))
-              match responseHandling response with
-              | Some result -> return (LspResult.Ok result)
-              | None -> return (LspResult.invalidParams (sprintf "Response params invalid for %i" req.Id))
-              // TODO: Better handle an invalid response from the client
+              try
+                match response with
+                | Some responseToken ->
+                    let typedResponse = responseToken.ToObject<'response>(jsonSerializer)
+                    return (LspResult.Ok typedResponse)
+                | None ->
+                    if typeof<'response> = typeof<unit> then
+                        return (LspResult.Ok (unbox ()))
+                    else
+                      logger.error (Log.setMessage "ResponseHandling - Invalid response type for response {response}, expected {expectedType}, got unit" >> Log.addContextDestructured "response" response >> Log.addContext "expectedType" (typeof<'response>).Name)
+                      return (LspResult.invalidParams (sprintf "Response params expected for %i but missing" req.Id))
+              with
+              | :? JsonException as ex ->
+                logger.error (Log.setMessage "ResponseHandling - Parsing failed for response {response}" >> Log.addContextDestructured "response" response >> Log.addExn ex)
+                return (LspResult.invalidParams (sprintf "Response params invalid for %i" req.Id))
             }
 
         let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.Send x t  = sendServerRequest x t})
@@ -2521,7 +2520,8 @@ module Server =
                   let! result = handleNotification requestHandlings notification lspServer
                   match result with
                   | Result.Ok _ -> ()
-                  | Result.Error _ ->
+                  | Result.Error error ->
+                    logger.error (Log.setMessage "HandleClientMessage - Error {error} when handling notification {notification}" >> Log.addContextDestructured "error" error >> Log.addContextDestructured "notification" notification)
                     //TODO: Handle error on receiving notification, send message to user?
                     ()
                 }
@@ -2548,7 +2548,7 @@ module Server =
                 | "shutdown" -> MessageHandlingResult.WasShutdown
                 | _ -> MessageHandlingResult.Normal
             | MessageType.Error ->
-                //TODO: Handle error on invalid jsonrpc version?
+                logger.error (Log.setMessage "HandleClientMessage - Message had invalid jsonrpc version: {messageTypeTest}" >> Log.addContextDestructured "messageTypeTest" messageTypeTest)
                 MessageHandlingResult.Normal
 
         let mutable shutdownReceived = false
@@ -2578,12 +2578,15 @@ module Server =
 module Client =
     open System
     open System.IO
+    open FsAutoComplete.Logging
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
     open Newtonsoft.Json.Serialization
 
     open Types
     open JsonRpc
+
+    let logger = LogProvider.getLoggerByName "LSP Client"
 
     let internal jsonSettings =
             let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
@@ -2681,7 +2684,8 @@ module Client =
                   let! result = handleNotification notification
                   match result with
                   | Result.Ok _ -> ()
-                  | Result.Error _ ->
+                  | Result.Error error ->
+                    logger.error (Log.setMessage "HandleServerMessage - Error {error} when handling notification {notification}" >> Log.addContextDestructured "error" error >> Log.addContextDestructured "notification" notification)
                     //TODO: Handle error on receiving notification, send message to user?
                     ()
                 }
@@ -2701,7 +2705,7 @@ module Client =
                 |> ignore
             | MessageType.Response
             | MessageType.Error ->
-                //TODO: Handle error on invalid jsonrpc version?
+                logger.error (Log.setMessage "HandleServerMessage - Message had invalid jsonrpc version: {messageTypeTest}" >> Log.addContextDestructured "messageTypeTest" messageTypeTest)
                 ()
 
             let request = JsonConvert.DeserializeObject<JsonRpc.Request>(str, jsonSettings)
