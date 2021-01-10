@@ -1908,6 +1908,7 @@ module JsonRpc =
         Result: JToken option
     }
     with
+        /// Json.NET conditional property serialization, controlled by naming convention
         member x.ShouldSerializeResult() = x.Error.IsNone
         static member Success(id: int, result: JToken option) =
             { Version = "2.0"; Id = Some id; Result = result; Error = None }
@@ -2720,7 +2721,7 @@ module Client =
             |> Async.StartAsTask
             |> ignore
 
-        member __.SendNotificatoin (rpcMethod: string) (requestObj: obj) =
+        member __.SendNotification (rpcMethod: string) (requestObj: obj) =
             let serializedResponse = JToken.FromObject(requestObj, jsonSerializer)
             let notification = JsonRpc.Notification.Create(rpcMethod, Some serializedResponse)
             let notString = JsonConvert.SerializeObject(notification, jsonSettings)
