@@ -26,34 +26,52 @@ module AsyncResult =
 
 open FSharp.Analyzers
 
-type FSharpLspClient(sendServerRequest: ClientNotificationSender) =
+type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
     inherit LspClient ()
 
     override __.WindowShowMessage(p) =
-        sendServerRequest "window/showMessage" (box p) |> Async.Ignore
+        sendServerNotification "window/showMessage" (box p) |> Async.Ignore
+
+    override __.WindowShowMessageRequest(p) =
+        sendServerRequest.Send "window/showMessageRequest" (box p)
 
     override __.WindowLogMessage(p) =
-        sendServerRequest "window/logMessage" (box p) |> Async.Ignore
+        sendServerNotification "window/logMessage" (box p) |> Async.Ignore
+
+    override __.TelemetryEvent(p) =
+        sendServerNotification "telemetry/event" (box p) |> Async.Ignore
+
+    override __.ClientRegisterCapability(p) =
+        sendServerRequest.Send "client/registerCapability" (box p)
+
+    override __.ClientUnregisterCapability(p) =
+        sendServerRequest.Send "client/unregisterCapability" (box p)
+
+    override __.WorkspaceWorkspaceFolders () =
+        sendServerRequest.Send "workspace/workspaceFolders" ()
+
+    override __.WorkspaceConfiguration (p) =
+        sendServerRequest.Send "workspace/configuration" (box p)
+
+    override __.WorkspaceApplyEdit (p) =
+        sendServerRequest.Send "workspace/applyEdit" (box p)
 
     override __.TextDocumentPublishDiagnostics(p) =
-        sendServerRequest "textDocument/publishDiagnostics" (box p) |> Async.Ignore
+        sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
     ///Custom notification for workspace/solution/project loading events
     member __.NotifyWorkspace (p: PlainNotification) =
-        sendServerRequest "fsharp/notifyWorkspace" (box p) |> Async.Ignore
+        sendServerNotification "fsharp/notifyWorkspace" (box p) |> Async.Ignore
 
     ///Custom notification for initial workspace peek
     member __.NotifyWorkspacePeek (p: PlainNotification) =
-        sendServerRequest "fsharp/notifyWorkspacePeek" (box p) |> Async.Ignore
+        sendServerNotification "fsharp/notifyWorkspacePeek" (box p) |> Async.Ignore
 
     member __.NotifyCancelledRequest (p: PlainNotification) =
-        sendServerRequest "fsharp/notifyCancel" (box p) |> Async.Ignore
+        sendServerNotification "fsharp/notifyCancel" (box p) |> Async.Ignore
 
     member __.NotifyFileParsed (p: PlainNotification) =
-        sendServerRequest "fsharp/fileParsed" (box p) |> Async.Ignore
-
-    // TODO: Add the missing notifications
-    // TODO: Implement requests
+        sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
 type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     inherit LspServer()

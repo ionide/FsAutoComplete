@@ -68,12 +68,12 @@ let start () =
 
 let updateFile(file, content, version) =
     let msg: UpdateFileParms = { File = file; Content = content; Version = version }
-    client.SendRequest "background/update" msg
+    client.SendNotification "background/update" msg
 
 let updateProject(file, opts) =
     let msg = { File = file; Options = opts }
-    client.SendRequest "background/project" msg
+    client.SendNotification "background/project" msg
 
 let saveFile(file) =
     let msg: FileParms = { File = file }
-    client.SendRequest "background/save" msg
+    client.SendNotification "background/save" msg

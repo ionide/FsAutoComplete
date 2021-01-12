@@ -7,5 +7,9 @@
   <ItemGroup>
     <Compile Include="LanguageServerProtocol.fs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
+  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -95,14 +95,14 @@ module Helpers =
             "file:///" + (uri.ToString()).TrimStart('/')
 
 
-type FsacClient(sendServerRequest: ClientNotificationSender) =
+type FsacClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
     inherit LspClient ()
 
     member __.SendDiagnostics(p: PublishDiagnosticsParams) =
-        sendServerRequest "background/diagnostics" (box p) |> Async.Ignore
+        sendServerNotification "background/diagnostics" (box p) |> Async.Ignore
 
     member __.Notify(o: Msg) =
-        sendServerRequest "background/notify" o |> Async.Ignore
+        sendServerNotification "background/notify" o |> Async.Ignore
 
 type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
