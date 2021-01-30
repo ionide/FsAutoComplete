@@ -803,13 +803,14 @@ module Fixes =
             codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
           let fcsPos = protocolPosToPos diagnostic.Range.Start
-          let! (_, _, lines) = getParseResultsForFile fileName fcsPos
+          let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
 
           match walkForwardUntilCondition lines diagnostic.Range.Start System.Char.IsWhiteSpace with
           | None -> return []
-          | Some col ->
-            let fcsPos = protocolPosToPos col
-            let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+          | Some endPos ->
+            let fcsPos = protocolPosToPos endPos
+            let line = getLine lines endPos
+            // let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
 
             let! symbol =
               tyRes.TryGetSymbolUse fcsPos line
