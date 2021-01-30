@@ -805,30 +805,37 @@ module Fixes =
           let fcsPos = protocolPosToPos diagnostic.Range.Start
           let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
 
-          let! symbol =
-            tyRes.TryGetSymbolUse fcsPos line
-            |> AsyncResult.ofOption (fun _ -> "No symbol found at position")
+          match walkForwardUntilCondition lines diagnostic.Range.Start System.Char.IsWhiteSpace with
+          | None -> return []
+          | Some endPos ->
+            let fcsPos = protocolPosToPos endPos
+            let line = getLine lines endPos
+            // let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
 
-          match symbol.Symbol with
-          // only do anything if the value is mutable
-          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsValue && mfv.IsMutable ->
-              // try to find the '=' at from the start of the range
-              let endOfMutableValue = fcsPosToLsp symbol.RangeAlternate.End
+            let! symbol =
+              tyRes.TryGetSymbolUse fcsPos line
+              |> AsyncResult.ofOption (fun _ -> "No symbol found at position")
 
-              match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
-              | Some equalsPos ->
-                  return
-                    [ { File = codeActionParams.TextDocument
-                        Title = "Use '<-' to mutate value"
-                        SourceDiagnostic = Some diagnostic
-                        Edits =
-                          [| { Range =
-                                 { Start = equalsPos
-                                   End = (inc lines equalsPos) }
-                               NewText = "<-" } |]
-                        Kind = Refactor } ]
-              | None -> return []
-          | _ -> return []
+            match symbol.Symbol with
+            // only do anything if the value is mutable
+            | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsMutable || mfv.HasSetterMethod ->
+                // try to find the '=' at from the start of the range
+                let endOfMutableValue = fcsPosToLsp symbol.RangeAlternate.End
+
+                match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
+                | Some equalsPos ->
+                    return
+                      [ { File = codeActionParams.TextDocument
+                          Title = "Use '<-' to mutate value"
+                          SourceDiagnostic = Some diagnostic
+                          Edits =
+                            [| { Range =
+                                   { Start = equalsPos
+                                     End = (inc lines equalsPos) }
+                                 NewText = "<-" } |]
+                          Kind = Refactor } ]
+                | None -> return []
+            | _ -> return []
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "20" ])
