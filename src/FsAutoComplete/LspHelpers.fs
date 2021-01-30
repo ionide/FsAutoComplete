@@ -158,6 +158,9 @@ module Conversions =
         )
         |> Array.map map
 
+    let getLine (lines: string[]) (pos: Lsp.Position) =
+      lines.[pos.Line]
+
     let getText (lines: string []) (r: Lsp.Range) =
         lines.[r.Start.Line].Substring(r.Start.Character, r.End.Character - r.Start.Character)
 
