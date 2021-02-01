@@ -67,6 +67,9 @@ module Types =
     open Newtonsoft.Json.Linq
     open System
 
+    [<ErasedUnion>]
+    type U2<'a, 'b> = First of 'a | Second of 'b
+
     type TextDocumentSyncKind =
         | None = 0
         | Full = 1
@@ -523,11 +526,11 @@ module Types =
     type SemanticTokensRequests = {
         /// The client will send the `textDocument/semanticTokens/range` request
         /// if the server provides a corresponding handler.
-        Range: bool option
+        Range: U2<bool, obj> option
 
         /// The client will send the `textDocument/semanticTokens/full` request
         /// if the server provides a corresponding handler.
-        Full: SemanticTokenFullRequestType option
+        Full: U2<bool, SemanticTokenFullRequestType> option
     }
 
     type TokenFormat =
@@ -1230,9 +1233,6 @@ module Types =
         | MarkedString of MarkedString
         | MarkedStrings of MarkedString []
         | MarkupContent of MarkupContent
-
-    [<ErasedUnion>]
-    type U2<'a, 'b> = First of 'a | Second of 'b
 
     /// The result of a hover request.
     type Hover = {
