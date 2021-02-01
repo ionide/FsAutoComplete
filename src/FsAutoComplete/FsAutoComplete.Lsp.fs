@@ -616,9 +616,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         SemanticTokensProvider = Some {
                           Legend = createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
                           Range = None
-                          Full = Some {
-                            Delta = Some false
-                          }
+                          Full = Some (U2.First true)
                         }
                     }
             }
