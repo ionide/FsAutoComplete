@@ -946,11 +946,11 @@ let highlightingTests toolsPath =
         lines
         |> Array.map (fun current ->
           let startLine = lastLine + int current.[0]
-          lastLine <- startLine
-          let startCol = lastCol + int current.[1]
-          lastCol <- startCol
+          let startCol = if current.[0] = 0u then lastCol + int current.[1] else int current.[1]
           let endLine = int startLine // assuming no multiline for now
           let endCol = startCol + int current.[2]
+          lastLine <- startLine
+          lastCol <- startCol
           let tokenType = enum<ClassificationUtils.SemanticTokenTypes> (int current.[3])
           let tokenMods = enum<ClassificationUtils.SemanticTokenModifier> (int current.[4])
           let range =
