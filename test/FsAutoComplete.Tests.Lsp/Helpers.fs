@@ -110,12 +110,14 @@ let clientCaps : ClientCapabilities =
     let weCaps : WorkspaceEditCapabilities = { DocumentChanges = Some true}
     let symbolCaps: SymbolCapabilities = { DynamicRegistration = Some true
                                            SymbolKind = None}
+    let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities = { RefreshSupport = Some true }
 
     { ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some dynCaps
       DidChangeWatchedFiles = Some dynCaps
-      Symbol = Some symbolCaps}
+      Symbol = Some symbolCaps
+      SemanticTokens = Some semanticTokenCaps }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps : SynchronizationCapabilities =
@@ -161,6 +163,20 @@ let clientCaps : ClientCapabilities =
         LineFoldingOnly = Some true
         RangeLimit = Some 100 }
 
+    let semanticTokensCaps: SemanticTokensClientCapabilities =
+      {
+        DynamicRegistration = Some true
+        Requests = {
+          Range = None
+          Full = None
+        }
+        TokenTypes = [| |]
+        TokenModifiers = [| |]
+        Formats = [| TokenFormat.Relative |]
+        OverlappingTokenSupport = None
+        MultilineTokenSupport = None
+      }
+
     { Synchronization = Some syncCaps
       PublishDiagnostics = diagCaps
       Completion = Some compCaps
@@ -178,7 +194,8 @@ let clientCaps : ClientCapabilities =
       DocumentLink = Some dynCaps
       Rename = Some dynCaps
       FoldingRange = Some foldingRangeCaps
-      SelectionRange = Some dynCaps }
+      SelectionRange = Some dynCaps
+      SemanticTokens = Some semanticTokensCaps }
 
 
   { Workspace = Some workspaceCaps
