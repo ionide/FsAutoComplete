@@ -56,6 +56,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     override __.WorkspaceApplyEdit (p) =
         sendServerRequest.Send "workspace/applyEdit" (box p)
 
+    override __.WorkspaceSemanticTokensRefresh () =
+      sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
+
     override __.TextDocumentPublishDiagnostics(p) =
         sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
