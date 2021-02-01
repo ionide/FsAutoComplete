@@ -401,48 +401,99 @@ module Structure =
           Kind             = kind }
 
 module ClassificationUtils =
+  [<RequireQualifiedAccess>]
+  type SemanticTokenTypes =
+  (* implementation note: these indexes map to array indexes *)
+  (* LSP-provided types *)
 
-  // See https://code.visualstudio.com/api/language-extensions/semantic-highlight-guide#semantic-token-scope-map for the built-in scopes
-  // if new token-type strings are added here, make sure to update the 'legend' in any downstream consumers.
-  let map (t: SemanticClassificationType) : string =
+  | Namespace = 0
+  /// Represents a generic type. Acts as a fallback for types which
+  /// can't be mapped to a specific type like class or enum.
+  | Type = 1
+  | Class = 2
+  | Enum = 3
+  | Interface = 4
+  | Struct = 5
+  | TypeParameter = 6
+  | Parameter = 7
+  | Variable = 8
+  | Property = 9
+  | EnumMember = 10
+  | Event = 11
+  | Function = 12
+  | Method = 13
+  | Macro = 14
+  | Keyword = 15
+  | Modifier = 16
+  | Comment = 17
+  | String = 18
+  | Number = 19
+  | Regexp = 20
+  | Operator = 21
+  (* our custom token types *)
+  | Member = 22
+  /// computation expressions
+  | Cexpr = 23
+  | Text = 24
+
+  [<RequireQualifiedAccess; Flags>]
+  type SemanticTokenModifier =
+  (* implementation note: these are defined as bitflags to make it easy to calculate them *)
+  (* LSP-defined modifiers *)
+  | Declaration    =              0b1
+  | Definition     =             0b10
+  | Readonly       =            0b100
+  | Static         =           0b1000
+  | Deprecated     =         0b1_0000
+  | Abstract       =        0b10_0000
+  | Async          =       0b100_0000
+  | Modification   =      0b1000_0000
+  | Documentation  =    0b1_0000_0000
+  | DefaultLibrary =   0b10_0000_0000
+  (* custom modifiers *)
+  | Mutable        =  0b100_0000_0000
+  | Disposable     = 0b1000_0000_0000
+
+
+  let map (t: SemanticClassificationType) : SemanticTokenTypes * SemanticTokenModifier list =
       match t with
-      | SemanticClassificationType.Operator -> "operator"
+      | SemanticClassificationType.Operator -> SemanticTokenTypes.Operator, []
       | SemanticClassificationType.ReferenceType
       | SemanticClassificationType.Type
       | SemanticClassificationType.TypeDef
-      | SemanticClassificationType.ConstructorForReferenceType -> "type"
+      | SemanticClassificationType.ConstructorForReferenceType -> SemanticTokenTypes.Type, []
       | SemanticClassificationType.ValueType
-      | SemanticClassificationType.ConstructorForValueType -> "struct"
+      | SemanticClassificationType.ConstructorForValueType -> SemanticTokenTypes.Struct, []
       | SemanticClassificationType.UnionCase
-      | SemanticClassificationType.UnionCaseField -> "enumMember"
+      | SemanticClassificationType.UnionCaseField -> SemanticTokenTypes.EnumMember, []
       | SemanticClassificationType.Function
       | SemanticClassificationType.Method
-      | SemanticClassificationType.ExtensionMethod -> "function"
-      | SemanticClassificationType.Property -> "property"
+      | SemanticClassificationType.ExtensionMethod -> SemanticTokenTypes.Function, []
+      | SemanticClassificationType.Property -> SemanticTokenTypes.Property, []
       | SemanticClassificationType.MutableVar
-      | SemanticClassificationType.MutableRecordField -> "mutable"
+      | SemanticClassificationType.MutableRecordField -> SemanticTokenTypes.Member, [SemanticTokenModifier.Mutable]
       | SemanticClassificationType.Module
-      | SemanticClassificationType.Namespace -> "namespace"
-      | SemanticClassificationType.Printf -> "regexp"
-      | SemanticClassificationType.ComputationExpression -> "cexpr"
-      | SemanticClassificationType.IntrinsicFunction -> "function"
-      | SemanticClassificationType.Enumeration -> "enum"
-      | SemanticClassificationType.Interface -> "interface"
-      | SemanticClassificationType.TypeArgument -> "typeParameter"
+      | SemanticClassificationType.Namespace -> SemanticTokenTypes.Namespace, []
+      | SemanticClassificationType.Printf -> SemanticTokenTypes.Regexp, []
+      | SemanticClassificationType.ComputationExpression -> SemanticTokenTypes.Cexpr, []
+      | SemanticClassificationType.IntrinsicFunction -> SemanticTokenTypes.Function, []
+      | SemanticClassificationType.Enumeration -> SemanticTokenTypes.Enum, []
+      | SemanticClassificationType.Interface -> SemanticTokenTypes.Interface, []
+      | SemanticClassificationType.TypeArgument -> SemanticTokenTypes.TypeParameter, []
       | SemanticClassificationType.DisposableTopLevelValue
       | SemanticClassificationType.DisposableLocalValue
-      | SemanticClassificationType.DisposableType -> "disposable"
-      | SemanticClassificationType.Literal -> "variable.readonly.defaultLibrary"
+      | SemanticClassificationType.DisposableType -> SemanticTokenTypes.Variable, [ SemanticTokenModifier.Disposable ]
+      | SemanticClassificationType.Literal -> SemanticTokenTypes.Variable, [SemanticTokenModifier.Readonly; SemanticTokenModifier.DefaultLibrary]
       | SemanticClassificationType.RecordField
-      | SemanticClassificationType.RecordFieldAsFunction -> "property.readonly"
+      | SemanticClassificationType.RecordFieldAsFunction -> SemanticTokenTypes.Property, [SemanticTokenModifier.Readonly]
       | SemanticClassificationType.Exception
       | SemanticClassificationType.Field
       | SemanticClassificationType.Event
       | SemanticClassificationType.Delegate
-      | SemanticClassificationType.NamedArgument -> "member"
+      | SemanticClassificationType.NamedArgument -> SemanticTokenTypes.Member, []
       | SemanticClassificationType.Value
-      | SemanticClassificationType.LocalValue -> "variable"
-      | SemanticClassificationType.Plaintext -> "text"
+      | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
+      | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
 
 type PlainNotification= { Content: string }
 
@@ -688,3 +739,81 @@ with
         match x.UseSdkScripts with
         | false -> FSIRefs.NetFx
         | true -> FSIRefs.NetCore
+
+/// generate a TokenLegend from an enum representing the token types and the
+/// token modifiers.
+///
+/// since the token types and modifiers are int-backed names, we follow the
+/// following logic to create the backing string arrays for the legends:
+///   * iterate the enum values
+///   * get the enum name
+///   * lowercase the first char because of .net naming conventions
+let createTokenLegend<'types, 'modifiers when 'types : enum<int> and
+                                              'types: (new : unit -> 'types) and
+                                              'types: struct and
+                                              'types :> Enum and
+                                              'modifiers: enum<int> and
+                                              'modifiers: (new : unit -> 'modifiers) and
+                                              'modifiers: struct and
+                                              'modifiers :> Enum> : SemanticTokensLegend =
+  let tokenTypes = Enum.GetNames<'types>() |> Array.map String.lowerCaseFirstChar
+  let tokenModifiers = Enum.GetNames<'modifiers>() |> Array.map String.lowerCaseFirstChar
+  {
+    TokenModifiers = tokenModifiers
+    TokenTypes = tokenTypes
+  }
+
+
+/// <summary>
+/// Encodes an array of ranges + token types/mods into the LSP SemanticTokens' data format.
+/// Each item in our range array is turned into 5 integers:
+///   * line number delta relative to the previous entry
+///   * start column delta relative to the previous entry
+///   * length of the token
+///   * token type int
+///   * token modifiers encoded as bit flags
+/// </summary>
+/// <param name="rangesAndHighlights"></param>
+/// <returns></returns>
+let encodeSemanticHighlightRanges (rangesAndHighlights: (struct(LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)) array) =
+  let fileStart = { Start = { Line = 0; Character = 0}; End = { Line = 0; Character = 0 } }
+  let computeLine (prev: LanguageServerProtocol.Types.Range) ((range, ty, mods): struct(LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)): uint32 [] =
+    let lineDelta =
+      if prev.Start.Line = range.Start.Line then 0u
+      else uint32 (range.Start.Line - prev.Start.Line)
+    let charDelta = uint32 (range.Start.Character - prev.Start.Character)
+    let tokenLen = uint32 (range.End.Character - range.Start.Character)
+    let tokenTy = uint32 ty
+    let tokenMods =
+      match mods with
+      | [] -> 0u
+      | [ single ] -> uint32 single
+      | mods ->
+        // because the mods are all bit flags, we can just OR them together
+        let flags = mods |> List.reduce (( ||| ))
+        uint32 flags
+    [| lineDelta; charDelta; tokenLen; tokenTy; tokenMods |]
+
+  match rangesAndHighlights.Length with
+  | 0 -> None
+  /// only 1 entry, so compute the line from the 0 position
+  | 1 ->
+    Some (
+      computeLine fileStart rangesAndHighlights.[0]
+    )
+  | _ ->
+    let finalArray = Array.zeroCreate (rangesAndHighlights.Length * 5) // 5 elements per entry
+    let mutable prev = fileStart
+    let mutable idx = 0
+    // trying to fill the `finalArray` in a single pass here, since its size is known
+    for (currentRange, _, _) as item in rangesAndHighlights do
+      let result = computeLine prev item
+      // copy the 5-array of results into the final array
+      finalArray.[idx] <- result.[0]
+      finalArray.[idx+1] <- result.[1]
+      finalArray.[idx+2] <- result.[2]
+      finalArray.[idx+3] <- result.[3]
+      finalArray.[idx+4] <- result.[4]
+      prev <- currentRange
+      idx <- idx + 5
+    Some finalArray
