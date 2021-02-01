@@ -781,7 +781,10 @@ let encodeSemanticHighlightRanges (rangesAndHighlights: (struct(LanguageServerPr
     let lineDelta =
       if prev.Start.Line = range.Start.Line then 0u
       else uint32 (range.Start.Line - prev.Start.Line)
-    let charDelta = uint32 (range.Start.Character - prev.Start.Character)
+    let charDelta =
+      if lineDelta = 0u
+      then uint32 (range.Start.Character - prev.Start.Character)
+      else uint32 range.Start.Character
     let tokenLen = uint32 (range.End.Character - range.Start.Character)
     let tokenTy = uint32 ty
     let tokenMods =
