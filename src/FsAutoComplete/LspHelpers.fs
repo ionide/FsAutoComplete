@@ -481,8 +481,8 @@ module ClassificationUtils =
       | SemanticClassificationType.Interface -> SemanticTokenTypes.Interface, []
       | SemanticClassificationType.TypeArgument -> SemanticTokenTypes.TypeParameter, []
       | SemanticClassificationType.DisposableTopLevelValue
-      | SemanticClassificationType.DisposableLocalValue
-      | SemanticClassificationType.DisposableType -> SemanticTokenTypes.Variable, [ SemanticTokenModifier.Disposable ]
+      | SemanticClassificationType.DisposableLocalValue -> SemanticTokenTypes.Variable, [ SemanticTokenModifier.Disposable ]
+      | SemanticClassificationType.DisposableType -> SemanticTokenTypes.Type, [ SemanticTokenModifier.Disposable ]
       | SemanticClassificationType.Literal -> SemanticTokenTypes.Variable, [SemanticTokenModifier.Readonly; SemanticTokenModifier.DefaultLibrary]
       | SemanticClassificationType.RecordField
       | SemanticClassificationType.RecordFieldAsFunction -> SemanticTokenTypes.Property, [SemanticTokenModifier.Readonly]
