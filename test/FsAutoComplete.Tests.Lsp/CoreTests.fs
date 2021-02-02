@@ -999,6 +999,7 @@ let highlightingTests toolsPath =
     tokenIsOfType (0, 44) ClassificationUtils.SemanticTokenTypes.Member serverStart // the `PeePee` member in the SRTP constraint
     tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type serverStart // the `string` type annotation in the PooPoo srtp member
     tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember serverStart // the `PeePee` AP application in the `yeet` function definition
+    tokenIsOfType (14, 10) ClassificationUtils.SemanticTokenTypes.Type serverStart //the `SomeJson` type should be a type
   ]
 
 let signatureHelpTests toolsPath =
