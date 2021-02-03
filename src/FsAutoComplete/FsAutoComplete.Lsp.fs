@@ -56,6 +56,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     override __.WorkspaceApplyEdit (p) =
         sendServerRequest.Send "workspace/applyEdit" (box p)
 
+    override __.WorkspaceSemanticTokensRefresh () =
+      sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
+
     override __.TextDocumentPublishDiagnostics(p) =
         sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
@@ -610,6 +613,11 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                                  }
                         FoldingRangeProvider = Some true
                         SelectionRangeProvider = Some true
+                        SemanticTokensProvider = Some {
+                          Legend = createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
+                          Range = None
+                          Full = Some (U2.First true)
+                        }
                     }
             }
             |> success
@@ -1773,24 +1781,26 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             return LspResult.success ()
     }
 
-    member __.GetHighlighting(p : HighlightingRequest): AsyncLspResult<CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse>> =
-      asyncResult {
-        logger.info (Log.setMessage "GetHighlighting Request: {parms}" >> Log.addContextDestructured "parms" p )
-        let fn = p.FileName |> Utils.normalizePath
+    override __.TextDocumentSemanticTokensFull (p: SemanticTokensParams): AsyncLspResult<SemanticTokens option> = asyncResult {
+      logger.info (Log.setMessage "Semantic highlighing request: {parms}" >> Log.addContextDestructured "parms" p )
+      let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
 
-        match! commands.GetHighlighting fn |> AsyncResult.ofCoreResponse with
-        | None -> return! LspResult.internalError "No highlights found"
-        | Some res ->
-          let data: CommandResponse.HighlightingRange [] =
-            res
-            |> Array.map (fun struct ((r: FSharp.Compiler.Range.range), tk) -> { CommandResponse.HighlightingRange.Range = fcsRangeToLsp r; TokenType = ClassificationUtils.map tk })
-
-          let payload: CommandResponse.ResponseMsg<CommandResponse.HighlightingResponse> =
-            { CommandResponse.ResponseMsg.Kind = "highlighting"
-              CommandResponse.ResponseMsg.Data = { Highlights = data } }
-
-          return! success payload
-      }
+      match! commands.GetHighlighting fn |> AsyncResult.ofCoreResponse with
+      | None ->
+        return! LspResult.internalError "No highlights found"
+      | Some rangesAndHighlights ->
+        let lspTypedRanges =
+          rangesAndHighlights
+          |> Array.map (fun (struct(fcsRange, fcsTokenType)) ->
+            let ty, mods = ClassificationUtils.map fcsTokenType
+            struct(fcsRangeToLsp fcsRange, ty, mods)
+          )
+        match encodeSemanticHighlightRanges lspTypedRanges with
+        | None ->
+          return! success None
+        | Some encoded ->
+          return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
+    }
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
@@ -1855,7 +1865,6 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
-        |> Map.add "fsharp/highlighting" (requestHandling (fun s p -> s.GetHighlighting(p) ))
         |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
         |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
         |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
@@ -1865,8 +1874,6 @@ let startCore (commands: Commands) =
         |> Map.add "fsproj/addFileAbove" (requestHandling (fun s p -> s.FsProjAddFileAbove(p) ))
         |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p) ))
         |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p) ))
-
-
 
     LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FsharpLspServer(commands, lspClient))
 

@@ -6,3 +6,10 @@ let inline poopoo (PooPoo pp) = pp
 
 let inline yeet ((PeePee pp & PooPoo pp') as toilet) =
     peepee toilet = pp && poopoo toilet = pp'
+
+
+#r "nuget: FSharp.Data"
+
+open FSharp.Data
+
+type SomeJson = JsonProvider<"""{"this": "that"}""">

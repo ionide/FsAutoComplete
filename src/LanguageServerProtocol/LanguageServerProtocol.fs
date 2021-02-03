@@ -18,6 +18,9 @@ module LspJsonConverters =
     type ErasedUnionAttribute() =
         inherit Attribute()
 
+    [<ErasedUnion>]
+    type U2<'a, 'b> = First of 'a | Second of 'b
+
     type ErasedUnionConverter() =
         inherit JsonConverter()
 
@@ -37,6 +40,69 @@ module LspJsonConverters =
 
         override __.ReadJson(_reader, _t, _existingValue, _serializer) =
             failwith "Not implemented"
+
+    /// converter that can convert enum-style DUs
+    type SingleCaseUnionConverter() =
+      inherit JsonConverter()
+
+
+      let canConvert =
+        let allCases (t: System.Type) =
+          FSharpType.GetUnionCases t
+        memorise (fun t ->
+          FSharpType.IsUnion t
+          && allCases t |> Array.forall (fun c -> c.GetFields().Length = 0)
+        )
+
+      override _.CanConvert t = canConvert t
+
+      override _.WriteJson(writer: Newtonsoft.Json.JsonWriter, value: obj, serializer: Newtonsoft.Json.JsonSerializer) =
+        serializer.Serialize(writer, string value)
+
+      override _.ReadJson(reader: Newtonsoft.Json.JsonReader, t, _existingValue, serializer) =
+        let caseName = string reader.Value
+        match FSharpType.GetUnionCases(t) |> Array.tryFind (fun c -> c.Name.Equals(caseName, StringComparison.OrdinalIgnoreCase)) with
+        | Some caseInfo ->
+          FSharpValue.MakeUnion(caseInfo, [||])
+        | None ->
+          failwith $"Could not create an instance of the type '%s{t.Name}' with the name '%s{caseName}'"
+
+    type U2BoolObjectConverter() =
+      inherit JsonConverter()
+
+      let canConvert =
+        memorise (fun (t: System.Type) ->
+          t.IsGenericType
+          && t.GetGenericTypeDefinition() = typedefof<U2<_, _>>
+          && t.GetGenericArguments().Length = 2
+          && t.GetGenericArguments().[0] = typeof<bool>
+          && not (t.GetGenericArguments().[1].IsValueType)
+        )
+
+      override _.CanConvert t = canConvert t
+
+      override _.WriteJson(writer, value, serializer) =
+        let case, fields = FSharpValue.GetUnionFields(value, value.GetType())
+        match case.Name with
+        | "First" ->
+          writer.WriteValue(value :?> bool)
+        | "Second" ->
+          serializer.Serialize(writer, fields.[0])
+        | _ ->
+          failwith $"Unrecognized case '{case.Name}' for union type '{value.GetType().FullName}'."
+
+      override _.ReadJson(reader, t, _existingValue, serializer) =
+        let cases = FSharpType.GetUnionCases(t)
+        match reader.TokenType with
+        | JsonToken.Boolean ->
+          // 'First' side
+          FSharpValue.MakeUnion(cases.[0], [| box(reader.Value :?> bool) |])
+        | JsonToken.StartObject ->
+          // Second side
+          let value = serializer.Deserialize(reader, (t.GetGenericArguments().[1]))
+          FSharpValue.MakeUnion(cases.[1], [| value |])
+        | _ ->
+          failwithf $"Unrecognized json TokenType '%s{string reader.TokenType}' when reading value of type '{t.FullName}'"
 
     type OptionConverter() =
         inherit JsonConverter()
@@ -295,6 +361,17 @@ module Types =
         SymbolKind: SymbolKindCapabilities option
     }
 
+    type SemanticTokensWorkspaceClientCapabilities = {
+      /// Whether the client implementation supports a refresh request sent from
+      /// the server to the client.
+      ///
+      /// Note that this event is global and will force the client to refresh all
+      /// semantic tokens currently shown. It should be used with absolute care
+      /// and is useful for situation where a server for example detect a project
+      /// wide change that requires such a calculation.
+      RefreshSupport: bool option
+    }
+
     /// Workspace specific client capabilities.
     type WorkspaceClientCapabilities = {
         /// The client supports applying batch edits to the workspace by supporting
@@ -312,6 +389,8 @@ module Types =
 
         /// Capabilities specific to the `workspace/symbol` request.
         Symbol: SymbolCapabilities option
+
+        SemanticTokens: SemanticTokensWorkspaceClientCapabilities option
     }
 
     type SynchronizationCapabilities = {
@@ -501,6 +580,58 @@ module Types =
         LineFoldingOnly: bool option
     }
 
+    type SemanticTokenFullRequestType = {
+      /// The client will send the `textDocument/semanticTokens/full/delta`
+      /// request if the server provides a corresponding handler.
+      Delta: bool option
+    }
+
+    type SemanticTokensRequests = {
+        /// The client will send the `textDocument/semanticTokens/range` request
+        /// if the server provides a corresponding handler.
+        Range: U2<bool, obj> option
+
+        /// The client will send the `textDocument/semanticTokens/full` request
+        /// if the server provides a corresponding handler.
+        Full: U2<bool, SemanticTokenFullRequestType> option
+    }
+
+    type TokenFormat =
+    | Relative
+
+    type SemanticTokensClientCapabilities = {
+      /// Whether implementation supports dynamic registration. If this is set to
+      /// `true` the client supports the new `(TextDocumentRegistrationOptions &
+      /// StaticRegistrationOptions)` return value for the corresponding server
+      /// capability as well.
+      DynamicRegistration: bool option
+
+      /// Which requests the client supports and might send to the server
+      /// depending on the server's capability. Please note that clients might not
+      /// show semantic tokens or degrade some of the user experience if a range
+      /// or full request is advertised by the client but not provided by the
+      /// server. If for example the client capability `requests.full` and
+      /// `request.range` are both set to true but the server only provides a
+      /// range provider the client might not render a minimap correctly or might
+      /// even decide to not show any semantic tokens at all.
+      Requests: SemanticTokensRequests
+
+      /// The token types that the client supports.
+      TokenTypes: string[]
+
+      /// The token modifiers that the client supports.
+      TokenModifiers: string[]
+
+      /// The formats the clients supports.
+      Formats: TokenFormat[]
+
+      /// Whether the client supports tokens that can overlap each other.
+      OverlappingTokenSupport: bool option
+
+      /// Whether the client supports tokens that can span multiple lines.
+      MultilineTokenSupport: bool option
+    }
+
     /// Text document specific client capabilities.
     type TextDocumentClientCapabilities = {
         Synchronization: SynchronizationCapabilities option
@@ -555,6 +686,10 @@ module Types =
 
         /// Capabilities for the `textDocument/selectionRange`
         SelectionRange: DynamicCapabilities option
+
+        /// Capabilities specific to the various semantic token requests.
+        /// @since 3.16.0
+        SemanticTokens: SemanticTokensClientCapabilities option
     }
 
     type ClientCapabilities = {
@@ -670,6 +805,29 @@ module Types =
                 Save = None
             }
 
+    type SemanticTokensLegend = {
+      /// The token types a server uses.
+      TokenTypes: string[]
+      /// The token modifiers a server uses.
+      TokenModifiers: string[]
+    }
+
+    type SemanticTokenFullOptions =
+      {
+        /// The server supports deltas for full documents.
+        Delta: bool option
+      }
+    type SemanticTokensOptions = {
+      /// The legend used by the server
+      Legend: SemanticTokensLegend
+
+      /// Server supports providing semantic tokens for a specific range of a document.
+      Range: U2<bool, obj> option
+
+      /// Server supports providing semantic tokens for a full document.
+      Full: U2<bool, SemanticTokenFullOptions> option
+    }
+
     type ServerCapabilities = {
         /// Defines how text documents are synced. Is either a detailed structure defining each notification or
         /// for backwards compatibility the TextDocumentSyncKind number.
@@ -737,6 +895,8 @@ module Types =
 
         SelectionRangeProvider: bool option
 
+        SemanticTokensProvider: SemanticTokensOptions option
+
     }
     with
         static member Default =
@@ -763,6 +923,7 @@ module Types =
                 Experimental = None
                 FoldingRangeProvider = None
                 SelectionRangeProvider = None
+                SemanticTokensProvider = None
             }
 
     type InitializeResult = {
@@ -1757,6 +1918,50 @@ module Types =
         Parent: SelectionRange option
     }
 
+    type SemanticTokensParams = {
+      TextDocument: TextDocumentIdentifier
+    }
+
+    type SemanticTokensDeltaParams = {
+      TextDocument: TextDocumentIdentifier
+      /// The result id of a previous response. The result Id can either point to
+      /// a full response or a delta response depending on what was received last.
+      PreviousResultId: string
+    }
+
+    type SemanticTokensRangeParams = {
+      TextDocument: TextDocumentIdentifier
+      Range: Range
+    }
+
+    type SemanticTokens = {
+      /// An optional result id. If provided and clients support delta updating
+      /// the client will include the result id in the next semantic token request.
+      /// A server can then instead of computing all semantic tokens again simply
+      /// send a delta.
+      ResultId: string option
+      Data: uint32[]
+    }
+
+    type SemanticTokensEdit = {
+      /// The start offset of the edit.
+      Start: uint32
+
+      /// The count of elements to remove.
+      DeleteCount: uint32
+
+      /// The elements to insert.
+      Data: uint32[] option
+    }
+
+    type SemanticTokensDelta = {
+      ResultId: string option
+
+      /// The semantic token edits to transform a previous result into a new
+      /// result.
+      Edits: SemanticTokensEdit[];
+    }
+
 module LowLevel =
     open System
     open System.IO
@@ -2012,6 +2217,15 @@ type LspClient() =
     abstract member WorkspaceApplyEdit : ApplyWorkspaceEditParams -> AsyncLspResult<ApplyWorkspaceEditResponse>
     default __.WorkspaceApplyEdit(_) = notImplemented
 
+    /// The workspace/semanticTokens/refresh request is sent from the server to the client.
+    /// Servers can use it to ask clients to refresh the editors for which this server provides semantic tokens.
+    /// As a result the client should ask the server to recompute the semantic tokens for these editors.
+    /// This is useful if a server detects a project wide configuration change which requires a re-calculation
+    /// of all semantic tokens. Note that the client still has the freedom to delay the re-calculation of
+    /// the semantic tokens if for example an editor is currently not visible.
+    abstract member WorkspaceSemanticTokensRefresh: unit -> Async<unit>
+    default __.WorkspaceSemanticTokensRefresh() = ignoreNotification
+
     /// Diagnostics notification are sent from the server to the client to signal results of validation runs.
     ///
     /// Diagnostics are “owned” by the server so it is the server’s responsibility to clear them if necessary.
@@ -2028,6 +2242,8 @@ type LspClient() =
     /// on the client side.
     abstract member TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
     default __.TextDocumentPublishDiagnostics(_) = ignoreNotification
+
+
 
 [<AbstractClass>]
 type LspServer() =
@@ -2254,6 +2470,15 @@ type LspServer() =
     abstract member TextDocumentSelectionRange: SelectionRangeParams -> AsyncLspResult<SelectionRange list option>
     default __.TextDocumentSelectionRange(_) = notImplemented
 
+    abstract member TextDocumentSemanticTokensFull: SemanticTokensParams -> AsyncLspResult<SemanticTokens option>
+    default __.TextDocumentSemanticTokensFull(_) = notImplemented
+
+    abstract member TextDocumentSemanticTokensFullDelta: SemanticTokensDeltaParams -> AsyncLspResult<U2<SemanticTokens, SemanticTokensDelta> option>
+    default __.TextDocumentSemanticTokensFullDelta(_) = notImplemented
+
+    abstract member TextDocumentSemanticTokensRange: SemanticTokensRangeParams -> AsyncLspResult<SemanticTokens option>
+    default __.TextDocumentSemanticTokensRange(_) = notImplemented
+
 module Server =
     open System.IO
     open FsAutoComplete.Logging
@@ -2266,6 +2491,8 @@ module Server =
 
     let jsonSettings =
         let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
+        result.Converters.Add(SingleCaseUnionConverter())
+        result.Converters.Add(U2BoolObjectConverter())
         result.Converters.Add(OptionConverter())
         result.Converters.Add(ErasedUnionConverter())
         result.ContractResolver <- CamelCasePropertyNamesContractResolver()
@@ -2360,6 +2587,9 @@ module Server =
             "textDocument/documentSymbol", requestHandling (fun s p -> s.TextDocumentDocumentSymbol(p))
             "textDocument/foldingRange", requestHandling (fun s p -> s.TextDocumentFoldingRange(p))
             "textDocument/selectionRange", requestHandling (fun s p -> s.TextDocumentSelectionRange(p))
+            "textDocument/semanticTokens/full", requestHandling(fun s p -> s.TextDocumentSemanticTokensFull(p))
+            "textDocument/semanticTokens/full/delta", requestHandling(fun s p -> s.TextDocumentSemanticTokensFullDelta(p))
+            "textDocument/semanticTokens/range", requestHandling(fun s p -> s.TextDocumentSemanticTokensRange(p))
             "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
             "workspace/didChangeWorkspaceFolders", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
             "workspace/didChangeConfiguration", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)

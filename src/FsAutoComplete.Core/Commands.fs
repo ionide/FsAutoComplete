@@ -92,8 +92,9 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
     /// because LSP doesn't know how to handle overlapping/nested ranges, we have to dedupe them here
     let scrubRanges (highlights: struct(range * _) array): struct(range * _) array =
+        let startToken = fun (struct(m: range, _)) -> m.Start.Line, m.Start.Column
         highlights
-        |> Array.sortBy(fun (struct(m, _)) -> m.Start.Line, m.Start.Column)
+        |> Array.sortBy startToken
         |> Array.groupBy (fun (struct(r, _)) -> r.StartLine)
         |> Array.collect (fun (_, highlights) ->
 
@@ -113,6 +114,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             highlights
             |> Array.collect expandParents
         )
+        |> Array.sortBy startToken
 
     let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
           let ctx : SDK.Context = {
