@@ -117,22 +117,24 @@ module Conversions =
             Tags = None
         }
 
-    let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration): SymbolInformation seq =
-        let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation =
+    let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration) (symbolFilter: SymbolInformation -> bool): SymbolInformation [] =
+        let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation option =
             // We should nearly always have a kind, if the client doesn't send weird capabilities,
             // if we don't why not assume module...
             let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
             let location = { Uri = uri; Range = fcsRangeToLsp decl.Range }
-            {
-                SymbolInformation.Name = decl.Name
-                Kind = kind
-                Location = location
-                ContainerName = container
-            }
-        seq {
-            yield (inner None topLevel.Declaration)
-            yield! topLevel.Nested |> Seq.map (inner (Some topLevel.Declaration.Name))
-        }
+            let sym =
+              {
+                  SymbolInformation.Name = decl.Name
+                  Kind = kind
+                  Location = location
+                  ContainerName = container
+              }
+            if symbolFilter sym then Some sym else None
+        [|
+          yield! inner None topLevel.Declaration |> Option.toArray
+          yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.Name))
+        |]
 
     let applyQuery (query: string) (info: SymbolInformation) =
       match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with

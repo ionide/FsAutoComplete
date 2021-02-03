@@ -1031,16 +1031,14 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 LspResult.internalError msg
             | CoreResponse.Res decls ->
                 decls
-                |> Array.map (fst >> getSymbolInformations p.TextDocument.Uri glyphToSymbolKind)
-                |> Seq.collect id
-                |> Seq.toArray
+                |> Array.collect (fst >> fun top -> getSymbolInformations p.TextDocument.Uri glyphToSymbolKind top (fun s -> true))
                 |> Some
                 |> success
         return res
     }
 
-    override __.WorkspaceSymbol(p) = async {
-        logger.info (Log.setMessage "WorkspaceSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
+    override __.WorkspaceSymbol(symbolRequest: WorkspaceSymbolParams) = async {
+        logger.info (Log.setMessage "WorkspaceSymbol Request: {parms}" >> Log.addContextDestructured "parms" symbolRequest)
         let! res = commands.DeclarationsInProjects ()
         let res =
             match res with
@@ -1048,12 +1046,10 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                 LspResult.internalError msg
             | CoreResponse.Res (decls) ->
                 decls
-                |> Array.map (fun (n,p) ->
+                |> Array.collect (fun (n,p) ->
                     let uri = Path.LocalPathToUri p
-                    getSymbolInformations uri glyphToSymbolKind n)
-                |> Seq.collect id
-                |> Seq.filter(fun symbolInfo -> applyQuery p.Query symbolInfo)
-                |> Seq.toArray
+                    getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)
+                )
                 |> Some
                 |> success
         return res
