@@ -137,15 +137,15 @@ module Conversions =
     let applyQuery (query: string) (info: SymbolInformation) =
       match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
       | [|  |] -> false
-      | [| fullName |] -> info.Name = fullName
+      | [| fullName |] -> info.Name.StartsWith fullName
       | [| moduleName; fieldName |] ->
-        info.Name = fieldName && info.ContainerName = Some moduleName
+        info.Name.StartsWith fieldName && info.ContainerName = Some moduleName
       | parts ->
         let containerName =
           parts.[0..(parts.Length - 2)] |> String.concat "."
         let fieldName =
           Array.last parts
-        info.Name = fieldName && info.ContainerName = Some containerName
+        info.Name.StartsWith fieldName && info.ContainerName = Some containerName
 
     let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: FSharpNavigationTopLevelDeclaration): CodeLens [] =
         let map (decl: FSharpNavigationDeclarationItem): CodeLens =
