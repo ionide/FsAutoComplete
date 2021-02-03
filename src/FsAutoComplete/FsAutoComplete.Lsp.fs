@@ -1052,7 +1052,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     let uri = Path.LocalPathToUri p
                     getSymbolInformations uri glyphToSymbolKind n)
                 |> Seq.collect id
-                |> Seq.filter(fun symbolInfo -> symbolInfo.Name.StartsWith(p.Query))
+                |> Seq.filter(fun symbolInfo -> applyQuery p.Query symbolInfo)
                 |> Seq.toArray
                 |> Some
                 |> success
