@@ -615,7 +615,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         SelectionRangeProvider = Some true
                         SemanticTokensProvider = Some {
                           Legend = createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
-                          Range = None
+                          Range = Some (U2.First true)
                           Full = Some (U2.First true)
                         }
                     }
@@ -1781,11 +1781,9 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             return LspResult.success ()
     }
 
-    override __.TextDocumentSemanticTokensFull (p: SemanticTokensParams): AsyncLspResult<SemanticTokens option> = asyncResult {
-      logger.info (Log.setMessage "Semantic highlighing request: {parms}" >> Log.addContextDestructured "parms" p )
-      let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
 
-      match! commands.GetHighlighting fn |> AsyncResult.ofCoreResponse with
+    member private x.handleSemanticTokens(getTokens: Async<CoreResponse<option<(struct(FSharp.Compiler.Range.range * SemanticClassificationType)) array>>>): AsyncLspResult<SemanticTokens option> = asyncResult {
+      match! getTokens |> AsyncResult.ofCoreResponse with
       | None ->
         return! LspResult.internalError "No highlights found"
       | Some rangesAndHighlights ->
@@ -1801,6 +1799,17 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         | Some encoded ->
           return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }
+
+    override x.TextDocumentSemanticTokensFull (p: SemanticTokensParams): AsyncLspResult<SemanticTokens option> =
+      logger.info (Log.setMessage "Semantic highlighing request: {parms}" >> Log.addContextDestructured "parms" p )
+      let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
+      x.handleSemanticTokens(commands.GetHighlighting(fn, None))
+
+    override x.TextDocumentSemanticTokensRange (p: SemanticTokensRangeParams): AsyncLspResult<SemanticTokens option> =
+      logger.info (Log.setMessage "Semantic highlighing range request: {parms}" >> Log.addContextDestructured "parms" p )
+      let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
+      let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+      x.handleSemanticTokens(commands.GetHighlighting(fn, Some fcsRange))
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 

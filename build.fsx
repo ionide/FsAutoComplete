@@ -116,17 +116,13 @@ Target.create "ReleaseGitHub" (fun _ ->
     Git.Branches.pushTag "" remote release.NugetVersion
 
     let client =
-        let user =
-            match Environment.environVarOrNone "github-user" with
+        let token =
+            match Environment.environVarOrNone "github-token" with
             | Some s when not (String.isNullOrWhiteSpace s) -> s
-            | _ -> UserInput.getUserInput "Username: "
-        let pw =
-            match Environment.environVarOrNone "github-pw" with
-            | Some s when not (String.isNullOrWhiteSpace s) -> s
-            | _ -> UserInput.getUserPassword "Password: "
+            | _ -> UserInput.getUserInput "Token: "
 
-        // Git.createClient user pw
-        GitHub.createClient user pw
+        GitHub.createClientWithToken token
+
     let files = !! (pkgsDir </> "*.*")
 
     let notes =

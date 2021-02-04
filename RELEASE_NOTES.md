@@ -1,3 +1,12 @@
+### 0.42.0 - 03.02.2021
+
+* Many large changes, .Net 5 is required now
+* Support for LSP semantic highlighting
+* Fantomas upgrade to 4.4.0-beta-003
+* FCS 38.0.2 upgrade
+* Use Ionide.ProjInfo for the project system instead of the oen built into this repo
+* Use local hosted msbuild to crack projects instead of managing builds ourselves
+
 #### 0.41.1 - 23.03.2020
 
 * Fix `PublishDiagnosticsCapabilities` type [#574](https://github.com/fsharp/FsAutoComplete/pull/574) by [@Gastove](https://github.com/Gastove)
