@@ -90,6 +90,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             lastSegment
         |]
 
+    // TODO: LSP technically does now know how to handle overlapping, nested and multiline ranges, but
+    // as of 3 February 2021 there are no good examples of this that I've found, so we still do this
     /// because LSP doesn't know how to handle overlapping/nested ranges, we have to dedupe them here
     let scrubRanges (highlights: struct(range * _) array): struct(range * _) array =
         let startToken = fun (struct(m: range, _)) -> m.Start.Line, m.Start.Column
@@ -1142,13 +1144,14 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       }
       |> AsyncResult.foldResult Some (fun _ -> None)
 
-    member x.GetHighlighting (file: string<LocalPath>) =
+    /// gets the semantic classification ranges for a file, optionally filtered by a given range.
+    member x.GetHighlighting (file: string<LocalPath>, range: range option) =
       async {
         let! res = x.TryGetLatestTypeCheckResultsForFile file
         let res =
           match res with
           | Some res ->
-            let r = res.GetCheckResults.GetSemanticClassification(None)
+            let r = res.GetCheckResults.GetSemanticClassification(range)
             let filteredRanges = scrubRanges r
             Some filteredRanges
           | None ->

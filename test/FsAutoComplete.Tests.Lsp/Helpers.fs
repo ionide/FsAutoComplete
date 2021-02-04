@@ -167,8 +167,8 @@ let clientCaps : ClientCapabilities =
       {
         DynamicRegistration = Some true
         Requests = {
-          Range = None
-          Full = None
+          Range = Some (U2.First true)
+          Full = Some (U2.First true)
         }
         TokenTypes = [| |]
         TokenModifiers = [| |]

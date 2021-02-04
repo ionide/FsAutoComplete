@@ -923,47 +923,49 @@ let tooltipTests toolsPath =
 
 
 let highlightingTests toolsPath =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath
-    let path = Path.Combine(path, "Script.fsx")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+  let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
+  let scriptPath = Path.Combine(testPath, "Script.fsx")
+
+  let serverParsed = lazy (
+    let (server, event) = serverInitialize testPath defaultConfigDto toolsPath
+    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
 
     do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
     match waitForParseResultsForFile "Script.fsx" event with
-    | Ok () -> ()
+    | Ok () -> server
     | Error e -> failwithf "Errors while parsing highlighting script %A" e
+  )
 
-    let decodeHighlighting (data: uint32 []) =
-      let zeroLine = [| 0u; 0u; 0u; 0u; 0u |]
+  let decodeHighlighting (data: uint32 []) =
+    let zeroLine = [| 0u; 0u; 0u; 0u; 0u |]
 
-      let lines =
-        Array.append [| zeroLine |] (Array.chunkBySize 5 data)
+    let lines =
+      Array.append [| zeroLine |] (Array.chunkBySize 5 data)
 
-      let structures =
-        let mutable lastLine = 0
-        let mutable lastCol = 0
-        lines
-        |> Array.map (fun current ->
-          let startLine = lastLine + int current.[0]
-          let startCol = if current.[0] = 0u then lastCol + int current.[1] else int current.[1]
-          let endLine = int startLine // assuming no multiline for now
-          let endCol = startCol + int current.[2]
-          lastLine <- startLine
-          lastCol <- startCol
-          let tokenType = enum<ClassificationUtils.SemanticTokenTypes> (int current.[3])
-          let tokenMods = enum<ClassificationUtils.SemanticTokenModifier> (int current.[4])
-          let range =
-            { Start = { Line = startLine; Character = startCol }
-              End   = { Line = endLine; Character = endCol }}
-          range, tokenType, tokenMods
-        )
+    let structures =
+      let mutable lastLine = 0
+      let mutable lastCol = 0
+      lines
+      |> Array.map (fun current ->
+        let startLine = lastLine + int current.[0]
+        let startCol = if current.[0] = 0u then lastCol + int current.[1] else int current.[1]
+        let endLine = int startLine // assuming no multiline for now
+        let endCol = startCol + int current.[2]
+        lastLine <- startLine
+        lastCol <- startCol
+        let tokenType = enum<ClassificationUtils.SemanticTokenTypes> (int current.[3])
+        let tokenMods = enum<ClassificationUtils.SemanticTokenModifier> (int current.[4])
+        let range =
+          { Start = { Line = startLine; Character = startCol }
+            End   = { Line = endLine; Character = endCol }}
+        range, tokenType, tokenMods
+      )
 
-      structures
+    structures
 
-
-    let p : SemanticTokensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-    let highlights = server.TextDocumentSemanticTokensFull p |> Async.RunSynchronously
+  let fullHighlights = lazy (
+    let p : SemanticTokensParams = { TextDocument = { Uri = Path.FilePathToUri scriptPath } }
+    let highlights = serverParsed.Value.TextDocumentSemanticTokensFull p |> Async.RunSynchronously
     match highlights with
     | Ok (Some highlights) ->
       let decoded =
@@ -994,12 +996,33 @@ let highlightingTests toolsPath =
         "Could not find a highlighting range that contained the given position"
     )
 
+  /// this tests the range endpoint by getting highlighting for a range then doing the normal highlighting test
+  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType (server: FsAutoComplete.Lsp.FsharpLspServer Lazy) =
+    testCase $"can find token of type {testTokenType} in a subrange from ({startLine}, {startChar})-({endLine}, {endChar})" (fun () ->
+      let range: Types.Range =
+        { Start = { Line = startLine; Character = startChar}
+          End = { Line = endLine; Character = endChar }}
+      let pos = { Line = line; Character = char }
+      match server.Value.TextDocumentSemanticTokensRange { Range = range; TextDocument =  { Uri = Path.FilePathToUri scriptPath } } |> Async.RunSynchronously with
+      | Ok (Some highlights) ->
+        let decoded = decodeHighlighting highlights.Data
+        Expect.exists
+          decoded
+          (fun (r, token, _modifiers) ->
+            rangeContainsRange r pos
+            && token = testTokenType)
+          "Could not find a highlighting range that contained the given position"
+      | Ok None -> failwithf "Expected to get some highlighting"
+      | Error e -> failwithf "error of %A" e
+    )
+
   testList "Document Highlighting Tests" [
-    tokenIsOfType (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter serverStart // the `^a` type parameter in the SRTP constraint
-    tokenIsOfType (0, 44) ClassificationUtils.SemanticTokenTypes.Member serverStart // the `PeePee` member in the SRTP constraint
-    tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type serverStart // the `string` type annotation in the PooPoo srtp member
-    tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember serverStart // the `PeePee` AP application in the `yeet` function definition
-    tokenIsOfType (14, 10) ClassificationUtils.SemanticTokenTypes.Type serverStart //the `SomeJson` type should be a type
+    tokenIsOfType (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
+    tokenIsOfType (0, 44) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
+    tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
+    tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
+    tokenIsOfType (14, 10) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type should be a type
+    tokenIsOfTypeInRange ((0, 0), (0, 100)) (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter serverParsed
   ]
 
 let signatureHelpTests toolsPath =
