@@ -3,7 +3,7 @@ module FsAutoComplete.InterfaceStubGenerator
 
 open System
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.CodeGenerationUtils
 
@@ -40,7 +40,7 @@ let getMemberNameAndRanges = function
 let private walkTypeDefn pos (SynTypeDefn.TypeDefn(info, repr, members, range)) =
   members
   |>List.tryPick (fun m ->
-    if rangeContainsPos m.Range pos
+    if Range.rangeContainsPos m.Range pos
     then
       match m with
       | SynMemberDefn.Interface(iface, members, _) ->
@@ -50,7 +50,7 @@ let private walkTypeDefn pos (SynTypeDefn.TypeDefn(info, repr, members, range)) 
       None
   )
 
-let tryFindInterfaceDeclAt (pos: pos) (tree: ParsedInput) =
+let tryFindInterfaceDeclAt (pos: Pos) (tree: ParsedInput) =
   AstTraversal.Traverse(pos, tree, {
       new AstTraversal.AstVisitorBase<_>() with
         member _.VisitExpr (_, _, defaultTraverse, expr) =
@@ -58,12 +58,12 @@ let tryFindInterfaceDeclAt (pos: pos) (tree: ParsedInput) =
             SynExpr.ObjExpr(ty, baseCallOpt, binds, ifaces, _, _) ->
                 match baseCallOpt with
                 | None ->
-                    if rangeContainsPos ty.Range pos then
+                    if Range.rangeContainsPos ty.Range pos then
                         Some (InterfaceData.ObjExpr(ty, binds))
                     else
                         ifaces
                         |> List.tryPick (fun (InterfaceImpl(ty, binds, range)) ->
-                            if rangeContainsPos range pos then
+                            if Range.rangeContainsPos range pos then
                                 Some (InterfaceData.ObjExpr(ty, binds))
                             else None
                           )
@@ -76,7 +76,7 @@ let tryFindInterfaceDeclAt (pos: pos) (tree: ParsedInput) =
           | _ -> defaultTraverse decl
     })
 
-let tryFindInterfaceExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
+let tryFindInterfaceExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
 
@@ -108,7 +108,7 @@ let getInterfaceIdentifier (interfaceData : InterfaceData) (tokens : FSharpToken
     CodeGenerationUtils.findLastIdentifier tokens.[newKeywordIndex + 2..] tokens.[newKeywordIndex + 2]
 
 /// Try to find the start column, so we know what the base indentation should be
-let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
+let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
     match getMemberNameAndRanges interfaceData with
     | (_, range) :: _ ->
         getLineIdent lines.[range.StartLine-1]
@@ -134,31 +134,30 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
 /// Return None, if we failed to handle the interface implementation
 /// Return Some (insertPosition, generatedString):
 /// `insertPosition`: representation the position where the editor should insert the `generatedString`
-let handleImplementInterface (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) =
+let handleImplementInterface (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (pos : Pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) =
     async {
         let! result = asyncMaybe {
             let! _symbol, symbolUse = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
-            let! thing = async {
-                match! symbolUse with
-                | None -> return None
+            let thing =
+                match symbolUse with
+                | None -> None
                 | Some symbolUse ->
                   match symbolUse.Symbol with
                   | :? FSharpEntity as entity ->
                       if isInterface entity then
-                          match! checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos) with
+                          match checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos) with
                           | Some displayContext ->
-                            return Some (interfaceData, displayContext, entity)
-                          | None -> return None
+                            Some (interfaceData, displayContext, entity)
+                          | None -> None
                       else
-                          return None
-                  | _ -> return None
-            }
-            return thing
+                          None
+                  | _ -> None
+            return! thing
         }
 
         match result with
         | Some (interfaceData, displayContext, entity) ->
-            let getMemberByLocation (name, range: range) =
+            let getMemberByLocation (name, range: Range) =
                 asyncMaybe {
                     let pos = Pos.fromZ (range.StartLine - 1) (range.StartColumn + 1)
                     return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation (pos.Line, pos.Column, lineStr, [])

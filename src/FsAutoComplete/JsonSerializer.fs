@@ -2,7 +2,7 @@
 
 open System
 open Newtonsoft.Json
-open FSharp.Compiler
+open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open Microsoft.FSharp.Reflection
 
@@ -35,8 +35,11 @@ module private JsonSerializerConverters =
   let fsharpErrorSeverityWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
     let s =
         match value with
-        | FSharpErrorSeverity.Error -> "Error"
-        | FSharpErrorSeverity.Warning -> "Warning"
+        | FSharpDiagnosticSeverity.Error -> "Error"
+        | FSharpDiagnosticSeverity.Warning -> "Warning"
+        | FSharpDiagnosticSeverity.Hidden -> "Hidden"
+        | FSharpDiagnosticSeverity.Info -> "Info"
+
     serializer.Serialize(writer, s)
 
   let workspacePeekFoundWriter (writer: JsonWriter) value (serializer : JsonSerializer) =
@@ -67,7 +70,7 @@ module private JsonSerializerConverters =
     serializer.Serialize(writer, v)
     writer.WriteEndObject()
 
-  let rangeWriter (writer: JsonWriter) (range: Range.range) (_serializer : JsonSerializer) =
+  let rangeWriter (writer: JsonWriter) (range: Range) (_serializer : JsonSerializer) =
     writer.WriteStartObject()
     writer.WritePropertyName("StartColumn")
     writer.WriteValue(range.StartColumn + 1)

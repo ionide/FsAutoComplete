@@ -109,12 +109,12 @@ let areSameTypes (typeArguments:IReadOnlyList<IType>) ((mParam,paramSym):IParame
 
 
 let getDeclaringTypeName = function
-    | ExternalSymbol.Type (fullName) -> fullName
-    | ExternalSymbol.Constructor (typeName, _args) -> typeName
-    | ExternalSymbol.Method (typeName, _name, _paramSyms, _genericArity) -> typeName
-    | ExternalSymbol.Field (typeName, _name) -> typeName
-    | ExternalSymbol.Event (typeName, _name) -> typeName
-    | ExternalSymbol.Property (typeName, _name) -> typeName
+    | FSharpExternalSymbol.Type (fullName) -> fullName
+    | FSharpExternalSymbol.Constructor (typeName, _args) -> typeName
+    | FSharpExternalSymbol.Method (typeName, _name, _paramSyms, _genericArity) -> typeName
+    | FSharpExternalSymbol.Field (typeName, _name) -> typeName
+    | FSharpExternalSymbol.Event (typeName, _name) -> typeName
+    | FSharpExternalSymbol.Property (typeName, _name) -> typeName
 
 let findMethodFromArgs (args:ParamTypeSymbol list) (methods:IMethod seq) =
     methods
@@ -137,9 +137,9 @@ let toSafeFileName (typeDef:ITypeDefinition) =
     toSafeFileNameRegex.Replace(str, "_")
 
 type DecompileError =
-| Exception of symbol: ExternalSymbol * filePath: string * error: exn
+| Exception of symbol: FSharpExternalSymbol * filePath: string * error: exn
 
-let decompile (externalSym: ExternalSymbol) assemblyPath: Result<ExternalContentPosition, DecompileError> =
+let decompile (externalSym: FSharpExternalSymbol) assemblyPath: Result<ExternalContentPosition, DecompileError> =
     try
         let decompiler = decompilerForFile assemblyPath
 
@@ -148,36 +148,35 @@ let decompile (externalSym: ExternalSymbol) assemblyPath: Result<ExternalContent
         let typeDef =
             getDeclaringTypeName externalSym
             |> resolveType typeSystem
-            
+
         let symbol =
             match externalSym with
-            | ExternalSymbol.Type _ -> Some (typeDef :> ISymbol)
-            | ExternalSymbol.Constructor (_typeName, args) ->
+            | FSharpExternalSymbol.Type _ -> Some (typeDef :> ISymbol)
+            | FSharpExternalSymbol.Constructor (_typeName, args) ->
                 typeDef.GetConstructors()
                 |> findMethodFromArgs args
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | ExternalSymbol.Method (_typeName, name, args, genericArity) ->
+            | FSharpExternalSymbol.Method (_typeName, name, args, genericArity) ->
                 typeDef.GetMethods(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.where (fun m -> m.TypeParameters.Count = genericArity)
                 |> findMethodFromArgs args
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | ExternalSymbol.Field (_typeName, name) ->
+            | FSharpExternalSymbol.Field (_typeName, name) ->
                 typeDef.GetFields(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.tryHead
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | ExternalSymbol.Event (_typeName, name) ->
+            | FSharpExternalSymbol.Event (_typeName, name) ->
                 typeDef.GetEvents(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.tryHead
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | ExternalSymbol.Property (_typeName, name) ->
+            | FSharpExternalSymbol.Property (_typeName, name) ->
                 typeDef.GetProperties(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.tryHead
                 |> Option.map (fun x -> x :> ISymbol)
-
 
         let (contents, location) =
             decompileTypeAndFindLocation decompiler typeDef symbol

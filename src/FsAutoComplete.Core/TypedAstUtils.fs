@@ -186,10 +186,10 @@ module TypedAstExtensionHelpers =
 
     type FSharpSymbol with
 
-        member this.GetAbbriviatedParent () =
+        member this.GetAbbreviatedParent () =
             match this with
             | :? FSharpEntity as m ->
-                if m.IsFSharpAbbreviation then m.AbbreviatedType.TypeDefinition.GetAbbriviatedParent ()
+                if m.IsFSharpAbbreviation then m.AbbreviatedType.TypeDefinition.GetAbbreviatedParent ()
                 else this
             | _ -> this
 

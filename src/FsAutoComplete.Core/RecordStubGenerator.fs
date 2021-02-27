@@ -3,7 +3,7 @@ module FsAutoComplete.RecordStubGenerator
 
 open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open System.Diagnostics
 open FsAutoComplete.CodeGenerationUtils
@@ -35,7 +35,7 @@ type PositionKind =
 type RecordStubsInsertionParams =
     {
         Kind: PositionKind
-        InsertionPos: pos
+        InsertionPos: Pos
         IndentColumn: int
     }
     static member TryCreateFromRecordExpression (expr: RecordExpr) =
@@ -187,9 +187,9 @@ let formatRecord (insertionPos: RecordStubsInsertionParams) (fieldDefaultValue: 
 
     writer.Dump()
 
-let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInput) =
+let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInput) =
     let inline getIfPosInRange range f =
-        if rangeContainsPos range pos then f()
+        if Range.rangeContainsPos range pos then f()
         else None
 
     let rec walkImplFileInput (ParsedImplFileInput(_name, _isScript, _fileName, _scopedPragmas, _hashDirectives, moduleOrNamespaceList, _)) =
@@ -348,7 +348,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
                 fields
                 |> List.tryPick (function
                     | (recordFieldIdent, _), _, _
-                        when rangeContainsPos (recordFieldIdent.Range) pos ->
+                        when Range.rangeContainsPos (recordFieldIdent.Range) pos ->
                         Some { Expr = expr
                                CopyExprOption = copyOpt
                                FieldExprList = fields }
@@ -475,7 +475,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
 
     and walkRecordField (_recordFieldName, synExprOpt, _) =
         match synExprOpt with
-        | Some synExpr when rangeContainsPos synExpr.Range pos -> walkExpr synExpr
+        | Some synExpr when Range.rangeContainsPos synExpr.Range pos -> walkExpr synExpr
         | _ -> None
 
     and walkSynInterfaceImpl (InterfaceImpl(_synType, synBindings, _range)) =
@@ -485,7 +485,7 @@ let private tryFindRecordBindingInParsedInput (pos: pos) (parsedInput: ParsedInp
     | ParsedInput.SigFile _input -> None
     | ParsedInput.ImplFile input -> walkImplFileInput input
 
-let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
+let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
 
@@ -506,13 +506,13 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (d
                 | _fieldName, Some _fieldExpr, Some (semiColonRange, Some _semiColonEndPos) ->
                     // The last field ends with a ';'
                     // Look here: { field = expr;<start> ... }<end>
-                    Some (unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)
+                    Some (Range.unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)
 
 
                 | _fieldName, Some fieldExpr, _ ->
                     // The last field doesn't end with a ';'
                     // Look here: { field = expr<start> ... }<end>
-                    Some (unionRanges fieldExpr.Range.EndRange expr.Expr.Range.EndRange)
+                    Some (Range.unionRanges fieldExpr.Range.EndRange expr.Expr.Range.EndRange)
 
                 | _fieldName, None, _ ->
                     // We don't allow generation when the last field isn't assigned an expression
@@ -523,7 +523,7 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (d
     }
     |> Option.isSome
 
-let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
+let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
         let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
         if checkThatRecordExprEndsWithRBrace codeGenService document recordExpression then
@@ -539,7 +539,7 @@ let shouldGenerateRecordStub (recordExpr: RecordExpr) (entity: FSharpEntity) =
     let writtenFieldCount = recordExpr.FieldExprList.Length
     fieldCount > 0 && writtenFieldCount < fieldCount
 
-let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
+let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
         let! recordExpression, insertionPos =
             tryFindStubInsertionParamsAtPos codeGenService pos document

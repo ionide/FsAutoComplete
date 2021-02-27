@@ -9,32 +9,35 @@ open FSharp.Reflection
 open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
 
-module FcsRange = FSharp.Compiler.Range
+module FcsRange = FSharp.Compiler.Text.Range
+type FcsRange = FSharp.Compiler.Text.Range
+module FcsPos = FSharp.Compiler.Text.Pos
+type FcsPos = FSharp.Compiler.Text.Pos
 
 [<AutoOpen>]
 module Conversions =
     module Lsp = LanguageServerProtocol.Types
 
     /// convert an LSP position to a compiler position
-    let protocolPosToPos (pos: Lsp.Position): FcsRange.pos =
-        FcsRange.mkPos (pos.Line + 1) (pos.Character + 1)
+    let protocolPosToPos (pos: Lsp.Position): FcsPos =
+        FcsPos.mkPos (pos.Line + 1) (pos.Character + 1)
 
     /// convert a compiler position to an LSP position
-    let fcsPosToLsp (pos: FcsRange.pos): Lsp.Position =
+    let fcsPosToLsp (pos: FcsPos): Lsp.Position =
         { Line = pos.Line - 1; Character = pos.Column }
 
     /// convert a compiler range to an LSP range
-    let fcsRangeToLsp(range: FcsRange.range): Lsp.Range =
+    let fcsRangeToLsp(range: FcsRange): Lsp.Range =
         {
             Start = fcsPosToLsp range.Start
             End = fcsPosToLsp range.End
         }
 
-    let protocolRangeToRange fn (range: Lsp.Range): FcsRange.range =
+    let protocolRangeToRange fn (range: Lsp.Range): FcsRange =
         FcsRange.mkRange fn (protocolPosToPos range.Start) (protocolPosToPos range.End)
 
     /// convert an FCS position to a single-character range in LSP
-    let fcsPosToProtocolRange (pos: FcsRange.pos): Lsp.Range =
+    let fcsPosToProtocolRange (pos: FcsPos): Lsp.Range =
       {
         Start = fcsPosToLsp pos
         End = fcsPosToLsp pos
@@ -47,7 +50,7 @@ module Conversions =
             End = { Line = range.EndLine - 1; Character = range.EndColumn - 1 }
         }
 
-    let fcsRangeToLspLocation(range: FSharp.Compiler.Range.range): Lsp.Location =
+    let fcsRangeToLspLocation(range: FcsRange): Lsp.Location =
         let fileUri = Path.FilePathToUri range.FileName
         let lspRange = fcsRangeToLsp range
         {
@@ -99,17 +102,19 @@ module Conversions =
         member p.GetFcsPos() = protocolPosToPos p.Position
 
     let fcsSeverityToDiagnostic = function
-        | FSharpErrorSeverity.Error -> DiagnosticSeverity.Error
-        | FSharpErrorSeverity.Warning -> DiagnosticSeverity.Warning
+        | FSharpDiagnosticSeverity.Error -> Some DiagnosticSeverity.Error
+        | FSharpDiagnosticSeverity.Warning -> Some DiagnosticSeverity.Warning
+        | FSharpDiagnosticSeverity.Hidden -> None
+        | FSharpDiagnosticSeverity.Info -> Some DiagnosticSeverity.Information
 
-    let fcsErrorToDiagnostic (error: FSharpErrorInfo) =
+    let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
         {
             Range =
                 {
                     Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
                     End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
                 }
-            Severity = Some (fcsSeverityToDiagnostic error.Severity)
+            Severity = fcsSeverityToDiagnostic error.Severity
             Source = "F# Compiler"
             Message = error.Message
             Code = Some (string error.ErrorNumber)

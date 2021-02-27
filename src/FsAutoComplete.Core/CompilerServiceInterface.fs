@@ -6,7 +6,6 @@ open Utils
 open FSharp.Compiler.Text
 open FsAutoComplete.Logging
 open Ionide.ProjInfo.ProjectSystem
-open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.UMX
 
 type Version = int
@@ -280,7 +279,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           |> Seq.map (fun (opts) -> async {
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
-              return! res.GetUsesOfSymbol symbol
+              return res.GetUsesOfSymbol symbol
             })
           |> Async.Parallel
         return res |> Array.concat }

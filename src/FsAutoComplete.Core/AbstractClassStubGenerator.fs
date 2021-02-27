@@ -1,13 +1,13 @@
 module FsAutoComplete.AbstractClassStubGenerator
 
 open FsAutoComplete.CodeGenerationUtils
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SourceCodeServices
 
 type AbstractClassData =
-  | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: range
-  | ExplicitImpl of baseTy: SynType * members: SynMemberDefn list * safeInsertPosition: pos
+  | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: Range
+  | ExplicitImpl of baseTy: SynType * members: SynMemberDefn list * safeInsertPosition: Pos
   member x.AbstractTypeIdentRange =
     match x with
     | ObjExpr (baseTy, _, _)
@@ -40,14 +40,14 @@ let private walkTypeDefn (SynTypeDefn.TypeDefn(info, repr, members, range)) =
   | Some inheritMember ->
     let safeInsertPosition =
       match otherMembers with
-      | [] -> mkPos (inheritMember.Range.End.Line + 1) (inheritMember.Range.Start.Column + 2)
-      | x :: _ -> mkPos (x.Range.End.Line - 1) (x.Range.Start.Column + 2)
+      | [] -> Pos.mkPos (inheritMember.Range.End.Line + 1) (inheritMember.Range.Start.Column + 2)
+      | x :: _ -> Pos.mkPos (x.Range.End.Line - 1) (x.Range.Start.Column + 2)
 
     Some(AbstractClassData.ExplicitImpl(inheritMember, otherMembers, safeInsertPosition))
   | _ -> None
 
 /// find the declaration of the abstract class being filled in at the given position
-let private tryFindAbstractClassExprInParsedInput (pos: pos) (parsedInput: ParsedInput) : AbstractClassData option =
+let private tryFindAbstractClassExprInParsedInput (pos: Pos) (parsedInput: ParsedInput) : AbstractClassData option =
   AstTraversal.Traverse(pos, parsedInput,
     { new AstTraversal.AstVisitorBase<_>() with
         member _.VisitExpr (path, traverseExpr, defaultTraverse, expr) =
@@ -64,7 +64,7 @@ let private tryFindAbstractClassExprInParsedInput (pos: pos) (parsedInput: Parse
 
 /// Walk the parse tree for the given document and look for the definition of any abstract classes in use at the given pos.
 /// This looks for implementations of abstract types in object expressions, as well as inheriting of abstract types inside class type declarations.
-let tryFindAbstractClassExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
+let tryFindAbstractClassExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
         return!
@@ -96,7 +96,7 @@ let getMemberNameAndRanges (abstractClassData) =
   | AbstractClassData.ObjExpr (_, bindings, _) -> List.choose (|MemberNameAndRange|_|) bindings
 
 /// Try to find the start column, so we know what the base indentation should be
-let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (indentSize : int) =
+let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (indentSize : int) =
     match getMemberNameAndRanges abstractClassData with
     | (_, range) :: _ ->
         getLineIdent lines.[range.StartLine-1]
@@ -124,7 +124,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : pos) (doc :
 /// nothing is written. Otherwise, a list of missing members is generated and written
 let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) =
   asyncMaybe {
-    let pos = mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
+    let pos = Pos.mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
     let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
     let! usage = usages
     let! (displayContext, entity) =
@@ -141,7 +141,7 @@ let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultF
         | _ -> return! None
       }
 
-    let getMemberByLocation (name, range: range) =
+    let getMemberByLocation (name, range: Range) =
         asyncMaybe {
             let pos = Pos.fromZ (range.StartLine - 1) (range.StartColumn + 1)
             return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation (pos.Line, pos.Column, lineStr, [])

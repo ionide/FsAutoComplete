@@ -153,11 +153,15 @@ let fromSymbolUse (su : FSharpSymbolUse) =
 let initCache dir =
     PersistentCacheImpl.initLazyCache dir
 
-let updateSymbols (fn: string<LocalPath>) (symbols: FSharpSymbolUse[]) =
-    let sus = symbols |> Array.map(fromSymbolUse)
+let updateSymbols (fn: string<LocalPath>) (symbols: FSharpSymbolUse seq) =
+    let sus =
+      symbols
+      |> Seq.map (fromSymbolUse)
+      |> Seq.chunkBySize 100
 
-    PersistentCacheImpl.connection
-    |> Option.iter (fun con -> PersistentCacheImpl.insert(con.Value, UMX.untag fn, sus) )
+    for batch in sus do
+      PersistentCacheImpl.connection
+      |> Option.iter (fun con -> PersistentCacheImpl.insert(con.Value, UMX.untag fn, batch) )
 
 let getSymbols symbolName =
     async {

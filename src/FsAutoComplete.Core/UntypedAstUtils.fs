@@ -4,9 +4,9 @@ module FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.SyntaxTree
 open System.Collections.Generic
 open FSharp.Compiler
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 
-type Range.range with
+type Range with
     member inline x.IsEmpty = x.StartColumn = x.EndColumn && x.StartLine = x.EndLine
 
 type internal ShortIdent = string
@@ -29,7 +29,7 @@ let (|ConstructorPats|) = function
 
 /// matches if the range contains the position
 let (|ContainsPos|_|) pos range =
-  if rangeContainsPos range pos then Some () else None
+  if Range.rangeContainsPos range pos then Some () else None
 
 /// Active pattern that matches an ident on a given name by the ident's `idText`
 let (|Ident|_|) ofName =
@@ -54,8 +54,8 @@ let (|AllSimplePats|) (pats: SynSimplePats) =
     loop [] pats
 
 /// Returns all Idents and LongIdents found in an untyped AST.
-let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, Idents> =
-    let identsByEndPos = Dictionary<Range.pos, Idents>()
+let internal getLongIdents (input: ParsedInput option) : IDictionary<Pos, Idents> =
+    let identsByEndPos = Dictionary<Pos, Idents>()
 
     let addLongIdent (longIdent: LongIdent) =
         let idents = longIdentToArray longIdent
@@ -68,7 +68,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
         | [|_|] as idents -> identsByEndPos.[value.Range.End] <- idents
         | idents ->
             for dotRange in lids do
-                identsByEndPos.[Range.mkPos dotRange.EndLine (dotRange.EndColumn - 1)] <- idents
+                identsByEndPos.[Pos.mkPos dotRange.EndLine (dotRange.EndColumn - 1)] <- idents
             identsByEndPos.[value.Range.End] <- idents
 
     let addIdent (ident: Ident) =
@@ -395,10 +395,10 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Range.pos, 
     identsByEndPos :> _
 
 /// Checks if given position is part of the typed binding
-let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : bool =
+let internal isTypedBindingAtPosition (input: ParsedInput option) (r: Range) : bool =
     let mutable result = false
 
-    let isInside (ran : range) =
+    let isInside (ran : Range) =
         Range.rangeContainsRange ran r
 
     let rec walkImplFileInput (ParsedImplFileInput(_, _, _, _, _, moduleOrNamespaceList, _)) =
@@ -712,15 +712,15 @@ let internal isTypedBindingAtPosition (input: ParsedInput option) (r: range) : b
     result
 
 /// Gives all ranges for current position
-let internal getRangesAtPosition (input: ParsedInput option) (r: pos) : range list =
+let internal getRangesAtPosition (input: ParsedInput option) (r: Pos) : Range list =
     let mutable result = []
 
 
-    let addIfInside (ran : range) =
+    let addIfInside (ran : Range) =
         let addToResult r =
             result <- r::result
 
-        let isInside (ran : range) =
+        let isInside (ran : Range) =
             Range.rangeContainsPos ran r
 
         if isInside ran then addToResult ran
@@ -1350,7 +1350,7 @@ let getQuotationRanges ast =
     quotationRanges
 
 /// Returns all string literal ranges
-let internal getStringLiterals ast : Range.range list =
+let internal getStringLiterals ast : Range list =
     let result = ResizeArray()
 
     let visitType ty =
@@ -1453,7 +1453,7 @@ let internal getStringLiterals ast : Range.range list =
     List.ofSeq result
 
 /// Get path to containing module/namespace of a given position
-let getModuleOrNamespacePath (pos: pos) (ast: ParsedInput) =
+let getModuleOrNamespacePath (pos: Pos) (ast: ParsedInput) =
     let idents =
         match ast with
         | ParsedInput.ImplFile (ParsedImplFileInput(_, _, _, _, _, modules, _)) ->
@@ -1462,7 +1462,7 @@ let getModuleOrNamespacePath (pos: pos) (ast: ParsedInput) =
                 |> List.fold (fun acc ->
                     function
                     | SynModuleDecl.NestedModule (componentInfo, _, nestedModuleDecls, _, nestedModuleRange) ->
-                        if rangeContainsPos moduleRange pos then
+                        if Range.rangeContainsPos moduleRange pos then
                             let (ComponentInfo(_,_,_,longIdent,_,_,_,_)) = componentInfo
                             walkModuleOrNamespace (longIdent::acc) (nestedModuleDecls, nestedModuleRange)
                         else acc
@@ -1470,7 +1470,7 @@ let getModuleOrNamespacePath (pos: pos) (ast: ParsedInput) =
 
             modules
             |> List.fold (fun acc (SynModuleOrNamespace(longIdent, _, _, decls, _, _, _, moduleRange)) ->
-                    if rangeContainsPos moduleRange pos then
+                    if Range.rangeContainsPos moduleRange pos then
                         walkModuleOrNamespace (longIdent::acc) (decls, moduleRange) @ acc
                     else acc) []
         | ParsedInput.SigFile(ParsedSigFileInput(_, _, _, _, modules)) ->
@@ -1479,7 +1479,7 @@ let getModuleOrNamespacePath (pos: pos) (ast: ParsedInput) =
                 |> List.fold (fun acc ->
                     function
                     | SynModuleSigDecl.NestedModule (componentInfo, _, nestedModuleDecls, nestedModuleRange) ->
-                        if rangeContainsPos moduleRange pos then
+                        if Range.rangeContainsPos moduleRange pos then
                             let (ComponentInfo(_,_,_,longIdent,_,_,_,_)) = componentInfo
                             walkModuleOrNamespaceSig (longIdent::acc) (nestedModuleDecls, nestedModuleRange)
                         else acc
@@ -1487,7 +1487,7 @@ let getModuleOrNamespacePath (pos: pos) (ast: ParsedInput) =
 
             modules
             |> List.fold (fun acc (SynModuleOrNamespaceSig(longIdent, _, _, decls, _, _, _, moduleRange)) ->
-                    if rangeContainsPos moduleRange pos then
+                    if Range.rangeContainsPos moduleRange pos then
                         walkModuleOrNamespaceSig (longIdent::acc) (decls, moduleRange) @ acc
                     else acc) []
     idents
@@ -1591,14 +1591,14 @@ module HashDirectiveInfo =
         | _ -> [||]
 
     /// returns the Some (complete file name of a resolved #load directive at position) or None
-    let getHashLoadDirectiveResolvedPathAtPosition (pos: pos) (ast: ParsedInput) : string option =
+    let getHashLoadDirectiveResolvedPathAtPosition (pos: Pos) (ast: ParsedInput) : string option =
         getIncludeAndLoadDirectives ast
         |> Array.tryPick (
             function
             | Load (ExistingFile f,range)
                 // check the line is within the range
                 // (doesn't work when there are multiple files given to a single #load directive)
-                when rangeContainsPos range pos
+                when Range.rangeContainsPos range pos
                     -> Some f
             | _     -> None
         )
@@ -1610,22 +1610,22 @@ module Outlining =
     [<RequireQualifiedAccess>]
     module private Range =
         /// Create a range starting at the end of r1 and finishing at the end of r2
-        let inline endToEnd (r1: range) (r2: range) = mkFileIndexRange r1.FileIndex r1.End   r2.End
+        let inline endToEnd (r1: Range) (r2: Range): Range = Range.mkRange r1.FileName r1.End r2.End
 
         /// Create a range beginning at the start of r1 and finishing at the end of r2
-        let inline startToEnd (r1: range) (r2: range) = mkFileIndexRange r1.FileIndex r1.Start r2.End
+        let inline startToEnd (r1: Range) (r2: Range): Range = Range.mkRange r1.FileName r1.Start r2.End
 
         /// Create a new range from r by shifting the starting column by m
-        let inline modStart (r: range) (m:int) =
-            let modstart = mkPos r.StartLine (r.StartColumn+m)
-            mkFileIndexRange r.FileIndex modstart r.End
+        let inline modStart (r: Range) (m:int) =
+            let modstart = Pos.mkPos r.StartLine (r.StartColumn+m)
+            Range.mkRange r.FileName modstart r.End
 
         /// Produce a new range by adding modStart to the StartColumn of `r`
         /// and subtracting modEnd from the EndColumn of `r`
         let inline modBoth (r:range) modStart modEnd =
-            let rStart = Range.mkPos r.StartLine (r.StartColumn+modStart)
-            let rEnd   = Range.mkPos r.EndLine   (r.EndColumn - modEnd)
-            mkFileIndexRange r.FileIndex rStart rEnd
+            let rStart = Pos.mkPos r.StartLine (r.StartColumn+modStart)
+            let rEnd   = Pos.mkPos r.EndLine   (r.EndColumn - modEnd)
+            Range.mkRange r.FileName rStart rEnd
 
     /// Scope indicates the way a range/snapshot should be collapsed. |Scope.Scope.Same| is for a scope inside
     /// some kind of scope delimiter, e.g. `[| ... |]`, `[ ... ]`, `{ ... }`, etc.  |Scope.Below| is for expressions
@@ -1683,13 +1683,13 @@ module Outlining =
         | XmlDocComment = 44
 
     [<NoComparison; Struct>]
-    type ScopeRange (scope:Scope, collapse:Collapse, r:range) =
+    type ScopeRange (scope:Scope, collapse:Collapse, r: Range) =
         member __.Scope = scope
         member __.Collapse = collapse
         member __.Range = r
 
     // Only yield a range that spans 2 or more lines
-    let inline private rcheck scope collapse (r: range) =
+    let inline private rcheck scope collapse (r: Range) =
         seq { if r.StartLine <> r.EndLine then
                 yield ScopeRange (scope, collapse, r) }
 
@@ -1766,7 +1766,7 @@ module Outlining =
                     yield! rcheck Scope.CompExpr Collapse.Same <| Range.modBoth r 1 1
                 yield! parseExpr e
             | SynExpr.ObjExpr (_,_,bindings,_,newRange,wholeRange) ->
-                let r = mkFileIndexRange newRange.FileIndex newRange.End (Range.mkPos wholeRange.EndLine (wholeRange.EndColumn - 1))
+                let r = Range.mkRange newRange.FileName newRange.End (Pos.mkPos wholeRange.EndLine (wholeRange.EndColumn - 1))
                 yield! rcheck Scope.ObjExpr Collapse.Below r
                 yield! parseBindings bindings
             | SynExpr.TryWith (e,_,matchClauses,tryRange,withRange,tryPoint,withPoint) ->
@@ -1974,7 +1974,7 @@ module Outlining =
 
     let private getConsecutiveModuleDecls (predicate: SynModuleDecl -> range option) (scope:Scope) (decls: SynModuleDecl list) =
         let groupConsecutiveDecls input =
-            let rec loop (input: range list) (res: range list list) currentBulk =
+            let rec loop (input: Range list) (res: Range list list) currentBulk =
                 match input, currentBulk with
                 | [], [] -> List.rev res
                 | [], _ -> List.rev (currentBulk::res)
@@ -1984,7 +1984,7 @@ module Outlining =
                 | r :: rest, _ -> loop rest (currentBulk::res) [r]
             loop input [] []
 
-        let selectRanges (ranges: range list) =
+        let selectRanges (ranges: Range list) =
             match ranges with
             | [] -> None
             | [r] when r.StartLine = r.EndLine -> None
@@ -2003,7 +2003,7 @@ module Outlining =
             function
             | SynModuleDecl.HashDirective (ParsedHashDirective (directive, _, _),r) ->
                 let prefixLength = "#".Length + directive.Length + " ".Length
-                Some (Range.mkRange "" (Range.mkPos r.StartLine prefixLength) r.End)
+                Some (Range.mkRange "" (Pos.mkPos r.StartLine prefixLength) r.End)
             | _ -> None) Scope.HashDirective
 
 
@@ -2093,8 +2093,8 @@ module Outlining =
                 Collapse.Same,
                 Range.mkRange
                     ""
-                    (Range.mkPos (startLine + 1) startCol)
-                    (Range.mkPos (endLine + 1) endCol)))
+                    (Pos.mkPos (startLine + 1) startCol)
+                    (Pos.mkPos (endLine + 1) endCol)))
 
     let getOutliningRanges sourceLines tree =
         match tree with
@@ -2108,13 +2108,13 @@ module Outlining =
 module Printf =
     [<NoComparison>]
     type PrintfFunction =
-        { FormatString: Range.range
-          Args: Range.range[] }
+        { FormatString: Range
+          Args: Range[] }
 
     [<NoComparison>]
     type private AppWithArg =
-        { Range: Range.range
-          Arg: Range.range }
+        { Range: Range
+          Arg: Range }
 
     let internal getAll (input: ParsedInput option) : PrintfFunction[] =
         let result = ResizeArray()
@@ -2178,7 +2178,7 @@ module Printf =
             | SynExpr.App (_, _, SynExpr.Ident _, SynExpr.Const (SynConst.String (_, stringRange), _), r) ->
                 match !appStack with
                 | (lastApp :: _) as apps when Range.rangeContainsRange lastApp.Range e.Range ->
-                    let intersectsWithFuncOrString (arg: Range.range) =
+                    let intersectsWithFuncOrString (arg: Range) =
                         Range.rangeContainsRange arg stringRange
                         || arg = stringRange
                         || Range.rangeContainsRange arg r
@@ -2217,12 +2217,12 @@ module Printf =
                     | _ -> ()
 
                 addAppWithArg { Range = e.Range; Arg = e2.Range }
-                if op.idText = (PrettyNaming.CompileOpName "||>")
-                        || op.idText = (PrettyNaming.CompileOpName "|||>") then
+                if op.idText = (SourceCodeServices.PrettyNaming.CompileOpName "||>")
+                        || op.idText = (SourceCodeServices.PrettyNaming.CompileOpName "|||>") then
                     deconstruct e1
                     walkExpr e2
                 else
-                    if op.idText = (PrettyNaming.CompileOpName "|>") then
+                    if op.idText = (SourceCodeServices.PrettyNaming.CompileOpName "|>") then
                         addAppWithArg { Range = e.Range; Arg = e1.Range }
                     walkExpr e2
                     walkExpr e1

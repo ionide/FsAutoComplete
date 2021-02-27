@@ -17,7 +17,10 @@ open System.IO
 open FsToolkit.ErrorHandling
 open FSharp.UMX
 
-module FcsRange = FSharp.Compiler.Range
+module FcsRange = FSharp.Compiler.Text.Range
+type FcsRange = FSharp.Compiler.Text.Range
+module FcsPos = FSharp.Compiler.Text.Pos
+type FcsPos = FSharp.Compiler.Text.Pos
 
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) =
@@ -146,7 +149,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
                         do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
-                        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+                        // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
                         if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
                         if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
                         if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
@@ -241,37 +244,38 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                     diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
                     sendDiagnostics uri
 
-                | NotificationEvent.Lint (file, warnings) ->
-                    let uri = Path.LocalPathToUri file
-                    diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+                // | NotificationEvent.Lint (file, warnings) ->
+                //     let uri = Path.LocalPathToUri file
+                //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
-                    let fs =
-                        warnings |> List.choose (fun w ->
-                            w.Warning.Details.SuggestedFix
-                            |> Option.bind (fun f ->
-                                let f = f.Force()
-                                let range = fcsRangeToLsp w.Warning.Details.Range
-                                f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-                            )
-                        )
+                //     let fs =
+                //         warnings |> List.choose (fun w ->
+                //             w.Warning.Details.SuggestedFix
+                //             |> Option.bind (fun f ->
+                //                 let f = f.Force()
+                //                 let range = fcsRangeToLsp w.Warning.Details.Range
+                //                 f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+                //             )
+                //         )
 
-                    lintFixes.[uri] <- fs
-                    let diags =
-                        warnings |> List.map(fun w ->
-                            // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
-                            // neither the Message or the RelatedInformation structures support markdown.
-                            let range = fcsRangeToLsp w.Warning.Details.Range
-                            { Diagnostic.Range = range
-                              Code = Some w.Code
-                              Severity = Some DiagnosticSeverity.Information
-                              Source = "F# Linter"
-                              Message = w.Warning.Details.Message
-                              RelatedInformation = None
-                              Tags = None }
-                        )
-                        |> List.toArray
-                    diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
-                    sendDiagnostics uri
+                //     lintFixes.[uri] <- fs
+                //     let diags =
+                //         warnings |> List.map(fun w ->
+                //             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
+                //             // neither the Message or the RelatedInformation structures support markdown.
+                //             let range = fcsRangeToLsp w.Warning.Details.Range
+                //             { Diagnostic.Range = range
+                //               Code = Some w.Code
+                //               Severity = Some DiagnosticSeverity.Information
+                //               Source = "F# Linter"
+                //               Message = w.Warning.Details.Message
+                //               RelatedInformation = None
+                //               Tags = None }
+                //         )
+                //         |> List.toArray
+                //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
+                //     sendDiagnostics uri
+
                 | NotificationEvent.Canceled (msg) ->
                     let ntf = {Content = msg}
                     lspClient.NotifyCancelledRequest ntf
@@ -325,7 +329,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         ) |> subscriptions.Add
 
     ///Helper function for handling Position requests using **recent** type check results
-    member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
+    member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath() |> Utils.normalizePath
@@ -358,7 +362,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
     ///Helper function for handling Position requests using **latest** type check results
-    member x.positionHandlerWithLatest<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsRange.pos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
+    member x.positionHandlerWithLatest<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath() |> Utils.normalizePath
@@ -645,7 +649,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
-        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+        // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
         if config.UnusedOpensAnalyzer then Async.Start (commands.CheckUnusedOpens filePath)
         if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath)
         if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
@@ -727,7 +731,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         let code =
                             if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then d.Name
                             elif d.NamespaceToOpen.IsSome then d.Name
-                            else PrettyNaming.QuoteIdentifierIfNeeded d.Name
+                            else FSharpKeywords.QuoteIdentifierIfNeeded d.Name
                         let label =
                             match d.NamespaceToOpen with
                             | Some no -> sprintf "%s (open %s)" d.Name no
@@ -805,65 +809,63 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override x.TextDocumentHover(p: TextDocumentPositionParams) =
         logger.info (Log.setMessage "TextDocumentHover Request: {parms}" >> Log.addContextDestructured "parms" p )
-        p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.ToolTip tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res(tip, signature, footer, typeDoc) ->
-                        let formatCommentStyle =
-                            if config.TooltipMode = "full" then
-                                TipFormatter.FormatCommentStyle.FullEnhanced
-                            else if config.TooltipMode = "summary" then
-                                TipFormatter.FormatCommentStyle.SummaryOnly
-                            else
-                                TipFormatter.FormatCommentStyle.Legacy
+        p
+        |> x.positionHandler (fun p pos tyRes lineStr lines ->
+                match commands.ToolTip tyRes pos lineStr with
+                | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                    LspResult.internalError msg
+                    |> async.Return
+                | CoreResponse.Res(tip, signature, footer, typeDoc) ->
+                    let formatCommentStyle =
+                        if config.TooltipMode = "full" then
+                            TipFormatter.FormatCommentStyle.FullEnhanced
+                        else if config.TooltipMode = "summary" then
+                            TipFormatter.FormatCommentStyle.SummaryOnly
+                        else
+                            TipFormatter.FormatCommentStyle.Legacy
 
-                        match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
-                        | (sigCommentFooter::_)::_ ->
-                            let signature, comment, footer = sigCommentFooter
-                            let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
-                            let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
+                    match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
+                    | (sigCommentFooter::_)::_ ->
+                        let signature, comment, footer = sigCommentFooter
+                        let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
+                        let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
 
-                            let sigContent =
-                                let lines =
-                                    signature.Split '\n'
-                                    |> Array.filter (not << String.IsNullOrWhiteSpace)
-
-                                match lines |> Array.splitAt (lines.Length - 1) with
-                                | (h, [| StartsWith "Full name:" fullName |]) ->
-                                    [| yield fsharpBlock h
-                                       yield MarkedString.String ("*" + fullName + "*") |]
-                                | _ -> [| fsharpBlock lines |]
-
-
-                            let commentContent =
-                                comment
-                                |> MarkedString.String
-
-                            let footerContent =
-                                footer.Split '\n'
+                        let sigContent =
+                            let lines =
+                                signature.Split '\n'
                                 |> Array.filter (not << String.IsNullOrWhiteSpace)
-                                |> Array.map (fun n -> MarkedString.String ("*" + n + "*"))
+
+                            match lines |> Array.splitAt (lines.Length - 1) with
+                            | (h, [| StartsWith "Full name:" fullName |]) ->
+                                [| yield fsharpBlock h
+                                   yield MarkedString.String ("*" + fullName + "*") |]
+                            | _ -> [| fsharpBlock lines |]
 
 
-                            let response =
-                                {
-                                    Contents =
-                                        MarkedStrings
-                                            [|
-                                                yield! sigContent
-                                                yield commentContent
-                                                yield! footerContent
-                                            |]
-                                    Range = None
-                                }
-                            success (Some response)
-                        | _ -> success None
-                return res
-            })
+                        let commentContent =
+                            comment
+                            |> MarkedString.String
+
+                        let footerContent =
+                            footer.Split '\n'
+                            |> Array.filter (not << String.IsNullOrWhiteSpace)
+                            |> Array.map (fun n -> MarkedString.String ("*" + n + "*"))
+
+
+                        let response =
+                            {
+                                Contents =
+                                    MarkedStrings
+                                        [|
+                                            yield! sigContent
+                                            yield commentContent
+                                            yield! footerContent
+                                        |]
+                                Range = None
+                            }
+                        async.Return (success (Some response))
+                    | _ -> async.Return (success None)
+            )
 
     override x.TextDocumentRename(p) =
         logger.info (Log.setMessage "TextDocumentRename Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -987,23 +989,20 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override x.TextDocumentDocumentHighlight(p) =
         logger.info (Log.setMessage "TextDocumentDocumentHighlight Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.SymbolUse tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (symbol, uses) ->
-                        uses
-                        |> Array.map (fun s ->
-                        {
-                            DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
-                            Kind = None
-                        })
-                        |> Some
-                        |> success
-                return res
-            })
+              match commands.SymbolUse tyRes pos lineStr with
+              | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                  async.Return (LspResult.internalError msg)
+              | CoreResponse.Res (symbol, uses) ->
+                  uses
+                  |> Array.map (fun s ->
+                  {
+                      DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
+                      Kind = None
+                  })
+                  |> Some
+                  |> success
+                  |> async.Return
+            )
 
     override x.TextDocumentImplementation(p) =
         logger.info (Log.setMessage "TextDocumentImplementation Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -1162,7 +1161,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         let handler f (arg: CodeLens) =
             async {
-                let pos = FcsRange.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
+                let pos = FcsPos.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
                 let data = arg.Data.Value.ToObject<string[]>()
                 let file = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
                 return!
@@ -1202,18 +1201,19 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         handler (fun p pos tyRes lineStr typ file ->
             async {
                 if typ = "signature" then
-                    let! res = commands.SignatureData tyRes pos lineStr
-                    let res =
-                        match res with
-                        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                            logger.error (Log.setMessage "CodeLensResolve - error on file {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" msg)
-                            let cmd = { Title = ""; Command = None; Arguments = None }
-                            {p with Command = Some cmd} |> success
-                        | CoreResponse.Res (typ, parms, _) ->
-                            let formatted = SigantureData.formatSignature typ parms
-                            let cmd = { Title = formatted; Command = None; Arguments = None }
-                            { p with Command = Some cmd } |> success
-                    return res
+                    match commands.SignatureData tyRes pos lineStr with
+                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                        logger.error (Log.setMessage "CodeLensResolve - error on file {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" msg)
+                        let cmd = { Title = ""; Command = None; Arguments = None }
+                        return
+                          { p with Command = Some cmd }
+                          |> success
+                    | CoreResponse.Res (typ, parms, _) ->
+                        let formatted = SigantureData.formatSignature typ parms
+                        let cmd = { Title = formatted; Command = None; Arguments = None }
+                        return
+                          { p with Command = Some cmd }
+                          |> success
                 else
                     let! res = commands.SymbolUseProject tyRes pos lineStr
                     let res =
@@ -1325,18 +1325,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "FSharpSignature Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.Typesig tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res tip ->
-                        { Content =  CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
-                        |> success
-
-                return res
-            }
+            match commands.Typesig tyRes pos lineStr with
+            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+                LspResult.internalError msg
+            | CoreResponse.Res tip ->
+                { Content =  CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
+                |> success
+            |> async.Return
         )
 
     member x.FSharpSignatureData(p: TextDocumentPositionParams) =
@@ -1344,7 +1339,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         let handler f (arg: TextDocumentPositionParams) =
             async {
-                let pos = FcsRange.mkPos (p.Position.Line) (p.Position.Character + 2)
+                let pos = FcsPos.mkPos (p.Position.Line) (p.Position.Character + 2)
                 let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
                 logger.info (Log.setMessage "FSharpSignatureData - Position request for {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
                 return!
@@ -1373,36 +1368,26 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             }
 
         p |> handler (fun p pos tyRes lineStr ->
-            async {
-                let! res = commands.SignatureData tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (typ, parms, generics) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-                        |> success
-
-                return res
-            }
+          match commands.SignatureData tyRes pos lineStr with
+          | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+              LspResult.internalError msg
+          | CoreResponse.Res (typ, parms, generics) ->
+              { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+              |> success
+          |> async.Return
         )
 
     member x.FSharpDocumentationGenerator(p: TextDocumentPositionParams) =
         logger.info (Log.setMessage "FSharpDocumentationGenerator Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.SignatureData tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (typ, parms, generics) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-                        |> success
-
-                return res
-            }
+          match commands.SignatureData tyRes pos lineStr with
+          | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+              LspResult.internalError msg
+          | CoreResponse.Res (typ, parms, generics) ->
+              { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+              |> success
+          |> async.Return
         )
 
     member __.FSharpLineLense(p) = async {
@@ -1424,18 +1409,13 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "LineLensResolve Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.SignatureData tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res(typ, parms, generics) ->
-                        { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-                        |> success
-
-                return res
-            }
+          match commands.SignatureData tyRes pos lineStr with
+          | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+              LspResult.internalError msg
+          | CoreResponse.Res(typ, parms, generics) ->
+              { Content =  CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+              |> success
+          |> async.Return
         )
 
     member __.FSharpCompilerLocation(p) = async {
@@ -1668,38 +1648,28 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         logger.info (Log.setMessage "FSharpHelp Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.Help tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res(t) ->
-                        { Content =  CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
-                        |> success
-
-                return res
-            }
+          match commands.Help tyRes pos lineStr with
+          | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+              LspResult.internalError msg
+          | CoreResponse.Res(t) ->
+              { Content =  CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+              |> success
+          |> async.Return
         )
+
 
     member x.FSharpDocumentation(p: TextDocumentPositionParams) =
         logger.info (Log.setMessage "FSharpDocumentation Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.FormattedDocumentation tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (tip, xml, signature, footer, cm) ->
-                        { Content =  CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson (tip, xml, signature, footer, cm) }
-                        |> success
-
-                return res
-            }
+          match commands.FormattedDocumentation tyRes pos lineStr with
+          | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+              LspResult.internalError msg
+          | CoreResponse.Res (tip, xml, signature, footer, cm) ->
+              { Content =  CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson (tip, xml, signature, footer, cm) }
+              |> success
+          |> async.Return
         )
-
 
     member x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
         logger.info (Log.setMessage "FSharpDocumentationSymbol Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -1707,18 +1677,16 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         match commands.LastCheckResult with
         | None -> AsyncLspResult.internalError "error"
         | Some tyRes ->
-            async {
-                let! res = commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (xml, assembly, doc, signature, footer, cn) ->
-                        { Content = CommandResponse.formattedDocumentationForSymbol FsAutoComplete.JsonSerializer.writeJson xml assembly doc (signature, footer, cn) }
-                        |> success
+          match commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly with
+          | Ok (CoreResponse.InfoRes msg)
+          | Ok (CoreResponse.ErrorRes msg) ->
+              AsyncLspResult.internalError msg
+          | Ok (CoreResponse.Res (xml, assembly, doc, signature, footer, cn)) ->
+              { Content = CommandResponse.formattedDocumentationForSymbol FsAutoComplete.JsonSerializer.writeJson xml assembly doc (signature, footer, cn) }
+              |> success
+              |> async.Return
+          | Error e -> AsyncLspResult.internalError e
 
-                return res
-            }
 
     member __.FakeTargets(p:FakeTargetsRequest) = async {
         logger.info (Log.setMessage "FakeTargets Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -1782,7 +1750,7 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     }
 
 
-    member private x.handleSemanticTokens(getTokens: Async<CoreResponse<option<(struct(FSharp.Compiler.Range.range * SemanticClassificationType)) array>>>): AsyncLspResult<SemanticTokens option> = asyncResult {
+    member private x.handleSemanticTokens(getTokens: Async<CoreResponse<option<(struct(FcsRange * SemanticClassificationType)) array>>>): AsyncLspResult<SemanticTokens option> = asyncResult {
       match! getTokens |> AsyncResult.ofCoreResponse with
       | None ->
         return! LspResult.internalError "No highlights found"
@@ -1829,26 +1797,18 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
       return res
     }
 
-    member x.FSharpPipelineHints (p: FSharpPipelineHintRequest) = async {
+    member x.FSharpPipelineHints (p: FSharpPipelineHintRequest) =
       logger.info (Log.setMessage "FSharpPipelineHints Request: {parms}" >> Log.addContextDestructured "parms" p )
       let fn = p.FileName |> Utils.normalizePath
-      let res =
-        fn |> x.fileHandler (fun fn tyRes lines ->
-          async {
-            let! res = commands.PipelineHints tyRes
-            let r =
-              match res with
-              | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                LspResult.internalError msg
-              | CoreResponse.Res (res) ->
-                { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
-                |> success
-
-            return r
-          }
-        )
-      return! res
-    }
+      fn |> x.fileHandler (fun fn tyRes lines ->
+          match commands.PipelineHints tyRes with
+          | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+            AsyncLspResult.internalError msg
+          | CoreResponse.Res (res) ->
+            { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+            |> success
+            |> async.Return
+      )
 
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()

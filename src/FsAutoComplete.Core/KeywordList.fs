@@ -6,7 +6,7 @@ open FSharp.Compiler.SourceCodeServices
 module KeywordList =
 
     let keywordDescriptions =
-        FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription
+        FSharpKeywords.KeywordsWithDescription
         |> dict
 
     let keywordTooltips =
@@ -44,7 +44,7 @@ module KeywordList =
         |> Seq.toArray
 
     let allKeywords : string list =
-        FSharp.Compiler.SourceCodeServices.Keywords.KeywordsWithDescription
+        FSharpKeywords.KeywordsWithDescription
         |> List.map fst
 
     let keywordCompletionItems =
