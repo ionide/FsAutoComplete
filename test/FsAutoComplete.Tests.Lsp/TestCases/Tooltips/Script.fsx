@@ -13,3 +13,4 @@ sprintf "asd"
 /// <returns></returns>
 let someFunction () = ()
 let nestedTuples = (1, ((2, 3), 4))
+let nestedStructTuples = 1, struct(2, 3)
