@@ -12,3 +12,4 @@ sprintf "asd"
 /// <param name="a">baz</param>
 /// <returns></returns>
 let someFunction () = ()
+let nestedTuples = (1, ((2, 3), 4))

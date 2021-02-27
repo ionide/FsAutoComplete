@@ -42,7 +42,12 @@ module SignatureFormatter =
             if typ.IsTupleType || typ.IsStructTupleType then
                 let refTupleStr =
                     typ.GenericArguments
-                    |> Seq.map (formatFSharpType context)
+                    |> Seq.map
+                        (fun arg ->
+                            if arg.IsTupleType || arg.IsStructTupleType then
+                                formatFSharpType context arg |> sprintf "(%s)"
+                            else
+                                formatFSharpType context arg)
                     |> String.concat " * "
                 if typ.IsStructTupleType
                 then sprintf "struct(%s)" refTupleStr
