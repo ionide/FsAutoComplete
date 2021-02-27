@@ -895,7 +895,7 @@ let tooltipTests toolsPath =
     )
 
   let verifyDescription line character expectedTooltip =
-    testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
+    testCase (sprintf "description for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
       let server, scriptPath = serverStart.Value
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
