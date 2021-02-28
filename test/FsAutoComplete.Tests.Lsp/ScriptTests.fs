@@ -19,7 +19,7 @@ let scriptPreviewTests toolsPath =
   let serverTest f () = f serverStart.Value
 
   testList "script preview language features" [
-    ptestCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
+    testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
       match waitForParseResultsForFile "Script.fsx" events with
       | Ok () ->
@@ -40,7 +40,7 @@ let scriptEvictionTests toolsPath =
   let serverTest f () = f serverStart.Value
 
   testList "script eviction tests" [
-    ptestCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
+    testCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
       let openScript () = do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
 
       openScript ()
@@ -106,8 +106,6 @@ let dependencyManagerTests toolsPath =
     ))
   ]
 
-
-
 let scriptProjectOptionsCacheTests toolsPath =
   let serverStart () =
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
@@ -135,9 +133,6 @@ let scriptProjectOptionsCacheTests toolsPath =
       Expect.equal opts1 opts2 "Project opts should be eqaul"
     ))
   ]
-
-
-
 
 let scriptGotoTests toolsPath =
   let serverStart = lazy (

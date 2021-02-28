@@ -481,7 +481,7 @@ let renameTest toolsPath =
     f server path pathTest
 
   testSequenced <| testList "Rename Tests" [
-      ptestCase "Rename from usage" (serverTest (fun server path _ ->
+      testCase "Rename from usage" (serverTest (fun server path _ ->
 
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                  Position = { Line = 7; Character = 12}
@@ -501,7 +501,7 @@ let renameTest toolsPath =
             ()
       ))
 
-      ptestCase "Rename from definition" (serverTest (fun server path pathTest ->
+      testCase "Rename from definition" (serverTest (fun server path pathTest ->
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
@@ -1044,7 +1044,7 @@ let signatureHelpTests toolsPath =
   )
 
   testSequenced <| testList "SignatureHelp" [
-    ptestCase "signature help is also shown for overload without parameters" (fun _ ->
+    testCase "signature help is also shown for overload without parameters" (fun _ ->
         let server, testFilePath = serverStart.Value
 
         do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
