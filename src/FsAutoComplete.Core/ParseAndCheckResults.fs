@@ -25,41 +25,50 @@ type ParseAndCheckResults
 
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
-  member __.TryGetMethodOverrides (lines: LineStr[]) (pos: Pos) = async {
-    // Find the number of `,` in the current signature
-    let commas, _, _ =
-      let lineCutoff = pos.Line - 6
-      let rec prevPos (line,col) =
-        match line, col with
-        | 1, 1
-        | _ when line < lineCutoff -> 1, 1
-        | _, 1 ->
-           let prevLine = lines.[line - 2]
-           if prevLine.Length = 0 then prevPos(line-1, 1)
-           else line - 1, prevLine.Length
-        | _    -> line, col - 1
-
-      let rec loop commas depth (line, col) =
-        if (line,col) <= (1,1) then (0, line, col) else
-        let ch = lines.[line - 1].[col - 1]
-        let commas = if depth = 0 && ch = ',' then commas + 1 else commas
-        if (ch = '(' || ch = '{' || ch = '[') && depth > 0 then loop commas (depth - 1) (prevPos (line,col))
-        elif ch = ')' || ch = '}' || ch = ']' then loop commas (depth + 1) (prevPos (line,col))
-        elif ch = '(' || ch = '<' then commas, line, col
-        else loop commas depth (prevPos (line,col))
-      match loop 0 0 (prevPos(pos.Line, pos.Column)) with
-      | _, 1, 1 -> 0, pos.Line, pos.Column
-      | newPos -> newPos
-
+  member x.TryGetMethodOverrides (lines: LineStr[]) (pos: Pos) = async {
     // Get the parameter locations
     let paramLocations = parseResults.FindNoteworthyParamInfoLocations pos
+
     match paramLocations with
     | None ->
-      return ResultOrString.Error "Could not find parameter locations"
+      // if there were no parameter locations, try just the first position
+      let lineText = lines.[pos.Line - 1]
+      let nearestIdent = Lexer.findClosestIdent pos.Column lineText
+      match nearestIdent with
+      | Some (rightCol, names) ->
+        let meth = checkResults.GetMethods(pos.Line, rightCol, lineText, Some (List.ofArray names))
+        return Ok(meth, 0)
+      | None ->
+        return Error "No ident found for pos"
     | Some nwpl ->
       let names = nwpl.LongId
       let lidEnd = nwpl.LongIdEndLocation
-      let meth = checkResults.GetMethods(lidEnd.Line, lidEnd.Column, "", Some names)
+      let meth = checkResults.GetMethods(lidEnd.Line, lidEnd.Column, lines.[lidEnd.Line - 1], Some names)
+      // Find the number of `,` in the current signature
+      let commas =
+        let lineCutoff = pos.Line - 6
+        let rec prevPos (line,col) =
+          match line, col with
+          | 1, 1
+          | _ when line < lineCutoff -> 1, 1
+          | _, 1 ->
+             let prevLine = lines.[line - 2]
+             if prevLine.Length = 0 then prevPos(line-1, 1)
+             else line - 1, prevLine.Length
+          | _    -> line, col - 1
+
+        let rec loop commas depth (line, col) =
+          if (line,col) <= (1,1) then (0, line, col) else
+          let ch = lines.[line - 1].[col - 1]
+          let commas = if depth = 0 && ch = ',' then commas + 1 else commas
+          if (ch = '(' || ch = '{' || ch = '[') && depth > 0 then loop commas (depth - 1) (prevPos (line,col))
+          elif ch = ')' || ch = '}' || ch = ']' then loop commas (depth + 1) (prevPos (line,col))
+          elif ch = '(' || ch = '<' then commas, line, col
+          else loop commas depth (prevPos (line,col))
+
+        match loop 0 0 (prevPos(pos.Line, pos.Column)) with
+        | _, 1, 1 -> 0
+        | commas, _, _ -> commas
       return Ok(meth, commas)
   }
 

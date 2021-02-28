@@ -1039,47 +1039,40 @@ let signatureHelpTests toolsPath =
       () // all good, no parsing/checking errors
     | Core.Result.Error errors ->
       failwithf "Errors while parsing script %s: %A" scriptPath errors
-
+    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
     server, scriptPath
   )
 
+  let getSignatureHelpAt (line, character) file =
+    let sigHelpParams: SignatureHelpParams =
+      { TextDocument = { Uri = Path.FilePathToUri file }
+        Position = { Line = line; Character = character }
+        Context = Some {
+          TriggerKind = SignatureHelpTriggerKind.Invoked
+          TriggerCharacter = None
+          IsRetrigger = false
+          ActiveSignatureHelp = None
+        } }
+    sigHelpParams
+
+  let expectSomeOverloads sigHelpLspRes =
+    let sigHelp : SignatureHelp =
+      sigHelpLspRes
+      |> Flip.Expect.wantOk "Expected success LSP result"
+      |> Flip.Expect.wantSome "Expected some signature help"
+    sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
+
+  let checkOverloadsAt pos name = testCase name (fun _ ->
+    let server, testFilePath = serverStart.Value
+    let p = getSignatureHelpAt pos testFilePath
+    let overloads = server.TextDocumentSignatureHelp p |> Async.RunSynchronously
+    expectSomeOverloads overloads
+  )
+
   testSequenced <| testList "SignatureHelp" [
-    testCase "signature help is also shown for overload without parameters" (fun _ ->
-        let server, testFilePath = serverStart.Value
-
-        do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-
-        let getSignatureHelpAt line character =
-          let sigHelpParams: SignatureHelpParams =
-            { TextDocument = { Uri = Path.FilePathToUri testFilePath }
-              Position = { Line = line; Character = character }
-              Context = Some {
-                TriggerKind = SignatureHelpTriggerKind.Invoked
-                TriggerCharacter = None
-                IsRetrigger = false
-                ActiveSignatureHelp = None
-              } }
-          server.TextDocumentSignatureHelp sigHelpParams
-
-        let expectSomeOverloads sigHelpLspRes =
-          let sigHelp : SignatureHelp =
-            sigHelpLspRes
-            |> Flip.Expect.wantOk "Expected success SLP result"
-            |> Flip.Expect.wantSome "Expected some signature help"
-          sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
-
-        // let __ = new System.IO.MemoryStream(|)
-        let result = getSignatureHelpAt 0 36 |> Async.RunSynchronously
-        result |> expectSomeOverloads
-
-        // let ___ = new System.IO.MemoryStream (|||)
-        for c in 38 .. 40 do
-          let result = getSignatureHelpAt 1 c |> Async.RunSynchronously
-          result |> expectSomeOverloads
-
-        // let _____ = new System.IO.MemoryStream(|4|2|)
-        for c in 39 .. 41 do
-          let result = getSignatureHelpAt 2 c |> Async.RunSynchronously
-          result |> expectSomeOverloads
-      )
+    checkOverloadsAt (0, 36) "Can get overloads of MemoryStream with attached parens"
+    for c in 38..40 do
+      checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c-38} of unattached parens"
+    for c in 39..41 do
+      checkOverloadsAt (2, c) $"Can get overloads at whitespace position {c-39} of attached parens"
   ]
