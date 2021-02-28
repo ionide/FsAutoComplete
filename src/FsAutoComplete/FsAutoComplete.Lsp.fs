@@ -1688,35 +1688,35 @@ type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           | Error e -> AsyncLspResult.internalError e
 
 
-    member __.FakeTargets(p:FakeTargetsRequest) = async {
-        logger.info (Log.setMessage "FakeTargets Request: {parms}" >> Log.addContextDestructured "parms" p )
+    // member __.FakeTargets(p:FakeTargetsRequest) = async {
+    //     logger.info (Log.setMessage "FakeTargets Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-        let! res = commands.FakeTargets (p.FileName |> Utils.normalizePath) (p.FakeContext)
-        let res =
-            match res with
-            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                LspResult.internalError msg
-            | CoreResponse.Res (targets) ->
-                { Content = CommandResponse.fakeTargets FsAutoComplete.JsonSerializer.writeJson targets }
-                |> success
+    //     let! res = commands.FakeTargets (p.FileName |> Utils.normalizePath) (p.FakeContext)
+    //     let res =
+    //         match res with
+    //         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+    //             LspResult.internalError msg
+    //         | CoreResponse.Res (targets) ->
+    //             { Content = CommandResponse.fakeTargets FsAutoComplete.JsonSerializer.writeJson targets }
+    //             |> success
 
-        return res
-    }
+    //     return res
+    // }
 
-    member __.FakeRuntimePath(p) = async {
-        logger.info (Log.setMessage "FakeRuntimePath Request: {parms}" >> Log.addContextDestructured "parms" p )
+    // member __.FakeRuntimePath(p) = async {
+    //     logger.info (Log.setMessage "FakeRuntimePath Request: {parms}" >> Log.addContextDestructured "parms" p )
 
 
-        let! res = commands.FakeRuntime ()
-        let res =
-            match res with
-            | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                LspResult.internalError msg
-            | CoreResponse.Res (runtimePath) ->
-                { Content = CommandResponse.fakeRuntime FsAutoComplete.JsonSerializer.writeJson runtimePath }
-                |> success
-        return res
-    }
+    //     let! res = commands.FakeRuntime ()
+    //     let res =
+    //         match res with
+    //         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+    //             LspResult.internalError msg
+    //         | CoreResponse.Res (runtimePath) ->
+    //             { Content = CommandResponse.fakeRuntime FsAutoComplete.JsonSerializer.writeJson runtimePath }
+    //             |> success
+    //     return res
+    // }
 
     member __.LoadAnalyzers(path) = async {
         logger.info (Log.setMessage "LoadAnalyzers Request: {parms}" >> Log.addContextDestructured "parms" path )
@@ -1836,8 +1836,8 @@ let startCore (commands: Commands) =
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
         |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
         |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
-        |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
-        |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
+        // |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
+        // |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
         |> Map.add "fsproj/moveFileUp" (requestHandling (fun s p -> s.FsProjMoveFileUp(p) ))
         |> Map.add "fsproj/moveFileDown" (requestHandling (fun s p -> s.FsProjMoveFileDown(p) ))
         |> Map.add "fsproj/addFileAbove" (requestHandling (fun s p -> s.FsProjAddFileAbove(p) ))

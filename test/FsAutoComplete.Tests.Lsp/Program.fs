@@ -37,7 +37,7 @@ let tests toolsPath =
     uriTests
     linterTests toolsPath
     formattingTests toolsPath
-    fakeInteropTests toolsPath
+    //fakeInteropTests toolsPath
     analyzerTests toolsPath
   ]
 

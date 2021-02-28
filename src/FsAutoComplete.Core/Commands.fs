@@ -1095,15 +1095,15 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             return [ CoreResponse.InfoRes "quitting..." ]
         }
 
-    member x.FakeTargets file ctx = async {
-        let! targets = FakeSupport.getTargets file ctx
-        return CoreResponse.Res targets
-    }
+    // member x.FakeTargets file ctx = async {
+    //     let! targets = FakeSupport.getTargets file ctx
+    //     return CoreResponse.Res targets
+    // }
 
-    member x.FakeRuntime () = async {
-        let! runtimePath = FakeSupport.getFakeRuntime ()
-        return CoreResponse.Res runtimePath
-    }
+    // member x.FakeRuntime () = async {
+    //     let! runtimePath = FakeSupport.getFakeRuntime ()
+    //     return CoreResponse.Res runtimePath
+    // }
 
     member x.ScopesForFile (file: string<LocalPath>) = asyncResult {
         let! (opts, sourceLines) = state.TryGetFileCheckerOptionsWithLines file

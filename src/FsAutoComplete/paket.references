@@ -7,7 +7,7 @@ System.Configuration.ConfigurationManager
 #FSharpLint.Core
 Ionide.ProjInfo
 Ionide.ProjInfo.ProjectSystem
-Fake.Runtime
+#Fake.Runtime
 Dapper
 Microsoft.Data.Sqlite
 ICSharpCode.Decompiler
