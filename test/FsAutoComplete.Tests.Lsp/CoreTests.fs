@@ -341,18 +341,10 @@ let autocompleteTest toolsPath =
     (server, path)
   )
 
-  let makeAutocompleteTestList (forScriptProject:bool) = [
-    let serverTest =
-      let serverStart =
-        if forScriptProject
-          then scriptProjServerStart
-          else serverStart
-      fun f ->
-        let (server, path) = serverStart.Value
-        f server path
-
-    testCaseAsync "Get Autocomplete module members" (serverTest (fun server path ->
+  let makeAutocompleteTestList (serverConfig: (Lsp.FSharpLspServer * string) Lazy) = [
+    testCaseAsync "Get Autocomplete module members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
@@ -365,10 +357,11 @@ let autocompleteTest toolsPath =
           Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
-      }))
+      })
 
-    testCaseAsync "Get Autocomplete namespace" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
@@ -381,10 +374,11 @@ let autocompleteTest toolsPath =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
-      }))
+      })
 
-    testCaseAsync "Get Autocomplete namespace members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
@@ -397,10 +391,11 @@ let autocompleteTest toolsPath =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
-      }))
+      })
 
-    testCaseAsync "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete module doublebackticked members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
@@ -412,10 +407,11 @@ let autocompleteTest toolsPath =
 
           Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
-      }))
+      })
 
-    testCaseAsync "Autocomplete record members" (serverTest (fun server path ->
+    testCaseAsync "Autocomplete record members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
           Position = { Line = 25; Character = 4 }
@@ -428,10 +424,11 @@ let autocompleteTest toolsPath =
         | Result.Ok (Some res) ->
           Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
-      }))
+      })
 
-    testCaseAsync "Autocomplete class constructor with properties" (serverTest (fun server path ->
+    testCaseAsync "Autocomplete class constructor with properties" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
           Position = { Line = 32; Character = 26 }
@@ -444,13 +441,13 @@ let autocompleteTest toolsPath =
         | Result.Ok (Some res) ->
           Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Bar")) < 2) "Autocomplete contains given symbol"
           Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Baz")) < 2) "Autocomplete contains given symbol"
-      }))
+      })
   ]
 
   testSequenced (
     testList "Autocomplete Tests" [
-      testList "Autocomplete within project files" (makeAutocompleteTestList false)
-      testList "Autocomplete within script files" (makeAutocompleteTestList true)
+      testList "Autocomplete within project files" (makeAutocompleteTestList serverStart)
+      testList "Autocomplete within script files" (makeAutocompleteTestList scriptProjServerStart)
     ]
   )
 
@@ -999,7 +996,7 @@ let highlightingTests toolsPath =
     )
 
   /// this tests the range endpoint by getting highlighting for a range then doing the normal highlighting test
-  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType (server: FsAutoComplete.Lsp.FsharpLspServer Lazy) =
+  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType (server: FsAutoComplete.Lsp.FSharpLspServer Lazy) =
     testCase $"can find token of type {testTokenType} in a subrange from ({startLine}, {startChar})-({endLine}, {endChar})" (fun () ->
       let range: Types.Range =
         { Start = { Line = startLine; Character = startChar}

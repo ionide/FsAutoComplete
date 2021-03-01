@@ -271,7 +271,7 @@ let formattingTests toolsPath =
     let expectedText = File.ReadAllText expectedFile
     { Range = { Start = start; End = ``end`` }; NewText = normalizeLineEndings expectedText }
 
-  let verifyFormatting (server: Lsp.FsharpLspServer, events, rootPath) scenario =
+  let verifyFormatting (server: Lsp.FSharpLspServer, events, rootPath) scenario =
     let sourceFile = Path.Combine(rootPath, sprintf "%s.input.fsx" scenario)
     let expectedFile = Path.Combine(rootPath, sprintf "%s.expected.fsx" scenario)
     let expectedTextEdit = editForWholeFile sourceFile expectedFile

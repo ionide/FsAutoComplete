@@ -67,7 +67,7 @@ let createServer (toolsPath) =
   let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
   FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem <- fs
-  let server = FsharpLspServer(commands, client)
+  let server = FSharpLspServer(commands, client)
   server, event
 
 let defaultConfigDto : FSharpConfigDto =
@@ -286,7 +286,7 @@ let loadDocument path : TextDocumentItem =
     Version = 0
     Text = File.ReadAllText path  }
 
-let parseProject projectFilePath (server: FsharpLspServer) = async {
+let parseProject projectFilePath (server: FSharpLspServer) = async {
   let projectParams: ProjectParms =
     { Project = { Uri = Path.FilePathToUri projectFilePath } }
 
@@ -302,7 +302,7 @@ let waitForWorkspaceFinishedParsing (event : Event<string * obj>) =
 //This is currently used for single tests, hence the naive implementation is working just fine.
 //Revisit if more tests will use this scenario.
 let mutable projectOptsList : FSharp.Compiler.SourceCodeServices.FSharpProjectOptions list = []
-let waitForScriptFilePropjectOptions (server: FsharpLspServer) =
+let waitForScriptFilePropjectOptions (server: FSharpLspServer) =
   server.ScriptFileProjectOptions
   |> Event.add (fun n -> projectOptsList <- n::projectOptsList)
 

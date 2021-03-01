@@ -79,7 +79,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
-type FsharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
+type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     inherit LspServer()
 
     let logger = LogProvider.getLoggerByName "LSP"
@@ -1815,7 +1815,7 @@ let startCore (commands: Commands) =
     use output = Console.OpenStandardOutput()
 
     let requestsHandlings =
-        defaultRequestHandlings<FsharpLspServer> ()
+        defaultRequestHandlings<FSharpLspServer> ()
         |> Map.add "fsharp/signature" (requestHandling (fun s p -> s.FSharpSignature(p) ))
         |> Map.add "fsharp/signatureData" (requestHandling (fun s p -> s.FSharpSignatureData(p) ))
         |> Map.add "fsharp/documentationGenerator" (requestHandling (fun s p -> s.FSharpDocumentationGenerator(p) ))
@@ -1844,7 +1844,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p) ))
         |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p) ))
 
-    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FsharpLspServer(commands, lspClient))
+    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FSharpLspServer(commands, lspClient))
 
 let start (commands: Commands) =
     let logger = LogProvider.getLoggerByName "Startup"

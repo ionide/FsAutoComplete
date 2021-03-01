@@ -35,7 +35,7 @@ let tests toolsPath =
 
     fsdnTest toolsPath
     uriTests
-    linterTests toolsPath
+    // linterTests toolsPath
     formattingTests toolsPath
     //fakeInteropTests toolsPath
     analyzerTests toolsPath
