@@ -1163,17 +1163,16 @@ module Types =
     }
 
     /// Value-object describing what options formatting should use.
-    type FormattingOptions = {
+    type FormattingOptions() =
         /// Size of a tab in spaces.
-        TabSize: int
+        member val TabSize : int = 0 with get, set
 
         /// Prefer spaces over tabs.
-        InsertSpaces: bool
+        member val InsertSpaces: bool = false with get, set
 
         /// Further properties.
         [<JsonExtensionData>]
-        AdditionalData: System.Collections.Generic.IDictionary<string, JToken>
-    }
+        member val AdditionalData: System.Collections.Generic.IDictionary<string, JToken> = new System.Collections.Generic.Dictionary<_,_>() :> _ with get, set
 
     type DocumentFormattingParams = {
         /// The document to format.

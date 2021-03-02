@@ -279,9 +279,7 @@ let formattingTests toolsPath =
     match waitForParseResultsForFile (Path.GetFileName sourceFile) events with
     | Ok () ->
       match server.TextDocumentFormatting { TextDocument = { Uri = Path.FilePathToUri sourceFile }
-                                            Options = { TabSize = 4
-                                                        InsertSpaces = true
-                                                        AdditionalData = dict [] } } |> Async.RunSynchronously with
+                                            Options = FormattingOptions(TabSize = 4, InsertSpaces = true) } |> Async.RunSynchronously with
       | Ok (Some [|edit|]) ->
         let normalized = { edit with NewText = normalizeLineEndings edit.NewText }
         Expect.equal normalized expectedTextEdit "should replace the entire file range with the expected content"
