@@ -341,18 +341,10 @@ let autocompleteTest toolsPath =
     (server, path)
   )
 
-  let makeAutocompleteTestList (forScriptProject:bool) = [
-    let serverTest =
-      let serverStart =
-        if forScriptProject
-          then scriptProjServerStart
-          else serverStart
-      fun f ->
-        let (server, path) = serverStart.Value
-        f server path
-
-    testCaseAsync "Get Autocomplete module members" (serverTest (fun server path ->
+  let makeAutocompleteTestList (serverConfig: (Lsp.FSharpLspServer * string) Lazy) = [
+    testCaseAsync "Get Autocomplete module members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
@@ -365,10 +357,11 @@ let autocompleteTest toolsPath =
           Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
-      }))
+      })
 
-    testCaseAsync "Get Autocomplete namespace" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
@@ -381,10 +374,11 @@ let autocompleteTest toolsPath =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
-      }))
+      })
 
-    testCaseAsync "Get Autocomplete namespace members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete namespace members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
@@ -397,10 +391,11 @@ let autocompleteTest toolsPath =
           // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
-      }))
+      })
 
-    testCaseAsync "Get Autocomplete module doublebackticked members" (serverTest (fun server path ->
+    testCaseAsync "Get Autocomplete module doublebackticked members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
@@ -412,10 +407,11 @@ let autocompleteTest toolsPath =
 
           Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
           Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
-      }))
+      })
 
-    testCaseAsync "Autocomplete record members" (serverTest (fun server path ->
+    testCaseAsync "Autocomplete record members" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
           Position = { Line = 25; Character = 4 }
@@ -428,10 +424,11 @@ let autocompleteTest toolsPath =
         | Result.Ok (Some res) ->
           Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
           Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
-      }))
+      })
 
-    testCaseAsync "Autocomplete class constructor with properties" (serverTest (fun server path ->
+    testCaseAsync "Autocomplete class constructor with properties" (
       async {
+        let server, path = serverConfig.Value
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
           Position = { Line = 32; Character = 26 }
@@ -444,13 +441,13 @@ let autocompleteTest toolsPath =
         | Result.Ok (Some res) ->
           Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Bar")) < 2) "Autocomplete contains given symbol"
           Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Baz")) < 2) "Autocomplete contains given symbol"
-      }))
+      })
   ]
 
   testSequenced (
     testList "Autocomplete Tests" [
-      testList "Autocomplete within project files" (makeAutocompleteTestList false)
-      testList "Autocomplete within script files" (makeAutocompleteTestList true)
+      testList "Autocomplete within project files" (makeAutocompleteTestList serverStart)
+      testList "Autocomplete within script files" (makeAutocompleteTestList scriptProjServerStart)
     ]
   )
 
@@ -481,7 +478,7 @@ let renameTest toolsPath =
     f server path pathTest
 
   testSequenced <| testList "Rename Tests" [
-      ptestCase "Rename from usage" (serverTest (fun server path _ ->
+      testCase "Rename from usage" (serverTest (fun server path _ ->
 
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                  Position = { Line = 7; Character = 12}
@@ -501,7 +498,7 @@ let renameTest toolsPath =
             ()
       ))
 
-      ptestCase "Rename from definition" (serverTest (fun server path pathTest ->
+      testCase "Rename from definition" (serverTest (fun server path pathTest ->
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
@@ -895,7 +892,7 @@ let tooltipTests toolsPath =
     )
 
   let verifyDescription line character expectedTooltip =
-    testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
+    testCase (sprintf "description for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
       let server, scriptPath = serverStart.Value
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
@@ -999,7 +996,7 @@ let highlightingTests toolsPath =
     )
 
   /// this tests the range endpoint by getting highlighting for a range then doing the normal highlighting test
-  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType (server: FsAutoComplete.Lsp.FsharpLspServer Lazy) =
+  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType (server: FsAutoComplete.Lsp.FSharpLspServer Lazy) =
     testCase $"can find token of type {testTokenType} in a subrange from ({startLine}, {startChar})-({endLine}, {endChar})" (fun () ->
       let range: Types.Range =
         { Start = { Line = startLine; Character = startChar}
@@ -1039,47 +1036,40 @@ let signatureHelpTests toolsPath =
       () // all good, no parsing/checking errors
     | Core.Result.Error errors ->
       failwithf "Errors while parsing script %s: %A" scriptPath errors
-
+    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
     server, scriptPath
   )
 
+  let getSignatureHelpAt (line, character) file =
+    let sigHelpParams: SignatureHelpParams =
+      { TextDocument = { Uri = Path.FilePathToUri file }
+        Position = { Line = line; Character = character }
+        Context = Some {
+          TriggerKind = SignatureHelpTriggerKind.Invoked
+          TriggerCharacter = None
+          IsRetrigger = false
+          ActiveSignatureHelp = None
+        } }
+    sigHelpParams
+
+  let expectSomeOverloads sigHelpLspRes =
+    let sigHelp : SignatureHelp =
+      sigHelpLspRes
+      |> Flip.Expect.wantOk "Expected success LSP result"
+      |> Flip.Expect.wantSome "Expected some signature help"
+    sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
+
+  let checkOverloadsAt pos name = testCase name (fun _ ->
+    let server, testFilePath = serverStart.Value
+    let p = getSignatureHelpAt pos testFilePath
+    let overloads = server.TextDocumentSignatureHelp p |> Async.RunSynchronously
+    expectSomeOverloads overloads
+  )
+
   testSequenced <| testList "SignatureHelp" [
-    ptestCase "signature help is also shown for overload without parameters" (fun _ ->
-        let server, testFilePath = serverStart.Value
-
-        do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-
-        let getSignatureHelpAt line character =
-          let sigHelpParams: SignatureHelpParams =
-            { TextDocument = { Uri = Path.FilePathToUri testFilePath }
-              Position = { Line = line; Character = character }
-              Context = Some {
-                TriggerKind = SignatureHelpTriggerKind.Invoked
-                TriggerCharacter = None
-                IsRetrigger = false
-                ActiveSignatureHelp = None
-              } }
-          server.TextDocumentSignatureHelp sigHelpParams
-
-        let expectSomeOverloads sigHelpLspRes =
-          let sigHelp : SignatureHelp =
-            sigHelpLspRes
-            |> Flip.Expect.wantOk "Expected success SLP result"
-            |> Flip.Expect.wantSome "Expected some signature help"
-          sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
-
-        // let __ = new System.IO.MemoryStream(|)
-        let result = getSignatureHelpAt 0 36 |> Async.RunSynchronously
-        result |> expectSomeOverloads
-
-        // let ___ = new System.IO.MemoryStream (|||)
-        for c in 38 .. 40 do
-          let result = getSignatureHelpAt 1 c |> Async.RunSynchronously
-          result |> expectSomeOverloads
-
-        // let _____ = new System.IO.MemoryStream(|4|2|)
-        for c in 39 .. 41 do
-          let result = getSignatureHelpAt 2 c |> Async.RunSynchronously
-          result |> expectSomeOverloads
-      )
+    checkOverloadsAt (0, 36) "Can get overloads of MemoryStream with attached parens"
+    for c in 38..40 do
+      checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c-38} of unattached parens"
+    for c in 39..41 do
+      checkOverloadsAt (2, c) $"Can get overloads at whitespace position {c-39} of attached parens"
   ]

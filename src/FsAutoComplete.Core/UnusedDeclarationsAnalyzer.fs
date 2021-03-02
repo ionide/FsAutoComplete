@@ -22,10 +22,10 @@ module UnusedDeclarationsAnalyzer =
         | :? FSharpActivePatternCase -> false
         | _ -> true
 
-    let getUnusedDeclarationRanges (symbolsUses: FSharpSymbolUse[]) (isScript: bool) =
+    let getUnusedDeclarationRanges (symbolsUses: FSharpSymbolUse seq) (isScript: bool) =
         let definitions =
             symbolsUses
-            |> Array.filter (fun su ->
+            |> Seq.filter (fun su ->
                 su.IsFromDefinition &&
                 su.Symbol.DeclarationLocation.IsSome &&
                 (isScript || su.IsPrivateToFile) &&
@@ -35,19 +35,18 @@ module UnusedDeclarationsAnalyzer =
         let usages =
             let usages =
                 symbolsUses
-                |> Array.filter (fun su -> not su.IsFromDefinition)
-                |> Array.choose (fun su -> su.Symbol.DeclarationLocation)
+                |> Seq.choose (fun su -> if not su.IsFromDefinition then su.Symbol.DeclarationLocation else None)
             HashSet(usages)
 
         let unusedRanges =
             definitions
-            |> Array.map (fun defSu -> defSu, usages.Contains defSu.Symbol.DeclarationLocation.Value)
-            |> Array.groupBy (fun (defSu, _) -> defSu.RangeAlternate)
-            |> Array.filter (fun (_, defSus) -> defSus |> Array.forall (fun (_, isUsed) -> not isUsed))
-            |> Array.choose (fun (range, defSus) ->
+            |> Seq.map (fun defSu -> defSu, usages.Contains defSu.Symbol.DeclarationLocation.Value)
+            |> Seq.groupBy (fun (defSu, _) -> defSu.RangeAlternate)
+            |> Seq.filter (fun (_, defSus) -> defSus |> Seq.forall (fun (_, isUsed) -> not isUsed))
+            |> Seq.choose (fun (range, defSus) ->
 
                 try
-                    let (symbol, _) = defSus.[0]
+                    let (symbol, _) = Seq.head defSus
                     match symbol.Symbol with
                     | :? FSharpMemberOrFunctionOrValue as func when func.IsMemberThisValue -> Some (range, true)
                     | :? FSharpMemberOrFunctionOrValue as func when func.IsValue -> Some (range, false)

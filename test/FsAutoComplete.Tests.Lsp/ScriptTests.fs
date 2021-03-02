@@ -18,8 +18,8 @@ let scriptPreviewTests toolsPath =
   )
   let serverTest f () = f serverStart.Value
 
-  testList "script preview language features" [
-    ptestCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
+  testList "script features" [
+    testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
       do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
       match waitForParseResultsForFile "Script.fsx" events with
       | Ok () ->
@@ -68,7 +68,7 @@ let scriptEvictionTests toolsPath =
 
 
 let dependencyManagerTests toolsPath =
-  let serverStart =
+  let serverStart = lazy (
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
     let dependencyManagerAssemblyDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "FsAutoComplete.DependencyManager.Dummy", "bin", "Debug", "netstandard2.0")
     let dependencyManagerEnabledConfig =
@@ -77,8 +77,9 @@ let dependencyManagerTests toolsPath =
     let (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig toolsPath
     do waitForWorkspaceFinishedParsing events
     server, events, workingDir
+  )
 
-  let serverTest f = fun () -> f serverStart
+  let serverTest f = fun () -> f serverStart.Value
 
   testList "dependencyManager integrations" [
     testCase "can typecheck script that depends on #r dummy dependency manager" (serverTest (fun (server, events, workingDir) ->
@@ -101,12 +102,10 @@ let dependencyManagerTests toolsPath =
         failwith "Expected to fail typechecking a script with a dependency manager that's missing"
       | Core.Result.Error e ->
         match e with
-        | [| { Code = Some "3216" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
+        | [| { Code = Some "3400" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
         | e -> failwithf "Unexpected error during typechecking: %A" e
     ))
   ]
-
-
 
 let scriptProjectOptionsCacheTests toolsPath =
   let serverStart () =
@@ -135,9 +134,6 @@ let scriptProjectOptionsCacheTests toolsPath =
       Expect.equal opts1 opts2 "Project opts should be eqaul"
     ))
   ]
-
-
-
 
 let scriptGotoTests toolsPath =
   let serverStart = lazy (

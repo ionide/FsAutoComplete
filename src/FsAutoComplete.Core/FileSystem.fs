@@ -1,6 +1,6 @@
 namespace FsAutoComplete
 
-open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.SourceCodeServices
 open System
 open FsAutoComplete.Logging
 open FSharp.UMX

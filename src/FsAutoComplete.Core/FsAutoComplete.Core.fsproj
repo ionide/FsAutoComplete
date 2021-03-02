@@ -26,7 +26,7 @@
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="Decompiler.fs" />
     <Compile Include="Sourcelink.fs" />
-    <Compile Include="FakeSupport.fs" />
+    <!-- <Compile Include="FakeSupport.fs" /> -->
     <Compile Include="InteractiveDirectives.fs" />
     <Compile Include="ParseAndCheckResults.fs" />
     <Compile Include="CompilerServiceInterface.fs" />

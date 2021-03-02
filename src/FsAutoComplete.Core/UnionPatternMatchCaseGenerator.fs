@@ -4,15 +4,14 @@ module FsAutoComplete.UnionPatternMatchCaseGenerator
 open System
 open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.SyntaxTreeOps
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.CodeGenerationUtils
 
 [<NoEquality; NoComparison>]
 type PatternMatchExpr = {
     /// Range of 'match x with' or 'function'
-    MatchWithOrFunctionRange: range
+    MatchWithOrFunctionRange: Range
     /// The whole pattern match expression
     Expr: SynExpr
     Clauses: SynMatchClause list
@@ -20,7 +19,7 @@ type PatternMatchExpr = {
 
 [<NoComparison>]
 type UnionMatchCasesInsertionParams = {
-    InsertionPos: pos
+    InsertionPos: Pos
     IndentColumn: int
 }
 
@@ -33,7 +32,7 @@ type private Context = {
     Qualifier: string option
 }
 
-let private clauseIsCandidateForCodeGen (cursorPos: pos) (clause: SynMatchClause) =
+let private clauseIsCandidateForCodeGen (cursorPos: Pos) (clause: SynMatchClause) =
     let rec patIsCandidate (pat: SynPat) =
         match pat with
         | SynPat.Paren(innerPat, _)
@@ -53,7 +52,7 @@ let private clauseIsCandidateForCodeGen (cursorPos: pos) (clause: SynMatchClause
             when ident.idText = "op_ColonColon" -> false
         | SynPat.LongIdent(_, _, _, ConstructorPats nestedPats, _, r) ->
             // The cursor should not be in the nested patterns
-            rangeContainsPos r cursorPos && List.forall (not << patIsCandidate) nestedPats
+            Range.rangeContainsPos r cursorPos && List.forall (not << patIsCandidate) nestedPats
         | SynPat.Tuple _ -> false
         | SynPat.ArrayOrList _
         | SynPat.Record _
@@ -67,15 +66,15 @@ let private clauseIsCandidateForCodeGen (cursorPos: pos) (clause: SynMatchClause
     match clause with
     | Clause(pat, _, _, _, _) -> patIsCandidate pat
 
-let private posIsInLhsOfClause (pos: pos) (clause: SynMatchClause) =
+let private posIsInLhsOfClause (pos: Pos) (clause: SynMatchClause) =
     match clause with
-    | Clause(_, None, _, patternRange, _) -> rangeContainsPos patternRange pos
+    | Clause(_, None, _, patternRange, _) -> Range.rangeContainsPos patternRange pos
     | Clause(_, Some guardExpr, _, patternRange, _) ->
-        rangeContainsPos (unionRanges guardExpr.Range patternRange) pos
+        Range.rangeContainsPos (Range.unionRanges guardExpr.Range patternRange) pos
 
-let private tryFindPatternMatchExprInParsedInput (pos: pos) (parsedInput: ParsedInput) =
+let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: ParsedInput) =
     let inline getIfPosInRange range f =
-        if rangeContainsPos range pos then f()
+        if Range.rangeContainsPos range pos then f()
         else None
 
     let rec walkImplFileInput (ParsedImplFileInput(_name, _isScript, _fileName, _scopedPragmas, _hashDirectives, moduleOrNamespaceList, _)) =
@@ -435,14 +434,14 @@ let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entit
         |> Set.count
     caseCount > 0 && writtenCaseCount < caseCount
 
-let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: pos) (document : Document) =
+let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
         let! input = parseResults.ParseTree
         return! tryFindPatternMatchExprInParsedInput pos input
     }
 
-let tryFindBarTokenLPosInRange (codeGenService: CodeGenerationService) (range: range) (document: Document) =
+let tryFindBarTokenLPosInRange (codeGenService: CodeGenerationService) (range: Range) (document: Document) =
     tryFindTokenLPosInRange codeGenService range document (fun tokenInfo -> tokenInfo.TokenName = "BAR")
 
 let tryFindInsertionParams (codeGenService: CodeGenerationService) document (patMatchExpr: PatternMatchExpr) =
@@ -517,13 +516,13 @@ let tryFindInsertionParams (codeGenService: CodeGenerationService) document (pat
             if patMatchExpr.MatchWithOrFunctionRange.EndLine
                = firstClauseOnLastLine.Range.StartLine
             then
-                unionRanges
+                Range.unionRanges
                     patMatchExpr.MatchWithOrFunctionRange.EndRange
                     firstClauseOnLastLine.Range.StartRange
             else
                 let clause = firstClauseOnLastLine
-                let start = mkPos clause.Range.StartLine 0
-                mkFileIndexRange (clause.Range.FileIndex) start clause.Range.Start
+                let start = Pos.mkPos clause.Range.StartLine 0
+                Range.mkRange clause.Range.FileName start clause.Range.Start
 
         let barTokenOpt =
             tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
@@ -553,9 +552,9 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
                 unitRange.StartLine <> unitRange.EndLine ||
                 unitRange.StartColumn <> unitRange.EndColumn
 
-            rhsExprExists && not (synExprContainsError expr.Expr)
+            rhsExprExists && not (FsAutoComplete.FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 
-        | _ -> not (synExprContainsError expr.Expr)
+        | _ -> not (FsAutoComplete.FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 
 
 let tryFindCaseInsertionParamsAtPos (codeGenService: CodeGenerationService) pos document =

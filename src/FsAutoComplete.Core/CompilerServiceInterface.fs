@@ -6,7 +6,6 @@ open Utils
 open FSharp.Compiler.Text
 open FsAutoComplete.Logging
 open Ionide.ProjInfo.ProjectSystem
-open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.UMX
 
 type Version = int
@@ -202,24 +201,26 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     | errs ->
       logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved {opts} with {errors}" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
 
-    try
-      match FakeSupport.detectFakeScript file with
-      | None ->
-        logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContextDestructured "file" file)
-        return projOptions
-      | Some (detectionInfo) ->
-        logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
-        try
-          let otherOpts = FakeSupport.getProjectOptions detectionInfo
-          logQueueLength optsLogger (Log.setMessage "Discovered FAKE options {otherOpts} " >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
-          return { projOptions with OtherOptions = otherOpts }
-        with e ->
-          logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)
-          return projOptions
-    with
-    | e ->
-      logQueueLength optsLogger (Log.setMessage "error while checking if {file} is a FAKE script" >> Log.addContextDestructured "file" file >> Log.addExn e)
-      return projOptions
+    return projOptions
+
+    // try
+    //   match FakeSupport.detectFakeScript file with
+    //   | None ->
+    //     logQueueLength optsLogger (Log.setMessage "{file} is not a FAKE script" >> Log.addContextDestructured "file" file)
+    //     return projOptions
+    //   | Some (detectionInfo) ->
+    //     logQueueLength optsLogger (Log.setMessage "{file} is a FAKE script" >> Log.addContextDestructured "file" file)
+    //     try
+    //       let otherOpts = FakeSupport.getProjectOptions detectionInfo
+    //       logQueueLength optsLogger (Log.setMessage "Discovered FAKE options {otherOpts} " >> Log.addContextDestructured "file" file >> Log.addContextDestructured "otherOpts" otherOpts)
+    //       return { projOptions with OtherOptions = otherOpts }
+    //     with e ->
+    //       logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Error in FAKE script support" >> Log.addExn e)
+    //       return projOptions
+    // with
+    // | e ->
+    //   logQueueLength optsLogger (Log.setMessage "error while checking if {file} is a FAKE script" >> Log.addContextDestructured "file" file >> Log.addExn e)
+    //   return projOptions
   }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn: string<LocalPath>, opt) =
@@ -280,7 +281,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
           |> Seq.map (fun (opts) -> async {
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
-              return! res.GetUsesOfSymbol symbol
+              return res.GetUsesOfSymbol symbol
             })
           |> Async.Parallel
         return res |> Array.concat }

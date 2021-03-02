@@ -11,6 +11,6 @@ sprintf "asd"
 /// <param name="b">bar</param>
 /// <param name="a">baz</param>
 /// <returns></returns>
-let someFunction () = ()
+let someFunction (a) (b) (c) = ()
 let nestedTuples = (1, ((2, 3), 4))
 let nestedStructTuples = 1, struct(2, 3)

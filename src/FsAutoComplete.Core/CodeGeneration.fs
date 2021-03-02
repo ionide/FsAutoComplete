@@ -5,7 +5,7 @@ open System
 open System.IO
 open System.CodeDom.Compiler
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 
 [<Measure>] type Line0
@@ -22,7 +22,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             with
             | _ -> None
 
-    member x.GetSymbolAtPosition(fileName, pos) =
+    member x.GetSymbolAtPosition(fileName, pos: Pos) =
         match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
         | ResultOrString.Error _ -> None
         | ResultOrString.Ok (opts, lines, line) ->
@@ -31,7 +31,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             with
             | _ -> None
 
-    member x.GetSymbolAndUseAtPositionOfKind(fileName, pos, kind) =
+    member x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Pos, kind) =
         asyncMaybe {
             let! symbol = x.GetSymbolAtPosition(fileName,pos)
             if symbol.Kind = kind then
@@ -106,7 +106,7 @@ module CodeGenerationUtils =
           getNonAbbreviatedType typ.AbbreviatedType
       else typ
 
-    let tryFindTokenLPosInRange (codeGenService: CodeGenerationService) (range: range) (document: Document) (predicate: FSharpTokenInfo -> bool) =
+    let tryFindTokenLPosInRange (codeGenService: CodeGenerationService) (range: Range) (document: Document) (predicate: FSharpTokenInfo -> bool) =
         // Normalize range
         // NOTE: FCS compiler sometimes returns an invalid range. In particular, the
         // range end limit can exceed the end limit of the document
@@ -114,9 +114,9 @@ module CodeGenerationUtils =
             if range.EndLine > document.LineCount then
                 let newEndLine = document.LineCount
                 let newEndColumn = document.GetLineText1(document.LineCount).Length
-                let newEndPos = mkPos newEndLine newEndColumn
+                let newEndPos = Pos.mkPos newEndLine newEndColumn
 
-                mkFileIndexRange (range.FileIndex) range.Start newEndPos
+                Range.mkRange range.FileName range.Start newEndPos
             else
                 range
 
@@ -150,7 +150,7 @@ module CodeGenerationUtils =
     /// Represent environment where a captured identifier should be renamed
     type NamesWithIndices = Map<string, Set<int>>
 
-    let keywordSet = set KeywordNames
+    let keywordSet = set FSharpKeywords.KeywordNames
 
     let getTypeParameterName (typar: FSharpGenericParameter) =
       (if typar.IsSolveAtCompileTime then "^" else "'") + typar.Name
@@ -504,7 +504,7 @@ module CodeGenerationUtils =
     let getInterfaceMembers (e: FSharpEntity) =
         seq {
             for (iface, instantiations) in getInterfaces e do
-                yield! iface.TryGetMembersFunctionsAndValues
+                yield! iface.TryGetMembersFunctionsAndValues()
                        |> Seq.choose (fun m ->
                            if isSyntheticMember m then
                                None
@@ -520,7 +520,7 @@ module CodeGenerationUtils =
       && not m.IsOverrideOrExplicitInterfaceImplementation
 
     let isAbstractClass (e: FSharpEntity) =
-      e.TryGetMembersFunctionsAndValues
+      e.TryGetMembersFunctionsAndValues()
       |> Seq.exists isAbstractNonVirtualMember
 
     let getAbstractNonVirtualMembers (e: FSharpEntity) =
@@ -620,7 +620,7 @@ module CodeGenerationUtils =
             res <- res + powerNumber
         res
 
-    let findLastPositionOfWithKeyword (tokens: FSharpTokenInfo list) (entity: FSharpEntity) (pos: pos) (entityAdvancer) =
+    let findLastPositionOfWithKeyword (tokens: FSharpTokenInfo list) (entity: FSharpEntity) (pos: Pos) (entityAdvancer) =
       let endPosOfWidth =
           tokens
           |> List.tryPick (fun (t: FSharpTokenInfo) ->
@@ -808,7 +808,7 @@ module CodeGenerationUtils =
         | SynType.Tuple(_, ts, _) ->
             Some (ts |> Seq.choose (snd >> (|TypeIdent|_|)) |> String.concat " * ")
         | SynType.Array(dimension, TypeIdent typeName, _) ->
-            Some (sprintf "%s [%s]" typeName (new String(',', dimension-1)))
+            Some (sprintf "%s [%s]" typeName (String(',', dimension-1)))
         | SynType.MeasurePower(TypeIdent typeName, RationalConst power, _) ->
             Some (sprintf "%s^%s" typeName power)
         | SynType.MeasureDivide(TypeIdent numerator, TypeIdent denominator, _) ->

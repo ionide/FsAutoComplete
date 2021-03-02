@@ -3,7 +3,7 @@
 open System
 open FSharp.Analyzers.SDK
 open FSharp.Compiler.SourceCodeServices
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FsAutoComplete.Logging
 
 let rec visitExpr memberCallHandler (e:FSharpExpr) =
@@ -131,8 +131,8 @@ let inline (==>) x y = x, box y
 let optionValueAnalyzer : Analyzer =
   fun ctx ->
     info "analyzing {file} for uses of Option.Value" [ "file" ==> ctx.FileName ]
-    let state = ResizeArray<range>()
-    let handler (range: range) (m: FSharpMemberOrFunctionOrValue) =
+    let state = ResizeArray<Range>()
+    let handler (range: Range) (m: FSharpMemberOrFunctionOrValue) =
       let rangeString = sprintf "(%d,%d)-(%d,%d)" range.Start.Line range.Start.Column range.End.Line range.End.Column
       let name = String.Join(".", m.DeclaringEntity.Value.FullName, m.DisplayName)
       info "checking value at {range} with name {name}" [ "range" ==> rangeString

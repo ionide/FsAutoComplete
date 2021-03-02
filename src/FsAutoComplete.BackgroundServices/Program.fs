@@ -52,17 +52,19 @@ with
 
 module Helpers =
     let fcsSeverityToDiagnostic = function
-        | FSharpErrorSeverity.Error -> DiagnosticSeverity.Error
-        | FSharpErrorSeverity.Warning -> DiagnosticSeverity.Warning
+        | FSharpDiagnosticSeverity.Error -> Some DiagnosticSeverity.Error
+        | FSharpDiagnosticSeverity.Warning -> Some DiagnosticSeverity.Warning
+        | FSharpDiagnosticSeverity.Hidden -> None
+        | FSharpDiagnosticSeverity.Info -> Some DiagnosticSeverity.Information
 
-    let fcsErrorToDiagnostic (error: FSharpErrorInfo) =
+    let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
         {
             Range =
                 {
                     Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
                     End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
                 }
-            Severity = Some (fcsSeverityToDiagnostic error.Severity)
+            Severity = fcsSeverityToDiagnostic error.Severity
             Source = "F# Compiler"
             Message = error.Message
             Code = Some (string error.ErrorNumber)
@@ -194,7 +196,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     do! client.Notify {Value = sprintf "Typechecking aborted %s" (UMX.untag file) }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
-                    let! symbols = res.GetAllUsesOfAllSymbolsInFile()
+                    let symbols = res.GetAllUsesOfAllSymbolsInFile()
                     SymbolCache.updateSymbols file symbols
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
@@ -212,7 +214,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     do! client.Notify {Value = sprintf "Typechecking aborted %s" (UMX.untag file) }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
-                    let! symbols = res.GetAllUsesOfAllSymbolsInFile()
+                    let symbols = res.GetAllUsesOfAllSymbolsInFile()
                     SymbolCache.updateSymbols file symbols
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
@@ -383,9 +385,9 @@ module Program =
     let main argv =
 
         let pid = Int32.Parse argv.[0]
-        let originalFs = AbstractIL.Internal.Library.Shim.FileSystem
-        let fs = FileSystem(originalFs, state.Files.TryFind)
-        AbstractIL.Internal.Library.Shim.FileSystem <- fs
+        let originalFs = FileSystemAutoOpens.FileSystem
+        let fs = FileSystem(originalFs, state.Files.TryFind) :> IFileSystem
+        FileSystemAutoOpens.FileSystem <- fs
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
         SymbolCache.initCache (Environment.CurrentDirectory)
         let _ = startCore()

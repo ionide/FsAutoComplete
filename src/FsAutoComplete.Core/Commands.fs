@@ -9,7 +9,7 @@ open FsAutoComplete.RecordStubGenerator
 open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open Ionide.ProjInfo
 open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
@@ -44,11 +44,11 @@ module AsyncResult =
 
 [<RequireQualifiedAccess>]
 type NotificationEvent=
-    | ParseError of errors: FSharpErrorInfo[] * file: string<LocalPath>
+    | ParseError of errors: FSharpDiagnostic[] * file: string<LocalPath>
     | Workspace of ProjectSystem.ProjectResponse
     | AnalyzerMessage of  messages: FSharp.Analyzers.SDK.Message [] * file: string<LocalPath>
-    | UnusedOpens of file: string<LocalPath> * opens: range[]
-    | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
+    | UnusedOpens of file: string<LocalPath> * opens: Range[]
+    // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
     | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange []
     | Canceled of errorMessage: string
@@ -64,7 +64,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
-    let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
+    // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
 
@@ -77,12 +77,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
     // given an enveloping range and the sub-ranges it overlaps, split out the enveloping range into a
     // set of range segments that are non-overlapping with the children
-    let segmentRanges (parentRange: range) (childRanges: range []): range [] =
-        let firstSegment = mkRange parentRange.FileName parentRange.Start childRanges.[0].Start // from start of parent to start of first child
-        let lastSegment = mkRange parentRange.FileName (Array.last childRanges).End parentRange.End // from end of last child to end of parent
+    let segmentRanges (parentRange: Range) (childRanges: Range []): Range [] =
+        let firstSegment = Range.mkRange parentRange.FileName parentRange.Start childRanges.[0].Start // from start of parent to start of first child
+        let lastSegment = Range.mkRange parentRange.FileName (Array.last childRanges).End parentRange.End // from end of last child to end of parent
         // now we can go pairwise, emitting a new range for the area between each end and start
         let innerSegments =
-            childRanges |> Array.pairwise |> Array.map (fun (left, right) -> mkRange parentRange.FileName left.End right.Start)
+            childRanges |> Array.pairwise |> Array.map (fun (left, right) -> Range.mkRange parentRange.FileName left.End right.Start)
 
         [|
             firstSegment
@@ -94,7 +94,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     // as of 3 February 2021 there are no good examples of this that I've found, so we still do this
     /// because LSP doesn't know how to handle overlapping/nested ranges, we have to dedupe them here
     let scrubRanges (highlights: struct(range * _) array): struct(range * _) array =
-        let startToken = fun (struct(m: range, _)) -> m.Start.Line, m.Start.Column
+        let startToken = fun (struct(m: Range, _)) -> m.Start.Line, m.Start.Column
         highlights
         |> Array.sortBy startToken
         |> Array.groupBy (fun (struct(r, _)) -> r.StartLine)
@@ -105,7 +105,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
                 let children =
                     highlights
                     |> Array.except [p]
-                    |> Array.choose (fun (struct(childRange, _)) -> if rangeContainsRange parentRange childRange then Some childRange else None)
+                    |> Array.choose (fun (struct(childRange, _)) -> if Range.rangeContainsRange parentRange childRange then Some childRange else None)
                 match children with
                 | [||] -> [| p |]
                 | children ->
@@ -286,7 +286,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
           GetLineText1 = fun i -> lines.[i - 1]
       }
 
-    let calculateNamespaceInsert (decl : FSharpDeclarationListItem) (pos : pos) getLine: CompletionNamespaceInsert option =
+    let calculateNamespaceInsert (decl : FSharpDeclarationListItem) (pos : Pos) getLine: CompletionNamespaceInsert option =
         let getLine i =
             try
                 getLine i
@@ -300,7 +300,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             |> Option.map (fun ic -> { Namespace = n; Position = ic.Pos; Scope = ic.ScopeKind })
         )
 
-    let fillHelpTextInTheBackground decls (pos : pos) fn getLine =
+    let fillHelpTextInTheBackground decls (pos : Pos) fn getLine =
         let declName (d: FSharpDeclarationListItem) = d.Name
 
         //Fill list of declarations synchronously to know which declarations should be in cache.
@@ -656,14 +656,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             | Some source ->
                 let getSource = fun i -> source.[i - 1]
 
-                let! tip = async {
+                let tip =
                   match state.HelpText.TryFind sym with
-                  | Some tip -> return tip
+                  | Some tip -> tip
                   | None ->
-                    let! tip = decl.DescriptionTextAsync
+                    let tip = decl.DescriptionText
                     state.HelpText.[sym] <- tip
-                    return tip
-                }
+                    tip
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
@@ -676,7 +675,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
-    member x.Completion (tyRes : ParseAndCheckResults) (pos: pos) lineStr (lines : string[]) (fileName : string<LocalPath>) filter includeKeywords includeExternal = async {
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr (lines : string[]) (fileName : string<LocalPath>) filter includeKeywords includeExternal = async {
         let getAllSymbols () =
             if includeExternal then tyRes.GetAllEntities true else []
         let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
@@ -708,37 +707,37 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         | None -> return CoreResponse.ErrorRes "Timed out while fetching completions"
     }
 
-    member x.ToolTip (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.ToolTip (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetToolTipEnhanced pos lineStr
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.FormattedDocumentation (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.FormattedDocumentation (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetFormattedDocumentation pos lineStr
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
     member x.FormattedDocumentationForSymbol (tyRes : ParseAndCheckResults) (xmlSig: string) (assembly: string) =
         tyRes.TryGetFormattedDocumentationForSymbol xmlSig assembly
-        |> x.MapResult CoreResponse.Res
+        |> Result.map CoreResponse.Res
 
-    member x.Typesig (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.Typesig (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetToolTip pos lineStr
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.SymbolUse (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetSymbolUseAndUsages pos lineStr
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.SignatureData (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.SignatureData (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetSignatureData pos lineStr
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.Help (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.Help (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryGetF1Help pos lineStr
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+        |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.SymbolUseProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
       async {
-          match! tyRes.TryGetSymbolUseAndUsages pos lineStr with
+          match tyRes.TryGetSymbolUseAndUsages pos lineStr with
           | Ok (sym, usages) ->
             let fsym = sym.Symbol
             if fsym.IsPrivateToFile then
@@ -766,12 +765,12 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       }
       |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
-    member x.SymbolImplementationProject (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.SymbolImplementationProject (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         let filterSymbols symbols =
             symbols
             |> Array.where (fun (su: FSharpSymbolUse) -> su.IsFromDispatchSlotImplementation || (su.IsFromType && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.RangeAlternate )) )
         async {
-          match! tyRes.TryGetSymbolUseAndUsages pos lineStr with
+          match tyRes.TryGetSymbolUseAndUsages pos lineStr with
           | Ok (sym, usages) ->
             let fsym = sym.Symbol
             if fsym.IsPrivateToFile then
@@ -800,48 +799,48 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         }
         |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
-    member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.FindDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryFindDeclaration pos lineStr
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
         |> x.AsCancellable tyRes.FileName|> AsyncResult.recoverCancellation
 
-    member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: pos) lineStr =
+    member x.FindTypeDeclaration (tyRes : ParseAndCheckResults) (pos: Pos) lineStr =
         tyRes.TryFindTypeDeclaration pos lineStr
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
         |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
-    member x.Methods (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) =
+    member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
         tyRes.TryGetMethodOverrides lines pos
         |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-    member x.Lint (file: string<LocalPath>): Async<unit> =
-        asyncResult {
-          let! (options, source) = state.TryGetFileCheckerOptionsWithSource file
-          match checker.TryGetRecentCheckResultsForFile(file, options) with
-          | None -> return ()
-          | Some tyRes ->
-            match tyRes.GetAST with
-            | None -> return ()
-            | Some tree ->
-              try
-                let! ctok = Async.CancellationToken
-                let! enrichedWarnings = Lint.lintWithConfiguration linterConfiguration ctok tree source tyRes.GetCheckResults
-                let res = CoreResponse.Res (file, enrichedWarnings)
-                notify.Trigger (NotificationEvent.Lint (file, enrichedWarnings))
-                return ()
-              with ex ->
-                commandsLogger.error (Log.setMessage "error while linting {file}: {message}"
-                                      >> Log.addContextDestructured "file" file
-                                      >> Log.addContextDestructured "message" ex.Message
-                                      >> Log.addExn ex)
-                return ()
-        }
-        |> Async.Ignore
-        |> x.AsCancellable file
+    // member x.Lint (file: string<LocalPath>): Async<unit> =
+    //     asyncResult {
+    //       let! (options, source) = state.TryGetFileCheckerOptionsWithSource file
+    //       match checker.TryGetRecentCheckResultsForFile(file, options) with
+    //       | None -> return ()
+    //       | Some tyRes ->
+    //         match tyRes.GetAST with
+    //         | None -> return ()
+    //         | Some tree ->
+    //           try
+    //             let! ctok = Async.CancellationToken
+    //             let! enrichedWarnings = Lint.lintWithConfiguration linterConfiguration ctok tree source tyRes.GetCheckResults
+    //             let res = CoreResponse.Res (file, enrichedWarnings)
+    //             notify.Trigger (NotificationEvent.Lint (file, enrichedWarnings))
+    //             return ()
+    //           with ex ->
+    //             commandsLogger.error (Log.setMessage "error while linting {file}: {message}"
+    //                                   >> Log.addContextDestructured "file" file
+    //                                   >> Log.addContextDestructured "message" ex.Message
+    //                                   >> Log.addExn ex)
+    //             return ()
+    //     }
+    //     |> Async.Ignore
+    //     |> x.AsCancellable file
 
-        |> AsyncResult.recoverCancellationIgnore
+    //     |> AsyncResult.recoverCancellationIgnore
 
-    member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: pos) (line: LineStr) =
+    member x.GetNamespaceSuggestions (tyRes : ParseAndCheckResults) (pos: Pos) (line: LineStr) =
         async {
             match tyRes.GetAST with
             | None -> return CoreResponse.InfoRes "Parsed Tree not avaliable"
@@ -920,7 +919,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
+    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =
         async {
             let codeGenService = CodeGenerationService(checker, state)
             let doc = {
@@ -938,7 +937,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
             if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
                 let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
-                let pos = mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
+                let pos = Pos.mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
 
                 return CoreResponse.Res (result, pos)
             else
@@ -947,7 +946,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (line: LineStr) =
+    member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =
         async {
             let doc = docForText lines tyRes
             let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
@@ -956,7 +955,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             | Some(recordEpr, (Some recordDefinition), insertionPos) ->
                 if shouldGenerateRecordStub recordEpr recordDefinition then
                     let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
-                    let pos = mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
+                    let pos = Pos.mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
                     return CoreResponse.Res (result, pos)
                 else
                     return CoreResponse.InfoRes "Record at position not found"
@@ -965,7 +964,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: pos) (lines: LineStr[]) (lineStr: LineStr) =
+    member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (lineStr: LineStr) =
         async {
             let doc = docForText lines tyRes
             let! res = tryFindInterfaceExprInBufferAtPos codeGenServer pos doc
@@ -981,7 +980,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: range) (lines: LineStr[]) (lineStr: LineStr) =
+    member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: Range) (lines: LineStr[]) (lineStr: LineStr) =
         asyncResult {
             let doc = docForText lines tyRes
             let! abstractClass =
@@ -1024,8 +1023,8 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
           match tyResOpt with
           | None -> ()
           | Some tyRes ->
-              let! allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
-              let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
+              let allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile ()
+              let unused = UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript |> Seq.toArray
               notify.Trigger (NotificationEvent.UnusedDeclarations (file, unused))
       }
       |> Async.Ignore<Result<unit, _>>
@@ -1039,7 +1038,7 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             | Some tyRes ->
                 let getSourceLine lineNo = source.[lineNo - 1]
                 let! simplified = SimplifyNames.getSimplifiableNames(tyRes.GetCheckResults, getSourceLine)
-                let simplified = Array.ofList simplified
+                let simplified = Array.ofSeq simplified
                 notify.Trigger (NotificationEvent.SimplifyNames (file, simplified))
         }
         |> Async.Ignore<Result<unit, _>>
@@ -1096,15 +1095,15 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
             return [ CoreResponse.InfoRes "quitting..." ]
         }
 
-    member x.FakeTargets file ctx = async {
-        let! targets = FakeSupport.getTargets file ctx
-        return CoreResponse.Res targets
-    }
+    // member x.FakeTargets file ctx = async {
+    //     let! targets = FakeSupport.getTargets file ctx
+    //     return CoreResponse.Res targets
+    // }
 
-    member x.FakeRuntime () = async {
-        let! runtimePath = FakeSupport.getFakeRuntime ()
-        return CoreResponse.Res runtimePath
-    }
+    // member x.FakeRuntime () = async {
+    //     let! runtimePath = FakeSupport.getFakeRuntime ()
+    //     return CoreResponse.Res runtimePath
+    // }
 
     member x.ScopesForFile (file: string<LocalPath>) = asyncResult {
         let! (opts, sourceLines) = state.TryGetFileCheckerOptionsWithLines file
@@ -1134,18 +1133,13 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
               | None ->
                 fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
                 Fantomas.FormatConfig.FormatConfig.Default
-          let! formatted =
-              Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file,
-                                                         Fantomas.SourceOrigin.SourceString source,
-                                                         config,
-                                                         parsingOptions,
-                                                         checker)
+          let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceString source, config, parsingOptions, checker)
           return lines, formatted
       }
       |> AsyncResult.foldResult Some (fun _ -> None)
 
     /// gets the semantic classification ranges for a file, optionally filtered by a given range.
-    member x.GetHighlighting (file: string<LocalPath>, range: range option) =
+    member x.GetHighlighting (file: string<LocalPath>, range: Range option) =
       async {
         let! res = x.TryGetLatestTypeCheckResultsForFile file
         let res =
@@ -1161,12 +1155,11 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
 
     member __.SetWorkspaceRoot (root: string option) =
       workspaceRoot <- root
-      linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
+      // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
     member __.SetLinterConfigRelativePath (relativePath: string option) =
       linterConfigFileRelativePath <- relativePath
-      linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
-
+      // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
     member __.FSharpLiterate (file: string<LocalPath>) =
       async {
@@ -1185,18 +1178,17 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
       }
 
     member __.PipelineHints (tyRes : ParseAndCheckResults) =
-      asyncResult {
+      result {
         let! contents = state.TryGetFileSource tyRes.FileName
-        let getGenerics line (token: FSharpTokenInfo) = async {
+        let getGenerics line (token: FSharpTokenInfo) =
             let lineStr = contents.[line]
-            let! res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
+            let res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
             match res with
             | Ok tip ->
-              return TipFormatter.extractGenerics tip
+              TipFormatter.extractGenerics tip
             | _ ->
               commandsLogger.info (Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}" >> Log.addContextDestructured "token" token >> Log.addContextDestructured "line" lineStr)
-              return []
-        }
+              []
 
         let areTokensCommentOrWhitespace (tokens : FSharpTokenInfo list) =
           tokens |> List.exists (fun token -> token.CharClass <> FSharpTokenCharKind.Comment
@@ -1220,21 +1212,19 @@ type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath) =
           | false, None ->
             currentIndex, false, acc
 
-        let! hints =
+        let hints =
           contents
           |> Array.map (Lexer.tokenizeLine [||])
           |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
           |> Array.fold folder (0, false, [])
-          |> (fun (_, _, third) -> third)
-          |> List.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
-              async {
-                let! gens = getGenerics currentIndex pipeToken
-                let previousNonPipeLine = if lastExpressionLineWasPipe then None else Some lastExpressionLine
-                return currentIndex, previousNonPipeLine, gens
-              })
-          |> Async.Parallel
+          |> (fun (_, _, third) -> third |> Array.ofList)
+          |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
+              let gens = getGenerics currentIndex pipeToken
+              let previousNonPipeLine = if lastExpressionLineWasPipe then None else Some lastExpressionLine
+              currentIndex, previousNonPipeLine, gens
+          )
 
         return CoreResponse.Res hints
       }
-      |> AsyncResult.foldResult id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
+      |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 

@@ -88,7 +88,7 @@ module internal ClassificationUtils =
       | SemanticClassificationType.Plaintext -> "text"
 
 module CommandResponse =
-  open FSharp.Compiler.Range
+  open FSharp.Compiler.Text
 
   type ResponseMsg<'T> =
     {
@@ -199,18 +199,19 @@ module CommandResponse =
   type FSharpErrorInfo =
     {
       FileName: string
-      StartLine:int
-      EndLine:int
-      StartColumn:int
-      EndColumn:int
-      Severity:FSharpErrorSeverity
-      Message:string
-      Subcategory:string
+      StartLine: int
+      EndLine: int
+      StartColumn: int
+      EndColumn: int
+      Severity: FSharpDiagnosticSeverity
+      Message: string
+      Subcategory: string
     }
-    static member IsIgnored(e:FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
+    static member IsIgnored(e:FSharp.Compiler.SourceCodeServices.FSharpDiagnostic) =
         // FST-1027 support in Fake 5
         e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
-    static member OfFSharpError(e:FSharp.Compiler.SourceCodeServices.FSharpErrorInfo) =
+
+    static member OfFSharpError(e:FSharp.Compiler.SourceCodeServices.FSharpDiagnostic) =
       {
         FileName = e.FileName
         StartLine = e.StartLineAlternate
@@ -230,8 +231,8 @@ module CommandResponse =
       Glyph: string
       GlyphChar: string
       IsTopLevel: bool
-      Range: Range.range
-      BodyRange : Range.range
+      Range: Range
+      BodyRange : Range
       File : string
       EnclosingEntity: string
       IsAbstract: bool
@@ -526,11 +527,11 @@ module CommandResponse =
   let compile (serialize : Serializer) (errors,code) =
     serialize { Kind = "compile"; Data = {Code = code; Errors = Array.map FSharpErrorInfo.OfFSharpError errors}}
 
-  let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
-     serialize targets
+  // let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
+  //    serialize targets
 
-  let fakeRuntime (serialize : Serializer) (runtimePath : string) =
-     serialize { Kind = "fakeRuntime"; Data = runtimePath }
+  // let fakeRuntime (serialize : Serializer) (runtimePath : string) =
+  //    serialize { Kind = "fakeRuntime"; Data = runtimePath }
 
   let fsharpLiterate (serialize: Serializer) (content: string) =
     serialize { Kind = "fsharpLiterate"; Data = content}

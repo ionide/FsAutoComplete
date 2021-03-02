@@ -4,12 +4,12 @@ open System
 open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
 
 type DeclName = string
-type CompletionNamespaceInsert = { Namespace: string; Position: pos; Scope : ScopeKind }
+type CompletionNamespaceInsert = { Namespace: string; Position: Pos; Scope : ScopeKind }
 
 type State =
   {
@@ -18,7 +18,7 @@ type State =
     ProjectController: ProjectController
 
     HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
-    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * pos * string<LocalPath>>
+    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * Pos * string<LocalPath>>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
     mutable CurrentAST: FSharp.Compiler.SyntaxTree.ParsedInput option
 
@@ -131,7 +131,7 @@ type State =
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some f -> Ok (f.Lines)
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) ->

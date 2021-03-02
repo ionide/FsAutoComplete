@@ -9,8 +9,9 @@ open System.IO
 open FsAutoComplete.Logging
 open FSharp.UMX
 
-type FcsRange = FSharp.Compiler.SourceCodeServices.Range
-type FcsPos = FSharp.Compiler.Range.pos
+module FcsRange = FSharp.Compiler.Text.Range
+type FcsRange = FSharp.Compiler.Text.Range
+type FcsPos = FSharp.Compiler.Text.Pos
 
 module LspTypes = LanguageServerProtocol.Types
 
@@ -69,7 +70,7 @@ module Util =
     let mutable found = false
 
     let mutable fcsPos =
-      Unchecked.defaultof<FSharp.Compiler.Range.pos>
+      Unchecked.defaultof<FcsPos>
 
     while not found do
       let line = lines.[lineNumber]
@@ -78,7 +79,7 @@ module Util =
       if pos <= runningLength + lineLength then
         let column = pos - runningLength
         found <- true
-        fcsPos <- FSharp.Compiler.Range.mkPos lineNumber column
+        fcsPos <- FSharp.Compiler.Text.Pos.mkPos lineNumber column
       else
         lineNumber <- lineNumber + 1
         runningLength <- runningLength + lineLength
@@ -389,7 +390,7 @@ module Fixes =
 
   /// a codefix that generates union cases for an incomplete match expression
   let generateUnionCases (getFileLines: string<LocalPath> -> Result<string [], _>)
-                         (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                         (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
                          (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
                          (getTextReplacements: unit -> Map<string, string>)
                          =
@@ -404,7 +405,7 @@ module Fixes =
           let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
 
           let pos =
-            FSharp.Compiler.Range.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
+            FSharp.Compiler.Text.Pos.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
 
           let! (tyRes, line, lines) = getParseResultsForFile fileName pos
 
@@ -461,8 +462,8 @@ module Fixes =
   let mapAnalyzerDiagnostics = mapExternalDiagnostic "F# Analyzers"
 
   /// a codefix that generates member stubs for an interface declaration
-  let generateInterfaceStub (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                            (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+  let generateInterfaceStub (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                            (genInterfaceStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
                             (getTextReplacements: unit -> Map<string, string>)
                             : CodeFix =
     fun codeActionParams ->
@@ -497,8 +498,8 @@ module Fixes =
       |> AsyncResult.foldResult id (fun _ -> [])
 
   /// a codefix that generates member stubs for a record declaration
-  let generateRecordStub (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                         (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+  let generateRecordStub (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                         (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
                          (getTextReplacements: unit -> Map<string, string>)
                          : CodeFix =
     fun codeActionParams ->
@@ -532,8 +533,8 @@ module Fixes =
       |> AsyncResult.foldResult id (fun _ -> [])
 
   /// a codefix that generates stubs for required override members in abstract types
-  let generateAbstractClassStub (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
-                                (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FSharp.Compiler.Range.pos>>)
+  let generateAbstractClassStub (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, 'e>>)
+                                (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
                                 (getTextReplacements: unit -> Map<string, string>)
                                 : CodeFix =
     ifDiagnosticByCode
@@ -695,7 +696,7 @@ module Fixes =
       (Set.ofList [ "597" ])
 
   /// a codefix that changes a ref cell deref (!) to a call to 'not'
-  let refCellDerefToNot (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let refCellDerefToNot (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                         : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -755,7 +756,7 @@ module Fixes =
       (Set.ofList [ "3198" ])
 
   /// a codefix that makes a binding mutable when a user attempts to mutably set it
-  let makeDeclarationMutable (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let makeDeclarationMutable (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                              (getProjectOptionsForFile: string<LocalPath> -> Result<FSharpProjectOptions, string>)
                              : CodeFix =
     ifDiagnosticByCode
@@ -794,7 +795,7 @@ module Fixes =
       (Set.ofList [ "27" ])
 
   /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
-  let comparisonToMutableAssignment (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let comparisonToMutableAssignment (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                                     : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -814,7 +815,7 @@ module Fixes =
 
             let! symbol =
               tyRes.TryGetSymbolUse fcsPos line
-              |> AsyncResult.ofOption (fun _ -> "No symbol found at position")
+              |> Result.ofOption (fun _ -> "No symbol found at position")
 
             match symbol.Symbol with
             // only do anything if the value is mutable
@@ -841,7 +842,7 @@ module Fixes =
       (Set.ofList [ "20" ])
 
   /// a codefix that converts unknown/partial record expressions to anonymous records
-  let partialOrInvalidRecordExpressionToAnonymousRecord (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let partialOrInvalidRecordExpressionToAnonymousRecord (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                                                         : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -882,7 +883,7 @@ module Fixes =
       (Set.ofList [ "39" ])
 
   /// a codefix that removes 'return' or 'yield' (or bang-variants) when the compiler says they're not necessary
-  let removeUnnecessaryReturnOrYield (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let removeUnnecessaryReturnOrYield (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                                      : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -926,7 +927,7 @@ module Fixes =
       (Set.ofList [ "748"; "747" ])
 
   /// a codefix that rewrites C#-style '=>' lambdas to F#-style 'fun _ -> _' lambdas
-  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let rewriteCSharpLambdaToFSharpLambda (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                                         : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -1004,7 +1005,7 @@ module Fixes =
               match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
               | Some lexSym ->
                   let fcsStartPos =
-                    FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
+                    FSharp.Compiler.Text.Pos.mkPos lexSym.Line lexSym.LeftColumn
 
                   let symbolStartRange = fcsPosToProtocolRange fcsStartPos
 
@@ -1022,7 +1023,7 @@ module Fixes =
       (Set.ofList [ "10" ])
 
   /// a codefix that makes a binding 'rec' if something inside the binding requires recursive access
-  let makeOuterBindingRecursive (getParseResultsForFile: string<LocalPath> -> FSharp.Compiler.Range.pos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+  let makeOuterBindingRecursive (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
                                 : CodeFix =
     ifDiagnosticByCode
       (fun diagnostic codeActionParams ->
@@ -1100,13 +1101,13 @@ module Fixes =
               match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
               | Some lexSym ->
                   let fcsStartPos =
-                    FSharp.Compiler.Range.mkPos lexSym.Line lexSym.LeftColumn
+                    FSharp.Compiler.Text.Pos.mkPos lexSym.Line lexSym.LeftColumn
 
                   let fcsEndPos =
-                    FSharp.Compiler.Range.mkPos lexSym.Line lexSym.RightColumn
+                    FSharp.Compiler.Text.Pos.mkPos lexSym.Line lexSym.RightColumn
 
                   let protocolRange =
-                    fcsRangeToLsp (FSharp.Compiler.Range.mkRange (UMX.untag fileName) fcsStartPos fcsEndPos)
+                    fcsRangeToLsp (FcsRange.mkRange (UMX.untag fileName) fcsStartPos fcsEndPos)
 
                   let symbolName = getText lines protocolRange
 

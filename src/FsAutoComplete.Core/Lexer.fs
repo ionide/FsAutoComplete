@@ -146,7 +146,7 @@ module Lexer =
             // Assume that tokens are ordered in an decreasing order of start columns
             let rec tryFindStartColumn tokens =
                match tokens with
-               | {Kind = Ident; Token = t1} :: {Kind = SymbolKind.Other; Token = t2} :: remainingTokens ->
+               | {Kind = Ident; Token = t1} :: {Kind = SymbolKind.Other | SymbolKind.Dot; Token = t2} :: remainingTokens ->
                     if t2.Tag = FSharpTokenTag.DOT then
                         tryFindStartColumn remainingTokens
                     else
@@ -158,7 +158,7 @@ module Lexer =
             let decreasingTokens =
                 match tokensUnderCursor |> List.sortBy (fun token -> - token.Token.LeftColumn) with
                 // Skip the first dot if it is the start of the identifier
-                | {Kind = SymbolKind.Other; Token = t} :: remainingTokens when t.Tag = FSharpTokenTag.DOT ->
+                | {Kind = SymbolKind.Other | SymbolKind.Dot; Token = t} :: remainingTokens when t.Tag = FSharpTokenTag.DOT ->
                     remainingTokens
                 | newTokens -> newTokens
 
@@ -240,3 +240,14 @@ module Lexer =
                     | head :: tail -> tail |> List.rev, head
                     | [] -> [], ""
         | _ -> [], ""
+
+    let findClosestIdent col lineStr =
+      let tokens = tokenizeLine [||] lineStr
+      let fixedTokens = fixTokens lineStr tokens
+      let tokensBeforeCol =
+        fixedTokens // these are reversed already
+        |> List.filter (fun tok -> tok.RightColumn < col)
+
+      tokensBeforeCol
+      |> List.tryFind (fun tok -> tok.Kind = Ident)
+      |> Option.bind (fun tok -> findIdents tok.RightColumn lineStr SymbolLookupKind.ByLongIdent)
