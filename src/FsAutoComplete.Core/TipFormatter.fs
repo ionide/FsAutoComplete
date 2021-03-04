@@ -533,7 +533,7 @@ module private Format =
 
     /// ItemList allow a permissive representation of an Item.
     /// In theory, TermOnly should not exist but we added it so part of the documentation doesn't disappear
-    /// TODO: Allow direct text support wihtout <description> and <term> tags
+    /// TODO: Allow direct text support without <description> and <term> tags
     type private ItemList =
         /// A list where the items are just contains in a <description> element
         | DescriptionOnly of string
@@ -740,6 +740,18 @@ module private Format =
         }
         |> applyFormatter
 
+    /// <summary>
+    /// Unescape XML special characters
+    ///
+    /// For example, this allows to print '>' in the tooltip instead of '&gt;'
+    /// </summary>
+    let private unescapeSpecialCharacters (text : string) =
+        text.Replace("&lt;", "<")
+            .Replace("&gt;", ">")
+            .Replace("&quot;", "\"")
+            .Replace("&apos;", "'")
+            .Replace("&amp;", "&")
+
     let applyAll (text : string) =
         text
         // Remove invalid syntax first
@@ -759,6 +771,7 @@ module private Format =
         |> convertTable
         |> fixPortableClassLibrary
         |> handleMicrosoftOrList
+        |> unescapeSpecialCharacters
 
 // TODO: Improve this parser. Is there any other XmlDoc parser available?
 type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset : int) =
