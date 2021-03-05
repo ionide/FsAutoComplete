@@ -13,7 +13,7 @@ open System.Collections.Concurrent
 open FsAutoComplete
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
-
+open System.Reactive.Linq
 type BackgroundFileCheckType =
 | SourceFile of filePath: string
 | ScriptFile of filePath: string * tfm: FSIRefs.TFM
@@ -258,12 +258,13 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             match msg, lst with
             //Empty
             | None, [] ->
-                checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients ()
+
+                // checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients ()
                 do! Async.Sleep 300
                 return! loop (false, [])
             //Empty
             | Some (_,_,[]), [] ->
-                checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients ()
+                // checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients ()
                 do! Async.Sleep 300
                 return! loop (false, [])
             //No request we just continue
@@ -302,7 +303,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     let bouncer = Debounce(500, reactor.Post)
 
-    let checkExistingFiles () =
+    let clearOldFilesFromCache () =
       async {
         let! files = SymbolCache.getKnownFiles ()
         match files with
@@ -316,6 +317,9 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
               ()
       }
 
+    let clearOldCacheSubscription =
+        Observable.Interval(TimeSpan.FromMinutes(5.))
+        |> Observable.subscribe(fun _ -> clearOldFilesFromCache () |> Async.Start)
 
     member __.UpdateTextFile(p: UpdateFileParms) =
         async {
@@ -332,7 +336,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     member __.UpdateProject(p: ProjectParms) =
         async {
-            checkExistingFiles () |> Async.Start
+
 
             let sf = getFilesFromOpts p.Options
 
@@ -363,8 +367,11 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             return LspResult.success ()
         }
 
-module Program =
+    override _.Dispose () =
+      clearOldCacheSubscription.Dispose()
 
+
+module Program =
     let state = State.Initial
 
     let startCore () =
@@ -377,7 +384,7 @@ module Program =
             |> Map.add "background/project" (requestHandling (fun s p -> s.UpdateProject(p) ))
             |> Map.add "background/save" (requestHandling (fun s p -> s.FileSaved(p) ))
 
-        LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> BackgroundServiceServer(state, lspClient))
+        LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
 
 
 
