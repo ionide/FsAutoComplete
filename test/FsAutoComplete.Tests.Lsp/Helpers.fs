@@ -67,7 +67,7 @@ let createServer (toolsPath) =
   let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
   FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem <- fs
-  let server = FSharpLspServer(commands, client)
+  let server = new FSharpLspServer(commands, client)
   server, event
 
 let defaultConfigDto : FSharpConfigDto =

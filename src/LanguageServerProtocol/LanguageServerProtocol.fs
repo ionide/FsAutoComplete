@@ -2246,6 +2246,11 @@ type LspClient() =
 
 [<AbstractClass>]
 type LspServer() =
+    interface System.IDisposable with
+      member x.Dispose() = x.Dispose()
+
+    abstract member Dispose : unit -> unit
+
     /// The initialize request is sent as the first request from the client to the server.
     /// The initialize request may only be sent once.
     abstract member Initialize: InitializeParams -> AsyncLspResult<InitializeResult>
@@ -2297,7 +2302,7 @@ type LspServer() =
     /// request doesn’t fill in the documentation property for returned completion items since it is expensive
     /// to compute. When the item is selected in the user interface then a ‘completionItem/resolve’ request is
     /// sent with the selected completion item as a param. The returned completion item should have the
-    /// documentation property filled in. The request can delay the computation of the detail and documentation
+      /// documentation property filled in. The request can delay the computation of the detail and documentation
     /// properties. However, properties that are needed for the initial sorting and filtering, like sortText,
     /// filterText, insertText, and textEdit must be provided in the textDocument/completion request and must
     /// not be changed during resolve.
@@ -2728,7 +2733,7 @@ module Server =
             }
 
         let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.Send x t  = sendServerRequest x t})
-        let lspServer = serverCreator lspClient
+        use lspServer = serverCreator lspClient
 
         let handleClientMessage (messageString: string): MessageHandlingResult =
             let messageTypeTest = JsonConvert.DeserializeObject<JsonRpc.MessageTypeTest>(messageString, jsonSettings)

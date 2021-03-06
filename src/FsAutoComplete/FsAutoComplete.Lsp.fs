@@ -1810,6 +1810,8 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             |> async.Return
       )
 
+    override x.Dispose () = ()
+
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -1844,7 +1846,7 @@ let startCore (commands: Commands) =
         |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p) ))
         |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p) ))
 
-    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> FSharpLspServer(commands, lspClient))
+    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> new FSharpLspServer(commands, lspClient))
 
 let start (commands: Commands) =
     let logger = LogProvider.getLoggerByName "Startup"
