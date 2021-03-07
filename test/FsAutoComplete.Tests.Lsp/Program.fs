@@ -40,10 +40,13 @@ let tests toolsPath =
         scriptGotoTests toolsPath workspaceLoaderFactory
         interactiveDirectivesUnitTests
 
-        fsdnTest toolsPath workspaceLoaderFactory
+        // FSDN service is down, disabling tests until that's resolved
+        // fsdnTest toolsPath workspaceLoaderFactory
         uriTests
+        // fsharplint isn't updated to FCS 39, disabling tests until that's resolved
         // linterTests toolsPath
         formattingTests toolsPath workspaceLoaderFactory
+        // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath
         analyzerTests toolsPath workspaceLoaderFactory
       ]
