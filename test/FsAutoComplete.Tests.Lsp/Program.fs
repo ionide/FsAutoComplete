@@ -32,6 +32,7 @@ let tests toolsPath =
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
         // initTests
+        initTests toolsPath workspaceLoaderFactory
         basicTests toolsPath workspaceLoaderFactory
         codeLensTest toolsPath workspaceLoaderFactory
         documentSymbolTest toolsPath workspaceLoaderFactory
@@ -42,7 +43,6 @@ let tests toolsPath =
         tooltipTests toolsPath workspaceLoaderFactory
         highlightingTests toolsPath workspaceLoaderFactory
         signatureHelpTests toolsPath workspaceLoaderFactory
-
         scriptPreviewTests toolsPath workspaceLoaderFactory
         scriptEvictionTests toolsPath workspaceLoaderFactory
         scriptProjectOptionsCacheTests toolsPath workspaceLoaderFactory
