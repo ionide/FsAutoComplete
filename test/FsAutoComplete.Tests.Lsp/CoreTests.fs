@@ -41,8 +41,8 @@ let initTests toolsPath workspaceLoaderFactory =
       Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
       Expect.equal res.Capabilities.RenameProvider (Some true) "Rename Provider"
       Expect.equal res.Capabilities.SignatureHelpProvider (Some {
-        TriggerCharacters = Some [| '('; ','|]
-        RetriggerCharacters = Some [| ')' |]
+        TriggerCharacters = Some [| '('; ','; ' '|]
+        RetriggerCharacters = Some [| ','; ')'; ' ' |]
       } ) "Signature Help Provider"
       let td =
         { TextDocumentSyncOptions.Default with
