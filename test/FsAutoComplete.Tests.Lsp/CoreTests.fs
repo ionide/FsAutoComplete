@@ -8,10 +8,11 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
+open FsToolkit.ErrorHandling
 
 ///Test for initialization of the server
 let initTests toolsPath workspaceLoaderFactory =
-  test "InitTest" {
+  testCaseAsync "InitTest" (async {
     let (server, event) = createServer toolsPath workspaceLoaderFactory
 
     let p : InitializeParams =
@@ -22,7 +23,7 @@ let initTests toolsPath workspaceLoaderFactory =
         Capabilities = Some clientCaps
         trace = None}
 
-    let result = server.Initialize p |> Async.RunSynchronously
+    let! result = server.Initialize p
     match result with
     | Result.Ok res ->
       Expect.equal res.Capabilities.CodeActionProvider (Some true) "Code Action Provider"
@@ -56,25 +57,22 @@ let initTests toolsPath workspaceLoaderFactory =
       Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
     | Result.Error e ->
       failwith "Initialization failed"
-  }
-
+  })
 
 ///Tests for basic operations like hover, getting document symbols or code lens on simple file
 let basicTests toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    let projectPath = Path.Combine(path, "BasicTest.fsproj")
-    parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-    )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
+      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let projectPath = Path.Combine(path, "BasicTest.fsproj")
+      do! parseProject projectPath server
+      let path = Path.Combine(path, "Script.fs")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
 
   /// normalizes the line endings in returned markdown strings for cross-platform comparisons
   let normalizeMarkedString = function | MarkedString.WithLanguage l -> MarkedString.WithLanguage l
@@ -87,11 +85,12 @@ let basicTests toolsPath workspaceLoaderFactory =
   testSequenced <| testList "Basic Tests" [
       testSequenced <| testList "Hover Tests" [
 
-        testCase "Hover Tests - simple symbol" (serverTest (fun server path ->
+        testCaseAsync "Hover Tests - simple symbol" (async {
+          let! (server, path) = server
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 0; Character = 4}}
-          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          let! res = server.TextDocumentHover p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
@@ -104,13 +103,14 @@ let basicTests toolsPath workspaceLoaderFactory =
                     MarkedString.String "*Assembly: BasicTest*"|]
 
             Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - simple symbol"
-        ))
+        })
 
-        testCase "Hover Tests - let keyword" (serverTest (fun server path ->
+        testCaseAsync "Hover Tests - let keyword" (async {
+          let! server, path = server
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 0; Character = 2}}
-          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          let! res = server.TextDocumentHover p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
@@ -121,26 +121,28 @@ let basicTests toolsPath workspaceLoaderFactory =
                     MarkedString.String "**Description**\n\n\nUsed to associate, or bind, a name to a value or function.\n"|]
 
             Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        ))
+        })
 
-        testCase "Hover Tests - out of position" (serverTest (fun server path ->
+        testCaseAsync "Hover Tests - out of position" (async {
+          let! server, path = server
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 1; Character = 2}}
-          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          let! res = server.TextDocumentHover p
           match res with
           | Result.Error e -> ()
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
             failtest "Expected failure"
-        ))
+        })
 
         //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
-        testCase "Hover Tests - operator" (serverTest (fun server path ->
+        testCaseAsync "Hover Tests - operator" (async {
+          let! server, path = server
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 2; Character = 7}}
-          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          let! res = server.TextDocumentHover p
           match res with
           | Result.Error e -> ()
           | Result.Ok None -> failtest "Request none"
@@ -153,14 +155,15 @@ let basicTests toolsPath workspaceLoaderFactory =
                     MarkedString.String "*Assembly: BasicTest*"|]
 
             Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        ))
+        })
 
         //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
-        testCase "Hover Tests - operator ^" (serverTest (fun server path ->
+        testCaseAsync "Hover Tests - operator ^" (async {
+          let! server, path = server
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
               Position = { Line = 4; Character = 6}}
-          let res = server.TextDocumentHover p |> Async.RunSynchronously
+          let! res = server.TextDocumentHover p
           match res with
           | Result.Error e -> ()
           | Result.Ok None -> failtest "Request none"
@@ -172,112 +175,114 @@ let basicTests toolsPath workspaceLoaderFactory =
                     MarkedString.String "*Full name: Script.( ^ )*"
                     MarkedString.String "*Assembly: BasicTest*"|]
 
-            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        ))
+            return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
+        })
       ]
+
       testSequenced <| testList "Document Symbol Tests" [
-        testCase "Document Symbol" (serverTest (fun server path ->
+        testCaseAsync "Document Symbol" (async {
+          let! server, path = server
           let p : DocumentSymbolParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
+          let! res = server.TextDocumentDocumentSymbol p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
             Expect.equal res.Length 4  "Document Symbol has all symbols"
-        ))
+        })
       ]
       testSequenced <| testList "Code Lens Tests" [
-        testCase "Get Code Lens" (serverTest (fun server path ->
+        testCaseAsync "Get Code Lens" (async {
+          let! server, path = server
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          let! res = server.TextDocumentCodeLens p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
 
             Expect.equal res.Length 3 "Get Code Lens has all locations"
-        ))
+        })
 
-        testCase "Resolve Code Lens" (serverTest (fun server path ->
+        testCaseAsync "Resolve Code Lens" (async {
+          let! server, path = server
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          let! res = server.TextDocumentCodeLens p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
             let cl = res.[0]
-            let res = server.CodeLensResolve cl |> Async.RunSynchronously
+            let! res = server.CodeLensResolve cl
             match res with
             | Result.Error e -> failtestf "Request failed: %A" e
             | Result.Ok cl ->
               Expect.equal cl.Command.Value.Title "int -> int -> int" "Code Lens contains signature"
-        ))
+        })
       ]
-
   ]
-
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-    let (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} toolsPath workspaceLoaderFactory
-    let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
-    parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-  )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
+      let! (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} toolsPath workspaceLoaderFactory
+      let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
+      do! parseProject projectPath server
+      let path = Path.Combine(path, "Script.fs")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
 
   testSequenced <| testList "Code Lens Tests" [
-      testCase "Get Code Lens" (serverTest (fun server path ->
+      testCaseAsync "Get Code Lens" (async {
+          let! (server, path) = server
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          let! res = server.TextDocumentCodeLens p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
-
             Expect.equal res.Length 20 "Get Code Lens has all locations"
-      ))
-      testCase "Resolve Code Lens" (serverTest (fun server path ->
+      })
+      testCaseAsync "Resolve Code Lens" (async {
+          let! (server, path) = server
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          let! res = server.TextDocumentCodeLens p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some result) ->
             let cl = result.[1]
-            let res = server.CodeLensResolve cl |> Async.RunSynchronously
+            let! res = server.CodeLensResolve cl
             let cl = result.[11]
-            let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
+            let! res2 = server.CodeLensResolve cl
             let cl = result.[10]
-            let res3 = server.CodeLensResolve cl |> Async.RunSynchronously
+            let! res3 = server.CodeLensResolve cl
             match res, res2 with //TODO: Match res3 when FCS is fixed
             | Result.Ok cl, Result.Ok cl2 ->
               //TODO
               //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
               Expect.equal cl2.Command.Value.Title "string -> unit" "Code Lens contains signature"
-
             | e -> failtestf "Request failed: %A" e
-      ))
+      })
 
-      testCase "Resolve Code Lens 2" (serverTest (fun server path ->
+      testCaseAsync "Resolve Code Lens 2" (async {
+          let! (server, path) = server
           let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let res = server.TextDocumentCodeLens p |> Async.RunSynchronously
+          let! res = server.TextDocumentCodeLens p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some result) ->
             let cl = result.[3]
-            let res = server.CodeLensResolve cl |> Async.RunSynchronously
+            let! res = server.CodeLensResolve cl
             let cl = result.[14]
-            let res2 = server.CodeLensResolve cl |> Async.RunSynchronously
+            let! res2 = server.CodeLensResolve cl
             match res, res2 with
             | Result.Ok cl, Result.Ok cl2 ->
               //TODO
@@ -285,29 +290,29 @@ let codeLensTest toolsPath workspaceLoaderFactory =
               Expect.equal cl2.Command.Value.Title "unit -> (int64 -> System.DateTime)" "Code Lens contains signature"
 
             | e -> failtestf "Request failed: %A" e
-      ))
+      })
   ]
 
 ///Tests for getting document symbols
 let documentSymbolTest toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
-    parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fsx")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-  )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
+      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
+      do! parseProject projectPath server
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
 
   testSequenced <| testList "Document Symbols Tests" [
-      testCase "Get Document Symbols" (serverTest (fun server path ->
+      testCaseAsync "Get Document Symbols" (async {
+        let! server, path = server
         let p : DocumentSymbolParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-        let res = server.TextDocumentDocumentSymbol p |> Async.RunSynchronously
+        let! res = server.TextDocumentDocumentSymbol p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -315,36 +320,41 @@ let documentSymbolTest toolsPath workspaceLoaderFactory =
 
           Expect.equal res.Length 15 "Document Symbol has all symbols"
           Expect.exists res (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class) "Document symbol contains given symbol"
-      ))
+      })
   ]
 
 ///Tests for getting autocomplete
 let autocompleteTest toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
-    parseProject projectPath server |> Async.RunSynchronously
-    let path = Path.Combine(path, "Script.fsx")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-  )
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
+      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
+      do! parseProject projectPath server
+      do! waitForWorkspaceFinishedParsing event
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
 
-  let scriptProjServerStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing event
-    let path = Path.Combine(path, "Script.fsx")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    (server, path)
-  )
+  let scriptServer =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
+      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      do! waitForWorkspaceFinishedParsing event
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
 
-  let makeAutocompleteTestList (serverConfig: (Lsp.FSharpLspServer * string) Lazy) = [
+  let makeAutocompleteTestList (serverConfig: (Lsp.FSharpLspServer * string) Async) = [
     testCaseAsync "Get Autocomplete module members" (
       async {
-        let server, path = serverConfig.Value
+        let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 8; Character = 2}
                                      Context = None }
@@ -361,7 +371,7 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
 
     testCaseAsync "Get Autocomplete namespace" (
       async {
-        let server, path = serverConfig.Value
+        let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 10; Character = 2}
                                      Context = None }
@@ -378,7 +388,7 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
 
     testCaseAsync "Get Autocomplete namespace members" (
       async {
-        let server, path = serverConfig.Value
+        let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 12; Character = 7}
                                      Context = None }
@@ -395,7 +405,7 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
 
     testCaseAsync "Get Autocomplete module doublebackticked members" (
       async {
-        let server, path = serverConfig.Value
+        let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                      Position = { Line = 14; Character = 18}
                                      Context = None }
@@ -411,7 +421,7 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
 
     testCaseAsync "Autocomplete record members" (
       async {
-        let server, path = serverConfig.Value
+        let! server, path = serverConfig
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
           Position = { Line = 25; Character = 4 }
@@ -428,7 +438,7 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
 
     testCaseAsync "Autocomplete class constructor with properties" (
       async {
-        let server, path = serverConfig.Value
+        let! server, path = serverConfig
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
           Position = { Line = 32; Character = 26 }
@@ -446,45 +456,43 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
 
   testSequenced (
     testList "Autocomplete Tests" [
-      testList "Autocomplete within project files" (makeAutocompleteTestList serverStart)
-      testList "Autocomplete within script files" (makeAutocompleteTestList scriptProjServerStart)
+      testList "Autocomplete within project files" (makeAutocompleteTestList server)
+      testList "Autocomplete within script files" (makeAutocompleteTestList scriptServer)
     ]
   )
 
 ///Rename tests
 let renameTest toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
-    let (server, event) = serverInitialize testDir defaultConfigDto toolsPath workspaceLoaderFactory
+  let server =
+    async {
+      let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
+      let! (server, event) = serverInitialize testDir defaultConfigDto toolsPath workspaceLoaderFactory
 
-    let pathTest = Path.Combine(testDir, "Test.fs")
-    let path = Path.Combine(testDir, "Program.fs")
+      let pathTest = Path.Combine(testDir, "Test.fs")
+      let path = Path.Combine(testDir, "Program.fs")
 
-    do waitForWorkspaceFinishedParsing event
+      do! waitForWorkspaceFinishedParsing event
 
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
+      do! server.TextDocumentDidOpen tdop
 
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
+      do! server.TextDocumentDidOpen tdop
 
-    //Hack to wait for typechecking of 2 opened files
-    System.Threading.Thread.Sleep 1000
+      do! waitForParseResultsForFile "Test.fs" event |> AsyncResult.foldResult id (fun e -> failwithf "%A" e)
+      do! waitForParseResultsForFile "Program.fs" event |> AsyncResult.foldResult id (fun e -> failwithf "%A" e)
 
-    (server, path, pathTest) )
-
-  let serverTest f () =
-    let (server, path, pathTest) = serverStart.Value
-    f server path pathTest
+      return (server, path, pathTest)
+    }
 
   testSequenced <| testList "Rename Tests" [
-      testCase "Rename from usage" (serverTest (fun server path _ ->
-
+      testCaseAsync "Rename from usage" (async {
+        let! server, path, testPath = server
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                  Position = { Line = 7; Character = 12}
                                  NewName = "y" }
 
-        let res = server.TextDocumentRename p |> Async.RunSynchronously
+        let! res = server.TextDocumentRename p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -496,13 +504,14 @@ let renameTest toolsPath workspaceLoaderFactory =
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
-      ))
+      })
 
-      testCase "Rename from definition" (serverTest (fun server path pathTest ->
+      testCaseAsync "Rename from definition" (async {
+        let! server, path, pathTest = server
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri pathTest}
                                  Position = { Line = 2; Character = 4}
                                  NewName = "y" }
-        let res = server.TextDocumentRename p |> Async.RunSynchronously
+        let! res = server.TextDocumentRename p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -515,47 +524,47 @@ let renameTest toolsPath workspaceLoaderFactory =
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Program.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 7; Character = 12 }; End = {Line = 7; Character = 13 } }) ) "Rename contains changes in Program.fs"
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
-      ))
-
+      })
   ]
 
 ///GoTo tests
 let gotoTest toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing event
-    System.Threading.Thread.Sleep 1000
-    let definitionPath = Path.Combine(path, "Definition.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath }
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      do! waitForWorkspaceFinishedParsing event
 
-    let externalPath = Path.Combine(path, "External.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument externalPath }
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+      let definitionPath = Path.Combine(path, "Definition.fs")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath }
+      do! server.TextDocumentDidOpen tdop
 
-    let path = Path.Combine(path, "Library.fs")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
+      let externalPath = Path.Combine(path, "External.fs")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument externalPath }
+      do! server.TextDocumentDidOpen tdop
 
-    //Hack to wait for typechecking of 3 opened files
-    System.Threading.Thread.Sleep 1000
+      let path = Path.Combine(path, "Library.fs")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
 
-    (server, path, externalPath, definitionPath)
-  )
-  let serverTest f () =
-    let (server, path, externalPath, definitionPath) = serverStart.Value
-    f server path externalPath definitionPath
+      do! waitForParseResultsForFile "Definition.fs" event |> AsyncResult.foldResult id (failwithf "%A")
+      do! waitForParseResultsForFile "External.fs" event |> AsyncResult.foldResult id (failwithf "%A")
+      do! waitForParseResultsForFile "Library.fs" event |> AsyncResult.foldResult id (failwithf "%A")
+
+      return (server, path, externalPath, definitionPath)
+    }
+    |> Async.Cache
 
   testSequenced <| testList "GoTo Tests" [
-      testCase "Go-to-definition on external symbol (System.Net.HttpWebRequest)" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-definition on external symbol (System.Net.HttpWebRequest)" (async {
+        let! server, path, externalPath, definitionPath = server
         let p : TextDocumentPositionParams = {
           TextDocument = { Uri = Path.FilePathToUri externalPath }
           Position = { Line = 4; Character = 30 }
         }
 
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -566,26 +575,28 @@ let gotoTest toolsPath workspaceLoaderFactory =
           Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
           Expect.stringContains r.Uri "System.Net.HttpWebRequest" "The generated file should be for the HttpWebRequest type"
           () // should
-      ))
+      })
 
-      testCase "Go-to-definition on external namespace (System.Net) should error when going to a namespace " (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-definition on external namespace (System.Net) should error when going to a namespace " (async {
+        let! server, path, externalPath, definitionPath = server
         let p : TextDocumentPositionParams = {
           TextDocument = { Uri = Path.FilePathToUri externalPath }
           Position = { Line = 2; Character = 15 }
         }
 
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e ->
           Expect.equal "Could not find declaration" e.Message "Should report failure for navigating to a namespace"
         | Result.Ok r -> failtestf "Declaration request should not work on a namespace, instead we got %A" r
-      ))
+      })
 
-      testCase "Go-to-definition" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-definition" (async {
+        let! server, path, externalPath, definitionPath = server
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri path}
             Position = { Line = 2; Character = 29}}
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -595,13 +606,15 @@ let gotoTest toolsPath workspaceLoaderFactory =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 16 }} "Result should have correct range"
-      ))
+      })
 
-      testCase "Go-to-definition on custom type binding" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-definition on custom type binding" (async {
+        let! server, path, externalPath, definitionPath = server
+
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri path}
             Position = { Line = 4; Character = 24}}
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -611,13 +624,14 @@ let gotoTest toolsPath workspaceLoaderFactory =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 6; Character = 4 }; End = {Line = 6; Character = 19 }} "Result should have correct range"
-      ))
+      })
 
-      testCase "Go-to-implementation-on-interface-definition" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-implementation-on-interface-definition" (async {
+        let! server, path, externalPath, definitionPath = server
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri definitionPath}
             Position = { Line = 8; Character = 11}}
-        let res = server.TextDocumentImplementation p |> Async.RunSynchronously
+        let! res = server.TextDocumentImplementation p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -629,15 +643,17 @@ let gotoTest toolsPath workspaceLoaderFactory =
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 7; Character = 8 }; End = {Line = 7; Character = 30 }}) "First result should be in Library.fs"
             // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
             ()
-      ))
+      })
 
-      testCase "Go-to-implementation on sourcelink file with sourcelink in PDB" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-implementation on sourcelink file with sourcelink in PDB" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for the 'button' member in giraffe view engine
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 9; Character = 34} }
 
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -648,15 +664,17 @@ let gotoTest toolsPath workspaceLoaderFactory =
             Expect.stringContains res.Uri "GiraffeViewEngine.fs" "Result should be in GiraffeViewEngine"
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
-      testCase "Go-to-implementation on sourcelink file with sourcelink in DLL" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-implementation on sourcelink file with sourcelink in DLL" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for the 'List.concat' member in FSharp.Core
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 12; Character = 36} }
 
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -667,16 +685,18 @@ let gotoTest toolsPath workspaceLoaderFactory =
             Expect.stringContains res.Uri "FSharp.Core/list.fs" "Result should be in FSharp.Core's list.fs"
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
       // marked pending because we don't have filename information for C# sources
-      ptestCase "Go-to-implementation on C# file" (serverTest (fun server path externalPath definitionPath ->
+      ptestCaseAsync "Go-to-implementation on C# file" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for the 'Stirng.Join' member in the BCL
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 14; Character = 79} }
 
-        let res = server.TextDocumentDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -689,13 +709,15 @@ let gotoTest toolsPath workspaceLoaderFactory =
             then failwithf "should not decompile when sourcelink is available"
             Expect.stringContains localPath "System.String" "Result should be in the BCL's source files"
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
-      testCase "Go-to-type-definition" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-type-definition" (async {
+        let! server, path, externalPath, definitionPath = server
+
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri path}
             Position = { Line = 4; Character = 24}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentTypeDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -705,9 +727,11 @@ let gotoTest toolsPath workspaceLoaderFactory =
           | GotoResult.Single res ->
             Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
             Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
-      ))
+      })
 
-      testCase "Go-to-type-defintion on parameter" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-type-defintion on parameter" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for parameter of type `'a list` -> FSharp.Core
         (*
           `let myConcat listA listB = List.concat [listA; listB]`
@@ -717,7 +741,7 @@ let gotoTest toolsPath workspaceLoaderFactory =
         let p: TextDocumentPositionParams =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 12; Character = 16}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentTypeDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -728,9 +752,11 @@ let gotoTest toolsPath workspaceLoaderFactory =
             Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
-      testCase "Go-to-type-defintion on variable" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-type-defintion on variable" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for variable of type `System.Collections.Generic.List<_>`
         (*
           `let myList = System.Collections.Generic.List<string>()`
@@ -740,7 +766,7 @@ let gotoTest toolsPath workspaceLoaderFactory =
         let p: TextDocumentPositionParams =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 16; Character = 6}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentTypeDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -751,9 +777,11 @@ let gotoTest toolsPath workspaceLoaderFactory =
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.stringContains res.Uri "System.Collections.Generic.List" "Result should be for System.Collections.Generic.List"
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
-      testCase "Go-to-type-defintion on constructor" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-type-defintion on constructor" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for constructor of type `System.Collections.Generic.List<_>`
         (*
           `let myList = System.Collections.Generic.List<string>()`
@@ -763,7 +791,7 @@ let gotoTest toolsPath workspaceLoaderFactory =
         let p: TextDocumentPositionParams =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 16; Character = 42}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentTypeDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -774,9 +802,11 @@ let gotoTest toolsPath workspaceLoaderFactory =
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.stringContains res.Uri "System.Collections.Generic.List" "Result should be for System.Collections.Generic.List"
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
-      testCase "Go-to-type-defintion on union case" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-type-defintion on union case" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for union case of type `_ option`
         (*
           `let o v = Some v`
@@ -786,7 +816,7 @@ let gotoTest toolsPath workspaceLoaderFactory =
         let p: TextDocumentPositionParams =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 18; Character = 12}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentTypeDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -797,9 +827,11 @@ let gotoTest toolsPath workspaceLoaderFactory =
             Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
 
-      testCase "Go-to-type-defintion on property" (serverTest (fun server path externalPath definitionPath ->
+      testCaseAsync "Go-to-type-defintion on property" (async {
+        let! server, path, externalPath, definitionPath = server
+
         // check for property of type `string option`
         (*
           `b.Value |> ignore`
@@ -809,7 +841,7 @@ let gotoTest toolsPath workspaceLoaderFactory =
         let p: TextDocumentPositionParams =
           { TextDocument = { Uri = Path.FilePathToUri externalPath}
             Position = { Line = 24; Character = 5}}
-        let res = server.TextDocumentTypeDefinition p |> Async.RunSynchronously
+        let! res = server.TextDocumentTypeDefinition p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Result.Ok None -> failtest "Request none"
@@ -820,32 +852,34 @@ let gotoTest toolsPath workspaceLoaderFactory =
             Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
-      ))
+      })
   ]
 
+let foldingTests toolsPath workspaceLoaderFactory =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FoldingTests")
 
-let foldingTests toolsPath workspaceLoaderFactory=
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FoldingTests")
+      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      do! waitForWorkspaceFinishedParsing event
+      let libraryPath = Path.Combine(path, "Library.fs")
+      let libFile = loadDocument libraryPath
+      let tdop : DidOpenTextDocumentParams = { TextDocument = libFile }
+      do! server.TextDocumentDidOpen tdop
+      return server, libraryPath
+    }
+    |> Async.Cache
 
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing event
-    let libraryPath = Path.Combine(path, "Library.fs")
-    let libFile = loadDocument libraryPath
-    let tdop : DidOpenTextDocumentParams = { TextDocument = libFile }
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    server, libraryPath
-  )
-  let serverTest f () = f serverStart.Value
   testList "folding tests" [
-    testCase "can get ranges for sample file" (serverTest (fun (server, libraryPath) ->
-      let rangeResponse = server.TextDocumentFoldingRange({ TextDocument = { Uri = Path.FilePathToUri libraryPath } }) |> Async.RunSynchronously
+    testCaseAsync "can get ranges for sample file" (async {
+      let! server, libraryPath = server
+      let! rangeResponse = server.TextDocumentFoldingRange({ TextDocument = { Uri = Path.FilePathToUri libraryPath } })
       match rangeResponse with
       | Ok(Some(ranges)) ->
         Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
       | Ok(None) -> failwithf "No ranges found in file, problem parsing?"
       | LspResult.Error e -> failwithf "Error from range LSP call: %A" e
-    ))
+    })
   ]
 
 
@@ -860,52 +894,54 @@ let tooltipTests toolsPath workspaceLoaderFactory =
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }; MarkedString.String description; MarkedString.String fullname; MarkedString.String assembly |] } -> Some description
     | _ -> None
 
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
-    let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing events
-    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-    match waitForParseResultsForFile "Script.fsx" events with
-    | Ok () ->
-      () // all good, no parsing/checking errors
-    | Core.Result.Error errors ->
-      failwithf "Errors while parsing script %s: %A" scriptPath errors
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
+      let scriptPath = Path.Combine(path, "Script.fsx")
+      let! (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      do! waitForWorkspaceFinishedParsing events
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+      match! waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" scriptPath errors
 
-    server, scriptPath
-  )
+      return server, scriptPath
+    }
+    |> Async.Cache
 
   let verifyTooltip line character expectedTooltip =
-    testCase (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
-      let server, scriptPath = serverStart.Value
+    testCaseAsync (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (async {
+      let! server, scriptPath = server
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
         Position = { Line = line; Character = character }
       }
-      match server.TextDocumentHover pos |> Async.RunSynchronously with
+      match! server.TextDocumentHover pos with
       | Ok (Some (Tooltip tooltip)) ->
         Expect.equal tooltip expectedTooltip (sprintf "Should have a tooltip of '%s'" expectedTooltip)
       | Ok _ ->
         failwithf "Should have gotten hover text"
       | Result.Error errors ->
         failwithf "Error while getting hover text: %A" errors
-    )
+    })
 
   let verifyDescription line character expectedTooltip =
-    testCase (sprintf "description for line %d character %d should be '%s" line character expectedTooltip) (fun _ ->
-      let server, scriptPath = serverStart.Value
+    testCaseAsync (sprintf "description for line %d character %d should be '%s" line character expectedTooltip) (async {
+      let! server, scriptPath = server
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
         Position = { Line = line; Character = character }
       }
-      match server.TextDocumentHover pos |> Async.RunSynchronously with
+      match! server.TextDocumentHover pos with
       | Ok (Some (Description tooltip)) ->
         Expect.equal tooltip expectedTooltip (sprintf "Should have a tooltip of '%s'" expectedTooltip)
       | Ok _ ->
         failwithf "Should have gotten hover text"
       | Result.Error errors ->
         failwithf "Error while getting hover text: %A" errors
-    )
+    })
 
   let concatLines = String.concat Environment.NewLine
 
@@ -925,15 +961,17 @@ let highlightingTests toolsPath workspaceLoaderFactory =
   let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
   let scriptPath = Path.Combine(testPath, "Script.fsx")
 
-  let serverParsed = lazy (
-    let (server, event) = serverInitialize testPath defaultConfigDto toolsPath workspaceLoaderFactory
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+  let server =
+    async {
+      let! (server, event) = serverInitialize testPath defaultConfigDto toolsPath workspaceLoaderFactory
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
 
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-    match waitForParseResultsForFile "Script.fsx" event with
-    | Ok () -> server
-    | Error e -> failwithf "Errors while parsing highlighting script %A" e
-  )
+      do! server.TextDocumentDidOpen tdop
+      match! waitForParseResultsForFile "Script.fsx" event with
+      | Ok () -> return server
+      | Error e -> return failwithf "Errors while parsing highlighting script %A" e
+    }
+    |> Async.Cache
 
   let decodeHighlighting (data: uint32 []) =
     let zeroLine = [| 0u; 0u; 0u; 0u; 0u |]
@@ -962,21 +1000,23 @@ let highlightingTests toolsPath workspaceLoaderFactory =
 
     structures
 
-  let fullHighlights = lazy (
-    let p : SemanticTokensParams = { TextDocument = { Uri = Path.FilePathToUri scriptPath } }
-    let highlights = serverParsed.Value.TextDocumentSemanticTokensFull p |> Async.RunSynchronously
-    match highlights with
-    | Ok (Some highlights) ->
-      let decoded =
-        highlights.Data
-        |> decodeHighlighting
-      // printfn "%A" decoded
-      decoded
-    | Ok None ->
-      failwithf "Expected to get some highlighting"
-    | Error e ->
-      failwithf "error of %A" e
-  )
+  let fullHighlights =
+    async {
+      let p : SemanticTokensParams = { TextDocument = { Uri = Path.FilePathToUri scriptPath } }
+      let! server = server
+      let! highlights = server.TextDocumentSemanticTokensFull p
+      match highlights with
+      | Ok (Some highlights) ->
+        let decoded =
+          highlights.Data
+          |> decodeHighlighting
+        // printfn "%A" decoded
+        return decoded
+      | Ok None ->
+        return failwithf "Expected to get some highlighting"
+      | Error e ->
+        return failwithf "error of %A" e
+    } |> Async.Cache
 
   let rangeContainsRange (parent: Types.Range) (child: Types.Position) =
     parent.Start.Line <= child.Line &&
@@ -984,25 +1024,27 @@ let highlightingTests toolsPath workspaceLoaderFactory =
     parent.End.Line >= child.Line &&
     parent.End.Character >= child.Character
 
-  let tokenIsOfType ((line, char) as pos) testTokenType (highlights: (Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier) [] Lazy) =
-    testCase $"can find token of type {testTokenType} at %A{pos}" (fun () ->
+  let tokenIsOfType ((line, char) as pos) testTokenType (highlights: (Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier) [] Async) =
+    testCaseAsync $"can find token of type {testTokenType} at %A{pos}" (async {
+      let! highlights = highlights
       let pos = { Line = line; Character = char }
       Expect.exists
-        highlights.Value
+        highlights
         ((fun (r, token, _modifiers) ->
           rangeContainsRange r pos
           && token = testTokenType))
         "Could not find a highlighting range that contained the given position"
-    )
+    })
 
   /// this tests the range endpoint by getting highlighting for a range then doing the normal highlighting test
-  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType (server: FsAutoComplete.Lsp.FSharpLspServer Lazy) =
-    testCase $"can find token of type {testTokenType} in a subrange from ({startLine}, {startChar})-({endLine}, {endChar})" (fun () ->
+  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType =
+    testCaseAsync $"can find token of type {testTokenType} in a subrange from ({startLine}, {startChar})-({endLine}, {endChar})" (async {
+      let! server = server
       let range: Types.Range =
         { Start = { Line = startLine; Character = startChar}
           End = { Line = endLine; Character = endChar }}
       let pos = { Line = line; Character = char }
-      match server.Value.TextDocumentSemanticTokensRange { Range = range; TextDocument =  { Uri = Path.FilePathToUri scriptPath } } |> Async.RunSynchronously with
+      match! server.TextDocumentSemanticTokensRange { Range = range; TextDocument =  { Uri = Path.FilePathToUri scriptPath } } with
       | Ok (Some highlights) ->
         let decoded = decodeHighlighting highlights.Data
         Expect.exists
@@ -1013,7 +1055,7 @@ let highlightingTests toolsPath workspaceLoaderFactory =
           "Could not find a highlighting range that contained the given position"
       | Ok None -> failwithf "Expected to get some highlighting"
       | Error e -> failwithf "error of %A" e
-    )
+    })
 
   testList "Document Highlighting Tests" [
     tokenIsOfType (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
@@ -1021,24 +1063,26 @@ let highlightingTests toolsPath workspaceLoaderFactory =
     tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
     tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
     tokenIsOfType (14, 10) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type should be a type
-    tokenIsOfTypeInRange ((0, 0), (0, 100)) (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter serverParsed
+    tokenIsOfTypeInRange ((0, 0), (0, 100)) (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter
   ]
 
 let signatureHelpTests toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
-    let scriptPath = Path.Combine(path, "Script1.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing events
-    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-    match waitForParseResultsForFile "Script1.fsx" events with
-    | Ok () ->
-      () // all good, no parsing/checking errors
-    | Core.Result.Error errors ->
-      failwithf "Errors while parsing script %s: %A" scriptPath errors
-    do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-    server, scriptPath
-  )
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
+      let scriptPath = Path.Combine(path, "Script1.fsx")
+      let! (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      do! waitForWorkspaceFinishedParsing events
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+      match! waitForParseResultsForFile "Script1.fsx" events with
+      | Ok () ->
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" scriptPath errors
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+      return server, scriptPath
+    }
+    |> Async.Cache
 
   let getSignatureHelpAt (line, character) file =
     let sigHelpParams: SignatureHelpParams =
@@ -1059,12 +1103,12 @@ let signatureHelpTests toolsPath workspaceLoaderFactory =
       |> Flip.Expect.wantSome "Expected some signature help"
     sigHelp.Signatures |> Flip.Expect.isNonEmpty "Expected some overloads"
 
-  let checkOverloadsAt pos name = testCase name (fun _ ->
-    let server, testFilePath = serverStart.Value
+  let checkOverloadsAt pos name = testCaseAsync name (async {
+    let! server, testFilePath = server
     let p = getSignatureHelpAt pos testFilePath
-    let overloads = server.TextDocumentSignatureHelp p |> Async.RunSynchronously
+    let! overloads = server.TextDocumentSignatureHelp p
     expectSomeOverloads overloads
-  )
+  })
 
   testSequenced <| testList "SignatureHelp" [
     checkOverloadsAt (0, 36) "Can get overloads of MemoryStream with attached parens"

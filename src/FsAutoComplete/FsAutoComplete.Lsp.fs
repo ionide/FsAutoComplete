@@ -658,7 +658,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     override __.Initialized(p: InitializedParams) = async {
         logger.info (Log.setMessage "Initialized request")
-
         return ()
     }
 
