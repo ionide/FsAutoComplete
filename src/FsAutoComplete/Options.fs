@@ -20,6 +20,7 @@ module Options =
       | [<CustomCommandLine("--wait-for-debugger")>] WaitForDebugger
       | [<EqualsAssignment; CustomCommandLine("--hostPID")>] HostPID of pid:int
       | [<CustomCommandLine("--background-service-enabled")>] BackgroundServiceEnabled
+      | [<CustomCommandLine("--project-graph-enabled")>] ProjectGraphEnabled
       with
           interface IArgParserTemplate with
               member s.Usage =
@@ -32,6 +33,7 @@ module Options =
                   | WaitForDebugger _ -> "wait for a debugger to attach to the process"
                   | HostPID _ -> "the Host process ID."
                   | BackgroundServiceEnabled -> "enable background service"
+                  | ProjectGraphEnabled -> "enable MsBuild ProjectGraph for workspace loading. Experimental."
 
   let isCategory (category: string) (e: LogEvent) =
     match e.Properties.TryGetValue "SourceContext" with
@@ -75,6 +77,7 @@ module Options =
       | Version
       | WaitForDebugger
       | BackgroundServiceEnabled
+      | ProjectGraphEnabled
       | HostPID _  ->
           ()
 

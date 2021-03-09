@@ -55,8 +55,15 @@ let entry args =
       let backgroundServiceEnabled =
         results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
 
+      let projectGraphEnabled =
+        results.Contains <@ Options.CLIArguments.ProjectGraphEnabled @>
+
+      let workspaceLoaderFactory =
+        if projectGraphEnabled then Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
+        else Ionide.ProjInfo.WorkspaceLoader.Create
+
       let toolsPath = Ionide.ProjInfo.Init.init ()
-      let commands = Commands(writeJson, backgroundServiceEnabled, toolsPath)
+      let commands = Commands(writeJson, backgroundServiceEnabled, toolsPath, workspaceLoaderFactory)
       let originalFs = FileSystemAutoOpens.FileSystem
       let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
       FileSystemAutoOpens.FileSystem <- fs

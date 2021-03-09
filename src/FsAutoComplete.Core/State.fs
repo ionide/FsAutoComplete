@@ -30,10 +30,10 @@ type State =
     mutable ColorizationOutput: bool
   }
 
-  static member Initial toolsPath =
+  static member Initial toolsPath workspaceLoaderFactory =
     { Files = ConcurrentDictionary()
       LastCheckedVersion = ConcurrentDictionary()
-      ProjectController = new ProjectController(toolsPath)
+      ProjectController = new ProjectController(toolsPath, workspaceLoaderFactory)
       HelpText = ConcurrentDictionary()
       Declarations = ConcurrentDictionary()
       CurrentAST = None

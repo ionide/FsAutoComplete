@@ -10,35 +10,44 @@ open FsAutoComplete.Tests.CoreTest
 open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
+open Ionide.ProjInfo
+
+let loaders = [
+  "Ionide WorkspaceLoader",  WorkspaceLoader.Create
+  "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
+]
 
 ///Global list of tests
 let tests toolsPath =
-   testSequenced <| testList "lsp" [
-    // initTests
-    basicTests toolsPath
-    codeLensTest toolsPath
-    documentSymbolTest toolsPath
-    autocompleteTest toolsPath
-    renameTest toolsPath
-    gotoTest toolsPath
-    foldingTests toolsPath
-    tooltipTests toolsPath
-    highlightingTests toolsPath
-    signatureHelpTests toolsPath
+  testSequenced <| testList "lsp" [
+    for (name, workspaceLoaderFactory) in loaders do
+      testList name [
+        // initTests
+        basicTests toolsPath workspaceLoaderFactory
+        codeLensTest toolsPath workspaceLoaderFactory
+        documentSymbolTest toolsPath workspaceLoaderFactory
+        autocompleteTest toolsPath workspaceLoaderFactory
+        renameTest toolsPath workspaceLoaderFactory
+        gotoTest toolsPath workspaceLoaderFactory
+        foldingTests toolsPath workspaceLoaderFactory
+        tooltipTests toolsPath workspaceLoaderFactory
+        highlightingTests toolsPath workspaceLoaderFactory
+        signatureHelpTests toolsPath workspaceLoaderFactory
 
-    scriptPreviewTests toolsPath
-    scriptEvictionTests toolsPath
-    scriptProjectOptionsCacheTests toolsPath
-    dependencyManagerTests  toolsPath//Requires .Net 5 preview
-    scriptGotoTests toolsPath
-    interactiveDirectivesUnitTests
+        scriptPreviewTests toolsPath workspaceLoaderFactory
+        scriptEvictionTests toolsPath workspaceLoaderFactory
+        scriptProjectOptionsCacheTests toolsPath workspaceLoaderFactory
+        dependencyManagerTests  toolsPath workspaceLoaderFactory//Requires .Net 5 preview
+        scriptGotoTests toolsPath workspaceLoaderFactory
+        interactiveDirectivesUnitTests
 
-    fsdnTest toolsPath
-    uriTests
-    // linterTests toolsPath
-    formattingTests toolsPath
-    //fakeInteropTests toolsPath
-    analyzerTests toolsPath
+        fsdnTest toolsPath workspaceLoaderFactory
+        uriTests
+        // linterTests toolsPath
+        formattingTests toolsPath workspaceLoaderFactory
+        //fakeInteropTests toolsPath
+        analyzerTests toolsPath workspaceLoaderFactory
+      ]
   ]
 
 
