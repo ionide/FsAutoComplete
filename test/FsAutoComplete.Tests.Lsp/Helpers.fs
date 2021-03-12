@@ -374,6 +374,7 @@ let waitForWorkspaceFinishedParsing (events : ClientEvents) =
       if workspaceLoadResponse.Status = "finished" then Some () else None
     | _ -> None
 
+  logger.debug (eventX "waiting for workspace to finish loading")
   events
   |> Observable.choose chooser
   |> Async.AwaitObservable

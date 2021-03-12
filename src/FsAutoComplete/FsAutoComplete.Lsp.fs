@@ -559,7 +559,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                             match x with
                             | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
                             | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
-
+                    logger.info (Log.setMessage "Choosing from interesting items {items}" >> Log.addContextDestructured "items" peeks)
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
@@ -1434,7 +1434,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         return res
     }
 
-    member __.FSharpWorkspaceLoad(p) = async {
+    member __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) = async {
         logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
