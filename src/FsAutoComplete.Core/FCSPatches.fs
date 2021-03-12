@@ -276,7 +276,7 @@ type FSharpParseFileResults with
 
             override _.VisitBinding(defaultTraverse, binding) =
                 match binding with
-                | SynBinding.Binding (_, _, _, _, _, _, _, _, _, expr, _range, _) as b when Range.rangeContainsPos b.RangeOfBindingAndRhs pos ->
+                | SynBinding.Binding (_, _, _, _, _, _, SynValData (None, _, _), _, _, expr, _range, _) as b when Range.rangeContainsPos b.RangeOfBindingAndRhs pos ->
                     tryGetIdentRangeFromBinding b
                     |> Option.bind (walkBinding expr)
                 | _ -> defaultTraverse binding
