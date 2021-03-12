@@ -194,7 +194,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
                         | ProjectResponse.ProjectError(_,errorDetails) -> CommandResponse.projectError JsonSerializer.writeJson errorDetails
                         | ProjectResponse.ProjectLoading(projectFileName) -> CommandResponse.projectLoading JsonSerializer.writeJson projectFileName
                         | ProjectResponse.WorkspaceLoad(finished) -> CommandResponse.workspaceLoad JsonSerializer.writeJson finished
-                        | ProjectResponse.ProjectChanged(projectFileName) -> failwith "Not Implemented"
+                        | ProjectResponse.ProjectChanged(projectFileName) -> CommandResponse.projectChanged JsonSerializer.writeJson projectFileName
 
                     {Content = ws}
                     |> lspClient.NotifyWorkspace
