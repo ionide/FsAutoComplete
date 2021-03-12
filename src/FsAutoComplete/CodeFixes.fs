@@ -1123,3 +1123,23 @@ module Fixes =
         }
         |> AsyncResult.foldResult id (fun _ -> []))
       (Set.ofList [ "576" ])
+
+  /// fix to convert uses of != to <> to use the proper thing
+  let convertBangEqualsToInequality (getFileLines: string<LocalPath> -> Result<string [], _>): CodeFix =
+    ifDiagnosticByCode
+      (fun diag codeActionParams ->
+        asyncResult {
+          let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+          let! lines = getFileLines fileName
+          let errorText = getText lines diag.Range
+          do! Result.guard (fun () -> errorText = "!=") "Not an != equality usage"
+          return [{ Title = "Use <> for inequality check"
+                    File = codeActionParams.TextDocument
+                    SourceDiagnostic = Some diag
+                    Kind = Fix
+                    Edits = [| { Range = diag.Range
+                                 NewText = "<>" } |] }]
+
+        }
+        |> AsyncResult.foldResult id (fun _ -> [])
+      ) (Set.ofList ["43"])
