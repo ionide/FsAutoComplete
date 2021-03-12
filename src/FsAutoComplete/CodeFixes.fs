@@ -1143,3 +1143,26 @@ module Fixes =
         }
         |> AsyncResult.foldResult id (fun _ -> [])
       ) (Set.ofList ["43"])
+
+  let replaceBangWithValue (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>): CodeFix =
+    fun codeActionParams ->
+      asyncResult {
+        let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+        let selectionRange = protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) codeActionParams.Range
+        let! parseResults, line, lines = getParseResultsForFile fileName selectionRange.Start
+        let! derefRange = parseResults.GetParseResults.TryRangeOfRefCellDereferenceContainingPos selectionRange.Start |> Result.ofOption (fun _ -> "No deref found at that pos")
+        let! exprRange = parseResults.GetParseResults.TryRangeOfExpressionBeingDereferencedContainingPos selectionRange.Start |> Result.ofOption (fun _ -> "No expr found at that pos")
+        let combinedRange = FcsRange.unionRanges derefRange exprRange
+        let protocolRange = fcsRangeToLsp combinedRange
+        let badString = getText lines protocolRange
+        let replacementString = badString.[1..] + ".Value"
+        return [
+          { Title = "Use `.Value` instead of dereference operator"
+            File = codeActionParams.TextDocument
+            SourceDiagnostic = None
+            Kind = Refactor
+            Edits = [| { Range = protocolRange
+                         NewText = replacementString } |] }
+        ]
+      }
+      |> AsyncResult.foldResult id (fun _ -> [])

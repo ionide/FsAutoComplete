@@ -283,7 +283,19 @@ type FSharpParseFileResults with
         })
     | None -> None
 
-
+  member scope.TryRangeOfExpressionBeingDereferencedContainingPos expressionPos =
+    scope.ParseTree
+    |> Option.bind (fun input ->
+        AstTraversal.Traverse(expressionPos, input, { new AstTraversal.AstVisitorBase<_>() with
+            member _.VisitExpr(_, _, defaultTraverse, expr) =
+                match expr with
+                | SynExpr.App(_, false, SynExpr.Ident funcIdent, expr, _) ->
+                    if funcIdent.idText = "op_Dereference" && Range.rangeContainsPos expr.Range expressionPos then
+                        Some expr.Range
+                    else
+                        None
+                | _ -> defaultTraverse expr })
+    )
 module SyntaxTreeOps =
   open FSharp.Compiler.SyntaxTree
   let rec synExprContainsError inpExpr =
