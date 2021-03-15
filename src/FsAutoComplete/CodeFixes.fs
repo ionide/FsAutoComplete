@@ -98,7 +98,7 @@ module Navigation =
   /// advance along positions from a starting location, incrementing in a known way until a condition is met.
   /// when the condition is met, return that position.
   /// if the condition is never met, return None
-  let walkPos (lines: string []) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
+  let walkPos (lines: string []) (pos: LspTypes.Position) posChange terminalCondition checkCondition: LspTypes.Position option =
     let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
 
     let firstPos = { Line = 0; Character = 0 }
@@ -108,8 +108,11 @@ module Navigation =
         Character = lines.[lines.Length - 1].Length - 1 }
 
     let rec loop pos =
-      if firstPos = pos || finalPos = pos then None
-      else if not (condition (charAt pos)) then loop (posChange pos)
+      let charAt = charAt pos
+      if firstPos = pos || finalPos = pos
+      then None
+      else if terminalCondition charAt then None
+      else if not (checkCondition charAt) then loop (posChange pos)
       else Some pos
 
     loop pos
@@ -142,11 +145,17 @@ module Navigation =
     if count <= 0 then pos
     else incMany lines (inc lines pos) (count - 1)
 
-  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
-    walkPos lines pos (dec lines) condition
+  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) =
+    walkPos lines pos (dec lines) (fun c -> false)
 
-  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
-    walkPos lines pos (inc lines) condition
+  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) =
+    walkPos lines pos (inc lines) (fun c -> false)
+
+  let walkBackUntilConditionWithTerminal lines pos check terminal =
+    walkPos lines pos (dec lines) terminal check
+
+  let walkForwardUntilConditionWithTerminal (lines: string []) (pos: LspTypes.Position) check terminal =
+    walkPos lines pos (inc lines) terminal check
 
 module Run =
   open Types
