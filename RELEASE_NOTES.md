@@ -1,3 +1,11 @@
+### 0.43.0 - 03.15.2021
+
+* Fantomas updated to 4.4 stable
+* FCS 39 update
+* More codefixes!
+* Fixed serialization of the FormattingOptions type to prevent server crashes
+* Performance enhancements for the BackgroundService
+
 ### 0.42.0 - 03.02.2021
 
 * Many large changes, .Net 5 is required now
