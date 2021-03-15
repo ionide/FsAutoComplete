@@ -526,6 +526,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             ConvertBangEqualsToInequality.fix getRangeText
             ReplaceBangWithValueFunction.fix tryGetParseResultsForFile getLineText
             RemoveUnusedBinding.fix tryGetParseResultsForFile
+            AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
