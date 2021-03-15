@@ -89,7 +89,7 @@ module Util =
   /// advance along positions from a starting location, incrementing in a known way until a condition is met.
   /// when the condition is met, return that position.
   /// if the condition is never met, return None
-  let walkPos (lines: string []) (pos: LspTypes.Position) posChange condition: LspTypes.Position option =
+  let walkPos (lines: string []) (pos: LspTypes.Position) posChange terminalCondition checkCondition: LspTypes.Position option =
     let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
 
     let firstPos = { Line = 0; Character = 0 }
@@ -99,8 +99,11 @@ module Util =
         Character = lines.[lines.Length - 1].Length - 1 }
 
     let rec loop pos =
-      if firstPos = pos || finalPos = pos then None
-      else if not (condition (charAt pos)) then loop (posChange pos)
+      let charAt = charAt pos
+      if firstPos = pos || finalPos = pos
+      then None
+      else if terminalCondition charAt then None
+      else if not (checkCondition charAt) then loop (posChange pos)
       else Some pos
 
     loop pos
@@ -125,11 +128,17 @@ module Util =
       { pos with
           Character = pos.Character - 1 }
 
-  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
-    walkPos lines pos (dec lines) condition
+  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) =
+    walkPos lines pos (dec lines) (fun c -> false)
 
-  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
-    walkPos lines pos (inc lines) condition
+  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) =
+    walkPos lines pos (inc lines) (fun c -> false)
+
+  let walkBackUntilConditionWithTerminal lines pos check terminal =
+    walkPos lines pos (dec lines) terminal check
+
+  let walkForwardUntilConditionWithTerminal (lines: string []) (pos: LspTypes.Position) check terminal =
+    walkPos lines pos (inc lines) terminal check
 
 open Types
 
@@ -1144,6 +1153,7 @@ module Fixes =
         |> AsyncResult.foldResult id (fun _ -> [])
       ) (Set.ofList ["43"])
 
+  /// replace usages of `!cell` for ref cells with `cell`.Value
   let replaceBangWithValue (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>): CodeFix =
     fun codeActionParams ->
       asyncResult {
@@ -1166,3 +1176,54 @@ module Fixes =
         ]
       }
       |> AsyncResult.foldResult id (fun _ -> [])
+
+  /// fix inderminate type errors by adding an explicit type to a value
+  let addTypeToIndeterminateValue
+    (getParseResultsForFile: string<LocalPath> -> FcsPos -> Async<Result<ParseAndCheckResults * string * string array, string>>)
+    (getProjectOptionsForFile: string<LocalPath> -> Result<FSharpProjectOptions, string>)
+    : CodeFix =
+    ifDiagnosticByCode (fun diagnostic codeActionParams ->
+      asyncResult {
+        let filename = codeActionParams.TextDocument.GetFilePath ()
+        let typedFileName = filename |> Utils.normalizePath
+        let fcsRange = protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) diagnostic.Range
+        let! (tyRes, line, lines) = getParseResultsForFile typedFileName fcsRange.Start
+        let! (endColumn, identIslands) = Lexer.findLongIdents(fcsRange.Start.Column, line) |> Result.ofOption (fun _ -> "No long ident at position")
+        match tyRes.GetCheckResults.GetDeclarationLocation(fcsRange.Start.Line, endColumn, line, List.ofArray identIslands) with
+        | FSharpFindDeclResult.DeclFound declRange when declRange.FileName = filename ->
+          let! projectOptions = getProjectOptionsForFile typedFileName
+          let protocolDeclRange = fcsRangeToLsp declRange
+          let declText = getText lines protocolDeclRange
+          let declTextLine = lines.[protocolDeclRange.Start.Line] //TODO: check
+          let! declLexerSymbol = Lexer.getSymbol declRange.Start.Line declRange.Start.Column declText SymbolLookupKind.ByLongIdent projectOptions.OtherOptions |> Result.ofOption (fun _ -> "No lexer symbol for declaration")
+          let! declSymbolUse = tyRes.GetCheckResults.GetSymbolUseAtLocation(declRange.Start.Line, declRange.End.Column, declTextLine, declLexerSymbol.Text.Split('.') |> List.ofArray) |> Result.ofOption (fun _ -> "No lexer symbol")
+          match declSymbolUse.Symbol with
+          | :? FSharpMemberOrFunctionOrValue as mfv ->
+            let typeString = mfv.FullType.Format declSymbolUse.DisplayContext
+
+            if mfv.FullType.IsGenericParameter
+            then return []
+            else
+              let alreadyWrappedInParens =
+                let hasLeftParen = walkBackUntilConditionWithTerminal lines protocolDeclRange.Start (fun c -> c = '(') System.Char.IsWhiteSpace
+                let hasRightParen = walkForwardUntilConditionWithTerminal lines protocolDeclRange.End (fun c -> c = ')') System.Char.IsWhiteSpace
+                hasLeftParen.IsSome && hasRightParen.IsSome
+
+              let changedText, changedRange =
+                if alreadyWrappedInParens
+                then ": " + typeString, { Start = protocolDeclRange.End; End = protocolDeclRange.End }
+                else "(" + declText + ": " + typeString + ")", protocolDeclRange
+
+              return [{
+                        Title = "Add explicit type annotation"
+                        File = codeActionParams.TextDocument
+                        SourceDiagnostic = Some diagnostic
+                        Kind = Fix
+                        Edits = [| { Range = changedRange
+                                     NewText = changedText } |] }]
+          | _ -> return []
+
+        | _ -> return []
+      }
+      |> AsyncResult.foldResult id (fun _ -> [])
+    ) (Set.ofList ["72"; "3245"])

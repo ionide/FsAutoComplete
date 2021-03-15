@@ -522,6 +522,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             Fixes.addMissingRecToMutuallyRecFunctions getFileLines
             Fixes.convertBangEqualsToInequality getFileLines
             Fixes.replaceBangWithValue tryGetParseResultsForFile
+            Fixes.addTypeToIndeterminateValue tryGetParseResultsForFile tryGetProjectOptions
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
