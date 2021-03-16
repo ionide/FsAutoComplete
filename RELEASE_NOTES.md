@@ -1,4 +1,8 @@
-### 0.43.0 - 03.15.2021
+### 0.44.0 - 15.03.2021
+
+* Update to Ionide.ProjInfo 0.51 to prevent workspace init deadlocks
+
+### 0.43.0 - 15.03.2021
 
 * Fantomas updated to 4.4 stable
 * FCS 39 update
