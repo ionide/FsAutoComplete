@@ -9,10 +9,10 @@ open FsAutoComplete.LspHelpers
 open Helpers
 
 
-let fsdnTest toolsPath =
+let fsdnTest toolsPath workspaceLoaderFactory =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FsdnTest")
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath
+    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
     waitForWorkspaceFinishedParsing event
     server
   )
@@ -68,10 +68,10 @@ let uriTests =
 
 
 ///Tests for linter
-let linterTests toolsPath =
+let linterTests toolsPath workspaceLoaderFactory =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
-    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} toolsPath
+    let (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} toolsPath workspaceLoaderFactory
 
     let m = new System.Threading.ManualResetEvent(false)
     let bag = event |> waitForParsedScript m
@@ -252,10 +252,10 @@ let linterTests toolsPath =
   ]
 
 
-let formattingTests toolsPath =
+let formattingTests toolsPath workspaceLoaderFactory =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
-    let (server, events) = serverInitialize path defaultConfigDto toolsPath
+    let (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
     do waitForWorkspaceFinishedParsing events
     server, events, path
   )
@@ -317,7 +317,7 @@ let formattingTests toolsPath =
 //         ))
 //   ]
 
-let analyzerTests toolsPath =
+let analyzerTests toolsPath workspaceLoaderFactory =
   let serverStart = lazy (
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
     // because the analyzer is a project this project has a reference, the analyzer can ber
@@ -331,7 +331,7 @@ let analyzerTests toolsPath =
     Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
     |> expectExitCodeZero
 
-    let (server, events) = serverInitialize path analyzerEnabledConfig toolsPath
+    let (server, events) = serverInitialize path analyzerEnabledConfig toolsPath workspaceLoaderFactory
     let scriptPath = Path.Combine(path, "Script.fs")
     do waitForWorkspaceFinishedParsing events
     do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
