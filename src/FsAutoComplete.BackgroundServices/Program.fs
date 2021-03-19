@@ -3,9 +3,8 @@
 open System
 open System.IO
 open System.Text
-open LanguageServerProtocol.Server
-open LanguageServerProtocol.Types
 open LanguageServerProtocol
+open LanguageServerProtocol.Types
 open FSharp.Compiler
 open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
@@ -106,14 +105,16 @@ type FsacClient(sendServerNotification: ClientNotificationSender, sendServerRequ
     member __.Notify(o: Msg) =
         sendServerNotification "background/notify" o |> Async.Ignore
 
-type BackgroundServiceServer(state: State, client: FsacClient) =
-    inherit LspServer()
+type BackgroundServiceServer(state: State, inputStream, outputStream, serializer) as this =
+    inherit LspServer(inputStream, outputStream, serializer)
 
     let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = false)
 
     do checker.ImplicitlyStartBackgroundWork <- false
     let mutable latestSdkVersion = lazy None
     let mutable latestRuntimeVersion = lazy None
+    let mutable client = Unchecked.defaultof<FsacClient>
+
     //TODO: does the backgroundservice ever get config updates?
     do
       let sdkRoot = Environment.dotnetSDKRoot.Value
@@ -121,6 +122,12 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
       then
         latestSdkVersion <- Environment.latest3xSdkVersion sdkRoot
         latestRuntimeVersion <- Environment.latest3xRuntimeVersion sdkRoot
+
+      this.AddRequestHandler("background/update", this.UpdateTextFile)
+      this.AddRequestHandler("background/project", this.UpdateProject)
+      this.AddRequestHandler("background/save", this.FileSaved)
+
+      client <- FsacClient(this.sendServerNotification, { new ClientRequestSender with member x.Send ty payload = this.sendServerRequest ty payload } )
 
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =
@@ -377,20 +384,11 @@ module Program =
     let startCore () =
         use input = Console.OpenStandardInput()
         use output = Console.OpenStandardOutput()
-
-        let requestsHandlings =
-            Map.empty<string, RequestHandling<BackgroundServiceServer>>
-            |> Map.add "background/update" (requestHandling (fun s p -> s.UpdateTextFile(p) ))
-            |> Map.add "background/project" (requestHandling (fun s p -> s.UpdateProject(p) ))
-            |> Map.add "background/save" (requestHandling (fun s p -> s.FileSaved(p) ))
-
-        LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
-
-
+        let service = new BackgroundServiceServer(State.Initial, input, output, defaultSerializer)
+        service.Run()
 
     [<EntryPoint>]
     let main argv =
-
         let pid = Int32.Parse argv.[0]
         let originalFs = FileSystemAutoOpens.FileSystem
         let fs = FileSystem(originalFs, state.Files.TryFind) :> IFileSystem

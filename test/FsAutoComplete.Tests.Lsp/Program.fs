@@ -39,6 +39,7 @@ let tests toolsPath =
         dependencyManagerTests  toolsPath workspaceLoaderFactory//Requires .Net 5 preview
         scriptGotoTests toolsPath workspaceLoaderFactory
         interactiveDirectivesUnitTests
+        cancellationTests toolsPath workspaceLoaderFactory
 
         // FSDN service is down, disabling tests until that's resolved
         // fsdnTest toolsPath workspaceLoaderFactory

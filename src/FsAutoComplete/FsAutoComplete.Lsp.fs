@@ -7,7 +7,6 @@ open FsAutoComplete.Logging
 open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
-open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open LspHelpers
 open Newtonsoft.Json.Linq
@@ -79,8 +78,8 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
-type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
-    inherit LspServer()
+type FSharpLspServer(commands: Commands, input, output, serializer) as this =
+    inherit LspServer(input, output, serializer)
 
     let logger = LogProvider.getLoggerByName "LSP"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
@@ -93,6 +92,36 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     let mutable config = FSharpConfig.Default
     let mutable rootPath : string option = None
     let mutable codeFixes = fun p -> [||]
+    let mutable lspClient: FSharpLspClient = Unchecked.defaultof<_>
+
+    do
+      this.AddRequestHandler("fsharp/signature", this.FSharpSignature)
+      this.AddRequestHandler("fsharp/signatureData", this.FSharpSignatureData)
+      this.AddRequestHandler("fsharp/documentationGenerator", this.FSharpDocumentationGenerator)
+      this.AddRequestHandler("fsharp/lineLens", this.FSharpLineLense)
+      this.AddRequestHandler("fsharp/compilerLocation", this.FSharpCompilerLocation)
+      this.AddRequestHandler("fsharp/workspaceLoad", this.FSharpWorkspaceLoad)
+      this.AddRequestHandler("fsharp/workspacePeek", this.FSharpWorkspacePeek)
+      this.AddRequestHandler("fsharp/project", this.FSharpProject)
+      this.AddRequestHandler("fsharp/fsdn", this.FSharpFsdn)
+      this.AddRequestHandler("fsharp/dotnetnewlist", this.FSharpDotnetNewList)
+      this.AddRequestHandler("fsharp/dotnetnewrun", this.FSharpDotnetNewRun)
+      this.AddRequestHandler("fsharp/dotnetaddproject", this.FSharpDotnetAddProject)
+      this.AddRequestHandler("fsharp/dotnetremoveproject", this.FSharpDotnetRemoveProject)
+      this.AddRequestHandler("fsharp/dotnetaddsln", this.FSharpDotnetSlnAdd)
+      this.AddRequestHandler("fsharp/f1Help", this.FSharpHelp)
+      this.AddRequestHandler("fsharp/documentation", this.FSharpDocumentation)
+      this.AddRequestHandler("fsharp/documentationSymbol", this.FSharpDocumentationSymbol)
+      this.AddRequestHandler("fsharp/loadAnalyzers", this.LoadAnalyzers)
+      this.AddRequestHandler("fsharp/fsharpLiterate", this.FSharpLiterate)
+      this.AddRequestHandler("fsharp/pipelineHint", this.FSharpPipelineHints)
+      this.AddRequestHandler("fsproj/moveFileUp", this.FsProjMoveFileUp)
+      this.AddRequestHandler("fsproj/moveFileDown", this.FsProjMoveFileDown)
+      this.AddRequestHandler("fsproj/addFileAbove", this.FsProjAddFileAbove)
+      this.AddRequestHandler("fsproj/addFileBelow", this.FsProjAddFileBelow)
+      this.AddRequestHandler("fsproj/addFile", this.FsProjAddFile)
+
+      lspClient <- FSharpLspClient(this.sendServerNotification, { new ClientRequestSender with member x.Send ty payload =  this.sendServerRequest ty payload })
 
     /// centralize any state changes when the config is updated here
     let updateConfig (newConfig: FSharpConfig) =
@@ -531,7 +560,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         let c =
             p.InitializationOptions
             |> Option.bind (fun options -> if options.HasValues then Some options else None)
-            |> Option.map Server.deserialize<FSharpConfigDto>
+            |> Option.map this.deserialize<FSharpConfigDto>
             |> Option.map FSharpConfig.FromDto
             |> Option.defaultValue FSharpConfig.Default
 
@@ -1282,7 +1311,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
     override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) = async {
         let dto =
             p.Settings
-            |> Server.deserialize<FSharpConfigRequest>
+            |> this.deserialize<FSharpConfigRequest>
         logger.info (Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}" >> Log.addContextDestructured "parms" dto )
 
         let c = config.AddDto dto.FSharp
@@ -1816,38 +1845,8 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 let startCore (commands: Commands) =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
-
-    let requestsHandlings =
-        defaultRequestHandlings<FSharpLspServer> ()
-        |> Map.add "fsharp/signature" (requestHandling (fun s p -> s.FSharpSignature(p) ))
-        |> Map.add "fsharp/signatureData" (requestHandling (fun s p -> s.FSharpSignatureData(p) ))
-        |> Map.add "fsharp/documentationGenerator" (requestHandling (fun s p -> s.FSharpDocumentationGenerator(p) ))
-        |> Map.add "fsharp/lineLens" (requestHandling (fun s p -> s.FSharpLineLense(p) ))
-        |> Map.add "fsharp/compilerLocation" (requestHandling (fun s p -> s.FSharpCompilerLocation(p) ))
-        |> Map.add "fsharp/workspaceLoad" (requestHandling (fun s p -> s.FSharpWorkspaceLoad(p) ))
-        |> Map.add "fsharp/workspacePeek" (requestHandling (fun s p -> s.FSharpWorkspacePeek(p) ))
-        |> Map.add "fsharp/project" (requestHandling (fun s p -> s.FSharpProject(p) ))
-        |> Map.add "fsharp/fsdn" (requestHandling (fun s p -> s.FSharpFsdn(p) ))
-        |> Map.add "fsharp/dotnetnewlist" (requestHandling (fun s p -> s.FSharpDotnetNewList(p) ))
-        |> Map.add "fsharp/dotnetnewrun" (requestHandling (fun s p -> s.FSharpDotnetNewRun(p) ))
-        |> Map.add "fsharp/dotnetaddproject" (requestHandling (fun s p -> s.FSharpDotnetAddProject(p) ))
-        |> Map.add "fsharp/dotnetremoveproject" (requestHandling (fun s p -> s.FSharpDotnetRemoveProject(p) ))
-        |> Map.add "fsharp/dotnetaddsln" (requestHandling (fun s p -> s.FSharpDotnetSlnAdd(p) ))
-        |> Map.add "fsharp/f1Help" (requestHandling (fun s p -> s.FSharpHelp(p) ))
-        |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
-        |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
-        |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
-        |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
-        |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
-        // |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
-        // |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
-        |> Map.add "fsproj/moveFileUp" (requestHandling (fun s p -> s.FsProjMoveFileUp(p) ))
-        |> Map.add "fsproj/moveFileDown" (requestHandling (fun s p -> s.FsProjMoveFileDown(p) ))
-        |> Map.add "fsproj/addFileAbove" (requestHandling (fun s p -> s.FsProjAddFileAbove(p) ))
-        |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p) ))
-        |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p) ))
-
-    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> new FSharpLspServer(commands, lspClient))
+    let server = new FSharpLspServer(commands, input, output, defaultSerializer)
+    server.Run()
 
 let start (commands: Commands) =
     let logger = LogProvider.getLoggerByName "Startup"

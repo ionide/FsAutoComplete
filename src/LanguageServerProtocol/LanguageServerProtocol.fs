@@ -1,6 +1,7 @@
 module LanguageServerProtocol
 
 open System.Diagnostics
+open Newtonsoft.Json.Linq
 
 
 [<AutoOpen>]
@@ -703,6 +704,11 @@ module Types =
         Experimental: JToken option
     }
 
+    type ClientInfo = {
+      Name: string
+      Version: string
+    }
+
     type InitializeParams = {
         ProcessId: int option
         RootPath: string option
@@ -710,6 +716,7 @@ module Types =
         InitializationOptions: JToken option
         Capabilities: ClientCapabilities option
         trace: string option
+        ClientInfo: ClientInfo option
     }
 
     type InitializedParams() =
@@ -1961,6 +1968,20 @@ module Types =
       Edits: SemanticTokensEdit[];
     }
 
+
+  type CancelParams =
+    {
+      // can be string or integer, really, but deserializing erased unions in newtonsoft are hard
+      Id: string }
+
+  type ProgressParams =
+    {
+      // can be string or integer, really, but deserializing erased unions in newtonsoft are hard
+      Token: string
+      /// This is kept generic because it can't be polymorphic because we only allow one override of `Progress`.
+      /// have to do decoding + dispatch in the handler
+      Value: JToken }
+
 module LowLevel =
     open System
     open System.IO
@@ -2154,6 +2175,11 @@ let private ignoreNotification = async.Return(())
 
 open Types
 open Newtonsoft.Json.Linq
+open JsonRpc
+open Newtonsoft.Json
+open Newtonsoft.Json.Serialization
+open FsAutoComplete.Logging
+open System.IO
 
 [<AbstractClass>]
 type LspClient() =
@@ -2242,10 +2268,435 @@ type LspClient() =
     abstract member TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
     default __.TextDocumentPublishDiagnostics(_) = ignoreNotification
 
+type ClientNotificationSender = string -> obj -> AsyncLspResult<unit>
 
+type ClientRequestSender =
+    abstract member Send<'a> : string -> obj -> AsyncLspResult<'a>
 
-[<AbstractClass>]
-type LspServer() =
+type private MessageHandlingResult =
+    | Normal
+    | WasExit
+    | WasShutdown
+
+type LspCloseReason =
+    | RequestedByClient = 0
+    | ErrorExitWithoutShutdown = 1
+    | ErrorStreamClosed = 2
+
+type ResponseMailboxMsg =
+  | Request of int * System.Threading.CancellationTokenSource * AsyncReplyChannel<JToken option>
+  | RequestCompleted of int
+  | Response of int option * Response
+  | CancelRequest of int
+
+type Serializer =
+  abstract member Serialize: 't -> string
+  abstract member Deserialize: string -> 't
+  abstract member ObjectToJToken: 't -> JToken
+  abstract member JTokenToObject: JToken -> 't
+
+let defaultSerializer: Serializer =
+  let jsonSettings =
+    let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
+
+    result.Converters.Add(OptionConverter())
+    result.Converters.Add(ErasedUnionConverter())
+    result.ContractResolver <- CamelCasePropertyNamesContractResolver()
+    result
+
+  let jsonSerializer = JsonSerializer.Create(jsonSettings)
+  { new Serializer with
+      override _.Serialize item =
+        JsonConvert.SerializeObject(item, jsonSettings)
+
+      override _.Deserialize(json: string): 't =
+        JsonConvert.DeserializeObject<'t>(json, jsonSettings)
+
+      override _.JTokenToObject(jtok: JToken): 'a = jtok.ToObject<'a>()
+      override _.ObjectToJToken o: JToken = JToken.FromObject o }
+
+type RequestHandling = JToken option -> AsyncLspResult<JToken option>
+
+and [<AbstractClass>] LspServer(input, output, serializer: Serializer) as this =
+
+    let logger = LogProvider.getLoggerByName "LSP Server"
+
+    /// Notifications don't generate a response or error, but to unify things we consider them as always successful.
+    /// They will still not send any response because their ID is null.
+    let notificationSuccess (response: Async<unit>) = async {
+        do! response
+        return Result.Ok ()
+    }
+
+    let getNextRequestId =
+      let mutable counter = 0
+
+      fun () ->
+        counter <- counter + 1
+        counter
+
+    let sender =
+      MailboxProcessor<string>
+        .Start(fun inbox ->
+          let rec loop () =
+            async {
+              let! str = inbox.Receive()
+              LowLevel.write output str
+              // do! Async.Sleep 1000
+              return! loop ()
+            }
+
+          loop ())
+
+    let mutable inProgressRequestMap: Map<int, System.Threading.CancellationTokenSource * AsyncReplyChannel<_>> = Map.empty
+
+    let responseAgent =
+      MailboxProcessor<ResponseMailboxMsg>
+        .Start(fun agent ->
+          let logger = LogProvider.getLoggerByName "responseAgent"
+
+          let rec loop () =
+            async {
+              let! msg = agent.Receive()
+
+              match msg with
+              | Request (rid, cancel, reply) ->
+                  logger.trace (
+                    Log.setMessage "Tracking request {rqid}"
+                    >> Log.addContextDestructured "rqid" rid
+                  )
+
+                  inProgressRequestMap <- inProgressRequestMap |> Map.add rid (cancel, reply)
+                  return! loop ()
+              | RequestCompleted rid ->
+                  match inProgressRequestMap |> Map.tryFind rid with
+                  | Some _ ->
+                    logger.trace (
+                      Log.setMessage "Request {rqid} completed successfully"
+                      >> Log.addContextDestructured "rqid" rid
+                    )
+                    inProgressRequestMap <- inProgressRequestMap |> Map.remove rid
+                  | None -> ()
+                  return! loop ()
+              | Response (Some rid, value) ->
+                  match inProgressRequestMap |> Map.tryFind rid with
+                  | Some (cancel, reply) ->
+                      logger.trace (Log.setMessage "Response for {rqid}" >> Log.addContextDestructured "rqid" rid)
+
+                      reply.Reply(value.Result)
+                  | None ->
+                      logger.warn (
+                        Log.setMessage "Unexpected response (id {rid}) {response}"
+                        >> Log.addContextDestructured "response" value
+                        >> Log.addContext "rid" rid
+                      )
+
+                  inProgressRequestMap <- inProgressRequestMap |> Map.remove rid
+                  return! loop ()
+              | Response (None, response) ->
+                  logger.error (
+                    Log.setMessage "Client reports we sent a corrupt request id, error: {error}"
+                    >> Log.addContextDestructured "error" (response.Error)
+                  )
+
+                  return! loop ()
+              | CancelRequest (rid) ->
+                  match inProgressRequestMap |> Map.tryFind rid with
+                  | Some (cancel, reply) ->
+                      logger.trace (
+                        Log.setMessage "Request {rqid} cancelled"
+                        >> Log.addContextDestructured "rqid" rid
+                      )
+
+                      cancel.Cancel()
+                      inProgressRequestMap <- inProgressRequestMap |> Map.remove rid
+                      return! loop ()
+                  | None ->
+                      logger.trace (
+                        Log.setMessage "Request {rqid} cancelled but was already gone"
+                        >> Log.addContextDestructured "rqid" rid
+                      )
+
+                      return! loop ()
+            }
+
+          loop ())
+
+    /// runs a request with a dedicated cancellation token, which is registered with the
+    /// request map in case of cancellation
+    let runWithDedicatedCancellation rqid (work: System.Threading.CancellationTokenSource -> Async<_>) =
+      async {
+        use cts = new System.Threading.CancellationTokenSource()
+
+        use _ =
+          { new System.IDisposable with
+              member _.Dispose() =
+                responseAgent.Post(RequestCompleted rqid) }
+
+        Async.StartImmediate(
+          responseAgent.PostAndAsyncReply(fun reply -> Request(rqid, cts, reply))
+          |> Async.Ignore
+        )
+
+        return! Async.StartAsTask(work cts, cancellationToken = cts.Token) |> Async.AwaitTask
+      }
+
+    let cancelRequest rqid = responseAgent.Post(CancelRequest rqid)
+
+    let mutable requestHandlings: Map<string, RequestHandling> =
+      [ "initialize", this.requestHandling this.Initialize
+        "initialized", this.requestHandling (this.Initialized >> notificationSuccess)
+        "textDocument/hover", this.requestHandling this.TextDocumentHover
+        "textDocument/didOpen", this.requestHandling (this.TextDocumentDidOpen >> notificationSuccess)
+        "textDocument/didChange", this.requestHandling (this.TextDocumentDidChange >> notificationSuccess)
+        "textDocument/completion", this.requestHandling this.TextDocumentCompletion
+        "completionItem/resolve", this.requestHandling this.CompletionItemResolve
+        "textDocument/rename", this.requestHandling this.TextDocumentRename
+        "textDocument/definition", this.requestHandling this.TextDocumentDefinition
+        "textDocument/typeDefinition", this.requestHandling this.TextDocumentTypeDefinition
+        "textDocument/implementation", this.requestHandling this.TextDocumentImplementation
+        "textDocument/codeAction", this.requestHandling this.TextDocumentCodeAction
+        "textDocument/codeLens", this.requestHandling this.TextDocumentCodeLens
+        "codeLens/resolve", this.requestHandling this.CodeLensResolve
+        "textDocument/references", this.requestHandling this.TextDocumentReferences
+        "textDocument/documentHighlight", this.requestHandling this.TextDocumentDocumentHighlight
+        "textDocument/documentLink", this.requestHandling this.TextDocumentDocumentLink
+        "textDocument/signatureHelp", this.requestHandling this.TextDocumentSignatureHelp
+        "documentLink/resolve", this.requestHandling this.DocumentLinkResolve
+        "textDocument/documentColor", this.requestHandling this.TextDocumentDocumentColor
+        "textDocument/colorPresentation", this.requestHandling this.TextDocumentColorPresentation
+        "textDocument/formatting", this.requestHandling this.TextDocumentFormatting
+        "textDocument/rangeFormatting", this.requestHandling this.TextDocumentRangeFormatting
+        "textDocument/onTypeFormatting", this.requestHandling this.TextDocumentOnTypeFormatting
+        "textDocument/willSave", this.requestHandling (this.TextDocumentWillSave >> notificationSuccess)
+        "textDocument/willSaveWaitUntil", this.requestHandling this.TextDocumentWillSaveWaitUntil
+        "textDocument/didSave", this.requestHandling (this.TextDocumentDidSave >> notificationSuccess)
+        "textDocument/didClose", this.requestHandling (this.TextDocumentDidClose >> notificationSuccess)
+        "textDocument/documentSymbol", this.requestHandling this.TextDocumentDocumentSymbol
+        "textDocument/foldingRange", this.requestHandling this.TextDocumentFoldingRange
+        "textDocument/selectionRange", this.requestHandling this.TextDocumentSelectionRange
+        "textDocument/semanticTokens/full", this.requestHandling this.TextDocumentSemanticTokensFull
+        "textDocument/semanticTokens/full/delta", this.requestHandling this.TextDocumentSemanticTokensFullDelta
+        "textDocument/semanticTokens/range", this.requestHandling this.TextDocumentSemanticTokensRange
+        "workspace/didChangeWatchedFiles", this.requestHandling (this.WorkspaceDidChangeWatchedFiles >> notificationSuccess)
+        "workspace/didChangeWorkspaceFolders", this.requestHandling (this.WorkspaceDidChangeWorkspaceFolders >> notificationSuccess)
+        "workspace/didChangeConfiguration", this.requestHandling (this.WorkspaceDidChangeConfiguration >> notificationSuccess)
+        "workspace/symbol", this.requestHandling this.WorkspaceSymbol
+        "workspace/executeCommand ", this.requestHandling this.WorkspaceExecuteCommand
+        "shutdown", this.requestHandling (this.Shutdown >> notificationSuccess)
+        "exit", this.requestHandling (this.Exit >> notificationSuccess)
+        "$/cancelRequest", this.requestHandling (this.CancelRequest >> notificationSuccess)
+        "$/progress", this.requestHandling (this.Progress >> notificationSuccess) ]
+      |> Map.ofList
+
+    /// given a request id, see if we're currently handling it
+    member x.IsRequestInFlight(rqid) =
+      inProgressRequestMap |> Map.containsKey rqid
+
+    /// When the server wants to send a request to the client
+    member x.sendServerRequest (rpcMethod: string) (requestObj: 'payload): AsyncLspResult<'response> =
+      async {
+        let serializedRequest =
+          if isNull requestObj then
+            None
+          else
+            Some(serializer.ObjectToJToken requestObj)
+
+        let req = JsonRpc.Request.Create(getNextRequestId (), rpcMethod, serializedRequest)
+        let reqString = serializer.Serialize req
+        sender.Post(reqString)
+
+        let! response =
+          runWithDedicatedCancellation
+            req.Id
+            (fun cts -> responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id, cts, replyChannel))))
+
+        try
+          match response with
+          | Some responseToken ->
+              let typedResponse = serializer.JTokenToObject responseToken
+              return (LspResult.Ok typedResponse)
+          | None ->
+              if typeof<'response> = typeof<unit> then
+                return (LspResult.Ok(unbox ()))
+              else
+                logger.error (
+                  Log.setMessage "ResponseHandling - Invalid response type for response {response}, expected {expectedType}, got unit"
+                  >> Log.addContextDestructured "response" response
+                  >> Log.addContext "expectedType" (typeof<'response>).Name
+                )
+
+                return (LspResult.invalidParams (sprintf "Response params expected for %i but missing" req.Id))
+        with :? JsonException as ex ->
+          logger.error (
+            Log.setMessage "ResponseHandling - Parsing failed for response {response}"
+            >> Log.addContextDestructured "response" response
+            >> Log.addExn ex
+          )
+
+          return (LspResult.invalidParams (sprintf "Response params invalid for %i" req.Id))
+      }
+
+    /// When the server wants to send a notification to the client
+    member x.sendServerNotification (rpcMethod: string) (notificationObj: obj): AsyncLspResult<unit> =
+      let serializedNotification = serializer.ObjectToJToken notificationObj
+      let notification = JsonRpc.Notification.Create(rpcMethod, Some serializedNotification)
+      let notString = serializer.Serialize notification
+
+      sender.Post(notString)
+      async.Return(LspResult.Ok())
+
+    member x.AddRequestHandler(requestKey, handler) =
+      requestHandlings <- requestHandlings |> Map.add requestKey (x.requestHandling handler)
+
+    member private this.handleClientMessage(messageString: string): MessageHandlingResult =
+      let messageTypeTest: MessageTypeTest = serializer.Deserialize messageString
+
+      match getMessageType messageTypeTest with
+      | MessageType.Response ->
+          let response = serializer.Deserialize messageString
+          responseAgent.Post(Response(response.Id, response))
+          MessageHandlingResult.Normal
+      | MessageType.Notification ->
+          let notification = serializer.Deserialize messageString
+          async {
+            let! result = this.handleNotification notification
+
+            match result with
+            | Result.Ok _ -> ()
+            | Result.Error error ->
+                logger.error (
+                  Log.setMessage "HandleClientMessage - Error {error} when handling notification {notification}"
+                  >> Log.addContextDestructured "error" error
+                  >> Log.addContextDestructured "notification" notification
+                )
+                //TODO: Handle error on receiving notification, send message to user?
+                ()
+          }
+          |> Async.StartAsTask
+          |> ignore
+
+          match notification.Method with
+          | "exit" -> MessageHandlingResult.WasExit
+          | _ -> MessageHandlingResult.Normal
+      | MessageType.Request ->
+          let request: JsonRpc.Request = serializer.Deserialize messageString
+          async {
+            let! result = runWithDedicatedCancellation request.Id (fun _ -> this.handleRequest request)
+
+            match result with
+            | Some response ->
+                let responseString = serializer.Serialize response
+                sender.Post(responseString)
+            | None -> ()
+          }
+          |> Async.StartAsTask
+          |> ignore
+
+          match request.Method with
+          | "shutdown" -> MessageHandlingResult.WasShutdown
+          | _ -> MessageHandlingResult.Normal
+      | MessageType.Error ->
+          logger.error (
+            Log.setMessage "HandleClientMessage - Message had invalid jsonrpc version: {messageTypeTest}"
+            >> Log.addContextDestructured "messageTypeTest" messageTypeTest
+          )
+
+          MessageHandlingResult.Normal
+
+    member this.requestHandling<'param, 'result>(run: 'param -> AsyncLspResult<'result>): RequestHandling =
+      fun (paramsToken: JToken option) ->
+        try
+          let p =
+            match paramsToken with
+            | Some paramsToken ->
+                let typedParams = serializer.JTokenToObject paramsToken
+                Some typedParams
+            | None ->
+                if typeof<'param> = typeof<unit> then
+                  Some(unbox ())
+                else
+                  None
+
+          match p with
+          | Some p ->
+              async {
+                try
+                  let! result = run p
+
+                  match result with
+                  | Result.Ok ok ->
+                      if isNull (box ok) then
+                        return Result.Ok None
+                      else
+                        let resultToken = serializer.ObjectToJToken ok
+                        return Result.Ok(Some resultToken)
+                  | Result.Error err -> return Result.Error err
+                with ex -> return Result.Error(Error.Create(ErrorCodes.internalError, ex.ToString()))
+              }
+          | None -> async.Return(Result.Error(Error.Create(ErrorCodes.invalidRequest, "No params found")))
+        with :? JsonException as ex -> async.Return(Result.Error(Error.Create(ErrorCodes.parseError, ex.ToString())))
+
+    member private this.handleRequest(request: JsonRpc.Request): Async<JsonRpc.Response option> =
+      async {
+        let mutable methodCallResult = Result.Error(Error.MethodNotFound)
+
+        match requestHandlings |> Map.tryFind request.Method with
+        | Some handling ->
+            try
+              let! result = handling request.Params
+              methodCallResult <- result
+            with ex -> methodCallResult <- Result.Error(Error.Create(ErrorCodes.internalError, ex.ToString()))
+        | None -> ()
+
+        match methodCallResult with
+        | Result.Ok ok -> return Some(JsonRpc.Response.Success(request.Id, ok))
+        | Result.Error err -> return Some(JsonRpc.Response.Failure(request.Id, err))
+      }
+
+    member private this.handleNotification(notification: JsonRpc.Notification): Async<Result<unit, _>> =
+      async {
+        let mutable methodCallResult = Result.Error(Error.MethodNotFound)
+
+        match requestHandlings |> Map.tryFind notification.Method with
+        | Some handling ->
+            try
+              let! _ = handling notification.Params
+              methodCallResult <- Result.Ok()
+            with ex -> methodCallResult <- Result.Error(Error.Create(ErrorCodes.internalError, ex.ToString()))
+        | None -> ()
+
+        return methodCallResult
+      }
+
+    member this.deserialize<'t>(token: JToken) = serializer.JTokenToObject<'t>(token)
+
+    member this.serialize<'t>(o: 't) = serializer.ObjectToJToken o
+
+    member x.Run() =
+      let mutable shutdownReceived = false
+      let mutable quitReceived = false
+      let mutable quit = false
+
+      while not quit do
+        try
+          let _, requestString = LowLevel.read input
+
+          match x.handleClientMessage requestString with
+          | MessageHandlingResult.WasShutdown -> shutdownReceived <- true
+          | MessageHandlingResult.WasExit ->
+              quitReceived <- true
+              quit <- true
+          | MessageHandlingResult.Normal -> ()
+        with
+        | :? EndOfStreamException -> quit <- true
+        | ex -> ()
+
+      match shutdownReceived, quitReceived with
+      | true, true -> LspCloseReason.RequestedByClient
+      | false, true -> LspCloseReason.ErrorExitWithoutShutdown
+      | _ -> LspCloseReason.ErrorStreamClosed
+
     interface System.IDisposable with
       member x.Dispose() = x.Dispose()
 
@@ -2483,325 +2934,18 @@ type LspServer() =
     abstract member TextDocumentSemanticTokensRange: SemanticTokensRangeParams -> AsyncLspResult<SemanticTokens option>
     default __.TextDocumentSemanticTokensRange(_) = notImplemented
 
-module Server =
-    open System.IO
-    open FsAutoComplete.Logging
-    open Newtonsoft.Json
-    open Newtonsoft.Json.Serialization
+    /// Sent from the client to the server when another in-flight request is cancelled.
+    /// The cancelled request should return with `ErrorCodes.RequestCancelled`.
+    abstract member CancelRequest: CancelParams -> Async<unit>
 
-    open JsonRpc
+    default __.CancelRequest p =
+      cancelRequest (int p.Id)
+      async.Return() // notifications shouldn't return errors by default
 
-    let logger = LogProvider.getLoggerByName "LSP Server"
+    /// used to report progress of a long-running action, identified by the `Token` of the progress params
+    abstract member Progress: ProgressParams -> Async<unit>
+    default __.Progress _ = async.Return() // notifications shouldn't return errors by default
 
-    let jsonSettings =
-        let result = JsonSerializerSettings(NullValueHandling = NullValueHandling.Ignore)
-        result.Converters.Add(SingleCaseUnionConverter())
-        result.Converters.Add(U2BoolObjectConverter())
-        result.Converters.Add(OptionConverter())
-        result.Converters.Add(ErasedUnionConverter())
-        result.ContractResolver <- CamelCasePropertyNamesContractResolver()
-        result
-
-    let jsonSerializer = JsonSerializer.Create(jsonSettings)
-
-    type RequestHandling<'server when 'server :> LspServer> = {
-        Run: 'server -> JToken option -> AsyncLspResult<JToken option>
-    }
-
-    let deserialize<'t> (token: JToken) = token.ToObject<'t>(jsonSerializer)
-
-    let serialize<'t> (o: 't) = JToken.FromObject(o, jsonSerializer)
-
-    let requestHandling<'param, 'result, 'server when 'server :> LspServer> (run: 'server -> 'param -> AsyncLspResult<'result>): RequestHandling<'server> =
-        let tokenRun (lspServer: 'server) (paramsToken: JToken option): AsyncLspResult<JToken option> =
-            try
-                let p =
-                    match paramsToken with
-                    | Some paramsToken ->
-                        let typedParams = paramsToken.ToObject<'param>(jsonSerializer)
-                        Some typedParams
-                    | None ->
-                        if typeof<'param> = typeof<unit> then
-                            Some (unbox ())
-                        else
-                            None
-                match p with
-                | Some p ->
-                    async {
-                        try
-                            let! result = run lspServer p
-                            match result with
-                            | Result.Ok ok ->
-                                if isNull (box ok) then
-                                    return Result.Ok None
-                                else
-                                    let resultToken = JToken.FromObject(ok, jsonSerializer)
-                                    return Result.Ok (Some resultToken)
-                            | Result.Error err ->
-                                return Result.Error err
-                        with
-                        | ex ->
-                            return Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
-                    }
-                | None ->
-                     async.Return (Result.Error (Error.Create(ErrorCodes.invalidRequest, "No params found")))
-            with
-            | :? JsonException as ex ->
-                async.Return (Result.Error (Error.Create(ErrorCodes.parseError, ex.ToString())))
-
-        { Run = tokenRun }
-
-    /// Notifications don't generate a response or error, but to unify things we consider them as always successful.
-    /// They will still not send any response because their ID is null.
-    let private notificationSuccess (response: Async<unit>) = async {
-        do! response
-        return Result.Ok ()
-    }
-
-    let defaultRequestHandlings<'server when 'server :> LspServer> () : Map<string, RequestHandling<'server>> =
-        [
-            "initialize", requestHandling (fun s p -> s.Initialize(p))
-            "initialized", requestHandling (fun s p -> s.Initialized(p) |> notificationSuccess)
-            "textDocument/hover", requestHandling (fun s p -> s.TextDocumentHover(p))
-            "textDocument/didOpen", requestHandling (fun s p -> s.TextDocumentDidOpen(p) |> notificationSuccess)
-            "textDocument/didChange", requestHandling (fun s p -> s.TextDocumentDidChange(p) |> notificationSuccess)
-            "textDocument/completion", requestHandling (fun s p -> s.TextDocumentCompletion(p))
-            "completionItem/resolve", requestHandling (fun s p -> s.CompletionItemResolve(p))
-            "textDocument/rename", requestHandling (fun s p -> s.TextDocumentRename(p))
-            "textDocument/definition", requestHandling (fun s p -> s.TextDocumentDefinition(p))
-            "textDocument/typeDefinition", requestHandling (fun s p -> s.TextDocumentTypeDefinition(p))
-            "textDocument/implementation", requestHandling (fun s p -> s.TextDocumentImplementation(p))
-            "textDocument/codeAction", requestHandling (fun s p -> s.TextDocumentCodeAction(p))
-            "textDocument/codeLens", requestHandling (fun s p -> s.TextDocumentCodeLens(p))
-            "codeLens/resolve", requestHandling (fun s p -> s.CodeLensResolve(p))
-            "textDocument/references", requestHandling (fun s p -> s.TextDocumentReferences(p))
-            "textDocument/documentHighlight", requestHandling (fun s p -> s.TextDocumentDocumentHighlight(p))
-            "textDocument/documentLink", requestHandling (fun s p -> s.TextDocumentDocumentLink(p))
-            "textDocument/signatureHelp", requestHandling (fun s p -> s.TextDocumentSignatureHelp(p))
-            "documentLink/resolve", requestHandling (fun s p -> s.DocumentLinkResolve(p))
-            "textDocument/documentColor", requestHandling (fun s p -> s.TextDocumentDocumentColor(p))
-            "textDocument/colorPresentation", requestHandling (fun s p -> s.TextDocumentColorPresentation(p))
-            "textDocument/formatting", requestHandling (fun s p -> s.TextDocumentFormatting(p))
-            "textDocument/rangeFormatting", requestHandling (fun s p -> s.TextDocumentRangeFormatting(p))
-            "textDocument/onTypeFormatting", requestHandling (fun s p -> s.TextDocumentOnTypeFormatting(p))
-            "textDocument/willSave", requestHandling (fun s p -> s.TextDocumentWillSave(p) |> notificationSuccess)
-            "textDocument/willSaveWaitUntil", requestHandling (fun s p -> s.TextDocumentWillSaveWaitUntil(p))
-            "textDocument/didSave", requestHandling (fun s p -> s.TextDocumentDidSave(p) |> notificationSuccess)
-            "textDocument/didClose", requestHandling (fun s p -> s.TextDocumentDidClose(p) |> notificationSuccess)
-            "textDocument/documentSymbol", requestHandling (fun s p -> s.TextDocumentDocumentSymbol(p))
-            "textDocument/foldingRange", requestHandling (fun s p -> s.TextDocumentFoldingRange(p))
-            "textDocument/selectionRange", requestHandling (fun s p -> s.TextDocumentSelectionRange(p))
-            "textDocument/semanticTokens/full", requestHandling(fun s p -> s.TextDocumentSemanticTokensFull(p))
-            "textDocument/semanticTokens/full/delta", requestHandling(fun s p -> s.TextDocumentSemanticTokensFullDelta(p))
-            "textDocument/semanticTokens/range", requestHandling(fun s p -> s.TextDocumentSemanticTokensRange(p))
-            "workspace/didChangeWatchedFiles", requestHandling (fun s p -> s.WorkspaceDidChangeWatchedFiles(p) |> notificationSuccess)
-            "workspace/didChangeWorkspaceFolders", requestHandling (fun s p -> s.WorkspaceDidChangeWorkspaceFolders (p) |> notificationSuccess)
-            "workspace/didChangeConfiguration", requestHandling (fun s p -> s.WorkspaceDidChangeConfiguration (p) |> notificationSuccess)
-            "workspace/symbol", requestHandling (fun s p -> s.WorkspaceSymbol (p))
-            "workspace/executeCommand ", requestHandling (fun s p -> s.WorkspaceExecuteCommand (p))
-            "shutdown", requestHandling (fun s () -> s.Shutdown() |> notificationSuccess)
-            "exit", requestHandling (fun s () -> s.Exit() |> notificationSuccess)
-        ]
-        |> Map.ofList
-
-    let handleRequest<'server when 'server :> LspServer>  (requestHandlings : Map<string,RequestHandling<'server>>) (request: JsonRpc.Request) (lspServer: 'server): Async<JsonRpc.Response option> =
-        async {
-            let mutable methodCallResult = Result.Error (Error.MethodNotFound)
-            match requestHandlings |> Map.tryFind request.Method with
-            | Some handling ->
-                try
-                    let! result = handling.Run lspServer request.Params
-                    methodCallResult <- result
-                with
-                | ex ->
-                    methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
-            | None -> ()
-            match methodCallResult with
-            | Result.Ok ok ->
-                return Some (JsonRpc.Response.Success(request.Id, ok))
-            | Result.Error err ->
-                return Some (JsonRpc.Response.Failure(request.Id, err))
-        }
-
-    let handleNotification<'server when 'server :> LspServer>  (requestHandlings : Map<string,RequestHandling<'server>>) (notification: JsonRpc.Notification) (lspServer: 'server): Async<Result<unit, _>> =
-        async {
-            let mutable methodCallResult = Result.Error (Error.MethodNotFound)
-            match requestHandlings |> Map.tryFind notification.Method with
-            | Some handling ->
-                try
-                    let! _ = handling.Run lspServer notification.Params
-                    methodCallResult <- Result.Ok ()
-                with
-                | ex ->
-                    methodCallResult <- Result.Error (Error.Create(ErrorCodes.internalError, ex.ToString()))
-            | None -> ()
-            return methodCallResult
-        }
-
-    type ClientNotificationSender = string -> obj -> AsyncLspResult<unit>
-
-    type ClientRequestSender =
-        abstract member Send<'a> : string -> obj -> AsyncLspResult<'a>
-
-    type private MessageHandlingResult =
-        | Normal
-        | WasExit
-        | WasShutdown
-
-    type LspCloseReason =
-        | RequestedByClient = 0
-        | ErrorExitWithoutShutdown = 1
-        | ErrorStreamClosed = 2
-
-    type ResponseMailboxMsg =
-        | Request of int * AsyncReplyChannel<JToken option>
-        | Response of int option * Response
-
-    let getNextRequestId =
-      let mutable counter = 0
-      fun () ->
-        counter <- counter + 1
-        counter
-
-    let start<'a, 'b when 'a :> LspClient and 'b :> LspServer> (requestHandlings : Map<string,RequestHandling<'b>>) (input: Stream) (output: Stream) (clientCreator: (ClientNotificationSender * ClientRequestSender) -> 'a) (serverCreator: 'a -> 'b) =
-        let sender = MailboxProcessor<string>.Start(fun inbox ->
-            let rec loop () = async {
-                let! str = inbox.Receive()
-                LowLevel.write output str
-                // do! Async.Sleep 1000
-                return! loop ()
-            }
-            loop ())
-
-        let responseAgent = MailboxProcessor<ResponseMailboxMsg>.Start(fun agent ->
-          let rec loop state =
-              async{
-                  let! msg = agent.Receive()
-                  match msg with
-                  | Request (rid, reply) ->
-                      return! loop (state |> Map.add rid reply)
-                  | Response (Some rid, value) ->
-                      let result = state |> Map.tryFind rid
-                      match result with
-                      |Some(reply) ->
-                          reply.Reply(value.Result)
-                      |None ->
-                          logger.warn (Log.setMessage "ResponseAgent - Unexpected response (id {rid}) {response}" >> Log.addContextDestructured "response" value >> Log.addContext "rid" rid)
-                      return! loop (state |> Map.remove rid)
-                  | Response (None, response) ->
-                      logger.error (Log.setMessage "ResponseAgent - Client reports we sent a corrupt request id, error: {error}" >> Log.addContextDestructured "error" (response.Error))
-                      return! loop state
-              }
-          loop Map.empty)
-
-
-        /// When the server wants to send a notification to the client
-        let sendServerNotification (rpcMethod: string) (notificationObj: obj): AsyncLspResult<unit> =
-            let serializedNotification = JToken.FromObject(notificationObj, jsonSerializer)
-            let notification = JsonRpc.Notification.Create(rpcMethod, Some serializedNotification)
-            let notString = JsonConvert.SerializeObject(notification, jsonSettings)
-            sender.Post(notString)
-            async.Return (LspResult.Ok ())
-
-        /// When the server wants to send a request to the client
-        let sendServerRequest (rpcMethod: string) (requestObj: obj): AsyncLspResult<'response> =
-            async {
-              let serializedRequest =
-                if isNull requestObj then
-                  None
-                else
-                  Some (JToken.FromObject(requestObj, jsonSerializer))
-              let req = JsonRpc.Request.Create(getNextRequestId(), rpcMethod, serializedRequest)
-              let reqString = JsonConvert.SerializeObject(req, jsonSettings)
-              sender.Post(reqString)
-              let! response = responseAgent.PostAndAsyncReply((fun replyChannel -> Request(req.Id, replyChannel)))
-              try
-                match response with
-                | Some responseToken ->
-                    let typedResponse = responseToken.ToObject<'response>(jsonSerializer)
-                    return (LspResult.Ok typedResponse)
-                | None ->
-                    if typeof<'response> = typeof<unit> then
-                        return (LspResult.Ok (unbox ()))
-                    else
-                      logger.error (Log.setMessage "ResponseHandling - Invalid response type for response {response}, expected {expectedType}, got unit" >> Log.addContextDestructured "response" response >> Log.addContext "expectedType" (typeof<'response>).Name)
-                      return (LspResult.invalidParams (sprintf "Response params expected for %i but missing" req.Id))
-              with
-              | :? JsonException as ex ->
-                logger.error (Log.setMessage "ResponseHandling - Parsing failed for response {response}" >> Log.addContextDestructured "response" response >> Log.addExn ex)
-                return (LspResult.invalidParams (sprintf "Response params invalid for %i" req.Id))
-            }
-
-        let lspClient = clientCreator (sendServerNotification, { new ClientRequestSender with member __.Send x t  = sendServerRequest x t})
-        use lspServer = serverCreator lspClient
-
-        let handleClientMessage (messageString: string): MessageHandlingResult =
-            let messageTypeTest = JsonConvert.DeserializeObject<JsonRpc.MessageTypeTest>(messageString, jsonSettings)
-            match getMessageType messageTypeTest with
-            | MessageType.Response ->
-                let response = JsonConvert.DeserializeObject<JsonRpc.Response>(messageString, jsonSettings)
-                responseAgent.Post(Response(response.Id, response))
-                MessageHandlingResult.Normal
-            | MessageType.Notification ->
-                let notification = JsonConvert.DeserializeObject<JsonRpc.Notification>(messageString, jsonSettings)
-                async {
-                  let! result = handleNotification requestHandlings notification lspServer
-                  match result with
-                  | Result.Ok _ -> ()
-                  | Result.Error error ->
-                    logger.error (Log.setMessage "HandleClientMessage - Error {error} when handling notification {notification}" >> Log.addContextDestructured "error" error >> Log.addContextDestructured "notification" notification)
-                    //TODO: Handle error on receiving notification, send message to user?
-                    ()
-                }
-                |> Async.StartAsTask
-                |> ignore
-
-                match notification.Method with
-                | "exit" -> MessageHandlingResult.WasExit
-                | _ -> MessageHandlingResult.Normal
-            | MessageType.Request ->
-                let request = JsonConvert.DeserializeObject<JsonRpc.Request>(messageString, jsonSettings)
-                async {
-                  let! result = handleRequest requestHandlings request lspServer
-                  match result with
-                  | Some response ->
-                      let responseString = JsonConvert.SerializeObject(response, jsonSettings)
-                      sender.Post(responseString)
-                  | None -> ()
-                }
-                |> Async.StartAsTask
-                |> ignore
-
-                match request.Method with
-                | "shutdown" -> MessageHandlingResult.WasShutdown
-                | _ -> MessageHandlingResult.Normal
-            | MessageType.Error ->
-                logger.error (Log.setMessage "HandleClientMessage - Message had invalid jsonrpc version: {messageTypeTest}" >> Log.addContextDestructured "messageTypeTest" messageTypeTest)
-                MessageHandlingResult.Normal
-
-        let mutable shutdownReceived = false
-        let mutable quitReceived = false
-        let mutable quit = false
-        while not quit do
-            try
-                let _, requestString = LowLevel.read input
-
-                match handleClientMessage requestString with
-                | MessageHandlingResult.WasShutdown -> shutdownReceived <- true
-                | MessageHandlingResult.WasExit ->
-                    quitReceived <- true
-                    quit <- true
-                | MessageHandlingResult.Normal -> ()
-            with
-            | :? EndOfStreamException ->
-                quit <- true
-            | ex ->
-                ()
-
-        match shutdownReceived, quitReceived with
-        | true, true -> LspCloseReason.RequestedByClient
-        | false, true -> LspCloseReason.ErrorExitWithoutShutdown
-        | _ -> LspCloseReason.ErrorStreamClosed
 
 module Client =
     open System

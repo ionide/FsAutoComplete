@@ -173,12 +173,13 @@ type ClientEvents = IObservable<string * obj>
 
 let createServer (toolsPath) workspaceLoaderFactory =
   let event = new System.Reactive.Subjects.ReplaySubject<_>()
-  let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
   let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false, toolsPath, workspaceLoaderFactory)
   let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
+  use inputStream = new MemoryStream()
+  use outputStream = new MemoryStream()
   FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(commands, client)
+  let server = new FSharpLspServer(commands, inputStream, outputStream, defaultSerializer)
   server, event :> ClientEvents
 
 let defaultConfigDto : FSharpConfigDto =
@@ -380,9 +381,10 @@ let serverInitialize path (config: FSharpConfigDto) toolsPath workspaceLoaderFac
     { ProcessId = Some 1
       RootPath = Some path
       RootUri = Some (sprintf "file://%s" path)
-      InitializationOptions = Some (Server.serialize config)
+      InitializationOptions = Some (server.serialize config)
       Capabilities = Some clientCaps
-      trace = None }
+      trace = None
+      ClientInfo = Some { Name = "FSAC tests"; Version = "latest" } }
 
   let! result = server.Initialize p
   match result with

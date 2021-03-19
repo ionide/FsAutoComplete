@@ -61,7 +61,7 @@ let scriptEvictionTests toolsPath workspaceLoaderFactory =
       let configChange: DidChangeConfigurationParams =
         let config : FSharpConfigRequest =
           { FSharp = { defaultConfigDto with FSIExtraParameters = Some [| "--nowarn:760" |] } }
-        { Settings = Server.serialize config }
+        { Settings = server.serialize config }
       do! server.WorkspaceDidChangeConfiguration configChange
       do! openScript ()
       // skipping 2 to get past the default workspace and the explicit opens

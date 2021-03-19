@@ -19,9 +19,10 @@ let initTests toolsPath workspaceLoaderFactory =
       { ProcessId = Some 1
         RootPath = Some __SOURCE_DIRECTORY__
         RootUri = None
-        InitializationOptions = Some (Server.serialize defaultConfigDto)
+        InitializationOptions = Some (server.serialize defaultConfigDto)
         Capabilities = Some clientCaps
-        trace = None}
+        trace = None
+        ClientInfo = Some { Name = "Init tests"; Version = "latest" } }
 
     let! result = server.Initialize p
     match result with
@@ -70,7 +71,7 @@ let basicTests toolsPath workspaceLoaderFactory =
       let path = Path.Combine(path, "Script.fs")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
-      do! waitForParseResultsForFile "Script.fs" event |> Async.Ignore
+      do! waitForParseResultsForFile "Script.fs" event |> AsyncResult.foldResult id (fun e -> failwith $"Script.fs had typecheck issues")
       return (server, path)
     }
     |> Async.Cache
@@ -82,103 +83,100 @@ let basicTests toolsPath workspaceLoaderFactory =
   let normalizeHoverContent = function | HoverContent.MarkedStrings strings -> MarkedStrings (strings |> Array.map normalizeMarkedString)
                                        | HoverContent.MarkedString str -> MarkedString (normalizeMarkedString str)
                                        | HoverContent.MarkupContent content -> MarkupContent content
+  testList "Hover Tests" [
 
-  testSequenced <| testList "Basic Tests" [
-      testSequenced <| testList "Hover Tests" [
+    testCaseAsync "Hover Tests - simple symbol" (async {
+      let! (server, path) = server
+      let p : TextDocumentPositionParams =
+        { TextDocument = { Uri = Path.FilePathToUri path}
+          Position = { Line = 0; Character = 4}}
+      let! res = server.TextDocumentHover p
+      match res with
+      | Result.Error e -> failtestf "Request failed: %A" e
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok (Some res) ->
+        let expected =
+          MarkedStrings
+            [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
+                MarkedString.String ""
+                MarkedString.String "*Full name: Script.t*"
+                MarkedString.String "*Assembly: BasicTest*"|]
 
-        testCaseAsync "Hover Tests - simple symbol" (async {
-          let! (server, path) = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 0; Character = 4}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            let expected =
-              MarkedStrings
-                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
-                    MarkedString.String ""
-                    MarkedString.String "*Full name: Script.t*"
-                    MarkedString.String "*Assembly: BasicTest*"|]
+        Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - simple symbol"
+    })
 
-            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - simple symbol"
-        })
+    testCaseAsync "Hover Tests - let keyword" (async {
+      let! server, path = server
+      let p : TextDocumentPositionParams =
+        { TextDocument = { Uri = Path.FilePathToUri path}
+          Position = { Line = 0; Character = 2}}
+      let! res = server.TextDocumentHover p
+      match res with
+      | Result.Error e -> failtestf "Request failed: %A" e
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok (Some res) ->
+        let expected =
+          MarkedStrings
+            [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
+                MarkedString.String "**Description**\n\n\nUsed to associate, or bind, a name to a value or function.\n"|]
 
-        testCaseAsync "Hover Tests - let keyword" (async {
-          let! server, path = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 0; Character = 2}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            let expected =
-              MarkedStrings
-                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
-                    MarkedString.String "**Description**\n\n\nUsed to associate, or bind, a name to a value or function.\n"|]
+        Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
+    })
 
-            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        })
+    testCaseAsync "Hover Tests - out of position" (async {
+      let! server, path = server
+      let p : TextDocumentPositionParams =
+        { TextDocument = { Uri = Path.FilePathToUri path}
+          Position = { Line = 1; Character = 2}}
+      let! res = server.TextDocumentHover p
+      match res with
+      | Result.Error e -> ()
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok (Some res) ->
+        failtest "Expected failure"
+    })
 
-        testCaseAsync "Hover Tests - out of position" (async {
-          let! server, path = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 1; Character = 2}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> ()
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            failtest "Expected failure"
-        })
+    //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
+    testCaseAsync "Hover Tests - operator" (async {
+      let! server, path = server
+      let p : TextDocumentPositionParams =
+        { TextDocument = { Uri = Path.FilePathToUri path}
+          Position = { Line = 2; Character = 7}}
+      let! res = server.TextDocumentHover p
+      match res with
+      | Result.Error e -> ()
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok (Some res) ->
+        let expected =
+          MarkedStrings
+            [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( .>> ): \n   x: int ->\n   y: int \n   -> int"}
+                MarkedString.String ""
+                MarkedString.String "*Full name: Script.( .>> )*"
+                MarkedString.String "*Assembly: BasicTest*"|]
 
-        //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
-        testCaseAsync "Hover Tests - operator" (async {
-          let! server, path = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 2; Character = 7}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> ()
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            let expected =
-              MarkedStrings
-                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( .>> ): \n   x: int ->\n   y: int \n   -> int"}
-                    MarkedString.String ""
-                    MarkedString.String "*Full name: Script.( .>> )*"
-                    MarkedString.String "*Assembly: BasicTest*"|]
+        Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
+    })
 
-            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        })
+    //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
+    testCaseAsync "Hover Tests - operator ^" (async {
+      let! server, path = server
+      let p : TextDocumentPositionParams =
+        { TextDocument = { Uri = Path.FilePathToUri path}
+          Position = { Line = 4; Character = 6}}
+      let! res = server.TextDocumentHover p
+      match res with
+      | Result.Error e -> ()
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok (Some res) ->
+        let expected =
+          MarkedStrings
+            [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( ^ ): \n   x: int ->\n   y: int \n   -> int"}
+                MarkedString.String ""
+                MarkedString.String "*Full name: Script.( ^ )*"
+                MarkedString.String "*Assembly: BasicTest*"|]
 
-        //Test to reproduce: https://github.com/ionide/ionide-vscode-fsharp/issues/1203
-        testCaseAsync "Hover Tests - operator ^" (async {
-          let! server, path = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 4; Character = 6}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> ()
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            let expected =
-              MarkedStrings
-                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( ^ ): \n   x: int ->\n   y: int \n   -> int"}
-                    MarkedString.String ""
-                    MarkedString.String "*Full name: Script.( ^ )*"
-                    MarkedString.String "*Assembly: BasicTest*"|]
-
-            return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        })
-      ]
+        return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
+    })
   ]
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
@@ -1079,3 +1077,51 @@ let signatureHelpTests toolsPath workspaceLoaderFactory =
     for c in 39..41 do
       checkOverloadsAt (2, c) $"Can get overloads at whitespace position {c-39} of attached parens"
   ]
+
+type LongRunningServer (commands, input, output, serializer) =
+  inherit FsAutoComplete.Lsp.FSharpLspServer(commands, input, output, serializer)
+
+  override x.TextDocumentCodeAction (p: CodeActionParams) = async {
+    do! Async.Sleep (TimeSpan.FromDays 1.)
+    return LspResult.internalError "whoops"
+  }
+
+let cancellationTests toolsPath workspaceLoaderFactory = testList "cancellation tests" [
+  testCaseAsync "can cancel request" (async {
+    use input = new MemoryStream()
+    use output = new MemoryStream()
+    let server = new LongRunningServer (Commands(JsonSerializer.writeJson, false, toolsPath, workspaceLoaderFactory), input, output, defaultSerializer)
+    let payload: JsonRpc.Request =
+      {
+        Id = 100
+        Method = "textDocument/codeAction"
+        Params = Some (defaultSerializer.ObjectToJToken {
+          Context = {
+            Diagnostics = [| |]
+          }
+          Range = { Start = { Line = 1; Character = 1 }
+                    End = { Line = 1; Character = 1 }
+          }
+          TextDocument = {
+            Uri = "doc"
+          }
+        }
+        )
+        Version = "2.0"
+      }
+    let payloadString = defaultSerializer.Serialize payload
+    LanguageServerProtocol.LowLevel.write input payloadString
+    input.Flush()
+    input.Seek(0L, SeekOrigin.Begin) |> ignore
+    async { let _ = server.Run()
+            return () }  |> Async.Start
+
+    do! Async.Sleep 1000
+    Expect.isTrue (server.IsRequestInFlight 100) "should have tracked the request"
+    do! server.CancelRequest ({ Id = "100" })
+    // give the MBP a chance to handle the cancellation before checking again
+    do! Async.Sleep 100
+    Expect.isFalse (server.IsRequestInFlight 100) "should have cancelled the request"
+  })
+
+ ]
