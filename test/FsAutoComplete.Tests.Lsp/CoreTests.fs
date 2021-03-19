@@ -70,6 +70,7 @@ let basicTests toolsPath workspaceLoaderFactory =
       let path = Path.Combine(path, "Script.fs")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
+      do! waitForParseResultsForFile "Script.fs" event |> Async.Ignore
       return (server, path)
     }
     |> Async.Cache
