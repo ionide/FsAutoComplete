@@ -10,6 +10,51 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Control.Reactive
 open System.Threading
+open FSharp.UMX
+
+let rec private copyDirectory sourceDir destDir =
+  // Get the subdirectories for the specified directory.
+      let dir = DirectoryInfo(sourceDir);
+
+      if not dir.Exists then raise (DirectoryNotFoundException("Source directory does not exist or could not be found: " + sourceDir))
+
+      let dirs = dir.GetDirectories()
+
+      // If the destination directory doesn't exist, create it.
+      Directory.CreateDirectory(destDir) |> ignore
+
+      // Get the files in the directory and copy them to the new location.
+      dir.GetFiles()
+      |> Seq.iter (fun file ->
+          let tempPath = Path.Combine(destDir, file.Name);
+          file.CopyTo (tempPath, false) |> ignore
+      )
+
+      // If copying subdirectories, copy them and their contents to new location.
+      dirs
+      |> Seq.iter (fun dir ->
+          let tempPath = Path.Combine(destDir, dir.Name);
+          copyDirectory dir.FullName tempPath
+      )
+type DisposableDirectory (directory : string) =
+    static member Create() =
+        let tempPath = IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n"))
+        printfn "Creating directory %s" tempPath
+        IO.Directory.CreateDirectory tempPath |> ignore
+        new DisposableDirectory(tempPath)
+
+    static member From sourceDir =
+      let self = DisposableDirectory.Create()
+      copyDirectory sourceDir self.DirectoryInfo.FullName
+      self
+
+    member x.DirectoryInfo: DirectoryInfo = IO.DirectoryInfo(directory)
+    interface IDisposable with
+        member x.Dispose() =
+            printfn "Deleting directory %s" x.DirectoryInfo.FullName
+            IO.Directory.Delete(x.DirectoryInfo.FullName,true)
+
+
 
 /// Helper that can be used for writing CPS-style code that resumes
 /// on the same thread where the operation was started.

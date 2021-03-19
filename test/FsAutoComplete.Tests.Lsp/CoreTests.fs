@@ -466,18 +466,18 @@ let renameTest toolsPath workspaceLoaderFactory =
   let server =
     async {
       let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
-      let! (server, event) = serverInitialize testDir defaultConfigDto toolsPath workspaceLoaderFactory
-
-      do! server.FSharpWorkspaceLoad { TextDocuments = [| { Uri = Path.FilePathToUri (Path.Combine(testDir, "RenameTest.fsproj")) } |] } |> Async.Ignore
+      let tempDir = DisposableDirectory.From testDir
+      let! (server, event) = serverInitialize tempDir.DirectoryInfo.FullName defaultConfigDto toolsPath workspaceLoaderFactory
       do! waitForWorkspaceFinishedParsing event
 
-      return (server, testDir, event)
+      return (server, tempDir, event)
     }
 
   testSequenced <| testList "Rename Tests" [
-      ptestCaseAsync "Rename from usage" (async {
+      testCaseAsync "Rename from usage" (async {
         let! server, testDir, events = server
-        let path = Path.Combine(testDir, "Program.fs")
+        use _ = testDir
+        let path = Path.Combine(testDir.DirectoryInfo.FullName, "Program.fs")
         let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
         do! server.TextDocumentDidOpen tdop
         do! waitForParseResultsForFile "Test.fs" events |> AsyncResult.foldResult id (fun e -> failwithf "%A" e)
@@ -499,10 +499,11 @@ let renameTest toolsPath workspaceLoaderFactory =
             ()
       })
 
-      ptestCaseAsync "Rename from definition" (async {
+      testCaseAsync "Rename from definition" (async {
         let! server, testDir, events = server
-        let path = Path.Combine(testDir, "Program.fs")
-        let pathTest = Path.Combine(testDir, "Test.fs")
+        use _ = testDir
+        let path = Path.Combine(testDir.DirectoryInfo.FullName, "Program.fs")
+        let pathTest = Path.Combine(testDir.DirectoryInfo.FullName, "Test.fs")
         let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest}
         do! server.TextDocumentDidOpen tdop
         let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}

@@ -21,7 +21,7 @@ let loaders = [
 let tests toolsPath =
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
-      testList name [
+      testSequenced <| testList name [
         initTests toolsPath workspaceLoaderFactory
         basicTests toolsPath workspaceLoaderFactory
         codeLensTest toolsPath workspaceLoaderFactory
