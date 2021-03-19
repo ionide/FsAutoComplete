@@ -179,49 +179,6 @@ let basicTests toolsPath workspaceLoaderFactory =
             return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         })
       ]
-
-      testSequenced <| testList "Document Symbol Tests" [
-        testCaseAsync "Document Symbol" (async {
-          let! server, path = server
-          let p : DocumentSymbolParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let! res = server.TextDocumentDocumentSymbol p
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-
-            Expect.equal res.Length 4  "Document Symbol has all symbols"
-        })
-      ]
-      testSequenced <| testList "Code Lens Tests" [
-        testCaseAsync "Get Code Lens" (async {
-          let! server, path = server
-          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let! res = server.TextDocumentCodeLens p
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-
-            Expect.equal res.Length 3 "Get Code Lens has all locations"
-        })
-
-        testCaseAsync "Resolve Code Lens" (async {
-          let! server, path = server
-          let p : CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path}}
-          let! res = server.TextDocumentCodeLens p
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            let cl = res.[0]
-            let! res = server.CodeLensResolve cl
-            match res with
-            | Result.Error e -> failtestf "Request failed: %A" e
-            | Result.Ok cl ->
-              Expect.equal cl.Command.Value.Title "int -> int -> int" "Code Lens contains signature"
-        })
-      ]
   ]
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
