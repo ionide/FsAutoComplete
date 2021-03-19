@@ -320,7 +320,8 @@ let analyzerTests toolsPath workspaceLoaderFactory =
       let analyzerEnabledConfig =
         { defaultConfigDto with
             EnableAnalyzers = Some true
-            AnalyzersPath = Some [| analyzerPath |] }
+            AnalyzersPath = Some [| analyzerPath |]
+             }
 
       do! Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
           |> Async.map expectExitCodeZero
@@ -337,9 +338,6 @@ let analyzerTests toolsPath workspaceLoaderFactory =
   testList "analyzer integration" [
     testCaseAsync "can run analyzer on file" (async {
       let! (server, events, rootPath, testFilePath) = server
-      do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
-      // now wait for analyzer events for the file:
-
       let! diagnostic = analyzerEvents (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitObservable
       let expected =
         [|{ Range = { Start = { Line = 3
