@@ -454,6 +454,8 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         }
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let getRangeText fileName range = getFileLines fileName |> Result.map (fun lines -> getText lines range)
+        let getLineText lines range = getText lines range
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
         let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
 
@@ -489,39 +491,40 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
         codeFixes <- fun p ->
           [|
-            ifEnabled (fun _ -> config.UnusedOpensAnalyzer) Fixes.unusedOpens
-            ifEnabled (fun _ -> config.ResolveNamespaces) (Fixes.resolveNamespace tryGetParseResultsForFile commands.GetNamespaceSuggestions)
-            Fixes.errorSuggestion
-            Fixes.redundantQualifier
-            Fixes.unusedValue getFileLines
-            Fixes.newWithDisposables getFileLines
-            ifEnabled (fun _ -> config.UnionCaseStubGeneration)
-              (Fixes.generateUnionCases getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
-            Fixes.mapLinterDiagnostics (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
-            Fixes.mapAnalyzerDiagnostics (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
-            ifEnabled (fun _ -> config.InterfaceStubGeneration)
-              (Fixes.generateInterfaceStub tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
-            ifEnabled (fun _ -> config.RecordStubGeneration)
-              (Fixes.generateRecordStub tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
-            ifEnabled (fun _ -> config.AbstractClassStubGeneration)
-              (Fixes.generateAbstractClassStub tryGetParseResultsForFile commands.GetAbstractClassStub getAbstractClassStubReplacements)
-            Fixes.addMissingEqualsToTypeDefinition getFileLines
-            Fixes.changeNegationToSubtraction getFileLines
-            Fixes.doubleEqualsToSingleEquality getFileLines
-            Fixes.addMissingColonToFieldDefinition
-            Fixes.parenthesizeExpression getFileLines
-            Fixes.refCellDerefToNot tryGetParseResultsForFile
-            Fixes.upcastUsage getFileLines
-            Fixes.makeDeclarationMutable tryGetParseResultsForFile tryGetProjectOptions
-            Fixes.comparisonToMutableAssignment tryGetParseResultsForFile
-            Fixes.partialOrInvalidRecordExpressionToAnonymousRecord tryGetParseResultsForFile
-            Fixes.removeUnnecessaryReturnOrYield tryGetParseResultsForFile
-            Fixes.rewriteCSharpLambdaToFSharpLambda tryGetParseResultsForFile
-            Fixes.addMissingFunKeyword getFileLines
-            Fixes.makeOuterBindingRecursive tryGetParseResultsForFile
-            Fixes.addMissingRecToMutuallyRecFunctions getFileLines
-            Fixes.convertBangEqualsToInequality getFileLines
-            Fixes.replaceBangWithValue tryGetParseResultsForFile
+            Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) UnusedOpens.fix
+            Run.ifEnabled (fun _ -> config.ResolveNamespaces) (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
+            SuggestedIdentifier.fix
+            RedundantQualifier.fix
+            UnusedValue.fix getRangeText
+            NewWithDisposables.fix getRangeText
+            Run.ifEnabled (fun _ -> config.UnionCaseStubGeneration)
+              (GenerateUnionCases.fix getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
+            ExternalSystemDiagnostics.linter (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
+            ExternalSystemDiagnostics.analyzers (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
+            Run.ifEnabled (fun _ -> config.InterfaceStubGeneration)
+              (GenerateInterfaceStub.fix tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
+            Run.ifEnabled (fun _ -> config.RecordStubGeneration)
+              (GenerateRecordStub.fix tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
+            Run.ifEnabled (fun _ -> config.AbstractClassStubGeneration)
+              (GenerateAbstractClassStub.fix tryGetParseResultsForFile commands.GetAbstractClassStub getAbstractClassStubReplacements)
+            MissingEquals.fix getFileLines
+            NegationToSubtraction.fix getFileLines
+            DoubleEqualsToSingleEquals.fix getRangeText
+            ColonInFieldType.fix
+            ParenthesizeExpression.fix getRangeText
+            RefCellAccesToNot.fix tryGetParseResultsForFile
+            UseSafeCastInsteadOfUnsafe.fix getRangeText
+            MakeDeclarationMutable.fix tryGetParseResultsForFile tryGetProjectOptions
+            ChangeComparisonToMutableAssignment.fix tryGetParseResultsForFile
+            ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
+            RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
+            RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
+            ChangeCSharpLambdaToFSharp.fix tryGetParseResultsForFile getLineText
+            AddMissingFunKeyword.fix getFileLines getLineText
+            MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
+            AddMissingRecKeyword.fix getFileLines getLineText
+            ConvertBangEqualsToInequality.fix getRangeText
+            ReplaceBangWithValueFunction.fix tryGetParseResultsForFile getLineText
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
