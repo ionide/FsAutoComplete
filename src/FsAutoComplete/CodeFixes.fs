@@ -134,6 +134,14 @@ module Navigation =
       { pos with
           Character = pos.Character - 1 }
 
+  let rec decMany lines pos count =
+    if count <= 0 then pos
+    else decMany lines (dec lines pos) (count - 1)
+
+  let rec incMany lines pos count =
+    if count <= 0 then pos
+    else incMany lines (inc lines pos) (count - 1)
+
   let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) condition =
     walkPos lines pos (dec lines) condition
 
