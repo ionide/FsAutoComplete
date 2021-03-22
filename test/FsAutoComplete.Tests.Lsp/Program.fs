@@ -6,6 +6,7 @@ open FsAutoComplete.Logging
 open System
 open Serilog.Core
 open Serilog.Events
+open FsAutoComplete.Tests
 open FsAutoComplete.Tests.CoreTest
 open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
@@ -59,6 +60,7 @@ let tests toolsPath =
         // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath
         analyzerTests state
+        FunctionApplicationTests.tests state
       ]
   ]
 

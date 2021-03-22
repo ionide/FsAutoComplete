@@ -458,7 +458,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         return CoreResponse.ErrorRes ex.Message
     }
 
-    member private x.AsCancellable (filename : string<LocalPath>) (action : Async<'t>) =
+    member inline private x.AsCancellable (filename : string<LocalPath>) (action : Async<'t>) =
         let cts = new CancellationTokenSource()
         state.AddCancellationToken(filename, cts)
         Async.StartCatchCancellation(action, cts.Token)
