@@ -236,52 +236,6 @@ type FSharpParseFileResults with
       | Some input -> SynExprAppLocationsImpl.getAllCurriedArgsAtPosition pos input
       | None -> None
 
-  member scope.TryRangeOfNearestOuterBindingContainingPos pos =
-    let tryGetIdentRangeFromBinding binding =
-        match binding with
-        | SynBinding.Binding (_, _, _, _, _, _, _, headPat, _, _, _, _) ->
-            match headPat with
-            | SynPat.LongIdent (longIdentWithDots, _, _, _, _, _) ->
-                Some longIdentWithDots.Range
-            | SynPat.Named(_, ident, false, _, _) ->
-                Some ident.idRange
-            | _ ->
-                None
-
-    let rec walkBinding expr workingRange =
-        match expr with
-        | SynExpr.Sequential (_, _, expr1, expr2, _) ->
-            if Range.rangeContainsPos expr1.Range pos then
-                walkBinding expr1 workingRange
-            else
-                walkBinding expr2 workingRange
-        | SynExpr.LetOrUse(_, _, bindings, bodyExpr, _) ->
-            let potentialNestedRange =
-                bindings
-                |> List.tryFind (fun binding -> Range.rangeContainsPos binding.RangeOfBindingAndRhs pos)
-                |> Option.bind tryGetIdentRangeFromBinding
-            match potentialNestedRange with
-            | Some range ->
-                walkBinding bodyExpr range
-            | None ->
-                walkBinding bodyExpr workingRange
-        | _ ->
-            Some workingRange
-
-    match scope.ParseTree with
-    | Some input ->
-        AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
-            member _.VisitExpr(_, _, defaultTraverse, expr) =
-                defaultTraverse expr
-
-            override _.VisitBinding(defaultTraverse, binding) =
-                match binding with
-                | SynBinding.Binding (_, _, _, _, _, _, SynValData (None, _, _), _, _, expr, _range, _) as b when Range.rangeContainsPos b.RangeOfBindingAndRhs pos ->
-                    tryGetIdentRangeFromBinding b
-                    |> Option.bind (walkBinding expr)
-                | _ -> defaultTraverse binding
-        })
-    | None -> None
 
   member scope.TryRangeOfExpressionBeingDereferencedContainingPos expressionPos =
     scope.ParseTree
