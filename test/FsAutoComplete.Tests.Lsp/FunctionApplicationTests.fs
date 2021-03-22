@@ -100,7 +100,7 @@ let test750 =
 let tests state =
   let server = server state
   testSequenced <|
-    testList "function application" [
+    ptestList "function application" [
       testList "tests" ([
          test742
          test744
