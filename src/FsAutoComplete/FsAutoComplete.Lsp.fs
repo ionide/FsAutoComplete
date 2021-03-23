@@ -525,7 +525,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
             AddMissingRecKeyword.fix getFileLines getLineText
             ConvertBangEqualsToInequality.fix getRangeText
             ReplaceBangWithValueFunction.fix tryGetParseResultsForFile getLineText
-            RemoveUnusedBinding.fix getRangeText tryGetParseResultsForFile
+            RemoveUnusedBinding.fix tryGetParseResultsForFile
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
