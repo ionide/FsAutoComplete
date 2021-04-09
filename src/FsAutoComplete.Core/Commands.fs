@@ -55,7 +55,7 @@ type NotificationEvent=
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
 
-type Commands (serialize : Serializer, backgroundServiceEnabled, toolsPath, workspaceLoaderFactory) =
+type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory) =
     let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
     let state = State.Initial toolsPath workspaceLoaderFactory
     let fileParsed = Event<FSharpParseFileResults>()

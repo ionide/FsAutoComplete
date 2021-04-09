@@ -63,7 +63,7 @@ let createServer (toolsPath) workspaceLoaderFactory =
 
   let event = Event<string * obj> ()
   let client = FSharpLspClient ((fun name o -> event.Trigger (name,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
-  let commands = Commands(FsAutoComplete.JsonSerializer.writeJson, false, toolsPath, workspaceLoaderFactory)
+  let commands = Commands(false, toolsPath, workspaceLoaderFactory)
   let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
   FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem <- fs

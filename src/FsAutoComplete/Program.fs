@@ -63,7 +63,7 @@ let entry args =
         else Ionide.ProjInfo.WorkspaceLoader.Create
 
       let toolsPath = Ionide.ProjInfo.Init.init ()
-      let commands = Commands(writeJson, backgroundServiceEnabled, toolsPath, workspaceLoaderFactory)
+      let commands = Commands(backgroundServiceEnabled, toolsPath, workspaceLoaderFactory)
       let originalFs = FileSystemAutoOpens.FileSystem
       let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
       FileSystemAutoOpens.FileSystem <- fs
