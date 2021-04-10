@@ -7,7 +7,7 @@ jobs:
     timeout-minutes: 15 # we have a locking issue, so cap the runs at ~15m to account for varying build times, etc
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-2019, macos-10.15, ubuntu-20.04]
         dotnet: [5.0.100]
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
