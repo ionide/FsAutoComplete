@@ -63,11 +63,11 @@ let createServer (toolsPath) workspaceLoaderFactory =
 
   let event = Event<string * obj> ()
   let client = FSharpLspClient ((fun name o -> event.Trigger (name,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
-  let commands = Commands(false, toolsPath, workspaceLoaderFactory)
   let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
-  let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
+  let state = State.Initial toolsPath workspaceLoaderFactory
+  let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
   FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(commands, client)
+  let server = new FSharpLspServer(false, state, client)
   server, event
 
 let defaultConfigDto : FSharpConfigDto =

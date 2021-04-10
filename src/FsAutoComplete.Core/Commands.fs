@@ -55,12 +55,12 @@ type NotificationEvent=
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
 
-type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory) =
-    let checker = FSharpCompilerServiceChecker(backgroundServiceEnabled)
-    let state = State.Initial toolsPath workspaceLoaderFactory
+type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool) =
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
     let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
+    let disposables = ResizeArray()
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
@@ -156,44 +156,44 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
                                     >> Log.addContextDestructured "file" file)
             [||]
 
-    do state.ProjectController.Notifications.Add (NotificationEvent.Workspace >> notify.Trigger)
+    do disposables.Add <| state.ProjectController.Notifications.Subscribe (NotificationEvent.Workspace >> notify.Trigger)
 
-    do BackgroundServices.messageRecived.Publish.Add (fun n ->
+    do disposables.Add <| backgroundService.MessageReceived.Subscribe (fun n ->
        match n with
        | BackgroundServices.Diagnostics d -> notify.Trigger (NotificationEvent.Diagnostics d)
     )
 
     //Fill declarations cache so we're able to return workspace symbols correctly
-    do fileParsed.Publish.Add (fun parseRes ->
+    do disposables.Add <| fileParsed.Publish.Subscribe (fun parseRes ->
         let decls = parseRes.GetNavigationItems().Declarations
         // string<LocalPath> is a compiler-approved path, and since this structure comes from the compiler it's safe
         state.NavigationDeclarations.[UMX.tag parseRes.FileName] <- decls
     )
 
-    do checker.ScriptTypecheckRequirementsChanged.Add (fun () ->
+    do disposables.Add <| checker.ScriptTypecheckRequirementsChanged.Subscribe (fun () ->
         checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
         let count = state.ScriptProjectOptions.Count
         state.ScriptProjectOptions.Clear ()
         checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purged {optionCount} expired script options" >> Log.addContextDestructured "optionCount" count)
     )
 
-    do if not backgroundServiceEnabled then
-            checker.FileChecked.Add (fun (n, _) ->
-                checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
-                async {
-                    try
-                        match state.GetProjectOptions n with
-                        | Some opts ->
-                            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-                            fileChecked.Trigger (res, res.FileName, -1) // filename comes from compiler, safe to just tag here
-                        | _ -> ()
-                    with
-                    | _ -> ()
-                } |> Async.Start
-            )
+    // NB: if there's a background service checker configured then this will never actually fire
+    do disposables.Add <| checker.FileChecked.Subscribe (fun (n, _) ->
+        checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
+        async {
+            try
+                match state.GetProjectOptions n with
+                | Some opts ->
+                    let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
+                    fileChecked.Trigger (res, res.FileName, -1) // filename comes from compiler, safe to just tag here
+                | _ -> ()
+            with
+            | _ -> ()
+        } |> Async.Start
+    )
 
     //Triggered by `FSharpChecker.FileChecked` if background service is disabled; and by `Parse` command
-    do fileChecked.Publish.Add (fun (parseAndCheck, file, version) ->
+    do disposables.Add <| fileChecked.Publish.Subscribe (fun (parseAndCheck, file, _) ->
         async {
             try
                 NotificationEvent.FileParsed file
@@ -211,8 +211,11 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
             | _ -> ()
         }
         |> Async.Start
+    )
 
-        async {
+    do disposables.Add <| fileChecked.Publish.Subscribe ( fun (parseAndCheck, file, _) ->
+       async {
+          if hasAnalyzers then
             try
                 Loggers.analyzers.info (Log.setMessage "begin analysis of {file}" >> Log.addContextDestructured "file" file)
                 match parseAndCheck.GetParseResults.ParseTree, parseAndCheck.GetCheckResults.ImplementationFile with
@@ -254,7 +257,7 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
                             if Utils.isAScript (UMX.untag file)
                             then BackgroundServices.ScriptFile(UMX.untag file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
                             else BackgroundServices.SourceFile (UMX.untag file)
-                        if backgroundServiceEnabled then BackgroundServices.updateFile(payload, ctn |> String.concat "\n", 0)
+                        backgroundService.UpdateFile(payload, ctn |> String.concat "\n", 0)
                         Some (ctn)
                     | None -> None
                 match sourceOpt with
@@ -317,12 +320,11 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
         } |> Async.Start
 
 
-    do state.ProjectController.Notifications.Add(fun ev ->
+    do disposables.Add <| state.ProjectController.Notifications.Subscribe (fun ev ->
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
-        if backgroundServiceEnabled then
-            let opts = state.ProjectController.GetProjectOptionsForFsproj p.ProjectFileName
-            opts |> Option.iter (fun opts -> BackgroundServices.updateProject(p.ProjectFileName, opts))
+        let opts = state.ProjectController.GetProjectOptionsForFsproj p.ProjectFileName
+        opts |> Option.iter (fun opts -> backgroundService.UpdateProject(p.ProjectFileName, opts))
 
         if not isFromCache then
           p.ProjectItems
@@ -360,7 +362,7 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
             then BackgroundServices.ScriptFile(untagged, tfmIfScript)
             else BackgroundServices.SourceFile untagged
 
-        if backgroundServiceEnabled then BackgroundServices.updateFile(payload, lines |> String.concat "\n", defaultArg version 0)
+        backgroundService.UpdateFile(payload, lines |> String.concat "\n", defaultArg version 0)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse<'b>>, ?failureToString: string -> CoreResponse<'b>) =
         Async.bind <| function
@@ -520,8 +522,6 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
 
     member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) =
         state.TryGetFileCheckerOptionsWithLines file
-
-    member x.Files = state.Files
 
     member x.TryGetFileVersion = state.TryGetFileVersion
 
@@ -742,25 +742,18 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
             let fsym = sym.Symbol
             if fsym.IsPrivateToFile then
                 return CoreResponse.Res (LocationResponse.Use (sym, usages))
-            elif backgroundServiceEnabled then
-                match! SymbolCache.getSymbols fsym.FullName with
-                | None ->
-                    if fsym.IsInternalToProject then
-                        let opts = state.GetProjectOptions' tyRes.FileName
-                        let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
-                        return CoreResponse.Res (LocationResponse.Use (sym, symbols))
-                    else
-                        let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-                        return CoreResponse.Res (LocationResponse.Use (sym, symbols))
-                | Some res ->
-                    return CoreResponse.Res (LocationResponse.UseRange res)
-            elif fsym.IsInternalToProject then
-                let opts = state.GetProjectOptions' tyRes.FileName
-                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
-                return CoreResponse.Res (LocationResponse.Use (sym, symbols))
             else
-                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-                return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+              match! backgroundService.GetSymbols fsym.FullName with
+              | None ->
+                  if fsym.IsInternalToProject then
+                      let opts = state.GetProjectOptions' tyRes.FileName
+                      let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
+                      return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+                  else
+                      let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
+                      return CoreResponse.Res (LocationResponse.Use (sym, symbols))
+              | Some res ->
+                  return CoreResponse.Res (LocationResponse.UseRange res)
           | Error x -> return CoreResponse.ErrorRes x
       }
       |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
@@ -775,8 +768,8 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
             let fsym = sym.Symbol
             if fsym.IsPrivateToFile then
                 return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols usages))
-            elif backgroundServiceEnabled then
-                match! SymbolCache.getImplementation fsym.FullName with
+            else
+                match! backgroundService.GetImplementation fsym.FullName with
                 | None ->
                     if fsym.IsInternalToProject then
                         let opts = state.GetProjectOptions' tyRes.FileName
@@ -784,17 +777,10 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
                         return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
                     else
                         let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
+                        let symbols = filterSymbols symbols
                         return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols))
                 | Some res ->
                     return CoreResponse.Res (LocationResponse.UseRange res)
-            elif fsym.IsInternalToProject then
-                let opts = state.GetProjectOptions' tyRes.FileName
-                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, [UMX.untag tyRes.FileName, opts] , sym.Symbol)
-                return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols ))
-            else
-                let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-                let symbols = filterSymbols symbols
-                return CoreResponse.Res (LocationResponse.Use (sym, symbols ))
           | Error e -> return CoreResponse.ErrorRes e
         }
         |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
@@ -1074,17 +1060,7 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
             |> CoreResponse.Res
         | _ ->
           return CoreResponse.InfoRes "Couldn't find file state"
-
     }
-
-    member __.StartBackgroundService (workspaceDir : string option) =
-        if backgroundServiceEnabled && workspaceDir.IsSome then
-            SymbolCache.initCache workspaceDir.Value
-            BackgroundServices.start ()
-
-    member __.ProcessProjectsInBackground (file) =
-        if backgroundServiceEnabled then
-            BackgroundServices.saveFile file
 
     member x.GetGitHash () =
         let version = Version.info ()
@@ -1228,3 +1204,7 @@ type Commands (backgroundServiceEnabled: bool, toolsPath, workspaceLoaderFactory
       }
       |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
+
+    interface IDisposable with
+      member x.Dispose () =
+        for disposable in disposables do disposable.Dispose()

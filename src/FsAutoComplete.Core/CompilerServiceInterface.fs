@@ -10,17 +10,22 @@ open FSharp.UMX
 
 type Version = int
 
-type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
-
+type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
       keepAllBackgroundResolutions = not backgroundServiceEnabled,
-      keepAssemblyContents = true,
-      suggestNamesForErrors = true)
+      keepAssemblyContents = hasAnalyzers,
+      suggestNamesForErrors = true,
+      enablePartialTypeChecking = not hasAnalyzers,
+      enableBackgroundItemKeyStoreAndSemanticClassification = true)
 
   do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
   do checker.BeforeBackgroundFileCheck.Add ignore
+
+  // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
+  let safeFileCheckedEvent =
+    if not backgroundServiceEnabled then checker.FileChecked else (new Event<string * obj option>()).Publish
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
@@ -230,7 +235,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled) =
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
   member __.FileChecked: IEvent<string<LocalPath> * obj option> =
-    checker.FileChecked
+    safeFileCheckedEvent
     |> Event.map (fun (fileName, blob) -> UMX.tag fileName, blob) //path comes from the compiler, so it's safe to assume the tag in this case
 
   member __.ScriptTypecheckRequirementsChanged =
