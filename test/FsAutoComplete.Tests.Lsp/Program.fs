@@ -31,33 +31,34 @@ let tests toolsPath =
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
-        initTests toolsPath workspaceLoaderFactory
-        basicTests toolsPath workspaceLoaderFactory
-        codeLensTest toolsPath workspaceLoaderFactory
-        documentSymbolTest toolsPath workspaceLoaderFactory
-        autocompleteTest toolsPath workspaceLoaderFactory
-        renameTest toolsPath workspaceLoaderFactory
-        gotoTest toolsPath workspaceLoaderFactory
-        foldingTests toolsPath workspaceLoaderFactory
-        tooltipTests toolsPath workspaceLoaderFactory
-        highlightingTests toolsPath workspaceLoaderFactory
-        signatureHelpTests toolsPath workspaceLoaderFactory
-        scriptPreviewTests toolsPath workspaceLoaderFactory
-        scriptEvictionTests toolsPath workspaceLoaderFactory
-        scriptProjectOptionsCacheTests toolsPath workspaceLoaderFactory
-        dependencyManagerTests  toolsPath workspaceLoaderFactory
-        scriptGotoTests toolsPath workspaceLoaderFactory
+        let state = FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
+        initTests state
+        basicTests state
+        codeLensTest state
+        documentSymbolTest state
+        autocompleteTest state
+        renameTest state
+        gotoTest state
+        foldingTests state
+        tooltipTests state
+        highlightingTests state
+        signatureHelpTests state
+        scriptPreviewTests state
+        scriptEvictionTests state
+        scriptProjectOptionsCacheTests state
+        dependencyManagerTests  state
+        scriptGotoTests state
         interactiveDirectivesUnitTests
 
         // commented out because FSDN is down
-        //fsdnTest toolsPath workspaceLoaderFactory
+        //fsdnTest state
         uriTests
         // fsharplint isn't updated to FCS 39, disabling tests until that's resolved
         // linterTests toolsPath
-        formattingTests toolsPath workspaceLoaderFactory
+        formattingTests state
         // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath
-        analyzerTests toolsPath workspaceLoaderFactory
+        analyzerTests state
       ]
   ]
 

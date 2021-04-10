@@ -10,12 +10,12 @@ open Helpers
 open FsAutoComplete.Lsp
 
 
-let fsdnTest toolsPath workspaceLoaderFactory =
+let fsdnTest state =
 
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FsdnTest")
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       return server
     }
@@ -35,6 +35,10 @@ let fsdnTest toolsPath workspaceLoaderFactory =
           let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.FsdnResponse>>(n.Content)
           Expect.equal r.Kind "fsdn" (sprintf "fsdn response, but was %A, from json %A" r n)
           Expect.contains r.Data.Functions "List.map" (sprintf "the List.map is a valid response, but was %A, from json %A" r n)
+      })
+      testCaseAsync "cleanup" (async {
+        let! server = server
+        do! server.Shutdown()
       })
   ]
 
@@ -62,17 +66,17 @@ let uriTests =
       "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs"
     ]
 
-  testList "Uri tests"[
+  testList "Uri tests" [
     testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
     testList "fileName to uri tests" (samples |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
- ]
+  ]
 
 /// Tests for linter
-let linterTests toolsPath workspaceLoaderFactory =
+let linterTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
-      let! (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} state
       let! work = waitForParsedScript event |> Async.StartChild
       let projectPath = Path.Combine(path, "LinterTest.fsproj")
       do! parseProject projectPath server
@@ -242,13 +246,18 @@ let linterTests toolsPath workspaceLoaderFactory =
         })
      )
 
+    yield testCaseAsync "cleanup" (async {
+      let! server, _, _ = server
+      do! server.Shutdown()
+    })
+
   ]
 
-let formattingTests toolsPath workspaceLoaderFactory =
+let formattingTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
-      let! (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, events) = serverInitialize path defaultConfigDto state
       return server, events, path
     }
     |> Async.Cache
@@ -285,8 +294,14 @@ let formattingTests toolsPath workspaceLoaderFactory =
       failwithf "Errors while parsing script %s: %A" sourceFile errors
   })
 
-  testList "fantomas integration" [
-    verifyFormatting "can replace entire content of file when formatting whole document" "endCharacter"
+  testSequenced <| testList "fantomas integration" [
+    testList "tests" [
+      verifyFormatting "can replace entire content of file when formatting whole document" "endCharacter"
+    ]
+    testCaseAsync "cleanup" (async {
+      let! server, _, _ = server
+      do! server.Shutdown()
+    })
   ]
 
 // let fakeInteropTests toolsPath =
@@ -310,7 +325,7 @@ let formattingTests toolsPath workspaceLoaderFactory =
 //         ))
 //   ]
 
-let analyzerTests toolsPath workspaceLoaderFactory =
+let analyzerTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
@@ -326,7 +341,7 @@ let analyzerTests toolsPath workspaceLoaderFactory =
       do! Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
           |> Async.map expectExitCodeZero
 
-      let! (server, events) = serverInitialize path analyzerEnabledConfig toolsPath workspaceLoaderFactory
+      let! (server, events) = serverInitialize path analyzerEnabledConfig state
       let scriptPath = Path.Combine(path, "Script.fs")
       do! Async.Sleep (TimeSpan.FromSeconds 5.)
       do! waitForWorkspaceFinishedParsing events
@@ -335,24 +350,28 @@ let analyzerTests toolsPath workspaceLoaderFactory =
     }
     |> Async.Cache
 
-  testList "analyzer integration" [
-    testCaseAsync "can run analyzer on file" (async {
-      let! (server, events, rootPath, testFilePath) = server
-      let! diagnostic = analyzerEvents (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitObservable
-      let expected =
-        [|{ Range = { Start = { Line = 3
-                                Character = 13 }
-                      End = { Line = 3
-                              Character = 31 } }
-            Severity = Some DiagnosticSeverity.Warning
-            Code = None
-            Source = "F# Analyzers (Option.Value analyzer)"
-            Message = "Option.Value shouldn't be used"
-            RelatedInformation = None
-            Tags = None }|]
-      Expect.equal diagnostic.Diagnostics expected "Expected a single analyzer warning about options"
-    })
-  ]
-
-
-
+  testSequenced <|
+    testList "analyzer integration" [
+      testList "tests" [
+        testCaseAsync "can run analyzer on file" (async {
+          let! (server, events, rootPath, testFilePath) = server
+          let! diagnostic = analyzerEvents (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitObservable
+          let expected =
+            [|{ Range = { Start = { Line = 3
+                                    Character = 13 }
+                          End = { Line = 3
+                                  Character = 31 } }
+                Severity = Some DiagnosticSeverity.Warning
+                Code = None
+                Source = "F# Analyzers (Option.Value analyzer)"
+                Message = "Option.Value shouldn't be used"
+                RelatedInformation = None
+                Tags = None }|]
+          Expect.equal diagnostic.Diagnostics expected "Expected a single analyzer warning about options"
+        })
+      ]
+      testCaseAsync "cleanup" (async {
+        let! server, _, _, _ = server
+        do! server.Shutdown()
+      })
+    ]

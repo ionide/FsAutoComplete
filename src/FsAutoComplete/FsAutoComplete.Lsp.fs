@@ -449,6 +449,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         AsyncLspResult.internalError e.Message
         }
 
+    override __.Shutdown () = async {
+      for (dispose: IDisposable) in commandDisposables do
+        dispose.Dispose()
+      (commands :> IDisposable).Dispose()
+    }
 
     override __.Initialize(p: InitializeParams) = async {
         logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p )

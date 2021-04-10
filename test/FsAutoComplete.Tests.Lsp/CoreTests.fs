@@ -11,9 +11,9 @@ open Helpers
 open FsToolkit.ErrorHandling
 
 ///Test for initialization of the server
-let initTests toolsPath workspaceLoaderFactory =
+let initTests state =
   testCaseAsync "InitTest" (async {
-    let (server, event) = createServer toolsPath workspaceLoaderFactory
+    let (server, event) = createServer state
 
     let p : InitializeParams =
       { ProcessId = Some 1
@@ -60,11 +60,11 @@ let initTests toolsPath workspaceLoaderFactory =
   })
 
 ///Tests for basic operations like hover, getting document symbols or code lens on simple file
-let basicTests toolsPath workspaceLoaderFactory =
+let basicTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       let projectPath = Path.Combine(path, "BasicTest.fsproj")
       do! parseProject projectPath server
       let path = Path.Combine(path, "Script.fs")
@@ -178,15 +178,19 @@ let basicTests toolsPath workspaceLoaderFactory =
 
             return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         })
+        testCaseAsync "cleanup" (async {
+          let! server, _ = server
+          do! server.Shutdown()
+        })
       ]
   ]
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
-let codeLensTest toolsPath workspaceLoaderFactory =
+let codeLensTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-      let! (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} state
       let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
       do! parseProject projectPath server
       let path = Path.Combine(path, "Script.fs")
@@ -249,14 +253,19 @@ let codeLensTest toolsPath workspaceLoaderFactory =
 
             | e -> failtestf "Request failed: %A" e
       })
+
+      testCaseAsync "cleanup" (async {
+          let! server, _ = server
+          do! server.Shutdown()
+        })
   ]
 
 ///Tests for getting document symbols
-let documentSymbolTest toolsPath workspaceLoaderFactory =
+let documentSymbolTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       let projectPath = Path.Combine(path, "DocumentSymbolTest.fsproj")
       do! parseProject projectPath server
       let path = Path.Combine(path, "Script.fsx")
@@ -279,14 +288,18 @@ let documentSymbolTest toolsPath workspaceLoaderFactory =
           Expect.equal res.Length 15 "Document Symbol has all symbols"
           Expect.exists res (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class) "Document symbol contains given symbol"
       })
+      testCaseAsync "cleanup" (async {
+          let! server, _ = server
+          do! server.Shutdown()
+        })
   ]
 
 ///Tests for getting autocomplete
-let autocompleteTest toolsPath workspaceLoaderFactory =
+let autocompleteTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
       do! parseProject projectPath server
       do! waitForWorkspaceFinishedParsing event
@@ -300,7 +313,7 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
   let scriptServer =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
@@ -410,6 +423,11 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
           Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Bar")) < 2) "Autocomplete contains given symbol"
           Expect.isTrue ((res.Items |> Seq.findIndex (fun n -> n.Label = "Baz")) < 2) "Autocomplete contains given symbol"
       })
+
+    testCaseAsync "cleanup" (async {
+        let! server, _ = server
+        do! server.Shutdown()
+      })
   ]
 
   testSequenced (
@@ -420,12 +438,12 @@ let autocompleteTest toolsPath workspaceLoaderFactory =
   )
 
 ///Rename tests
-let renameTest toolsPath workspaceLoaderFactory =
+let renameTest state =
   let server =
     async {
       let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
       let tempDir = DisposableDirectory.From testDir
-      let! (server, event) = serverInitialize tempDir.DirectoryInfo.FullName defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize tempDir.DirectoryInfo.FullName defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
 
       return (server, tempDir, event)
@@ -487,15 +505,20 @@ let renameTest toolsPath workspaceLoaderFactory =
             Expect.exists result (fun n -> n.TextDocument.Uri.Contains "Test.fs" && n.Edits |> Seq.exists (fun r -> r.Range = { Start = {Line = 2; Character = 4 }; End = {Line = 2; Character = 5 } }) ) "Rename contains changes in Test.fs"
             ()
       })
+
+      testCaseAsync "cleanup" (async {
+        let! server, _, _ = server
+        do! server.Shutdown()
+      })
   ]
 
 ///GoTo tests
-let gotoTest toolsPath workspaceLoaderFactory =
+let gotoTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
 
       let definitionPath = Path.Combine(path, "Definition.fs")
@@ -815,14 +838,19 @@ let gotoTest toolsPath workspaceLoaderFactory =
             let localPath = Path.FileUriToLocalPath res.Uri
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       })
+
+      testCaseAsync "cleanup" (async {
+          let! server, _, _, _ = server
+          do! server.Shutdown()
+        })
   ]
 
-let foldingTests toolsPath workspaceLoaderFactory =
+let foldingTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FoldingTests")
 
-      let! (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let libraryPath = Path.Combine(path, "Library.fs")
       let libFile = loadDocument libraryPath
@@ -842,10 +870,15 @@ let foldingTests toolsPath workspaceLoaderFactory =
       | Ok(None) -> failwithf "No ranges found in file, problem parsing?"
       | LspResult.Error e -> failwithf "Error from range LSP call: %A" e
     })
+
+    testCaseAsync "cleanup" (async {
+      let! server, _ = server
+      do! server.Shutdown()
+    })
   ]
 
 
-let tooltipTests toolsPath workspaceLoaderFactory =
+let tooltipTests state =
   let (|Tooltip|_|) (hover: Hover) =
     match hover with
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }; MarkedString.String newline; MarkedString.String fullname; MarkedString.String assembly |] } -> Some tooltip
@@ -860,7 +893,7 @@ let tooltipTests toolsPath workspaceLoaderFactory =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
       let scriptPath = Path.Combine(path, "Script.fsx")
-      let! (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
       match! waitForParseResultsForFile "Script.fsx" events with
@@ -907,25 +940,32 @@ let tooltipTests toolsPath workspaceLoaderFactory =
 
   let concatLines = String.concat Environment.NewLine
 
-  testList "tooltip evaluation" [
-    verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
-    verifyTooltip 1 4 "val listOfTuples : list<int * int>"
-    verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
-    verifyTooltip 3 4 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
-    //verifyDescription 4 4 """**Description**\n\nPrint to a string using the given format.\n\n**Parameters**\n\n* `format`: The formatter.\n\n**Returns**\n\nThe formatted result.\n\n**Generic parameters**\n\n* `'T` is `string`"""
-    verifyDescription 13 10 (concatLines ["**Description**"; ""; "\nMy super summary\n "; ""; "**Parameters**"; ""; "* `c`: foo"; "* `b`: bar"; "* `a`: baz"; ""; "**Returns**"; ""; ""])
-    verifyTooltip 14 4 "val nestedTuples : int * ((int * int) * int)"
-    verifyTooltip 15 4 "val nestedStructTuples : int * struct(int * int)"
+  testSequenced <|
+    testList "tooltip evaluation" [
+      testList "tests" [
+        verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
+        verifyTooltip 1 4 "val listOfTuples : list<int * int>"
+        verifyTooltip 2 4 "val listOfStructTuples : list<struct(int * int)>"
+        verifyTooltip 3 4 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
+        //verifyDescription 4 4 """**Description**\n\nPrint to a string using the given format.\n\n**Parameters**\n\n* `format`: The formatter.\n\n**Returns**\n\nThe formatted result.\n\n**Generic parameters**\n\n* `'T` is `string`"""
+        verifyDescription 13 10 (concatLines ["**Description**"; ""; "\nMy super summary\n "; ""; "**Parameters**"; ""; "* `c`: foo"; "* `b`: bar"; "* `a`: baz"; ""; "**Returns**"; ""; ""])
+        verifyTooltip 14 4 "val nestedTuples : int * ((int * int) * int)"
+        verifyTooltip 15 4 "val nestedStructTuples : int * struct(int * int)"
+      ]
+      testCaseAsync "cleanup" (async {
+        let! server, _ = server
+        do! server.Shutdown()
+      })
   ]
 
 
-let highlightingTests toolsPath workspaceLoaderFactory =
+let highlightingTests state =
   let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
   let scriptPath = Path.Combine(testPath, "Script.fsx")
 
   let server =
     async {
-      let! (server, event) = serverInitialize testPath defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, event) = serverInitialize testPath defaultConfigDto state
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
 
       do! server.TextDocumentDidOpen tdop
@@ -1019,21 +1059,27 @@ let highlightingTests toolsPath workspaceLoaderFactory =
       | Error e -> failwithf "error of %A" e
     })
 
-  testList "Document Highlighting Tests" [
-    tokenIsOfType (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
-    tokenIsOfType (0, 44) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
-    tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
-    tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
-    tokenIsOfType (14, 10) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type should be a type
-    tokenIsOfTypeInRange ((0, 0), (0, 100)) (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter
+  testSequenced <| testList "Document Highlighting Tests" [
+    testList "tests" [
+      tokenIsOfType (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
+      tokenIsOfType (0, 44) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
+      tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
+      tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
+      tokenIsOfType (14, 10) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type should be a type
+      tokenIsOfTypeInRange ((0, 0), (0, 100)) (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter
+    ]
+    testCaseAsync "cleanup" (async {
+      let! server = server
+      do! server.Shutdown()
+    })
   ]
 
-let signatureHelpTests toolsPath workspaceLoaderFactory =
+let signatureHelpTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelpTest")
       let scriptPath = Path.Combine(path, "Script1.fsx")
-      let! (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
+      let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
       match! waitForParseResultsForFile "Script1.fsx" events with
@@ -1078,4 +1124,9 @@ let signatureHelpTests toolsPath workspaceLoaderFactory =
       checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c-38} of unattached parens"
     for c in 39..41 do
       checkOverloadsAt (2, c) $"Can get overloads at whitespace position {c-39} of attached parens"
+
+    testCaseAsync "cleanup" (async {
+      let! server, _ = server
+      do! server.Shutdown()
+    })
   ]
