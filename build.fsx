@@ -34,9 +34,7 @@ Target.initEnvironment ()
 
 Target.create "LspTest" (fun _ ->
   DotNet.exec
-      (fun p ->
-          { p with
-              Timeout = Some (System.TimeSpan.FromMinutes 10.) })
+      id
       "run"
       """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --summary"""
   |> fun r -> if not r.OK then failwithf "Errors while running LSP tests:\n%s" (r.Errors |> String.concat "\n\t")

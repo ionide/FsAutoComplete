@@ -23,3 +23,5 @@ jobs:
       run: dotnet tool restore
     - name: Run Test
       run: dotnet fake build -t Test
+      env:
+        TEST_TIMEOUT_MINUTES: 10

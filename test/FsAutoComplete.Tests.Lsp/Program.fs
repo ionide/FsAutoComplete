@@ -11,6 +11,15 @@ open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open Ionide.ProjInfo
+open System.Threading
+
+let testTimeout =
+  Environment.GetEnvironmentVariable "TEST_TIMEOUT_MINUTES"
+  |> Int32.TryParse
+  |> function true, duration -> duration
+            | false, _ -> 10
+  |> float
+  |> TimeSpan.FromMinutes
 
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
@@ -90,4 +99,5 @@ let main args =
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
   let toolsPath = Ionide.ProjInfo.Init.init ()
 
-  runTestsWithArgs defaultConfig args (tests toolsPath)
+  let cts = new CancellationTokenSource(testTimeout)
+  runTestsWithArgsAndCancel cts.Token defaultConfig args (tests toolsPath)
