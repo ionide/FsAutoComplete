@@ -817,7 +817,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let! (methods, commas) = commands.Methods tyRes fcsPos lines |> AsyncResult.ofCoreResponse
                 let sigs =
                     methods.Methods |> Array.map(fun m ->
-                        let (sign, comm) = TipFormatter.formatTip m.Description |> List.head |> List.head
+                        let tip = TipFormatter.formatTip m.Description
+                        let (sign, comm) = tip |> List.head |> List.head
                         let parameters =
                             m.Parameters |> Array.map (fun p ->
                                 {ParameterInformation.Label = p.ParameterName; Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting)}
@@ -825,18 +826,22 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         let d = Documentation.Markup (markdown comm)
                         { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
                     )
+                match sigs with
+                | [| |] ->
+                  return! success None
+                | sigs ->
 
-                let activSig =
-                    let sigs = sigs |> Seq.sortBy (fun n -> n.Parameters.Value.Length)
-                    sigs
-                    |> Seq.findIndex (fun s -> s.Parameters.Value.Length >= commas)
-                    |> fun index -> if index + 1 >= (sigs |> Seq.length) then index else index + 1
+                  let activSig =
+                      let sigs = sigs |> Seq.sortBy (fun n -> n.Parameters.Value.Length)
+                      sigs
+                      |> Seq.tryFindIndex (fun s -> s.Parameters.Value.Length >= commas)
+                      |> Option.map (fun index -> if index + 1 >= (sigs |> Seq.length) then index else index + 1)
 
-                let res = {Signatures = sigs;
-                           ActiveSignature = Some activSig;
-                           ActiveParameter = Some commas }
+                  let res = {Signatures = sigs;
+                             ActiveSignature = activSig;
+                             ActiveParameter = Some commas }
 
-                return! success (Some res)
+                  return! success (Some res)
             }
         )
 

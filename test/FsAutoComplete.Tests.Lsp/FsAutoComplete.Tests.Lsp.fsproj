@@ -19,6 +19,7 @@
     <Compile Include="ScriptTests.fs" />
     <Compile Include="ExtensionsTests.fs" />
     <Compile Include="InteractiveDirectivesTests.fs" />
+    <Compile Include="FunctionApplicationTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
