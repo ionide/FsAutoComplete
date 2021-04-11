@@ -1,11 +1,12 @@
 module FsAutoComplete.SignatureHelp
 
+open System
 open FSharp.Compiler.Text
 open FSharp.Compiler.SourceCodeServices
 open FsToolkit.ErrorHandling
 open FsAutoComplete
-open System
 open FSharp.UMX
+open FsAutoComplete.FCSPatches
 
 type SignatureHelpKind = MethodCall | FunctionApplication
 
@@ -23,6 +24,36 @@ let private lineText (lines: LineStr []) (pos: Pos) = lines.[pos.Line - 1]
 
 let private charAt (lines: LineStr []) (pos: Pos) =
       (lineText lines pos).[pos.Column - 1]
+
+let dec (lines: LineStr[]) (pos: Pos): Pos =
+  if pos.Column = 0 then
+    let prevLine = lines.[pos.Line - 2]
+    // retreat to the end of the previous line
+    Pos.mkPos (pos.Line - 1) (prevLine.Length - 1)
+  else
+    Pos.mkPos pos.Line (pos.Column - 1)
+
+let inc (lines: LineStr[]) (pos: Pos): Pos =
+  let currentLine = lineText lines pos
+  if pos.Column - 1 = currentLine.Length then
+    // advance to the beginning of the next line
+    Pos.mkPos (pos.Line + 1) 0
+  else
+    Pos.mkPos pos.Line (pos.Column + 1)
+
+let getText (lines: LineStr[]) (range: Range) =
+  if range.Start.Line = range.End.Line then
+    let line = lineText lines range.Start
+    line.Substring(range.StartColumn - 1, (range.End.Column - range.Start.Column))
+  else
+    String.concat "\n" (seq {
+      let startLine = lineText lines range.Start
+      yield startLine.Substring(range.StartColumn - 1, (startLine.Length - 1 - range.Start.Column))
+      for lineNo in (range.Start.Line+1)..(range.End.Line-1) do
+        yield lines.[lineNo - 1]
+      let endLine = lineText lines range.End
+      yield endLine.Substring(0, range.End.Column - 1)
+    })
 
 let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Pos, endOfPreviousIdentPos: Pos, lines: LineStr[]) : Async<SignatureHelpInfo option> =
   asyncMaybe {
@@ -93,49 +124,98 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
       return! None
   }
 
+let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Pos, lines: LineStr[], triggerChar) =
+  asyncMaybe {
+    let! paramLocations = tyRes.GetParseResults.FindNoteworthyParamInfoLocations caretPos
+    let names = paramLocations.LongId
+    let lidEnd = paramLocations.LongIdEndLocation
+    let lineText = lineText lines lidEnd
+    let methodGroup = tyRes.GetCheckResults.GetMethods(lidEnd.Line, lidEnd.Column, lineText, Some names)
+    let methods = methodGroup.Methods
+    do! Option.guard (methods.Length > 0 && not(methodGroup.MethodName.EndsWith("> )")))
+
+    let isStaticArgTip = charAt lines paramLocations.OpenParenLocation = '<'
+    let filteredMethods =
+      [|
+        for m in methods do
+          // need to distinguish TP<...>(...)  angle brackets tip from parens tip
+          if (isStaticArgTip && m.StaticParameters.Length > 0) || (not isStaticArgTip && m.HasParameters) then m
+      |]
+    do! Option.guard (filteredMethods.Length > 0)
+
+    let endPos =
+      let last = paramLocations.TupleEndLocations |> Array.last
+      if paramLocations.IsThereACloseParen then dec lines last else last
+
+    let startOfArgs = inc lines paramLocations.OpenParenLocation
+    let tupleEnds =
+      [|
+          startOfArgs
+          for i in 0..paramLocations.TupleEndLocations.Length-2 do
+              paramLocations.TupleEndLocations.[i]
+          endPos
+      |]
+    // If we are pressing "(" or "<" or ",", then only pop up the info if this is one of the actual, real detected positions in the detected promptable call
+    //
+    // For example the last "(" in
+    //    List.map (fun a -> (
+    // should not result in a prompt.
+    //
+    // Likewise the last "," in
+    //    Console.WriteLine( [(1,
+    // should not result in a prompt, whereas this one will:
+    //    Console.WriteLine( [(1,2)],
+    match triggerChar with
+    | Some ('<' | '(' | ',') when not (tupleEnds |> Array.exists (fun lp -> lp.Column = caretPos.Column)) ->
+      return! None // comma or paren at wrong location = remove help display
+    | _ ->
+      // Compute the argument index by working out where the caret is between the various commas.
+      let argumentIndex =
+          let computedTextSpans =
+              tupleEnds
+              |> Array.pairwise
+              |> Array.map (fun (lp1, lp2) -> Range.mkRange "" lp1 lp2)
+
+          computedTextSpans
+          |> Array.tryFindIndex (fun t -> Range.rangeContainsPos t caretPos)
+          |> Option.defaultValue 0
+
+      // todo: this picks the 'first' overload with the correct arity, but really we should be smarter
+      let methodCandidate =
+        filteredMethods
+        |> Array.tryFindIndex (fun m -> m.Parameters.Length >= argumentIndex)
+
+
+      return {
+        ActiveParameter = Some argumentIndex
+        Methods = filteredMethods
+        ActiveOverload = methodCandidate
+        SigHelpKind = MethodCall
+      }
+  }
+
 let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Pos, lines: LineStr[], triggerChar, possibleSessionKind) =
   asyncResult {
-    let charAt (pos: Pos) =
-      lines.[pos.Line - 1].[pos.Column - 1]
-
     let previousNonWhitespaceCharPos =
-      let dec (pos: Pos): Pos =
-        if pos.Column = 0 then
-          let prevLine = lines.[pos.Line - 2]
-          // retreat to the end of the previous line
-          Pos.mkPos (pos.Line - 1) (prevLine.Length - 1)
-        else
-          Pos.mkPos (pos.Line) (pos.Column - 1)
-
       let rec loop ch pos =
         if Char.IsWhiteSpace ch then
-          let prevPos = dec pos
-          loop (charAt prevPos) prevPos
+          let prevPos = dec lines pos
+          loop (charAt lines prevPos) prevPos
         else
           pos
-      let initialPos = dec pos
-      loop (charAt initialPos) initialPos
+      let initialPos = dec lines pos
+      loop (charAt lines initialPos) initialPos
 
-    let previousNonWhitespaceChar = charAt previousNonWhitespaceCharPos
-    match triggerChar, possibleSessionKind with
+    let charAtPos = match triggerChar with Some char -> char | None -> charAt lines pos
+
+    let previousNonWhitespaceChar = charAt lines previousNonWhitespaceCharPos
+    match charAtPos, possibleSessionKind with
     // Generally ' ' indicates a function application, but it's also used commonly after a comma in a method call.
     // This means that the adjusted position relative to the caret could be a ',' or a '(' or '<',
     // which would mean we're already inside of a method call - not a function argument. So we bail if that's the case.
-    | (Some ' ', _) | (_, Some FunctionApplication) when previousNonWhitespaceChar <> ',' && previousNonWhitespaceChar <> '(' && previousNonWhitespaceChar <> '<' ->
+    | (' ', _) | (_, Some FunctionApplication) when previousNonWhitespaceChar <> ',' && previousNonWhitespaceChar <> '(' && previousNonWhitespaceChar <> '<' ->
       return! getSignatureHelpForFunctionApplication (tyRes, pos, previousNonWhitespaceCharPos, lines)
     | _ ->
-      let! methods, commas = tyRes.TryGetMethodOverrides lines pos
-      if methods.Methods.Length = 0 then
-        return None
-      else
-        let overloadsByParameterCount = methods.Methods |> Array.sortBy (fun m -> m.Parameters.Length)
-        // naievely assume that the first overload with the same or greater number of parameters is our match
-        let activeSig = overloadsByParameterCount |> Array.tryFindIndex (fun m -> m.Parameters.Length >= commas)
-        return Some {
-          Methods = overloadsByParameterCount
-          ActiveOverload = activeSig
-          ActiveParameter = Some commas
-          SigHelpKind = MethodCall
-        }
+      return! getSignatureHelpForMethod (tyRes, pos, lines, triggerChar)
   }
 

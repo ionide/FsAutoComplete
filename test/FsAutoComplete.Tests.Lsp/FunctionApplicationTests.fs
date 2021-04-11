@@ -74,7 +74,7 @@ let test746 =
   )
 
 let test747 =
-  testSignatureHelp "issue 747 - signature help is provided for the most inner function" "747.fsx" (4, 5) Manual (fun resp ->
+  testSignatureHelp "issue 747 - signature help is provided for the most inner function" "747.fsx" (4, 4) Manual (fun resp ->
     Expect.isSome resp "should have provided signature help"
     let resp = resp.Value
     let methodsig = resp.Signatures.[0]

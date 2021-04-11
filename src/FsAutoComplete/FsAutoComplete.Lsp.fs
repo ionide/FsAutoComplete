@@ -820,9 +820,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let charAtCaret =
                   sigHelpParams.Context
                   |> Option.bind (fun c -> c.TriggerCharacter)
-                  |> Option.defaultWith (fun _ -> lineStr.[fcsPos.Column - 1])
 
-                match! commands.MethodsForSignatureHelp(tyRes, fcsPos, lines, Some charAtCaret, sigHelpKind) |> AsyncResult.ofStringErr with
+                match! commands.MethodsForSignatureHelp(tyRes, fcsPos, lines, charAtCaret, sigHelpKind) |> AsyncResult.ofStringErr with
                 | None ->
                   sigHelpKind <- None
                   return! success None
