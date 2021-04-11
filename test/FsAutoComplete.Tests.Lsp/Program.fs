@@ -28,7 +28,9 @@ let loaders = [
 ]
 
 ///Global list of tests
-let tests toolsPath =
+[<Tests>]
+let tests =
+  let toolsPath = Ionide.ProjInfo.Init.init ()
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
@@ -101,7 +103,11 @@ let main args =
       ).CreateLogger() // make it so that every console log is logged to stderr
   Serilog.Log.Logger <- serilogLogger
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
-  let toolsPath = Ionide.ProjInfo.Init.init ()
 
   let cts = new CancellationTokenSource(testTimeout)
-  runTestsWithArgsAndCancel cts.Token defaultConfig args (tests toolsPath)
+  let config =
+    { defaultConfig
+      with runInParallel = false
+           failOnFocusedTests = true
+           printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer }
+  runTestsWithArgsAndCancel cts.Token config args tests

@@ -24,7 +24,18 @@ jobs:
         dotnet-version: ${{ matrix.dotnet }}
     - name: Restore tools
       run: dotnet tool restore
-    - name: Run Test
-      run: dotnet fake build -t Test
+    - name: Run Build
+      run: dotnet fake build -t Build
+
+    - name: Run and report tests
+      uses: zyborg/dotnet-tests-report@v1
+      with:
+        project_path: test/FsAutoComplete.Tests.Lsp
+        no_restore: true # we just did the build/restore above
+        msbuild_configuration: Release # we do the tests against the release build
+        github_token: ${{ secrets.FSAC_CHECKS_TOKEN }}
+        set_check_status_from_test_outcome: true
+        fail_build_on_failed_tests: true
+        extra_test_parameters: "--no-build"
       env:
         TEST_TIMEOUT_MINUTES: 10

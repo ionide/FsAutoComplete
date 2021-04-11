@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete/FsAutoComplete.fsproj">

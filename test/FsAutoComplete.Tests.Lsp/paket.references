@@ -3,3 +3,5 @@ FSharp.Compiler.Service
 FSharp.Control.Reactive
 FSharpx.Async
 Expecto
+Microsoft.NET.Test.Sdk
+YoloDev.Expecto.TestSdk
