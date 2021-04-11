@@ -31,7 +31,7 @@ module DocumentationFormatter =
             let cnt = Uri.EscapeDataString content
             sprintf "<a href='command:fsharp.showDocumentation?%s'>%s</a>" cnt name, name.Length
 
-    let rec formatType displayContext (typ : FSharpType) : (string*int) list =
+    let rec formatType (displayContext: FSharpDisplayContext) (typ : FSharpType) : (string*int) list =
         let typ2 = if typ.IsAbbreviation then typ.AbbreviatedType else typ
         let xmlDocSig =
             try
@@ -58,13 +58,10 @@ module DocumentationFormatter =
             let r =
                 typ.GenericArguments
                 |> Seq.collect (formatType displayContext)
-            let org = typ.Format displayContext
-            let t = Regex.Replace(org, """(.*?) list""", "List<")
-            let t = Regex.Replace(t, """(.*?) option""", "Option<")
-            let t = Regex.Replace(t, """(.*?) lazy""", "Lazy<")
-            let t = Regex.Replace(t, """(.*?) seq""", "Seq<")
-            let t = Regex.Replace(t, """(.*?) ?\[\]""", "Array<")
-            let t = Regex.Replace(t, """<.*>""", "<")
+            // we set this context specifically because we want to enforce prefix-generic form on tooltip displays
+            let newContext = displayContext.WithPrefixGenericParameters()
+            let org = typ.Format newContext
+            let t = Regex.Replace(org, """<.*>""", "<")
             [ yield formatLink t xmlDocSig assemblyName
               if t.EndsWith "<" then
                   yield! r
