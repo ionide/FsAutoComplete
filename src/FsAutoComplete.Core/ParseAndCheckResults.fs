@@ -433,13 +433,13 @@ type ParseAndCheckResults
         let fsym = symboluse.Symbol
         match fsym with
         | :? FSharpMemberOrFunctionOrValue as symbol ->
-          let typ = symbol.ReturnParameter.Type.Format symboluse.DisplayContext
+          let typ = symbol.ReturnParameter.Type.Format (symboluse.DisplayContext.WithPrefixGenericParameters())
           if symbol.IsPropertyGetterMethod then
               Ok(typ, [], [])
           else
             let parms =
               symbol.CurriedParameterGroups
-              |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format symboluse.DisplayContext) >> Seq.toList )
+              |> Seq.map (Seq.map (fun p -> p.DisplayName, p.Type.Format (symboluse.DisplayContext.WithPrefixGenericParameters())) >> Seq.toList )
               |> Seq.toList
             let generics =
               symbol.GenericParameters
