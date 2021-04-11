@@ -16,6 +16,7 @@ open System
 open System.IO
 open FsToolkit.ErrorHandling
 open FSharp.UMX
+open FSharp.Analyzers
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -26,8 +27,9 @@ module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) =
     ar |> Async.map (function | CoreResponse.Res a -> Ok a | CoreResponse.ErrorRes msg | CoreResponse.InfoRes msg -> Error (JsonRpc.Error.InternalErrorMessage msg))
 
+  let ofStringErr (ar: Async<Result<'a, string>>) =
+    ar |> AsyncResult.mapError JsonRpc.Error.InternalErrorMessage
 
-open FSharp.Analyzers
 
 type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
     inherit LspClient ()
@@ -814,14 +816,16 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" sigHelpParams )
         sigHelpParams |> x.positionHandlerWithLatest (fun p fcsPos tyRes lineStr lines ->
             asyncResult {
-                let! (methods, commas) = commands.Methods tyRes fcsPos lines |> AsyncResult.ofCoreResponse
+                let! sigHelp = commands.MethodsForSignatureHelp tyRes fcsPos lines |> AsyncResult.ofStringErr
                 let sigs =
-                    methods.Methods |> Array.map(fun m ->
+                    sigHelp.Methods |> Array.map(fun m ->
                         let tip = TipFormatter.formatTip m.Description
                         let (sign, comm) = tip |> List.head |> List.head
                         let parameters =
-                            m.Parameters |> Array.map (fun p ->
-                                {ParameterInformation.Label = p.ParameterName; Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting)}
+                            m.Parameters
+                            |> Array.map (fun p ->
+                                { ParameterInformation.Label = p.ParameterName
+                                  Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting) }
                             )
                         let d = Documentation.Markup (markdown comm)
                         { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
@@ -831,15 +835,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                   return! success None
                 | sigs ->
 
-                  let activSig =
-                      let sigs = sigs |> Seq.sortBy (fun n -> n.Parameters.Value.Length)
-                      sigs
-                      |> Seq.tryFindIndex (fun s -> s.Parameters.Value.Length >= commas)
-                      |> Option.map (fun index -> if index + 1 >= (sigs |> Seq.length) then index else index + 1)
-
-                  let res = {Signatures = sigs;
-                             ActiveSignature = activSig;
-                             ActiveParameter = Some commas }
+                  let res = {Signatures = sigs
+                             ActiveSignature = sigHelp.ActiveOverload
+                             ActiveParameter = sigHelp.ActiveParameter }
 
                   return! success (Some res)
             }
