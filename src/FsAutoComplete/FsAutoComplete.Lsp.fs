@@ -817,7 +817,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" sigHelpParams )
         sigHelpParams |> x.positionHandlerWithLatest (fun sigHelpParams fcsPos tyRes lineStr lines ->
             asyncResult {
-                match! commands.MethodsForSignatureHelp(tyRes, fcsPos, lines, sigHelpParams.Context |> Option.bind (fun c -> c.TriggerCharacter), sigHelpKind) |> AsyncResult.ofStringErr with
+                let charAtCaret =
+                  sigHelpParams.Context
+                  |> Option.bind (fun c -> c.TriggerCharacter)
+                  |> Option.defaultWith (fun _ -> lineStr.[fcsPos.Column - 1])
+
+                match! commands.MethodsForSignatureHelp(tyRes, fcsPos, lines, Some charAtCaret, sigHelpKind) |> AsyncResult.ofStringErr with
                 | None ->
                   sigHelpKind <- None
                   return! success None

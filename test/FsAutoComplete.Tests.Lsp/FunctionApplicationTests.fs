@@ -45,7 +45,7 @@ let testSignatureHelp title file (line, char) triggerType checkResp server =
 
 
 let test742 =
-  testSignatureHelp "issue 742 - signature help on piped functions counts the prior parameters" "742.fsx" (0, 6) (Char ' ') (fun resp ->
+  testSignatureHelp "issue 742 - signature help on functions counts the prior parameters" "742.fsx" (0, 6) (Char ' ') (fun resp ->
     Expect.isNone resp "there should be no sighelp on this location"
   )
 
@@ -69,7 +69,7 @@ let test745 =
   )
 
 let test746 =
-  testSignatureHelp "issue 742 - signature help doesn't trigger when the function has all parameters" "746.fsx" (0, 23) Manual (fun resp ->
+  testSignatureHelp "issue 746 - signature help understands piping for parameter application" "746.fsx" (0, 22) (* the end of 'id' *)  Manual (fun resp ->
     Expect.isNone resp "there should be no suggestions at this position, since we've provided all parameters to List.map"
   )
 
