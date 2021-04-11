@@ -449,6 +449,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         AsyncLspResult.internalError e.Message
         }
 
+    override __.Shutdown () = async {
+      for (dispose: IDisposable) in commandDisposables do
+        dispose.Dispose()
+      (commands :> IDisposable).Dispose()
+    }
 
     override __.Initialize(p: InitializeParams) = async {
         logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p )
@@ -586,7 +591,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             match x with
                             | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
                             | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
-
+                    logger.info (Log.setMessage "Choosing from interesting items {items}" >> Log.addContextDestructured "items" peeks)
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
@@ -658,7 +663,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     override __.Initialized(p: InitializedParams) = async {
         logger.info (Log.setMessage "Initialized request")
-
         return ()
     }
 
@@ -1462,7 +1466,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         return res
     }
 
-    member __.FSharpWorkspaceLoad(p) = async {
+    member __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) = async {
         logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList

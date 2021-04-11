@@ -467,6 +467,9 @@ module CommandResponse =
         if finished then "finished" else "started"
     serialize { Kind = "projectLoad"; Data = { WorkspaceLoadResponse.Status = data } }
 
+  let projectChanged (serialize: Serializer) projectChanged =
+    serialize { Kind = "projectChanged"; Data = { ProjectLoadingResponse.Project = projectChanged } }
+
   let signatureData (serialize : Serializer) ((typ, parms, generics) : string * ((string * string) list list) * string list) =
     let pms =
       parms

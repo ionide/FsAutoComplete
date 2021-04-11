@@ -1,3 +1,5 @@
 FSharp.Core
 FSharp.Compiler.Service
+FSharp.Control.Reactive
+FSharpx.Async
 Expecto

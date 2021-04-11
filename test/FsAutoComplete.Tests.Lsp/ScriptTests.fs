@@ -7,164 +7,200 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
+open FsToolkit.ErrorHandling
+open FSharpx.Control.Observable
+open FSharp.Control.Reactive
+open System
 
-let scriptPreviewTests toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
-    let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] } toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing events
-    server, events, scriptPath
-  )
-  let serverTest f () = f serverStart.Value
+let scriptPreviewTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
+      let scriptPath = Path.Combine(path, "Script.fsx")
+      let! (server, events) = serverInitialize path { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] } state
+      do! waitForWorkspaceFinishedParsing events
+      return server, events, scriptPath
+    }
+    |> Async.Cache
 
-  testList "script features" [
-    testCase "can typecheck scripts when preview features are used" (serverTest (fun (server, events, scriptPath) ->
-      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-      match waitForParseResultsForFile "Script.fsx" events with
-      | Ok () ->
-        () // all good, no parsing/checking errors
-      | Core.Result.Error errors ->
-        failwithf "Errors while parsing script %s: %A" scriptPath errors
-    ))
-  ]
+  testSequenced <|
+    testList "script features" [
+      testList "tests" [
+        testCaseAsync "can typecheck scripts when preview features are used" (async {
+          let! server, events, scriptPath = server
+          do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+          match! waitForParseResultsForFile "Script.fsx" events with
+          | Ok () ->
+            () // all good, no parsing/checking errors
+          | Core.Result.Error errors ->
+            failwithf "Errors while parsing script %s: %A" scriptPath errors
+        })
+      ]
+      testCaseAsync "cleanup" (async {
+        let! server, _, _ = server
+        do! server.Shutdown()
+      })
+    ]
 
-let scriptEvictionTests toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
-    let scriptPath = Path.Combine(path, "Script.fsx")
-    let (server, events) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing events
-    server, events, scriptPath
-  )
-  let serverTest f () = f serverStart.Value
+let scriptEvictionTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptEviction")
+      let scriptPath = Path.Combine(path, "Script.fsx")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      return server, events, scriptPath
+    }
+    |> Async.Cache
 
-  testList "script eviction tests" [
-    ptestCase "can update script typechecking when arguments change" (serverTest (fun (server, events, scriptPath) ->
-      let openScript () = do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
+  testSequenced <|
+    testList "script eviction tests" [
+      testList "tests" [
+        testCaseAsync "can update script typechecking when arguments change" (async {
+          let! server, events, scriptPath = server
+          let openScript () = server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
-      openScript ()
-      match waitForParseResultsForFile "Script.fsx" events with
-      | Ok () ->
-        failwithf "Expected errors before we trigger script changes"
-      | Core.Result.Error errors ->
-        ()
+          do! openScript ()
+          match! waitForParseResultsForFile "Script.fsx" events with
+          | Ok () ->
+            failwithf "Expected errors before we trigger script changes"
+          | Core.Result.Error errors ->
+            ()
 
-      let configChange: DidChangeConfigurationParams =
-        let config : FSharpConfigRequest =
-          { FSharp = { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] } }
-        { Settings = Server.serialize config }
-      do server.WorkspaceDidChangeConfiguration configChange |> Async.RunSynchronously
-      do waitForParseResultsForFile "Script.fsx" events |> ignore // errors returned by background checking, not sure why it worked before...
+          let configChange: DidChangeConfigurationParams =
+            let config : FSharpConfigRequest =
+              { FSharp = { defaultConfigDto with FSIExtraParameters = Some [| "--nowarn:760" |] } }
+            { Settings = Server.serialize config }
+          do! server.WorkspaceDidChangeConfiguration configChange
+          do! openScript ()
+          // skipping 2 to get past the default workspace and the explicit opens
+          match! fileDiagnostics "Script.fsx" events |> Observable.skip 2 |> Async.AwaitObservable with
+          | _name, { Diagnostics = [||] } ->
+            ()
+          | _, { Diagnostics = errors} ->
+            Expect.isEmpty errors "Should be no typecheck errors after we set the preview argument"
+        })
+      ]
+      testCaseAsync "cleanup" (async {
+        let! server, _, _ = server
+        do! server.Shutdown()
+      })
+    ]
 
-      openScript ()
-      match waitForParseResultsForFile "Script.fsx" events with
-      | Ok () ->
-        ()
-      | Core.Result.Error errors ->
-        failwithf "Should be no typecheck errors after we set the preview argument"
-    ))
-  ]
+let dependencyManagerTests state =
+  let server =
+    async {
+      let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
+      let dependencyManagerAssemblyDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "FsAutoComplete.DependencyManager.Dummy", "bin", "Debug", "netstandard2.0")
+      let dependencyManagerEnabledConfig =
+        { defaultConfigDto with
+            FSIExtraParameters = Some [| "--langversion:preview" |] }
+      let! (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig state
+      do! waitForWorkspaceFinishedParsing events
+      return server, events, workingDir
+    }
+    |> Async.Cache
 
+  testSequenced <|
+    testList "dependencyManager integrations" [
+      testList "tests" [
+        testCaseAsync "can typecheck script that depends on #r dummy dependency manager" (async {
+          let! server, events, workingDir = server
+          let scriptName = "DepManagerPresentScript.fsx"
+          let scriptPath = Path.Combine(workingDir, scriptName)
+          do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+          match! waitForParseResultsForFile scriptName events with
+          | Ok _ -> ()
+          | Core.Result.Error e ->
+            failwithf "Error during typechecking: %A" e
+        })
 
-let dependencyManagerTests toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
-    let dependencyManagerAssemblyDir = Path.Combine(__SOURCE_DIRECTORY__, "..", "FsAutoComplete.DependencyManager.Dummy", "bin", "Debug", "netstandard2.0")
-    let dependencyManagerEnabledConfig =
-      { defaultConfigDto with
-          FSIExtraParameters = Some [| "--langversion:preview" |] }
-    let (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing events
-    server, events, workingDir
-  )
+        testCaseAsync "fails to typecheck script when dependency manager is missing" (async {
+          let! server, events, workingDir = server
+          let scriptName = "DepManagerAbsentScript.fsx"
+          let scriptPath = Path.Combine(workingDir, scriptName)
+          do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
-  let serverTest f = fun () -> f serverStart.Value
+          match! waitForParseResultsForFile scriptName events with
+          | Ok _ ->
+            failwith "Expected to fail typechecking a script with a dependency manager that's missing"
+          | Core.Result.Error e ->
+            match e with
+            | [| { Code = Some "3400" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
+            | e -> failwithf "Unexpected error during typechecking: %A" e
+        })
+      ]
+      testCaseAsync "cleanup" (async {
+        let! server, _, _ = server
+        do! server.Shutdown()
+      })
+    ]
 
-  testList "dependencyManager integrations" [
-    testCase "can typecheck script that depends on #r dummy dependency manager" (serverTest (fun (server, events, workingDir) ->
-      let scriptName = "DepManagerPresentScript.fsx"
-      let scriptPath = Path.Combine(workingDir, scriptName)
-      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-      match waitForParseResultsForFile scriptName events with
-      | Ok _ -> ()
-      | Core.Result.Error e ->
-        failwithf "Error during typechecking: %A" e
-    ))
-
-    testCase "fails to typecheck script when dependency manager is missing" (serverTest (fun (server, events, workingDir) ->
-      let scriptName = "DepManagerAbsentScript.fsx"
-      let scriptPath = Path.Combine(workingDir, scriptName)
-      do server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath } |> Async.RunSynchronously
-
-      match waitForParseResultsForFile scriptName events with
-      | Ok _ ->
-        failwith "Expected to fail typechecking a script with a dependency manager that's missing"
-      | Core.Result.Error e ->
-        match e with
-        | [| { Code = Some "3400" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
-        | e -> failwithf "Unexpected error during typechecking: %A" e
-    ))
-  ]
-
-let scriptProjectOptionsCacheTests toolsPath workspaceLoaderFactory =
-  let serverStart () =
+let scriptProjectOptionsCacheTests state =
+  let server = async {
     let workingDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
     let previewEnabledConfig =
       { defaultConfigDto with
           FSIExtraParameters = Some [| "--langversion:preview" |] }
-    let (server, events) = serverInitialize workingDir previewEnabledConfig toolsPath workspaceLoaderFactory
+    let! (server, events) = serverInitialize workingDir previewEnabledConfig state
+    let options = ResizeArray()
+    server.ScriptFileProjectOptions.Add(options.Add)
     let scriptPath = Path.Combine(workingDir, "Script.fsx")
-    do waitForWorkspaceFinishedParsing events
-    server, events, workingDir, scriptPath
+    do! waitForWorkspaceFinishedParsing events
+    return server, events, workingDir, scriptPath, options
+  }
 
-  let serverTest f = fun () -> f (serverStart ())
+  testSequenced <| testList "ScriptProjectOptionsCache" [
+    testList "tests" [
+      testCaseAsync "reopening the script file should return same project options for file" (async {
+        let! server, events, workingDir, testFilePath, allOpts = server
 
-  testList "ScriptProjectOptionsCache" [
-    testCase "reopening the script file should return same project options for file" (serverTest (fun (server, events, workingDir, testFilePath) ->
-      waitForScriptFilePropjectOptions server
-      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-      do System.Threading.Thread.Sleep 3000
-      do server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath } |> Async.RunSynchronously
-      do System.Threading.Thread.Sleep 3000
-
-      let opts1 = projectOptsList.[0]
-      let opts2 = projectOptsList.[1]
-
-      Expect.equal opts1 opts2 "Project opts should be eqaul"
-    ))
+        do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+        do! Async.Sleep (TimeSpan.FromSeconds 3.)
+        do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+        do! Async.Sleep (TimeSpan.FromSeconds 3.)
+        Expect.hasLength allOpts 2 "should only have two events"
+        Expect.equal allOpts.[0] allOpts.[1] "Project opts should be eqaul"
+      })
+      testCaseAsync "cleanup" (async {
+        let! server, _, _, _, _ = server
+        do! server.Shutdown()
+      })
+    ]
   ]
 
-let scriptGotoTests toolsPath workspaceLoaderFactory =
-  let serverStart = lazy (
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
-
-    let (server, event) = serverInitialize path defaultConfigDto toolsPath workspaceLoaderFactory
-    do waitForWorkspaceFinishedParsing event
-
-    let scriptPath = Path.Combine(path, "Script.fsx")
-    let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
-    do server.TextDocumentDidOpen tdop |> Async.RunSynchronously
-
-    (server, scriptPath)
-  )
-  let serverTest f () =
-    let (server, path) = serverStart.Value
-    f server path
+let scriptGotoTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+      let! (server, event) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing event
+      let scriptPath = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+      do! server.TextDocumentDidOpen tdop
+      return server, scriptPath
+    }
 
   testSequenced <| testList "Script GoTo Tests" [
-    testCase "Go-to-definition on #load integration test" (serverTest (fun server scriptPath ->
-      let p : TextDocumentPositionParams = {
-        TextDocument = { Uri = Path.FilePathToUri scriptPath }
-        Position = { Line = 0; Character = 10 }
-      }
-      let res = server.TextDocumentDefinition p |> Async.RunSynchronously
-      match res with
-      | Error e -> failtestf "Request failed: %A" e
-      | Ok None -> failtest "Request none"
-      | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
-      | Ok (Some (GotoResult.Single r)) ->
-        Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
-        ()
-    ))
+    testList "tests" [
+      testCaseAsync "Go-to-definition on #load integration test" (async {
+        let! server, scriptPath = server
+        let p : TextDocumentPositionParams = {
+          TextDocument = { Uri = Path.FilePathToUri scriptPath }
+          Position = { Line = 0; Character = 10 }
+        }
+        let! res = server.TextDocumentDefinition p
+        match res with
+        | Error e -> failtestf "Request failed: %A" e
+        | Ok None -> failtest "Request none"
+        | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+        | Ok (Some (GotoResult.Single r)) ->
+          Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
+          ()
+      })
+    ]
+    testCaseAsync "cleanup" (async {
+      let! server, _ = server
+      do! server.Shutdown()
+    })
   ]
