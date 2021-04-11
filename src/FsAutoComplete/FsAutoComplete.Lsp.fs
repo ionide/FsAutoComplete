@@ -97,6 +97,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let mutable config = FSharpConfig.Default
     let mutable rootPath : string option = None
     let mutable codeFixes = fun p -> [||]
+    let mutable sigHelpKind = None
 
     //TODO: Thread safe version
     let lintFixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -814,26 +815,28 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
         logger.info (Log.setMessage "TextDocumentSignatureHelp Request: {parms}" >> Log.addContextDestructured "parms" sigHelpParams )
-        sigHelpParams |> x.positionHandlerWithLatest (fun p fcsPos tyRes lineStr lines ->
+        sigHelpParams |> x.positionHandlerWithLatest (fun sigHelpParams fcsPos tyRes lineStr lines ->
             asyncResult {
-                let! sigHelp = commands.MethodsForSignatureHelp tyRes fcsPos lines |> AsyncResult.ofStringErr
-                let sigs =
-                    sigHelp.Methods |> Array.map(fun m ->
-                        let tip = TipFormatter.formatTip m.Description
-                        let (sign, comm) = tip |> List.head |> List.head
-                        let parameters =
-                            m.Parameters
-                            |> Array.map (fun p ->
-                                { ParameterInformation.Label = p.ParameterName
-                                  Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting) }
-                            )
-                        let d = Documentation.Markup (markdown comm)
-                        { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
-                    )
-                match sigs with
-                | [| |] ->
+                match! commands.MethodsForSignatureHelp(tyRes, fcsPos, lines, sigHelpParams.Context |> Option.bind (fun c -> c.TriggerCharacter), sigHelpKind) |> AsyncResult.ofStringErr with
+                | None ->
+                  sigHelpKind <- None
                   return! success None
-                | sigs ->
+                | Some sigHelp ->
+                  sigHelpKind <- Some sigHelp.SigHelpKind
+
+                  let sigs =
+                      sigHelp.Methods |> Array.map(fun m ->
+                          let tip = TipFormatter.formatTip m.Description
+                          let (sign, comm) = tip |> List.head |> List.head
+                          let parameters =
+                              m.Parameters
+                              |> Array.map (fun p ->
+                                  { ParameterInformation.Label = p.ParameterName
+                                    Documentation = Some (Documentation.String p.CanonicalTypeTextForSorting) }
+                              )
+                          let d = Documentation.Markup (markdown comm)
+                          { SignatureInformation.Label = sign; Documentation = Some d; Parameters = Some parameters }
+                      )
 
                   let res = {Signatures = sigs
                              ActiveSignature = sigHelp.ActiveOverload

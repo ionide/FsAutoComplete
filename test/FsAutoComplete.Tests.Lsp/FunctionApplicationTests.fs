@@ -45,7 +45,7 @@ let testSignatureHelp title file (line, char) triggerType checkResp server =
 
 
 let test742 =
-  testSignatureHelp "issue 742 - signature help on piped functions counts the prior parameters" "742.fsx" (0, 7) (Char ' ') (fun resp ->
+  testSignatureHelp "issue 742 - signature help on piped functions counts the prior parameters" "742.fsx" (0, 6) (Char ' ') (fun resp ->
     Expect.isNone resp "there should be no sighelp on this location"
   )
 
@@ -100,7 +100,7 @@ let test750 =
 let tests state =
   let server = server state
   testSequenced <|
-    ptestList "function application" [
+    testList "function application" [
       testList "tests" ([
          test742
          test744

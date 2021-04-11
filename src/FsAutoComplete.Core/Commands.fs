@@ -55,13 +55,7 @@ type NotificationEvent=
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
 
-type SignatureHelpInfo = {
-  /// all potential overloads of the member at the position where signaturehelp was invoked
-  Methods: FSharpMethodGroupItem []
-  /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
-  ActiveOverload: int option
-  /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
-  ActiveParameter: int option}
+
 
 type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool) =
     let fileParsed = Event<FSharpParseFileResults>()
@@ -804,18 +798,8 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
     /// Attempts to identify member overloads and infer current parameter positions for signature help at a given location
-    member x.MethodsForSignatureHelp (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
-      asyncResult {
-        let! methods, commas = tyRes.TryGetMethodOverrides lines pos
-        let overloadsByParameterCount = methods.Methods |> Array.sortBy (fun m -> m.Parameters.Length)
-        // naievely assume that the first overload with the same or greater number of parameters is our match
-        let activeSig = overloadsByParameterCount |> Array.tryFindIndex (fun m -> m.Parameters.Length >= commas)
-        return {
-          Methods = overloadsByParameterCount
-          ActiveOverload = activeSig
-          ActiveParameter = Some commas
-        }
-      }
+    member x.MethodsForSignatureHelp (tyRes : ParseAndCheckResults, pos: Pos, lines: LineStr[], triggerChar, possibleSessionKind) =
+      SignatureHelp.getSignatureHelpFor (tyRes, pos, lines, triggerChar, possibleSessionKind)
 
     // member x.Lint (file: string<LocalPath>): Async<unit> =
     //     asyncResult {

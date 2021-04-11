@@ -97,6 +97,7 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 module Option =
 
   let inline attempt (f: unit -> 'T) = try Some <| f() with _ -> None
+  let inline guard (b) = if b then Some () else None
 
 [<RequireQualifiedAccess>]
 module Result =
