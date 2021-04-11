@@ -7,10 +7,12 @@ open System.Threading
 open FSharp.Compiler.Text
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
+open System.Diagnostics
 
 type DeclName = string
 type CompletionNamespaceInsert = { Namespace: string; Position: Pos; Scope : ScopeKind }
 
+[<DebuggerDisplay("{DebugString}")>]
 type State =
   {
     Files : ConcurrentDictionary<string<LocalPath>, VolatileFile>
@@ -29,6 +31,7 @@ type State =
 
     mutable ColorizationOutput: bool
   }
+  member x.DebugString = $"{x.Files.Count} Files, {x.ProjectController.ProjectOptions |> Seq.length} Projects"
 
   static member Initial toolsPath workspaceLoaderFactory =
     { Files = ConcurrentDictionary()

@@ -23,6 +23,19 @@ module Debug =
     while not (Diagnostics.Debugger.IsAttached) do
       System.Threading.Thread.Sleep(100)
 
+  type LogCompilerFunctionId =
+    | Service_ParseAndCheckFileInProject = 1
+    | Service_CheckOneFile = 2
+    | Service_IncrementalBuildersCache_BuildingNewCache = 3
+    | Service_IncrementalBuildersCache_GettingCache = 4
+    | CompileOps_TypeCheckOneInputAndFinishEventually = 5
+    | IncrementalBuild_CreateItemKeyStoreAndSemanticClassification = 6
+    | IncrementalBuild_TypeCheck = 7
+
+  let logFunctionName (payload: obj) =
+    Log.addContextDestructured "function" (payload :?> int |> enum<LogCompilerFunctionId>)
+
+
   module FSharpCompilerEventLogger =
     open System.Diagnostics.Tracing
 
@@ -50,13 +63,12 @@ module Debug =
         if newSource.Name = "FSharpCompiler" then
           base.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
           source <- newSource
-
       override __.OnEventWritten eventArgs =
 
         let message =
           match eventArgs.EventName with
-          | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> Log.addContextDestructured "function" (eventArgs.Payload.[0])
-          | "LogMessage" -> Log.setMessage "({function}) {message}" >> Log.addContextDestructured "function" (eventArgs.Payload.[1]) >> Log.addContextDestructured "message" (eventArgs.Payload.[0] :?> string)
+          | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> logFunctionName eventArgs.Payload.[0]
+          | "LogMessage" -> Log.setMessage "({function}) {message}" >> logFunctionName eventArgs.Payload.[1] >> Log.addContextDestructured "message" (eventArgs.Payload.[0] :?> string)
           | "BlockStart" | "BlockMessageStart" ->
              inflightEvents.TryAdd(eventArgs.RelatedActivityId, DateTimeOffset.UtcNow) |> ignore
              id
@@ -64,14 +76,14 @@ module Debug =
             match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
-              Log.setMessage "Finished compiler function {function} in {seconds}" >> Log.addContextDestructured "function" (eventArgs.Payload.[0]) >> Log.addContextDestructured "seconds" delta.TotalSeconds
+              Log.setMessage "Finished compiler function {function} in {seconds}" >> logFunctionName eventArgs.Payload.[0] >> Log.addContextDestructured "seconds" delta.TotalSeconds
             | false, _ -> id
           | "BlockMessageStop" ->
             match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
               Log.setMessage "Finished compiler function {function} with parameter {parameter} in {seconds}"
-              >> Log.addContextDestructured "function" (eventArgs.Payload.[1])
+              >> logFunctionName eventArgs.Payload.[1]
               >> Log.addContextDestructured "seconds" delta.TotalSeconds
               >> Log.addContextDestructured "parameter" (eventArgs.Payload.[0])
             | false, _ -> id

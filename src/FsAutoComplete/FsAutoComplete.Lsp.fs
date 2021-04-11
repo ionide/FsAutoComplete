@@ -79,53 +79,22 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
-type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
+type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FSharpLspClient) =
     inherit LspServer()
 
     let logger = LogProvider.getLoggerByName "LSP"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+    let backgroundService: BackgroundServices.BackgroundService = if backgroundServiceEnabled then BackgroundServices.ActualBackgroundService() :> _ else BackgroundServices.MockBackgroundService() :> _
+    let mutable commands = new Commands(FSharpCompilerServiceChecker(backgroundServiceEnabled, false), state, backgroundService, false)
+    let mutable commandDisposables = ResizeArray()
 
     let mutable clientCapabilities: ClientCapabilities option = None
     let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
     let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
-    let subscriptions = ResizeArray<IDisposable>()
 
     let mutable config = FSharpConfig.Default
     let mutable rootPath : string option = None
     let mutable codeFixes = fun p -> [||]
-
-    /// centralize any state changes when the config is updated here
-    let updateConfig (newConfig: FSharpConfig) =
-        let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
-        config <- newConfig
-
-        // only update the dotnet root if it's both a directory and exists
-        let di = DirectoryInfo config.DotNetRoot
-        if di.Exists
-        then
-          commands.SetDotnetSDKRoot di
-        else
-          // if we were mistakenly given the path to a dotnet binary
-          // then use the parent directory as the dotnet root instead
-          let fi = FileInfo (di.FullName)
-          if fi.Exists &&
-            ( fi.Name = "dotnet" || fi.Name = "dotnet.exe")
-          then
-            commands.SetDotnetSDKRoot (fi.Directory)
-
-        commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
-        commands.SetLinterConfigRelativePath config.LinterConfig
-        match config.AnalyzersPath with
-        | [||] ->
-          Loggers.analyzers.info(Log.setMessage "Analyzers unregistered")
-          SDK.Client.registeredAnalyzers.Clear()
-        | paths ->
-          for path in paths do
-            let (newlyFound, total) = SDK.Client.loadAnalyzers path
-            Loggers.analyzers.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
-          let total = SDK.Client.registeredAnalyzers.Count
-          Loggers.analyzers.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
-
 
     //TODO: Thread safe version
     let lintFixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
@@ -178,155 +147,206 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
         |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
 
-    do
-        commands.Notify.Subscribe(fun n ->
-            try
-                match n with
-                | NotificationEvent.FileParsed fn ->
-                    {Content = UMX.untag fn }
-                    |> lspClient.NotifyFileParsed
-                    |> Async.Start
-                | NotificationEvent.Workspace ws ->
-                    logger.info (Log.setMessage "Workspace Notify {ws}" >> Log.addContextDestructured "ws" ws)
-                    let ws =
-                        match ws with
-                        | ProjectResponse.Project (x, _) -> CommandResponse.project JsonSerializer.writeJson x
-                        | ProjectResponse.ProjectError(_,errorDetails) -> CommandResponse.projectError JsonSerializer.writeJson errorDetails
-                        | ProjectResponse.ProjectLoading(projectFileName) -> CommandResponse.projectLoading JsonSerializer.writeJson projectFileName
-                        | ProjectResponse.WorkspaceLoad(finished) -> CommandResponse.workspaceLoad JsonSerializer.writeJson finished
-                        | ProjectResponse.ProjectChanged(projectFileName) -> failwith "Not Implemented"
+    let handleCommandEvents (n: NotificationEvent) =
+      try
+          match n with
+          | NotificationEvent.FileParsed fn ->
+              {Content = UMX.untag fn }
+              |> lspClient.NotifyFileParsed
+              |> Async.Start
+          | NotificationEvent.Workspace ws ->
+              logger.info (Log.setMessage "Workspace Notify {ws}" >> Log.addContextDestructured "ws" ws)
+              let ws =
+                  match ws with
+                  | ProjectResponse.Project (x, _) -> CommandResponse.project JsonSerializer.writeJson x
+                  | ProjectResponse.ProjectError(_,errorDetails) -> CommandResponse.projectError JsonSerializer.writeJson errorDetails
+                  | ProjectResponse.ProjectLoading(projectFileName) -> CommandResponse.projectLoading JsonSerializer.writeJson projectFileName
+                  | ProjectResponse.WorkspaceLoad(finished) -> CommandResponse.workspaceLoad JsonSerializer.writeJson finished
+                  | ProjectResponse.ProjectChanged(projectFileName) -> failwith "Not Implemented"
 
-                    {Content = ws}
-                    |> lspClient.NotifyWorkspace
-                    |> Async.Start
+              {Content = ws}
+              |> lspClient.NotifyWorkspace
+              |> Async.Start
 
-                | NotificationEvent.ParseError (errors, file) ->
-                    let uri = Path.LocalPathToUri file
-                    diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
+          | NotificationEvent.ParseError (errors, file) ->
+              let uri = Path.LocalPathToUri file
+              diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
 
-                    let diags = errors |> Array.map (fcsErrorToDiagnostic)
-                    diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), diags, fun _ _ -> diags) |> ignore
-                    sendDiagnostics uri
+              let diags = errors |> Array.map (fcsErrorToDiagnostic)
+              diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), diags, fun _ _ -> diags) |> ignore
+              sendDiagnostics uri
 
-                | NotificationEvent.UnusedOpens (file, opens) ->
-                    let uri = Path.LocalPathToUri file
-                    diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
+          | NotificationEvent.UnusedOpens (file, opens) ->
+              let uri = Path.LocalPathToUri file
+              diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
 
-                    let diags = opens |> Array.map(fun n ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+              let diags = opens |> Array.map(fun n ->
+                  {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+              )
+              diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
+              sendDiagnostics uri
+
+          | NotificationEvent.UnusedDeclarations (file, decls) ->
+              let uri = Path.LocalPathToUri file
+              diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
+
+              let diags = decls |> Array.map(fun (n, t) ->
+                  {Diagnostic.Range = fcsRangeToLsp n; Code = (if t then Some "1" else None); Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+              )
+              diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
+              sendDiagnostics uri
+
+          | NotificationEvent.SimplifyNames (file, decls) ->
+              let uri = Path.LocalPathToUri file
+              diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
+
+              let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
+                  { Diagnostic.Range = fcsRangeToLsp range
+                    Code = None
+                    Severity = Some DiagnosticSeverity.Hint
+                    Source = "FSAC"
+                    Message = "This qualifier is redundant"
+                    RelatedInformation = Some [| |]
+                    Tags = Some [| DiagnosticTag.Unnecessary |] }
+              )
+              diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
+              sendDiagnostics uri
+
+          // | NotificationEvent.Lint (file, warnings) ->
+          //     let uri = Path.LocalPathToUri file
+          //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+
+          //     let fs =
+          //         warnings |> List.choose (fun w ->
+          //             w.Warning.Details.SuggestedFix
+          //             |> Option.bind (fun f ->
+          //                 let f = f.Force()
+          //                 let range = fcsRangeToLsp w.Warning.Details.Range
+          //                 f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+          //             )
+          //         )
+
+          //     lintFixes.[uri] <- fs
+          //     let diags =
+          //         warnings |> List.map(fun w ->
+          //             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
+          //             // neither the Message or the RelatedInformation structures support markdown.
+          //             let range = fcsRangeToLsp w.Warning.Details.Range
+          //             { Diagnostic.Range = range
+          //               Code = Some w.Code
+          //               Severity = Some DiagnosticSeverity.Information
+          //               Source = "F# Linter"
+          //               Message = w.Warning.Details.Message
+          //               RelatedInformation = None
+          //               Tags = None }
+          //         )
+          //         |> List.toArray
+          //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
+          //     sendDiagnostics uri
+
+          | NotificationEvent.Canceled (msg) ->
+              let ntf = {Content = msg}
+              lspClient.NotifyCancelledRequest ntf
+              |> Async.Start
+          | NotificationEvent.Diagnostics(p) ->
+              p
+              |> lspClient.TextDocumentPublishDiagnostics
+              |> Async.Start
+          | NotificationEvent.AnalyzerMessage(messages, file) ->
+
+              let uri = Path.LocalPathToUri file
+              diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
+              match messages with
+              | [||] ->
+                diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
+              | messages ->
+                let fs =
+                    messages
+                    |> Seq.collect (fun w ->
+                        w.Fixes
+                        |> List.map (fun f ->
+                            let range = fcsRangeToLsp f.FromRange
+                            range, {Range = range; NewText = f.ToText})
                     )
-                    diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
-                    sendDiagnostics uri
+                    |> Seq.toList
+                let aName = messages.[0].Type
 
-                | NotificationEvent.UnusedDeclarations (file, decls) ->
-                    let uri = Path.LocalPathToUri file
-                    diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
+                if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
+                analyzerFixes.[uri].[aName] <- fs
 
-                    let diags = decls |> Array.map(fun (n, t) ->
-                        {Diagnostic.Range = fcsRangeToLsp n; Code = (if t then Some "1" else None); Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
-                    )
-                    diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
-                    sendDiagnostics uri
-
-                | NotificationEvent.SimplifyNames (file, decls) ->
-                    let uri = Path.LocalPathToUri file
-                    diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
-
-                    let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
-                        { Diagnostic.Range = fcsRangeToLsp range
+                let diag =
+                    messages |> Array.map (fun m ->
+                        let range = fcsRangeToLsp m.Range
+                        let s =
+                            match m.Severity with
+                            | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
+                            | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
+                            | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
+                        { Diagnostic.Range = range
                           Code = None
-                          Severity = Some DiagnosticSeverity.Hint
-                          Source = "FSAC"
-                          Message = "This qualifier is redundant"
-                          RelatedInformation = Some [| |]
-                          Tags = Some [| DiagnosticTag.Unnecessary |] }
+                          Severity = Some s
+                          Source = sprintf "F# Analyzers (%s)" m.Type
+                          Message = m.Message
+                          RelatedInformation = None
+                          Tags = None }
                     )
-                    diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
-                    sendDiagnostics uri
+                diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
+                sendDiagnostics uri
+      with
+      | _ -> ()
 
-                // | NotificationEvent.Lint (file, warnings) ->
-                //     let uri = Path.LocalPathToUri file
-                //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+    /// centralize any state changes when the config is updated here
+    let updateConfig (newConfig: FSharpConfig) =
+        let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
+        config <- newConfig
 
-                //     let fs =
-                //         warnings |> List.choose (fun w ->
-                //             w.Warning.Details.SuggestedFix
-                //             |> Option.bind (fun f ->
-                //                 let f = f.Force()
-                //                 let range = fcsRangeToLsp w.Warning.Details.Range
-                //                 f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-                //             )
-                //         )
+        let hadAnalyzersBefore = SDK.Client.registeredAnalyzers.Count <> 0
 
-                //     lintFixes.[uri] <- fs
-                //     let diags =
-                //         warnings |> List.map(fun w ->
-                //             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
-                //             // neither the Message or the RelatedInformation structures support markdown.
-                //             let range = fcsRangeToLsp w.Warning.Details.Range
-                //             { Diagnostic.Range = range
-                //               Code = Some w.Code
-                //               Severity = Some DiagnosticSeverity.Information
-                //               Source = "F# Linter"
-                //               Message = w.Warning.Details.Message
-                //               RelatedInformation = None
-                //               Tags = None }
-                //         )
-                //         |> List.toArray
-                //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
-                //     sendDiagnostics uri
+        match config.AnalyzersPath with
+        | [||] ->
+          Loggers.analyzers.info(Log.setMessage "Analyzers unregistered")
+          SDK.Client.registeredAnalyzers.Clear()
+        | paths ->
+          for path in paths do
+            let (newlyFound, total) = SDK.Client.loadAnalyzers path
+            Loggers.analyzers.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
+          let total = SDK.Client.registeredAnalyzers.Count
+          Loggers.analyzers.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
 
-                | NotificationEvent.Canceled (msg) ->
-                    let ntf = {Content = msg}
-                    lspClient.NotifyCancelledRequest ntf
-                    |> Async.Start
-                | NotificationEvent.Diagnostics(p) ->
-                    p
-                    |> lspClient.TextDocumentPublishDiagnostics
-                    |> Async.Start
-                | NotificationEvent.AnalyzerMessage(messages, file) ->
+        let hasAnalyzersNow = SDK.Client.registeredAnalyzers.Count <> 0
+        if hadAnalyzersBefore <> hasAnalyzersNow then
+          let oldCommands = commands
+          let oldDisposables = commandDisposables
+          let newCommands = new Commands(FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzersNow), state, backgroundService, hasAnalyzersNow)
+          commands <- newCommands
+          commandDisposables <- ResizeArray()
+          commands.SetWorkspaceRoot rootPath
+          commandDisposables.Add (commands.Notify.Subscribe handleCommandEvents)
+          for (disposable: IDisposable) in oldDisposables do
+             disposable.Dispose()
+          (oldCommands :> IDisposable).Dispose()
 
-                    let uri = Path.LocalPathToUri file
-                    diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
-                    match messages with
-                    | [||] ->
-                      diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
-                    | messages ->
-                      let fs =
-                          messages
-                          |> Seq.collect (fun w ->
-                              w.Fixes
-                              |> List.map (fun f ->
-                                  let range = fcsRangeToLsp f.FromRange
-                                  range, {Range = range; NewText = f.ToText})
-                          )
-                          |> Seq.toList
-                      let aName = messages.[0].Type
 
-                      if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
-                      analyzerFixes.[uri].[aName] <- fs
+        // only update the dotnet root if it's both a directory and exists
+        let di = DirectoryInfo config.DotNetRoot
+        if di.Exists
+        then
+          commands.SetDotnetSDKRoot di
+        else
+          // if we were mistakenly given the path to a dotnet binary
+          // then use the parent directory as the dotnet root instead
+          let fi = FileInfo (di.FullName)
+          if fi.Exists &&
+            ( fi.Name = "dotnet" || fi.Name = "dotnet.exe")
+          then
+            commands.SetDotnetSDKRoot (fi.Directory)
 
-                      let diag =
-                          messages |> Array.map (fun m ->
-                              let range = fcsRangeToLsp m.Range
-                              let s =
-                                  match m.Severity with
-                                  | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
-                                  | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
-                                  | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
-                              { Diagnostic.Range = range
-                                Code = None
-                                Severity = Some s
-                                Source = sprintf "F# Analyzers (%s)" m.Type
-                                Message = m.Message
-                                RelatedInformation = None
-                                Tags = None }
-                          )
-                      diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
-                      sendDiagnostics uri
-            with
-            | _ -> ()
-        ) |> subscriptions.Add
+        commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
+        commands.SetLinterConfigRelativePath config.LinterConfig
+
+    do
+        rootPath |> Option.iter backgroundService.Start
+        commandDisposables.Add <| commands.Notify.Subscribe handleCommandEvents
 
     ///Helper function for handling Position requests using **recent** type check results
     member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
@@ -438,9 +458,18 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           | Some rootUri -> Some (Path.FileUriToLocalPath rootUri)
           | None -> p.RootPath
 
-        commands.StartBackgroundService actualRootPath
         rootPath <- actualRootPath
-        commands.SetWorkspaceRoot actualRootPath
+
+        let c =
+            p.InitializationOptions
+            |> Option.bind (fun options -> if options.HasValues then Some options else None)
+            |> Option.map Server.deserialize<FSharpConfigDto>
+            |> Option.map FSharpConfig.FromDto
+            |> Option.defaultValue FSharpConfig.Default
+
+        updateConfig c
+
+
         clientCapabilities <- p.Capabilities
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
@@ -452,6 +481,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
           | Some tyRes ->
             return tyRes, lineAtPos, fileLines
         }
+
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
         let getRangeText fileName range = getFileLines fileName |> Result.map (fun lines -> getText lines range)
@@ -533,14 +563,6 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
               return List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value) fixes
            })
 
-        let c =
-            p.InitializationOptions
-            |> Option.bind (fun options -> if options.HasValues then Some options else None)
-            |> Option.map Server.deserialize<FSharpConfigDto>
-            |> Option.map FSharpConfig.FromDto
-            |> Option.defaultValue FSharpConfig.Default
-
-        updateConfig c
 
         match p.RootPath, c.AutomaticWorkspaceInit with
         | None, _
@@ -1819,7 +1841,7 @@ type FSharpLspServer(commands: Commands, lspClient: FSharpLspClient) =
 
     override x.Dispose () = ()
 
-let startCore (commands: Commands) =
+let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -1853,13 +1875,16 @@ let startCore (commands: Commands) =
         |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p) ))
         |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p) ))
 
-    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> new FSharpLspServer(commands, lspClient))
+    let state = State.Initial toolsPath workspaceLoaderFactory
+    let originalFs = FileSystemAutoOpens.FileSystem
+    FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
+    LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
 
-let start (commands: Commands) =
+let start backgroundServiceEnabled toolsPath workspaceLoaderFactory =
     let logger = LogProvider.getLoggerByName "Startup"
 
     try
-        let result = startCore commands
+        let result = startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory
         logger.info (Log.setMessage "Start - Ending LSP mode with {reason}" >> Log.addContextDestructured "reason" result)
         int result
     with

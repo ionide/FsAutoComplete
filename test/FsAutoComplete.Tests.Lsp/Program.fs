@@ -11,6 +11,15 @@ open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open Ionide.ProjInfo
+open System.Threading
+
+let testTimeout =
+  Environment.GetEnvironmentVariable "TEST_TIMEOUT_MINUTES"
+  |> Int32.TryParse
+  |> function true, duration -> duration
+            | false, _ -> 10
+  |> float
+  |> TimeSpan.FromMinutes
 
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
@@ -21,7 +30,7 @@ let loaders = [
 let tests toolsPath =
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
-      testList name [
+      testSequenced <| testList name [
         // initTests
         basicTests toolsPath workspaceLoaderFactory
         codeLensTest toolsPath workspaceLoaderFactory
@@ -37,11 +46,12 @@ let tests toolsPath =
         scriptPreviewTests toolsPath workspaceLoaderFactory
         scriptEvictionTests toolsPath workspaceLoaderFactory
         scriptProjectOptionsCacheTests toolsPath workspaceLoaderFactory
-        dependencyManagerTests  toolsPath workspaceLoaderFactory//Requires .Net 5 preview
+        dependencyManagerTests  toolsPath workspaceLoaderFactory
         scriptGotoTests toolsPath workspaceLoaderFactory
         interactiveDirectivesUnitTests
 
-        fsdnTest toolsPath workspaceLoaderFactory
+        // commented out because FSDN is down
+        //fsdnTest toolsPath workspaceLoaderFactory
         uriTests
         // linterTests toolsPath
         formattingTests toolsPath workspaceLoaderFactory
@@ -89,4 +99,5 @@ let main args =
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
   let toolsPath = Ionide.ProjInfo.Init.init ()
 
-  runTestsWithArgs defaultConfig args (tests toolsPath)
+  let cts = new CancellationTokenSource(testTimeout)
+  runTestsWithArgsAndCancel cts.Token defaultConfig args (tests toolsPath)

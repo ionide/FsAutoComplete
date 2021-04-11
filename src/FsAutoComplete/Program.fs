@@ -63,13 +63,8 @@ let entry args =
         else Ionide.ProjInfo.WorkspaceLoader.Create
 
       let toolsPath = Ionide.ProjInfo.Init.init ()
-      let commands = Commands(writeJson, backgroundServiceEnabled, toolsPath, workspaceLoaderFactory)
-      let originalFs = FileSystemAutoOpens.FileSystem
-      let fs = FsAutoComplete.FileSystem(originalFs, commands.Files.TryFind)
-      FileSystemAutoOpens.FileSystem <- fs
-
       use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-      let result = FsAutoComplete.Lsp.start commands
+      let result = FsAutoComplete.Lsp.start backgroundServiceEnabled toolsPath workspaceLoaderFactory
       Serilog.Log.CloseAndFlush()
       result
     with
