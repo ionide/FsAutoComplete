@@ -30,46 +30,50 @@ module SignatureFormatter =
                 entity.UnAnnotate().IsArrayType
             else false
 
+    let private measureTypeNames =
+        Set.ofList [ "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+                     "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
+                     "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" ]
+
+    let private isMeasureType (t: FSharpEntity) =
+        Set.contains t.FullName measureTypeNames
+
     let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
+        let context = context.WithPrefixGenericParameters()
         try
-            let genericArguments =
-                typ.GenericArguments
-                |> Seq.filter (fun n ->
-                  try
-                    n.TypeDefinition.CompiledName <> "MeasureOne"
-                  with
-                  | _ -> true)
-            if typ.IsTupleType || typ.IsStructTupleType then
-                let refTupleStr =
-                    typ.GenericArguments
-                    |> Seq.map
-                        (fun arg ->
-                            if arg.IsTupleType && not arg.IsStructTupleType
-                            then formatFSharpType context arg |> sprintf "(%s)"
-                            else formatFSharpType context arg)
-                    |> String.concat " * "
-                if typ.IsStructTupleType
-                then sprintf "struct(%s)" refTupleStr
-                else refTupleStr
-            elif typ.IsGenericParameter then
-                (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
-            elif typ.HasTypeDefinition && (Seq.length genericArguments) > 0 then
-                let typeDef = typ.TypeDefinition
-                let genericArgs =
-                    genericArguments
-                    |> Seq.map (formatFSharpType context)
-                    |> String.concat ","
-                if entityIsArray typeDef then
-                    if typ.GenericArguments.Count = 1 && typ.GenericArguments.[0].IsTupleType
-                    then
-                        sprintf "(%s) array" genericArgs
-                    else
-                        sprintf "%s array" genericArgs
-                else sprintf "%s<%s>" (FSharpKeywords.QuoteIdentifierIfNeeded typeDef.DisplayName) genericArgs
-            else
-                if typ.HasTypeDefinition then
-                    FSharpKeywords.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName
-                else typ.Format context
+          if typ.IsTupleType || typ.IsStructTupleType then
+              let refTupleStr =
+                  typ.GenericArguments
+                  |> Seq.map
+                      (fun arg ->
+                          if arg.IsTupleType && not arg.IsStructTupleType
+                          then formatFSharpType context arg |> sprintf "(%s)"
+                          else formatFSharpType context arg)
+                  |> String.concat " * "
+              if typ.IsStructTupleType
+              then sprintf "struct (%s)" refTupleStr
+              else refTupleStr
+          elif typ.IsGenericParameter then
+              (if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'") + typ.GenericParameter.Name
+          elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
+              let typeDef = typ.TypeDefinition
+              let genericArgs =
+                  typ.GenericArguments
+                  |> Seq.map (formatFSharpType context)
+                  |> String.concat ","
+              if entityIsArray typeDef then
+                  if typ.GenericArguments.Count = 1 && typ.GenericArguments.[0].IsTupleType
+                  then
+                      sprintf "(%s) array" genericArgs
+                  else
+                      sprintf "%s array" genericArgs
+              elif isMeasureType typeDef then
+                typ.Format context
+              else sprintf "%s<%s>" (FSharpKeywords.QuoteIdentifierIfNeeded typeDef.DisplayName) genericArgs
+          else
+              if typ.HasTypeDefinition then
+                  FSharpKeywords.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName
+              else typ.Format context
         with
         | _ -> typ.Format context
 

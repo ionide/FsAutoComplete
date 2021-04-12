@@ -14,3 +14,9 @@ sprintf "asd"
 let someFunction (a) (b) (c) = ()
 let nestedTuples = (1, ((2, 3), 4))
 let nestedStructTuples = 1, struct(2, 3)
+
+type [<Measure>]s
+type [<Measure>]m
+let distance = 5.<m>
+let time = 1.<s>
+let speed = distance/time
