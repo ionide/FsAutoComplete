@@ -59,8 +59,8 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
   asyncMaybe {
     let lineStr = lineText lines endOfPreviousIdentPos
     let! possibleApplicationSymbolEnd = maybe {
-      if tyRes.GetParseResults.IsPosContainedInApplication endOfPreviousIdentPos then
-        let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingApplied endOfPreviousIdentPos
+      if tyRes.GetParseResults.IsPosContainedInApplicationPatched endOfPreviousIdentPos then
+        let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingAppliedPatched endOfPreviousIdentPos
         return funcRange.End
       else return endOfPreviousIdentPos
     }

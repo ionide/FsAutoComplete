@@ -16,10 +16,10 @@ let private server state =
   }
   |> Async.Cache
 
-let testSignatureHelp title file (line, char) triggerType checkResp server =
+let coreTestSignatureHelp hide title file (line, char) triggerType checkResp server =
 
-  testCaseAsync title ( async {
-    let! (server: Lsp.FSharpLspServer, event) = server
+  (if hide then ptestCaseAsync else testCaseAsync) title ( async {
+    let! (server: Lsp.FSharpLspServer, event: ClientEvents) = server
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FunctionApplication")
     let path = Path.Combine(path, file)
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
@@ -43,6 +43,8 @@ let testSignatureHelp title file (line, char) triggerType checkResp server =
     checkResp resp
   })
 
+let ptestSignatureHelp = coreTestSignatureHelp true
+let testSignatureHelp = coreTestSignatureHelp false
 
 let test742 =
   testSignatureHelp "issue 742 - signature help on functions counts the prior parameters" "742.fsx" (0, 6) (Char ' ') (fun resp ->
@@ -59,7 +61,7 @@ let test744 =
   )
 
 let test745 =
-  testSignatureHelp "issue 745 - signature help shows tuples in parens" "745.fsx" (2, 2) Manual (fun resp ->
+  ptestSignatureHelp "issue 745 - signature help shows tuples in parens" "745.fsx" (2, 2) Manual (fun resp ->
     match resp with
     | Some sigHelp ->
       Expect.equal sigHelp.ActiveSignature (Some 0) "should have suggested the first overload"

@@ -176,7 +176,7 @@ type FSharpParseFileResults with
       | None -> None
 
   /// Determines if the given position is inside a function or method application.
-  member scope.IsPosContainedInApplication pos =
+  member scope.IsPosContainedInApplicationPatched pos =
       match scope.ParseTree with
       | Some input ->
           let result =
@@ -195,7 +195,7 @@ type FSharpParseFileResults with
       | None -> false
 
   /// Attempts to find the range of a function or method that is being applied. Also accounts for functions in pipelines.
-  member scope.TryRangeOfFunctionOrMethodBeingApplied pos =
+  member scope.TryRangeOfFunctionOrMethodBeingAppliedPatched pos =
       let rec getIdentRangeForFuncExprInApp traverseSynExpr expr pos: Range option =
           match expr with
           | SynExpr.Ident ident -> Some ident.idRange

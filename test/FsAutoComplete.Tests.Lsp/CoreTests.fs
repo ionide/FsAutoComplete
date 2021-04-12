@@ -1119,11 +1119,10 @@ let signatureHelpTests state =
   })
 
   testSequenced <| testList "SignatureHelp" [
-    checkOverloadsAt (0, 36) "Can get overloads of MemoryStream with attached parens"
-    for c in 38..40 do
-      checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c-38} of unattached parens"
+    for c in 37..39 do
+      checkOverloadsAt (0, c) $"Can get overloads at whitespace position {c-37} of unattached parens"
     for c in 39..41 do
-      checkOverloadsAt (2, c) $"Can get overloads at whitespace position {c-39} of attached parens"
+      checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c-39} of attached parens"
 
     testCaseAsync "cleanup" (async {
       let! server, _ = server
