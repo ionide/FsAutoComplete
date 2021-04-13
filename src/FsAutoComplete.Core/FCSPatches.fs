@@ -176,56 +176,137 @@ type FSharpParseFileResults with
       | None -> None
 
   /// Determines if the given position is inside a function or method application.
-  member scope.IsPosContainedInApplication pos =
+  member scope.IsPosContainedInApplicationPatched pos =
       match scope.ParseTree with
       | Some input ->
           let result =
               AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
-                  member _.VisitExpr(_, _, defaultTraverse, expr) =
-                      match expr with
-                      | SynExpr.App (_, _, _, _, range) when Range.rangeContainsPos range pos ->
-                          Some range
-                      | _ -> defaultTraverse expr
+                  member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
+                    match expr with
+                    | SynExpr.TypeApp (_, _, _, _, _, _, range) when Range.rangeContainsPos range pos ->
+                        Some range
+                    | SynExpr.App(_, _, _, SynExpr.CompExpr (_, _, expr, _), range) when Range.rangeContainsPos range pos ->
+                        traverseSynExpr expr
+                    | SynExpr.App (_, _, _, _, range) when Range.rangeContainsPos range pos ->
+                        Some range
+                    | _ -> defaultTraverse expr
               })
           result.IsSome
       | None -> false
 
   /// Attempts to find the range of a function or method that is being applied. Also accounts for functions in pipelines.
-  member scope.TryRangeOfFunctionOrMethodBeingApplied pos =
-      let rec getIdentRangeForFuncExprInApp expr pos =
+  member scope.TryRangeOfFunctionOrMethodBeingAppliedPatched pos =
+      let rec getIdentRangeForFuncExprInApp traverseSynExpr expr pos: Range option =
           match expr with
-          | SynExpr.Ident ident -> ident.idRange
+          | SynExpr.Ident ident -> Some ident.idRange
 
-          | SynExpr.LongIdent(_, _, _, range) -> range
+          | SynExpr.LongIdent(_, _, _, range) -> Some range
 
           | SynExpr.Paren(expr, _, _, range) when Range.rangeContainsPos range pos ->
-              getIdentRangeForFuncExprInApp expr pos
+              getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-          | SynExpr.App(_, _, funcExpr, argExpr, _) ->
+          | SynExpr.TypeApp (expr, _, _, _, _, _, _) ->
+              getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
+          | SynExpr.App (_, _, funcExpr, argExpr, _) ->
               match argExpr with
               | SynExpr.App (_, _, _, _, range) when Range.rangeContainsPos range pos ->
-                  getIdentRangeForFuncExprInApp argExpr pos
+                  getIdentRangeForFuncExprInApp traverseSynExpr argExpr pos
+
+              // Special case: `async { ... }` is actually a CompExpr inside of the argExpr of a SynExpr.App
+              | SynExpr.CompExpr (_, _, expr, range) when Range.rangeContainsPos range pos ->
+                  getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
+              | SynExpr.Paren (expr, _, _, range) when Range.rangeContainsPos range pos ->
+                  getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
               | _ ->
                   match funcExpr with
                   | SynExpr.App (_, true, _, _, _) when Range.rangeContainsPos argExpr.Range pos ->
                       // x |> List.map
                       // Don't dive into the funcExpr (the operator expr)
                       // because we dont want to offer sig help for that!
-                      getIdentRangeForFuncExprInApp argExpr pos
+                      getIdentRangeForFuncExprInApp traverseSynExpr argExpr pos
                   | _ ->
                       // Generally, we want to dive into the func expr to get the range
                       // of the identifier of the function we're after
-                      getIdentRangeForFuncExprInApp funcExpr pos
-          | expr -> expr.Range // Exhaustiveness, this shouldn't actually be necessary...right?
+                      getIdentRangeForFuncExprInApp traverseSynExpr funcExpr pos
+
+          | SynExpr.LetOrUse (_, _, bindings, body, range) when Range.rangeContainsPos range pos  ->
+                let binding =
+                    bindings
+                    |> List.tryFind (fun x -> Range.rangeContainsPos x.RangeOfBindingAndRhs pos)
+                match binding with
+                | Some(SynBinding.Binding(_, _, _, _, _, _, _, _, _, expr, _, _)) ->
+                    getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+                | None ->
+                    getIdentRangeForFuncExprInApp traverseSynExpr body pos
+
+          | SynExpr.IfThenElse (ifExpr, thenExpr, elseExpr, _, _, _, range) when Range.rangeContainsPos range pos ->
+              if Range.rangeContainsPos ifExpr.Range pos then
+                  getIdentRangeForFuncExprInApp traverseSynExpr ifExpr pos
+              elif Range.rangeContainsPos thenExpr.Range pos then
+                  getIdentRangeForFuncExprInApp traverseSynExpr thenExpr pos
+              else
+                  match elseExpr with
+                  | None -> None
+                  | Some expr ->
+                      getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
+          | SynExpr.Match (_, expr, clauses, range) when Range.rangeContainsPos range pos ->
+              if Range.rangeContainsPos expr.Range pos then
+                  getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+              else
+                  let clause = clauses |> List.tryFind (fun clause -> Range.rangeContainsPos clause.Range pos)
+                  match clause with
+                  | None -> None
+                  | Some clause ->
+                      match clause with
+                      | SynMatchClause.Clause (_, whenExpr, resultExpr, _, _) ->
+                          match whenExpr with
+                          | None ->
+                              getIdentRangeForFuncExprInApp traverseSynExpr resultExpr pos
+                          | Some whenExpr ->
+                              if Range.rangeContainsPos whenExpr.Range pos then
+                                  getIdentRangeForFuncExprInApp traverseSynExpr whenExpr pos
+                              else
+                                  getIdentRangeForFuncExprInApp traverseSynExpr resultExpr pos
+
+
+          // Ex: C.M(x, y, ...) <--- We want to find where in the tupled application the call is being made
+          | SynExpr.Tuple(_, exprs, _, tupRange) when Range.rangeContainsPos tupRange pos ->
+              let expr = exprs |> List.tryFind (fun expr -> Range.rangeContainsPos expr.Range pos)
+              match expr with
+              | None -> None
+              | Some expr ->
+                  getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
+          // Capture the body of a lambda, often nested in a call to a collection function
+          | SynExpr.Lambda(_, _, _args, body, _, _) when Range.rangeContainsPos body.Range pos ->
+              getIdentRangeForFuncExprInApp traverseSynExpr body pos
+
+          | SynExpr.Do(expr, range) when Range.rangeContainsPos range pos ->
+              getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
+          | SynExpr.Assert(expr, range) when Range.rangeContainsPos range pos ->
+              getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+
+          | SynExpr.ArbitraryAfterError (_debugStr, range) when Range.rangeContainsPos range pos ->
+              Some range
+
+          | expr ->
+              traverseSynExpr expr
+              |> Option.map (fun expr -> expr)
 
       match scope.ParseTree with
       | Some input ->
           AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
-              member _.VisitExpr(_, _, defaultTraverse, expr) =
+              member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
                   match expr with
+                  | SynExpr.TypeApp (expr, _, _, _, _, _, range) when Range.rangeContainsPos range pos ->
+                    getIdentRangeForFuncExprInApp traverseSynExpr expr pos
                   | SynExpr.App (_, _, _funcExpr, _, range) as app when Range.rangeContainsPos range pos ->
-                      getIdentRangeForFuncExprInApp app pos
-                      |> Some
+                      getIdentRangeForFuncExprInApp traverseSynExpr app pos
                   | _ -> defaultTraverse expr
           })
       | None -> None

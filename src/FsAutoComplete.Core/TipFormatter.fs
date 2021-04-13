@@ -1053,8 +1053,20 @@ let formatTip (FSharpToolTipText tips) : (string * string) list list =
     tips
     |> List.choose (function
         | FSharpToolTipElement.Group items ->
-            let getRemarks (it : FSharpToolTipElementData<string>) = defaultArg (it.Remarks |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)) ""
-            Some (items |> List.map (fun (it) ->  (it.MainDescription + getRemarks it, buildFormatComment it.XmlDoc FormatCommentStyle.Legacy None)))
+            let getRemarks (it : FSharpToolTipElementData<string>) =
+              it.Remarks
+              |> Option.map (fun n -> if String.IsNullOrWhiteSpace n then n else "\n\n" + n)
+              |> Option.defaultValue ""
+
+            let makeTooltip (tipElement: FSharpToolTipElementData<string>) =
+              let header = tipElement.MainDescription + getRemarks tipElement
+              let body = buildFormatComment tipElement.XmlDoc FormatCommentStyle.Legacy None
+              header, body
+
+            items
+            |> List.map makeTooltip
+            |> Some
+
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error)]
         | _ -> None)
 

@@ -16,10 +16,10 @@ let private server state =
   }
   |> Async.Cache
 
-let testSignatureHelp title file (line, char) triggerType checkResp server =
+let coreTestSignatureHelp hide title file (line, char) triggerType checkResp server =
 
-  testCaseAsync title ( async {
-    let! (server: Lsp.FSharpLspServer, event) = server
+  (if hide then ptestCaseAsync else testCaseAsync) title ( async {
+    let! (server: Lsp.FSharpLspServer, event: ClientEvents) = server
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FunctionApplication")
     let path = Path.Combine(path, file)
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
@@ -43,9 +43,11 @@ let testSignatureHelp title file (line, char) triggerType checkResp server =
     checkResp resp
   })
 
+let ptestSignatureHelp = coreTestSignatureHelp true
+let testSignatureHelp = coreTestSignatureHelp false
 
 let test742 =
-  testSignatureHelp "issue 742 - signature help on piped functions counts the prior parameters" "742.fsx" (0, 7) (Char ' ') (fun resp ->
+  testSignatureHelp "issue 742 - signature help on functions counts the prior parameters" "742.fsx" (0, 6) (Char ' ') (fun resp ->
     Expect.isNone resp "there should be no sighelp on this location"
   )
 
@@ -59,7 +61,7 @@ let test744 =
   )
 
 let test745 =
-  testSignatureHelp "issue 745 - signature help shows tuples in parens" "745.fsx" (2, 2) Manual (fun resp ->
+  ptestSignatureHelp "issue 745 - signature help shows tuples in parens" "745.fsx" (2, 2) Manual (fun resp ->
     match resp with
     | Some sigHelp ->
       Expect.equal sigHelp.ActiveSignature (Some 0) "should have suggested the first overload"
@@ -69,12 +71,12 @@ let test745 =
   )
 
 let test746 =
-  testSignatureHelp "issue 742 - signature help doesn't trigger when the function has all parameters" "746.fsx" (0, 23) Manual (fun resp ->
+  testSignatureHelp "issue 746 - signature help understands piping for parameter application" "746.fsx" (0, 22) (* the end of 'id' *)  Manual (fun resp ->
     Expect.isNone resp "there should be no suggestions at this position, since we've provided all parameters to List.map"
   )
 
 let test747 =
-  testSignatureHelp "issue 747 - signature help is provided for the most inner function" "747.fsx" (4, 5) Manual (fun resp ->
+  testSignatureHelp "issue 747 - signature help is provided for the most inner function" "747.fsx" (4, 4) Manual (fun resp ->
     Expect.isSome resp "should have provided signature help"
     let resp = resp.Value
     let methodsig = resp.Signatures.[0]
@@ -100,7 +102,7 @@ let test750 =
 let tests state =
   let server = server state
   testSequenced <|
-    ptestList "function application" [
+    testList "function application" [
       testList "tests" ([
          test742
          test744

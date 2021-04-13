@@ -55,6 +55,8 @@ type NotificationEvent=
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
 
+
+
 type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool) =
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
@@ -795,9 +797,9 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.MapResult (CoreResponse.Res, CoreResponse.ErrorRes)
         |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
-    member x.Methods (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) =
-        tyRes.TryGetMethodOverrides lines pos
-        |> AsyncResult.bimap CoreResponse.Res CoreResponse.ErrorRes
+    /// Attempts to identify member overloads and infer current parameter positions for signature help at a given location
+    member x.MethodsForSignatureHelp (tyRes : ParseAndCheckResults, pos: Pos, lines: LineStr[], triggerChar, possibleSessionKind) =
+      SignatureHelp.getSignatureHelpFor (tyRes, pos, lines, triggerChar, possibleSessionKind)
 
     // member x.Lint (file: string<LocalPath>): Async<unit> =
     //     asyncResult {
