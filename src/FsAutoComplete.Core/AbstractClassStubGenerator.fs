@@ -124,7 +124,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc :
 /// nothing is written. Otherwise, a list of missing members is generated and written
 let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) =
   asyncMaybe {
-    let pos = Pos.mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.Start.Column + 1)
+    let pos = Pos.mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.End.Column)
     let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
     let! usage = usages
     let! (displayContext, entity) =

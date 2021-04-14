@@ -56,7 +56,7 @@ let initTests state =
       Expect.equal res.Capabilities.WorkspaceSymbolProvider (Some true) "Workspace Symbol Provider"
       Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
     | Result.Error e ->
-      failwith "Initialization failed"
+      failtest "Initialization failed"
   })
 
 ///Tests for basic operations like hover, getting document symbols or code lens on simple file
@@ -86,11 +86,11 @@ let basicTests state =
   testSequenced <| testList "Basic Tests" [
       testSequenced <| testList "Hover Tests" [
 
-        testCaseAsync "Hover Tests - simple symbol" (async {
+        testCaseAsync "simple symbol" (async {
           let! (server, path) = server
           let p : TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 0; Character = 4}}
+              Position = { Line = 0; Character = 5 } }
           let! res = server.TextDocumentHover p
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
@@ -327,7 +327,7 @@ let autocompleteTest state =
       async {
         let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
-                                     Position = { Line = 8; Character = 2}
+                                     Position = { Line = 8; Character = 3 }
                                      Context = None }
         let! res = server.TextDocumentCompletion p
         match res with
@@ -361,7 +361,7 @@ let autocompleteTest state =
       async {
         let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
-                                     Position = { Line = 12; Character = 7}
+                                     Position = { Line = 12; Character = 8 }
                                      Context = None }
         let! res = server.TextDocumentCompletion p
         match res with
@@ -378,7 +378,7 @@ let autocompleteTest state =
       async {
         let! server, path = serverConfig
         let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
-                                     Position = { Line = 14; Character = 18}
+                                     Position = { Line = 14; Character = 19 }
                                      Context = None }
         let! res = server.TextDocumentCompletion p
         match res with
@@ -395,7 +395,7 @@ let autocompleteTest state =
         let! server, path = serverConfig
         let p : CompletionParams = {
           TextDocument = { Uri = Path.FilePathToUri path }
-          Position = { Line = 25; Character = 4 }
+          Position = { Line = 25; Character = 5 }
           Context = None
         }
         let! res = server.TextDocumentCompletion p
@@ -456,10 +456,10 @@ let renameTest state =
         let path = Path.Combine(testDir.DirectoryInfo.FullName, "Program.fs")
         let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
         do! server.TextDocumentDidOpen tdop
-        do! waitForParseResultsForFile "Test.fs" events |> AsyncResult.foldResult id (fun e -> failwithf "%A" e)
+        do! waitForParseResultsForFile "Test.fs" events |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
 
-        let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path}
-                                 Position = { Line = 7; Character = 12}
+        let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri path }
+                                 Position = { Line = 7; Character = 13 }
                                  NewName = "y" }
         let! res = server.TextDocumentRename p
         match res with
@@ -485,11 +485,11 @@ let renameTest state =
         let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
         do! server.TextDocumentDidOpen tdop
 
-        do! waitForParseResultsForFile "Test.fs" events |> AsyncResult.foldResult id (fun e -> failwithf "%A" e)
-        do! waitForParseResultsForFile "Program.fs" events |> AsyncResult.foldResult id (fun e -> failwithf "%A" e)
+        do! waitForParseResultsForFile "Test.fs" events |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
+        do! waitForParseResultsForFile "Program.fs" events |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
 
         let p : RenameParams = { TextDocument = { Uri = Path.FilePathToUri pathTest }
-                                 Position = { Line = 2; Character = 4}
+                                 Position = { Line = 2; Character = 5 }
                                  NewName = "y" }
         let! res = server.TextDocumentRename p
         match res with
@@ -533,9 +533,9 @@ let gotoTest state =
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
 
-      do! waitForParseResultsForFile "Definition.fs" event |> AsyncResult.foldResult id (failwithf "%A")
-      do! waitForParseResultsForFile "External.fs" event |> AsyncResult.foldResult id (failwithf "%A")
-      do! waitForParseResultsForFile "Library.fs" event |> AsyncResult.foldResult id (failwithf "%A")
+      do! waitForParseResultsForFile "Definition.fs" event |> AsyncResult.foldResult id (failtestf "%A")
+      do! waitForParseResultsForFile "External.fs" event |> AsyncResult.foldResult id (failtestf "%A")
+      do! waitForParseResultsForFile "Library.fs" event |> AsyncResult.foldResult id (failtestf "%A")
 
       return (server, path, externalPath, definitionPath)
     }
@@ -691,7 +691,7 @@ let gotoTest state =
           | GotoResult.Single res ->
             let localPath = Path.FileUriToLocalPath res.Uri
             if localPath.Contains "System.String netstandard_ Version_2.0.0.0_ Culture_neutral_ PublicKeyToken_cc7b13ffcd2ddd51"
-            then failwithf "should not decompile when sourcelink is available"
+            then failtestf "should not decompile when sourcelink is available"
             Expect.stringContains localPath "System.String" "Result should be in the BCL's source files"
             Expect.isTrue (System.IO.File.Exists localPath) (sprintf "File '%s' should exist locally after being downloaded" localPath)
       })
@@ -867,8 +867,8 @@ let foldingTests state =
       match rangeResponse with
       | Ok(Some(ranges)) ->
         Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
-      | Ok(None) -> failwithf "No ranges found in file, problem parsing?"
-      | LspResult.Error e -> failwithf "Error from range LSP call: %A" e
+      | Ok(None) -> failtestf "No ranges found in file, problem parsing?"
+      | LspResult.Error e -> failtestf "Error from range LSP call: %A" e
     })
 
     testCaseAsync "cleanup" (async {
@@ -900,7 +900,7 @@ let tooltipTests state =
       | Ok () ->
         () // all good, no parsing/checking errors
       | Core.Result.Error errors ->
-        failwithf "Errors while parsing script %s: %A" scriptPath errors
+        failtestf "Errors while parsing script %s: %A" scriptPath errors
 
       return server, scriptPath
     }
@@ -916,10 +916,10 @@ let tooltipTests state =
       match! server.TextDocumentHover pos with
       | Ok (Some (Tooltip tooltip)) ->
         Expect.equal tooltip expectedTooltip (sprintf "Should have a tooltip of '%s'" expectedTooltip)
-      | Ok _ ->
-        failwithf "Should have gotten hover text"
+      | Ok response ->
+        failtestf "Should have gotten tooltip but got %A" response
       | Result.Error errors ->
-        failwithf "Error while getting hover text: %A" errors
+        failtestf "Error while getting tooltip: %A" errors
     })
 
   let verifyDescription line character expectedTooltip =
@@ -932,10 +932,10 @@ let tooltipTests state =
       match! server.TextDocumentHover pos with
       | Ok (Some (Description tooltip)) ->
         Expect.equal tooltip expectedTooltip (sprintf "Should have a tooltip of '%s'" expectedTooltip)
-      | Ok _ ->
-        failwithf "Should have gotten hover text"
+      | Ok response ->
+        failtestf "Should have gotten description but got %A" response
       | Result.Error errors ->
-        failwithf "Error while getting hover text: %A" errors
+        failtestf "Error while getting description: %A" errors
     })
 
   let concatLines = String.concat Environment.NewLine
@@ -943,15 +943,15 @@ let tooltipTests state =
   testSequenced <|
     testList "tooltip evaluation" [
       testList "tests" [
-        verifyTooltip 0 4 "val arrayOfTuples : (int * int) array"
-        verifyTooltip 1 4 "val listOfTuples : list<int * int>"
-        verifyTooltip 2 4 "val listOfStructTuples : list<struct (int * int)>"
-        verifyTooltip 3 4 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
+        verifyTooltip 0 5 "val arrayOfTuples : (int * int) array"
+        verifyTooltip 1 5 "val listOfTuples : list<int * int>"
+        verifyTooltip 2 5 "val listOfStructTuples : list<struct (int * int)>"
+        verifyTooltip 3 5 "val floatThatShouldHaveGenericReportedInTooltip : float" //<MeasureOne>
         //verifyDescription 4 4 """**Description**\n\nPrint to a string using the given format.\n\n**Parameters**\n\n* `format`: The formatter.\n\n**Returns**\n\nThe formatted result.\n\n**Generic parameters**\n\n* `'T` is `string`"""
-        verifyDescription 13 10 (concatLines ["**Description**"; ""; "\nMy super summary\n "; ""; "**Parameters**"; ""; "* `c`: foo"; "* `b`: bar"; "* `a`: baz"; ""; "**Returns**"; ""; ""])
-        verifyTooltip 14 4 "val nestedTuples : int * ((int * int) * int)"
-        verifyTooltip 15 4 "val nestedStructTuples : int * struct (int * int)"
-        verifyTooltip 21 8 "val speed : float<m/s>"
+        verifyDescription 13 11 (concatLines ["**Description**"; ""; "\nMy super summary\n "; ""; "**Parameters**"; ""; "* `c`: foo"; "* `b`: bar"; "* `a`: baz"; ""; "**Returns**"; ""; ""])
+        verifyTooltip 14 5 "val nestedTuples : int * ((int * int) * int)"
+        verifyTooltip 15 5 "val nestedStructTuples : int * struct (int * int)"
+        verifyTooltip 21 9 "val speed : float<m/s>"
       ]
       testCaseAsync "cleanup" (async {
         let! server, _ = server
@@ -972,7 +972,7 @@ let highlightingTests state =
       do! server.TextDocumentDidOpen tdop
       match! waitForParseResultsForFile "Script.fsx" event with
       | Ok () -> return server
-      | Error e -> return failwithf "Errors while parsing highlighting script %A" e
+      | Error e -> return failtestf "Errors while parsing highlighting script %A" e
     }
     |> Async.Cache
 
@@ -1016,9 +1016,9 @@ let highlightingTests state =
         // printfn "%A" decoded
         return decoded
       | Ok None ->
-        return failwithf "Expected to get some highlighting"
+        return failtestf "Expected to get some highlighting"
       | Error e ->
-        return failwithf "error of %A" e
+        return failtestf "error of %A" e
     } |> Async.Cache
 
   let rangeContainsRange (parent: Types.Range) (child: Types.Position) =
@@ -1056,8 +1056,8 @@ let highlightingTests state =
             rangeContainsRange r pos
             && token = testTokenType)
           "Could not find a highlighting range that contained the given position"
-      | Ok None -> failwithf "Expected to get some highlighting"
-      | Error e -> failwithf "error of %A" e
+      | Ok None -> failtestf "Expected to get some highlighting"
+      | Error e -> failtestf "error of %A" e
     })
 
   testSequenced <| testList "Document Highlighting Tests" [
@@ -1087,7 +1087,7 @@ let signatureHelpTests state =
       | Ok () ->
         () // all good, no parsing/checking errors
       | Core.Result.Error errors ->
-        failwithf "Errors while parsing script %s: %A" scriptPath errors
+        failtestf "Errors while parsing script %s: %A" scriptPath errors
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
       return server, scriptPath
     }

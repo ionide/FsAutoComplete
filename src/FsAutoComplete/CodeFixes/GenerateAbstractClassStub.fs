@@ -31,11 +31,12 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
            | _ ->
                // everything else is a best guess
                codeActionParams.Range)
-          |> protocolRangeToRange (UMX.untag fileName)
 
-        let! (tyRes, line, lines) = getParseResultsForFile fileName interestingRange.Start
+        let fcsRange = interestingRange |> protocolRangeToRange (UMX.untag fileName)
 
-        match! genAbstractClassStub tyRes interestingRange lines line with
+        let! (tyRes, line, lines) = getParseResultsForFile fileName fcsRange.Start
+
+        match! genAbstractClassStub tyRes fcsRange lines line with
         | CoreResponse.Res (text, position) ->
             let replacements = getTextReplacements ()
 

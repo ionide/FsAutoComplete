@@ -63,6 +63,7 @@ let tests =
         //fakeInteropTests toolsPath
         analyzerTests state
         FunctionApplicationTests.tests state
+        CodeFixTests.tests state
       ]
   ]
 
