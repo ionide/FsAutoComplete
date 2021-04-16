@@ -20,7 +20,7 @@ module Conversions =
 
     /// convert an LSP position to a compiler position
     let protocolPosToPos (pos: Lsp.Position): FcsPos =
-        FcsPos.mkPos (pos.Line + 1) (pos.Character + 1)
+        FcsPos.mkPos (pos.Line + 1) (pos.Character)
 
     /// convert a compiler position to an LSP position
     let fcsPosToLsp (pos: FcsPos): Lsp.Position =
@@ -73,8 +73,8 @@ module Conversions =
             {
                 Uri = fileUri
                 Range = {
-                    Start = { Line = ex.Line - 1; Character = ex.Column - 1 }
-                    End = { Line = ex.Line - 1; Character = ex.Column - 1 }
+                    Start = { Line = ex.Line - 1; Character = ex.Column }
+                    End = { Line = ex.Line - 1; Character = ex.Column }
                 }
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
@@ -640,7 +640,7 @@ with
             Linter = false
             LinterConfig = None
             UnionCaseStubGeneration = false
-            UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
+            UnionCaseStubGenerationBody = """failwith "Not Implemented" """
             RecordStubGeneration = false
             RecordStubGenerationBody = "failwith \"Not Implemented\""
             AbstractClassStubGeneration = true

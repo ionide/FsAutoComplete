@@ -515,13 +515,11 @@ module CodeGenerationUtils =
       // is an abstract member
       m.IsDispatchSlot
       // this member doesn't implement anything
-      && m.ImplementedAbstractSignatures.Count = 0
+      && (try m.ImplementedAbstractSignatures <> null &&  m.ImplementedAbstractSignatures.Count = 0 with _ -> true) // exceptions here trying to acces the member means we're safe
       // this member is not an override
       && not m.IsOverrideOrExplicitInterfaceImplementation
 
-    let isAbstractClass (e: FSharpEntity) =
-      e.TryGetMembersFunctionsAndValues()
-      |> Seq.exists isAbstractNonVirtualMember
+    let isAbstractClass (e: FSharpEntity) = e.IsAbstractClass
 
     let getAbstractNonVirtualMembers (e: FSharpEntity) =
       seq {

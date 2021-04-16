@@ -497,35 +497,35 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
         let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
 
-        let interfaceStubReplacements =
+        let interfaceStubReplacements () =
           Map.ofList [
             "$objectIdent", config.InterfaceStubGenerationObjectIdentifier
             "$methodBody", config.InterfaceStubGenerationMethodBody
           ]
 
-        let getInterfaceStubReplacements () = interfaceStubReplacements
+        let getInterfaceStubReplacements () = interfaceStubReplacements ()
 
-        let unionCaseStubReplacements =
+        let unionCaseStubReplacements () =
           Map.ofList [
             "$1", config.UnionCaseStubGenerationBody
           ]
 
-        let getUnionCaseStubReplacements () = unionCaseStubReplacements
+        let getUnionCaseStubReplacements () = unionCaseStubReplacements()
 
-        let recordStubReplacements =
+        let recordStubReplacements () =
           Map.ofList [
             "$1", config.RecordStubGenerationBody
           ]
 
-        let getRecordStubReplacements () = recordStubReplacements
+        let getRecordStubReplacements () = recordStubReplacements ()
 
-        let abstractClassStubReplacements =
+        let abstractClassStubReplacements () =
           Map.ofList [
             "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
             "$methodBody", config.AbstractClassStubGenerationMethodBody
           ]
 
-        let getAbstractClassStubReplacements () = abstractClassStubReplacements
+        let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
         codeFixes <- fun p ->
           [|
@@ -736,7 +736,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           let! (options, lines) = commands.TryGetFileCheckerOptionsWithLines file |> Result.mapError JsonRpc.Error.InternalErrorMessage
           let line, col = p.Position.Line, p.Position.Character
           let lineStr = lines.[line]
-          let word = lineStr.Substring(0, col)
+          let word = lineStr.Substring(0, min col lineStr.Length)
 
           do! ensureInBounds lines (line, col)
 
@@ -1163,7 +1163,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             let! actions =
               Async.Parallel (codeFixes codeActionParams)
               |> Async.map (List.concat >> Array.ofList)
-            return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
+            match actions with
+            | [||] -> return success None
+            | actions ->
+              return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
         }
 
     override __.TextDocumentCodeLens(p) = async {
