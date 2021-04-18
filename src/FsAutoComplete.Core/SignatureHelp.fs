@@ -183,7 +183,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
       // todo: this picks the 'first' overload with the correct arity, but really we should be smarter
       let methodCandidate =
         filteredMethods
-        |> Array.tryFindIndex (fun m -> m.Parameters.Length >= argumentIndex)
+        |> Array.tryFindIndex (fun m -> m.Parameters.Length >= argumentIndex + 1)
 
 
       return {
