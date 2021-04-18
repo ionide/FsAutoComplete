@@ -64,6 +64,7 @@ let tests =
         analyzerTests state
         FunctionApplicationTests.tests state
         CodeFixTests.tests state
+        Completion.tests state
       ]
   ]
 

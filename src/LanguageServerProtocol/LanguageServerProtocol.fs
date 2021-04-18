@@ -153,6 +153,7 @@ module Types =
 
     /// Position in a text document expressed as zero-based line and zero-based character offset.
     /// A position is between two characters like an ‘insert’ cursor in a editor.
+    [<DebuggerDisplay("({Line},{Character})")>]
     type Position = {
         /// Line position in a document (zero-based).
         Line: int
@@ -178,6 +179,7 @@ module Types =
     ///     End = { Line = 6; character = 0 }
     /// }
     /// ```
+    [<DebuggerDisplay("{Start}-{End}")>]
     type Range = {
         /// The range's start position.
         Start: Position
