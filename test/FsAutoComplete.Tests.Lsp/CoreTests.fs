@@ -65,12 +65,10 @@ let basicTests state =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
       let! (server, event) = serverInitialize path defaultConfigDto state
-      let projectPath = Path.Combine(path, "BasicTest.fsproj")
-      do! parseProject projectPath server
-      let path = Path.Combine(path, "Script.fs")
+      let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
-      do! waitForParseResultsForFile "Script.fs" event |> Async.Ignore
+      do! waitForParseResultsForFile "Script.fsx" event |> Async.Ignore
       return (server, path)
     }
     |> Async.Cache
@@ -101,7 +99,7 @@ let basicTests state =
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val t : int"}
                     MarkedString.String ""
                     MarkedString.String "*Full name: Script.t*"
-                    MarkedString.String "*Assembly: BasicTest*"|]
+                    MarkedString.String "*Assembly: Script*"|]
 
             Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - simple symbol"
         })
@@ -153,7 +151,7 @@ let basicTests state =
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( .>> ): \n   x: int ->\n   y: int \n   -> int"}
                     MarkedString.String ""
                     MarkedString.String "*Full name: Script.( .>> )*"
-                    MarkedString.String "*Assembly: BasicTest*"|]
+                    MarkedString.String "*Assembly: Script*"|]
 
             Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         })
