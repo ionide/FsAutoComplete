@@ -26,13 +26,15 @@ let tests state =
       let completionParams : CompletionParams =
         {
           TextDocument = { Uri = Path.FilePathToUri path }
-          Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
+          Position = { Line = 3; Character = 10 } // the '.' in 'Async.'
           Context = Some { triggerKind = CompletionTriggerKind.TriggerCharacter; triggerCharacter = Some '.' }
         }
       let! response = server.TextDocumentCompletion completionParams
       match response with
       | Ok (Some completions) ->
         Expect.isLessThan completions.Items.Length 100 "shouldn't have an incredibly huge completion list for a simple module completion"
+        let firstItem = completions.Items.[0]
+        Expect.equal firstItem.Label "CancellationToken" "first member should be CancellationToken, since properties are preferred over functions"
       | Ok None ->
         failtest "Should have gotten some completion items"
       | Error e ->

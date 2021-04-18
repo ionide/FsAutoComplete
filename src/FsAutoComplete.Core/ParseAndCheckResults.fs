@@ -426,7 +426,7 @@ type ParseAndCheckResults
 
   member __.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter (getAllSymbols : unit -> AssemblySymbol list) = async {
     try
-      let longName = FSharp.Compiler.SourceCodeServices.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 2)
+      let longName = FSharp.Compiler.SourceCodeServices.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
       let residue = longName.PartialIdent
       logger.info (Log.setMessage "TryGetCompletions - long name: {longName}" >> Log.addContextDestructured "longName" longName)
 
