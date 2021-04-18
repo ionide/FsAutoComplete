@@ -1,4 +1,4 @@
-module FsAutoComplete.Tests.FunctionApplicationTests
+module FsAutoComplete.Tests.SignatureHelp
 
 open Expecto
 open System.IO
@@ -11,7 +11,7 @@ type TriggerType = Manual | Char of char
 
 let private server state =
   async {
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FunctionApplication")
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
     return! serverInitialize path defaultConfigDto state
   }
   |> Async.Cache
@@ -20,7 +20,7 @@ let coreTestSignatureHelp hide title file (line, char) triggerType checkResp ser
 
   (if hide then ptestCaseAsync else testCaseAsync) title ( async {
     let! (server: Lsp.FSharpLspServer, event: ClientEvents) = server
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FunctionApplication")
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
     let path = Path.Combine(path, file)
     let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
     do! server.TextDocumentDidOpen tdop
@@ -99,11 +99,18 @@ let test750 =
     Expect.stringStarts signatures.Label "val tryConvert :" "should have given help for tryConvert"
   )
 
+
+let checkOverloadsAt pos name =
+  testSignatureHelp name "Overloads.fsx" pos Manual (fun resp ->
+    Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
+    Expect.isNonEmpty resp.Value.Signatures "Should have some overloads"
+  )
+
 let tests state =
   let server = server state
   testSequenced <|
-    testList "function application" [
-      testList "tests" ([
+    testList "signature help" [
+      testList "function application edge cases" ([
          test742
          test744
          test745
@@ -113,6 +120,18 @@ let tests state =
          test750
        ]
        |> List.map (fun f -> f server))
+      testList "overload edge cases" [
+        for c in 37..39 do
+          checkOverloadsAt (0, c) $"Can get overloads at whitespace position {c-37} of unattached parens" server
+        for c in 39..41 do
+          checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c-39} of attached parens" server
+      ]
+      testList "parameter position detect" [
+        testSignatureHelp "Can suggest second parameter when on the second parameter" "ParameterPosition.fsx" (0, 49) Manual (fun resp ->
+          Expect.isSome resp "should get sigdata when triggered on applications"
+          Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload"
+        ) server
+      ]
       testCaseAsync "cleanup" (async {
         let! server, _ = server
         do! server.Shutdown()

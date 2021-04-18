@@ -20,7 +20,7 @@
     <Compile Include="ScriptTests.fs" />
     <Compile Include="ExtensionsTests.fs" />
     <Compile Include="InteractiveDirectivesTests.fs" />
-    <Compile Include="FunctionApplicationTests.fs" />
+    <Compile Include="SignatureHelpTests.fs" />
     <Compile Include="CodeFixTests.fs" />
     <Compile Include="CompletionTests.fs" />
     <Compile Include="Program.fs" />

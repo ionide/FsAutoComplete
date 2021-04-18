@@ -45,7 +45,6 @@ let tests =
         foldingTests state
         tooltipTests state
         highlightingTests state
-        signatureHelpTests state
         scriptPreviewTests state
         scriptEvictionTests state
         scriptProjectOptionsCacheTests state
@@ -62,7 +61,7 @@ let tests =
         // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath
         analyzerTests state
-        FunctionApplicationTests.tests state
+        SignatureHelp.tests state
         CodeFixTests.tests state
         Completion.tests state
       ]
