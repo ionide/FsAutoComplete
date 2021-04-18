@@ -1,6 +1,11 @@
+### 0.45.2 - 18.04.2021
+
+* Improve overload detection in `textDocument/signatureHelp` for methods
+
 ### 0.45.1 - 18.04.2021
 
 * Fix regression in `textDocument/completion` introduced in 0.45.0
+
 ### 0.45.0 - 17.04.2021
 
 * Update Unused Binding CodeFix to handle more cases
