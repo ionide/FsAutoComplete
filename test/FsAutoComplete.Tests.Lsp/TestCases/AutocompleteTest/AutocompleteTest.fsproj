@@ -5,6 +5,6 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Script.fsx" />
+    <Compile Include="Script.fs" />
   </ItemGroup>
 </Project>
