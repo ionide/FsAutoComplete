@@ -172,7 +172,7 @@ let basicTests state =
                 [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val ( ^ ): \n   x: int ->\n   y: int \n   -> int"}
                     MarkedString.String ""
                     MarkedString.String "*Full name: Script.( ^ )*"
-                    MarkedString.String "*Assembly: BasicTest*"|]
+                    MarkedString.String "*Assembly: Script*"|]
 
             return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         })
@@ -762,7 +762,7 @@ let tooltipTests state =
     |> Async.Cache
 
   let verifyTooltip line character expectedTooltip =
-    testCaseAsync (sprintf "tooltip for line %d character %d should be '%s" line character expectedTooltip) (async {
+    testCaseAsync (sprintf "tooltip for line %d character %d should be '%s'" line character expectedTooltip) (async {
       let! server, scriptPath = server
       let pos: TextDocumentPositionParams = {
         TextDocument =  { Uri = sprintf "file://%s" scriptPath }
@@ -798,6 +798,7 @@ let tooltipTests state =
   testSequenced <|
     testList "tooltip evaluation" [
       testList "tests" [
+        verifyTooltip 0 4 "val arrayOfTuples : (int * int) array" // verify that even the first letter of the tooltip triggers correctly
         verifyTooltip 0 5 "val arrayOfTuples : (int * int) array"
         verifyTooltip 1 5 "val listOfTuples : list<int * int>"
         verifyTooltip 2 5 "val listOfStructTuples : list<struct (int * int)>"
