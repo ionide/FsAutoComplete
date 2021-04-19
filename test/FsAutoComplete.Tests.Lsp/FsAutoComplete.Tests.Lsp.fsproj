@@ -23,6 +23,7 @@
     <Compile Include="SignatureHelpTests.fs" />
     <Compile Include="CodeFixTests.fs" />
     <Compile Include="CompletionTests.fs" />
+    <Compile Include="RenameTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

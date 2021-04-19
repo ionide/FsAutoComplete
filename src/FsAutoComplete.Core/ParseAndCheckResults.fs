@@ -356,7 +356,7 @@ type ParseAndCheckResults
           Ok (symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc |> Seq.toList , signature, footer, cn)
 
   member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr): FSharpSymbolUse option =
-    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column, lineStr) with
     | None -> None
     | Some(colu, identIsland) ->
       let identIsland = Array.toList identIsland
