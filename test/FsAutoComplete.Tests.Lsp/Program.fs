@@ -40,7 +40,7 @@ let tests =
         codeLensTest state
         documentSymbolTest state
         Completion.autocompleteTest state
-        renameTest state
+        Rename.tests state
         gotoTest state
         foldingTests state
         tooltipTests state

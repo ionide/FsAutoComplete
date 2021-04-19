@@ -910,67 +910,62 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     | _ -> async.Return (success None)
             )
 
-    override x.TextDocumentRename(p) =
+    override x.TextDocumentRename(p: RenameParams) =
         logger.info (Log.setMessage "TextDocumentRename Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.SymbolUseProject tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (LocationResponse.Use (_, uses)) ->
-                        let documentChanges =
-                            uses
-                            |> Array.groupBy (fun sym -> sym.FileName)
-                            |> Array.map(fun (fileName, symbols) ->
-                                let edits =
-                                    symbols
-                                    |> Array.map (fun sym ->
-                                        let range = fcsRangeToLsp sym.RangeAlternate
-                                        let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.Symbol.DisplayName.Length }}
-                                        {
-                                            Range = range
-                                            NewText = p.NewName
-                                        })
-                                    |> Array.distinct
-                                {
-                                    TextDocument =
-                                        {
-                                            Uri = Path.FilePathToUri fileName
-                                            Version = commands.TryGetFileVersion (UMX.tag fileName) // from compiler, is safe
-                                        }
-                                    Edits = edits
-                                }
-                            )
-                        WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> success
-                    | CoreResponse.Res (LocationResponse.UseRange uses) ->
-                        let documentChanges =
-                            uses
-                            |> Array.groupBy (fun sym -> sym.FileName)
-                            |> Array.map(fun (fileName, symbols) ->
-                                let edits =
-                                    symbols
-                                    |> Array.map (fun sym ->
-                                        let range = symbolUseRangeToLsp sym
-                                        let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.SymbolDisplayName.Length }}
+            asyncResult {
+                match! commands.SymbolUseProject tyRes pos lineStr |> AsyncResult.ofCoreResponse with
+                | LocationResponse.Use (_, uses) ->
+                    let documentChanges =
+                        uses
+                        |> Array.groupBy (fun sym -> sym.FileName)
+                        |> Array.map(fun (fileName, symbols) ->
+                            let edits =
+                                symbols
+                                |> Array.map (fun sym ->
+                                    let range = fcsRangeToLsp sym.RangeAlternate
+                                    let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.Symbol.DisplayName.Length }}
+                                    {
+                                        Range = range
+                                        NewText = p.NewName
+                                    })
+                                |> Array.distinct
+                            {
+                                TextDocument =
+                                    {
+                                        Uri = Path.FilePathToUri fileName
+                                        Version = commands.TryGetFileVersion (UMX.tag fileName) // from compiler, is safe
+                                    }
+                                Edits = edits
+                            }
+                        )
+                    return WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some
+                | LocationResponse.UseRange uses ->
+                    let documentChanges =
+                        uses
+                        |> Array.groupBy (fun sym -> sym.FileName)
+                        |> Array.map(fun (fileName, symbols) ->
+                            let edits =
+                                symbols
+                                |> Array.map (fun sym ->
+                                    let range = symbolUseRangeToLsp sym
+                                    let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.SymbolDisplayName.Length }}
 
-                                        {
-                                            Range = range
-                                            NewText = p.NewName
-                                        })
-                                    |> Array.distinct
-                                {
-                                    TextDocument =
-                                        {
-                                            Uri = Path.FilePathToUri fileName
-                                            Version = commands.TryGetFileVersion (UMX.tag fileName) // from compiler, is safe
-                                        }
-                                    Edits = edits
-                                }
-                            )
-                        WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some |> success
-                return res
+                                    {
+                                        Range = range
+                                        NewText = p.NewName
+                                    })
+                                |> Array.distinct
+                            {
+                                TextDocument =
+                                    {
+                                        Uri = Path.FilePathToUri fileName
+                                        Version = commands.TryGetFileVersion (UMX.tag fileName) // from compiler, is safe
+                                    }
+                                Edits = edits
+                            }
+                        )
+                    return WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some
             })
 
     override x.TextDocumentDefinition(p) =

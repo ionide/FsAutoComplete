@@ -139,6 +139,6 @@ type State =
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) ->
       let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
-               pos.Column <= lines.[pos.Line - 1].Length + 1 && pos.Column >= 1
+               pos.Column <= lines.[pos.Line - 1].Length + 1 && pos.Column >= 0
       if not ok then ResultOrString.Error "Position is out of range"
       else Ok (opts, lines, lines.[pos.Line - 1])
