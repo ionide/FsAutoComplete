@@ -998,7 +998,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     override x.TextDocumentRename(p: RenameParams) =
         logger.info (Log.setMessage "TextDocumentRename Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            asyncResult {
+          asyncResult {
                 match! commands.SymbolUseProject tyRes pos lineStr |> AsyncResult.ofCoreResponse with
                 | LocationResponse.Use (_, uses) ->
                     let documentChanges =
@@ -1008,7 +1008,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             let edits =
                                 symbols
                                 |> Array.map (fun sym ->
-                                    let range = fcsRangeToLsp sym.RangeAlternate
+                                    let range = fcsRangeToLsp sym.Range
                                     let range = {range with Start = { Line = range.Start.Line; Character = range.End.Character - sym.Symbol.DisplayName.Length }}
                                     {
                                         Range = range
@@ -1051,7 +1051,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             }
                         )
                     return WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some
-            })
+          })
 
     override x.TextDocumentDefinition(p) =
         logger.info (Log.setMessage "TextDocumentDefinition Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -1094,7 +1094,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let! res = commands.SymbolUseProject tyRes pos lineStr |> AsyncResult.ofCoreResponse
                 let ranges: FSharp.Compiler.Text.Range [] =
                   match res with
-                  | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+                  | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
                   | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
                 let filtered =
                   if p.Context.IncludeDeclaration then ranges
@@ -1130,7 +1130,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let! res = commands.SymbolImplementationProject tyRes pos lineStr |> AsyncResult.ofCoreResponse
                 let ranges: FSharp.Compiler.Text.Range [] =
                   match res with
-                  | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+                  | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
                   | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
                 let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
                 match mappedRanges with
