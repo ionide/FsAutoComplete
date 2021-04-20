@@ -36,7 +36,11 @@
                 "enabled": true
               }
             },
-            "enableStepFiltering": false
+            "enableStepFiltering": false,
+            "args": [
+              "--filter",
+              "lsp.Ionide WorkspaceLoader.codefix tests.generate match cases.can generate match cases for a simple DU"
+            ]
         },
         {
             "name": ".NET Core mode stdio (debug)",
