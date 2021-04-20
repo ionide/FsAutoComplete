@@ -50,6 +50,36 @@ let abstractClassGenerationTests state =
     canGenerateForIdent
   ]
 
+let generateMatchTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "MatchCaseGeneration")
+      let! (server, events) = serverInitialize path { defaultConfigDto with UnionCaseStubGeneration = Some true } state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics = waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  testList "generate match cases" [
+    testCaseAsync "can generate match cases for a simple DU" (async {
+      let! server, file, diagnostics = server
+      let expectedDiagnostic = diagnostics.[0]
+      Expect.equal expectedDiagnostic.Code (Some "25") "Should have a empty match warning"
+      let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                                                      Range = expectedDiagnostic.Range
+                                                      Context = { Diagnostics = [| expectedDiagnostic |] } }
+      match response with
+      | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Generate union pattern match cases" } |] )) -> ()
+      | Ok other -> failtestf $"Should have generated the rest of match cases, but instead generated %A{other}"
+      | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+    })
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
+  generateMatchTests state
 ]

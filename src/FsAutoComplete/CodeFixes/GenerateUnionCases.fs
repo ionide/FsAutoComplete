@@ -13,23 +13,22 @@ let fix (getFileLines: GetFileLines)
                        (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
                        (getTextReplacements: unit -> Map<string, string>)
                        =
-  Run.ifDiagnosticByMessage
-    "Incomplete pattern matches on this expression. For example"
+  Run.ifDiagnosticByCode (Set.ofList ["25"])
     (fun diagnostic codeActionParams ->
       asyncResult {
         let fileName =
           codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
         let! (lines: string []) = getFileLines fileName
+        // try to find the first case already written
         let caseLine = diagnostic.Range.Start.Line + 1
-        let col = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
+        let caseCol = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
+        let casePos = { Line = caseLine; Character = caseCol }
+        let casePosFCS = protocolPosToPos casePos
 
-        let pos =
-          FSharp.Compiler.Text.Pos.mkPos (caseLine + 1) (col + 1) //Must points on first case in 1-based system
+        let! (tyRes, line, lines) = getParseResultsForFile fileName casePosFCS
 
-        let! (tyRes, line, lines) = getParseResultsForFile fileName pos
-
-        match! generateCases tyRes pos lines line |> Async.map Ok with
+        match! generateCases tyRes casePosFCS lines line |> Async.map Ok with
         | CoreResponse.Res (insertString: string, insertPosition) ->
             let range =
               { Start = fcsPosToLsp insertPosition

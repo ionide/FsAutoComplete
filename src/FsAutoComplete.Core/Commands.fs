@@ -925,9 +925,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
             if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
                 let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
-                let pos = Pos.mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
-
-                return CoreResponse.Res (result, pos)
+                return CoreResponse.Res (result, insertionPos.InsertionPos)
             else
                 return CoreResponse.InfoRes "Union at position not found"
         }
