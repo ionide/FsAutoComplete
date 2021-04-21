@@ -79,7 +79,39 @@ let generateMatchTests state =
     })
   ]
 
+let missingFunKeywordTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "MissingFunKeyword")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics = waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  testList "missing fun keyword" [
+    testCaseAsync "can generate the fun keyword when error 10 is raised" (async {
+      let! server, file, diagnostics = server
+      let expectedDiagnostic = diagnostics.[0]
+      Expect.equal expectedDiagnostic.Code (Some "10") "Should have a missing fun keyword error"
+      let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                                                      Range = expectedDiagnostic.Range
+                                                      Context = { Diagnostics = [| expectedDiagnostic |] } }
+      match response with
+      | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Add missing 'fun' keyword"
+                                                                Kind = Some "quickfix"
+                                                                Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "fun " } |] } |] } } |] )) -> ()
+      | Ok other -> failtestf $"Should have generated missing fun keyword, but instead generated %A{other}"
+      | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+    })
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
+  missingFunKeywordTests state
 ]
