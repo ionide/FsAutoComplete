@@ -44,7 +44,6 @@ let abstractClassGenerationTests state =
     | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
   })
 
-
   testList "abstract class generation" [
     canGenerateForLongIdent
     canGenerateForIdent
@@ -110,8 +109,40 @@ let missingFunKeywordTests state =
     })
   ]
 
+let outerBindingRecursiveTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "OuterBindingRecursive")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics = waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  testList "outer binding recursive" [
+    testCaseAsync "can make the outer binding recursive when self-referential" (async {
+      let! server, file, diagnostics = server
+      let expectedDiagnostic = diagnostics.[0]
+      Expect.equal expectedDiagnostic.Code (Some "39") "Should have a not defined value error"
+      let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                                                      Range = expectedDiagnostic.Range
+                                                      Context = { Diagnostics = [| expectedDiagnostic |] } }
+      match response with
+      | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Make outer binding recursive"
+                                                                Kind = Some "quickfix"
+                                                                Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "rec " } |] } |] } } |] )) -> ()
+      | Ok other -> failtestf $"Should have generated a rec keyword, but instead generated %A{other}"
+      | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+    })
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
   missingFunKeywordTests state
+  outerBindingRecursiveTests state
 ]
