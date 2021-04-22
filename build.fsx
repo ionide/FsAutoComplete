@@ -29,15 +29,25 @@ let gitOwner = "fsharp"
 let gitName = project
 let gitHome = "https://github.com/" + gitOwner
 
-
 Target.initEnvironment ()
 
+let fsacAssemblies =
+  "fsautocomplete|FsAutoComplete.Core|fsautocomplete.backgroundservices|LanguageServerProtocol"
+
 Target.create "LspTest" (fun _ ->
-  DotNet.exec
-      id
-      "run"
-      """-c Release --no-build -p "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" -- --fail-on-focused-tests --summary"""
-  |> fun r -> if not r.OK then failwithf "Errors while running LSP tests:\n%s" (r.Errors |> String.concat "\n\t")
+
+  let msbuildCli : Fake.DotNet.MSBuild.CliArguments =
+    { MSBuild.CliArguments.Create() with
+          Properties =
+            [ "AltCover", "true"
+              "AltCoverAssemblyFilter", fsacAssemblies
+              "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager" ]
+          }
+  let testOpts (opts: DotNet.TestOptions) =
+    { opts with Configuration = DotNet.BuildConfiguration.Release
+                RunSettingsArguments = Some ("Expecto.fail-on-focused-tests=true")
+                MSBuildParams = msbuildCli }
+  DotNet.test testOpts "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj"
 )
 
 Target.create "ReleaseArchive" (fun _ ->

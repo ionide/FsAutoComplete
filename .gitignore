@@ -39,3 +39,4 @@ fsautocomplete.suave.zip
 msbuild.binlog
 release.cmd
 test/FsAutoComplete.Tests.Lsp/TestCases/FakeInterop/build.fsx.lock
+coverage.xml
