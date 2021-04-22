@@ -59,7 +59,7 @@ type ParseAndCheckResults
   }
 
   member __.TryFindIdentifierDeclaration (pos: Pos) (lineStr: LineStr) =
-    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column, lineStr) with
     | None -> async.Return (ResultOrString.Error "Could not find ident at this location")
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland

@@ -380,7 +380,7 @@ let private scriptGotoTests state =
       | Ok None -> failtest "Request none"
       | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
       | Ok (Some (GotoResult.Single r)) ->
-        Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
+        Expect.stringEnds r.Uri (Path.GetFileName scriptPath) "should navigate to the mentioned script file"
         Expect.equal r.Range {Start = { Line = 3; Character = 4 }; End = { Line = 3; Character = 16 }} "should point to the range of the definition of `testFunction`"
     })
     testCaseAsync "cleanup" (async {
