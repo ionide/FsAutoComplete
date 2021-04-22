@@ -4,22 +4,24 @@ framework: netstandard2.0, net5.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
-#source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
 #source: ./libs
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas.Extras ~> 4.5
-nuget FSharp.Compiler.Service ~> 39
+nuget Fantomas.Extras ~> 4.5 prerelease
 nuget Ionide.ProjInfo
 nuget Ionide.ProjInfo.FCS
 nuget Ionide.ProjInfo.ProjectSystem
+nuget FSharp.Compiler.Service prerelease
+
 nuget Microsoft.Build copy_local:false
 nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
 nuget Microsoft.Build.Tasks.Core copy_local: false
+
 nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.10.0-beta7

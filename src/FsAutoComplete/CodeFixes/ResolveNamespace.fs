@@ -4,7 +4,7 @@ open LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsToolkit.ErrorHandling
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open FsAutoComplete.LspHelpers
 open FsAutoComplete
 open FSharp.Compiler.Text

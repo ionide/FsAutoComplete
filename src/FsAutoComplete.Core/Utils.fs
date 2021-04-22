@@ -6,8 +6,9 @@ open System.Threading.Tasks
 open System.IO
 open System.Collections.Concurrent
 open System
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open FSharp.UMX
+open FSharp.Compiler.CodeAnalysis
 
 module Map =
     /// Combine two maps of identical types by starting with the first map and overlaying the second one.

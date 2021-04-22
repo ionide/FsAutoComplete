@@ -1,6 +1,7 @@
 namespace FsAutoComplete
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.IO
 open System
 open FsAutoComplete.Logging
 open FSharp.UMX
@@ -19,7 +20,7 @@ open System.IO
 type SourceTextExtensions =
   [<Extension>]
   static member GetText(t: ISourceText, m: FSharp.Compiler.Text.Range): Result<string, string> =
-    let allFileRange = Range.mkRange m.FileName Pos.pos0 (t.GetLastFilePosition())
+    let allFileRange = Range.mkRange m.FileName Position.pos0 (t.GetLastFilePosition())
     if not (Range.rangeContainsRange allFileRange m)
     then Error $"%A{m} is outside of the bounds of the file"
     else
@@ -47,9 +48,9 @@ type SourceTextExtensions =
   [<Extension>]
   /// a safe alternative to GetLastCharacterPosition, which returns untagged indexes. this version
   /// returns a FCS Pos to prevent confusion about line index offsets
-  static member GetLastFilePosition(t: ISourceText): FSharp.Compiler.Text.Pos =
+  static member GetLastFilePosition(t: ISourceText): FSharp.Compiler.Text.Position =
     let endLine, endChar = t.GetLastCharacterPosition()
-    Pos.mkPos endLine endChar
+    Position.mkPos endLine endChar
 
 type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
     let getContent (filename: string<LocalPath>) =

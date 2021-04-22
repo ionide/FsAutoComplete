@@ -1,7 +1,9 @@
 namespace FsAutoComplete
 
 open System.IO
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 open Utils
 open FSharp.Compiler.Text
 open FsAutoComplete.Logging
@@ -25,7 +27,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
   let safeFileCheckedEvent =
-    if not backgroundServiceEnabled then checker.FileChecked else (new Event<string * obj option>()).Publish
+    if not backgroundServiceEnabled then checker.FileChecked else (new Event<string * FSharpProjectOptions>()).Publish
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
@@ -171,7 +173,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
         yield! options
                |> Seq.map snd
                |> Seq.distinctBy (fun o -> o.ProjectFileName)
-               |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName) |> Array.contains option.ProjectFileName )
+               |> Seq.filter (fun o -> o.ReferencedProjects |> Array.map (fun reference -> Path.GetFullPath reference.FileName) |> Array.contains option.ProjectFileName )
       ])
 
   member private __.GetNetFxScriptOptions(file: string<LocalPath>, source) = async {
@@ -234,9 +236,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     checker.GetBackgroundCheckResultsForFileInProject(UMX.untag fn, opt)
     |> Async.map (fun (pr,cr) ->  ParseAndCheckResults (pr, cr, entityCache))
 
-  member __.FileChecked: IEvent<string<LocalPath> * obj option> =
+  member __.FileChecked: IEvent<string<LocalPath> * FSharpProjectOptions> =
     safeFileCheckedEvent
-    |> Event.map (fun (fileName, blob) -> UMX.tag fileName, blob) //path comes from the compiler, so it's safe to assume the tag in this case
+    |> Event.map (fun (fileName, projOptions) -> UMX.tag fileName, projOptions) //path comes from the compiler, so it's safe to assume the tag in this case
 
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
@@ -252,10 +254,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       let options = clearProjectReferences options
       try
         let! (p, c) = checker.ParseAndCheckFileInProject (UMX.untag filePath, version, source, options, userOpName = opName)
-        let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
+        let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
         match c with
         | FSharpCheckFileAnswer.Aborted ->
-          logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
+          logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Diagnostics))
           return ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
         | FSharpCheckFileAnswer.Succeeded(c) ->
           return Ok (ParseAndCheckResults(p, c, entityCache))

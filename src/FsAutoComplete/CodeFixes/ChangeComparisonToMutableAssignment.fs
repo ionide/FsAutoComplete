@@ -6,7 +6,7 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 
 /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
@@ -34,7 +34,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           // only do anything if the value is mutable
           | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsMutable || mfv.HasSetterMethod ->
               // try to find the '=' at from the start of the range
-              let endOfMutableValue = fcsPosToLsp symbol.RangeAlternate.End
+              let endOfMutableValue = fcsPosToLsp symbol.Range.End
 
               match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
               | Some equalsPos ->

@@ -8,7 +8,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Analyzer.fs" />
+    <!-- <Compile Include="Analyzer.fs" /> -->
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

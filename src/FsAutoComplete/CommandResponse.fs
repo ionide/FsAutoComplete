@@ -3,7 +3,7 @@ namespace FsAutoComplete
 open System
 
 open FSharp.Compiler
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
 
@@ -34,14 +34,14 @@ module internal CompletionUtils =
 
 
   let getEnclosingEntityChar = function
-    | FSharpEnclosingEntityKind.Namespace -> "N"
-    | FSharpEnclosingEntityKind.Module -> "M"
-    | FSharpEnclosingEntityKind.Class -> "C"
-    | FSharpEnclosingEntityKind.Exception -> "E"
-    | FSharpEnclosingEntityKind.Interface -> "I"
-    | FSharpEnclosingEntityKind.Record -> "R"
-    | FSharpEnclosingEntityKind.Enum -> "En"
-    | FSharpEnclosingEntityKind.DU -> "D"
+    | NavigationEntityKind.Namespace -> "N"
+    | NavigationEntityKind.Module -> "M"
+    | NavigationEntityKind.Class -> "C"
+    | NavigationEntityKind.Exception -> "E"
+    | NavigationEntityKind.Interface -> "I"
+    | NavigationEntityKind.Record -> "R"
+    | NavigationEntityKind.Enum -> "En"
+    | NavigationEntityKind.DU -> "D"
 
 module internal ClassificationUtils =
 
@@ -237,7 +237,7 @@ module CommandResponse =
       EnclosingEntity: string
       IsAbstract: bool
     }
-    static member OfDeclarationItem(e:FSharpNavigationDeclarationItem, fn) =
+    static member OfDeclarationItem(e:NavigationItem, fn) =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
       {
         UniqueName = e.UniqueName
@@ -495,7 +495,7 @@ module CommandResponse =
                 Data = { CommandName = commandName
                          ParameterStr = parameterStr} }
 
-  let declarations (serialize : Serializer) (decls : (FSharpNavigationTopLevelDeclaration * string<LocalPath>) []) =
+  let declarations (serialize : Serializer) (decls : (NavigationTopLevelDeclaration * string<LocalPath>) []) =
      let decls' =
       decls |> Array.map (fun (d, fn) ->
         { Declaration = Declaration.OfDeclarationItem (d.Declaration, UMX.untag fn);

@@ -2,7 +2,8 @@
 
 open System
 open System.IO
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.CodeAnalysis
 open Utils
 open System.Text.RegularExpressions
 open ICSharpCode.Decompiler.CSharp
@@ -78,7 +79,7 @@ let resolveType (typeSystem: IDecompilerTypeSystem) (typeName:string) =
 
 let rec formatExtTypeFullName externalType =
     match externalType with
-    | ExternalType.Type (name, genericArgs) ->
+    | FindDeclExternalType.Type (name, genericArgs) ->
         match genericArgs with
         | [] -> ""
         | args ->
@@ -87,12 +88,12 @@ let rec formatExtTypeFullName externalType =
             |> String.concat ","
             |> sprintf "[%s]"
         |> sprintf "%s%s" name
-    | ExternalType.Array inner -> sprintf "%s[]" (formatExtTypeFullName inner)
-    | ExternalType.Pointer inner -> sprintf "&%s" (formatExtTypeFullName inner)
-    | ExternalType.TypeVar name -> sprintf "%s" name
+    | FindDeclExternalType.Array inner -> sprintf "%s[]" (formatExtTypeFullName inner)
+    | FindDeclExternalType.Pointer inner -> sprintf "&%s" (formatExtTypeFullName inner)
+    | FindDeclExternalType.TypeVar name -> sprintf "%s" name
 
-let areSameTypes (typeArguments:IReadOnlyList<IType>) ((mParam,paramSym):IParameter*ParamTypeSymbol) =
-    let compareToExternalType (extType:ExternalType) =
+let areSameTypes (typeArguments:IReadOnlyList<IType>) ((mParam, paramSym): IParameter * FindDeclExternalParam) =
+    let compareToExternalType (extType: FindDeclExternalType) =
         let parameterTypeFullName =
             typeArguments
             |> Seq.fold
@@ -102,21 +103,19 @@ let areSameTypes (typeArguments:IReadOnlyList<IType>) ((mParam,paramSym):IParame
         let extTypeFullName = formatExtTypeFullName extType
         parameterTypeFullName = extTypeFullName
 
-    match paramSym with
-    | ParamTypeSymbol.Param extType -> compareToExternalType extType
-    | ParamTypeSymbol.Byref extType ->
-        mParam.IsRef && compareToExternalType extType
+    if paramSym.IsByRef then mParam.IsRef && compareToExternalType paramSym.ParameterType
+    else compareToExternalType paramSym.ParameterType
 
 
 let getDeclaringTypeName = function
-    | FSharpExternalSymbol.Type (fullName) -> fullName
-    | FSharpExternalSymbol.Constructor (typeName, _args) -> typeName
-    | FSharpExternalSymbol.Method (typeName, _name, _paramSyms, _genericArity) -> typeName
-    | FSharpExternalSymbol.Field (typeName, _name) -> typeName
-    | FSharpExternalSymbol.Event (typeName, _name) -> typeName
-    | FSharpExternalSymbol.Property (typeName, _name) -> typeName
+    | FindDeclExternalSymbol.Type (fullName) -> fullName
+    | FindDeclExternalSymbol.Constructor (typeName, _args) -> typeName
+    | FindDeclExternalSymbol.Method (typeName, _name, _paramSyms, _genericArity) -> typeName
+    | FindDeclExternalSymbol.Field (typeName, _name) -> typeName
+    | FindDeclExternalSymbol.Event (typeName, _name) -> typeName
+    | FindDeclExternalSymbol.Property (typeName, _name) -> typeName
 
-let findMethodFromArgs (args:ParamTypeSymbol list) (methods:IMethod seq) =
+let findMethodFromArgs (args: FindDeclExternalParam list) (methods:IMethod seq) =
     methods
     |> Seq.tryFind (fun m ->
         let mParams = m.Parameters
@@ -126,7 +125,7 @@ let findMethodFromArgs (args:ParamTypeSymbol list) (methods:IMethod seq) =
 
 type ExternalContentPosition =
   { File: string
-    Position: FSharp.Compiler.Text.Pos }
+    Position: FSharp.Compiler.Text.Position }
 
 let toSafeFileNameRegex =
     System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
@@ -136,9 +135,9 @@ let toSafeFileName (typeDef:ITypeDefinition) =
     toSafeFileNameRegex.Replace(str, "_")
 
 type DecompileError =
-| Exception of symbol: FSharpExternalSymbol * filePath: string * error: exn
+| Exception of symbol: FindDeclExternalSymbol * filePath: string * error: exn
 
-let decompile (externalSym: FSharpExternalSymbol) assemblyPath: Result<ExternalContentPosition, DecompileError> =
+let decompile (externalSym: FindDeclExternalSymbol) assemblyPath: Result<ExternalContentPosition, DecompileError> =
     try
         let decompiler = decompilerForFile assemblyPath
 
@@ -150,29 +149,29 @@ let decompile (externalSym: FSharpExternalSymbol) assemblyPath: Result<ExternalC
 
         let symbol =
             match externalSym with
-            | FSharpExternalSymbol.Type _ -> Some (typeDef :> ISymbol)
-            | FSharpExternalSymbol.Constructor (_typeName, args) ->
+            | FindDeclExternalSymbol.Type _ -> Some (typeDef :> ISymbol)
+            | FindDeclExternalSymbol.Constructor (_typeName, args) ->
                 typeDef.GetConstructors()
                 |> findMethodFromArgs args
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | FSharpExternalSymbol.Method (_typeName, name, args, genericArity) ->
+            | FindDeclExternalSymbol.Method (_typeName, name, args, genericArity) ->
                 typeDef.GetMethods(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.where (fun m -> m.TypeParameters.Count = genericArity)
                 |> findMethodFromArgs args
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | FSharpExternalSymbol.Field (_typeName, name) ->
+            | FindDeclExternalSymbol.Field (_typeName, name) ->
                 typeDef.GetFields(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.tryHead
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | FSharpExternalSymbol.Event (_typeName, name) ->
+            | FindDeclExternalSymbol.Event (_typeName, name) ->
                 typeDef.GetEvents(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.tryHead
                 |> Option.map (fun x -> x :> ISymbol)
 
-            | FSharpExternalSymbol.Property (_typeName, name) ->
+            | FindDeclExternalSymbol.Property (_typeName, name) ->
                 typeDef.GetProperties(filter = Predicate (fun m -> m.Name = name))
                 |> Seq.tryHead
                 |> Option.map (fun x -> x :> ISymbol)
@@ -190,16 +189,16 @@ let decompile (externalSym: FSharpExternalSymbol) assemblyPath: Result<ExternalC
         | Some l ->
             Ok { File = tempFile
                  // external library columns are 1-based, not 0-based like FCS Pos columns
-                 Position = FSharp.Compiler.Text.Pos.mkPos l.Line (l.Column - 1) }
+                 Position = FSharp.Compiler.Text.Position.mkPos l.Line (l.Column - 1) }
         | None ->
             Ok { File = tempFile
-                 Position = FSharp.Compiler.Text.Pos.pos0 }
+                 Position = FSharp.Compiler.Text.Position.pos0 }
     with
     | e -> Result.Error (Exception (externalSym, assemblyPath, e))
 
 type FindExternalDeclarationError =
 | ReferenceNotFound of assembly: string
-| ReferenceHasNoFileName of assembly: FSharpAssembly
+| ReferenceHasNoFileName of assembly: FSharp.Compiler.Symbols.FSharpAssembly
 | DecompileError of error: DecompileError
 
 let tryFindExternalDeclaration (checkResults:FSharpCheckFileResults) (assembly, externalSym): Result<ExternalContentPosition, FindExternalDeclarationError> =

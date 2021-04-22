@@ -7,14 +7,15 @@ open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.SourceCodeServices
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Syntax.SyntaxTraversal
 open FSharp.Compiler.Text
-
+open FSharp.Compiler.CodeAnalysis
 
 let posBetween (range: Range) tester =
-  Pos.posGeq tester range.Start // positions on this one are flipped to simulate Pos.posLte, because that doesn't exist
-  && Pos.posGeq range.End tester
+  Position.posGeq tester range.Start // positions on this one are flipped to simulate Pos.posLte, because that doesn't exist
+  && Position.posGeq range.End tester
 
 type private ReplacmentRangeResult =
 | FullBinding of bindingRange: Range
@@ -22,12 +23,10 @@ type private ReplacmentRangeResult =
 
 type FSharpParseFileResults with
   member private this.TryRangeOfBindingWithHeadPatternWithPos (diagnosticRange: range) =
-      this.ParseTree
-      |> Option.bind (fun input ->
-        AstTraversal.Traverse(diagnosticRange.Start, input, { new AstTraversal.AstVisitorBase<_>() with
+      Traverse(diagnosticRange.Start, this.ParseTree, { new SyntaxVisitorBase<_>() with
             member _.VisitExpr(_, _, defaultTraverse, expr) =
                 defaultTraverse expr
-            override _.VisitPat(defaultTraverse, pat: SynPat) =
+            override _.VisitPat(path, defaultTraverse, pat: SynPat) =
               // if the diagnostic was for this specific pattern in its entirety, then we're don
               if Range.equals pat.Range diagnosticRange then Some (Pattern diagnosticRange)
               else
@@ -44,27 +43,26 @@ type FSharpParseFileResults with
                   else defaultTraverse inner
                 | pat -> defaultTraverse pat
 
-            override _.VisitBinding(defaultTraverse, binding) =
+            override _.VisitBinding(path, defaultTraverse, binding) =
                 match binding with
-                | SynBinding.Binding(_, SynBindingKind.NormalBinding, _, _, _, _, _, pat, _, _, _, _) as binding ->
+                | SynBinding(_, SynBindingKind.Normal, _, _, _, _, _, pat, _, _, _, _) as binding ->
                     // walk the patterns in the binding first, to allow the parameter traversal a chance to fire
                     match defaultTraverse binding with
                     | None ->
                       // otherwise if the diagnostic was in this binding's head pattern then do teh replacement
-                      if Range.rangeContainsRange binding.RangeOfHeadPat diagnosticRange then
-                          Some (FullBinding binding.RangeOfBindingAndRhs)
+                      if Range.rangeContainsRange binding.RangeOfHeadPattern diagnosticRange then
+                          Some (FullBinding binding.RangeOfBindingWithRhs)
                       else
                           // Check if it's an operator
                           match pat with
                           | SynPat.LongIdent(LongIdentWithDots([id], _), _, _, _, _, _) when id.idText.StartsWith("op_") ->
                               if Range.rangeContainsRange id.idRange diagnosticRange then
-                                  Some (FullBinding binding.RangeOfBindingAndRhs)
+                                  Some (FullBinding binding.RangeOfBindingWithRhs)
                               else
                                   defaultTraverse binding
                           | _ -> defaultTraverse binding
                     | Some range -> Some range
                 | _ -> defaultTraverse binding })
-      )
 
 let fix (getParseResults: GetParseResultsForFile): CodeFix =
   Run.ifDiagnosticByCode

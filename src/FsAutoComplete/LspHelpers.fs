@@ -4,15 +4,16 @@ open System
 open System.IO
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open FSharp.Reflection
 open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
+open FSharp.Compiler.Diagnostics
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
-module FcsPos = FSharp.Compiler.Text.Pos
-type FcsPos = FSharp.Compiler.Text.Pos
+module FcsPos = FSharp.Compiler.Text.Position
+type FcsPos = FSharp.Compiler.Text.Position
 
 [<AutoOpen>]
 module Conversions =
@@ -106,11 +107,7 @@ module Conversions =
 
     let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
         {
-            Range =
-                {
-                    Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
-                    End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
-                }
+            Range = fcsRangeToLsp error.Range
             Severity = fcsSeverityToDiagnostic error.Severity
             Source = "F# Compiler"
             Message = error.Message
@@ -121,15 +118,15 @@ module Conversions =
             CodeDescription = Some { Href = Some (Uri (urlForCompilerCode error.ErrorNumber))}
         }
 
-    let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration) (symbolFilter: SymbolInformation -> bool): SymbolInformation [] =
-        let inner (container: string option) (decl: FSharpNavigationDeclarationItem): SymbolInformation option =
+    let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: NavigationTopLevelDeclaration) (symbolFilter: SymbolInformation -> bool): SymbolInformation [] =
+        let inner (container: string option) (navItem: NavigationItem): SymbolInformation option =
             // We should nearly always have a kind, if the client doesn't send weird capabilities,
             // if we don't why not assume module...
-            let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
-            let location = { Uri = uri; Range = fcsRangeToLsp decl.Range }
+            let kind = defaultArg (glyphToSymbolKind navItem.Glyph) SymbolKind.Module
+            let location = { Uri = uri; Range = fcsRangeToLsp navItem.Range }
             let sym =
               {
-                  SymbolInformation.Name = decl.Name
+                  SymbolInformation.Name = navItem.Name
                   Kind = kind
                   Location = location
                   ContainerName = container
@@ -153,8 +150,8 @@ module Conversions =
           Array.last parts
         info.Name.StartsWith fieldName && info.ContainerName = Some containerName
 
-    let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: FSharpNavigationTopLevelDeclaration): CodeLens [] =
-        let map (decl: FSharpNavigationDeclarationItem): CodeLens =
+    let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration): CodeLens [] =
+        let map (decl: NavigationItem): CodeLens =
             {
                 Command = None
                 Data = Some (Newtonsoft.Json.Linq.JToken.FromObject [|uri; typ |] )
@@ -169,11 +166,11 @@ module Conversions =
               && n.Glyph <> FSharpGlyph.EnumMember
               && n.Glyph <> FSharpGlyph.Property
               || n.IsAbstract
-              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Interface
-              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Record
-              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.DU
-              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Enum
-              || n.EnclosingEntityKind = FSharpEnclosingEntityKind.Exception)
+              || n.EnclosingEntityKind = NavigationEntityKind.Interface
+              || n.EnclosingEntityKind = NavigationEntityKind.Record
+              || n.EnclosingEntityKind = NavigationEntityKind.Union
+              || n.EnclosingEntityKind = NavigationEntityKind.Enum
+              || n.EnclosingEntityKind = NavigationEntityKind.Exception)
         )
         |> Array.map map
 
@@ -513,6 +510,7 @@ module ClassificationUtils =
       | SemanticClassificationType.Value
       | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
       | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
+      | other -> SemanticTokenTypes.Text, []
 
 type PlainNotification= { Content: string }
 

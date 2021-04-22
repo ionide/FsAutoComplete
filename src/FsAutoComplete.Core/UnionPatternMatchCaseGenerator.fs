@@ -3,9 +3,10 @@ module FsAutoComplete.UnionPatternMatchCaseGenerator
 
 open System
 open FsAutoComplete.UntypedAstUtils
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Symbols
 open FSharp.Compiler.Text
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open FsAutoComplete.CodeGenerationUtils
 
 [<NoEquality; NoComparison>]
@@ -19,7 +20,7 @@ type PatternMatchExpr = {
 
 [<NoComparison>]
 type UnionMatchCasesInsertionParams = {
-    InsertionPos: Pos
+    InsertionPos: Position
     IndentColumn: int
 }
 
@@ -32,7 +33,7 @@ type private Context = {
     Qualifier: string option
 }
 
-let private clauseIsCandidateForCodeGen (cursorPos: Pos) (clause: SynMatchClause) =
+let private clauseIsCandidateForCodeGen (cursorPos: Position) (clause: SynMatchClause) =
     let rec patIsCandidate (pat: SynPat) =
         match pat with
         | SynPat.Paren(innerPat, _)
@@ -64,15 +65,15 @@ let private clauseIsCandidateForCodeGen (cursorPos: Pos) (clause: SynMatchClause
         | SynPat.FromParseError _ -> false
 
     match clause with
-    | Clause(pat, _, _, _, _) -> patIsCandidate pat
+    | SynMatchClause(pat, _, _, _, _) -> patIsCandidate pat
 
-let private posIsInLhsOfClause (pos: Pos) (clause: SynMatchClause) =
+let private posIsInLhsOfClause (pos: Position) (clause: SynMatchClause) =
     match clause with
-    | Clause(_, None, _, patternRange, _) -> Range.rangeContainsPos patternRange pos
-    | Clause(_, Some guardExpr, _, patternRange, _) ->
+    | SynMatchClause(_, None, _, patternRange, _) -> Range.rangeContainsPos patternRange pos
+    | SynMatchClause(_, Some guardExpr, _, patternRange, _) ->
         Range.rangeContainsPos (Range.unionRanges guardExpr.Range patternRange) pos
 
-let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: ParsedInput) =
+let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: ParsedInput) =
     let inline getIfPosInRange range f =
         if Range.rangeContainsPos range pos then f()
         else None
@@ -108,9 +109,10 @@ let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: Parsed
                 None
         )
 
-    and walkSynTypeDefn(TypeDefn(_componentInfo, representation, members, range)) =
+    and walkSynTypeDefn(SynTypeDefn(_componentInfo, representation, members, implicitCtor, range)) =
         getIfPosInRange range (fun () ->
             walkSynTypeDefnRepr representation
+            |> Option.orElseWith (fun _ -> Option.bind walkSynMemberDefn implicitCtor)
             |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members)
         )
 
@@ -147,8 +149,8 @@ let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: Parsed
                 None
         )
 
-    and walkBinding (Binding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, _retTy, expr, _bindingRange, _seqPoint) as binding) =
-        getIfPosInRange binding.RangeOfBindingAndRhs (fun () -> walkExpr expr)
+    and walkBinding (SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, _retTy, expr, _bindingRange, _seqPoint) as binding) =
+        getIfPosInRange binding.RangeOfBindingWithRhs (fun () -> walkExpr expr)
 
     and walkExpr expr =
         getIfPosInRange expr.Range (fun () ->
@@ -202,7 +204,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: Parsed
                                   synMatchClauseList,
                                   _, _wholeExprRange) as matchLambdaExpr ->
                 synMatchClauseList
-                |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
+                |> List.tryPick (fun (SynMatchClause(_, _, e, _, _)) -> walkExpr e)
                 |> Option.orElseWith (fun () ->
                     if isExnMatch then
                         None
@@ -220,13 +222,13 @@ let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: Parsed
                 getIfPosInRange synExpr.Range (fun () -> walkExpr synExpr)
                 |> Option.orElseWith (fun () ->
                     synMatchClauseList
-                    |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
+                    |> List.tryPick (fun (SynMatchClause(_, _, e, _, _)) -> walkExpr e)
                 )
                 |> Option.orElseWith (fun () ->
                     let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
                     if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
                         match sequencePointInfoForBinding with
-                        | DebugPointAtBinding range ->
+                        | DebugPointAtBinding.Yes range ->
                             { MatchWithOrFunctionRange = range
                               Expr = matchExpr
                               Clauses = synMatchClauseList }
@@ -336,7 +338,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Pos) (parsedInput: Parsed
             | _ -> None
         )
 
-    and walkSynInterfaceImpl (InterfaceImpl(_synType, synBindings, _range)) =
+    and walkSynInterfaceImpl (SynInterfaceImpl(_synType, synBindings, _range)) =
         List.tryPick walkBinding synBindings
 
     match parsedInput with
@@ -420,7 +422,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
 
     let rec getCasesInClause (x: SynMatchClause) =
         match x with
-        | Clause(pat, None, _, _, _) -> getCasesInPattern pat
+        | SynMatchClause(pat, None, _, _, _) -> getCasesInPattern pat
         | _ -> []
 
     patMatchExpr.Clauses
@@ -434,10 +436,10 @@ let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entit
         |> Set.count
     caseCount > 0 && writtenCaseCount < caseCount
 
-let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
+let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Position) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
-        let! input = parseResults.ParseTree
+        let input = parseResults.ParseTree
         return! tryFindPatternMatchExprInParsedInput pos input
     }
 
@@ -521,7 +523,7 @@ let tryFindInsertionParams (codeGenService: CodeGenerationService) document (pat
                     firstClauseOnLastLine.Range.StartRange
             else
                 let clause = firstClauseOnLastLine
-                let start = Pos.mkPos clause.Range.StartLine 0
+                let start = Position.mkPos clause.Range.StartLine 0
                 Range.mkRange clause.Range.FileName start clause.Range.Start
 
         let barTokenOpt =
@@ -547,7 +549,7 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
         // In the case when there's nothing in the RHS of the arrow
         // FCS compiler apparently uses this particular AST representation
         // but with unitRange = empty
-        | Clause(_, _, SynExpr.Const(SynConst.Unit, unitRange), _, _) ->
+        | SynMatchClause(_, _, SynExpr.Const(SynConst.Unit, unitRange), _, _) ->
             let rhsExprExists =
                 unitRange.StartLine <> unitRange.EndLine ||
                 unitRange.StartColumn <> unitRange.EndColumn
@@ -602,13 +604,13 @@ let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
         | Some qual -> sprintf "%s.%s" qual case.Name
 
     let paramsPattern =
-        let unionCaseFieldsCount = case.UnionCaseFields.Count
+        let unionCaseFieldsCount = case.Fields.Count
         if unionCaseFieldsCount <= 0 then
             ""
         else
             let fieldNames =
                 [|
-                    for field in case.UnionCaseFields ->
+                    for field in case.Fields ->
                         if String.IsNullOrEmpty(field.Name) || isUnnamedUnionCaseField field then
                             "_"
                         else

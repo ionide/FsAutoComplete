@@ -1,7 +1,7 @@
 module FsAutoComplete.Program
 
 open System
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open FsAutoComplete.JsonSerializer
 open Argu
 open Serilog

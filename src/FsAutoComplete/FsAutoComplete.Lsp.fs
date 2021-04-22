@@ -5,7 +5,7 @@ open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open LanguageServerProtocol.Server
@@ -23,8 +23,8 @@ open System.Threading
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
-module FcsPos = FSharp.Compiler.Text.Pos
-type FcsPos = FSharp.Compiler.Text.Pos
+module FcsPos = FSharp.Compiler.Text.Position
+type FcsPos = FSharp.Compiler.Text.Position
 
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) =
@@ -1115,7 +1115,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                   uses
                   |> Array.map (fun s ->
                   {
-                      DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
+                      DocumentHighlight.Range = fcsRangeToLsp s.Range
                       Kind = None
                   })
                   |> Some
@@ -1351,7 +1351,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                                 else sprintf "%d References" uses.Length
                             let locs =
                                 uses
-                                |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
+                                |> Array.map (fun n -> fcsRangeToLspLocation n.Range)
 
                             let args = [|
                                 JToken.FromObject (Path.LocalPathToUri file)

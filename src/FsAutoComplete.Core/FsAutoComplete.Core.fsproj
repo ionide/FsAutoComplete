@@ -19,6 +19,7 @@
     <Compile Include="TypedAstPatterns.fs" />
     <Compile Include="FCSPatches.fs" />
     <Compile Include="Lexer.fs" />
+    <Compile Include="XmlDoc.fs" />
     <Compile Include="SignatureFormatter.fs" />
     <Compile Include="TipFormatter.fs" />
     <Compile Include="DocumentationFormatter.fs" />

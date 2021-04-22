@@ -3,7 +3,8 @@ namespace FsAutoComplete
 
 open System
 open System.Text.RegularExpressions
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 open UntypedAstUtils
 
 
@@ -200,6 +201,9 @@ module TypedAstExtensionHelpers =
             | :? FSharpGenericParameter -> true
             | :? FSharpUnionCase as m -> m.Accessibility.IsPrivate
             | :? FSharpField as m -> m.Accessibility.IsPrivate
+            | :? FSharpStaticParameter as m -> false
+            | :? FSharpActivePatternCase as m -> false
+            | :? FSharpParameter as m -> false
             | _ -> false
 
         member this.IsInternalToProject =
@@ -210,6 +214,8 @@ module TypedAstExtensionHelpers =
             | :? FSharpGenericParameter -> true
             | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
             | :? FSharpField as m -> not m.Accessibility.IsPublic
+            | :? FSharpStaticParameter as m -> false
+            | :? FSharpActivePatternCase as m -> false
             | _ -> false
 
         member x.XmlDocSig =
@@ -219,7 +225,9 @@ module TypedAstExtensionHelpers =
             | :? FSharpField as fsf -> fsf.XmlDocSig
             | :? FSharpUnionCase as fsu -> fsu.XmlDocSig
             | :? FSharpActivePatternCase as apc -> apc.XmlDocSig
-            | :? FSharpGenericParameter -> ""
+            | :? FSharpGenericParameter  as gp -> gp.XmlDocSig
+            | :? FSharpStaticParameter as m -> ""
+            | :? FSharpParameter as m -> ""
             | _ -> ""
 
         member x.XmlDoc =
@@ -230,7 +238,9 @@ module TypedAstExtensionHelpers =
             | :? FSharpUnionCase as fsu -> fsu.XmlDoc
             | :? FSharpActivePatternCase as apc -> apc.XmlDoc
             | :? FSharpGenericParameter as gp -> gp.XmlDoc
-            | _ -> ResizeArray() :> Collections.Generic.IList<_>
+            | :? FSharpParameter as p -> p.XmlDoc
+            | :? FSharpStaticParameter as sp -> FSharpXmlDoc.None
+            | _ -> FSharpXmlDoc.None
 
     type FSharpGenericParameterMemberConstraint with
         member x.IsProperty =

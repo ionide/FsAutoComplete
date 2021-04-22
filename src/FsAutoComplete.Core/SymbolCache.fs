@@ -2,10 +2,11 @@ module SymbolCache
 
 open System
 open FsAutoComplete
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
 
 open System.IO
 open FSharp.UMX
+open FSharp.Compiler.CodeAnalysis
 
 [<CLIMutable>]
 type SymbolUseRange = {
@@ -27,8 +28,8 @@ type SymbolUseRange = {
   member x.Range: FSharp.Compiler.Text.Range =
     FSharp.Compiler.Text.Range.mkRange
       x.FileName
-      (FSharp.Compiler.Text.Pos.mkPos x.StartLine x.StartColumn)
-      (FSharp.Compiler.Text.Pos.mkPos x.EndLine x.EndColumn)
+      (FSharp.Compiler.Text.Position.mkPos x.StartLine x.StartColumn)
+      (FSharp.Compiler.Text.Position.mkPos x.EndLine x.EndColumn)
 
 module private PersistentCacheImpl =
     open Microsoft.Data.Sqlite
@@ -139,10 +140,10 @@ module private PersistentCacheImpl =
         connection <- Some lazyConn
 
 let fromSymbolUse (su : FSharpSymbolUse) =
-    {   StartLine = su.RangeAlternate.StartLine
-        StartColumn = su.RangeAlternate.StartColumn + 1
-        EndLine = su.RangeAlternate.EndLine
-        EndColumn = su.RangeAlternate.EndColumn + 1
+    {   StartLine = su.Range.StartLine
+        StartColumn = su.Range.StartColumn + 1
+        EndLine = su.Range.EndLine
+        EndColumn = su.Range.EndColumn + 1
         FileName = su.FileName
         IsFromDefinition = su.IsFromDefinition
         IsFromAttribute = su.IsFromAttribute
