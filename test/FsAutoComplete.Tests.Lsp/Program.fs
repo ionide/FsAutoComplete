@@ -41,7 +41,6 @@ let tests =
         documentSymbolTest state
         Completion.autocompleteTest state
         Rename.tests state
-        gotoTest state
         foldingTests state
         tooltipTests state
         highlightingTests state
@@ -49,7 +48,6 @@ let tests =
         scriptEvictionTests state
         scriptProjectOptionsCacheTests state
         dependencyManagerTests  state
-        scriptGotoTests state
         interactiveDirectivesUnitTests
 
         // commented out because FSDN is down
@@ -64,6 +62,7 @@ let tests =
         SignatureHelp.tests state
         CodeFixTests.tests state
         Completion.tests state
+        GoTo.tests state
       ]
   ]
 
