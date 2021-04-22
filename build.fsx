@@ -32,7 +32,7 @@ let gitHome = "https://github.com/" + gitOwner
 Target.initEnvironment ()
 
 let fsacAssemblies =
-  "fsautocomplete|FsAutoComplete.Core|fsautocomplete.backgroundservices|LanguageServerProtocol"
+  "FsAutoComplete|FsAutoComplete.Core|FsAutoComplete.BackgroundServices|LanguageServerProtocol"
 
 Target.create "LspTest" (fun _ ->
 
@@ -48,6 +48,11 @@ Target.create "LspTest" (fun _ ->
                 RunSettingsArguments = Some ("Expecto.fail-on-focused-tests=true")
                 MSBuildParams = msbuildCli }
   DotNet.test testOpts "./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj"
+)
+
+Target.create "Coverage" (fun _ ->
+  DotNet.exec id "reportgenerator" "-reports:test/FsAutoComplete.Tests.Lsp/coverage.xml -reporttypes:Html;HtmlSummary -targetdir:./coverage"
+  |> fun r -> if not r.OK then failwithf "Errors while generating coverage report: %A" r.Errors
 )
 
 Target.create "ReleaseArchive" (fun _ ->
@@ -159,6 +164,7 @@ Target.create "Release" ignore
 
 "Build"
   ==> "LspTest"
+  ==> "Coverage"
   ==> "Test"
   ==> "All"
 

@@ -19,6 +19,12 @@
       "commands": [
         "octonav"
       ]
+    },
+    "dotnet-reportgenerator-globaltool": {
+      "version": "4.8.7",
+      "commands": [
+        "reportgenerator"
+      ]
     }
   }
 }
