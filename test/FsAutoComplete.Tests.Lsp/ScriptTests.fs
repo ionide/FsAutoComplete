@@ -168,39 +168,3 @@ let scriptProjectOptionsCacheTests state =
       })
     ]
   ]
-
-let scriptGotoTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
-      let! (server, event) = serverInitialize path defaultConfigDto state
-      do! waitForWorkspaceFinishedParsing event
-      let scriptPath = Path.Combine(path, "Script.fsx")
-      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
-      do! server.TextDocumentDidOpen tdop
-      return server, scriptPath
-    }
-
-  testSequenced <| testList "Script GoTo Tests" [
-    testList "tests" [
-      testCaseAsync "Go-to-definition on #load integration test" (async {
-        let! server, scriptPath = server
-        let p : TextDocumentPositionParams = {
-          TextDocument = { Uri = Path.FilePathToUri scriptPath }
-          Position = { Line = 0; Character = 10 }
-        }
-        let! res = server.TextDocumentDefinition p
-        match res with
-        | Error e -> failtestf "Request failed: %A" e
-        | Ok None -> failtest "Request none"
-        | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
-        | Ok (Some (GotoResult.Single r)) ->
-          Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
-          ()
-      })
-    ]
-    testCaseAsync "cleanup" (async {
-      let! server, _ = server
-      do! server.Shutdown()
-    })
-  ]
