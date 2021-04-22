@@ -354,23 +354,35 @@ let private scriptGotoTests state =
     }
 
   testSequenced <| testList "Script GoTo Tests" [
-    testList "tests" [
-      testCaseAsync "Go-to-definition on #load integration test" (async {
-        let! server, scriptPath = server
-        let p : TextDocumentPositionParams = {
-          TextDocument = { Uri = Path.FilePathToUri scriptPath }
-          Position = { Line = 0; Character = 10 }
-        }
-        let! res = server.TextDocumentDefinition p
-        match res with
-        | Error e -> failtestf "Request failed: %A" e
-        | Ok None -> failtest "Request none"
-        | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
-        | Ok (Some (GotoResult.Single r)) ->
-          Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
-          ()
-      })
-    ]
+    testCaseAsync "Go-to-definition on #load integration test" (async {
+      let! server, scriptPath = server
+      let p : TextDocumentPositionParams = {
+        TextDocument = { Uri = Path.FilePathToUri scriptPath }
+        Position = { Line = 0; Character = 10 }
+      }
+      let! res = server.TextDocumentDefinition p
+      match res with
+      | Error e -> failtestf "Request failed: %A" e
+      | Ok None -> failtest "Request none"
+      | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+      | Ok (Some (GotoResult.Single r)) ->
+        Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
+    })
+    testCaseAsync "Go-to-definition on first char of identifier works" (async {
+      let! server, scriptPath = server
+      let p : TextDocumentPositionParams = {
+        TextDocument = { Uri = Path.FilePathToUri scriptPath }
+        Position = { Line = 5; Character = 0 } // beginning of the usage of `testFunction` in the script file
+      }
+      let! res = server.TextDocumentDefinition p
+      match res with
+      | Error e -> failtestf "Request failed: %A" e
+      | Ok None -> failtest "Request none"
+      | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+      | Ok (Some (GotoResult.Single r)) ->
+        Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
+        Expect.equal r.Range {Start = { Line = 3; Character = 4 }; End = { Line = 3; Character = 16 }} "should point to the range of the definition of `testFunction`"
+    })
     testCaseAsync "cleanup" (async {
       let! server, _ = server
       do! server.Shutdown()
