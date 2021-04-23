@@ -141,7 +141,7 @@ type ParseAndCheckResults
     }
 
   member __.TryFindTypeDeclaration (pos: Pos) (lineStr: LineStr) = async {
-    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column, lineStr) with
     | None ->
       return Error "Cannot find ident at this location"
     | Some(col,identIsland) ->

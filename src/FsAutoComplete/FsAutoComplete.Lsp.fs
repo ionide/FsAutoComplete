@@ -982,7 +982,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 return res
             })
 
-    override x.TextDocumentTypeDefinition(p) =
+    override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
         logger.info (Log.setMessage "TextDocumentTypeDefinition Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {

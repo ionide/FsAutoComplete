@@ -39,7 +39,7 @@
             "enableStepFiltering": false,
             "args": [
               "--filter",
-              "lsp.Ionide WorkspaceLoader.codefix tests.generate match cases.can generate match cases for a simple DU"
+              "lsp.Ionide WorkspaceLoader.Go to definition tests.GoTo Tests.Go-to-type-definition on first char of identifier"
             ]
         },
         {
