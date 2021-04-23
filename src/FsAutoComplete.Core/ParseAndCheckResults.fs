@@ -74,7 +74,7 @@ type ParseAndCheckResults
           Error (sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace)
 
       /// these are all None because you can't easily get the source file from the external symbol information here.
-      let tryGetSourceRangeForSymbol (sym: FSharpExternalSymbol): (string<NormalizedRepoPathSegment> * int * int) option =
+      let tryGetSourceRangeForSymbol (sym: FSharpExternalSymbol): (string<NormalizedRepoPathSegment> * Pos) option =
         match sym with
         | FSharpExternalSymbol.Type name -> None
         | FSharpExternalSymbol.Constructor(typeName, args) -> None
@@ -122,17 +122,17 @@ type ParseAndCheckResults
           | Ok (assemblyFile, sourceFile) ->
             match! Sourcelink.tryFetchSourcelinkFile assemblyFile sourceFile with
             | Ok localFilePath ->
-              return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = rangeInNonexistentFile.StartLine; Column = rangeInNonexistentFile.StartColumn })
+              return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Position = rangeInNonexistentFile.Start })
             | Error reason ->
               return ResultOrString.Error (sprintf "%A" reason)
           | Error e -> return Error e
         | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
           // not enough info on external symbols to get a range-like thing :(
           match tryGetSourceRangeForSymbol externalSym with
-          | Some (sourceFile, line, column) ->
+          | Some (sourceFile, pos) ->
             match! Sourcelink.tryFetchSourcelinkFile (UMX.tag<LocalPath> assembly) sourceFile with
             | Ok localFilePath ->
-              return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = line; Column = column })
+              return ResultOrString.Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Position = pos })
             | Error reason ->
               logger.info (Log.setMessage "no sourcelink info for {assembly}, decompiling instead" >> Log.addContextDestructured "assembly" assembly)
               return decompile assembly externalSym
@@ -167,7 +167,7 @@ type ParseAndCheckResults
                     let! source = Sourcelink.tryFetchSourcelinkFile dllFile sourceFile
                     match source with
                     | Ok localFilePath ->
-                        return Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Line = loc.StartLine; Column = loc.StartColumn })
+                        return Ok (FindDeclarationResult.ExternalDeclaration { File = UMX.untag localFilePath; Position = loc.Start })
                     | Error _ ->
                         return! tryDecompile ty
                 | None ->
