@@ -126,8 +126,7 @@ let findMethodFromArgs (args:ParamTypeSymbol list) (methods:IMethod seq) =
 
 type ExternalContentPosition =
   { File: string
-    Column: int
-    Line: int }
+    Position: FSharp.Compiler.Text.Pos }
 
 let toSafeFileNameRegex =
     System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
@@ -190,12 +189,11 @@ let decompile (externalSym: FSharpExternalSymbol) assemblyPath: Result<ExternalC
         match location with
         | Some l ->
             Ok { File = tempFile
-                 Column = l.Column - 1
-                 Line = l.Line }
+                 // external library columns are 1-based, not 0-based like FCS Pos columns
+                 Position = FSharp.Compiler.Text.Pos.mkPos l.Line (l.Column - 1) }
         | None ->
             Ok { File = tempFile
-                 Column = 1
-                 Line = 1 }
+                 Position = FSharp.Compiler.Text.Pos.pos0 }
     with
     | e -> Result.Error (Exception (externalSym, assemblyPath, e))
 

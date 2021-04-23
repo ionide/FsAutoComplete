@@ -69,10 +69,7 @@ module Conversions =
             let fileUri = Path.FilePathToUri ex.File
             {
                 Uri = fileUri
-                Range = {
-                    Start = { Line = ex.Line - 1; Character = ex.Column }
-                    End = { Line = ex.Line - 1; Character = ex.Column }
-                }
+                Range = fcsPosToProtocolRange ex.Position
             }
         | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
         | FsAutoComplete.FindDeclarationResult.File file ->
