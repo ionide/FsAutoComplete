@@ -45,10 +45,7 @@ module Conversions =
 
 
     let symbolUseRangeToLsp (range: SymbolCache.SymbolUseRange): Lsp.Range =
-        {
-            Start = { Line = range.StartLine - 1; Character = range.StartColumn - 1 }
-            End = { Line = range.EndLine - 1; Character = range.EndColumn - 1 }
-        }
+      fcsRangeToLsp range.Range
 
     let fcsRangeToLspLocation(range: FcsRange): Lsp.Location =
         let fileUri = Path.FilePathToUri range.FileName

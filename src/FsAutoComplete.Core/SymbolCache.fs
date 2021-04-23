@@ -23,8 +23,12 @@ type SymbolUseRange = {
     SymbolFullName: string
     SymbolDisplayName: string
     SymbolIsLocal: bool
-}
-
+} with
+  member x.Range: FSharp.Compiler.Text.Range =
+    FSharp.Compiler.Text.Range.mkRange
+      x.FileName
+      (FSharp.Compiler.Text.Pos.mkPos x.StartLine x.StartColumn)
+      (FSharp.Compiler.Text.Pos.mkPos x.EndLine x.EndColumn)
 
 module private PersistentCacheImpl =
     open Microsoft.Data.Sqlite
