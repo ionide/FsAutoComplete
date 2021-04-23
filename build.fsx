@@ -41,7 +41,7 @@ Target.create "LspTest" (fun _ ->
           Properties =
             [ "AltCover", "true"
               // "AltCoverAssemblyFilter", fsacAssemblies
-              "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager"
+              "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager|FsAutoComplete.Tests.Lsp"
             ]
           }
   let testOpts (opts: DotNet.TestOptions) =
