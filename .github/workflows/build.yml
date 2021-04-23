@@ -36,7 +36,7 @@ jobs:
         github_token: ${{ secrets.FSAC_CHECKS_TOKEN }}
         set_check_status_from_test_outcome: true
         fail_build_on_failed_tests: true
-        extra_test_parameters: "--no-build"
+        extra_test_parameters: "--no-build /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager /p:AltCoverAssemblyFilter=fsautocomplete|FsAutoComplete.Core|fsautocomplete.backgroundservices|LanguageServerProtocol"
         skip_check_run: true # something's wrong with the PAT used above, so github checks won't be added
       env:
         TEST_TIMEOUT_MINUTES: 10
