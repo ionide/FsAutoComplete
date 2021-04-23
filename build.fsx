@@ -40,8 +40,9 @@ Target.create "LspTest" (fun _ ->
     { MSBuild.CliArguments.Create() with
           Properties =
             [ "AltCover", "true"
-              "AltCoverAssemblyFilter", fsacAssemblies
-              "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager" ]
+              // "AltCoverAssemblyFilter", fsacAssemblies
+              "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager"
+            ]
           }
   let testOpts (opts: DotNet.TestOptions) =
     { opts with Configuration = DotNet.BuildConfiguration.Release
