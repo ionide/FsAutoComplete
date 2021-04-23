@@ -63,6 +63,7 @@ let tests =
         CodeFixTests.tests state
         Completion.tests state
         GoTo.tests state
+        FindReferences.tests state
       ]
   ]
 

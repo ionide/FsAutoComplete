@@ -999,26 +999,22 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 return res
             })
 
-    override x.TextDocumentReferences(p) =
+    override x.TextDocumentReferences(p: ReferenceParams) =
         logger.info (Log.setMessage "TextDocumentReferences Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.SymbolUseProject tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (LocationResponse.Use (_, uses)) ->
-                        uses
-                        |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
-                        |> Some
-                        |> success
-                    | CoreResponse.Res (LocationResponse.UseRange uses) ->
-                        uses
-                        |> Array.map symbolUseRangeToLspLocation
-                        |> Some
-                        |> success
-                return res
+            asyncResult {
+                let! res = commands.SymbolUseProject tyRes pos lineStr |> AsyncResult.ofCoreResponse
+                let ranges: FSharp.Compiler.Text.Range [] =
+                  match res with
+                  | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+                  | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
+                let filtered =
+                  if p.Context.IncludeDeclaration then ranges
+                  else
+                    // if we shouldn't include the triggering range, then filter out ranges that contain the triggering pos
+                    ranges |> Array.filter (fun r -> FSharp.Compiler.Text.Range.rangeContainsPos r pos |> not )
+                return
+                  filtered |> Array.map fcsRangeToLspLocation |> Some
             })
 
     override x.TextDocumentDocumentHighlight(p) =
@@ -1042,25 +1038,17 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     override x.TextDocumentImplementation(p) =
         logger.info (Log.setMessage "TextDocumentImplementation Request: {parms}" >> Log.addContextDestructured "parms" p )
         p |> x.positionHandler (fun p pos tyRes lineStr lines ->
-            async {
-                let! res = commands.SymbolImplementationProject tyRes pos lineStr
-                let res =
-                    match res with
-                    | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-                        LspResult.internalError msg
-                    | CoreResponse.Res (LocationResponse.Use (symbol, uses)) ->
-                        uses
-                        |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
-                        |> GotoResult.Multiple
-                        |> Some
-                        |> success
-                    | CoreResponse.Res (LocationResponse.UseRange uses) ->
-                        uses
-                        |> Array.map symbolUseRangeToLspLocation
-                        |> GotoResult.Multiple
-                        |> Some
-                        |> success
-                return res
+            asyncResult {
+                let! res = commands.SymbolImplementationProject tyRes pos lineStr |> AsyncResult.ofCoreResponse
+                let ranges: FSharp.Compiler.Text.Range [] =
+                  match res with
+                  | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+                  | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
+                let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
+                match mappedRanges with
+                | [||] -> return None
+                | [| single |] -> return Some (GotoResult.Single single)
+                | multiple -> return Some (GotoResult.Multiple multiple)
             })
 
     override __.TextDocumentDocumentSymbol(p) = async {
