@@ -210,6 +210,24 @@ let private gotoTest state =
             Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
       })
 
+      testCaseAsync "Go-to-type-definition on first char of identifier" (async {
+        let! server, path, externalPath, definitionPath = server
+
+        let p : TextDocumentPositionParams  =
+          { TextDocument = { Uri = Path.FilePathToUri path}
+            Position = { Line = 4; Character = 20 } }
+        let! res = server.TextDocumentTypeDefinition p
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok (Some res) ->
+          match res with
+          | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
+          | GotoResult.Single res ->
+            Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+            Expect.equal res.Range { Start = {Line = 4; Character = 5 }; End = {Line = 4; Character = 6 }} "Result should have correct range"
+      })
+
       testCaseAsync "Go-to-type-defintion on parameter" (async {
         let! server, path, externalPath, definitionPath = server
 
