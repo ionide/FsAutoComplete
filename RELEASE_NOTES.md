@@ -1,3 +1,11 @@
+### 0.45.3 - 23.04.2021
+
+* Improve edgecase detection when
+  * finding declarations
+  * finding type definitions
+  * getting symbol usages
+  * checking for inclusion in a file
+ 
 ### 0.45.2 - 18.04.2021
 
 * Improve overload detection in `textDocument/signatureHelp` for methods
