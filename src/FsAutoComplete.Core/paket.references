@@ -11,8 +11,8 @@ Microsoft.SourceLink.GitHub
 Dapper
 Microsoft.Data.Sqlite
 System.Configuration.ConfigurationManager
-Fantomas
-Fantomas.Extras
+//Fantomas
+//Fantomas.Extras
 FSharp.UMX
 FsToolkit.ErrorHandling
 

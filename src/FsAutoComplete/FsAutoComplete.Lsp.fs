@@ -1173,22 +1173,22 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         return res
     }
 
-    override __.TextDocumentFormatting(p: DocumentFormattingParams) = async {
-        logger.info (Log.setMessage "TextDocumentFormatting Request: {parms}" >> Log.addContextDestructured "parms" p )
-        let doc = p.TextDocument
-        let fileName = doc.GetFilePath() |> Utils.normalizePath
-        let! res = commands.FormatDocument fileName
-        match res with
-        | Some (lines, formatted) ->
-            let range =
-                let zero = { Line = 0; Character = 0 }
-                let lastPos = lines.GetLastFilePosition()
-                { Start = zero; End = fcsPosToLsp lastPos }
+    // override __.TextDocumentFormatting(p: DocumentFormattingParams) = async {
+    //     logger.info (Log.setMessage "TextDocumentFormatting Request: {parms}" >> Log.addContextDestructured "parms" p )
+    //     let doc = p.TextDocument
+    //     let fileName = doc.GetFilePath() |> Utils.normalizePath
+    //     let! res = commands.FormatDocument fileName
+    //     match res with
+    //     | Some (lines, formatted) ->
+    //         let range =
+    //             let zero = { Line = 0; Character = 0 }
+    //             let lastPos = lines.GetLastFilePosition()
+    //             { Start = zero; End = fcsPosToLsp lastPos }
 
-            return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
-        | None ->
-            return LspResult.notImplemented
-    }
+    //         return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
+    //     | None ->
+    //         return LspResult.internalError "unable to format document"
+    // }
 
     member private x.HandleTypeCheckCodeAction file pos f =
         async {

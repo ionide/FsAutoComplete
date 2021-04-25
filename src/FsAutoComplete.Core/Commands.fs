@@ -1135,22 +1135,22 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
-    member x.FormatDocument (file: string<LocalPath>) =
-      asyncResult {
-          let! (opts, text) = x.TryGetFileCheckerOptionsWithLines file
-          let parsingOptions = Utils.projectOptionsToParseOptions opts
-          let checker : FSharpChecker = checker.GetFSharpChecker()
-          // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
-          let config =
-              match Fantomas.Extras.EditorConfig.tryReadConfiguration (UMX.untag file) with
-              | Some c -> c
-              | None ->
-                fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
-                Fantomas.FormatConfig.FormatConfig.Default
-          let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
-          return text, formatted
-      }
-      |> AsyncResult.foldResult Some (fun _ -> None)
+    // member x.FormatDocument (file: string<LocalPath>) =
+    //   asyncResult {
+    //       let! (opts, text) = x.TryGetFileCheckerOptionsWithLines file
+    //       let parsingOptions = Utils.projectOptionsToParseOptions opts
+    //       let checker : FSharpChecker = checker.GetFSharpChecker()
+    //       // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
+    //       let config =
+    //           match Fantomas.Extras.EditorConfig.tryReadConfiguration (UMX.untag file) with
+    //           | Some c -> c
+    //           | None ->
+    //             fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
+    //             Fantomas.FormatConfig.FormatConfig.Default
+    //       let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
+    //       return text, formatted
+    //   }
+    //   |> AsyncResult.foldResult Some (fun _ -> None)
 
     /// gets the semantic classification ranges for a file, optionally filtered by a given range.
     member x.GetHighlighting (file: string<LocalPath>, range: Range option) =
