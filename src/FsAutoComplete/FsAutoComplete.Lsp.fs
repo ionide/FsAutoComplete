@@ -20,6 +20,8 @@ open FSharp.UMX
 open FSharp.Analyzers
 open FSharp.Compiler.Text
 open System.Threading
+open FSharp.Compiler.Tokenization
+open FSharp.Compiler.IO
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -1849,16 +1851,16 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     }
 
 
-    member private x.handleSemanticTokens(getTokens: Async<CoreResponse<option<(struct(FcsRange * SemanticClassificationType)) array>>>): AsyncLspResult<SemanticTokens option> = asyncResult {
+    member private x.handleSemanticTokens(getTokens: Async<CoreResponse<option<SemanticClassificationItem array>>>): AsyncLspResult<SemanticTokens option> = asyncResult {
       match! getTokens |> AsyncResult.ofCoreResponse with
       | None ->
         return! LspResult.internalError "No highlights found"
       | Some rangesAndHighlights ->
         let lspTypedRanges =
           rangesAndHighlights
-          |> Array.map (fun (struct(fcsRange, fcsTokenType)) ->
-            let ty, mods = ClassificationUtils.map fcsTokenType
-            struct(fcsRangeToLsp fcsRange, ty, mods)
+          |> Array.map (fun item ->
+            let ty, mods = ClassificationUtils.map item.Type
+            struct(fcsRangeToLsp item.Range, ty, mods)
           )
         match encodeSemanticHighlightRanges lspTypedRanges with
         | None ->

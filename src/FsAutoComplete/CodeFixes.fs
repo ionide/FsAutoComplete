@@ -12,7 +12,7 @@ open FSharp.Compiler.Text
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
-type FcsPos = FSharp.Compiler.Text.Pos
+type FcsPos = FSharp.Compiler.Text.Position
 
 module LspTypes = LanguageServerProtocol.Types
 
@@ -22,8 +22,8 @@ module Types =
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> ResultOrString<string>
   type GetFileLines = string<LocalPath> -> ResultOrString<FSharp.Compiler.Text.ISourceText>
   type GetLineText = FSharp.Compiler.Text.ISourceText -> LspTypes.Range -> Result<string, string>
-  type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Pos -> Async<ResultOrString<ParseAndCheckResults * string * FSharp.Compiler.Text.ISourceText>>
-  type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.SourceCodeServices.FSharpProjectOptions>
+  type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Position -> Async<ResultOrString<ParseAndCheckResults * string * FSharp.Compiler.Text.ISourceText>>
+  type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>
 
   [<RequireQualifiedAccess>]
   type FixKind =
@@ -88,7 +88,7 @@ module Navigation =
       if pos <= runningLength + lineLength then
         let column = pos - runningLength
         found <- true
-        fcsPos <- FSharp.Compiler.Text.Pos.mkPos lineNumber column
+        fcsPos <- FSharp.Compiler.Text.Position.mkPos lineNumber column
       else
         lineNumber <- lineNumber + 1
         runningLength <- runningLength + lineLength

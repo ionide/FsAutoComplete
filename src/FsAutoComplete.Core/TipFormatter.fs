@@ -240,8 +240,11 @@ let extractSignature (ToolTipText tips) =
 let extractGenerics (ToolTipText tips) =
     let firstResult x =
         match x with
-        | ToolTipElement.Group gs -> List.tryPick (fun (t : ToolTipElementData) -> if not (t.TypeMapping.IsEmpty) then Some t.TypeMapping else None) gs
+        | ToolTipElement.Group gs ->
+          gs
+          |> List.tryPick (fun (t : ToolTipElementData) -> if not (t.TypeMapping.IsEmpty) then Some t.TypeMapping else None)
         | _ -> None
+        |> Option.map (List.map (Array.map (fun tt -> tt.Text) >> String.concat ""))
 
     tips
     |> Seq.tryPick firstResult

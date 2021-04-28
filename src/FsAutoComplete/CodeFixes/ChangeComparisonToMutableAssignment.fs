@@ -6,7 +6,7 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =

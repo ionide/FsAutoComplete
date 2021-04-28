@@ -6,6 +6,7 @@ open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 /// fix inderminate type errors by adding an explicit type to a value
 let fix

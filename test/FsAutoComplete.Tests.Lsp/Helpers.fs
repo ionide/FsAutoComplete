@@ -117,9 +117,9 @@ type ClientEvents = IObservable<string * obj>
 let createServer (state: State) =
   let event = new System.Reactive.Subjects.ReplaySubject<_>()
   let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
-  let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
+  let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
-  FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem <- fs
+  FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
   let server = new FSharpLspServer(false, state, client)
   server, event :> ClientEvents
 

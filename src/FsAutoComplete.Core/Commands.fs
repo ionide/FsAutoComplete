@@ -1191,7 +1191,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         return CoreResponse.Res html
       }
 
-    member __.PipelineHints (tyRes : ParseAndCheckResults) =
+    member __.PipelineHints (tyRes : ParseAndCheckResults): CoreResponse<(int * option<int> * list<string>) array> =
       result {
         let! contents = state.TryGetFileSource tyRes.FileName
         let getGenerics line (token: FSharpTokenInfo) =

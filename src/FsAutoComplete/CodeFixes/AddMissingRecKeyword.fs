@@ -50,10 +50,10 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
             match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
             | Some lexSym ->
                 let fcsStartPos =
-                  FSharp.Compiler.Text.Pos.mkPos lexSym.Line lexSym.LeftColumn
+                  FSharp.Compiler.Text.Position.mkPos lexSym.Line lexSym.LeftColumn
 
                 let fcsEndPos =
-                  FSharp.Compiler.Text.Pos.mkPos lexSym.Line lexSym.RightColumn
+                  FSharp.Compiler.Text.Position.mkPos lexSym.Line lexSym.RightColumn
 
                 let protocolRange =
                   fcsRangeToLsp (FSharp.Compiler.Text.Range.mkRange (UMX.untag fileName) fcsStartPos fcsEndPos)

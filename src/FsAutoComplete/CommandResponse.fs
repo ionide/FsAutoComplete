@@ -6,6 +6,7 @@ open FSharp.Compiler
 open FSharp.Compiler.EditorServices
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
+open FSharp.Compiler.Diagnostics
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -41,7 +42,7 @@ module internal CompletionUtils =
     | NavigationEntityKind.Interface -> "I"
     | NavigationEntityKind.Record -> "R"
     | NavigationEntityKind.Enum -> "En"
-    | NavigationEntityKind.DU -> "D"
+    | NavigationEntityKind.Union -> "D"
 
 module internal ClassificationUtils =
 
@@ -86,6 +87,7 @@ module internal ClassificationUtils =
       | SemanticClassificationType.Value
       | SemanticClassificationType.LocalValue -> "variable"
       | SemanticClassificationType.Plaintext -> "text"
+      | unknown -> "text"
 
 module CommandResponse =
   open FSharp.Compiler.Text
@@ -207,15 +209,17 @@ module CommandResponse =
       Message: string
       Subcategory: string
     }
-    static member IsIgnored(e:FSharp.Compiler.SourceCodeServices.FSharpDiagnostic) =
+    static member IsIgnored(e: FSharpDiagnostic) =
         // FST-1027 support in Fake 5
         e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
 
-    static member OfFSharpError(e:FSharp.Compiler.SourceCodeServices.FSharpDiagnostic) =
+    static member OfFSharpError(e: FSharpDiagnostic) =
       {
         FileName = e.FileName
-        StartLine = e.StartLineAlternate
-        EndLine = e.EndLineAlternate
+        StartLine = e.StartLine
+        EndLine = e.EndLine
+        // TODO: check that these are used appropriately. This is sent directly to ionide via notification and should
+        // probably be LSP ranges/positions instead for unified semantics.
         StartColumn = e.StartColumn + 1
         EndColumn = e.EndColumn + 1
         Severity = e.Severity
