@@ -13,3 +13,10 @@ let inline yeet ((PeePee pp & PooPoo pp') as toilet) =
 open FSharp.Data
 
 type SomeJson = JsonProvider<"""{"this": "that"}""">
+
+
+module Foo =
+  let x y z = ()
+
+let myFoo x y =
+  Foo.x x y

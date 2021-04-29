@@ -43,7 +43,7 @@ let tests =
         Rename.tests state
         foldingTests state
         tooltipTests state
-        highlightingTests state
+        Highlighting.tests state
         scriptPreviewTests state
         scriptEvictionTests state
         scriptProjectOptionsCacheTests state

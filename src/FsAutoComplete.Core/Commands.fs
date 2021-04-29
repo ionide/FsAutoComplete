@@ -87,9 +87,12 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             childRanges |> Array.pairwise |> Array.map (fun (left, right) -> Range.mkRange parentRange.FileName left.End right.Start)
 
         [|
-            firstSegment
+            // note that the first and last segments can be zero-length.
+            // in that case we should not emit them because it confuses the
+            // encoding algorithm
+            if Pos.posEq firstSegment.Start firstSegment.End then () else firstSegment
             yield! innerSegments
-            lastSegment
+            if Pos.posEq lastSegment.Start lastSegment.End then () else lastSegment
         |]
 
     // TODO: LSP technically does now know how to handle overlapping, nested and multiline ranges, but
