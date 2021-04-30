@@ -1,3 +1,7 @@
+### 0.45.4 - 30.04.2021
+
+* Fix returned tokens in `textDocument/semanticTokens/full` and `textDocument/semanticTokens/range` to no longer return zero-length tokens.
+
 ### 0.45.3 - 23.04.2021
 
 * Improve edgecase detection when
