@@ -25,8 +25,8 @@ let fix
       | FSharpFindDeclResult.DeclFound declRange when declRange.FileName = filename ->
         let! projectOptions = getProjectOptionsForFile typedFileName
         let protocolDeclRange = fcsRangeToLsp declRange
-        let declText = getText lines protocolDeclRange
-        let declTextLine = lines.[protocolDeclRange.Start.Line] //TODO: check
+        let! declText = lines.GetText declRange
+        let declTextLine = lines.GetLineString protocolDeclRange.Start.Line
         let! declLexerSymbol = Lexer.getSymbol declRange.Start.Line declRange.Start.Column declText SymbolLookupKind.ByLongIdent projectOptions.OtherOptions |> Result.ofOption (fun _ -> "No lexer symbol for declaration")
         let! declSymbolUse = tyRes.GetCheckResults.GetSymbolUseAtLocation(declRange.Start.Line, declRange.End.Column, declTextLine, declLexerSymbol.Text.Split('.') |> List.ofArray) |> Result.ofOption (fun _ -> "No lexer symbol")
         match declSymbolUse.Symbol with

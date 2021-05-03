@@ -19,10 +19,10 @@ let fix (getFileLines: GetFileLines)
         let fileName =
           codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
-        let! (lines: string []) = getFileLines fileName
+        let! lines = getFileLines fileName
         // try to find the first case already written
         let caseLine = diagnostic.Range.Start.Line + 1
-        let caseCol = lines.[caseLine].IndexOf('|') + 3 // Find column of first case in patern matching
+        let caseCol = lines.GetLineString(caseLine).IndexOf('|') + 3 // Find column of first case in patern matching
         let casePos = { Line = caseLine; Character = caseCol }
         let casePosFCS = protocolPosToPos casePos
 

@@ -17,6 +17,7 @@ open System.IO
 open FsToolkit.ErrorHandling
 open FSharp.UMX
 open FSharp.Analyzers
+open FSharp.Compiler.Text
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -116,7 +117,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 match contentChange, doc.Version with
                 | Some contentChange, Some version ->
                     if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                        let content = contentChange.Text.Split('\n')
+                        let content = SourceText.ofString contentChange.Text
                         let tfmConfig = config.UseSdkScripts
                         logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
                         do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
@@ -352,7 +353,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commandDisposables.Add <| commands.Notify.Subscribe handleCommandEvents
 
     ///Helper function for handling Position requests using **recent** type check results
-    member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
+    member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> ISourceText ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath() |> Utils.normalizePath
@@ -382,7 +383,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         }
 
     ///Helper function for handling Position requests using **latest** type check results
-    member x.positionHandlerWithLatest<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> string [] ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
+    member x.positionHandlerWithLatest<'a, 'b when 'b :> ITextDocumentPositionParams> (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> ISourceText ->  AsyncLspResult<'a>) (arg: 'b) : AsyncLspResult<'a> =
         async {
             let pos = arg.GetFcsPos()
             let file = arg.GetFilePath() |> Utils.normalizePath
@@ -418,7 +419,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         }
 
     ///Helper function for handling file requests using **recent** type check results
-    member x.fileHandler<'a> (f: string<LocalPath> -> ParseAndCheckResults -> string [] -> AsyncLspResult<'a>) (file: string<LocalPath>) : AsyncLspResult<'a> =
+    member x.fileHandler<'a> (f: string<LocalPath> -> ParseAndCheckResults -> ISourceText -> AsyncLspResult<'a>) (file: string<LocalPath>) : AsyncLspResult<'a> =
         async {
 
             // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
@@ -489,8 +490,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
-        let getRangeText fileName range = getFileLines fileName |> Result.map (fun lines -> getText lines range)
-        let getLineText lines range = getText lines range
+        let getLineText (lines: ISourceText) (range: LanguageServerProtocol.Types.Range) = lines.GetText (protocolRangeToRange "unknown.fsx" range)
+        let getRangeText fileName (range: LanguageServerProtocol.Types.Range) = getFileLines fileName |> Result.bind (fun lines -> lines.GetText (protocolRangeToRange (UMX.untag fileName) range))
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
         let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
 
@@ -669,7 +670,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) = async {
         let doc = p.TextDocument
         let filePath = doc.GetFilePath() |> Utils.normalizePath
-        let content = doc.Text.Split('\n')
+        let content = SourceText.ofString doc.Text
         let tfmConfig = config.UseSdkScripts
         logger.info (Log.setMessage "TextDocumentDidOpen Request: {parms}" >> Log.addContextDestructured "parms" filePath )
 
@@ -698,7 +699,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         match contentChange, doc.Version with
         | Some contentChange, Some version ->
             if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                let content = contentChange.Text.Split('\n')
+                let content = SourceText.ofString contentChange.Text
                 commands.SetFileContent(filePath, content, Some version, config.ScriptTFM)
             else ()
         | _ -> ()
@@ -713,8 +714,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     }
 
     override __.TextDocumentCompletion(p: CompletionParams) =
-      let ensureInBounds (lines: LineStr array) (line, col) =
-        let lineStr = lines.[line]
+      let ensureInBounds (lines: ISourceText) (line, col) =
+        let lineStr = lines.GetLineString line
         if line <= lines.Length && line >= 0 && col <= lineStr.Length + 1 && col >= 0
         then Ok ()
         else
@@ -732,7 +733,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           let pos = p.GetFcsPos()
           let! (options, lines) = commands.TryGetFileCheckerOptionsWithLines file |> Result.mapError JsonRpc.Error.InternalErrorMessage
           let line, col = p.Position.Line, p.Position.Character
-          let lineStr = lines.[line]
+          let lineStr = lines.GetLineString line
           let word = lineStr.Substring(0, min col lineStr.Length)
 
           do! ensureInBounds lines (line, col)
@@ -1094,12 +1095,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | Some (lines, formatted) ->
             let range =
                 let zero = { Line = 0; Character = 0 }
-                let endLine = Array.length lines - 1
-                let endCharacter =
-                    Array.tryLast lines
-                    |> Option.map (fun line -> line.Length)
-                    |> Option.defaultValue 0
-                { Start = zero; End = { Line = endLine; Character = endCharacter } }
+                let lastPos = lines.GetLastFilePosition()
+                { Start = zero; End = fcsPosToLsp lastPos }
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
         | None ->

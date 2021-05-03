@@ -46,10 +46,10 @@ type State =
       ScriptProjectOptions = ConcurrentDictionary()
       ColorizationOutput = false }
 
-  member x.GetCheckerOptions(file: string<LocalPath>, lines: LineStr[]) : FSharpProjectOptions option =
+  member x.RefreshCheckerOptions(file: string<LocalPath>, text: ISourceText) : FSharpProjectOptions option =
     x.ProjectController.GetProjectOptions (UMX.untag file)
     |> Option.map (fun opts ->
-        x.Files.[file] <- { Lines = lines; Touched = DateTime.Now; Version = None }
+        x.Files.[file] <- { Lines = text; Touched = DateTime.Now; Version = None }
         opts
     )
 
@@ -81,13 +81,13 @@ type State =
   member x.SetLastCheckedVersion (file: string<LocalPath>) (version: int) =
     x.LastCheckedVersion.[file] <- version
 
-  member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, lines: LineStr[], opts, version) =
-    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
+  member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: ISourceText, opts, version) =
+    let fileState = { Lines = text; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
     x.ProjectController.SetProjectOptions(UMX.untag file, opts)
 
-  member x.AddFileText(file: string<LocalPath>, lines: LineStr[], version) =
-    let fileState = { Lines = lines; Touched = DateTime.Now; Version = version }
+  member x.AddFileText(file: string<LocalPath>, text: ISourceText, version) =
+    let fileState = { Lines = text; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
 
   member x.AddCancellationToken(file : string<LocalPath>, token: CancellationTokenSource) =
@@ -115,7 +115,7 @@ type State =
       ExtraProjectInfo = None
       Stamp = None}
 
-  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * LineStr[]> =
+  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some (volFile) ->
@@ -124,21 +124,26 @@ type State =
       | None -> Ok (State.FileWithoutProjectOptions(file), volFile.Lines)
       | Some opts -> Ok (opts, volFile.Lines)
 
-  member x.TryGetFileCheckerOptionsWithSource(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * string> =
+  member x.TryGetFileCheckerOptionsWithSource(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
-    | Ok (opts, lines) -> Ok (opts, String.concat "\n" lines)
+    | Ok (opts, lines) -> Ok (opts, lines)
 
-  member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<string[]> =
+  member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<ISourceText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
-    | Some f -> Ok (f.Lines)
+    | Some f -> Ok f.Lines
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Pos) : ResultOrString<FSharpProjectOptions * LineStr[] * LineStr> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Pos) : ResultOrString<FSharpProjectOptions * ISourceText * LineStr> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
-    | ResultOrString.Error x -> ResultOrString.Error x
-    | Ok (opts, lines) ->
-      let ok = pos.Line <= lines.Length && pos.Line >= 1 &&
-               pos.Column <= lines.[pos.Line - 1].Length + 1 && pos.Column >= 0
-      if not ok then ResultOrString.Error "Position is out of range"
-      else Ok (opts, lines, lines.[pos.Line - 1])
+    | Error x -> Error x
+    | Ok (opts, text) ->
+      let lineCount = text.GetLineCount()
+      if pos.Line < 1 || pos.Line > lineCount then Error "Position is out of range"
+      else
+        let line = text.GetLineString (pos.Line - 1)
+        let lineLength = line.Length
+        if pos.Column < 0 || pos.Column > lineLength // since column is 0-based, lineLength is actually longer than the column is allowed to be
+        then Error "Position is out of range"
+        else
+          Ok (opts, text, line)

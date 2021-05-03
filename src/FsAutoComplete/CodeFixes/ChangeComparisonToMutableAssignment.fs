@@ -24,7 +24,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         | None -> return []
         | Some endPos ->
           let fcsPos = protocolPosToPos endPos
-          let line = getLine lines endPos
+          let line = lines.GetLineString endPos.Line
 
           let! symbol =
             tyRes.TryGetSymbolUse fcsPos line

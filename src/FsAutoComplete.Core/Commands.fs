@@ -228,7 +228,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                   match state.Files.TryGetValue file with
                   | true, fileData ->
 
-                    let res = analyzerHandler (file, fileData.Lines, pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
+                    let res = analyzerHandler (file, fileData.Lines.ToString().Split("\n"), pt, tast, parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList, parseAndCheck.GetAllEntities)
 
                     (res, file)
                     |> NotificationEvent.AnalyzerMessage
@@ -256,21 +256,22 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                     match state.Files.TryFind file with
                     | Some f -> Some (f.Lines)
                     | None when File.Exists(UMX.untag file) ->
-                        let ctn = File.ReadAllLines (UMX.untag file)
-                        state.Files.[file] <- { Touched = DateTime.Now; Lines = ctn; Version = None }
+                        let ctn = File.ReadAllText (UMX.untag file)
+                        let text = SourceText.ofString ctn
+                        state.Files.[file] <- { Touched = DateTime.Now; Lines = text; Version = None }
                         let payload =
                             if Utils.isAScript (UMX.untag file)
                             then BackgroundServices.ScriptFile(UMX.untag file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
                             else BackgroundServices.SourceFile (UMX.untag file)
-                        backgroundService.UpdateFile(payload, ctn |> String.concat "\n", 0)
-                        Some (ctn)
+                        backgroundService.UpdateFile(payload, ctn, 0)
+                        Some text
                     | None -> None
                 match sourceOpt with
                 | None -> ()
                 | Some source ->
                     let opts = state.GetProjectOptions' file |> Utils.projectOptionsToParseOptions
                     async {
-                      let! parseRes = checker.ParseFile(file, source |> String.concat "\n", opts)
+                      let! parseRes = checker.ParseFile(file, source, opts)
                       fileParsed.Trigger parseRes
                     }
                     |> Async.Start
@@ -285,13 +286,13 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     let codeGenServer = CodeGenerationService(checker, state)
 
-    let docForText (lines: string []) (tyRes: ParseAndCheckResults): Document =
+    let docForText (lines: ISourceText) (tyRes: ParseAndCheckResults): Document =
       {
           LineCount = lines.Length
           FullName = tyRes.FileName // from the compiler, assumed safe
-          GetText = fun _ -> lines |> String.concat "\n"
-          GetLineText0 = fun i -> lines.[i]
-          GetLineText1 = fun i -> lines.[i - 1]
+          GetText = fun _ -> string lines
+          GetLineText0 = fun i -> lines.GetLineString i
+          GetLineText1 = fun i -> lines.GetLineString (i - 1)
       }
 
     let calculateNamespaceInsert (decl : FSharpDeclarationListItem) (pos : Pos) getLine: CompletionNamespaceInsert option =
@@ -359,7 +360,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member __.LastCheckResult
         with get() = lastCheckResult
 
-    member __.SetFileContent(file: string<LocalPath>, lines: LineStr[], version, tfmIfScript) =
+    member __.SetFileContent(file: string<LocalPath>, lines: ISourceText, version, tfmIfScript) =
         state.AddFileText(file, lines, version)
         let payload =
             let untagged = UMX.untag file
@@ -367,7 +368,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             then BackgroundServices.ScriptFile(untagged, tfmIfScript)
             else BackgroundServices.SourceFile untagged
 
-        backgroundService.UpdateFile(payload, lines |> String.concat "\n", defaultArg version 0)
+        backgroundService.UpdateFile(payload, lines.ToString(), defaultArg version 0)
 
     member private x.MapResultAsync (successToString: 'a -> Async<CoreResponse<'b>>, ?failureToString: string -> CoreResponse<'b>) =
         Async.bind <| function
@@ -530,7 +531,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.TryGetFileVersion = state.TryGetFileVersion
 
-    member x.Parse file lines version (isSdkScript: bool option) =
+    member x.Parse file (text: ISourceText) version (isSdkScript: bool option) =
         let tmf = isSdkScript |> Option.map (fun n -> if n then FSIRefs.NetCore else FSIRefs.NetFx) |> Option.defaultValue FSIRefs.NetFx
 
         do x.CancelQueue file
@@ -559,13 +560,12 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                     SourceFiles = opts.SourceFiles |> Array.filter FscArguments.isCompileFile |> Array.map (Path.GetFullPath)
                     OtherOptions = opts.OtherOptions |> Array.map (fun n -> if FscArguments.isCompileFile(n) then Path.GetFullPath n else n)
                 }
-            let text = String.concat "\n" lines
 
             if Utils.isAScript (UMX.untag file)
             then
                 commandsLogger.info (Log.setMessage "Checking script file '{file}'" >> Log.addContextDestructured "file" file)
-                let hash  =
-                  lines
+                let hash =
+                  text.Lines()
                   |> Array.filter (fun n -> n.StartsWith "#r" || n.StartsWith "#load" || n.StartsWith "#I")
                   |> Array.toList
                   |> fun n -> n.GetHashCode ()
@@ -582,11 +582,11 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                     }
 
                 scriptFileProjectOptions.Trigger checkOptions
-                state.AddFileTextAndCheckerOptions(file, lines, normalizeOptions checkOptions, Some version)
+                state.AddFileTextAndCheckerOptions(file, text, normalizeOptions checkOptions, Some version)
                 fileStateSet.Trigger ()
                 return! parse' file text checkOptions
             else
-                match state.GetCheckerOptions(file, lines) with
+                match state.RefreshCheckerOptions(file, text) with
                 | Some c ->
                     state.SetFileVersion file version
                     fileStateSet.Trigger ()
@@ -603,26 +603,19 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         | ResultOrString.Error s, None ->
             match state.TryGetFileSource file with
             | ResultOrString.Error s -> return CoreResponse.ErrorRes s
-            | ResultOrString.Ok l ->
-                let text = String.concat "\n" l
+            | ResultOrString.Ok text ->
                 let files = Array.singleton (UMX.untag file)
                 let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
                 let! decls = checker.GetDeclarations(file, text, parseOptions, version)
                 let decls = decls |> Array.map (fun a -> a,file)
                 return CoreResponse.Res decls
-        | ResultOrString.Error _, Some l ->
-            let text = String.concat "\n" l
+        | ResultOrString.Error _, Some text ->
             let files = Array.singleton (UMX.untag file)
             let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files}
             let! decls = checker.GetDeclarations(file, text, parseOptions, version)
             let decls = decls |> Array.map (fun a -> a,file)
             return CoreResponse.Res decls
-        | ResultOrString.Ok (checkOptions, source), _ ->
-            let text =
-                match lines with
-                | Some l -> String.concat "\n" l
-                | None -> source
-
+        | ResultOrString.Ok (checkOptions, text), _ ->
             let parseOptions = Utils.projectOptionsToParseOptions checkOptions
             let! decls = checker.GetDeclarations(file, text, parseOptions, version)
 
@@ -659,7 +652,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             match source with
             | None -> return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
             | Some source ->
-                let getSource = fun i -> source.[i - 1]
+                let getSource = fun i -> source.GetLineString (i - 1)
 
                 let tip =
                   match state.HelpText.TryFind sym with
@@ -680,14 +673,14 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member x.Colorization enabled = state.ColorizationOutput <- enabled
     member x.Error msg = [CoreResponse.ErrorRes msg]
 
-    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr (lines : string[]) (fileName : string<LocalPath>) filter includeKeywords includeExternal = async {
+    member x.Completion (tyRes : ParseAndCheckResults) (pos: Pos) lineStr (lines : ISourceText) (fileName : string<LocalPath>) filter includeKeywords includeExternal = async {
         let getAllSymbols () =
             if includeExternal then tyRes.GetAllEntities true else []
         let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
         match res with
         | Some (decls, residue, shouldKeywords) ->
             let declName (d: FSharpDeclarationListItem) = d.Name
-            let getLine = fun i -> lines.[i - 1]
+            let getLine = fun i -> lines.GetLineString(i - 1)
 
             //Init cache for current list
             state.Declarations.Clear()
@@ -801,7 +794,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.AsCancellable tyRes.FileName |> AsyncResult.recoverCancellation
 
     /// Attempts to identify member overloads and infer current parameter positions for signature help at a given location
-    member x.MethodsForSignatureHelp (tyRes : ParseAndCheckResults, pos: Pos, lines: LineStr[], triggerChar, possibleSessionKind) =
+    member x.MethodsForSignatureHelp (tyRes : ParseAndCheckResults, pos: Pos, lines: ISourceText, triggerChar, possibleSessionKind) =
       SignatureHelp.getSignatureHelpFor (tyRes, pos, lines, triggerChar, possibleSessionKind)
 
     // member x.Lint (file: string<LocalPath>): Async<unit> =
@@ -910,15 +903,15 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =
+    member x.GetUnionPatternMatchCases (tyRes : ParseAndCheckResults) (pos: Pos) (lines: ISourceText) (line: LineStr) =
         async {
             let codeGenService = CodeGenerationService(checker, state)
             let doc = {
                 Document.LineCount = lines.Length
                 FullName = tyRes.FileName
-                GetText = fun _ -> lines |> String.concat "\n"
-                GetLineText0 = fun i -> lines.[i]
-                GetLineText1 = fun i -> lines.[i - 1]
+                GetText = fun _ -> string lines
+                GetLineText0 = fun i -> lines.GetLineString i
+                GetLineText1 = fun i -> lines.GetLineString (i - 1)
             }
 
             let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
@@ -935,7 +928,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (line: LineStr) =
+    member x.GetRecordStub (tyRes : ParseAndCheckResults) (pos: Pos) (lines: ISourceText) (line: LineStr) =
         async {
             let doc = docForText lines tyRes
             let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
@@ -953,7 +946,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: Pos) (lines: LineStr[]) (lineStr: LineStr) =
+    member x.GetInterfaceStub (tyRes : ParseAndCheckResults) (pos: Pos) (lines: ISourceText) (lineStr: LineStr) =
         async {
             let doc = docForText lines tyRes
             let! res = tryFindInterfaceExprInBufferAtPos codeGenServer pos doc
@@ -969,7 +962,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> x.AsCancellable tyRes.FileName
         |> AsyncResult.recoverCancellation
 
-    member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: Range) (lines: LineStr[]) (lineStr: LineStr) =
+    member x.GetAbstractClassStub (tyRes : ParseAndCheckResults) (objExprRange: Range) (lines: ISourceText) (lineStr: LineStr) =
         asyncResult {
             let doc = docForText lines tyRes
             let! abstractClass =
@@ -1025,7 +1018,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             match tyResOpt with
             | None -> ()
             | Some tyRes ->
-                let getSourceLine lineNo = source.[lineNo - 1]
+                let getSourceLine lineNo = source.GetLineString (lineNo - 1)
                 let! simplified = SimplifyNames.getSimplifiableNames(tyRes.GetCheckResults, getSourceLine)
                 let simplified = Array.ofSeq simplified
                 notify.Trigger (NotificationEvent.SimplifyNames (file, simplified))
@@ -1041,7 +1034,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             | None ->
               return ()
             | Some tyRes ->
-                let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.[i - 1])
+                let! unused = UnusedOpens.getUnusedOpens(tyRes.GetCheckResults, fun i -> source.GetLineString (i - 1))
                 notify.Trigger (NotificationEvent.UnusedOpens (file, (unused |> List.toArray)))
 
         }
@@ -1052,10 +1045,9 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.GetRangesAtPosition file positions = async {
         match state.TryGetFileCheckerOptionsWithLines file with
-        | Ok (opts, sourceLines) ->
+        | Ok (opts, text) ->
           let parseOpts = Utils.projectOptionsToParseOptions opts
-          let allSource = sourceLines |> String.concat "\n"
-          let! ast = checker.ParseFile(file, allSource, parseOpts)
+          let! ast = checker.ParseFile(file, text, parseOpts)
           return
             positions |> List.map (fun x ->
                 UntypedAstUtils.getRangesAtPosition ast.ParseTree x
@@ -1085,14 +1077,13 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     // }
 
     member x.ScopesForFile (file: string<LocalPath>) = asyncResult {
-        let! (opts, sourceLines) = state.TryGetFileCheckerOptionsWithLines file
+        let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
         let parseOpts = Utils.projectOptionsToParseOptions opts
-        let allSource = sourceLines |> String.concat "\n"
-        let! ast = checker.ParseFile(file, allSource, parseOpts)
+        let! ast = checker.ParseFile(file, text, parseOpts)
         match ast.ParseTree with
         | None -> return! Error (ast.Errors |> Array.map string |> String.concat "\n")
         | Some ast' ->
-            let ranges = Structure.getOutliningRanges sourceLines ast'
+            let ranges = Structure.getOutliningRanges (text.ToString().Split("\n")) ast'
             return ranges
     }
 
@@ -1101,8 +1092,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.FormatDocument (file: string<LocalPath>) =
       asyncResult {
-          let! (opts, lines) = x.TryGetFileCheckerOptionsWithLines file
-          let source = String.concat "\n" lines
+          let! (opts, text) = x.TryGetFileCheckerOptionsWithLines file
           let parsingOptions = Utils.projectOptionsToParseOptions opts
           let checker : FSharpChecker = checker.GetFSharpChecker()
           // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
@@ -1112,8 +1102,8 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
               | None ->
                 fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
                 Fantomas.FormatConfig.FormatConfig.Default
-          let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceString source, config, parsingOptions, checker)
-          return lines, formatted
+          let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
+          return text, formatted
       }
       |> AsyncResult.foldResult Some (fun _ -> None)
 
@@ -1144,7 +1134,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
       async {
         let cnt =
           match state.TryGetFileSource file with
-          | Ok ctn -> String.concat "\n" ctn
+          | Ok ctn -> ctn.ToString()
           | _ ->  File.ReadAllText (UMX.untag file)
         let parsedFile =
           if Utils.isAScript (UMX.untag file) then
@@ -1160,7 +1150,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
       result {
         let! contents = state.TryGetFileSource tyRes.FileName
         let getGenerics line (token: FSharpTokenInfo) =
-            let lineStr = contents.[line]
+            let lineStr = contents.GetLineString line
             let res = tyRes.TryGetToolTip (Pos.fromZ line token.RightColumn) lineStr
             match res with
             | Ok tip ->
@@ -1192,7 +1182,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             currentIndex, false, acc
 
         let hints =
-          contents
+          Array.init (contents.GetLineCount()) (fun line -> contents.GetLineString line)
           |> Array.map (Lexer.tokenizeLine [||])
           |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
           |> Array.fold folder (0, false, [])

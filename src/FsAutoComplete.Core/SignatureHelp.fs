@@ -20,20 +20,20 @@ type SignatureHelpInfo = {
   SigHelpKind: SignatureHelpKind
 }
 
-let private lineText (lines: LineStr []) (pos: Pos) = lines.[pos.Line - 1]
+let private lineText (lines: ISourceText) (pos: Pos) = lines.GetLineString(pos.Line - 1)
 
-let private charAt (lines: LineStr []) (pos: Pos) =
+let private charAt (lines: ISourceText) (pos: Pos) =
       (lineText lines pos).[pos.Column - 1]
 
-let dec (lines: LineStr[]) (pos: Pos): Pos =
+let dec (lines: ISourceText) (pos: Pos): Pos =
   if pos.Column = 0 then
-    let prevLine = lines.[pos.Line - 2]
+    let prevLine = lines.GetLineString (pos.Line - 2)
     // retreat to the end of the previous line
     Pos.mkPos (pos.Line - 1) (prevLine.Length - 1)
   else
     Pos.mkPos pos.Line (pos.Column - 1)
 
-let inc (lines: LineStr[]) (pos: Pos): Pos =
+let inc (lines: ISourceText) (pos: Pos): Pos =
   let currentLine = lineText lines pos
   if pos.Column - 1 = currentLine.Length then
     // advance to the beginning of the next line
@@ -41,7 +41,7 @@ let inc (lines: LineStr[]) (pos: Pos): Pos =
   else
     Pos.mkPos pos.Line (pos.Column + 1)
 
-let getText (lines: LineStr[]) (range: Range) =
+let getText (lines: ISourceText) (range: Range) =
   if range.Start.Line = range.End.Line then
     let line = lineText lines range.Start
     line.Substring(range.StartColumn - 1, (range.End.Column - range.Start.Column))
@@ -50,12 +50,12 @@ let getText (lines: LineStr[]) (range: Range) =
       let startLine = lineText lines range.Start
       yield startLine.Substring(range.StartColumn - 1, (startLine.Length - 1 - range.Start.Column))
       for lineNo in (range.Start.Line+1)..(range.End.Line-1) do
-        yield lines.[lineNo - 1]
+        yield lines.GetLineString(lineNo - 1)
       let endLine = lineText lines range.End
       yield endLine.Substring(0, range.End.Column - 1)
     })
 
-let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Pos, endOfPreviousIdentPos: Pos, lines: LineStr[]) : Async<SignatureHelpInfo option> =
+let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Pos, endOfPreviousIdentPos: Pos, lines: ISourceText) : Async<SignatureHelpInfo option> =
   asyncMaybe {
     let lineStr = lineText lines endOfPreviousIdentPos
     let! possibleApplicationSymbolEnd = maybe {
@@ -124,7 +124,7 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
       return! None
   }
 
-let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Pos, lines: LineStr[], triggerChar) =
+let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Pos, lines: ISourceText, triggerChar) =
   asyncMaybe {
     let! paramLocations = tyRes.GetParseResults.FindNoteworthyParamInfoLocations caretPos
     let names = paramLocations.LongId
@@ -194,7 +194,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
       }
   }
 
-let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Pos, lines: LineStr[], triggerChar, possibleSessionKind) =
+let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Pos, lines: ISourceText, triggerChar, possibleSessionKind) =
   asyncResult {
     let previousNonWhitespaceCharPos =
       let rec loop ch pos =

@@ -35,9 +35,9 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
             let fcsPos = protocolPosToPos startOfBindingName
 
             let lineLen =
-              lines.[diagnostic.Range.Start.Line].Length
+              lines.GetLineString(diagnostic.Range.Start.Line).Length
 
-            let line =
+            let! line =
               getLineText
                 lines
                 { Start =

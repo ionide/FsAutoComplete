@@ -4,20 +4,58 @@ open FSharp.Compiler.SourceCodeServices
 open System
 open FsAutoComplete.Logging
 open FSharp.UMX
+open FSharp.Compiler.Text
+open System.Runtime.CompilerServices
 
 type VolatileFile =
   { Touched: DateTime
-    Lines: string []
-    Version: int option}
+    Lines: ISourceText
+    Version: int option }
 
 open System.IO
+
+
+[<Extension>]
+type SourceTextExtensions =
+  [<Extension>]
+  static member GetText(t: ISourceText, m: FSharp.Compiler.Text.Range): Result<string, string> =
+    let allFileRange = Range.mkRange m.FileName Pos.pos0 (t.GetLastFilePosition())
+    if not (Range.rangeContainsRange allFileRange m)
+    then Error "%A{m} is outside of the bounds of the file"
+    else
+      if m.StartLine = m.EndLine then // slice of a single line, just do that
+        let lineText = t.GetLineString (m.StartLine - 1)
+        lineText.Substring(m.StartColumn, m.EndColumn - m.StartColumn) |> Ok
+      else
+        // multiline, use a builder
+        let builder = new System.Text.StringBuilder()
+        // slice of the first line
+        let firstLine = t.GetLineString (m.StartLine - 1)
+        builder.Append (firstLine.Substring(m.StartColumn)) |> ignore<System.Text.StringBuilder>
+        // whole intermediate lines
+        for line in (m.StartLine + 1)..(m.EndLine - 1) do
+          builder.AppendLine (t.GetLineString(line - 1)) |> ignore<System.Text.StringBuilder>
+        // final part, potential slice
+        let lastLine = t.GetLineString (m.EndLine - 1)
+        builder.Append (lastLine.Substring(0, m.EndColumn)) |> ignore<System.Text.StringBuilder>
+        Ok (builder.ToString())
+
+  [<Extension>]
+  static member inline Lines(t: ISourceText) =
+    Array.init (t.GetLineCount()) t.GetLineString
+
+  [<Extension>]
+  /// a safe alternative to GetLastCharacterPosition, which returns untagged indexes. this version
+  /// returns a FCS Pos to prevent confusion about line index offsets
+  static member GetLastFilePosition(t: ISourceText): FSharp.Compiler.Text.Pos =
+    let endLine, endChar = t.GetLastCharacterPosition()
+    Pos.mkPos endLine endChar
 
 type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
     let getContent (filename: string<LocalPath>) =
          filename
          |> tryFindFile
-         |> Option.map (fun file ->
-              System.Text.Encoding.UTF8.GetBytes (String.Join ("\n", file.Lines)))
+         |> Option.map (fun file -> file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes)
 
     let fsLogger = LogProvider.getLoggerByName "FileSystem"
     /// translation of the BCL's Windows logic for Path.IsPathRooted.
