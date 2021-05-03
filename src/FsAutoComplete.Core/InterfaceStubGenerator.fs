@@ -108,10 +108,10 @@ let getInterfaceIdentifier (interfaceData : InterfaceData) (tokens : FSharpToken
     CodeGenerationUtils.findLastIdentifier tokens.[newKeywordIndex + 2..] tokens.[newKeywordIndex + 2]
 
 /// Try to find the start column, so we know what the base indentation should be
-let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
+let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc : Document) (lines: ISourceText) (lineStr : string) (interfaceData : InterfaceData) (indentSize : int) =
     match getMemberNameAndRanges interfaceData with
     | (_, range) :: _ ->
-        getLineIdent lines.[range.StartLine-1]
+        getLineIdent (lines.GetLineString(range.StartLine - 1))
     | [] ->
         match interfaceData with
         | InterfaceData.Interface _ as iface ->
@@ -134,7 +134,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc :
 /// Return None, if we failed to handle the interface implementation
 /// Return Some (insertPosition, generatedString):
 /// `insertPosition`: representation the position where the editor should insert the `generatedString`
-let handleImplementInterface (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (pos : Pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (interfaceData : InterfaceData) =
+let handleImplementInterface (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (pos : Pos) (doc : Document) (lines: ISourceText) (lineStr : string) (interfaceData : InterfaceData) =
     async {
         let! result = asyncMaybe {
             let! _symbol, symbolUse = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)

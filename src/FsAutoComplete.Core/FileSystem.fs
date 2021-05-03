@@ -4,20 +4,36 @@ open FSharp.Compiler.SourceCodeServices
 open System
 open FsAutoComplete.Logging
 open FSharp.UMX
+open FSharp.Compiler.Text
+open System.Runtime.CompilerServices
 
 type VolatileFile =
   { Touched: DateTime
-    Lines: string []
-    Version: int option}
+    Lines: ISourceText
+    Version: int option }
 
 open System.IO
+
+
+[<Extension>]
+type SourceTextExtensions =
+  [<Extension>]
+  static member inline GetText(t: ISourceText, m: FSharp.Compiler.Text.Range): string =
+    ""
+
+  [<Extension>]
+  static member inline GetText(t: ISourceText, r: LanguageServerProtocol.Types.Range): string =
+    ""
+
+  [<Extension>]
+  static member inline Lines(t: ISourceText) =
+    Array.init (t.GetLineCount()) t.GetLineString
 
 type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
     let getContent (filename: string<LocalPath>) =
          filename
          |> tryFindFile
-         |> Option.map (fun file ->
-              System.Text.Encoding.UTF8.GetBytes (String.Join ("\n", file.Lines)))
+         |> Option.map (fun file -> file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes)
 
     let fsLogger = LogProvider.getLoggerByName "FileSystem"
     /// translation of the BCL's Windows logic for Path.IsPathRooted.

@@ -21,7 +21,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
         do! Result.guard (fun _ -> errorText = "->") "Expected error source code text not matched"
 
         let lineLen =
-          lines.[diagnostic.Range.Start.Line].Length
+          lines.GetLineString(diagnostic.Range.Start.Line).Length
 
         let line =
           getLineText

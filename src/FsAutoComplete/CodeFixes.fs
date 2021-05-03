@@ -8,6 +8,7 @@ open LanguageServerProtocol.Types
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FsToolkit.ErrorHandling
+open FSharp.Compiler.Text
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -18,12 +19,10 @@ module LspTypes = LanguageServerProtocol.Types
 module Types =
   type IsEnabled = unit -> bool
 
-  type FileLines = string []
-  type FileLine = string
-  type GetRangeText = string<LocalPath> -> LspTypes.Range -> ResultOrString<FileLine>
-  type GetFileLines = string<LocalPath> -> ResultOrString<FileLines>
-  type GetLineText = FileLines -> LspTypes.Range -> FileLine
-  type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Pos -> Async<ResultOrString<ParseAndCheckResults * string * string array>>
+  type GetRangeText = string<LocalPath> -> LspTypes.Range -> ResultOrString<string>
+  type GetFileLines = string<LocalPath> -> ResultOrString<FSharp.Compiler.Text.ISourceText>
+  type GetLineText = FSharp.Compiler.Text.ISourceText -> LspTypes.Range -> string
+  type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Pos -> Async<ResultOrString<ParseAndCheckResults * string * FSharp.Compiler.Text.ISourceText>>
   type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.SourceCodeServices.FSharpProjectOptions>
 
   type FixKind =
@@ -98,14 +97,14 @@ module Navigation =
   /// advance along positions from a starting location, incrementing in a known way until a condition is met.
   /// when the condition is met, return that position.
   /// if the condition is never met, return None
-  let walkPos (lines: string []) (pos: LspTypes.Position) posChange terminalCondition checkCondition: LspTypes.Position option =
-    let charAt (pos: LspTypes.Position) = lines.[pos.Line].[pos.Character]
+  let walkPos (lines: ISourceText) (pos: LspTypes.Position) posChange terminalCondition checkCondition: LspTypes.Position option =
+    let charAt (pos: LspTypes.Position) = lines.GetLineString(pos.Line).[pos.Character]
 
     let firstPos = { Line = 0; Character = 0 }
 
     let finalPos =
       { Line = lines.Length - 1
-        Character = lines.[lines.Length - 1].Length - 1 }
+        Character = lines.GetLineString(lines.Length - 1).Length - 1 }
 
     let rec loop pos =
       let charAt = charAt pos
@@ -117,8 +116,8 @@ module Navigation =
 
     loop pos
 
-  let inc (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
-    let lineLength = lines.[pos.Line].Length
+  let inc (lines: ISourceText) (pos: LspTypes.Position): LspTypes.Position =
+    let lineLength = lines.GetLineString(pos.Line).Length
 
     if pos.Character = lineLength - 1 then
       { Line = pos.Line + 1; Character = 0 }
@@ -126,13 +125,13 @@ module Navigation =
       { pos with
           Character = pos.Character + 1 }
 
-  let dec (lines: string []) (pos: LspTypes.Position): LspTypes.Position =
+  let dec (lines: ISourceText) (pos: LspTypes.Position): LspTypes.Position =
     if pos.Character = 0 then
       let newLine = pos.Line - 1
       // decrement to end of previous line
       { pos with
           Line = newLine
-          Character = lines.[newLine].Length - 1 }
+          Character = lines.GetLineString(newLine).Length - 1 }
     else
       { pos with
           Character = pos.Character - 1 }
@@ -145,16 +144,16 @@ module Navigation =
     if count <= 0 then pos
     else incMany lines (inc lines pos) (count - 1)
 
-  let walkBackUntilCondition (lines: string []) (pos: LspTypes.Position) =
+  let walkBackUntilCondition (lines: ISourceText) (pos: LspTypes.Position) =
     walkPos lines pos (dec lines) (fun c -> false)
 
-  let walkForwardUntilCondition (lines: string []) (pos: LspTypes.Position) =
+  let walkForwardUntilCondition (lines: ISourceText) (pos: LspTypes.Position) =
     walkPos lines pos (inc lines) (fun c -> false)
 
   let walkBackUntilConditionWithTerminal lines pos check terminal =
     walkPos lines pos (dec lines) terminal check
 
-  let walkForwardUntilConditionWithTerminal (lines: string []) (pos: LspTypes.Position) check terminal =
+  let walkForwardUntilConditionWithTerminal (lines: ISourceText) (pos: LspTypes.Position) check terminal =
     walkPos lines pos (inc lines) terminal check
 
 module Run =

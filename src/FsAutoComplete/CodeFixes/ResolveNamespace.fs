@@ -7,6 +7,7 @@ open FsToolkit.ErrorHandling
 open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.LspHelpers
 open FsAutoComplete
+open FSharp.Compiler.Text
 
 type LineText = string
 
@@ -20,12 +21,12 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
           End = { Line = line; Character = 0 } }
       NewText = lineStr }
 
-  let adjustInsertionPoint (lines: string []) (ctx: InsertContext) =
+  let adjustInsertionPoint (lines: ISourceText) (ctx: InsertContext) =
     let l = ctx.Pos.Line
 
     match ctx.ScopeKind with
     | TopModule when l > 1 ->
-        let line = lines.[l - 2]
+        let line = lines.GetLineString (l - 2)
 
         let isImplicitTopLevelModule =
           not
@@ -36,7 +37,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
     | TopModule -> 1
     | ScopeKind.Namespace when l > 1 ->
         [ 0 .. l - 1 ]
-        |> List.mapi (fun i line -> i, lines.[line])
+        |> List.mapi (fun i line -> i, lines.GetLineString line)
         |> List.tryPick (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
         |> function
         // move to the next line below "namespace" and convert it to F# 1-based line number
@@ -54,8 +55,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
       Title = $"Use %s{qual}"
       Kind = Fix }
 
-  let openFix fileLines file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
-    let insertPoint = adjustInsertionPoint fileLines ctx
+  let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
+    let insertPoint = adjustInsertionPoint text ctx
     let docLine = insertPoint - 1
 
     let actualOpen =
@@ -75,10 +76,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
 
     let edits =
       [| yield insertLine docLine lineStr
-         if fileLines.[docLine + 1].Trim() <> "" then yield insertLine (docLine + 1) ""
+         if text.GetLineString(docLine + 1).Trim() <> "" then yield insertLine (docLine + 1) ""
          if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace)
             && docLine > 0
-            && not ((fileLines.[docLine - 1]).StartsWith "open") then
+            && not (text.GetLineString(docLine - 1).StartsWith "open") then
            yield insertLine (docLine - 1) "" |]
 
     { Edits = edits

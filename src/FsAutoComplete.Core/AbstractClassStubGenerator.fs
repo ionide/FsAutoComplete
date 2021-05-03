@@ -96,10 +96,10 @@ let getMemberNameAndRanges (abstractClassData) =
   | AbstractClassData.ObjExpr (_, bindings, _) -> List.choose (|MemberNameAndRange|_|) bindings
 
 /// Try to find the start column, so we know what the base indentation should be
-let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) (indentSize : int) =
+let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc : Document) (lines: ISourceText) (lineStr : string) (abstractClassData : AbstractClassData) (indentSize : int) =
     match getMemberNameAndRanges abstractClassData with
     | (_, range) :: _ ->
-        getLineIdent lines.[range.StartLine-1]
+        getLineIdent (lines.GetLineString(range.StartLine - 1))
     | [] ->
         match abstractClassData with
         | AbstractClassData.ExplicitImpl _ ->
@@ -122,7 +122,7 @@ let inferStartColumn  (codeGenServer : CodeGenerationService) (pos : Pos) (doc :
 /// Try to write any missing members of the given abstract type at the given location.
 /// If the destination type isn't an abstract class, or if there are no missing members to implement,
 /// nothing is written. Otherwise, a list of missing members is generated and written
-let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: LineStr[]) (lineStr : string) (abstractClassData : AbstractClassData) =
+let writeAbstractClassStub (codeGenServer : CodeGenerationService) (checkResultForFile: ParseAndCheckResults) (doc : Document) (lines: ISourceText) (lineStr : string) (abstractClassData : AbstractClassData) =
   asyncMaybe {
     let pos = Pos.mkPos abstractClassData.AbstractTypeIdentRange.Start.Line (abstractClassData.AbstractTypeIdentRange.End.Column)
     let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)

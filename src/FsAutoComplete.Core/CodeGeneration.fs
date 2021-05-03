@@ -15,9 +15,9 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
     member x.TokenizeLine(fileName, i) =
         match state.TryGetFileCheckerOptionsWithLines fileName with
         | ResultOrString.Error _ -> None
-        | ResultOrString.Ok (opts, lines) ->
+        | ResultOrString.Ok (opts, text) ->
             try
-                let line = lines.[ i - 1 ]
+                let line = text.GetLineString (i - 1)
                 Lexer.tokenizeLine [||] line |> Some
             with
             | _ -> None
