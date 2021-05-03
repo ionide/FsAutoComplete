@@ -37,7 +37,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
             let lineLen =
               lines.GetLineString(diagnostic.Range.Start.Line).Length
 
-            let line =
+            let! line =
               getLineText
                 lines
                 { Start =

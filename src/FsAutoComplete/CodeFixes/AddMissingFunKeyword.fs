@@ -17,13 +17,13 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
           codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
         let! lines = getFileLines fileName
-        let errorText = getLineText lines diagnostic.Range
+        let! errorText = getLineText lines diagnostic.Range
         do! Result.guard (fun _ -> errorText = "->") "Expected error source code text not matched"
 
         let lineLen =
           lines.GetLineString(diagnostic.Range.Start.Line).Length
 
-        let line =
+        let! line =
           getLineText
             lines
             { Start =

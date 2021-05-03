@@ -18,7 +18,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
       let! exprRange = parseResults.GetParseResults.TryRangeOfExpressionBeingDereferencedContainingPos selectionRange.Start |> Result.ofOption (fun _ -> "No expr found at that pos")
       let combinedRange = FSharp.Compiler.Text.Range.unionRanges derefRange exprRange
       let protocolRange = fcsRangeToLsp combinedRange
-      let badString = getLineText lines protocolRange
+      let! badString = getLineText lines protocolRange
       let replacementString = badString.[1..] + ".Value"
       return [
         { Title = "Use `.Value` instead of dereference operator"

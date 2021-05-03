@@ -143,7 +143,7 @@ type State =
       else
         let line = text.GetLineString (pos.Line - 1)
         let lineLength = line.Length
-        if pos.Column < 0 || pos.Column >= lineLength // since column is 0-based, lineLength is actually longer than the column is allowed to be
+        if pos.Column < 0 || pos.Column > lineLength // since column is 0-based, lineLength is actually longer than the column is allowed to be
         then Error "Position is out of range"
         else
           Ok (opts, text, line)

@@ -490,8 +490,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
-        let getRangeText fileName (range: LanguageServerProtocol.Types.Range) = getFileLines fileName |> Result.map (fun lines -> lines.GetText range)
-        let getLineText (lines: ISourceText) (range: LanguageServerProtocol.Types.Range) = lines.GetText range
+        let getLineText (lines: ISourceText) (range: LanguageServerProtocol.Types.Range) = lines.GetText (protocolRangeToRange "unknown.fsx" range)
+        let getRangeText fileName (range: LanguageServerProtocol.Types.Range) = getFileLines fileName |> Result.bind (fun lines -> lines.GetText (protocolRangeToRange (UMX.untag fileName) range))
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
         let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
 
@@ -1095,8 +1095,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | Some (lines, formatted) ->
             let range =
                 let zero = { Line = 0; Character = 0 }
-                let endLine, endCharacter = lines.GetLastCharacterPosition()
-                { Start = zero; End = { Line = endLine; Character = endCharacter } }
+                let lastPos = lines.GetLastFilePosition()
+                { Start = zero; End = fcsPosToLsp lastPos }
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
         | None ->

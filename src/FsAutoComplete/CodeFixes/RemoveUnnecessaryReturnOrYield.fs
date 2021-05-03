@@ -24,8 +24,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
         | None -> return []
         | Some exprRange ->
             let protocolExprRange = fcsRangeToLsp exprRange
-            let exprText = getLineText lines protocolExprRange
-            let errorText = getLineText lines diagnostic.Range
+            let! exprText = getLineText lines protocolExprRange
+            let! errorText = getLineText lines diagnostic.Range
 
             let! title =
               if errorText.StartsWith "return!"

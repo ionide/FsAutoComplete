@@ -273,7 +273,7 @@ let formattingTests state =
     { Range = { Start = start; End = ``end`` }; NewText = normalizeLineEndings expectedText }
 
   let verifyFormatting scenario document =
-    testCaseAsync $"{scenario} {document}" (async {
+    testCaseAsync $"{scenario}-{document}" (async {
     let! (server, events, rootPath) = server
     let sourceFile = Path.Combine(rootPath, sprintf "%s.input.fsx" document)
     let expectedFile = Path.Combine(rootPath, sprintf "%s.expected.fsx" document)

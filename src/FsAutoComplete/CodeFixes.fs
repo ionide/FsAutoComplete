@@ -21,7 +21,7 @@ module Types =
 
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> ResultOrString<string>
   type GetFileLines = string<LocalPath> -> ResultOrString<FSharp.Compiler.Text.ISourceText>
-  type GetLineText = FSharp.Compiler.Text.ISourceText -> LspTypes.Range -> string
+  type GetLineText = FSharp.Compiler.Text.ISourceText -> LspTypes.Range -> Result<string, string>
   type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Pos -> Async<ResultOrString<ParseAndCheckResults * string * FSharp.Compiler.Text.ISourceText>>
   type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.SourceCodeServices.FSharpProjectOptions>
 
@@ -98,13 +98,10 @@ module Navigation =
   /// when the condition is met, return that position.
   /// if the condition is never met, return None
   let walkPos (lines: ISourceText) (pos: LspTypes.Position) posChange terminalCondition checkCondition: LspTypes.Position option =
-    let charAt (pos: LspTypes.Position) = lines.GetLineString(pos.Line).[pos.Character]
+    let charAt (pos: LspTypes.Position) = lines.GetLineString(pos.Line).[pos.Character - 1]
 
     let firstPos = { Line = 0; Character = 0 }
-
-    let finalPos =
-      { Line = lines.Length - 1
-        Character = lines.GetLineString(lines.Length - 1).Length - 1 }
+    let finalPos = fcsPosToLsp (lines.GetLastFilePosition())
 
     let rec loop pos =
       let charAt = charAt pos
