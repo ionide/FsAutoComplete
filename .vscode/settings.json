@@ -8,5 +8,6 @@
     //otherwise take a lot of time to load proj inside
     //the test directories
     "omnisharp.autoStart": false,
-    "FSharp.minimizeBackgroundParsing": true
+    "FSharp.minimizeBackgroundParsing": true,
+    "FSharp.trace.server": "verbose"
 }
