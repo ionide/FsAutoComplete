@@ -27,11 +27,6 @@ FsAutoComplete can run on .NET/mono or .NET Core. We highly recommend using .Net
 
 * .NET Core Sdk (Required: >= 2.1, Recommended: >= 3.0 )
 
-### FSAC .NET (deprecated)
-
-* on windows: [Microsoft Build Tools 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48159)
-* on unix/mac: Required: Mono >= 5.12, Recommended: Mono >= 5.18
-
 
 ## Building and testing
 
@@ -48,6 +43,12 @@ Requirements:
 ### DevContainer
 
 The repository additionally provides DevContainer definition that can be used with VSCode's Remote Containers extension - use it to get stable development environment
+
+### Gitpod.io
+
+This repository is setup to use gitpod for a web-based VSCode-style IDE. Click the button below to begin!
+
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/fsharp/fsautocomplete)
 
 ## Communication protocol
 
