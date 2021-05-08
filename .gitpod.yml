@@ -5,3 +5,6 @@ image:
 tasks:
   - init: dotnet tool restore
   
+vscode:
+  extensions:
+    - Ionide.Ionide-fsharp
