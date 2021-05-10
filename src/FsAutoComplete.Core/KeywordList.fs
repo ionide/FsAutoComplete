@@ -16,14 +16,12 @@ module KeywordList =
     let keywordTooltips =
       keywordDescriptions
       |> Seq.map (fun (KeyValue(keyword, description)) ->
-        let lines = description.Replace("\r\n", "\n").Split('\n')
-        let allLines = Array.concat [| [|"<summary>"|]; lines; [| "</summary>" |] |]
         let data: ToolTipElementData =
-          { MainDescription = [||]
+          { MainDescription = [| TaggedText.tagText description |]
             ParamName = None
             Remarks = None
             TypeMapping = []
-            XmlDoc = FSharpXmlDoc.FromXmlText (XmlDoc(allLines, Range.range0))
+            XmlDoc = FSharpXmlDoc.None
           }
         let tip = ToolTipText [ ToolTipElement.Group [ data ] ]
         keyword, tip)
