@@ -264,7 +264,7 @@ let formattingTests state =
       failwithf "Errors while parsing script %s: %A" sourceFile errors
   })
 
-  testSequenced <| testList "fantomas integration" [
+  testSequenced <| ptestList "fantomas integration" [
     testList "tests" [
       verifyFormatting "can replace entire content of file when formatting whole document" "endCharacter"
     ]
@@ -317,7 +317,7 @@ let analyzerTests state =
     |> Async.Cache
 
   testSequenced <|
-    testList "analyzer integration" [
+    ptestList "analyzer integration" [
       testList "tests" [
         testCaseAsync "can run analyzer on file" (async {
           let! (server, events, rootPath, testFilePath) = server

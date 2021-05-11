@@ -25,6 +25,7 @@ let testTimeout =
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
   // These are commented out because of https://github.com/ionide/proj-info/issues/109
+  // TODO CH graph build is straight up borked on non 5.0.1xx SDKs
   // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
 ]
 

@@ -27,8 +27,8 @@ type FormatCommentStyle =
 // --------------------------------------------------------------------------------------
 // Formatting of tool-tip information displayed in F# IntelliSense
 // --------------------------------------------------------------------------------------
-let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: string option) =
-    match cmt with
+let private buildFormatComment (tip: ToolTipElementData) (formatStyle : FormatCommentStyle) (typeDoc: string option) =
+    match tip.XmlDoc with
     | FSharpXmlDoc.FromXmlText xmlDoc ->
         try
             let lines = xmlDoc.GetElaboratedXmlLines()
@@ -98,7 +98,9 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
             | FormatCommentStyle.Documentation ->
                 doc.[memberName].ToDocumentationString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
         | _ -> ""
-    | _ -> ""
+    | FSharpXmlDoc.None ->
+      // in this case, we just use the maindescription
+      "**Description**" + nl + nl + (tip.MainDescription |> Array.map (fun t -> t.Text) |> String.concat "")
 
 
 let private formatGenericParamInfo (text: TaggedText []) =
@@ -164,7 +166,7 @@ let formatTip (ToolTipText tips) : (string * string) list list =
                 |> Array.map renderText
                 |> String.concat ""
               logger.info (Log.setMessage "rendering text of {text} for tooltip" >> Log.addContextDestructured "text" headerElements)
-              let body = buildFormatComment tipElement.XmlDoc FormatCommentStyle.Legacy None
+              let body = buildFormatComment tipElement FormatCommentStyle.Legacy None
               header, body
 
             items
@@ -178,15 +180,18 @@ let formatTipEnhanced (ToolTipText tips) (signature : string) (footer : string) 
     tips
     |> List.choose (function
         | ToolTipElement.Group items ->
-            Some (items |> List.map (fun i ->
+            let formatElement (i: ToolTipElementData) =
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc formatCommentStyle typeDoc
+                      buildFormatComment i formatCommentStyle typeDoc
                     else
-                      buildFormatComment i.XmlDoc formatCommentStyle typeDoc
+                      buildFormatComment i formatCommentStyle typeDoc
                       + nl + nl + "**Generic Parameters**" + nl + nl
-                      + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat nl)
-                (signature, comment, footer)))
+                      + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
+                signature, comment, footer
+
+            let items = items |> List.map formatElement
+            Some items
         | ToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
 
@@ -197,9 +202,9 @@ let formatDocumentation (ToolTipText tips) ((signature, (constructors, fields, f
             Some (items |> List.map (fun i ->
                 let comment =
                     if i.TypeMapping.IsEmpty then
-                      buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
+                      buildFormatComment i FormatCommentStyle.Documentation None
                     else
-                      buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
+                      buildFormatComment i FormatCommentStyle.Documentation None
                       + nl + nl + "**Generic Parameters**" + nl + nl
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
@@ -209,7 +214,13 @@ let formatDocumentation (ToolTipText tips) ((signature, (constructors, fields, f
 
 let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signature, (constructors, fields, functions, interfaces, attrs, ts)) : string * (string [] * string [] * string [] * string[]* string[]* string[])) (footer : string) (cn: string) =
     let xmlDoc =  FSharpXmlDoc.FromXmlFile(assembly, xmlSig)
-    let comment = buildFormatComment xmlDoc FormatCommentStyle.Documentation None
+    let element: ToolTipElementData =
+      { MainDescription = [||]
+        ParamName = None
+        Remarks = None
+        TypeMapping = []
+        XmlDoc = xmlDoc }
+    let comment = buildFormatComment element FormatCommentStyle.Documentation None
     [[(signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)]]
 
 let extractSignature (ToolTipText tips) =
