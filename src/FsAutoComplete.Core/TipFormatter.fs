@@ -5,6 +5,7 @@ module FsAutoComplete.TipFormatter
 
 open System
 open System.IO
+open System.Text
 open System.Xml
 open System.Collections.Generic
 open System.Text.RegularExpressions
@@ -113,13 +114,22 @@ let private buildFormatComment (tip: ToolTipElementData) (formatStyle : FormatCo
 
 
 let private formatGenericParamInfo (text: TaggedText []) =
-  logger.info (Log.setMessage "formatting text {text} as generic parameter info" >> Log.addContextDestructured "text" text)
-  "generic param"
-  // let m = Regex.Match(cmt, """(.*) is (.*)""")
-  // if m.Success then
-  //   sprintf "* `%s` is `%s`" m.Groups.[1].Value m.Groups.[2].Value
-  // else
-  //   cmt
+  match text with
+  | [||] -> ""
+  | elements ->
+    // should be of the form X is Y
+    let builder = new StringBuilder()
+    builder.Append "* " |> ignore<StringBuilder>
+    elements
+    |> Array.iter (fun t ->
+      match t.Tag with
+      | TextTag.TypeParameter
+      | TextTag.Struct ->
+        builder.Append('`').Append(t.Text).Append('`') |> ignore<StringBuilder>
+      | _ ->
+        builder.Append(t.Text) |> ignore<StringBuilder>
+    )
+    builder.ToString()
 
 let renderText (text: TaggedText) =
   match text.Tag with
