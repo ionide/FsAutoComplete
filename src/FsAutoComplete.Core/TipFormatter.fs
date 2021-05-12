@@ -112,7 +112,6 @@ let private buildFormatComment (tip: ToolTipElementData) (formatStyle : FormatCo
     //   | FormatCommentStyle.SummaryOnly -> mainPart
 
 
-
 let private formatGenericParamInfo (text: TaggedText []) =
   match text with
   | [||] -> ""
@@ -123,8 +122,15 @@ let private formatGenericParamInfo (text: TaggedText []) =
     elements
     |> Array.iter (fun t ->
       match t.Tag with
+      | TextTag.Alias
+      | TextTag.Class
+      | TextTag.Delegate
+      | TextTag.Enum
+      | TextTag.Struct
       | TextTag.TypeParameter
-      | TextTag.Struct ->
+      | TextTag.Union
+      | TextTag.Record
+      | TextTag.TypeParameter ->
         builder.Append('`').Append(t.Text).Append('`') |> ignore<StringBuilder>
       | _ ->
         builder.Append(t.Text) |> ignore<StringBuilder>
@@ -137,36 +143,36 @@ let renderText (text: TaggedText) =
   | TextTag.ActivePatternResult
   | TextTag.Alias
   | TextTag.Class
-  | TextTag.Union
-  | TextTag.UnionCase
   | TextTag.Delegate
   | TextTag.Enum
   | TextTag.Event
   | TextTag.Field
+  | TextTag.Function
   | TextTag.Interface
   | TextTag.Keyword
   | TextTag.LineBreak
   | TextTag.Local
-  | TextTag.Record
-  | TextTag.RecordField
-  | TextTag.Method
   | TextTag.Member
-  | TextTag.ModuleBinding
-  | TextTag.Function
+  | TextTag.Method
   | TextTag.Module
+  | TextTag.ModuleBinding
   | TextTag.Namespace
   | TextTag.NumericLiteral
   | TextTag.Operator
   | TextTag.Parameter
   | TextTag.Property
+  | TextTag.Punctuation
+  | TextTag.Record
+  | TextTag.RecordField
   | TextTag.Space
   | TextTag.StringLiteral
   | TextTag.Struct
-  | TextTag.TypeParameter
   | TextTag.Text
-  | TextTag.Punctuation
-  | TextTag.UnknownType
-  | TextTag.UnknownEntity -> text.Text
+  | TextTag.TypeParameter
+  | TextTag.Union
+  | TextTag.UnionCase
+  | TextTag.UnknownEntity
+  | TextTag.UnknownType -> text.Text
 
 
 let formatTip (ToolTipText tips) : (string * string) list list =
