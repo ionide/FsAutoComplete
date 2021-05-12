@@ -98,9 +98,18 @@ let private buildFormatComment (tip: ToolTipElementData) (formatStyle : FormatCo
             | FormatCommentStyle.Documentation ->
                 doc.[memberName].ToDocumentationString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
         | _ -> ""
-    | FSharpXmlDoc.None ->
-      // in this case, we just use the maindescription
-      "**Description**" + nl + nl + (tip.MainDescription |> Array.map (fun t -> t.Text) |> String.concat "")
+    | FSharpXmlDoc.None -> ""
+    //   // TODO: we should probably format the tagged text based on tag?
+    //   // in this case, we just use the maindescription
+    //   let mainPart =
+    //    tip.MainDescription |> Array.map (fun t -> t.Text) |> String.concat ""
+    //   match formatStyle with
+    //   | FormatCommentStyle.Documentation ->
+    //     "**Documentation**" + nl + nl + mainPart
+    //   | FormatCommentStyle.FullEnhanced
+    //   | FormatCommentStyle.Legacy
+    //   | FormatCommentStyle.SummaryOnly -> mainPart
+
 
 
 let private formatGenericParamInfo (text: TaggedText []) =
@@ -193,7 +202,7 @@ let formatTipEnhanced (ToolTipText tips) (signature : string) (footer : string) 
             let items = items |> List.map formatElement
             Some items
         | ToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
-        | _ -> None)
+        | ToolTipElement.None -> None)
 
 let formatDocumentation (ToolTipText tips) ((signature, (constructors, fields, functions, interfaces, attrs, ts)) : string * (string [] * string [] * string []* string[]* string[]* string[])) (footer : string) (cn: string) =
     tips
