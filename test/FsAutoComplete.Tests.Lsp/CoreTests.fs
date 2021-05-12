@@ -176,6 +176,46 @@ let basicTests state =
 
             return Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
         })
+
+        testCaseAsync "Hover Tests - inline function with open generics" (async {
+          let! server, path = server
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path}
+              Position = { Line = 6; Character = 13}} // middle of the `add` function
+          let! res = server.TextDocumentHover p
+          match res with
+          | Result.Error e -> ()
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            let expected =
+              MarkedStrings
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val add: \n   x: ^a (requires static member ( + ) )->\n   y: ^b (requires static member ( + ) )\n   -> ^c"}
+                    MarkedString.String ""
+                    MarkedString.String "*Full name: Script.add*"
+                    MarkedString.String "*Assembly: Script*"|]
+
+            return Expect.equal (normalizeHoverContent res.Contents) expected "should have rendered the inline generics"
+        })
+
+        testCaseAsync "Hover Tests - use of generic function renders fixed generic parameters" (async {
+          let! server, path = server
+          let p : TextDocumentPositionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path}
+              Position = { Line = 8; Character = 14 } } // middle of the use of the `add` function, where generics are fixed
+          let! res = server.TextDocumentHover p
+          match res with
+          | Result.Error e -> ()
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            let expected =
+              MarkedStrings
+                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "val add: \n   x: ^a (requires static member ( + ) )->\n   y: ^b (requires static member ( + ) )\n   -> ^c"}
+                    MarkedString.String "\n\n**Generic Parameters**\n\n* `'a` is `int`\n* `'b` is `int`\n* `'c` is `int`"
+                    MarkedString.String "*Full name: Script.add*"
+                    MarkedString.String "*Assembly: Script*"|]
+
+            return Expect.equal (normalizeHoverContent res.Contents) expected "should have rendered the inline generics"
+        })
         testCaseAsync "cleanup" (async {
           let! server, _ = server
           do! server.Shutdown()

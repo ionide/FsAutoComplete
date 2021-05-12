@@ -1080,7 +1080,7 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
                       buildFormatComment i.XmlDoc formatCommentStyle typeDoc
                     else
                       buildFormatComment i.XmlDoc formatCommentStyle typeDoc
-                      + "\n\n**Generic parameters**\n\n"
+                      + "\n\n**Generic Parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
                 (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
@@ -1096,7 +1096,7 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
                       buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
                     else
                       buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
-                      + "\n\n**Generic parameters**\n\n"
+                      + "\n\n**Generic Parameters**\n\n"
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
                 (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)))
