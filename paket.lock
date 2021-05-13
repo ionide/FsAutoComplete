@@ -961,10 +961,3 @@ NUGET
     System.Threading.Tasks.Dataflow (5.0)
     System.Threading.Tasks.Extensions (4.5.4)
       System.Runtime.CompilerServices.Unsafe (>= 4.5.3)
-
-GROUP SourceLink
-STORAGE: NONE
-NUGET
-  remote: https://api.nuget.org/v3/index.json
-    SourceLink.Create.CommandLine (2.7.4)
-    SourceLink.Embed.PaketFiles (2.7.4)

@@ -70,9 +70,3 @@ group Build
   nuget Fake.DotNet.MsBuild
   nuget Fake.Api.GitHub
   nuget Microsoft.Build
-
-group SourceLink
-  storage: none
-  source https://api.nuget.org/v3/index.json
-  nuget SourceLink.Create.CommandLine 2.7.4
-  nuget SourceLink.Embed.PaketFiles 2.7.4
