@@ -59,6 +59,7 @@ let tests =
         // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath
         analyzerTests state
+        signatureTests state
         SignatureHelp.tests state
         CodeFixTests.tests state
         Completion.tests state

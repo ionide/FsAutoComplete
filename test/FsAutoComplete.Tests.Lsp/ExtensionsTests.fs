@@ -375,3 +375,50 @@ let analyzerTests state =
         do! server.Shutdown()
       })
     ]
+
+let signatureTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
+      let scriptPath = Path.Combine(path, "Script.fsx")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+      match! waitForParseResultsForFile "Script.fsx" events with
+      | Ok () ->
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failtestf "Errors while parsing script %s: %A" scriptPath errors
+
+      return server, scriptPath
+    }
+    |> Async.Cache
+
+  let verifySignature line character expectedSignature =
+    testCaseAsync (sprintf "fsharp/signature for line %d character %d should be '%s'" line character expectedSignature) (async {
+      let! server, scriptPath = server
+      let pos: TextDocumentPositionParams = {
+        TextDocument =  { Uri = sprintf "file://%s" scriptPath }
+        Position = { Line = line; Character = character }
+      }
+      match! server.FSharpSignature pos with
+      | Ok { Content = content } ->
+        let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<string>>(content)
+        Expect.equal r.Kind "typesig" "Should have a kind of 'typesig'"
+        Expect.equal r.Data expectedSignature (sprintf "Should have a signature of '%s'" expectedSignature)
+      | Result.Error errors ->
+        failtestf "Error while getting signature: %A" errors
+    })
+
+  testSequenced <|
+    testList "signature evaluation" [
+      testList "tests" [
+        verifySignature 0 4 "val arrayOfTuples : (int * int) []"  // verify that even first letter of the signature triggers correctly
+        verifySignature 0 5 "val arrayOfTuples : (int * int) []"
+      ]
+      testCaseAsync "cleanup" (async {
+        let! server, _ = server
+        do! server.Shutdown()
+      })
+  ]
+

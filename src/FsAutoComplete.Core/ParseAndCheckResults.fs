@@ -213,7 +213,7 @@ type ParseAndCheckResults
   }
 
   member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) =
-    match Lexer.findLongIdents(pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents(pos.Column, lineStr) with
     | None -> ResultOrString.Error "Cannot find ident for tooltip"
     | Some(col,identIsland) ->
       let identIsland = Array.toList identIsland
