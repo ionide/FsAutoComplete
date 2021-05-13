@@ -1949,7 +1949,11 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
 
     let state = State.Initial toolsPath workspaceLoaderFactory
     let originalFs = FileSystemAutoOpens.FileSystem
-    FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
+    let tryRemove path =
+      match state.Files.TryRemove(path: string<LocalPath>) with
+      | true, _ -> ()
+      | false,  _ -> ()
+    FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind, tryRemove)
     LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient -> new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
 
 let start backgroundServiceEnabled toolsPath workspaceLoaderFactory =

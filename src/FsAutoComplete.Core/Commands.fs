@@ -261,7 +261,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                     | None when File.Exists(UMX.untag file) ->
                         let ctn = File.ReadAllText (UMX.untag file)
                         let text = SourceText.ofString ctn
-                        state.Files.[file] <- { Touched = DateTime.Now; Lines = text; Version = None }
+                        state.Files.[file] <- { Touched = DateTime.Now; Lines = text; Version = None; Created = File.GetCreationTimeUtc (UMX.untag file) }
                         let payload =
                             if Utils.isAScript (UMX.untag file)
                             then BackgroundServices.ScriptFile(UMX.untag file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)

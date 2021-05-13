@@ -19,6 +19,9 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.IO
 
+// FCS FileSystem APIs are experimental
+#nowarn "57"
+
 type BackgroundFileCheckType =
 | SourceFile of filePath: string
 | ScriptFile of filePath: string * tfm: FSIRefs.TFM
@@ -352,6 +355,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let vf =
               { Lines = SourceText.ofString p.Content
                 Touched = DateTime.Now
+                Created = File.GetCreationTimeUtc (UMX.untag file)
                 Version = Some p.Version }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore
             let! filesToCheck = defaultArg (getListOfFilesForProjectChecking p.File) (async.Return [])
@@ -396,8 +400,9 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     override _.Dispose () =
       clearOldCacheSubscription.Dispose()
 
-
 module Program =
+
+
     let state = State.Initial
 
     let startCore () =
@@ -412,14 +417,16 @@ module Program =
 
         LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
 
-
-
     [<EntryPoint>]
     let main argv =
 
         let pid = Int32.Parse argv.[0]
         let originalFs = FileSystemAutoOpens.FileSystem
-        let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind) :> IFileSystem
+        let tryRemove path =
+          match state.Files.TryRemove(path: string<LocalPath>) with
+          | true, f -> ()
+          | false,  _ -> ()
+        let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind, tryRemove) :> IFileSystem
         FileSystemAutoOpens.FileSystem <- fs
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
         SymbolCache.initCache (Environment.CurrentDirectory)

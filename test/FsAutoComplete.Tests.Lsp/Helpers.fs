@@ -117,8 +117,12 @@ type ClientEvents = IObservable<string * obj>
 let createServer (state: State) =
   let event = new System.Reactive.Subjects.ReplaySubject<_>()
   let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
+  let tryRemove path =
+      match state.Files.TryRemove(path: string<LocalPath>) with
+      | true, _ -> ()
+      | false,  _ -> ()
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
-  let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
+  let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind, tryRemove)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
   let server = new FSharpLspServer(false, state, client)
   server, event :> ClientEvents

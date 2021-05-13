@@ -50,7 +50,11 @@ type State =
   member x.RefreshCheckerOptions(file: string<LocalPath>, text: ISourceText) : FSharpProjectOptions option =
     x.ProjectController.GetProjectOptions (UMX.untag file)
     |> Option.map (fun opts ->
-        x.Files.[file] <- { Lines = text; Touched = DateTime.Now; Version = None }
+        let createDate =
+          match x.Files.TryFind file with
+          | None -> System.IO.File.GetCreationTimeUtc (UMX.untag file)
+          | Some file -> file.Created
+        x.Files.[file] <- { Lines = text; Touched = DateTime.Now; Version = None; Created = createDate }
         opts
     )
 
@@ -84,12 +88,12 @@ type State =
     x.LastCheckedVersion.[file] <- version
 
   member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: ISourceText, opts, version) =
-    let fileState = { Lines = text; Touched = DateTime.Now; Version = version }
+    let fileState = { Lines = text; Touched = DateTime.Now; Version = version; Created = System.IO.File.GetCreationTimeUtc (UMX.untag file) }
     x.Files.[file] <- fileState
     x.ProjectController.SetProjectOptions(UMX.untag file, opts)
 
   member x.AddFileText(file: string<LocalPath>, text: ISourceText, version) =
-    let fileState = { Lines = text; Touched = DateTime.Now; Version = version }
+    let fileState = { Lines = text; Touched = DateTime.Now; Version = version; Created = System.IO.File.GetCreationTimeUtc (UMX.untag file) }
     x.Files.[file] <- fileState
 
   member x.AddCancellationToken(file : string<LocalPath>, token: CancellationTokenSource) =
