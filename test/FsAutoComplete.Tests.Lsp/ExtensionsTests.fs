@@ -379,7 +379,7 @@ let analyzerTests state =
 let signatureTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Signature")
       let scriptPath = Path.Combine(path, "Script.fsx")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
@@ -394,27 +394,34 @@ let signatureTests state =
     }
     |> Async.Cache
 
-  let verifySignature line character expectedSignature =
-    testCaseAsync (sprintf "fsharp/signature for line %d character %d should be '%s'" line character expectedSignature) (async {
+  let verifySignature line (characterStart, characterEnd) expectedSignature =
+    let verifyAt character = async {
       let! server, scriptPath = server
       let pos: TextDocumentPositionParams = {
-        TextDocument =  { Uri = sprintf "file://%s" scriptPath }
+        TextDocument =  { Uri = Path.FilePathToUri scriptPath }
         Position = { Line = line; Character = character }
       }
       match! server.FSharpSignature pos with
       | Ok { Content = content } ->
         let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<string>>(content)
         Expect.equal r.Kind "typesig" "Should have a kind of 'typesig'"
-        Expect.equal r.Data expectedSignature (sprintf "Should have a signature of '%s'" expectedSignature)
+        Expect.equal r.Data expectedSignature (sprintf "Should have a signature of '%s' at character %d" expectedSignature character)
       | Result.Error errors ->
         failtestf "Error while getting signature: %A" errors
-    })
+    }
+
+    testCaseAsync (sprintf "fsharp/signature for line %d characters [%d, %d] should be '%s'" line characterStart characterEnd expectedSignature) (
+      [ for c in characterStart .. characterEnd -> verifyAt c ]
+      |> Async.Sequential
+      |> Async.map (fun _ -> ())
+    )
 
   testSequenced <|
     testList "signature evaluation" [
       testList "tests" [
-        verifySignature 0 4 "val arrayOfTuples : (int * int) []"  // verify that even first letter of the signature triggers correctly
-        verifySignature 0 5 "val arrayOfTuples : (int * int) []"
+        verifySignature 0 (4, 16) "val arrayOfTuples : (int * int) []"
+        verifySignature 1 (4, 15) "val listOfTuples : (int * int) list"
+        verifySignature 2 (4, 15) "val someFunction : a:'a -> unit"
       ]
       testCaseAsync "cleanup" (async {
         let! server, _ = server
