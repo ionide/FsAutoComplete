@@ -24,7 +24,8 @@ let testTimeout =
 
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
-  "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
+  // These are commented out because of https://github.com/ionide/proj-info/issues/109
+  // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
 ]
 
 ///Global list of tests
