@@ -1,3 +1,12 @@
+### 0.46.0 - 15.05.2021
+
+* [Improve memory useage by reducing string array allocations](https://github.com/fsharp/FsAutoComplete/pull/777)
+* [Fix fsharp/signature off-by-ones](https://github.com/fsharp/FsAutoComplete/pull/782) (Thanks @mhoogendoorn)
+* [Fix analyzer usage](https://github.com/fsharp/FsAutoComplete/pull/783)
+* [Add new codefixes](https://github.com/fsharp/FsAutoComplete/pull/784)
+  * Add missing self-identifier to instance member
+  * Refactor `typeof<'t>.Name` to `nameof('t)`
+
 ### 0.45.4 - 30.04.2021
 
 * Fix returned tokens in `textDocument/semanticTokens/full` and `textDocument/semanticTokens/range` to no longer return zero-length tokens.
