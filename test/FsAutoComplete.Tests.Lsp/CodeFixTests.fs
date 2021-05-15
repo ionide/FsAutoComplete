@@ -140,7 +140,6 @@ let outerBindingRecursiveTests state =
     })
   ]
 
-
 let nameofInsteadOfTypeofNameTests state =
   let server =
     async {
@@ -154,6 +153,7 @@ let nameofInsteadOfTypeofNameTests state =
       return (server, path)
     }
     |> Async.Cache
+
   testList "use nameof instead of typeof.Name" [
     testCaseAsync "can suggest fix" (async {
       let! server, file = server
@@ -169,10 +169,47 @@ let nameofInsteadOfTypeofNameTests state =
     })
   ]
 
+let missingInstanceMemberTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "MissingInstanceMember")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics = waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  testList "missing instance member" [
+    testCaseAsync "can add this member prefix" (async {
+      let! server, file, diagnostics = server
+      let expectedDiagnostic = diagnostics.[0]
+      Expect.equal expectedDiagnostic.Code (Some "673") "Should have a missing self identifier error"
+      let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                                                      Range = expectedDiagnostic.Range
+                                                      Context = { Diagnostics = [| expectedDiagnostic |] } }
+      match response with
+      | Ok(
+          Some (
+            TextDocumentCodeActionResult.CodeActions [| { Title = "Add missing instance member parameter"
+                                                          Kind = Some "quickfix"
+                                                          Edit = {
+                                                            DocumentChanges = Some [|
+                                                              { Edits = [|
+                                                                { NewText = "x." } |] } |] } } |] )) -> ()
+      | Ok other -> failtestf $"Should have generated an instance member, but instead generated %A{other}"
+      | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+    })
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
   missingFunKeywordTests state
   outerBindingRecursiveTests state
   nameofInsteadOfTypeofNameTests state
+  missingInstanceMemberTests state
 ]

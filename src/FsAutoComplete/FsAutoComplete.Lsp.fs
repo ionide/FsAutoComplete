@@ -572,6 +572,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             RemoveUnusedBinding.fix tryGetParseResultsForFile
             AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
             ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
+            AddMissingInstanceMember.fix
           |]
           |> Array.map (fun fixer -> async {
               let! fixes = fixer p
