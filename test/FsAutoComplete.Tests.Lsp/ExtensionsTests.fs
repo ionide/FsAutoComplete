@@ -329,7 +329,7 @@ let analyzerTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
-      // because the analyzer is a project this project has a reference, the analyzer can ber
+      // because the analyzer is a project this project has a reference, the analyzer can be
       // found in alongside this project, so we can use the directory this project is in
       let analyzerPath = System.IO.Path.GetDirectoryName (System.Reflection.Assembly.GetExecutingAssembly().Location)
       let analyzerEnabledConfig =

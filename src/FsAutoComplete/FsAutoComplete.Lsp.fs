@@ -305,17 +305,25 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         config <- newConfig
 
         let hadAnalyzersBefore = SDK.Client.registeredAnalyzers.Count <> 0
-
-        match config.AnalyzersPath with
-        | [||] ->
-          Loggers.analyzers.info(Log.setMessage "Analyzers unregistered")
-          SDK.Client.registeredAnalyzers.Clear()
-        | paths ->
-          for path in paths do
-            let (newlyFound, total) = SDK.Client.loadAnalyzers path
-            Loggers.analyzers.info(Log.setMessage "Registered {count} analyzers from {path}" >> Log.addContextDestructured "count" newlyFound >> Log.addContextDestructured "path" path)
-          let total = SDK.Client.registeredAnalyzers.Count
-          Loggers.analyzers.info(Log.setMessage "{count} Analyzers registered overall" >> Log.addContextDestructured "count" total)
+        if config.EnableAnalyzers then
+          Loggers.analyzers.info (Log.setMessage "Using analyzer roots of {roots}" >> Log.addContextDestructured "roots" config.AnalyzersPath)
+          config.AnalyzersPath
+          |> Array.iter (fun analyzerPath ->
+            match rootPath with
+            | None -> ()
+            | Some workspacePath ->
+              let dir =
+                if System.IO.Path.IsPathRooted analyzerPath
+                // if analyzer is using absolute path, use it as is
+                then analyzerPath
+                // otherwise, it is a relative path and should be combined with the workspace path
+                else System.IO.Path.Combine(workspacePath, analyzerPath)
+              Loggers.analyzers.info (Log.setMessage "Loading analyzers from {dir}" >> Log.addContextDestructured "dir" dir)
+              let (n,m) = dir |> SDK.Client.loadAnalyzers
+              Loggers.analyzers.info (Log.setMessage "From {name}: {dllNo} dlls including {analyzersNo} analyzers" >> Log.addContextDestructured "name" analyzerPath >> Log.addContextDestructured "dllNo" n >> Log.addContextDestructured "analyzersNo" m)
+          )
+        else
+            Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
 
         let hasAnalyzersNow = SDK.Client.registeredAnalyzers.Count <> 0
         if hadAnalyzersBefore <> hasAnalyzersNow then
@@ -329,7 +337,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           for (disposable: IDisposable) in oldDisposables do
              disposable.Dispose()
           (oldCommands :> IDisposable).Dispose()
-
 
         // only update the dotnet root if it's both a directory and exists
         let di = DirectoryInfo config.DotNetRoot
@@ -347,6 +354,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
+
 
     do
         rootPath |> Option.iter backgroundService.Start
@@ -1743,29 +1751,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     member __.LoadAnalyzers(path) = async {
         logger.info (Log.setMessage "LoadAnalyzers Request: {parms}" >> Log.addContextDestructured "parms" path )
-
         try
-            if config.EnableAnalyzers then
-
-                Loggers.analyzers.info (Log.setMessage "Using analyzer roots of {roots}" >> Log.addContextDestructured "roots" config.AnalyzersPath)
-                config.AnalyzersPath
-                |> Array.iter (fun analyzerPath ->
-                    match rootPath with
-                    | None -> ()
-                    | Some workspacePath ->
-                        let dir =
-                          if System.IO.Path.IsPathRooted analyzerPath
-                          // if analyzer is using absolute path, use it as is
-                          then analyzerPath
-                          // otherwise, it is a relative path and should be combined with the workspace path
-                          else System.IO.Path.Combine(workspacePath, analyzerPath)
-                        Loggers.analyzers.info (Log.setMessage "Loading analyzers from {dir}" >> Log.addContextDestructured "dir" dir)
-                        let (n,m) = dir |> SDK.Client.loadAnalyzers
-                        Loggers.analyzers.info (Log.setMessage "From {name}: {dllNo} dlls including {analyzersNo} analyzers" >> Log.addContextDestructured "name" analyzerPath >> Log.addContextDestructured "dllNo" n >> Log.addContextDestructured "analyzersNo" m)
-                )
-            else
-                Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
-            return LspResult.success ()
+          // since the analyzer state handling code is in `updateConfig`, re-trigger it here
+          updateConfig config
+          return LspResult.success ()
         with
         | ex ->
             Loggers.analyzers.error (Log.setMessage "Loading failed" >> Log.addExn ex)
