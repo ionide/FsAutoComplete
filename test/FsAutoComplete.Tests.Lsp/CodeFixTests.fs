@@ -140,9 +140,39 @@ let outerBindingRecursiveTests state =
     })
   ]
 
+
+let nameofInsteadOfTypeofNameTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "NameofInsteadOfTypeofName")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics = waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap id (fun _ -> failtest "Should not have had errors")
+      return (server, path)
+    }
+    |> Async.Cache
+  testList "use nameof instead of typeof.Name" [
+    testCaseAsync "can suggest fix" (async {
+      let! server, file = server
+      let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                                                      Range = { Start = { Line = 0; Character = 8 }; End = { Line = 0; Character = 8 }}
+                                                      Context = { Diagnostics = [| |] } }
+      match response with
+      | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Use 'nameof'"
+                                                                Kind = Some "refactor"
+                                                                Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "nameof(Async<string>)" } |] } |] } } |] )) -> ()
+      | Ok other -> failtestf $"Should have generated nameof, but instead generated %A{other}"
+      | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+    })
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
   missingFunKeywordTests state
   outerBindingRecursiveTests state
+  nameofInsteadOfTypeofNameTests state
 ]
