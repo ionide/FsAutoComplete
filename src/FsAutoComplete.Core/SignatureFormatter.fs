@@ -270,19 +270,21 @@ module SignatureFormatter =
                 many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
             let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
-            let parameterTypeWithPadding (p: FSharpParameter) length =
-                (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
 
             let formatParameterPadded length p =
-                let paddedParam = formatName indent padLength p ++ (parameterTypeWithPadding p length)
+                let namePart = formatName indent padLength p
+                let paramType = formatParameter p
+                let paramFormat = namePart ++ paramType
+
                 if p.Type.IsGenericParameter then
+                    let padding = String.replicate (if length >= maxLength then 1 else maxLength - length) " "
                     let paramConstraint =
                         let formattedParam = formatGenericParameter false displayContext p.Type.GenericParameter
                         if String.IsNullOrWhiteSpace formattedParam then formattedParam
                         else "(requires " + formattedParam + " )"
-                    if paramConstraint = retTypeConstraint then paddedParam
-                    else paddedParam + paramConstraint
-                else paddedParam
+                    if paramConstraint = retTypeConstraint then paramFormat
+                    else paramFormat + padding + paramConstraint
+                else paramFormat
 
             let allParams =
                 List.zip many allParamsLengths
@@ -290,14 +292,14 @@ module SignatureFormatter =
                                 paramTypes
                                 |> List.map (formatParameterPadded length)
                                 |> String.concat $" *{nl}")
-                |> String.concat $"->{nl}"
+                |> String.concat $" ->{nl}"
 
             let typeArguments =
                 let padding = String.replicate (max (padLength-1) 0) " "
                 $"{allParams}{nl}{indent}{padding}->" ++ retType ++ retTypeConstraint
 
             if isDelegate then typeArguments
-            else modifiers ++ $"{functionName}: {nl}{typeArguments}"
+            else modifiers ++ $"{functionName}:{nl}{typeArguments}"
 
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
