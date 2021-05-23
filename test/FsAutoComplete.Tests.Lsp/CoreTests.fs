@@ -59,63 +59,6 @@ let initTests state =
       failtest "Initialization failed"
   })
 
-///Tests for basic operations like hover, getting document symbols or code lens on simple file
-let basicTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "BasicTest")
-      let! (server, event) = serverInitialize path defaultConfigDto state
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-      do! waitForParseResultsForFile "Script.fsx" event |> Async.Ignore
-      return (server, path)
-    }
-    |> Async.Cache
-
-  /// normalizes the line endings in returned markdown strings for cross-platform comparisons
-  let normalizeMarkedString = function | MarkedString.WithLanguage { Language = lang; Value = v } -> MarkedString.WithLanguage { Language = lang; Value = v.Replace("\r\n", "\n") }
-                                       | MarkedString.String s -> MarkedString.String (s.Replace("\r\n", "\n"))
-
-  let normalizeHoverContent = function | HoverContent.MarkedStrings strings -> MarkedStrings (strings |> Array.map normalizeMarkedString)
-                                       | HoverContent.MarkedString str -> MarkedString (normalizeMarkedString str)
-                                       | HoverContent.MarkupContent content -> MarkupContent content
-
-  testSequenced <| testList "Basic Tests" [
-      testSequenced <| ftestList "Hover Tests" [
-        testCaseAsync "Hover Tests - let keyword" (async {
-          let! server, path = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 0; Character = 2}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            let expected =
-              MarkedStrings
-                [|  MarkedString.WithLanguage {Language = "fsharp"; Value = "let"}
-                    MarkedString.String "**Description**\n\n\nUsed to associate, or bind, a name to a value or function.\n"|]
-
-            Expect.equal (normalizeHoverContent res.Contents) expected "Hover test - let keyword"
-        })
-
-        testCaseAsync "Hover Tests - out of position" (async {
-          let! server, path = server
-          let p : TextDocumentPositionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path}
-              Position = { Line = 1; Character = 2}}
-          let! res = server.TextDocumentHover p
-          match res with
-          | Result.Error e -> ()
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-            failtest "Expected failure"
-        })
-      ]
-  ]
-
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest state =
   let server =

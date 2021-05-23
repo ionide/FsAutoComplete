@@ -37,7 +37,6 @@ let tests =
       testSequenced <| testList name [
         let state = FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
         initTests state
-        basicTests state
         codeLensTest state
         documentSymbolTest state
         Completion.autocompleteTest state
