@@ -246,7 +246,11 @@ module SignatureFormatter =
             | _ -> false
 
         let formatParameter (p:FSharpParameter) =
-            try formatFSharpType displayContext p.Type
+            try
+              let formatted = formatFSharpType displayContext p.Type
+              if p.Type.IsFunctionType
+              then $"({formatted})"
+              else formatted
             with :? InvalidOperationException -> p.DisplayName
 
         match argInfos with
@@ -268,8 +272,8 @@ module SignatureFormatter =
 
             let allParamsLengths =
                 many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
-            let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
+            let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
             let formatParameterPadded length p =
                 let namePart = formatName indent padLength p
@@ -383,7 +387,10 @@ module SignatureFormatter =
             | many ->
                 let formatParameter (p:FSharpParameter) =
                     try
-                    formatFSharpType displayContext p.Type
+                      let formatted = formatFSharpType displayContext p.Type
+                      if p.Type.IsFunctionType
+                      then $"({formatted})"
+                      else formatted
                     with
                     | :? InvalidOperationException -> p.DisplayName
 

@@ -338,7 +338,7 @@ let tooltipTests state =
         verifySignature 15 5 "val nestedStructTuples : int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
         verifySignature 21 9 "val speed : float<m/s>" // verify we nicely-render measure annotations
         // verify formatting of function-parameters to values. NOTE: we want to wrap them in parens for user clarity eventually.
-        verifySignature 26 5 (concatLines ["val funcWithFunParam:"; "   f: int -> unit ->"; "   i: int";"   -> unit"])
+        verifySignature 26 5 (concatLines ["val funcWithFunParam:"; "   f: (int -> unit) ->"; "   i: int";"   -> unit"])
         // verify formatting of tuple args.  NOTE: we want to wrap tuples in parens for user clarify eventually.
         verifySignature 30 12 (concatLines ["val funcWithTupleParam:";"   : int *"; "   : int";"   -> int * int"])
         // verify formatting of struct tuple args in parameter tooltips.
