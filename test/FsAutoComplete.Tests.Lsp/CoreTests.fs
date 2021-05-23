@@ -267,7 +267,7 @@ let tooltipTests state =
 
 
   testSequenced <|
-    ftestList "tooltip evaluation" [
+    testList "tooltip evaluation" [
       testList "tests" [
         verifyDescription 0 2 ["**Description**";"";"";"Used to associate, or bind, a name to a value or function.";""] // `let` keyword
         verifySignature 0 4 "val arrayOfTuples : (int * int) array" // verify that even the first letter of the tooltip triggers correctly
