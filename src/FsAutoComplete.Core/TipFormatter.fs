@@ -37,7 +37,7 @@ module private Section =
                         |> Seq.map (fun line ->
                             "> " + line.TrimStart()
                         )
-                        |> String.concat "\n"
+                        |> String.concat Environment.NewLine
                         |> (+) nl // Start the quote block on a new line
                     else
                         kv.Value
@@ -677,14 +677,14 @@ module private Format =
 
                         items
                         |> List.map (itemListToStringAsMarkdownList "*")
-                        |> String.concat "\n"
+                        |> String.concat Environment.NewLine
 
                     | Numbered ->
                         let items = extractItemList [] innerText
 
                         items
                         |> List.map (itemListToStringAsMarkdownList "1.")
-                        |> String.concat "\n"
+                        |> String.concat Environment.NewLine
 
                     | Tablered ->
                         let columnHeaders = extractColumnHeader [] innerText
@@ -728,13 +728,13 @@ module private Format =
                                 )
                                 |> String.concat ""
                             )
-                            |> String.concat "\n"
+                            |> String.concat Environment.NewLine
 
-                        "\n"
+                        Environment.NewLine
                         + columnHeadersText
-                        + "\n"
+                        + Environment.NewLine
                         + seprator
-                        + "\n"
+                        + Environment.NewLine
                         + itemsText
                     |> Some
         }
@@ -794,7 +794,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
                 else
                     line
             )
-            |> String.concat "\n"
+            |> String.concat Environment.NewLine
 
     let readChildren name (doc: XmlDocument) =
         doc.DocumentElement.GetElementsByTagName name
@@ -972,7 +972,7 @@ let private buildFormatComment cmt (formatStyle : FormatCommentStyle) (typeDoc: 
     match cmt with
     | FSharpXmlDoc.Text (unprocessed, processed) ->
         try
-            let document = processed |> String.concat "\n"
+            let document = processed |> String.concat Environment.NewLine
             // We create a "fake" XML document in order to use the same parser for both libraries and user code
             let xml = sprintf "<fake>%s</fake>" document
             let doc = XmlDocument()
@@ -1080,8 +1080,8 @@ let formatTipEnhanced (FSharpToolTipText tips) (signature : string) (footer : st
                       buildFormatComment i.XmlDoc formatCommentStyle typeDoc
                     else
                       buildFormatComment i.XmlDoc formatCommentStyle typeDoc
-                      + "\n\n**Generic Parameters**\n\n"
-                      + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
+                      + nl + nl + "**Generic Parameters**" + nl + nl
+                      + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat nl)
                 (signature, comment, footer)))
         | FSharpToolTipElement.CompositionError (error) -> Some [("<Note>", error, "")]
         | _ -> None)
@@ -1096,7 +1096,7 @@ let formatDocumentation (FSharpToolTipText tips) ((signature, (constructors, fie
                       buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
                     else
                       buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
-                      + "\n\n**Generic Parameters**\n\n"
+                      + nl + nl + "**Generic Parameters**" + nl + nl
                       + (i.TypeMapping |> List.map formatGenericParamInfo |> String.concat "\n")
 
                 (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)))

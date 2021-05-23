@@ -884,11 +884,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     | (sigCommentFooter::_)::_ ->
                         let signature, comment, footer = sigCommentFooter
                         let markStr lang (value:string) = MarkedString.WithLanguage { Language = lang ; Value = value }
-                        let fsharpBlock (lines: string[]) = lines |> String.concat "\n" |> markStr "fsharp"
+                        let fsharpBlock (lines: string[]) = lines |> String.concat Environment.NewLine |> markStr "fsharp"
 
                         let sigContent =
                             let lines =
-                                signature.Split '\n'
+                                signature.Split Environment.NewLine
                                 |> Array.filter (not << String.IsNullOrWhiteSpace)
 
                             match lines |> Array.splitAt (lines.Length - 1) with
@@ -903,7 +903,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             |> MarkedString.String
 
                         let footerContent =
-                            footer.Split '\n'
+                            footer.Split Environment.NewLine
                             |> Array.filter (not << String.IsNullOrWhiteSpace)
                             |> Array.map (fun n -> MarkedString.String ("*" + n + "*"))
 

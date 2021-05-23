@@ -46,7 +46,7 @@ let getText (lines: ISourceText) (range: Range) =
     let line = lineText lines range.Start
     line.Substring(range.StartColumn - 1, (range.End.Column - range.Start.Column))
   else
-    String.concat "\n" (seq {
+    String.concat Environment.NewLine (seq {
       let startLine = lineText lines range.Start
       yield startLine.Substring(range.StartColumn - 1, (startLine.Length - 1 - range.Start.Column))
       for lineNo in (range.Start.Line+1)..(range.End.Line-1) do
