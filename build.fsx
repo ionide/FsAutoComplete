@@ -78,15 +78,15 @@ Target.create "LocalRelease" (fun _ ->
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_netcore")
            Framework = Some "net5.0"
            Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
 
 
     Shell.cleanDirs [ "bin/release_as_tool" ]
-    DotNet.publish (fun p ->
+    DotNet.pack (fun p ->
        { p with
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_as_tool")
            Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion; "PackAsTool", "true" ] } }) "src/FsAutoComplete"
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion; "PackAsTool", "true" ] } }) "src/FsAutoComplete"
 )
 
 Target.create "Clean" (fun _ ->
@@ -101,7 +101,7 @@ Target.create "Build" (fun _ ->
   DotNet.build (fun p ->
      { p with
          Configuration = DotNet.BuildConfiguration.fromString configuration
-         MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "SourceLinkCreate","true"; "Version", release.AssemblyVersion ] } }) "FsAutoComplete.sln"
+         MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion ] } }) "FsAutoComplete.sln"
 )
 
 Target.create "ReplaceFsLibLogNamespaces" <| fun _ ->
