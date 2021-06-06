@@ -69,8 +69,8 @@ Target.create "ReleaseArchive" (fun _ ->
 )
 
 Target.create "LocalRelease" (fun _ ->
-    Directory.ensure "bin/release"
-    Shell.cleanDirs [ "bin/release"; "bin/release_netcore" ]
+    Directory.ensure "bin/release_netcore"
+    Shell.cleanDirs [ "bin/release_netcore" ]
 
     Shell.cleanDirs [ "bin/release_netcore" ]
     DotNet.publish (fun p ->
@@ -80,7 +80,7 @@ Target.create "LocalRelease" (fun _ ->
            Configuration = DotNet.BuildConfiguration.fromString configuration
            MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
 
-
+    Directory.ensure "bin/release_as_tool"
     Shell.cleanDirs [ "bin/release_as_tool" ]
     DotNet.pack (fun p ->
        { p with
@@ -153,6 +153,25 @@ Target.create "ReleaseGitHub" (fun _ ->
     |> Async.RunSynchronously
 )
 
+Target.create "PublishTool" (fun _ ->
+  let apikey =
+    match Environment.environVarOrNone "NUGET_API_TOKEN" with
+    | Some s when not (String.isNullOrWhiteSpace s) -> s
+    | _ -> UserInput.getUserInput "Token: "
+
+  let configurePush (p: DotNet.NuGetPushOptions) =
+    { p with
+        PushParams = {
+          p.PushParams with
+            ApiKey = Some apikey
+            PushTrials = 3
+            Source = Some "https://api.nuget.org/v3/index.json"
+        } }
+
+  !! (pkgsDir </> "*.nupkg")
+  |> Seq.iter (DotNet.nugetPush configurePush)
+)
+
 Target.create "NoOp" ignore
 Target.create "Test" ignore
 Target.create "All" ignore
@@ -173,6 +192,7 @@ Target.create "Release" ignore
   ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "ReleaseGitHub"
+  ==> "PublishTool"
   ==> "Release"
 
 "ReleaseArchive"
