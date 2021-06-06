@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: Github username of the person triggering the release
+        default: "Krzysztof-Cieslak"
+        required: true
+      email:
+        description: Email of the person triggering the release
+        default: "krzysztof_cieslak@windowslive.com"
+        required: true
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        dotnet: [5.0.200]
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: ${{ matrix.dotnet }}
+    - name: Restore tools
+      run: dotnet tool restore
+    - name: Run Build
+      run: dotnet fake build -t Build
+    - name: upload artifact package
+      uses: actions/upload-artifact@v2
+      with:
+        name: fsautocomplete
+        path: bin/pkgs
+    - name: Publish Release
+      env:
+        nuget-key: ${{ secrets.NUGET_KEY }}
+        github-token: ${{ secrets.USER_TOKEN }}
+      run: dotnet fake build -t Release
