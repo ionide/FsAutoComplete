@@ -812,7 +812,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                   match additionalEdit with
                   | None -> None, ci.Label
                   | Some { Namespace = ns; Position = fcsPos } ->
-                    Some [| { TextEdit.NewText = $"open {ns}"; TextEdit.Range = fcsPosToProtocolRange fcsPos } |], $"{ci.Label} (open {ns})"
+                    let text =
+                        let indentation = String (' ', fcsPos.Column)
+                        $"{indentation}open {ns}\n"
+                    let insertPos =
+                        { (fcsPos |> fcsPosToLsp) with Character = 0 }
+                    Some [| { TextEdit.NewText = text; TextEdit.Range = { Start = insertPos; End = insertPos } } |], $"{ci.Label} (open {ns})"
                 let d = Documentation.Markup (markdown comment)
                 { ci with Detail = Some si
                           Documentation = Some d
