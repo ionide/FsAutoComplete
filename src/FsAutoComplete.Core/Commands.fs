@@ -306,7 +306,26 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         |> Option.bind (fun n ->
             state.CurrentAST
             |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents Nearest)
-            |> Option.map (fun ic -> { Namespace = n; Position = ic.Pos; Scope = ic.ScopeKind })
+            |> Option.map (fun ic -> 
+                //TODO: unite with `CodeFix/ResolveNamespace`?
+
+                // Position might need adjustment for indentation
+                let column =
+                    match ic.Pos.Line, ic.Pos.Column with
+                    | 0, c -> c
+                    | l, 0 ->
+                        let prev = getLine (l-1)
+                        let indentation = prev.Length - prev.TrimStart().Length
+                        if indentation <> 0 then
+                            // happens when there are already other `open`s
+                            indentation
+                        else
+                            0
+                    | _, c ->
+                        c
+                let pos = Pos.mkPos ic.Pos.Line column
+                { Namespace = n; Position = pos; Scope = ic.ScopeKind }
+            )
         )
 
     let fillHelpTextInTheBackground decls (pos : Pos) fn getLine =
