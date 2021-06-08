@@ -19,7 +19,9 @@ let tests state =
       do! server.TextDocumentDidOpen tdop
       match! waitForParseResultsForFile "Script.fsx" event with
       | Ok () -> return server
-      | Error e -> return failtestf "Errors while parsing highlighting script %A" e
+      | Error errors ->
+        let errorStrings = errors |> Array.map (fun e -> e.DebuggerDisplay) |> String.concat "\n\t* "
+        return failtestf "Errors while parsing highlighting script:\n\t* %s" errorStrings
     }
     |> Async.Cache
 
