@@ -102,6 +102,14 @@ Target.create "Build" (fun _ ->
          MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion ] } }) "FsAutoComplete.sln"
 )
 
+let ensureGitUser user email =
+    match Fake.Tools.Git.CommandHelper.runGitCommand "." "config user.name" with
+    | true, [username], _ when username = user -> ()
+    | _, _, _ ->
+        Fake.Tools.Git.CommandHelper.directRunGitCommandAndFail "." (sprintf "config user.name %s" user)
+        Fake.Tools.Git.CommandHelper.directRunGitCommandAndFail "." (sprintf "config user.email %s" email)
+
+
 Target.create "ReplaceFsLibLogNamespaces" <| fun _ ->
   let replacements =
     [ "FsLibLog\\n", "FsAutoComplete.Logging\n"
@@ -118,6 +126,18 @@ Target.create "ReleaseGitHub" (fun _ ->
         |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
         |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + gitName))
         |> function None -> gitHome + "/" + gitName | Some (s: string) -> s.Split().[0]
+
+    let user =
+        match Environment.environVarOrDefault "github-user" "" with
+        | s when not (String.isNullOrWhiteSpace s) -> s
+        | _ -> UserInput.getUserInput "Username: "
+
+    let email =
+        match Environment.environVarOrDefault "user-email" "" with
+        | s when not (String.isNullOrWhiteSpace s) -> s
+        | _ -> UserInput.getUserInput "Email: "
+
+    ensureGitUser user email
 
     Git.Staging.stageAll ""
     Git.Commit.exec "" (sprintf "Bump version to %s" release.NugetVersion)
