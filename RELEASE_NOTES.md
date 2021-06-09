@@ -1,6 +1,10 @@
+### 0.46.1 - 09.06.2021
+
+* Publish the dotnet tool fsautocomplete to nuget. It can be installed with `dotnet tool install fsautocomplete`.
+
 ### 0.46.0 - 15.05.2021
 
-* [Improve memory useage by reducing string array allocations](https://github.com/fsharp/FsAutoComplete/pull/777)
+* [Improve memory usage by reducing string array allocations](https://github.com/fsharp/FsAutoComplete/pull/777)
 * [Fix fsharp/signature off-by-ones](https://github.com/fsharp/FsAutoComplete/pull/782) (Thanks @mhoogendoorn)
 * [Fix analyzer usage](https://github.com/fsharp/FsAutoComplete/pull/783)
 * [Add new codefixes](https://github.com/fsharp/FsAutoComplete/pull/784)
