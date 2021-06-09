@@ -2,15 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      username:
-        description: Github username of the person triggering the release
-        default: "Krzysztof-Cieslak"
-        required: true
-      email:
-        description: Email of the person triggering the release
-        default: "krzysztof_cieslak@windowslive.com"
-        required: true
 
 jobs:
   release:
