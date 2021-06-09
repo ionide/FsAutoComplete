@@ -37,7 +37,7 @@ jobs:
     - name: Publish Release
       env:
         nuget-key: ${{ secrets.NUGET_KEY }}
-        github-token: ${{ secrets.USER_TOKEN }}
+        github-token: ${{ secrets.FSAC_CHECKS_TOKEN }}
         github-user: ${{ github.event.inputs.username }}
         user-email: ${{ github.event.inputs.email }}
       run: dotnet fake build -t Release
