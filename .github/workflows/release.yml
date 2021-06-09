@@ -30,11 +30,6 @@ jobs:
       run: dotnet tool restore
     - name: Run Build
       run: dotnet fake build -t Build
-    - name: upload artifact package
-      uses: actions/upload-artifact@v2
-      with:
-        name: fsautocomplete
-        path: bin/pkgs
     - name: Publish Release
       env:
         nuget-key: ${{ secrets.NUGET_KEY }}
