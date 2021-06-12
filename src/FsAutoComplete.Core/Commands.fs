@@ -307,23 +307,52 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             state.CurrentAST
             |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents Nearest)
             |> Option.map (fun ic -> 
-                //TODO: unite with `CodeFix/ResolveNamespace`?
+                //TODO: unite with `CodeFix/ResolveNamespace`
+                //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
+                let l,c = ic.Pos.Line, ic.Pos.Column
 
-                // Position might need adjustment for indentation
-                let column =
-                    match ic.Pos.Line, ic.Pos.Column with
+                let detectIndentation (line: string) =
+                    line 
+                    |> Seq.takeWhile ((=) ' ')
+                    |> Seq.length
+
+                // adjust line
+                let l =
+                    match ic.ScopeKind with
+                    | ScopeKind.Namespace ->
+                        // for namespace `open` isn't created close at namespace,
+                        // but instead on first member
+                        // -> move `open` closer to namespace
+                        // this only happens when there are no other `open`
+
+                        // from insert position go up until first open OR namespace
+                        seq { l-1 .. -1 .. 0 }
+                        |> Seq.tryFind (fun l ->
+                            let lineStr = getLine l
+                            // namespace MUST be top level -> no indentation
+                            lineStr.StartsWith "namespace "
+                        )
+                        |> function
+                           // move to the next line below "namespace"
+                           | Some l -> l + 1
+                           | None -> l
+                    | _ -> l
+
+                // adjust column
+                let c =
+                    match l, c with
                     | 0, c -> c
                     | l, 0 ->
                         let prev = getLine (l-1)
-                        let indentation = prev.Length - prev.TrimStart().Length
+                        let indentation = detectIndentation prev
                         if indentation <> 0 then
                             // happens when there are already other `open`s
                             indentation
                         else
                             0
-                    | _, c ->
-                        c
-                let pos = Pos.mkPos ic.Pos.Line column
+                    | _, c -> c
+
+                let pos = Pos.mkPos l c
                 { Namespace = n; Position = pos; Scope = ic.ScopeKind }
             )
         )
