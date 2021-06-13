@@ -1,3 +1,9 @@
+### 0.46.2 - 13.06.2021
+
+* BUGFIX: fix the dotnet tool packaging to include a missing dependency for code formatting
+* BUGFIX: [fix indentation and insert position for unopened namespaces](https://github.com/fsharp/FsAutoComplete/pull/788) (Thanks @Booksbaum)
+* ENHANCEMENT: [Render parameters that are functions with parens for readability](https://github.com/fsharp/FsAutoComplete/pull/785)
+
 ### 0.46.1 - 09.06.2021
 
 * Publish the dotnet tool fsautocomplete to nuget. It can be installed with `dotnet tool install fsautocomplete`.
