@@ -6,14 +6,12 @@ open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.SourceCodeServices
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Syntax
 
 type FSharpParseFileResults with
   member this.TryRangeOfTypeofWithNameAndTypeExpr pos =
-    this.ParseTree
-    |> Option.bind (fun pt ->
-      AstTraversal.Traverse(pos, pt , { new AstTraversal.AstVisitorBase<_>() with
+      SyntaxTraversal.Traverse(pos, this.ParseTree, { new SyntaxVisitorBase<_>() with
               member _.VisitExpr(_path, _, defaultTraverse, expr) =
                   match expr with
                   | SynExpr.DotGet(expr, _, _, range) ->
@@ -30,7 +28,6 @@ type FSharpParseFileResults with
                               defaultTraverse expr
                       | _ -> defaultTraverse expr
                   | _ -> defaultTraverse expr })
-    )
 
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
   fun codeActionParams ->

@@ -308,7 +308,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
             state.CurrentAST
-            |> Option.map (fun ast -> ParsedInput.findNearestPointToInsertOpenDeclaration (pos.Line) ast idents Nearest)
+            |> Option.map (fun ast -> ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
             |> Option.map (fun ic ->
                 //TODO: unite with `CodeFix/ResolveNamespace`
                 //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
@@ -355,7 +355,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                             0
                     | _, c -> c
 
-                let pos = Pos.mkPos l c
+                let pos = Position.mkPos l c
                 { Namespace = n; Position = pos; Scope = ic.ScopeKind }
             )
         )

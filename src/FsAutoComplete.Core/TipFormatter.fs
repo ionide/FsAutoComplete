@@ -249,19 +249,20 @@ let formatDocumentationFromXmlSig (xmlSig: string) (assembly: string) ((signatur
     [[(signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn)]]
 
 let extractSignature (ToolTipText tips) =
+    // TODO: can we format taggedtext better here?
     let getSignature (text: TaggedText []) =
-        logger.info (Log.setMessage "got tagged text of {text} while looking for signature" >> Log.addContextDestructured "text" text)
-        "farts"
-        // let nlpos = str.IndexOfAny([|'\r';'\n'|])
-        // let firstLine =
-        //     if nlpos > 0 then str.[0..nlpos-1]
-        //     else str
+        // logger.info (Log.setMessage "got tagged text of {text} while looking for signature" >> Log.addContextDestructured "text" text)
+        let str = text |> Array.map (fun t -> t.Text) |> String.concat ""
+        let nlpos = str.IndexOfAny([|'\r';'\n'|])
+        let firstLine =
+            if nlpos > 0 then str.[0..nlpos-1]
+            else str
 
-        // if firstLine.StartsWith("type ", StringComparison.Ordinal) then
-        //     let index = firstLine.LastIndexOf("=", StringComparison.Ordinal)
-        //     if index > 0 then firstLine.[0..index-1]
-        //     else firstLine
-        // else firstLine
+        if firstLine.StartsWith("type ", StringComparison.Ordinal) then
+            let index = firstLine.LastIndexOf("=", StringComparison.Ordinal)
+            if index > 0 then firstLine.[0..index-1]
+            else firstLine
+        else firstLine
 
     let firstResult x =
         match x with
