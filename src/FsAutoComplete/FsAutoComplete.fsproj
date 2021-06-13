@@ -6,6 +6,7 @@
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <!-- Paket currently lacks readme file support, tracked at https://github.com/fsprojects/Paket/issues/4031 -->
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>A community-developed Language Server Protocol implementation for F#</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
