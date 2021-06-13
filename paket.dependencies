@@ -70,3 +70,4 @@ group Build
   nuget Fake.DotNet.MsBuild
   nuget Fake.Api.GitHub
   nuget Microsoft.Build
+  nuget MSBuild.StructuredLogger
