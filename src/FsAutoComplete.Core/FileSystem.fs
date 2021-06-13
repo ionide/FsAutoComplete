@@ -60,8 +60,8 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volati
          |> tryFindFile
          |> Option.map (fun file ->
             let bytes = file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes
-            let byteArrayMemory = if bytes.Length = 0 then ByteArrayMemory([||], 0, 0) else ByteArrayMemory(bytes, 0, bytes.Length)
-            byteArrayMemory :> ByteMemory
+            let byteArrayMemory = if bytes.Length = 0 then ByteMemory.FromArray([||], 0, 0) else ByteMemory.FromArray(bytes)
+            byteArrayMemory
           )
 
     let fsLogger = LogProvider.getLoggerByName "FileSystem"
@@ -132,7 +132,10 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volati
           filePath
           |> Utils.normalizePath
           |> getContent
-          |> Option.defaultWith (fun _ -> actualFs.OpenFileForReadShim(filePath, ?useMemoryMappedFile = useMemoryMappedFile, ?shouldShadowCopy = shouldShadowCopy))
+          |> Option.map (fun bytes -> bytes.AsStream())
+          |> Option.defaultWith (fun _ ->
+            actualFs.OpenFileForReadShim(filePath, ?useMemoryMappedFile = useMemoryMappedFile, ?shouldShadowCopy = shouldShadowCopy)
+          )
 
         member _.OpenFileForWriteShim (filePath: string, ?fileMode: FileMode, ?fileAccess: FileAccess, ?fileShare: FileShare): Stream =
           filePath

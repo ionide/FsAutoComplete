@@ -137,7 +137,6 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = false)
 
-    do checker.ImplicitlyStartBackgroundWork <- false
     let mutable latestSdkVersion = lazy None
     let mutable latestRuntimeVersion = lazy None
     //TODO: does the backgroundservice ever get config updates?
