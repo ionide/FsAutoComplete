@@ -1129,7 +1129,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         let parseOpts = Utils.projectOptionsToParseOptions opts
         let! ast = checker.ParseFile(file, text, parseOpts)
         match ast.ParseTree with
-        | None -> return! Error (ast.Errors |> Array.map string |> String.concat "\n")
+        | None -> return! Error (ast.Errors |> Array.map string |> String.concat Environment.NewLine)
         | Some ast' ->
             let ranges = Structure.getOutliningRanges (text.ToString().Split("\n")) ast'
             return ranges

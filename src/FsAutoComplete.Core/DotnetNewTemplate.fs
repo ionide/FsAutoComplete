@@ -40,7 +40,7 @@ module DotnetNewTemplate =
       let mutable output = ""
       while not proc.StandardOutput.EndOfStream do
           let line = proc.StandardOutput.ReadLine()
-          output <- output + "\n" + line
+          output <- output + Environment.NewLine + line
       output
 
     let parseTemplateOutput (x: string) =

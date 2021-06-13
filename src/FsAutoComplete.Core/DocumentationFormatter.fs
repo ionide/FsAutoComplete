@@ -10,6 +10,7 @@ module DocumentationFormatter =
     open System
     open System.Text
 
+    let nl = Environment.NewLine
     let maxPadding = 200
 
     let mutable lastDisplayContext : FSharpDisplayContext = FSharpDisplayContext.Empty
@@ -295,14 +296,14 @@ module DocumentationFormatter =
                 |> List.map(fun (paramTypes, length) ->
                                 paramTypes
                                 |> List.map (formatParameterPadded length)
-                                |> String.concat (" *\n"))
-                |> String.concat ("->\n")
+                                |> String.concat $" *{nl}")
+                |> String.concat $"->{nl}"
 
             let typeArguments =
-                allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType ++ retTypeConstraint
+                allParams + nl + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType ++ retTypeConstraint
 
             if isDelegate then typeArguments
-            else modifiers ++ functionName + ": \n" + typeArguments
+            else modifiers ++ $"{functionName}:{nl}{typeArguments}"
 
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (getter: bool) (setter : bool) =
         let functionName =
@@ -478,25 +479,25 @@ module DocumentationFormatter =
             | _                         -> "type"
 
         let enumtip () =
-            " =\n  |" ++
+            $" ={nl}  |" ++
             (fse.FSharpFields
             |> Seq.filter (fun f -> not f.IsCompilerGenerated)
             |> Seq.sortBy (fun f -> match f.LiteralValue with | None -> -1 | Some lv -> Int32.Parse (string lv) )
             |> Seq.map (fun field -> match field.LiteralValue with
                                      | Some lv -> field.Name + " = " + (string lv)
                                      | None -> field.Name )
-            |> String.concat ("\n  | " ) )
+            |> String.concat $"{nl}  | ")
 
         let uniontip () =
-            " =\n  |" ++ (fse.UnionCases
+            $" ={nl}  |" ++ (fse.UnionCases
                           |> Seq.map (getUnioncaseSignature displayContext)
-                          |> String.concat ("\n  | " ) )
+                          |> String.concat ("{nl}  | " ) )
 
         let delegateTip () =
             let invoker =
                 fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
             let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
-            " =\n   delegate of\n" + invokerSig
+            $" ={nl}   delegate of{nl}{invokerSig}"
 
         let typeTip () =
             let constrc =

@@ -12,6 +12,7 @@ module SignatureFormatter =
     open System
     open System.Text
 
+    let nl = Environment.NewLine
     let maxPadding = 20
 
     /// Concat two strings with a space between if both a and b are not IsNullOrWhiteSpace
@@ -245,7 +246,11 @@ module SignatureFormatter =
             | _ -> false
 
         let formatParameter (p:FSharpParameter) =
-            try formatFSharpType displayContext p.Type
+            try
+              let formatted = formatFSharpType displayContext p.Type
+              if p.Type.IsFunctionType
+              then $"({formatted})"
+              else formatted
             with :? InvalidOperationException -> p.DisplayName
 
         match argInfos with
@@ -267,35 +272,38 @@ module SignatureFormatter =
 
             let allParamsLengths =
                 many |> List.map (List.map (fun p -> (formatParameter p).Length) >> List.sum)
+
             let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding)+1
 
-            let parameterTypeWithPadding (p: FSharpParameter) length =
-                (formatParameter p) + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
-
             let formatParameterPadded length p =
-                let paddedParam = formatName indent padLength p ++ (parameterTypeWithPadding p length)
+                let namePart = formatName indent padLength p
+                let paramType = formatParameter p
+                let paramFormat = namePart ++ paramType
+
                 if p.Type.IsGenericParameter then
+                    let padding = String.replicate (if length >= maxLength then 1 else maxLength - length) " "
                     let paramConstraint =
                         let formattedParam = formatGenericParameter false displayContext p.Type.GenericParameter
                         if String.IsNullOrWhiteSpace formattedParam then formattedParam
                         else "(requires " + formattedParam + " )"
-                    if paramConstraint = retTypeConstraint then paddedParam
-                    else paddedParam + paramConstraint
-                else paddedParam
+                    if paramConstraint = retTypeConstraint then paramFormat
+                    else paramFormat + padding + paramConstraint
+                else paramFormat
 
             let allParams =
                 List.zip many allParamsLengths
                 |> List.map(fun (paramTypes, length) ->
                                 paramTypes
                                 |> List.map (formatParameterPadded length)
-                                |> String.concat (" *\n"))
-                |> String.concat ("->\n")
+                                |> String.concat $" *{nl}")
+                |> String.concat $" ->{nl}"
 
             let typeArguments =
-                allParams +  "\n" + indent + (String.replicate (max (padLength-1) 0) " ") + "->" ++ retType ++ retTypeConstraint
+                let padding = String.replicate (max (padLength-1) 0) " "
+                $"{allParams}{nl}{indent}{padding}->" ++ retType ++ retTypeConstraint
 
             if isDelegate then typeArguments
-            else modifiers ++ functionName + ": \n" + typeArguments
+            else modifiers ++ $"{functionName}:{nl}{typeArguments}"
 
     let getFuncSignatureForTypeSignature displayContext (func: FSharpMemberOrFunctionOrValue) (overloads : int) (getter: bool) (setter : bool) =
         let functionName =
@@ -379,7 +387,10 @@ module SignatureFormatter =
             | many ->
                 let formatParameter (p:FSharpParameter) =
                     try
-                    formatFSharpType displayContext p.Type
+                      let formatted = formatFSharpType displayContext p.Type
+                      if p.Type.IsFunctionType
+                      then $"({formatted})"
+                      else formatted
                     with
                     | :? InvalidOperationException -> p.DisplayName
 
@@ -473,24 +484,24 @@ module SignatureFormatter =
             | _                         -> "type"
 
         let enumtip () =
-            " =\n  |" ++
+            $" ={nl}  |" ++
             (fse.FSharpFields
             |> Seq.filter (fun f -> not f.IsCompilerGenerated)
             |> Seq.map (fun field -> match field.LiteralValue with
                                      | Some lv -> field.Name + " = " + (string lv)
                                      | None -> field.Name )
-            |> String.concat ("\n  | " ) )
+            |> String.concat $"{nl}  | " )
 
         let uniontip () =
-            " =\n  |" ++ (fse.UnionCases
+            $" ={nl}  |" ++ (fse.UnionCases
                           |> Seq.map (getUnioncaseSignature displayContext)
-                          |> String.concat ("\n  | " ) )
+                          |> String.concat $"{nl}  | " )
 
         let delegateTip () =
             let invoker =
                 fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
             let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
-            " =\n   delegate of\n" + invokerSig
+            $" ={nl}   delegate of{nl}{invokerSig}"
 
         let typeTip () =
             let constrc =
@@ -533,13 +544,13 @@ module SignatureFormatter =
                 [ yield constrc
                   if not fse.IsFSharpModule then
                     yield! fields
-                    if Seq.length fields > 0 then yield "\n"
+                    if Seq.length fields > 0 then yield nl
                     yield! funcs
                 ]
                 |> Seq.distinct
-                |> String.concat "\n  "
+                |> String.concat $"{nl}  "
 
-            if String.IsNullOrWhiteSpace res then "" else  "\n  " + res
+            if String.IsNullOrWhiteSpace res then "" else $"{nl}  {res}"
 
         let typeDisplay =
             let name =
@@ -573,28 +584,34 @@ module SignatureFormatter =
         elif fse.IsDelegate then typeDisplay + delegateTip ()
         else typeDisplay + typeTip ()
 
+    let footerForType (entity: FSharpSymbolUse) =
+      let formatFooter (fullName, assyName) =
+        $"Full name: %s{fullName}{nl}Assembly: %s{assyName}"
 
-
-    let footerForType (entity:FSharpSymbolUse) =
+      let valFooterData =
         try
             match entity with
             | SymbolUse.MemberFunctionOrValue m ->
-                sprintf "Full name: %s\nAssembly: %s" m.FullName m.Assembly.SimpleName
+                Some(m.FullName, m.Assembly.SimpleName)
 
             | SymbolUse.Entity (c, _) ->
-                sprintf "Full name: %s\nAssembly: %s" c.FullName c.Assembly.SimpleName
+                Some(c.FullName, c.Assembly.SimpleName)
 
             | SymbolUse.Field f ->
-                sprintf "Full name: %s\nAssembly: %s" f.FullName f.Assembly.SimpleName
+                Some(f.FullName, f.Assembly.SimpleName)
 
             | SymbolUse.ActivePatternCase ap ->
-                sprintf "Full name: %s\nAssembly: %s" ap.FullName ap.Assembly.SimpleName
+                Some(ap.FullName, ap.Assembly.SimpleName)
 
             | SymbolUse.UnionCase uc ->
-                sprintf "Full name: %s\nAssembly: %s" uc.FullName uc.Assembly.SimpleName
-            | _ -> ""
+                Some(uc.FullName, uc.Assembly.SimpleName)
+            | _ -> None
         with
-        | _ -> ""
+        | _ -> None
+
+      valFooterData
+      |> Option.map formatFooter
+      |> Option.defaultValue ""
 
     ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
     let getTooltipDetailsFromSymbolUse (symbol:FSharpSymbolUse) =

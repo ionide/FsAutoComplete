@@ -413,7 +413,7 @@ module CommandResponse =
                   yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line)]) ]
       |Ionide.ProjInfo.Types.GenericError (_, errorMessage) -> [errorMessage]
       |Ionide.ProjInfo.Types.ProjectNotRestored _ -> ["Project not restored"]
-    let msg = getMessageLines errorDetails |> fun s -> String.Join("\n", s)
+    let msg = getMessageLines errorDetails |> String.concat Environment.NewLine
     match errorDetails with
     |Ionide.ProjInfo.Types.ProjectNotFound (project) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
     |Ionide.ProjInfo.Types.LanguageNotSupported (project) -> errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
@@ -515,7 +515,7 @@ module CommandResponse =
 
   let formattedDocumentationForSymbol (serialize : Serializer) xml assembly (xmlDoc : string list) (signature, footer, cn) =
     let data = TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs, ts, m,f, cn) ->
-      let m = if String.IsNullOrWhiteSpace m then xmlDoc |> String.concat "\n" else m
+      let m = if String.IsNullOrWhiteSpace m then xmlDoc |> String.concat Environment.NewLine else m
       {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Types = ts |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "formattedDocumentation"; Data = data }
 
