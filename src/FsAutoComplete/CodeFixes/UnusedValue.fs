@@ -20,10 +20,10 @@ let fix (getRangeText: GetRangeText) =
                 return
                   [ { SourceDiagnostic = Some diagnostic
                       File = codeActionParams.TextDocument
-                      Title = "Replace with __"
+                      Title = "Replace with _"
                       Edits =
                         [| { Range = diagnostic.Range
-                             NewText = "__" } |]
+                             NewText = "_" } |]
                       Kind = Refactor } ]
             | None ->
                 let replaceSuggestion = "_"
