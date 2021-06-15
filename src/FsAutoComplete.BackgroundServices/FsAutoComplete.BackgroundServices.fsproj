@@ -5,6 +5,7 @@
     <AssemblyName>fsautocomplete.backgroundservices</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj">
