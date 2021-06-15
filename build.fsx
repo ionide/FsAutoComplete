@@ -66,6 +66,10 @@ Target.create "ReleaseArchive" (fun _ ->
     |> Shell.copy "bin/pkgs"
 )
 
+let versionProp = "Version", release.AssemblyVersion
+let packAsToolProp = "PackAsTool", "true"
+let latestReleaseNotesProp = "PackageReleaseNotes", release.Notes |> String.concat "\n"
+
 Target.create "LocalRelease" (fun _ ->
     Directory.ensure "bin/release_netcore"
     Shell.cleanDirs [ "bin/release_netcore" ]
@@ -76,7 +80,7 @@ Target.create "LocalRelease" (fun _ ->
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_netcore")
            Framework = Some "net5.0"
            Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion ] } }) "src/FsAutoComplete"
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ versionProp ] } }) "src/FsAutoComplete"
 
     Directory.ensure "bin/release_as_tool"
     Shell.cleanDirs [ "bin/release_as_tool" ]
@@ -84,7 +88,7 @@ Target.create "LocalRelease" (fun _ ->
        { p with
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_as_tool")
            Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion; "PackAsTool", "true" ] } }) "src/FsAutoComplete"
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ versionProp; packAsToolProp; latestReleaseNotesProp ] } }) "src/FsAutoComplete"
 )
 
 Target.create "Clean" (fun _ ->

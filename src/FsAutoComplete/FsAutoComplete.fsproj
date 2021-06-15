@@ -6,8 +6,17 @@
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <!-- Paket currently lacks readme file support, tracked at https://github.com/fsprojects/Paket/issues/4031 -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>A community-developed Language Server Protocol implementation for F#</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <Authors>FsAutoComplete contributors</Authors>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\"/>
+    <None Include="logo.png" Pack="true" PackagePath="\"/>
     <Compile Include="Options.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
@@ -26,9 +35,11 @@
     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
   </ItemGroup>
+
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>dotnet-fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
+    <PackageType>DotnetTool</PackageType>
 
     <!-- workaround for not being able to have p2p dependencies in tool output dir https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
