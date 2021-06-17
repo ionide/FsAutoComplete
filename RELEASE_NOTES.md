@@ -1,3 +1,7 @@
+### 0.46.3 - 17.06.2021
+
+* Update Fantomas dependency to latest prerelease
+
 ### 0.46.2 - 13.06.2021
 
 * BUGFIX: fix the dotnet tool packaging to include a missing dependency for code formatting

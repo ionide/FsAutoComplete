@@ -113,7 +113,6 @@ let ensureGitUser user email =
         Fake.Tools.Git.CommandHelper.directRunGitCommandAndFail "." (sprintf "config user.name %s" user)
         Fake.Tools.Git.CommandHelper.directRunGitCommandAndFail "." (sprintf "config user.email %s" email)
 
-
 Target.create "ReplaceFsLibLogNamespaces" <| fun _ ->
   let replacements =
     [ "FsLibLog\\n", "FsAutoComplete.Logging\n"
