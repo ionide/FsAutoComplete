@@ -443,19 +443,19 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             let file = arg.GetFilePath() |> Utils.normalizePath
             // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
-            match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+            match commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file, pos) with
             | ResultOrString.Error s ->
                 logger.error (Log.setMessage "PositionHandler - Getting file checker options for {file} failed" >> Log.addContextDestructured "error" s >> Log.addContextDestructured "file" file)
                 return! AsyncLspResult.internalError s
-            | ResultOrString.Ok (options, lines, lineStr) ->
+            | ResultOrString.Ok (options, sourceText, lineStr) ->
                 try
-                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                    let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options, sourceText)
                     match tyResOpt with
                     | None ->
                         logger.info (Log.setMessage "PositionHandler - Cached typecheck results not yet available for {file}" >> Log.addContextDestructured "file" file)
                         return! AsyncLspResult.internalError "Cached typecheck results not yet available"
                     | Some tyRes ->
-                        let! r = Async.Catch (f arg pos tyRes lineStr lines)
+                        let! r = Async.Catch (f arg pos tyRes lineStr sourceText)
                         match r with
                         | Choice1Of2 r -> return r
                         | Choice2Of2 e ->
@@ -483,7 +483,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                                 logger.error (Log.setMessage "PositionHandler - Cached typecheck results for {file} not yet available and are required" >> Log.addContextDestructured "file" file)
                                 AsyncLspResult.internalError "Cached typecheck results not yet available"
                             | Some tyRes ->
-                                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                                match commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file, pos) with
                                 | ResultOrString.Error s ->
                                     logger.error (Log.setMessage "PositionHandler - Getting file checker options for {file} failed" >> Log.addContextDestructured "error" s >> Log.addContextDestructured "file" file)
                                     AsyncLspResult.internalError s
@@ -509,20 +509,20 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
             return!
-                match commands.TryGetFileCheckerOptionsWithLines(file) with
+                match commands.TryGetFileCheckerOptionsWithSourceText(file) with
                 | ResultOrString.Error s ->
                     logger.error (Log.setMessage "FileHandler - Getting file checker options for {file} failed" >> Log.addContextDestructured "error" s >> Log.addContextDestructured "file" file)
                     AsyncLspResult.internalError s
-                | ResultOrString.Ok (options, lines) ->
+                | ResultOrString.Ok (options, sourceText) ->
                     try
-                        let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                        let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options, sourceText)
                         match tyResOpt with
                         | None ->
                             logger.info (Log.setMessage "FileHandler - Cached typecheck results not yet available for {file}" >> Log.addContextDestructured "file" file)
                             AsyncLspResult.internalError "Cached typecheck results not yet available"
                         | Some tyRes ->
                             async {
-                                let! r = Async.Catch (f file tyRes lines)
+                                let! r = Async.Catch (f file tyRes sourceText)
                                 match r with
                                 | Choice1Of2 r -> return r
                                 | Choice2Of2 e ->
@@ -566,7 +566,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
         let tryGetParseResultsForFile fileName pos = asyncResult {
-          let! (projectOptions, fileLines, lineAtPos) = commands.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos)
+          let! (projectOptions, fileLines, lineAtPos) = commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr(fileName, pos)
           match! commands.TryGetLatestTypeCheckResultsForFile(fileName) with
           | None -> return! Error $"No typecheck results available for %A{fileName}"
           | Some tyRes ->
@@ -574,11 +574,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         }
 
 
-        let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let getFileLines = commands.TryGetFileCheckerOptionsWithSourceText >> Result.map snd
         let getLineText (lines: ISourceText) (range: LanguageServerProtocol.Types.Range) = lines.GetText (protocolRangeToRange "unknown.fsx" range)
         let getRangeText fileName (range: LanguageServerProtocol.Types.Range) = getFileLines fileName |> Result.bind (fun lines -> lines.GetText (protocolRangeToRange (UMX.untag fileName) range))
-        let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
-        let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
+        let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr
+        let tryGetProjectOptions = commands.TryGetFileCheckerOptionsWithSourceText >> Result.map fst
 
         let interfaceStubReplacements () =
           Map.ofList [
@@ -760,7 +760,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
-
         if not commands.IsWorkspaceReady && rootPath.IsSome then
             do! commands.WorkspaceReady |> Async.AwaitEvent
             logger.info (Log.setMessage "TextDocumentDidOpen - workspace ready")
@@ -815,12 +814,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           // Sublime-lsp doesn't like when we answer null so we answer an empty list instead
           let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
           let pos = p.GetFcsPos()
-          let! (options, lines) = commands.TryGetFileCheckerOptionsWithLines file |> Result.mapError JsonRpc.Error.InternalErrorMessage
+          let! (options, sourceText) = commands.TryGetFileCheckerOptionsWithSourceText file |> Result.mapError JsonRpc.Error.InternalErrorMessage
           let line, col = p.Position.Line, p.Position.Character
-          let lineStr = lines.GetLineString line
+          let lineStr = sourceText.GetLineString line
           let word = lineStr.Substring(0, min col lineStr.Length)
 
-          do! ensureInBounds lines (line, col)
+          do! ensureInBounds sourceText (line, col)
 
           if (lineStr.StartsWith "#" && (KeywordList.hashDirectives.Keys |> Seq.exists (fun k -> k.StartsWith word ) || word.Contains "\n" )) then
               let completionList = { IsIncomplete = false; Items = KeywordList.hashSymbolCompletionItems }
@@ -829,7 +828,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             let! typeCheckResults =
               match p.Context with
               | None ->
-                commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                commands.TryGetRecentTypeCheckResultsForFile(file, options, sourceText)
                 |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
                 |> async.Return
               | Some ctx ->
@@ -838,10 +837,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                       commands.TryGetLatestTypeCheckResultsForFile(file)
                       |> Async.map (Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results"))
                   else
-                      commands.TryGetRecentTypeCheckResultsForFile(file, options)
+                      commands.TryGetRecentTypeCheckResultsForFile(file, options, sourceText)
                       |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
                       |> async.Return
-            match! commands.Completion typeCheckResults pos lineStr lines file None (config.KeywordsAutocomplete) (config.ExternalAutocomplete) with
+            match! commands.Completion typeCheckResults pos lineStr sourceText file (Some CompletionFilter.Contains) (config.KeywordsAutocomplete) (config.ExternalAutocomplete) with
             | CoreResponse.Res(decls, keywords) ->
                 let items =
                     decls
@@ -1195,7 +1194,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     member private x.HandleTypeCheckCodeAction file pos f =
         async {
                 return!
-                    match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                    match commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
                         async.Return []
                     | ResultOrString.Ok (options, lines, lineStr) ->
@@ -1221,7 +1220,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "TextDocumentCodeAction Request: {parms}" >> Log.addContextDestructured "parms" codeActionParams )
 
         let fn = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-        match commands.TryGetFileCheckerOptionsWithLines fn with
+        match commands.TryGetFileCheckerOptionsWithSourceText fn with
         | ResultOrString.Error s ->
             AsyncLspResult.internalError s
         | ResultOrString.Ok (opts, lines) ->
@@ -1296,7 +1295,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let data = arg.Data.Value.ToObject<string[]>()
                 let file = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
                 return!
-                    match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                    match commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
                         logger.error (Log.setMessage "CodeLensResolve - Getting file checker options failed for {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" s)
                         { p with Command = None } |> success |> async.Return
@@ -1463,7 +1462,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
                 logger.info (Log.setMessage "FSharpSignatureData - Position request for {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
                 return!
-                    match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+                    match commands.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
                         AsyncLspResult.internalError "No options"
                     | ResultOrString.Ok (options, _, lineStr) ->

@@ -120,7 +120,7 @@ type State =
       OriginalLoadReferences = []
       Stamp = None}
 
-  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
+  member x.TryGetFileCheckerOptionsWithSourceText(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some (volFile) ->
@@ -130,7 +130,7 @@ type State =
       | Some opts -> Ok (opts, volFile.Lines)
 
   member x.TryGetFileCheckerOptionsWithSource(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
-    match x.TryGetFileCheckerOptionsWithLines(file) with
+    match x.TryGetFileCheckerOptionsWithSourceText(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) -> Ok (opts, lines)
 
@@ -139,8 +139,8 @@ type State =
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some f -> Ok f.Lines
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Position) : ResultOrString<FSharpProjectOptions * ISourceText * LineStr> =
-    match x.TryGetFileCheckerOptionsWithLines(file) with
+  member x.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file: string<LocalPath>, pos : Position) : ResultOrString<FSharpProjectOptions * ISourceText * LineStr> =
+    match x.TryGetFileCheckerOptionsWithSourceText(file) with
     | Error x -> Error x
     | Ok (opts, text) ->
       let lineCount = text.GetLineCount()

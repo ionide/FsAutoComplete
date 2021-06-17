@@ -14,7 +14,7 @@ open FSharp.Compiler.CodeAnalysis
 
 type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State) =
     member x.TokenizeLine(fileName, i) =
-        match state.TryGetFileCheckerOptionsWithLines fileName with
+        match state.TryGetFileCheckerOptionsWithSourceText fileName with
         | ResultOrString.Error _ -> None
         | ResultOrString.Ok (opts, text) ->
             try
@@ -24,7 +24,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             | _ -> None
 
     member x.GetSymbolAtPosition(fileName, pos: Position) =
-        match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+        match state.TryGetFileCheckerOptionsWithSourceTextAndLineStr(fileName, pos) with
         | ResultOrString.Error _ -> None
         | ResultOrString.Ok (opts, lines, line) ->
             try
@@ -36,7 +36,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
         asyncMaybe {
             let! symbol = x.GetSymbolAtPosition(fileName,pos)
             if symbol.Kind = kind then
-                match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+                match state.TryGetFileCheckerOptionsWithSourceTextAndLineStr(fileName, pos) with
                 | ResultOrString.Error _ -> return! None
                 | ResultOrString.Ok (opts, _, line) ->
                     let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts)
@@ -47,7 +47,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
         }
 
     member x.ParseFileInProject(fileName) =
-        match state.TryGetFileCheckerOptionsWithLines fileName with
+        match state.TryGetFileCheckerOptionsWithSourceText fileName with
         | ResultOrString.Error _ -> None
         | ResultOrString.Ok (opts, lines) ->
             try

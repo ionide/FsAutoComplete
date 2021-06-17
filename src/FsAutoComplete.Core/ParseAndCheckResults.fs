@@ -13,6 +13,9 @@ open FSharp.Compiler.Symbols
 open FSharp.Compiler.Syntax
 
 [<RequireQualifiedAccess>]
+type CompletionFilter = | StartsWith | Contains
+
+[<RequireQualifiedAccess>]
 type FindDeclarationResult =
     | ExternalDeclaration of Decompiler.ExternalContentPosition
     | Range of Range
@@ -473,10 +476,10 @@ type ParseAndCheckResults
 
       let decls =
         match filter with
-        | Some "StartsWith" ->
+        | Some CompletionFilter.StartsWith ->
           results.Items
           |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-        | Some "Contains" ->
+        | Some CompletionFilter.Contains ->
           results.Items
           |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
         | _ -> results.Items

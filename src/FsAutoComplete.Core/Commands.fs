@@ -531,8 +531,8 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member private x.CancelQueue (filename : string<LocalPath>) =
         state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel() )
 
-    member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>, opts) =
-        checker.TryGetRecentCheckResultsForFile(file, opts)
+    member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>, opts, sourceText) =
+        checker.TryGetRecentCheckResultsForFile(file, opts, sourceText)
 
     ///Gets recent type check results, waiting for the results of in-progress type checking
     /// if version of file in memory is grater than last type checked version.
@@ -560,9 +560,9 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             |> Async.AwaitEvent
             |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
         | _ ->
-            match state.TryGetFileCheckerOptionsWithLines(file) with
-            | ResultOrString.Ok (opts, _ ) ->
-                x.TryGetRecentTypeCheckResultsForFile(file, opts)
+            match state.TryGetFileCheckerOptionsWithSourceText(file) with
+            | ResultOrString.Ok (opts, sourceText) ->
+                x.TryGetRecentTypeCheckResultsForFile(file, opts, sourceText)
                 |> async.Return
             | ResultOrString.Error _ ->
                 x.FileChecked
@@ -571,14 +571,11 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                 |> Async.AwaitEvent
                 |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
 
+    member x.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file: string<LocalPath>, pos) =
+        state.TryGetFileCheckerOptionsWithSourceTextAndLineStr(file, pos)
 
-
-
-    member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
-        state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos)
-
-    member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) =
-        state.TryGetFileCheckerOptionsWithLines file
+    member x.TryGetFileCheckerOptionsWithSourceText(file: string<LocalPath>) =
+        state.TryGetFileCheckerOptionsWithSourceText file
 
     member x.TryGetFileVersion = state.TryGetFileVersion
 
@@ -587,7 +584,6 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
         do x.CancelQueue file
         async {
-            let colorizations = state.ColorizationOutput
             let parse' (fileName: string<LocalPath>) text options =
                 async {
                     let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
@@ -1061,7 +1057,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.CheckSimplifiedNames file: Async<unit> =
         asyncResult {
-            let! (opts, source) =  state.TryGetFileCheckerOptionsWithLines file
+            let! (opts, source) =  state.TryGetFileCheckerOptionsWithSourceText file
             let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
             match tyResOpt with
             | None -> ()
@@ -1077,7 +1073,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.CheckUnusedOpens file: Async<unit> =
         asyncResult {
-            let! (opts, source) =  state.TryGetFileCheckerOptionsWithLines file
+            let! (opts, source) =  state.TryGetFileCheckerOptionsWithSourceText file
             match checker.TryGetRecentCheckResultsForFile(file, opts) with
             | None ->
               return ()
@@ -1092,7 +1088,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
 
     member x.GetRangesAtPosition file positions = async {
-        match state.TryGetFileCheckerOptionsWithLines file with
+        match state.TryGetFileCheckerOptionsWithSourceText file with
         | Ok (opts, text) ->
           let parseOpts = Utils.projectOptionsToParseOptions opts
           let! ast = checker.ParseFile(file, text, parseOpts)
@@ -1125,7 +1121,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     // }
 
     member x.ScopesForFile (file: string<LocalPath>) = asyncResult {
-        let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
+        let! (opts, text) = state.TryGetFileCheckerOptionsWithSourceText file
         let parseOpts = Utils.projectOptionsToParseOptions opts
         let! ast = checker.ParseFile(file, text, parseOpts)
         let ranges = Structure.getOutliningRanges (text.ToString().Split("\n")) ast.ParseTree
@@ -1137,7 +1133,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     // member x.FormatDocument (file: string<LocalPath>) =
     //   asyncResult {
-    //       let! (opts, text) = x.TryGetFileCheckerOptionsWithLines file
+    //       let! (opts, text) = x.TryGetFileCheckerOptionsWithSourceText file
     //       let parsingOptions = Utils.projectOptionsToParseOptions opts
     //       let checker : FSharpChecker = checker.GetFSharpChecker()
     //       // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
