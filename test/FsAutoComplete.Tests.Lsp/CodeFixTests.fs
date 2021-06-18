@@ -205,6 +205,45 @@ let missingInstanceMemberTests state =
     })
   ]
 
+let unusedValueTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedValue")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics =
+          waitForParseResultsForFile "Script.fsx" events
+          |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  let canReplaceUnusedSelfReference = testCaseAsync "can replace unused self reference" (async {
+    let! server, file, diagnostics = server
+    let expectedDiagnostic = diagnostics.[0]
+    let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                                                    Range = { Start = { Line = 0; Character = 4 }; End = { Line = 0; Character = 5 }}
+                                                    Context = { Diagnostics = [| expectedDiagnostic |] } }
+    match response with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Replace with _"
+                                                              Kind = Some "refactor"
+                                                              Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "_" } |] } |] } } |] )) -> ()
+    | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  testList "unused value" [
+    canReplaceUnusedSelfReference
+    //TODO can replace usused binding with _
+    //TODO can replace usused function parameter with _
+    //TODO can prefix _ to unused self reference
+    //TODO can prefix _ to unused binding
+    //TODO can prefix _ to unused function parameter
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
@@ -212,4 +251,5 @@ let tests state = testList "codefix tests" [
   outerBindingRecursiveTests state
   nameofInsteadOfTypeofNameTests state
   missingInstanceMemberTests state
+  unusedValueTests state
 ]
