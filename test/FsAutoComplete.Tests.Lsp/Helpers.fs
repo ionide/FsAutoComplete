@@ -461,6 +461,15 @@ let waitForParseResultsForFile file (events: ClientEvents) =
     | errors -> return Core.Result.Error errors
   }
 
+let waitForFailingParseResultsForFile file (events: ClientEvents) =
+  let matchingFileEvents = fileDiagnostics file events
+  let withErrors = matchingFileEvents |> Observable.filter (fun (fn, args) -> args.Diagnostics <> [||])
+  async {
+    let! (filename, args) = Async.AwaitObservable withErrors
+    return Core.Result.Error args.Diagnostics
+  }
+
+
 let waitForParsedScript (event: ClientEvents) =
   event
   |> typedEvents<LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"

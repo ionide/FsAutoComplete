@@ -54,8 +54,7 @@ let tests =
         // commented out because FSDN is down
         //fsdnTest state
         uriTests
-        // fsharplint isn't updated to FCS 39, disabling tests until that's resolved
-        // linterTests toolsPath
+        linterTests state
         formattingTests state
         // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath

@@ -122,7 +122,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
                         do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
-                        // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+                        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
                         if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
                         if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
                         if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
@@ -216,37 +216,37 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
               sendDiagnostics uri
 
-          // | NotificationEvent.Lint (file, warnings) ->
-          //     let uri = Path.LocalPathToUri file
-          //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
+          | NotificationEvent.Lint (file, warnings) ->
+              let uri = Path.LocalPathToUri file
+              diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
 
-          //     let fs =
-          //         warnings |> List.choose (fun w ->
-          //             w.Warning.Details.SuggestedFix
-          //             |> Option.bind (fun f ->
-          //                 let f = f.Force()
-          //                 let range = fcsRangeToLsp w.Warning.Details.Range
-          //                 f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-          //             )
-          //         )
+              let fs =
+                  warnings |> List.choose (fun w ->
+                      w.Warning.Details.SuggestedFix
+                      |> Option.bind (fun f ->
+                          let f = f.Force()
+                          let range = fcsRangeToLsp w.Warning.Details.Range
+                          f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+                      )
+                  )
 
-          //     lintFixes.[uri] <- fs
-          //     let diags =
-          //         warnings |> List.map(fun w ->
-          //             // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
-          //             // neither the Message or the RelatedInformation structures support markdown.
-          //             let range = fcsRangeToLsp w.Warning.Details.Range
-          //             { Diagnostic.Range = range
-          //               Code = Some w.Code
-          //               Severity = Some DiagnosticSeverity.Information
-          //               Source = "F# Linter"
-          //               Message = w.Warning.Details.Message
-          //               RelatedInformation = None
-          //               Tags = None }
-          //         )
-          //         |> List.toArray
-          //     diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
-          //     sendDiagnostics uri
+              lintFixes.[uri] <- fs
+              let diags =
+                  warnings |> List.map(fun w ->
+                      // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
+                      // neither the Message or the RelatedInformation structures support markdown.
+                      let range = fcsRangeToLsp w.Warning.Details.Range
+                      { Diagnostic.Range = range
+                        Code = Some w.Code
+                        Severity = Some DiagnosticSeverity.Information
+                        Source = "F# Linter"
+                        Message = w.Warning.Details.Message
+                        RelatedInformation = None
+                        Tags = None }
+                  )
+                  |> List.toArray
+              diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
+              sendDiagnostics uri
 
           | NotificationEvent.Canceled (msg) ->
               let ntf = {Content = msg}
@@ -693,7 +693,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
-        // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
         if config.UnusedOpensAnalyzer then Async.Start (commands.CheckUnusedOpens filePath)
         if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath)
         if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
