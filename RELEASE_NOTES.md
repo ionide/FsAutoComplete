@@ -1,6 +1,10 @@
+### 0.46.4 - 18.06.2021
+
+* ENHANCEMENT: [Reenable FSharpLint linting](https://github.com/fsharp/FsAutoComplete/pull/799)
+
 ### 0.46.3 - 17.06.2021
 
-* Update Fantomas dependency to latest prerelease
+* ENHANCEMENT: [Update Fantomas dependency to latest prerelease](https://github.com/fsharp/FsAutoComplete/pull/798)
 
 ### 0.46.2 - 13.06.2021
 
