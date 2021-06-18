@@ -209,7 +209,7 @@ let unusedValueTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedValue")
-      let! (server, events) = serverInitialize path defaultConfigDto state
+      let! (server, events) = serverInitialize path { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }  state
       do! waitForWorkspaceFinishedParsing events
       let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
