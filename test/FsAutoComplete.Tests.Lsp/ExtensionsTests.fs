@@ -77,18 +77,15 @@ let linterTests state =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
       let! (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} state
-      let! work = waitForParsedScript event |> Async.StartChild
-      let projectPath = Path.Combine(path, "LinterTest.fsproj")
-      do! parseProject projectPath server
-      let path = Path.Combine(path, "Script.fs")
+      let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
       do! server.TextDocumentDidOpen tdop
-      let! diags = work
+      let! diags = waitForFailingParseResultsForFile "Script.fsx" event |> AsyncResult.bimap (fun _ -> failtest "Should have errors") id
       return (server, path, diags)
     }
     |> Async.Cache
 
-  let diagnostics = [|
+  let expectedDiagnostics = [|
     {
       Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
       Severity = Some DiagnosticSeverity.Information
@@ -172,10 +169,10 @@ let linterTests state =
       Tags = None }
   |]
 
-  testSequenced <| ptestList "Linter Test" [
+  testSequenced <| testList "Linter Test" [
     yield testCaseAsync "Linter Diagnostics" (async {
       let! (_, _, diags) = server
-      Expect.equal diags.Diagnostics diagnostics "Linter messages match"
+      Expect.equal diags expectedDiagnostics "Linter messages match"
     })
 
     let getDocumentVersion (codeAction: CodeAction) =
@@ -226,7 +223,7 @@ let linterTests state =
       "isNull a"
       "List.min a"
     ]
-    |> Seq.zip diagnostics
+    |> Seq.zip expectedDiagnostics
     |> Seq.map (fun (diag, newText) ->
         testCaseAsync $"Test Code replacement - ({newText})" (async {
           let! (server, path, _) = server
