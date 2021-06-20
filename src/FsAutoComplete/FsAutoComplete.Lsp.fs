@@ -94,7 +94,24 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
     |> Array.collect snd
     |> sendDiagnostics uri
 
-  let agentFor (uri: DocumentUri) cTok =
+  let agents = System.Collections.Generic.Dictionary<DocumentUri, MailboxProcessor<DiagnosticMessage>>()
+  let ctoks = System.Collections.Generic.Dictionary<DocumentUri, CancellationTokenSource>()
+
+
+  let rec restartAgent (fileUri: DocumentUri) =
+    removeAgent fileUri
+    getOrAddAgent fileUri |> ignore
+
+  and removeAgent (fileUri: DocumentUri) =
+    let mailbox = getOrAddAgent fileUri
+    lock agents (fun _ ->
+      let ctok = ctoks.[fileUri]
+      ctok.Cancel()
+      ctoks.Remove(fileUri) |> ignore
+      agents.Remove(fileUri) |> ignore
+    )
+
+  and agentFor (uri: DocumentUri) cTok =
     let logger = LogProvider.getLoggerByName $"Diagnostics/{uri}"
     let mailbox = MailboxProcessor.Start((fun inbox ->
       let rec loop (state: Map<string, Diagnostic []>) = async {
@@ -111,11 +128,10 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
       loop Map.empty
     ), cTok)
     mailbox.Error.Add(fun exn -> logger.error (Log.setMessage "Error while sending diagnostics: {message}" >> Log.addExn exn >> Log.addContext "message" exn.Message))
+    mailbox.Error.Add(fun exn -> restartAgent uri)
     mailbox
 
-  let agents = System.Collections.Generic.Dictionary<DocumentUri, MailboxProcessor<DiagnosticMessage>>()
-  let ctoks = System.Collections.Generic.Dictionary<DocumentUri, CancellationTokenSource>()
-  let getOrAddAgent fileUri =
+  and getOrAddAgent fileUri =
     match agents.TryGetValue fileUri with
     | true, mailbox -> mailbox
     | false, _ ->
@@ -134,14 +150,9 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
       mailbox.Post (Clear kind)
     | values ->
       mailbox.Post (Add(kind, values))
-  member x.ClearFor(fileUri: DocumentUri) =
-    let mailbox = getOrAddAgent fileUri
-    lock agents (fun _ ->
-      let ctok = ctoks.[fileUri]
-      ctok.Cancel()
-      ctoks.Remove(fileUri) |> ignore
-      agents.Remove(fileUri) |> ignore
-    )
+
+  member x.ClearFor(fileUri: DocumentUri) = removeAgent fileUri
+
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
     let mailbox = getOrAddAgent fileUri
     mailbox.Post (Clear kind)
