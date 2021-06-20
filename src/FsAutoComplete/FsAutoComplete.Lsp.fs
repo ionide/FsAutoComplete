@@ -289,7 +289,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
               lintFixes.[uri] <- fs
               let diags =
-                  warnings |> List.map(fun w ->
+                  warnings
+                  |> List.map(fun w ->
                       // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
                       // neither the Message or the RelatedInformation structures support markdown.
                       let range = fcsRangeToLsp w.Warning.Details.Range
@@ -301,6 +302,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         RelatedInformation = None
                         Tags = None }
                   )
+                  |> List.sortBy (fun diag -> diag.Range)
                   |> List.toArray
               diagnosticCollections.SetFor(uri, "F# linter", diags)
 
