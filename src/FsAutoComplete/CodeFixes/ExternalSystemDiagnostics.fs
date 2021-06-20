@@ -10,20 +10,17 @@ let private mapExternalDiagnostic diagnosticType =
     Run.ifDiagnosticByType
       diagnosticType
       (fun diagnostic codeActionParams ->
-
         match diagnostic.Data with
         | None -> AsyncResult.retn []
         | Some fixes ->
           match fixes with
-          | :? list<Range * TextEdit> as fixes ->
-            match fixes |> List.tryFind (fun (range, textEdit) -> range = diagnostic.Range) with
-            | Some (_range, textEdit) ->
-                AsyncResult.retn [ { SourceDiagnostic = Some diagnostic
-                                     File = codeActionParams.TextDocument
-                                     Title = $"Replace with %s{textEdit.NewText}"
-                                     Edits = [| textEdit |]
-                                     Kind = Fix } ]
-            | None -> AsyncResult.retn []
+          | :? list<TextEdit> as fixes ->
+            AsyncResult.retn [ { SourceDiagnostic = Some diagnostic
+                                 File = codeActionParams.TextDocument
+                                 Title = $"Fix issue"
+                                 Edits = fixes |> List.toArray
+                                 Kind = Fix } ]
+
           | _ -> AsyncResult.retn []
         )
 

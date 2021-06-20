@@ -290,22 +290,29 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           | NotificationEvent.Lint (file, warnings) ->
               let uri = Path.LocalPathToUri file
-              let fs =
-                  warnings |> List.choose (fun w ->
-                      w.Warning.Details.SuggestedFix
-                      |> Option.bind (fun f ->
-                          let f = f.Force()
-                          let range = fcsRangeToLsp w.Warning.Details.Range
-                          f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-                      )
-                  )
+              // let fs =
+              //     warnings |> List.choose (fun w ->
+              //         w.Warning.Details.SuggestedFix
+              //         |> Option.bind (fun f ->
+              //             let f = f.Force()
+              //             let range = fcsRangeToLsp w.Warning.Details.Range
+              //             f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+              //         )
+              //     )
 
               let diags =
                   warnings
                   |> List.map(fun w ->
-                      // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
-                      // neither the Message or the RelatedInformation structures support markdown.
                       let range = fcsRangeToLsp w.Warning.Details.Range
+                      let fixes =
+                        match w.Warning.Details.SuggestedFix with
+                        | None -> None
+                        | Some lazyFix ->
+                          match lazyFix.Value with
+                          | None -> None
+                          | Some fix ->
+                            Some (box [ { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText } ] )
+                      let uri = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) })
                       { Range = range
                         Code = Some w.Code
                         Severity = Some DiagnosticSeverity.Information
@@ -313,8 +320,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         Message = w.Warning.Details.Message
                         RelatedInformation = None
                         Tags = None
-                        Data = match fs with [] -> None | fixes -> Some (box fixes)
-                        CodeDescription = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) }) }
+                        Data = fixes
+                        CodeDescription = uri }
                   )
                   |> List.sortBy (fun diag -> diag.Range)
                   |> List.toArray
@@ -334,33 +341,32 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               | [||] ->
                 diagnosticCollections.SetFor(uri, "F# Analyzers", [||])
               | messages ->
-                let fs =
-                    messages
-                    |> Seq.collect (fun w ->
-                        w.Fixes
-                        |> List.map (fun f ->
-                            let range = fcsRangeToLsp f.FromRange
-                            range, {Range = range; NewText = f.ToText})
-                    )
-                    |> Seq.toList
-
                 let diags =
                     messages |> Array.map (fun m ->
                         let range = fcsRangeToLsp m.Range
-                        let s =
+                        let severity =
                             match m.Severity with
                             | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
                             | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
                             | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
+                        let fixes =
+                          match m.Fixes with
+                          | [] ->
+                            None
+                          | fixes ->
+                            fixes
+                            |> List.map (fun fix -> { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText })
+                            |> box
+                            |> Some
                         { Range = range
                           Code = Option.ofObj m.Code
-                          Severity = Some s
+                          Severity = Some severity
                           Source = $"F# Analyzers (%s{m.Type})"
                           Message = m.Message
                           RelatedInformation = None
                           Tags = None
                           CodeDescription = None
-                          Data = match fs with [] -> None | fixes -> Some (box fixes) }
+                          Data = fixes }
                     )
                 diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       with

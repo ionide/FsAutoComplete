@@ -82,8 +82,7 @@ let linterTests state =
       do! server.TextDocumentDidOpen tdop
       let! diags =
         events
-        |> fileDiagnostics "Script.fsx"
-        |> diagnosticsFromSource "F# linter"
+        |> linterDiagnostics "Script.fsx"
         |> diagnosticsToResult
         |> Async.AwaitObservable
         |> AsyncResult.bimap (fun _ -> failtest "Should have errors") id
@@ -91,189 +90,131 @@ let linterTests state =
     }
     |> Async.Cache
 
-  let expectedDiagnostics = [|
-    {
-      Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0042"
-      Source = "F# Linter"
-      Message = "Consider changing `test` to PascalCase."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 1; Character = 16 }
-                End = { Line = 1; Character = 25 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`not (a = b)` might be able to be refactored into `a <> b`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 2; Character = 16 }
-                End = { Line = 2; Character = 26 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`not (a <> b)` might be able to be refactored into `a = b`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 3; Character = 12 }
-                End = { Line = 3; Character = 22 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`fun x -> x` might be able to be refactored into `id`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 4; Character = 12 }
-                End = { Line = 4; Character = 20 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`not true` might be able to be refactored into `false`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 5; Character = 12 }
-                End = { Line = 5; Character = 21 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`not false` might be able to be refactored into `true`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 7; Character = 14 }
-                End = { Line = 7; Character = 21 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`a <> true` might be able to be refactored into `not a`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 8; Character = 14 }
-                End = { Line = 8; Character = 20 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`x = null` might be able to be refactored into `isNull x`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-    {
-      Range = { Start = { Line = 9; Character = 14 }
-                End = { Line = 9; Character = 37 } }
-      Severity = Some DiagnosticSeverity.Information
-      Code = Some "FL0065"
-      Source = "F# Linter"
-      Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
-      RelatedInformation = None
-      Tags = None
-      Data = None
-      CodeDescription = None
-    }
-  |]
+  let urlFor (code: string option) =
+    Some
+     { Href =
+        Some (System.Uri $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%s{code.Value}.html") }
+
+  let expectedDiagnostics =
+    [|
+      {
+        Range = { Start = { Line = 0; Character = 7}; End = {Line = 0; Character = 11}}
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0042"
+        Source = "F# Linter"
+        Message = "Consider changing `test` to PascalCase."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "Test"
+      {
+        Range = { Start = { Line = 1; Character = 16 }
+                  End = { Line = 1; Character = 25 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`not (a = b)` might be able to be refactored into `a <> b`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "a <> b"
+      {
+        Range = { Start = { Line = 2; Character = 16 }
+                  End = { Line = 2; Character = 26 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`not (a <> b)` might be able to be refactored into `a = b`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "a = b"
+      {
+        Range = { Start = { Line = 3; Character = 12 }
+                  End = { Line = 3; Character = 22 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`fun x -> x` might be able to be refactored into `id`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "id"
+      {
+        Range = { Start = { Line = 4; Character = 12 }
+                  End = { Line = 4; Character = 20 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`not true` might be able to be refactored into `false`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "false"
+      {
+        Range = { Start = { Line = 5; Character = 12 }
+                  End = { Line = 5; Character = 21 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`not false` might be able to be refactored into `true`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "true"
+      {
+        Range = { Start = { Line = 7; Character = 14 }
+                  End = { Line = 7; Character = 21 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`a <> true` might be able to be refactored into `not a`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "not a"
+      {
+        Range = { Start = { Line = 8; Character = 14 }
+                  End = { Line = 8; Character = 20 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`x = null` might be able to be refactored into `isNull x`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "isNull a"
+      {
+        Range = { Start = { Line = 9; Character = 14 }
+                  End = { Line = 9; Character = 37 } }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some "FL0065"
+        Source = "F# Linter"
+        Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      }, "List.min a"
+    |]
+    |> Array.map (fun (diag, text) -> { diag with CodeDescription = urlFor diag.Code; Data = Some (box [{ Range = diag.Range; NewText = text  }]) })
 
   testSequenced <| testList "Linter Test" [
     yield testCaseAsync "Linter Diagnostics" (async {
       let! (_, _, diags) = server
-      Expect.equal diags expectedDiagnostics "Linter messages match"
+      Seq.zip diags expectedDiagnostics
+      |> Seq.iteri (fun idx (actual, expected) ->
+        Expect.equal actual expected $"%d{idx} - Linter messages and codefixes match"
+      )
     })
-
-    let getDocumentVersion (codeAction: CodeAction) =
-          codeAction.Edit.DocumentChanges
-          |> Option.bind Array.tryHead
-          |> Option.bind (fun e -> e.TextDocument.Version)
-
-    let createCodeAction path newText diag version = {
-      Title = sprintf "Replace with %s" newText
-      Kind = Some "quickfix"
-      Diagnostics = Some [| diag |]
-      Edit = {
-        Changes = None
-        DocumentChanges = Some [|
-          {
-            TextDocument = {
-              Uri = Path.FilePathToUri path
-              Version = version
-            }
-            Edits = [|
-              {
-                Range = diag.Range
-                NewText = newText
-              }
-            |]
-          }
-        |]
-      }
-      Command = None
-    }
-
-    let makeRequest path (server: FSharpLspServer) (diag: Diagnostic) =
-      let p: CodeActionParams = {
-        TextDocument = { Uri = Path.FilePathToUri path }
-        Range = diag.Range
-        Context = { Diagnostics = [| diag |] }
-      }
-      server.TextDocumentCodeAction p
-
-    yield! [
-      "Test"
-      "a <> b"
-      "a = b"
-      "id"
-      "false"
-      "true"
-      "not a"
-      "isNull a"
-      "List.min a"
-    ]
-    |> Seq.zip expectedDiagnostics
-    |> Seq.map (fun (diag, newText) ->
-        testCaseAsync $"Test Code replacement - ({newText})" (async {
-          let! (server, path, _) = server
-          // different versions on different operating systems
-          // Windows:   Version = None
-          // Linux/Mac: Version = Some 0
-          // -> use version of returned action
-          match! makeRequest path server diag with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
-              Expect.equal (actions.Length) 1 "Wrong number of code actions"
-              match actions with
-              | [| action |] ->
-                  let expected = createCodeAction path newText diag (getDocumentVersion action)
-                  Expect.equal action expected "Wrong Code Action for Linter received"
-              | _ -> ()
-          | _ -> failtest "No Code Action received"
-        })
-     )
 
     yield testCaseAsync "cleanup" (async {
       let! server, _, _ = server
