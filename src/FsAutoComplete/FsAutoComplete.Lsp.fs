@@ -180,11 +180,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let mutable codeFixes = fun p -> [||]
     let mutable sigHelpKind = None
 
-    //TODO: Thread safe version
-    let lintFixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
-    let analyzerFixes = System.Collections.Generic.Dictionary<DocumentUri, System.Collections.Generic.Dictionary<string, (LanguageServerProtocol.Types.Range * TextEdit) list>>()
-
-
     let parseFile (p: DidChangeTextDocumentParams) =
 
         async {
@@ -305,7 +300,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                       )
                   )
 
-              lintFixes.[uri] <- fs
               let diags =
                   warnings
                   |> List.map(fun w ->
@@ -319,7 +313,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         Message = w.Warning.Details.Message
                         RelatedInformation = None
                         Tags = None
-                        Data = None
+                        Data = match fs with [] -> None | fixes -> Some (box fixes)
                         CodeDescription = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) }) }
                   )
                   |> List.sortBy (fun diag -> diag.Range)
@@ -349,10 +343,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             range, {Range = range; NewText = f.ToText})
                     )
                     |> Seq.toList
-                let aName = messages.[0].Type
-
-                if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
-                analyzerFixes.[uri].[aName] <- fs
 
                 let diags =
                     messages |> Array.map (fun m ->
@@ -370,7 +360,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                           RelatedInformation = None
                           Tags = None
                           CodeDescription = None
-                          Data = match m.Fixes with [] -> None | some -> Some (box some) }
+                          Data = match fs with [] -> None | fixes -> Some (box fixes) }
                     )
                 diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       with
@@ -621,8 +611,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             NewWithDisposables.fix getRangeText
             Run.ifEnabled (fun _ -> config.UnionCaseStubGeneration)
               (GenerateUnionCases.fix getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
-            ExternalSystemDiagnostics.linter (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
-            ExternalSystemDiagnostics.analyzers (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
+            ExternalSystemDiagnostics.linter
+            ExternalSystemDiagnostics.analyzers
             Run.ifEnabled (fun _ -> config.InterfaceStubGeneration)
               (GenerateInterfaceStub.fix tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
             Run.ifEnabled (fun _ -> config.RecordStubGeneration)
