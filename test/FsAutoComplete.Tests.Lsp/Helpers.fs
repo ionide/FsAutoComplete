@@ -432,7 +432,7 @@ let private typedEvents<'t> typ =
 let private payloadAs<'t> =
   Observable.map (fun (_typ, o) -> unbox<'t> o)
 
-let private getDiagnosticsEvents =
+let private getDiagnosticsEvents: IObservable<string * obj> -> IObservable<_> =
   typedEvents<LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
 
 /// note that the files here are intended to be the filename only., not the full URI.
@@ -444,34 +444,39 @@ let private matchFiles (files: string Set) =
     else None
   )
 
-let fileDiagnostics file (events: ClientEvents) =
+let fileDiagnostics file =
   logger.info (eventX "waiting for events on file {file}" >> setField "file" file)
-  events
-  |> getDiagnosticsEvents
-  |> matchFiles (Set.ofList [file])
+  getDiagnosticsEvents
+  >> matchFiles (Set.ofList [file])
+  >> Observable.map snd
+  >> Observable.map (fun d -> d.Diagnostics)
 
-let analyzerEvents file events =
-  fileDiagnostics file events
-  |> Observable.map snd
-  |> Observable.filter (fun payload -> payload.Diagnostics |> Array.exists (fun d -> d.Source.StartsWith "F# Analyzers"))
+let diagnosticsFromSource (desiredSource: String) =
+  Observable.choose (fun (diags: Diagnostic []) ->
+    match diags |> Array.choose (fun d -> if d.Source.StartsWith desiredSource then Some d else None) with
+    | [||] -> None
+    | diags -> Some diags
+  )
 
-let waitForParseResultsForFile file (events: ClientEvents) =
-  let matchingFileEvents = fileDiagnostics file events
-  async {
-    let! (filename, args) = Async.AwaitObservable matchingFileEvents
-    match args.Diagnostics with
-    | [||] -> return Ok ()
-    | errors -> return Core.Result.Error errors
-  }
+let analyzerDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "F# Analyzers"
 
-let waitForFailingParseResultsForFile file (events: ClientEvents) =
-  let matchingFileEvents = fileDiagnostics file events
-  let withErrors = matchingFileEvents |> Observable.filter (fun (fn, args) -> args.Diagnostics <> [||])
-  async {
-    let! (filename, args) = Async.AwaitObservable withErrors
-    return Core.Result.Error args.Diagnostics
-  }
+let linterDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "F# Linter"
 
+let fsacDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "FSAC"
+
+let diagnosticsToResult =
+  Observable.map (function | [||] -> Ok () | diags -> Core.Error diags)
+
+let waitForParseResultsForFile file =
+  fileDiagnostics file
+  >> diagnosticsToResult
+  >> Async.AwaitObservable
 
 let waitForParsedScript (event: ClientEvents) =
   event

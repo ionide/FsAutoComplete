@@ -76,11 +76,17 @@ let linterTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
-      let! (server, event) = serverInitialize path {defaultConfigDto with Linter = Some true} state
+      let! (server, events) = serverInitialize path {defaultConfigDto with Linter = Some true} state
       let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
       do! server.TextDocumentDidOpen tdop
-      let! diags = waitForFailingParseResultsForFile "Script.fsx" event |> AsyncResult.bimap (fun _ -> failtest "Should have errors") id
+      let! diags =
+        events
+        |> fileDiagnostics "Script.fsx"
+        |> diagnosticsFromSource "F# linter"
+        |> diagnosticsToResult
+        |> Async.AwaitObservable
+        |> AsyncResult.bimap (fun _ -> failtest "Should have errors") id
       return (server, path, diags)
     }
     |> Async.Cache
@@ -93,7 +99,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "Consider changing `test` to PascalCase."
       RelatedInformation = None
-      Tags = None}
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 1; Character = 16 }
                 End = { Line = 1; Character = 25 } }
@@ -103,6 +112,8 @@ let linterTests state =
       Message = "`not (a = b)` might be able to be refactored into `a <> b`."
       RelatedInformation = None
       Tags = None
+      Data = None
+      CodeDescription = None
     }
     {
       Range = { Start = { Line = 2; Character = 16 }
@@ -112,7 +123,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`not (a <> b)` might be able to be refactored into `a = b`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 3; Character = 12 }
                 End = { Line = 3; Character = 22 } }
@@ -121,7 +135,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`fun x -> x` might be able to be refactored into `id`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 4; Character = 12 }
                 End = { Line = 4; Character = 20 } }
@@ -130,7 +147,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`not true` might be able to be refactored into `false`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 5; Character = 12 }
                 End = { Line = 5; Character = 21 } }
@@ -139,7 +159,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`not false` might be able to be refactored into `true`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 7; Character = 14 }
                 End = { Line = 7; Character = 21 } }
@@ -148,7 +171,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`a <> true` might be able to be refactored into `not a`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 8; Character = 14 }
                 End = { Line = 8; Character = 20 } }
@@ -157,7 +183,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`x = null` might be able to be refactored into `isNull x`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
     {
       Range = { Start = { Line = 9; Character = 14 }
                 End = { Line = 9; Character = 37 } }
@@ -166,7 +195,10 @@ let linterTests state =
       Source = "F# Linter"
       Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
       RelatedInformation = None
-      Tags = None }
+      Tags = None
+      Data = None
+      CodeDescription = None
+    }
   |]
 
   testSequenced <| testList "Linter Test" [
@@ -348,7 +380,7 @@ let analyzerTests state =
       testList "tests" [
         testCaseAsync "can run analyzer on file" (async {
           let! (server, events, rootPath, testFilePath) = server
-          let! diagnostic = analyzerEvents (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitObservable
+          let! diagnostics = analyzerDiagnostics (System.IO.Path.GetFileName testFilePath) events |> Async.AwaitObservable
           let expected =
             [|{ Range = { Start = { Line = 3
                                     Character = 13 }
@@ -359,8 +391,10 @@ let analyzerTests state =
                 Source = "F# Analyzers (Option.Value analyzer)"
                 Message = "Option.Value shouldn't be used"
                 RelatedInformation = None
-                Tags = None }|]
-          Expect.equal diagnostic.Diagnostics expected "Expected a single analyzer warning about options"
+                Tags = None
+                Data = None
+                CodeDescription = None }|]
+          Expect.equal diagnostics expected "Expected a single analyzer warning about options"
         })
       ]
       testCaseAsync "cleanup" (async {

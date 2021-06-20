@@ -1575,6 +1575,13 @@ module Types =
         Message: string
     }
 
+    // Structure to capture a description for an error code.
+    type CodeDescription =
+      {
+        // An URI to open with more information about the diagnostic error.
+        Href: Uri option
+      }
+
     /// Represents a diagnostic, such as a compiler error or warning. Diagnostic objects are only valid in the
     /// scope of a resource.
     [<DebuggerDisplay("{DebuggerDisplay}")>]
@@ -1589,6 +1596,8 @@ module Types =
 
           /// The diagnostic's code. Can be omitted.
           Code: string option
+          /// An optional property to describe the error code.
+          CodeDescription: CodeDescription option
 
           /// A human-readable string describing the source of this
           /// diagnostic, e.g. 'typescript' or 'super lint'.
@@ -1598,6 +1607,11 @@ module Types =
           Message: string
           RelatedInformation: DiagnosticRelatedInformation [] option
           Tags: DiagnosticTag[] option
+          /// A data entry field that is preserved between a
+          /// `textDocument/publishDiagnostics` notification and
+          /// `textDocument/codeAction` request.
+          Data: obj option
+
       }
       [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
       member x.DebuggerDisplay = $"[{defaultArg x.Severity DiagnosticSeverity.Error}] ({x.Range.DebuggerDisplay}) {x.Message} ({defaultArg x.Code String.Empty})"

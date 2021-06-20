@@ -61,11 +61,7 @@ let scriptEvictionTests state =
           let openScript () = server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
           do! openScript ()
-          match! waitForParseResultsForFile "Script.fsx" events with
-          | Ok () ->
-            failwithf "Expected errors before we trigger script changes"
-          | Core.Result.Error errors ->
-            ()
+          do! waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap (fun _ -> failtest "Expected errors before we trigger script changes") ignore
 
           let configChange: DidChangeConfigurationParams =
             let config : FSharpConfigRequest =
@@ -74,11 +70,12 @@ let scriptEvictionTests state =
           do! server.WorkspaceDidChangeConfiguration configChange
           do! openScript ()
           // skipping 2 to get past the default workspace and the explicit opens
-          match! fileDiagnostics "Script.fsx" events |> Observable.skip 2 |> Async.AwaitObservable with
-          | _name, { Diagnostics = [||] } ->
-            ()
-          | _, { Diagnostics = errors} ->
-            Expect.isEmpty errors "Should be no typecheck errors after we set the preview argument"
+          do!
+            fileDiagnostics "Script.fsx" events
+            |> Observable.skip 2
+            |> diagnosticsToResult
+            |> Async.AwaitObservable
+            |> AsyncResult.bimap ignore (fun errors -> Expect.isEmpty errors "Should be no typecheck errors after we set the preview argument")
         })
       ]
       testCaseAsync "cleanup" (async {

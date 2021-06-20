@@ -101,6 +101,9 @@ module Conversions =
         | FSharpDiagnosticSeverity.Hidden -> None
         | FSharpDiagnosticSeverity.Info -> Some DiagnosticSeverity.Information
 
+    let urlForCompilerCode (number: int) =
+      $"https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-messages/fs%04d{number}"
+
     let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
         {
             Range =
@@ -114,6 +117,8 @@ module Conversions =
             Code = Some (string error.ErrorNumber)
             RelatedInformation = Some [||]
             Tags = None
+            Data = None
+            CodeDescription = Some { Href = Some (Uri (urlForCompilerCode error.ErrorNumber))}
         }
 
     let getSymbolInformations (uri: DocumentUri) (glyphToSymbolKind: FSharpGlyph -> SymbolKind option) (topLevel: FSharpNavigationTopLevelDeclaration) (symbolFilter: SymbolInformation -> bool): SymbolInformation [] =
