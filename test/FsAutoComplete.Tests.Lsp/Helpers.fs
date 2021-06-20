@@ -413,9 +413,12 @@ let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification)
 
 let waitForWorkspaceFinishedParsing (events : ClientEvents) =
   let chooser (name, payload) =
-    match name, unbox payload with
-    | "fsharp/notifyWorkspace", (UnwrappedPlainNotification "workspaceLoad" (workspaceLoadResponse: FsAutoComplete.CommandResponse.WorkspaceLoadResponse) )->
-      if workspaceLoadResponse.Status = "finished" then Some () else None
+    match name with
+    | "fsharp/notifyWorkspace" ->
+      match unbox payload with
+      | (UnwrappedPlainNotification "workspaceLoad" (workspaceLoadResponse: FsAutoComplete.CommandResponse.WorkspaceLoadResponse) )->
+        if workspaceLoadResponse.Status = "finished" then Some () else None
+      | _ -> None
     | _ -> None
 
   logger.debug (eventX "waiting for workspace to finish loading")
