@@ -18,6 +18,7 @@ open FsToolkit.ErrorHandling
 open FSharp.UMX
 open FSharp.Analyzers
 open FSharp.Compiler.Text
+open System.Threading
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -82,6 +83,74 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
+type DiagnosticMessage =
+  | Add of source: string * diags: Diagnostic []
+  | Clear of source: string
+
+/// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
+type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async<unit>) =
+  let send uri (diags: Map<string,Diagnostic []>) =
+    Map.toArray diags
+    |> Array.collect snd
+    |> sendDiagnostics uri
+
+  let agentFor (uri: DocumentUri) cTok =
+    let logger = LogProvider.getLoggerByName $"Diagnostics/{uri}"
+    let mailbox = MailboxProcessor.Start((fun inbox ->
+      let rec loop (state: Map<string, Diagnostic []>) = async {
+        match! inbox.Receive() with
+        | Add (source, diags) ->
+          let newState = state |> Map.add source diags
+          do! send uri newState
+          return! loop newState
+        | Clear source ->
+          let newState = state |> Map.remove source
+          do! send uri newState
+          return! loop newState
+      }
+      loop Map.empty
+    ), cTok)
+    mailbox.Error.Add(fun exn -> logger.error (Log.setMessage "Error while sending diagnostics: {message}" >> Log.addExn exn >> Log.addContext "message" exn.Message))
+    mailbox
+
+  let agents = System.Collections.Generic.Dictionary<DocumentUri, MailboxProcessor<DiagnosticMessage>>()
+  let ctoks = System.Collections.Generic.Dictionary<DocumentUri, CancellationTokenSource>()
+  let getOrAddAgent fileUri =
+    match agents.TryGetValue fileUri with
+    | true, mailbox -> mailbox
+    | false, _ ->
+      lock agents (fun _ ->
+        let cts = new CancellationTokenSource()
+        let mailbox = agentFor fileUri cts.Token
+        agents.Add(fileUri, mailbox)
+        ctoks.Add(fileUri, cts)
+        mailbox
+      )
+
+  member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic []) =
+    let mailbox = getOrAddAgent fileUri
+    match values with
+    | [||] ->
+      mailbox.Post (Clear kind)
+    | values ->
+      mailbox.Post (Add(kind, values))
+  member x.ClearFor(fileUri: DocumentUri) =
+    let mailbox = getOrAddAgent fileUri
+    lock agents (fun _ ->
+      let ctok = ctoks.[fileUri]
+      ctok.Cancel()
+      ctoks.Remove(fileUri) |> ignore
+      agents.Remove(fileUri) |> ignore
+    )
+  member x.ClearFor(fileUri: DocumentUri, kind: string) =
+    let mailbox = getOrAddAgent fileUri
+    mailbox.Post (Clear kind)
+
+  interface IDisposable with
+    member x.Dispose() =
+      for KeyValue(fileUri, cts) in ctoks do
+        cts.Cancel()
+
 type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FSharpLspClient) =
     inherit LspServer()
 
@@ -134,22 +203,13 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     let parseFileDebuncer = Debounce(500, parseFile)
 
-    let diagnosticCollections = System.Collections.Concurrent.ConcurrentDictionary<DocumentUri * string,Diagnostic[]>()
 
-    let sendDiagnostics (uri: DocumentUri) =
-        let diags =
-            diagnosticCollections
-            |> Seq.collect (fun kv ->
-                let (u, _) = kv.Key
-                if u = uri then kv.Value else [||])
-            |> Seq.sortBy (fun n ->
-                n.Range.Start.Line
-            )
-            |> Seq.toArray
-        logger.info (Log.setMessage "SendDiag for {file}: {diags} entries" >> Log.addContextDestructured "file" uri >> Log.addContextDestructured "diags" diags.Length )
-        {Uri = uri; Diagnostics = diags}
+    let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic []) =
+        logger.info (Log.setMessage "SendDiag for {file}: {diags} entries" >> Log.addContextDestructured "file" uri >> Log.addContextDestructured "diags" diags.Length)
+        { Uri = uri; Diagnostics = diags }
         |> lspClient.TextDocumentPublishDiagnostics
-        |> Async.Start
+
+    let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
 
     let handleCommandEvents (n: NotificationEvent) =
       try
@@ -174,36 +234,25 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           | NotificationEvent.ParseError (errors, file) ->
               let uri = Path.LocalPathToUri file
-              diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
-
               let diags = errors |> Array.map (fcsErrorToDiagnostic)
-              diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), diags, fun _ _ -> diags) |> ignore
-              sendDiagnostics uri
+              diagnosticCollections.SetFor(uri, "F# Compiler", diags)
 
           | NotificationEvent.UnusedOpens (file, opens) ->
               let uri = Path.LocalPathToUri file
-              diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
-
               let diags = opens |> Array.map(fun n ->
                   {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
               )
-              diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), diags, fun _ _ -> diags) |> ignore
-              sendDiagnostics uri
+              diagnosticCollections.SetFor(uri, "F# Unused opens", diags)
 
           | NotificationEvent.UnusedDeclarations (file, decls) ->
               let uri = Path.LocalPathToUri file
-              diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
-
               let diags = decls |> Array.map(fun (n, t) ->
                   {Diagnostic.Range = fcsRangeToLsp n; Code = (if t then Some "1" else None); Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
               )
-              diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), diags, fun _ _ -> diags) |> ignore
-              sendDiagnostics uri
+              diagnosticCollections.SetFor(uri, "F# Unused declarations", diags)
 
           | NotificationEvent.SimplifyNames (file, decls) ->
               let uri = Path.LocalPathToUri file
-              diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
-
               let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
                   { Diagnostic.Range = fcsRangeToLsp range
                     Code = None
@@ -213,13 +262,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     RelatedInformation = Some [| |]
                     Tags = Some [| DiagnosticTag.Unnecessary |] }
               )
-              diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), diags, fun _ _ -> diags) |> ignore
-              sendDiagnostics uri
+              diagnosticCollections.SetFor(uri, "F# simplify names", diags)
 
           | NotificationEvent.Lint (file, warnings) ->
               let uri = Path.LocalPathToUri file
-              diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
-
               let fs =
                   warnings |> List.choose (fun w ->
                       w.Warning.Details.SuggestedFix
@@ -245,8 +291,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         Tags = None }
                   )
                   |> List.toArray
-              diagnosticCollections.AddOrUpdate((uri, "F# Linter"), diags, fun _ _ -> diags) |> ignore
-              sendDiagnostics uri
+              diagnosticCollections.SetFor(uri, "F# linter", diags)
 
           | NotificationEvent.Canceled (msg) ->
               let ntf = {Content = msg}
@@ -257,12 +302,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               |> lspClient.TextDocumentPublishDiagnostics
               |> Async.Start
           | NotificationEvent.AnalyzerMessage(messages, file) ->
-
               let uri = Path.LocalPathToUri file
-              diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
               match messages with
               | [||] ->
-                diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), [||], fun _ _ -> [||]) |> ignore
+                diagnosticCollections.SetFor(uri, "F# Analyzers", [||])
               | messages ->
                 let fs =
                     messages
@@ -278,7 +321,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
                 analyzerFixes.[uri].[aName] <- fs
 
-                let diag =
+                let diags =
                     messages |> Array.map (fun m ->
                         let range = fcsRangeToLsp m.Range
                         let s =
@@ -294,8 +337,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                           RelatedInformation = None
                           Tags = None }
                     )
-                diagnosticCollections.AddOrUpdate((uri, "F# Analyzers"), diag, fun _ _ -> diag) |> ignore
-                sendDiagnostics uri
+                diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       with
       | _ -> ()
 
@@ -462,6 +504,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       for (dispose: IDisposable) in commandDisposables do
         dispose.Dispose()
       (commands :> IDisposable).Dispose()
+      (diagnosticCollections :> IDisposable).Dispose()
     }
 
     override __.Initialize(p: InitializeParams) = async {
@@ -1304,12 +1347,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         |> Array.iter (fun c ->
             if c.Type = FileChangeType.Deleted then
                 let uri = c.Uri
-                diagnosticCollections.AddOrUpdate((uri, "F# Compiler"), [||], fun _ _ -> [||]) |> ignore
-                diagnosticCollections.AddOrUpdate((uri, "F# Unused opens"), [||], fun _ _ -> [||]) |> ignore
-                diagnosticCollections.AddOrUpdate((uri, "F# Unused declarations"), [||], fun _ _ -> [||]) |> ignore
-                diagnosticCollections.AddOrUpdate((uri, "F# simplify names"), [||], fun _ _ -> [||]) |> ignore
-                diagnosticCollections.AddOrUpdate((uri, "F# Linter"), [||], fun _ _ -> [||]) |> ignore
-                sendDiagnostics uri
+                diagnosticCollections.ClearFor uri
             ()
         )
 

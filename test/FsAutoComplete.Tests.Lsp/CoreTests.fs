@@ -64,12 +64,11 @@ let codeLensTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-      let! (server, event) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} state
-      let projectPath = Path.Combine(path, "CodeLensTest.fsproj")
-      do! parseProject projectPath server
-      let path = Path.Combine(path, "Script.fs")
+      let! (server, events) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} state
+      let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
       do! server.TextDocumentDidOpen tdop
+      do! waitForParseResultsForFile "Script.fsx" events |> AsyncResult.bimap id (fun e -> failtest "should have not had check errors")
       return (server, path)
     }
     |> Async.Cache

@@ -332,14 +332,10 @@ let analyzerTests state =
       let analyzerEnabledConfig =
         { defaultConfigDto with
             EnableAnalyzers = Some true
-            AnalyzersPath = Some [| analyzerPath |]
-             }
-
-      do! Helpers.runProcess (logDotnetRestore "RenameTest") path "dotnet" "restore"
-          |> Async.map expectExitCodeZero
+            AnalyzersPath = Some [| analyzerPath |] }
 
       let! (server, events) = serverInitialize path analyzerEnabledConfig state
-      let scriptPath = Path.Combine(path, "Script.fs")
+      let scriptPath = Path.Combine(path, "Script.fsx")
       do! Async.Sleep (TimeSpan.FromSeconds 5.)
       do! waitForWorkspaceFinishedParsing events
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
