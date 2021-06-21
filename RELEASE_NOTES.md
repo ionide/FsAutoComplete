@@ -1,3 +1,7 @@
+### 0.46.5 - 21.06.2021
+
+* ENHANCEMENT [Add diagnostic code links to Compiler, Linter, and Analyzer diagnostics](https://github.com/fsharp/FsAutoComplete/pull/804)
+
 ### 0.46.4 - 18.06.2021
 
 * ENHANCEMENT: [Reenable FSharpLint linting](https://github.com/fsharp/FsAutoComplete/pull/799)
