@@ -59,6 +59,9 @@ module Helpers =
         | FSharpDiagnosticSeverity.Hidden -> None
         | FSharpDiagnosticSeverity.Info -> Some DiagnosticSeverity.Information
 
+    let urlForCompilerCode (number: int) =
+      $"https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-messages/fs%04d{number}"
+
     let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
         {
             Range =
@@ -72,6 +75,10 @@ module Helpers =
             Code = Some (string error.ErrorNumber)
             RelatedInformation = Some [||]
             Tags = None
+            Data = None
+            CodeDescription = Some {
+              Href = Some (Uri (urlForCompilerCode error.ErrorNumber))
+            }
         }
 
     /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,

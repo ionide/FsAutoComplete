@@ -199,8 +199,8 @@ let autoOpenTests state =
 
     let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
     do! server.TextDocumentDidOpen tdop
-    do! 
-      waitForParseResultsForFile scriptName events 
+    do!
+      waitForParseResultsForFile scriptName events
       |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
       |> Async.Ignore
 
@@ -225,8 +225,10 @@ let autoOpenTests state =
           Source = "F# Compiler"
           RelatedInformation = None
           Tags = None
+          Data = None
+          CodeDescription = None
         }
-      |] } 
+      |] }
     }
     let (|ContainsOpenAction|_|) (codeActions: CodeAction []) =
       codeActions
@@ -240,12 +242,12 @@ let autoOpenTests state =
         let openPos = calcOpenPos edit
         return (edit, ns, openPos)
     | Ok _ -> return failtest $"Quick fix on `{word}` doesn't contain open action"
-  } 
+  }
   let test (compareWithQuickFix: bool) (name: string option) (server: Async<FSharpLspServer * string>) (word: string, ns: string) (cursor: Position) (expectedOpen: Position) =
     let name = name |> Option.defaultWith (fun _ -> sprintf "completion on `Regex` at (%i, %i) should `open System.Text.RegularExpressions` at (%i, %i) (0-based)" (cursor.Line) (cursor.Character) (expectedOpen.Line) (expectedOpen.Character))
     testCaseAsync name <| async {
       let! server, path = server
-      
+
       let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
                                    // Line AND Column are ZERO-based!
                                    Position = cursor
@@ -256,7 +258,7 @@ let autoOpenTests state =
       | Ok (Some res) ->
           Expect.isFalse res.IsIncomplete "Result is incomplete"
           let ci = res.Items |> Array.find (fun c -> c.Label = word)
-          
+
           // now get details: `completionItem/resolve` (previous request was `textDocument/completion` -> List of all completions, but without details)
           match! server.CompletionItemResolve ci with
           | Error e -> failtestf "Request failed: %A" e
@@ -280,10 +282,10 @@ let autoOpenTests state =
     }
 
   /// In passed file: Cursor positions are marked with comments (multi-line comments: `(*...*)`)
-  /// Cursor: 
+  /// Cursor:
   /// * before start of open comment (before the leading `(`)
   /// * Completion is executed here -> expected to be `Regex`
-  /// In comment: 
+  /// In comment:
   /// * Expected position of generated `open ...`. Column marks the the position of the leading `o` of `open` (-> Column is indentation)
   ///
   /// Format of position: `Line,Column`
@@ -324,7 +326,7 @@ let autoOpenTests state =
           | '+' | '-' ->
             // relative to current position
             current + int n
-          | _ -> 
+          | _ ->
             // absolute
             int n
 

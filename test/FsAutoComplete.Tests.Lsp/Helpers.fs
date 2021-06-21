@@ -54,100 +54,43 @@ type DisposableDirectory (directory : string) =
             printfn "Deleting directory %s" x.DirectoryInfo.FullName
             IO.Directory.Delete(x.DirectoryInfo.FullName,true)
 
-
-
-/// Helper that can be used for writing CPS-style code that resumes
-/// on the same thread where the operation was started.
-let synchronize f =
-  let ctx = System.Threading.SynchronizationContext.Current
-  f (fun g ->
-    let nctx = System.Threading.SynchronizationContext.Current
-    if ctx <> null && ctx <> nctx then ctx.Post((fun _ -> g()), null)
-    else g() )
-
 type Async =
-  /// Creates an asynchronous workflow that non-deterministically returns the
-  /// result of one of the two specified workflows (the one that completes
-  /// first). This is similar to Task.WhenAny.
-  static member WhenAny([<ParamArray>] works:Async<'T>[]) : Async<'T> =
-    Async.FromContinuations(fun (cont, econt, ccont) ->
-      // Results from the two
-      let results = Array.map (fun _ -> Choice1Of3()) works
-      let handled = ref false
-      let lockObj = new obj()
-      let synchronized f = lock lockObj f
+  /// Behaves like AwaitObservable, but calls the specified guarding function
+  /// after a subscriber is registered with the observable.
+  static member GuardedAwaitObservable (ev1:IObservable<'T1>) guardFunction =
+      async {
+          let! token = Async.CancellationToken // capture the current cancellation token
+          return! Async.FromContinuations(fun (cont, econt, ccont) ->
+              // start a new mailbox processor which will await the result
+              MailboxProcessor.Start((fun (mailbox : MailboxProcessor<Choice<'T1, exn, OperationCanceledException>>) ->
+                  async {
+                      // register a callback with the cancellation token which posts a cancellation message
+                      use __ = token.Register((fun _ ->
+                          mailbox.Post (Choice3Of3 (OperationCanceledException("The operation was cancelled.")))), null)
 
-      // Called when one of the workflows completes
-      let complete () =
-        let op =
-          synchronized (fun () ->
-            // If we already handled result (and called continuation)
-            // then ignore. Otherwise, if the computation succeeds, then
-            // run the continuation and mark state as handled.
-            // Only throw if all workflows failed.
-            if !handled then ignore
-            else
-              let succ = Seq.tryPick (function Choice2Of3 v -> Some v | _ -> None) results
-              match succ with
-              | Some value -> handled := true; (fun () -> cont value)
-              | _ ->
-                  if Seq.forall (function Choice3Of3 _ -> true | _ -> false) results then
-                    let exs = Array.map (function Choice3Of3 ex -> ex | _ -> failwith "!") results
-                    (fun () -> econt (AggregateException(exs)))
-                  else ignore )
-        // Actually run the continuation
-        // (this shouldn't be done in the lock)
-        op()
+                      // subscribe to the observable: if an error occurs post an error message and post the result otherwise
+                      use __ =
+                          ev1.Subscribe({ new IObserver<'T1> with
+                              member __.OnNext result = mailbox.Post (Choice1Of3 result)
+                              member __.OnError exn = mailbox.Post (Choice2Of3 exn)
+                              member __.OnCompleted () =
+                                  let msg = "Cancelling the workflow, because the Observable awaited using AwaitObservable has completed."
+                                  mailbox.Post (Choice3Of3 (OperationCanceledException(msg))) })
 
-            // Run a workflow and write result (or exception to a ref cell)
-      let run index workflow = async {
-        try
-          let! res = workflow
-          synchronized (fun () -> results.[index] <- Choice2Of3 res)
-        with e ->
-          synchronized (fun () -> results.[index] <- Choice3Of3 e)
-        complete() }
+                      guardFunction() // call the guard function
 
-      // Start all work items - using StartImmediate, because it
-      // should be started on the current synchronization context
-      works |> Seq.iteri (fun index work ->
-        Async.StartImmediate(run index work)) )
+                      // wait for the first of these messages and call the appropriate continuation function
+                      let! message = mailbox.Receive()
+                      match message with
+                      | Choice1Of3 reply -> cont reply
+                      | Choice2Of3 exn -> econt exn
+                      | Choice3Of3 exn -> ccont exn })) |> ignore) }
 
   /// Creates an asynchronous workflow that will be resumed when the
   /// specified observables produces a value. The workflow will return
   /// the value produced by the observable.
-  static member AwaitObservable(observable : IObservable<'T1>) =
-      let removeObj : IDisposable option ref = ref None
-      let removeLock = new obj()
-      let setRemover r =
-          lock removeLock (fun () -> removeObj := Some r)
-      let remove() =
-          lock removeLock (fun () ->
-              match !removeObj with
-              | Some d -> removeObj := None
-                          d.Dispose()
-              | None   -> ())
-      synchronize (fun f ->
-        let workflow =
-            Async.FromContinuations((fun (cont,econt,ccont) ->
-                let rec finish cont value =
-                    remove()
-                    f (fun () -> cont value)
-                setRemover <|
-                    observable.Subscribe
-                        ({ new IObserver<_> with
-                            member x.OnNext(v) = finish cont v
-                            member x.OnError(e) = finish econt e
-                            member x.OnCompleted() =
-                                let msg = "Cancelling the workflow, because the Observable awaited using AwaitObservable has completed."
-                                finish ccont (new System.OperationCanceledException(msg)) })
-                () ))
-        async {
-            let! cToken = Async.CancellationToken
-            let token : CancellationToken = cToken
-            use registration = token.Register((fun _ -> remove()), null)
-            return! workflow
-        })
+  static member AwaitObservable(ev1 : IObservable<'T1>) =
+      Async.GuardedAwaitObservable ev1 ignore
 
   /// Creates an asynchronous workflow that runs the asynchronous workflow
   /// given as an argument at most once. When the returned workflow is
@@ -432,7 +375,7 @@ let private typedEvents<'t> typ =
 let private payloadAs<'t> =
   Observable.map (fun (_typ, o) -> unbox<'t> o)
 
-let private getDiagnosticsEvents =
+let private getDiagnosticsEvents: IObservable<string * obj> -> IObservable<_> =
   typedEvents<LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
 
 /// note that the files here are intended to be the filename only., not the full URI.
@@ -444,34 +387,39 @@ let private matchFiles (files: string Set) =
     else None
   )
 
-let fileDiagnostics file (events: ClientEvents) =
+let fileDiagnostics file =
   logger.info (eventX "waiting for events on file {file}" >> setField "file" file)
-  events
-  |> getDiagnosticsEvents
-  |> matchFiles (Set.ofList [file])
+  getDiagnosticsEvents
+  >> matchFiles (Set.ofList [file])
+  >> Observable.map snd
+  >> Observable.map (fun d -> d.Diagnostics)
 
-let analyzerEvents file events =
-  fileDiagnostics file events
-  |> Observable.map snd
-  |> Observable.filter (fun payload -> payload.Diagnostics |> Array.exists (fun d -> d.Source.StartsWith "F# Analyzers"))
+let diagnosticsFromSource (desiredSource: String) =
+  Observable.choose (fun (diags: Diagnostic []) ->
+    match diags |> Array.choose (fun d -> if d.Source.StartsWith desiredSource then Some d else None) with
+    | [||] -> None
+    | diags -> Some diags
+  )
 
-let waitForParseResultsForFile file (events: ClientEvents) =
-  let matchingFileEvents = fileDiagnostics file events
-  async {
-    let! (filename, args) = Async.AwaitObservable matchingFileEvents
-    match args.Diagnostics with
-    | [||] -> return Ok ()
-    | errors -> return Core.Result.Error errors
-  }
+let analyzerDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "F# Analyzers"
 
-let waitForFailingParseResultsForFile file (events: ClientEvents) =
-  let matchingFileEvents = fileDiagnostics file events
-  let withErrors = matchingFileEvents |> Observable.filter (fun (fn, args) -> args.Diagnostics <> [||])
-  async {
-    let! (filename, args) = Async.AwaitObservable withErrors
-    return Core.Result.Error args.Diagnostics
-  }
+let linterDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "F# Linter"
 
+let fsacDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "FSAC"
+
+let diagnosticsToResult =
+  Observable.map (function | [||] -> Ok () | diags -> Core.Error diags)
+
+let waitForParseResultsForFile file =
+  fileDiagnostics file
+  >> diagnosticsToResult
+  >> Async.AwaitObservable
 
 let waitForParsedScript (event: ClientEvents) =
   event

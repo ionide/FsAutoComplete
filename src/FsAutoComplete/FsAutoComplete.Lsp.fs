@@ -180,11 +180,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let mutable codeFixes = fun p -> [||]
     let mutable sigHelpKind = None
 
-    //TODO: Thread safe version
-    let lintFixes = System.Collections.Generic.Dictionary<DocumentUri, (LanguageServerProtocol.Types.Range * TextEdit) list>()
-    let analyzerFixes = System.Collections.Generic.Dictionary<DocumentUri, System.Collections.Generic.Dictionary<string, (LanguageServerProtocol.Types.Range * TextEdit) list>>()
-
-
     let parseFile (p: DidChangeTextDocumentParams) =
 
         async {
@@ -245,20 +240,36 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           | NotificationEvent.ParseError (errors, file) ->
               let uri = Path.LocalPathToUri file
-              let diags = errors |> Array.map (fcsErrorToDiagnostic)
+              let diags = errors |> Array.map fcsErrorToDiagnostic
               diagnosticCollections.SetFor(uri, "F# Compiler", diags)
 
           | NotificationEvent.UnusedOpens (file, opens) ->
               let uri = Path.LocalPathToUri file
               let diags = opens |> Array.map(fun n ->
-                  {Diagnostic.Range = fcsRangeToLsp n; Code = None; Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "Unused open statement"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+                  { Range = fcsRangeToLsp n
+                    Code = Some "FSAC0001"
+                    Severity = Some DiagnosticSeverity.Hint
+                    Source = "FSAC"
+                    Message = "Unused open statement"
+                    RelatedInformation = None
+                    Tags = Some [| DiagnosticTag.Unnecessary |]
+                    Data = None
+                    CodeDescription = None }
               )
               diagnosticCollections.SetFor(uri, "F# Unused opens", diags)
 
           | NotificationEvent.UnusedDeclarations (file, decls) ->
               let uri = Path.LocalPathToUri file
               let diags = decls |> Array.map(fun (n, t) ->
-                  {Diagnostic.Range = fcsRangeToLsp n; Code = (if t then Some "1" else None); Severity = Some DiagnosticSeverity.Hint; Source = "FSAC"; Message = "This value is unused"; RelatedInformation = Some [||]; Tags = Some [| DiagnosticTag.Unnecessary |] }
+                  { Range = fcsRangeToLsp n
+                    Code = (if t then Some "FSAC0003" else None)
+                    Severity = Some DiagnosticSeverity.Hint
+                    Source = "FSAC"
+                    Message = "This value is unused"
+                    RelatedInformation = Some [||];
+                    Tags = Some [| DiagnosticTag.Unnecessary |]
+                    Data = None
+                    CodeDescription = None }
               )
               diagnosticCollections.SetFor(uri, "F# Unused declarations", diags)
 
@@ -266,45 +277,55 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               let uri = Path.LocalPathToUri file
               let diags = decls |> Array.map(fun ({ Range = range; RelativeName = _relName }) ->
                   { Diagnostic.Range = fcsRangeToLsp range
-                    Code = None
+                    Code = Some "FSAC0002"
                     Severity = Some DiagnosticSeverity.Hint
                     Source = "FSAC"
                     Message = "This qualifier is redundant"
                     RelatedInformation = Some [| |]
-                    Tags = Some [| DiagnosticTag.Unnecessary |] }
+                    Tags = Some [| DiagnosticTag.Unnecessary |]
+                    Data = None
+                    CodeDescription = None }
               )
               diagnosticCollections.SetFor(uri, "F# simplify names", diags)
 
           | NotificationEvent.Lint (file, warnings) ->
               let uri = Path.LocalPathToUri file
-              let fs =
-                  warnings |> List.choose (fun w ->
-                      w.Warning.Details.SuggestedFix
-                      |> Option.bind (fun f ->
-                          let f = f.Force()
-                          let range = fcsRangeToLsp w.Warning.Details.Range
-                          f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-                      )
-                  )
+              // let fs =
+              //     warnings |> List.choose (fun w ->
+              //         w.Warning.Details.SuggestedFix
+              //         |> Option.bind (fun f ->
+              //             let f = f.Force()
+              //             let range = fcsRangeToLsp w.Warning.Details.Range
+              //             f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+              //         )
+              //     )
 
-              lintFixes.[uri] <- fs
               let diags =
                   warnings
                   |> List.map(fun w ->
-                      // ideally we'd be able to include a clickable link to the docs page for this errorlint code, but that is not the case here
-                      // neither the Message or the RelatedInformation structures support markdown.
                       let range = fcsRangeToLsp w.Warning.Details.Range
-                      { Diagnostic.Range = range
+                      let fixes =
+                        match w.Warning.Details.SuggestedFix with
+                        | None -> None
+                        | Some lazyFix ->
+                          match lazyFix.Value with
+                          | None -> None
+                          | Some fix ->
+                            Some (box [ { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText } ] )
+                      let uri = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) })
+                      { Range = range
                         Code = Some w.Code
                         Severity = Some DiagnosticSeverity.Information
                         Source = "F# Linter"
                         Message = w.Warning.Details.Message
                         RelatedInformation = None
-                        Tags = None }
+                        Tags = None
+                        Data = fixes
+                        CodeDescription = uri }
                   )
                   |> List.sortBy (fun diag -> diag.Range)
                   |> List.toArray
-              diagnosticCollections.SetFor(uri, "F# linter", diags)
+              diagnosticCollections.SetFor(uri, "F# Linter", diags)
 
           | NotificationEvent.Canceled (msg) ->
               let ntf = {Content = msg}
@@ -320,35 +341,32 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               | [||] ->
                 diagnosticCollections.SetFor(uri, "F# Analyzers", [||])
               | messages ->
-                let fs =
-                    messages
-                    |> Seq.collect (fun w ->
-                        w.Fixes
-                        |> List.map (fun f ->
-                            let range = fcsRangeToLsp f.FromRange
-                            range, {Range = range; NewText = f.ToText})
-                    )
-                    |> Seq.toList
-                let aName = messages.[0].Type
-
-                if analyzerFixes.ContainsKey uri then () else analyzerFixes.[uri] <- new System.Collections.Generic.Dictionary<_,_>()
-                analyzerFixes.[uri].[aName] <- fs
-
                 let diags =
                     messages |> Array.map (fun m ->
                         let range = fcsRangeToLsp m.Range
-                        let s =
+                        let severity =
                             match m.Severity with
                             | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
                             | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
                             | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
-                        { Diagnostic.Range = range
-                          Code = None
-                          Severity = Some s
-                          Source = sprintf "F# Analyzers (%s)" m.Type
+                        let fixes =
+                          match m.Fixes with
+                          | [] ->
+                            None
+                          | fixes ->
+                            fixes
+                            |> List.map (fun fix -> { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText })
+                            |> box
+                            |> Some
+                        { Range = range
+                          Code = Option.ofObj m.Code
+                          Severity = Some severity
+                          Source = $"F# Analyzers (%s{m.Type})"
                           Message = m.Message
                           RelatedInformation = None
-                          Tags = None }
+                          Tags = None
+                          CodeDescription = None
+                          Data = fixes }
                     )
                 diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       with
@@ -599,8 +617,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             NewWithDisposables.fix getRangeText
             Run.ifEnabled (fun _ -> config.UnionCaseStubGeneration)
               (GenerateUnionCases.fix getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
-            ExternalSystemDiagnostics.linter (fun fileUri -> match lintFixes.TryGetValue(fileUri) with | (true, v) -> Some v | (false, _) -> None )
-            ExternalSystemDiagnostics.analyzers (fun fileUri -> match analyzerFixes.TryGetValue(fileUri) with | (true, v) -> Some (v.Values |> Seq.concat |> Seq.toList) | (false, _) -> None )
+            ExternalSystemDiagnostics.linter
+            ExternalSystemDiagnostics.analyzers
             Run.ifEnabled (fun _ -> config.InterfaceStubGeneration)
               (GenerateInterfaceStub.fix tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
             Run.ifEnabled (fun _ -> config.RecordStubGeneration)

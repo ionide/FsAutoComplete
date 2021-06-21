@@ -5,31 +5,24 @@ open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
-open FsAutoComplete.LspHelpers
-open System.IO
 
-let private mapExternalDiagnostic diagnosticType getFixesForFile =
+let private mapExternalDiagnostic diagnosticType =
     Run.ifDiagnosticByType
       diagnosticType
       (fun diagnostic codeActionParams ->
-        let fileName =
-          codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-
-        let normalizedUri = Path.LocalPathToUri fileName
-
-        match getFixesForFile normalizedUri
-              |> Option.bind
-                   (fun fixes ->
-                     fixes
-                     |> List.tryFind (fun (range, textEdit) -> range = diagnostic.Range)) with
-        | Some (range, textEdit) ->
+        match diagnostic.Data with
+        | None -> AsyncResult.retn []
+        | Some fixes ->
+          match fixes with
+          | :? list<TextEdit> as fixes ->
             AsyncResult.retn [ { SourceDiagnostic = Some diagnostic
                                  File = codeActionParams.TextDocument
-                                 Title = $"Replace with %s{textEdit.NewText}"
-                                 Edits = [| textEdit |]
+                                 Title = $"Fix issue"
+                                 Edits = fixes |> List.toArray
                                  Kind = Fix } ]
-        | None -> AsyncResult.retn [])
 
+          | _ -> AsyncResult.retn []
+        )
 
 /// a codefix that generates fixes reported by FSharpLint
 let linter = mapExternalDiagnostic "F# Linter"
