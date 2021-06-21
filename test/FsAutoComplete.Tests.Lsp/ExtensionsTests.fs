@@ -328,7 +328,7 @@ let analyzerTests state =
                           End = { Line = 3
                                   Character = 31 } }
                 Severity = Some DiagnosticSeverity.Warning
-                Code = None
+                Code = Some "OV001"
                 Source = "F# Analyzers (Option.Value analyzer)"
                 Message = "Option.Value shouldn't be used"
                 RelatedInformation = None
