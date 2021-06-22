@@ -6,16 +6,12 @@ open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FsAutoComplete.Logging
 
 /// a codefix that suggests prepending a _ to unused values
 let fix (getRangeText: GetRangeText) =
-  let logger = LogProvider.getLoggerByName "UnusedValue"
   Run.ifDiagnosticByMessage
     "is unused"
     (fun diagnostic codeActionParams ->
-      logger.info (Log.setMessage "HACK! INSIDE FIX: {dig}" >> Log.addContextDestructured "dig" diagnostic)
-      logger.info (Log.setMessage "HACK! INSIDE FIX: {cap}" >> Log.addContextDestructured "cap" codeActionParams)
       asyncResult {
         match getRangeText (codeActionParams.TextDocument.GetFilePath() |> normalizePath) diagnostic.Range with
         | Ok unusedExpression ->

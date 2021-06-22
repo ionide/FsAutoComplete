@@ -209,39 +209,158 @@ let unusedValueTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedValue")
-      let! (server, events) = serverInitialize path { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }  state
+      let cfg = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
+      let! (server, events) = serverInitialize path cfg  state
       do! waitForWorkspaceFinishedParsing events
       let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
       let! diagnostics =
-          waitForParseResultsForFile "Script.fsx" events
+          events
+          |> waitForFsacDiagnosticsForFile "Script.fsx"
           |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
       return (server, path, diagnostics)
     }
     |> Async.Cache
 
-  let canReplaceUnusedSelfReference = testCaseAsync "can replace unused self reference" (async {
+  let (|ActRefactor|_|) title newText range (action : CodeAction) =
+    match action with
+    | { Title = title'
+        Kind = Some "refactor"
+        Edit = {
+          DocumentChanges = Some [| { Edits = [| {
+            NewText = newText'
+            Range = range'
+          } |] } |]
+        } } when title'= title && newText' = newText && range' = range
+        -> Some action
+    | _ -> None
+
+  let (|ActReplace|_|) = (|ActRefactor|_|) "Replace with _" "_"
+
+  let (|ActPrefix|_|) oldText = (|ActRefactor|_|) "Prefix with _" $"_{oldText}"
+
+  let canReplaceUnusedSelfReference = testCaseAsync "can replace unused self-reference" (async {
     let! server, file, diagnostics = server
-    let expectedDiagnostic = diagnostics.[0]
-    let! response = server.TextDocumentCodeAction { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                                                    Range = { Start = { Line = 0; Character = 4 }; End = { Line = 0; Character = 5 }}
-                                                    Context = { Diagnostics = [| expectedDiagnostic |] } }
-    match response with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Replace with _"
-                                                              Kind = Some "refactor"
-                                                              Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "_" } |] } |] } } |] )) -> ()
-    | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-    | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = {
+          //NOTE range is ignored for triggering -- but used in response checking
+          Start = { Line = 2; Character =  9 }
+          End   = { Line = 2; Character = 13 }
+        }
+        Context = { Diagnostics = diagnostics }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+        Expect.exists
+          actions
+          (function ActReplace detected.Range _ -> true | _ -> false)
+          "Did not suggest 'Replace with _'"
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canReplaceUnusedBinding = testCaseAsync "can replace unused binding" (async {
+    let! server, file, diagnostics = server
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = {
+          //NOTE range is ignored for triggering -- but used in response checking
+          Start = { Line = 9; Character = 4 }
+          End   = { Line = 9; Character = 7 }
+        }
+        Context = { Diagnostics = diagnostics }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+        Expect.exists
+          actions
+          (function ActReplace detected.Range _ -> true | _ -> false)
+          "Did not suggest 'Replace with _'"
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canPrefixUnusedBinding = testCaseAsync "can prefix unused binding" (async {
+    let! server, file, diagnostics = server
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = {
+          //NOTE range is ignored for triggering -- but used in response checking
+          Start = { Line = 9; Character = 4 }
+          End   = { Line = 9; Character = 7 }
+        }
+        Context = { Diagnostics = diagnostics }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+        Expect.exists
+          actions
+          (function ActPrefix "six" detected.Range _ -> true | _ -> false)
+          "Did not suggest 'Prefix with _'"
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canReplaceUnusedParameter = testCaseAsync "can replace unused parameter" (async {
+    let! server, file, diagnostics = server
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = {
+          //NOTE range is ignored for triggering -- but used in response checking
+          Start = { Line = 15; Character = 16 }
+          End   = { Line = 15; Character = 21 }
+        }
+        Context = { Diagnostics = diagnostics }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+        Expect.exists
+          actions
+          (function ActReplace detected.Range _ -> true | _ -> false)
+          "Did not suggest 'Replace with _'"
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canPrefixUnusedParameter = testCaseAsync "can prefix unused parameter" (async {
+    let! server, file, diagnostics = server
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = {
+          //NOTE range is ignored for triggering -- but used in response checking
+          Start = { Line = 15; Character = 16 }
+          End   = { Line = 15; Character = 21 }
+        }
+        Context = { Diagnostics = diagnostics }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+        Expect.exists
+          actions
+          (function ActPrefix "three" detected.Range _ -> true | _ -> false)
+          "Did not suggest 'Replace with _'"
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
   })
 
   testList "unused value" [
     canReplaceUnusedSelfReference
-    //TODO can replace usused binding with _
-    //TODO can replace usused function parameter with _
-    //TODO can prefix _ to unused self reference
-    //TODO can prefix _ to unused binding
-    //TODO can prefix _ to unused function parameter
+    canReplaceUnusedBinding
+    canPrefixUnusedBinding
+    canReplaceUnusedParameter
+    canPrefixUnusedParameter
   ]
 
 let tests state = testList "codefix tests" [
