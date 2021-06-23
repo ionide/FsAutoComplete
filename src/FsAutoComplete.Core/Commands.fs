@@ -51,7 +51,7 @@ type NotificationEvent =
     | Workspace of ProjectSystem.ProjectResponse
     | AnalyzerMessage of  messages: FSharp.Analyzers.SDK.Message [] * file: string<LocalPath>
     | UnusedOpens of file: string<LocalPath> * opens: Range[]
-    | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
+    // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
     | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
     | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange []
     | Canceled of errorMessage: string
@@ -67,7 +67,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     let mutable workspaceRoot: string option = None
     let mutable linterConfigFileRelativePath: string option = None
-    let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
+    // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
     let mutable lastCheckResult : ParseAndCheckResults option = None
 
@@ -850,21 +850,18 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
           match checker.TryGetRecentCheckResultsForFile(file, options) with
           | None -> return ()
           | Some tyRes ->
-            match tyRes.GetAST with
-            | None -> return ()
-            | Some tree ->
-              try
-                let! ctok = Async.CancellationToken
-                let! enrichedWarnings = Lint.lintWithConfiguration linterConfiguration ctok tree source tyRes.GetCheckResults
-                let res = CoreResponse.Res (file, enrichedWarnings)
-                notify.Trigger (NotificationEvent.Lint (file, enrichedWarnings))
-                return ()
-              with ex ->
-                commandsLogger.error (Log.setMessage "error while linting {file}: {message}"
-                                      >> Log.addContextDestructured "file" file
-                                      >> Log.addContextDestructured "message" ex.Message
-                                      >> Log.addExn ex)
-                return ()
+            try
+              // let! ctok = Async.CancellationToken
+              // let! enrichedWarnings = Lint.lintWithConfiguration linterConfiguration ctok tyRes.GetParseResults.ParseTree source tyRes.GetCheckResults
+              // let res = CoreResponse.Res (file, enrichedWarnings)
+              // notify.Trigger (NotificationEvent.Lint (file, enrichedWarnings))
+              return ()
+            with ex ->
+              commandsLogger.error (Log.setMessage "error while linting {file}: {message}"
+                                    >> Log.addContextDestructured "file" file
+                                    >> Log.addContextDestructured "message" ex.Message
+                                    >> Log.addExn ex)
+              return ()
         }
         |> Async.Ignore
         |> x.AsCancellable file
@@ -1165,11 +1162,11 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member __.SetWorkspaceRoot (root: string option) =
       workspaceRoot <- root
-      linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
+      // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
     member __.SetLinterConfigRelativePath (relativePath: string option) =
       linterConfigFileRelativePath <- relativePath
-      linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
+      // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
     member __.FSharpLiterate (file: string<LocalPath>) =
       async {

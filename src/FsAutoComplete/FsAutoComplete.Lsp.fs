@@ -291,44 +291,44 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               )
               diagnosticCollections.SetFor(uri, "F# simplify names", diags)
 
-          | NotificationEvent.Lint (file, warnings) ->
-              let uri = Path.LocalPathToUri file
-              // let fs =
-              //     warnings |> List.choose (fun w ->
-              //         w.Warning.Details.SuggestedFix
-              //         |> Option.bind (fun f ->
-              //             let f = f.Force()
-              //             let range = fcsRangeToLsp w.Warning.Details.Range
-              //             f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-              //         )
-              //     )
+          // | NotificationEvent.Lint (file, warnings) ->
+          //     let uri = Path.LocalPathToUri file
+          //     // let fs =
+          //     //     warnings |> List.choose (fun w ->
+          //     //         w.Warning.Details.SuggestedFix
+          //     //         |> Option.bind (fun f ->
+          //     //             let f = f.Force()
+          //     //             let range = fcsRangeToLsp w.Warning.Details.Range
+          //     //             f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+          //     //         )
+          //     //     )
 
-              let diags =
-                  warnings
-                  |> List.map(fun w ->
-                      let range = fcsRangeToLsp w.Warning.Details.Range
-                      let fixes =
-                        match w.Warning.Details.SuggestedFix with
-                        | None -> None
-                        | Some lazyFix ->
-                          match lazyFix.Value with
-                          | None -> None
-                          | Some fix ->
-                            Some (box [ { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText } ] )
-                      let uri = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) })
-                      { Range = range
-                        Code = Some w.Code
-                        Severity = Some DiagnosticSeverity.Information
-                        Source = "F# Linter"
-                        Message = w.Warning.Details.Message
-                        RelatedInformation = None
-                        Tags = None
-                        Data = fixes
-                        CodeDescription = uri }
-                  )
-                  |> List.sortBy (fun diag -> diag.Range)
-                  |> List.toArray
-              diagnosticCollections.SetFor(uri, "F# Linter", diags)
+          //     let diags =
+          //         warnings
+          //         |> List.map(fun w ->
+          //             let range = fcsRangeToLsp w.Warning.Details.Range
+          //             let fixes =
+          //               match w.Warning.Details.SuggestedFix with
+          //               | None -> None
+          //               | Some lazyFix ->
+          //                 match lazyFix.Value with
+          //                 | None -> None
+          //                 | Some fix ->
+          //                   Some (box [ { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText } ] )
+          //             let uri = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) })
+          //             { Range = range
+          //               Code = Some w.Code
+          //               Severity = Some DiagnosticSeverity.Information
+          //               Source = "F# Linter"
+          //               Message = w.Warning.Details.Message
+          //               RelatedInformation = None
+          //               Tags = None
+          //               Data = fixes
+          //               CodeDescription = uri }
+          //         )
+          //         |> List.sortBy (fun diag -> diag.Range)
+          //         |> List.toArray
+          //     diagnosticCollections.SetFor(uri, "F# Linter", diags)
 
           | NotificationEvent.Canceled (msg) ->
               let ntf = {Content = msg}

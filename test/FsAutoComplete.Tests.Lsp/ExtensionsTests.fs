@@ -207,7 +207,7 @@ let linterTests state =
     |]
     |> Array.map (fun (diag, text) -> { diag with CodeDescription = urlFor diag.Code; Data = Some (box [{ Range = diag.Range; NewText = text  }]) })
 
-  testSequenced <| testList "Linter Test" [
+  testSequenced <| ptestList "Linter Test" [
     yield testCaseAsync "Linter Diagnostics" (async {
       let! (_, _, diags) = server
       Seq.zip diags expectedDiagnostics
