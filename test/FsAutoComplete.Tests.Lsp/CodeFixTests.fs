@@ -206,6 +206,21 @@ let missingInstanceMemberTests state =
   ]
 
 let unusedValueTests state =
+  let (|Refactor|_|) title newText action =
+    match action with
+    | { Title = title'
+        Kind = Some "refactor"
+        Edit = { DocumentChanges = Some [|
+          { Edits = [| { NewText = newText' } |] }
+        |] }
+      }
+      when title' = title && newText' = newText -> Some ()
+    | _ -> None
+
+  let (|ActReplace|_|) = (|Refactor|_|) "Replace with _" "_"
+
+  let (|ActPrefix|_|) oldText = (|Refactor|_|) "Prefix with _" $"_{oldText}"
+
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedValue")
@@ -223,40 +238,25 @@ let unusedValueTests state =
     }
     |> Async.Cache
 
-  let (|ActRefactor|_|) title newText range (action : CodeAction) =
-    match action with
-    | { Title = title'
-        Kind = Some "refactor"
-        Edit = {
-          DocumentChanges = Some [| { Edits = [| {
-            NewText = newText'
-            Range = range'
-          } |] } |]
-        } } when title'= title && newText' = newText && range' = range
-        -> Some action
-    | _ -> None
-
-  let (|ActReplace|_|) = (|ActRefactor|_|) "Replace with _" "_"
-
-  let (|ActPrefix|_|) oldText = (|ActRefactor|_|) "Prefix with _" $"_{oldText}"
-
   let canReplaceUnusedSelfReference = testCaseAsync "can replace unused self-reference" (async {
     let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 2; Character =  9 } &&
+          d.Range.End   = { Line = 2; Character = 13 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
     let detected = {
         CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = {
-          //NOTE range is ignored for triggering -- but used in response checking
-          Start = { Line = 2; Character =  9 }
-          End   = { Line = 2; Character = 13 }
-        }
-        Context = { Diagnostics = diagnostics }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
         Expect.exists
           actions
-          (function ActReplace detected.Range _ -> true | _ -> false)
-          "Did not suggest 'Replace with _'"
+          (function ActReplace -> true | _ -> false)
+          "Failed to 'Replace with _'"
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -265,21 +265,23 @@ let unusedValueTests state =
 
   let canReplaceUnusedBinding = testCaseAsync "can replace unused binding" (async {
     let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 9; Character = 4 } &&
+          d.Range.End   = { Line = 9; Character = 7 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
     let detected = {
         CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = {
-          //NOTE range is ignored for triggering -- but used in response checking
-          Start = { Line = 9; Character = 4 }
-          End   = { Line = 9; Character = 7 }
-        }
-        Context = { Diagnostics = diagnostics }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
         Expect.exists
           actions
-          (function ActReplace detected.Range _ -> true | _ -> false)
-          "Did not suggest 'Replace with _'"
+          (function ActReplace -> true | _ -> false)
+          "Failed to 'Replace with _'"
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -288,21 +290,23 @@ let unusedValueTests state =
 
   let canPrefixUnusedBinding = testCaseAsync "can prefix unused binding" (async {
     let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 9; Character = 4 } &&
+          d.Range.End   = { Line = 9; Character = 7 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
     let detected = {
         CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = {
-          //NOTE range is ignored for triggering -- but used in response checking
-          Start = { Line = 9; Character = 4 }
-          End   = { Line = 9; Character = 7 }
-        }
-        Context = { Diagnostics = diagnostics }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
         Expect.exists
           actions
-          (function ActPrefix "six" detected.Range _ -> true | _ -> false)
-          "Did not suggest 'Prefix with _'"
+          (function ActPrefix "six" -> true | _ -> false)
+          "Failed to 'Prefix with _'"
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -311,21 +315,23 @@ let unusedValueTests state =
 
   let canReplaceUnusedParameter = testCaseAsync "can replace unused parameter" (async {
     let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 15; Character = 16 } &&
+          d.Range.End   = { Line = 15; Character = 21 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
     let detected = {
         CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = {
-          //NOTE range is ignored for triggering -- but used in response checking
-          Start = { Line = 15; Character = 16 }
-          End   = { Line = 15; Character = 21 }
-        }
-        Context = { Diagnostics = diagnostics }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
         Expect.exists
           actions
-          (function ActReplace detected.Range _ -> true | _ -> false)
-          "Did not suggest 'Replace with _'"
+          (function ActReplace -> true | _ -> false)
+          "Failed to 'Replace with _'"
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -334,21 +340,23 @@ let unusedValueTests state =
 
   let canPrefixUnusedParameter = testCaseAsync "can prefix unused parameter" (async {
     let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 15; Character = 16 } &&
+          d.Range.End   = { Line = 15; Character = 21 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
     let detected = {
         CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = {
-          //NOTE range is ignored for triggering -- but used in response checking
-          Start = { Line = 15; Character = 16 }
-          End   = { Line = 15; Character = 21 }
-        }
-        Context = { Diagnostics = diagnostics }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions )) ->
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
         Expect.exists
           actions
-          (function ActPrefix "three" detected.Range _ -> true | _ -> false)
-          "Did not suggest 'Replace with _'"
+          (function ActPrefix "three" -> true | _ -> false)
+          "Failed to 'Prefix with _'"
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
