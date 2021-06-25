@@ -14,7 +14,7 @@ let private gotoTest state =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-      let! (server, event) = serverInitialize path defaultConfigDto state
+      let! (server, event) = serverInitialize path defaultConfigDto  state
       do! waitForWorkspaceFinishedParsing event
 
       let definitionPath = Path.Combine(path, "Definition.fs")
@@ -111,7 +111,7 @@ let private gotoTest state =
         let! server, path, externalPath, definitionPath = server
         let p : TextDocumentPositionParams  =
           { TextDocument = { Uri = Path.FilePathToUri definitionPath}
-            Position = { Line = 8; Character = 11}}
+            Position = { Line = 8; Character = 11 } }
         let! res = server.TextDocumentImplementation p
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e

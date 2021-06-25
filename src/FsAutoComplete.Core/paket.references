@@ -17,5 +17,5 @@ FSharp.UMX
 FsToolkit.ErrorHandling
 
 System.Reflection.Metadata
-FSharp.Formatting
+#FSharp.Formatting
 Microsoft.Build.Utilities.Core

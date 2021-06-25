@@ -179,7 +179,7 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Norm
             return Error InvalidJson
         | Some json ->
             let docs = documentsFromReader sourceReader
-            let doc = docs |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = targetFile)
+            let doc = docs |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = normalizeRepoPath (UMX.cast targetFile))
             match doc with
             | None ->
                 logger.warn (Log.setMessage "No sourcelinked source file matched {target}. Available documents were (normalized paths here): {docs}" >> Log.addContextDestructured "docs" (docs |> Seq.map (fun d -> normalizeRepoPath d.Name)) >> Log.addContextDestructured "target" targetFile)

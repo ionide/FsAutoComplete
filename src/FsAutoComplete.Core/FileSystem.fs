@@ -138,12 +138,7 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volati
         //     actualFs.OpenFileForReadShim(filePath, ?useMemoryMappedFile = useMemoryMappedFile, ?shouldShadowCopy = shouldShadowCopy)
         //   )
 
-        member _.FileStreamReadShim(filePath: string) =
-          filePath
-          |> Utils.normalizePath
-          |> getContent
-          |> Option.map (fun bytes -> bytes.AsStream())
-          |> Option.defaultWith (fun _ -> actualFs.FileStreamReadShim(filePath))
+        member _.FileStreamReadShim(filePath: string) = actualFs.FileStreamReadShim filePath
 
         // member _.OpenFileForWriteShim (filePath: string, ?fileMode: FileMode, ?fileAccess: FileAccess, ?fileShare: FileShare): Stream =
         //   filePath
@@ -152,12 +147,8 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volati
         //   |> Option.map (fun bytes -> bytes.AsStream())
         //   |> Option.defaultWith (fun _ -> actualFs.OpenFileForWriteShim(filePath, ?fileMode = fileMode, ?fileAccess = fileAccess, ?fileShare = fileShare))
 
-        member _.GetLastWriteTimeShim (f) =
-          f
-          |> Utils.normalizePath
-          |> tryFindFile
-          |> Option.map (fun f -> f.Touched)
-          |> Option.defaultWith (fun _ -> actualFs.GetLastWriteTimeShim f)
+        member _.GetLastWriteTimeShim (f) = actualFs.GetLastWriteTimeShim f
+
 
         // member _.GetCreationTimeShim(path: string): DateTime =
         //   path

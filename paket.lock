@@ -50,8 +50,6 @@ NUGET
       FSharp.Core (>= 4.7.2)
       System.Reactive (>= 5.0)
     FSharp.Core (5.0.2)
-    FSharp.Formatting (11.2)
-      FSharp.Compiler.Service (>= 39.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netstandard2.1))
     FSharp.UMX (1.0)
       FSharp.Core (>= 4.3.4)
     FSharpx.Async (1.14.1)
@@ -65,7 +63,7 @@ NUGET
     McMaster.NETCore.Plugins (1.4) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net5.0))
       Microsoft.DotNet.PlatformAbstractions (>= 3.1.6) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       Microsoft.Extensions.DependencyModel (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
-    Microsoft.Build (16.9)
+    Microsoft.Build (16.9) - copy_local: false
       Microsoft.Build.Framework (>= 16.9) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net472)) (&& (== netstandard2.0) (>= netcoreapp2.1))
       Microsoft.Win32.Registry (>= 4.3) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       System.Collections.Immutable (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net472)) (&& (== netstandard2.0) (>= netcoreapp2.1))
@@ -75,10 +73,10 @@ NUGET
       System.Text.Encoding.CodePages (>= 4.0.1) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       System.Text.Json (>= 4.7) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net472)) (&& (== netstandard2.0) (>= netcoreapp2.1))
       System.Threading.Tasks.Dataflow (>= 4.9) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net472)) (&& (== netstandard2.0) (>= netcoreapp2.1))
-    Microsoft.Build.Framework (16.9)
+    Microsoft.Build.Framework (16.9) - copy_local: false
       System.Security.Permissions (>= 4.7)
     Microsoft.Build.Locator (1.4.1) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net5.0))
-    Microsoft.Build.Tasks.Core (16.9)
+    Microsoft.Build.Tasks.Core (16.9) - copy_local: false
       Microsoft.Build.Framework (>= 16.9)
       Microsoft.Build.Utilities.Core (>= 16.9)
       Microsoft.Win32.Registry (>= 4.3)
@@ -93,7 +91,7 @@ NUGET
       System.Security.Permissions (>= 4.7)
       System.Threading.Tasks.Dataflow (>= 4.9)
     Microsoft.Build.Tasks.Git (1.0) - copy_local: true
-    Microsoft.Build.Utilities.Core (16.9)
+    Microsoft.Build.Utilities.Core (16.9) - copy_local: false
       Microsoft.Build.Framework (>= 16.9)
       Microsoft.Win32.Registry (>= 4.3)
       System.Collections.Immutable (>= 5.0)
@@ -110,7 +108,7 @@ NUGET
     Microsoft.NET.Test.Sdk (16.8.3)
       Microsoft.CodeCoverage (>= 16.8.3) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net45)) (&& (== netstandard2.0) (>= netcoreapp2.1))
       Microsoft.TestPlatform.TestHost (>= 16.8.3) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
-    Microsoft.NETCore.Platforms (5.0.2)
+    Microsoft.NETCore.Platforms (5.0.2) - copy_local: false
     Microsoft.NETCore.Targets (5.0)
     Microsoft.NETFramework.ReferenceAssemblies (1.0)
     Microsoft.SourceLink.Common (1.0) - copy_local: true
@@ -127,7 +125,7 @@ NUGET
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
-    Microsoft.Win32.Registry (5.0)
+    Microsoft.Win32.Registry (5.0) - copy_local: false
       System.Security.AccessControl (>= 5.0)
       System.Security.Principal.Windows (>= 5.0)
     Microsoft.Win32.SystemEvents (5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
@@ -209,7 +207,7 @@ NUGET
       NETStandard.Library (>= 1.6)
       SQLitePCLRaw.core (>= 1.1.14)
     System.Buffers (4.5.1)
-    System.CodeDom (5.0)
+    System.CodeDom (5.0) - copy_local: false
     System.Collections (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
@@ -280,7 +278,7 @@ NUGET
       System.Runtime (>= 4.3)
     System.Drawing.Common (5.0.2) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
       Microsoft.Win32.SystemEvents (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.0)) (&& (== netstandard2.0) (>= netcoreapp3.0))
-    System.Formats.Asn1 (5.0)
+    System.Formats.Asn1 (5.0) - copy_local: false
       System.Buffers (>= 4.5.1) - restriction: || (&& (== net5.0) (>= monotouch)) (&& (== net5.0) (>= net461)) (&& (== net5.0) (< netcoreapp2.0)) (&& (== net5.0) (>= xamarinios)) (&& (== net5.0) (>= xamarinmac)) (&& (== net5.0) (>= xamarintvos)) (&& (== net5.0) (>= xamarinwatchos)) (== netstandard2.0)
       System.Memory (>= 4.5.4) - restriction: || (&& (== net5.0) (>= net461)) (&& (== net5.0) (< netcoreapp2.0)) (&& (== net5.0) (< netcoreapp2.1)) (&& (== net5.0) (>= uap10.1)) (== netstandard2.0)
     System.Globalization (4.3)
@@ -464,7 +462,7 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
     System.Reflection.TypeExtensions (4.7)
-    System.Resources.Extensions (5.0)
+    System.Resources.Extensions (5.0) - copy_local: false
       System.Memory (>= 4.5.4) - restriction: || (&& (== net5.0) (>= net461)) (&& (== net5.0) (< netcoreapp2.1)) (== netstandard2.0)
     System.Resources.ResourceManager (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
@@ -484,7 +482,7 @@ NUGET
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
-    System.Runtime.InteropServices (4.3)
+    System.Runtime.InteropServices (4.3) - copy_local: false
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Reflection (>= 4.3)
@@ -508,7 +506,7 @@ NUGET
       System.Resources.ResourceManager (>= 4.3)
       System.Runtime (>= 4.3)
       System.Runtime.Extensions (>= 4.3)
-    System.Security.AccessControl (5.0)
+    System.Security.AccessControl (5.0) - copy_local: false
       Microsoft.NETCore.Platforms (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.0))
       System.Security.Principal.Windows (>= 5.0)
     System.Security.Claims (4.3)
@@ -534,7 +532,7 @@ NUGET
       System.Security.Cryptography.Encoding (>= 4.3)
       System.Security.Cryptography.Primitives (>= 4.3)
       System.Text.Encoding (>= 4.3)
-    System.Security.Cryptography.Cng (5.0)
+    System.Security.Cryptography.Cng (5.0) - copy_local: false
       System.Formats.Asn1 (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
     System.Security.Cryptography.Csp (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
@@ -565,7 +563,7 @@ NUGET
       System.Text.Encoding (>= 4.3)
     System.Security.Cryptography.OpenSsl (5.0)
       System.Formats.Asn1 (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
-    System.Security.Cryptography.Pkcs (5.0.1)
+    System.Security.Cryptography.Pkcs (5.0.1) - copy_local: false
       System.Buffers (>= 4.5.1) - restriction: || (&& (== net5.0) (< netcoreapp2.0) (< netstandard2.1)) (== netstandard2.0)
       System.Formats.Asn1 (>= 5.0)
       System.Memory (>= 4.5.4) - restriction: || (&& (== net5.0) (< netcoreapp2.0) (< netstandard2.1)) (&& (== net5.0) (< netcoreapp2.1) (< netstandard2.1)) (&& (== net5.0) (>= uap10.1)) (== netstandard2.0)
@@ -606,7 +604,7 @@ NUGET
       System.Security.Cryptography.Primitives (>= 4.3)
       System.Text.Encoding (>= 4.3)
       System.Threading (>= 4.3)
-    System.Security.Cryptography.Xml (5.0)
+    System.Security.Cryptography.Xml (5.0) - copy_local: false
       System.Memory (>= 4.5.4) - restriction: || (&& (== net5.0) (< netcoreapp2.1)) (== netstandard2.0)
       System.Security.Cryptography.Pkcs (>= 5.0)
       System.Security.Permissions (>= 5.0)
@@ -615,19 +613,19 @@ NUGET
       System.Windows.Extensions (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
     System.Security.Principal (4.3)
       System.Runtime (>= 4.3)
-    System.Security.Principal.Windows (5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
+    System.Security.Principal.Windows (5.0) - copy_local: false, restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
     System.Text.Encoding (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
-    System.Text.Encoding.CodePages (5.0)
+    System.Text.Encoding.CodePages (5.0) - copy_local: false
       Microsoft.NETCore.Platforms (>= 5.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net5.0)) (&& (== netstandard2.0) (>= netcoreapp2.0))
     System.Text.Encoding.Extensions (4.3)
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
       System.Text.Encoding (>= 4.3)
-    System.Text.Json (5.0.2) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net472)) (&& (== netstandard2.0) (>= netcoreapp2.1))
+    System.Text.Json (5.0.2) - copy_local: false, restriction: || (== net5.0) (&& (== netstandard2.0) (>= net472)) (&& (== netstandard2.0) (>= netcoreapp2.1))
     System.Threading (4.3)
       System.Runtime (>= 4.3)
       System.Threading.Tasks (>= 4.3)
@@ -635,7 +633,7 @@ NUGET
       Microsoft.NETCore.Platforms (>= 1.1)
       Microsoft.NETCore.Targets (>= 1.1)
       System.Runtime (>= 4.3)
-    System.Threading.Tasks.Dataflow (5.0)
+    System.Threading.Tasks.Dataflow (5.0) - copy_local: false
     System.Threading.Tasks.Parallel (4.3)
       System.Collections.Concurrent (>= 4.3)
       System.Diagnostics.Debug (>= 4.3)

@@ -39,7 +39,7 @@
             "enableStepFiltering": false,
             "args": [
               "--filter",
-              "lsp.Ionide WorkspaceLoader.codefix tests.remove unused binding"
+              "lsp.Ionide WorkspaceLoader.Completion.AutoOpen.with namespace with new line.completion on `Regex` at (3, 14) should `open System.Text.RegularExpressions` at (1, 0) (0-based)"
             ]
         },
         {

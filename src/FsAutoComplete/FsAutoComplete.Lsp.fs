@@ -1881,21 +1881,21 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
-    member __.FSharpLiterate (p: FSharpLiterateRequest) = async {
-      logger.info (Log.setMessage "FSharpLiterate Request: {parms}" >> Log.addContextDestructured "parms" p )
+    // member __.FSharpLiterate (p: FSharpLiterateRequest) = async {
+    //   logger.info (Log.setMessage "FSharpLiterate Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-      let fn = p.FileName |> Utils.normalizePath
-      let! res = commands.FSharpLiterate fn
-      let res =
-        match res with
-        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-            LspResult.internalError msg
-        | CoreResponse.Res (res) ->
-            { Content = CommandResponse.fsharpLiterate FsAutoComplete.JsonSerializer.writeJson res }
-            |> success
+    //   let fn = p.FileName |> Utils.normalizePath
+    //   let! res = commands.FSharpLiterate fn
+    //   let res =
+    //     match res with
+    //     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+    //         LspResult.internalError msg
+    //     | CoreResponse.Res (res) ->
+    //         { Content = CommandResponse.fsharpLiterate FsAutoComplete.JsonSerializer.writeJson res }
+    //         |> success
 
-      return res
-    }
+    //   return res
+    // }
 
     member x.FSharpPipelineHints (p: FSharpPipelineHintRequest) =
       logger.info (Log.setMessage "FSharpPipelineHints Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -1936,7 +1936,7 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
-        |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
+        // |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
         |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
         // |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         // |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))

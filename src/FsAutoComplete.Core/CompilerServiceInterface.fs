@@ -26,7 +26,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   do
     checker.BeforeBackgroundFileCheck.Add ignore
-    checker.ImplicitlyStartBackgroundWork <- true
+    // checker.ImplicitlyStartBackgroundWork <- true
 
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
   let safeFileCheckedEvent =

@@ -823,7 +823,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                     else
                         let! symbols = checker.GetUsesOfSymbol (tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
                         let symbols = filterSymbols symbols
-                        return CoreResponse.Res (LocationResponse.Use (sym, filterSymbols symbols))
+                        return CoreResponse.Res (LocationResponse.Use (sym, symbols))
                 | Some res ->
                     return CoreResponse.Res (LocationResponse.UseRange res)
           | Error e -> return CoreResponse.ErrorRes e
@@ -1168,21 +1168,21 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
       linterConfigFileRelativePath <- relativePath
       // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
-    member __.FSharpLiterate (file: string<LocalPath>) =
-      async {
-        let cnt =
-          match state.TryGetFileSource file with
-          | Ok ctn -> ctn.ToString()
-          | _ ->  File.ReadAllText (UMX.untag file)
-        let parsedFile =
-          if Utils.isAScript (UMX.untag file) then
-            FSharp.Formatting.Literate.Literate.ParseScriptString cnt
-          else
-             FSharp.Formatting.Literate.Literate.ParseMarkdownString cnt
+    // member __.FSharpLiterate (file: string<LocalPath>) =
+    //   async {
+    //     let cnt =
+    //       match state.TryGetFileSource file with
+    //       | Ok ctn -> ctn.ToString()
+    //       | _ ->  File.ReadAllText (UMX.untag file)
+    //     let parsedFile =
+    //       if Utils.isAScript (UMX.untag file) then
+    //         FSharp.Formatting.Literate.Literate.ParseScriptString cnt
+    //       else
+    //          FSharp.Formatting.Literate.Literate.ParseMarkdownString cnt
 
-        let html =  FSharp.Formatting.Literate.Literate.ToHtml parsedFile
-        return CoreResponse.Res html
-      }
+    //     let html =  FSharp.Formatting.Literate.Literate.ToHtml parsedFile
+    //     return CoreResponse.Res html
+    //   }
 
     member __.PipelineHints (tyRes : ParseAndCheckResults): CoreResponse<(int * option<int> * list<string>) array> =
       result {
