@@ -294,7 +294,7 @@ let unusedValueTests state =
         Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "three" |])) -> ()
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "three"; _ (* explicit type annotation codefix *) |])) -> ()
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
