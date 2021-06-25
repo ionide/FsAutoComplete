@@ -19,7 +19,7 @@ let private mapExternalDiagnostic diagnosticType =
                                  File = codeActionParams.TextDocument
                                  Title = $"Fix issue"
                                  Edits = fixes |> List.toArray
-                                 Kind = Fix } ]
+                                 Kind = FixKind.Fix } ]
 
           | _ -> AsyncResult.retn []
         )

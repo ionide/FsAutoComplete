@@ -24,9 +24,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
         { Title = "Use `.Value` instead of dereference operator"
           File = codeActionParams.TextDocument
           SourceDiagnostic = None
-          Kind = Refactor
+          Kind = FixKind.Refactor
           Edits = [| { Range = protocolRange
                        NewText = replacementString } |] }
       ]
     }
-    |> AsyncResult.foldResult id (fun _ -> [])

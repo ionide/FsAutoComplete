@@ -21,7 +21,7 @@ type SourceTextExtensions =
   static member GetText(t: ISourceText, m: FSharp.Compiler.Text.Range): Result<string, string> =
     let allFileRange = Range.mkRange m.FileName Pos.pos0 (t.GetLastFilePosition())
     if not (Range.rangeContainsRange allFileRange m)
-    then Error "%A{m} is outside of the bounds of the file"
+    then Error $"%A{m} is outside of the bounds of the file"
     else
       if m.StartLine = m.EndLine then // slice of a single line, just do that
         let lineText = t.GetLineString (m.StartLine - 1)

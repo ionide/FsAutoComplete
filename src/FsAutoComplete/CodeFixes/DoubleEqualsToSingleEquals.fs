@@ -23,7 +23,7 @@ let fix (getRangeText: GetRangeText) : CodeFix =
                   Edits =
                     [| { Range = diagnostic.Range
                          NewText = "=" } |]
-                  Kind = Fix } ]
+                  Kind = FixKind.Fix } ]
         | _ -> return []
       }
       )

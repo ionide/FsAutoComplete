@@ -40,7 +40,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
                                  { Start = lspRange.Start
                                    End = lspRange.Start }
                                NewText = "mutable " } |]
-                        Kind = Refactor } ]
+                        Kind = FixKind.Refactor } ]
             | _ -> return []
         | None -> return []
       }

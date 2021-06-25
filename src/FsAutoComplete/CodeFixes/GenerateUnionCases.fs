@@ -45,7 +45,7 @@ let fix (getFileLines: GetFileLines)
                   File = codeActionParams.TextDocument
                   Title = "Generate union pattern match cases"
                   Edits = [| { Range = range; NewText = replaced } |]
-                  Kind = Fix } ]
+                  Kind = FixKind.Fix } ]
 
           | _ -> return []
         }

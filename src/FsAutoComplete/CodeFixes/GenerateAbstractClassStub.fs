@@ -51,7 +51,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
                   Edits =
                     [| { Range = fcsPosToProtocolRange position
                          NewText = replaced } |]
-                  Kind = Fix } ]
+                  Kind = FixKind.Fix } ]
         | _ -> return []
       }
       )

@@ -34,7 +34,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
           [ { Title = "Make outer binding recursive"
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
-              Kind = Fix
+              Kind = FixKind.Fix
               Edits =
                 [| { Range =
                        { Start = lspOuterBindingRange.Start

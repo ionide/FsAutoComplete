@@ -27,7 +27,7 @@ let fix (getFileLines: GetFileLines): CodeFix =
                   Edits =
                     [| { Range = { Start = dash; End = inc lines dash }
                          NewText = "- " } |]
-                  Kind = Fix } ]
+                  Kind = FixKind.Fix } ]
         | None -> return []
       }
       )

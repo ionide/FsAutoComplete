@@ -27,7 +27,7 @@ let fix (getRangeText: GetRangeText): CodeFix =
                                    Edits =
                                     [| { Range = diagnostic.Range
                                          NewText = expressionText.Replace(":?>", ":>") } |]
-                                   Kind = Refactor } ]
+                                   Kind = FixKind.Refactor } ]
           | false, true ->
               AsyncResult.retn [ { File = codeActionParams.TextDocument
                                    SourceDiagnostic = Some diagnostic
@@ -35,5 +35,5 @@ let fix (getRangeText: GetRangeText): CodeFix =
                                    Edits =
                                       [| { Range = diagnostic.Range
                                            NewText = expressionText.Replace("downcast", "upcast") } |]
-                                   Kind = Refactor } ]
+                                   Kind = FixKind.Refactor } ]
       | Error _ -> AsyncResult.retn [])

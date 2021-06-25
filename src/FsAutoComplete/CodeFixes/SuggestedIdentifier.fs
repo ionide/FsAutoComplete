@@ -27,6 +27,6 @@ let fix =
                Title = $"Replace with %s{suggestion}"
                File = codeActionParams.TextDocument
                SourceDiagnostic = Some diagnostic
-               Kind = Fix })
+               Kind = FixKind.Fix })
       |> Array.toList
       |> AsyncResult.retn)

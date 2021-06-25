@@ -31,7 +31,7 @@ let fix (getFileLines: GetFileLines) =
                     Edits =
                       [| { Range = { Start = insertPos; End = insertPos }
                            NewText = " =" } |]
-                    Kind = Fix } ]
+                    Kind = FixKind.Fix } ]
           | None -> return []
         else
           return []

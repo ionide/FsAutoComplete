@@ -40,7 +40,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                          NewText = "|" }
                        { Range = endInsertRange
                          NewText = "|" } |]
-                  Kind = Refactor } ]
+                  Kind = FixKind.Refactor } ]
         | None -> return []
       }
       )

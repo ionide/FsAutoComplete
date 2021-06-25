@@ -47,7 +47,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                                  { Start = equalsPos
                                    End = (inc lines equalsPos) }
                                NewText = "<-" } |]
-                        Kind = Refactor } ]
+                        Kind = FixKind.Refactor } ]
               | None -> return []
           | _ -> return []
       }
