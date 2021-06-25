@@ -19,5 +19,5 @@ let fix (getRangeText: GetRangeText): CodeFix =
                                Edits =
                                  [| { Range = diagnostic.Range
                                       NewText = $"(%s{erroringExpression})" } |]
-                               Kind = Fix } ]
+                               Kind = FixKind.Fix } ]
       | Error _ -> AsyncResult.retn [])

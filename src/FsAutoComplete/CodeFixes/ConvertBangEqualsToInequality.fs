@@ -18,7 +18,7 @@ let fix (getRangeText: GetRangeText): CodeFix =
         return [{ Title = "Use <> for inequality check"
                   File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diag
-                  Kind = Fix
+                  Kind = FixKind.Fix
                   Edits = [| { Range = diag.Range
                                NewText = "<>" } |] }]
 

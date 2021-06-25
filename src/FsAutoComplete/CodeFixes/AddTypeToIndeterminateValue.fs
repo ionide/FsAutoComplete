@@ -50,7 +50,7 @@ let fix
                       Title = "Add explicit type annotation"
                       File = codeActionParams.TextDocument
                       SourceDiagnostic = Some diagnostic
-                      Kind = Fix
+                      Kind = FixKind.Fix
                       Edits = [| { Range = changedRange
                                    NewText = changedText } |] }]
         | _ -> return []

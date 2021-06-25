@@ -20,5 +20,5 @@ let fix (getRangeText: GetRangeText) =
                                Edits =
                                  [| { Range = diagnostic.Range
                                       NewText = $"new %s{errorText}" } |]
-                               Kind = Refactor } ]
+                               Kind = FixKind.Refactor } ]
       | Error _ -> AsyncResult.retn [])

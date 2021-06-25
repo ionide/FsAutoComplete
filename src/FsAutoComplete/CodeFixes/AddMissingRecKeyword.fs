@@ -67,7 +67,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
                       Edits =
                         [| { Range = { Start = endOfError; End = endOfError }
                              NewText = " rec" } |]
-                      Kind = Fix } ]
+                      Kind = FixKind.Fix } ]
             | None -> return []
       }
       )

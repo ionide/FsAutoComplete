@@ -24,7 +24,7 @@ let fix (getRangeText: GetRangeText) =
                       Edits =
                         [| { Range = diagnostic.Range
                              NewText = "_" } |]
-                      Kind = Refactor } ]
+                      Kind = FixKind.Refactor } ]
             | None ->
                 let replaceSuggestion = "_"
                 let prefixSuggestion = $"_%s{unusedExpression}"
@@ -36,13 +36,13 @@ let fix (getRangeText: GetRangeText) =
                       Edits =
                         [| { Range = diagnostic.Range
                              NewText = replaceSuggestion } |]
-                      Kind = Refactor }
+                      Kind = FixKind.Refactor }
                     { SourceDiagnostic = Some diagnostic
                       File = codeActionParams.TextDocument
                       Title = "Prefix with _"
                       Edits =
                         [| { Range = diagnostic.Range
                              NewText = prefixSuggestion } |]
-                      Kind = Refactor } ]
+                      Kind = FixKind.Refactor } ]
         | Error _ -> return []
       })

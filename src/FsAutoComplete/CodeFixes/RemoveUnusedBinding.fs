@@ -64,5 +64,5 @@ let fix (getParseResults: GetParseResultsForFile): CodeFix =
                  Edits = [| { Range = replacementRange; NewText = "" } |]
                  File = codeActionParams.TextDocument
                  SourceDiagnostic = Some diagnostic
-                 Kind = Refactor } ]
+                 Kind = FixKind.Refactor } ]
     })

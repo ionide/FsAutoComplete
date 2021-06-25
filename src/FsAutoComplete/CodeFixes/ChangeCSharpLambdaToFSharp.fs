@@ -38,7 +38,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
                   Edits =
                     [| { Range = replacementRange
                          NewText = replacementText } |]
-                  Kind = Refactor } ]
+                  Kind = FixKind.Refactor } ]
         | None -> return []
       }
       )

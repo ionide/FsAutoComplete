@@ -53,7 +53,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
              NewText = qual } |]
       File = file
       Title = $"Use %s{qual}"
-      Kind = Fix }
+      Kind = FixKind.Fix }
 
   let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
     let insertPoint = adjustInsertionPoint text ctx
@@ -86,7 +86,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
       File = file
       SourceDiagnostic = Some diagnostic
       Title = $"open %s{actualOpen}"
-      Kind = Fix }
+      Kind = FixKind.Fix }
 
   Run.ifDiagnosticByMessage
     "is not defined"

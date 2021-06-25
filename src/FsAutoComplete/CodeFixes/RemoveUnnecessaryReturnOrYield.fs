@@ -45,7 +45,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
                   Edits =
                     [| { Range = diagnostic.Range
                          NewText = exprText } |]
-                  Kind = Refactor } ]
+                  Kind = FixKind.Refactor } ]
 
       }
       )

@@ -27,7 +27,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
                   Edits =
                     [| { Range = fcsRangeToLsp derefRange
                          NewText = "not " } |]
-                  Kind = Fix } ]
+                  Kind = FixKind.Fix } ]
         | None -> return []
       }
       )

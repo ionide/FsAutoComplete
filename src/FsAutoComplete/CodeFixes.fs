@@ -25,6 +25,7 @@ module Types =
   type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Pos -> Async<ResultOrString<ParseAndCheckResults * string * FSharp.Compiler.Text.ISourceText>>
   type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.SourceCodeServices.FSharpProjectOptions>
 
+  [<RequireQualifiedAccess>]
   type FixKind =
     | Fix
     | Refactor
@@ -62,9 +63,9 @@ module Types =
         Kind =
           Some
             (match fixKind with
-             | Fix -> "quickfix"
-             | Refactor -> "refactor"
-             | Rewrite -> "refactor.rewrite")
+             | FixKind.Fix -> "quickfix"
+             | FixKind.Refactor -> "refactor"
+             | FixKind.Rewrite -> "refactor.rewrite")
         Diagnostics = diagnostic |> Option.map Array.singleton
         Edit = workspaceEdit
         Command = None }

@@ -17,6 +17,6 @@ let fix: CodeFix =
                              Edits =
                                [| { Range = diagnostic.Range
                                     NewText = ":" } |]
-                             Kind = Fix } ]
+                             Kind = FixKind.Fix } ]
       else
         AsyncResult.retn [])

@@ -23,6 +23,6 @@ let fix : CodeFix =
           File = codeActionParams.TextDocument
           Title = "Remove unused open"
           SourceDiagnostic = Some d
-          Kind = Refactor }
+          Kind = FixKind.Refactor }
 
       AsyncResult.retn [ fix ])

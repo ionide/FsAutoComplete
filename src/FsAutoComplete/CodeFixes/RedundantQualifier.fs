@@ -16,4 +16,4 @@ let fix =
                            File = codeActionParams.TextDocument
                            Title = "Remove redundant qualifier"
                            SourceDiagnostic = Some diagnostic
-                           Kind = Refactor } ])
+                           Kind = FixKind.Refactor } ])
