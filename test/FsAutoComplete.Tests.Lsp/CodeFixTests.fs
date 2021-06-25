@@ -205,6 +205,108 @@ let missingInstanceMemberTests state =
     })
   ]
 
+let unusedValueTests state =
+  let (|Refactor|_|) title newText action =
+    match action with
+    | { Title = title'
+        Kind = Some "refactor"
+        Edit = { DocumentChanges = Some [|
+          { Edits = [| { NewText = newText' } |] }
+        |] }
+      }
+      when title' = title && newText' = newText -> Some ()
+    | _ -> None
+
+  let (|ActReplace|_|) = (|Refactor|_|) "Replace with _" "_"
+
+  let (|ActPrefix|_|) oldText = (|Refactor|_|) "Prefix with _" $"_{oldText}"
+
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedValue")
+      let cfg = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
+      let! (server, events) = serverInitialize path cfg  state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics =
+          events
+          |> waitForFsacDiagnosticsForFile "Script.fsx"
+          |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  let canReplaceUnusedSelfReference = testCaseAsync "can replace unused self-reference" (async {
+    let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 2; Character =  9 } &&
+          d.Range.End   = { Line = 2; Character = 13 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace |])) -> ()
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canReplaceUnusedBinding = testCaseAsync "can replace unused binding" (async {
+    let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 9; Character = 4 } &&
+          d.Range.End   = { Line = 9; Character = 7 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "six" |])) -> ()
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canReplaceUnusedParameter = testCaseAsync "can replace unused parameter" (async {
+    let! server, file, diagnostics = server
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d ->
+          d.Range.Start = { Line = 15; Character = 16 } &&
+          d.Range.End   = { Line = 15; Character = 21 }
+      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
+    }
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "three" |])) -> ()
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  testList "unused value" [
+    canReplaceUnusedSelfReference
+    canReplaceUnusedBinding
+    canReplaceUnusedParameter
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
@@ -212,4 +314,5 @@ let tests state = testList "codefix tests" [
   outerBindingRecursiveTests state
   nameofInsteadOfTypeofNameTests state
   missingInstanceMemberTests state
+  unusedValueTests state
 ]

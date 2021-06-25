@@ -13,17 +13,17 @@ let fix (getRangeText: GetRangeText) =
     "is unused"
     (fun diagnostic codeActionParams ->
       asyncResult {
-        match getRangeText (codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath) diagnostic.Range with
+        match getRangeText (codeActionParams.TextDocument.GetFilePath() |> normalizePath) diagnostic.Range with
         | Ok unusedExpression ->
             match diagnostic.Code with
             | Some _ ->
                 return
                   [ { SourceDiagnostic = Some diagnostic
                       File = codeActionParams.TextDocument
-                      Title = "Replace with __"
+                      Title = "Replace with _"
                       Edits =
                         [| { Range = diagnostic.Range
-                             NewText = "__" } |]
+                             NewText = "_" } |]
                       Kind = Refactor } ]
             | None ->
                 let replaceSuggestion = "_"

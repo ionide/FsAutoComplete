@@ -421,6 +421,11 @@ let waitForParseResultsForFile file =
   >> diagnosticsToResult
   >> Async.AwaitObservable
 
+let waitForFsacDiagnosticsForFile file =
+  fsacDiagnostics file
+  >> diagnosticsToResult
+  >> Async.AwaitObservable
+
 let waitForParsedScript (event: ClientEvents) =
   event
   |> typedEvents<LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
