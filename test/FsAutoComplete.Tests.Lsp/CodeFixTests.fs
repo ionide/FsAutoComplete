@@ -6,6 +6,17 @@ open Helpers
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 
+let (|Refactor|_|) title newText action =
+    match action with
+    | { Title = title'
+        Kind = Some "refactor"
+        Edit = { DocumentChanges = Some [|
+          { Edits = [| { NewText = newText' } |] }
+        |] }
+      }
+      when title' = title && newText' = newText -> Some ()
+    | _ -> None
+
 let abstractClassGenerationTests state =
   let server =
     async {
@@ -206,17 +217,6 @@ let missingInstanceMemberTests state =
   ]
 
 let unusedValueTests state =
-  let (|Refactor|_|) title newText action =
-    match action with
-    | { Title = title'
-        Kind = Some "refactor"
-        Edit = { DocumentChanges = Some [|
-          { Edits = [| { NewText = newText' } |] }
-        |] }
-      }
-      when title' = title && newText' = newText -> Some ()
-    | _ -> None
-
   let (|ActReplace|_|) = (|Refactor|_|) "Replace with _" "_"
 
   let (|ActPrefix|_|) oldText = (|Refactor|_|) "Prefix with _" $"_{oldText}"
@@ -307,6 +307,44 @@ let unusedValueTests state =
     canReplaceUnusedParameter
   ]
 
+let addExplicitTypeAnnotationTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ExplicitTypeAnnotations")
+      let cfg = defaultConfigDto
+      let! (server, events) = serverInitialize path cfg  state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      do!
+          events
+          |> waitForParseResultsForFile "Script.fsx"
+          |> AsyncResult.bimap id (fun _ -> failtest "Should not have had errors")
+      return (server, path)
+    }
+    |> Async.Cache
+
+  let (|ExplicitAnnotation|_|) = (|Refactor|_|) "Add explicit type annotation"
+
+  testList "explicit type annotations" [
+    testCaseAsync "can suggest explicit parameter for record-typed function parameters" (async {
+      let! (server, filePath) = server
+      let context : CodeActionParams = {
+        Context = { Diagnostics = [||] }
+        Range = { Start = { Line = 3; Character = 9 }
+                  End = { Line = 3; Character = 9 } }
+        TextDocument = { Uri = Path.FilePathToUri filePath }
+      }
+      match! server.TextDocumentCodeAction context with
+      | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ExplicitAnnotation "(f: Foo)" |])) -> ()
+      | Ok other ->
+        failtestf $"Should have generated explicit type annotation, but instead generated %A{other}"
+      | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+    })
+  ]
+
 let tests state = testList "codefix tests" [
   abstractClassGenerationTests state
   generateMatchTests state
@@ -315,4 +353,5 @@ let tests state = testList "codefix tests" [
   nameofInsteadOfTypeofNameTests state
   missingInstanceMemberTests state
   unusedValueTests state
+  addExplicitTypeAnnotationTests state
 ]

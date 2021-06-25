@@ -648,7 +648,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
             ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
             AddMissingInstanceMember.fix
-            AddExplicitTypeToParameter.fix
+            AddExplicitTypeToParameter.fix tryGetParseResultsForFile
           |]
 
 

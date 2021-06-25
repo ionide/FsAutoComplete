@@ -331,6 +331,57 @@ type FSharpParseFileResults with
                         None
                 | _ -> defaultTraverse expr })
     )
+
+  member scope.IsTypeAnnotationGivenAtPositionPatched pos =
+        match scope.ParseTree with
+        | Some input ->
+          let result =
+              AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
+                  member _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
+                      match expr with
+                      | SynExpr.Typed (_expr, _typeExpr, range) when Pos.posEq range.Start pos ->
+                          Some range
+                      | _ -> defaultTraverse expr
+
+                  override _.VisitSimplePats(pats) =
+                      match pats with
+                      | [] -> None
+                      | _ ->
+                          let exprFunc pat =
+                              match pat with
+                              | SynSimplePat.Typed (_pat, _targetExpr, range) when Pos.posEq range.Start pos ->
+                                  Some range
+                              | _ ->
+                                  None
+
+                          pats |> List.tryPick exprFunc
+
+                  override _.VisitPat(defaultTraverse, pat) =
+                      match pat with
+                      | SynPat.Typed (_pat, _targetType, range) when Pos.posEq range.Start pos ->
+                          Some range
+                      | _ -> defaultTraverse pat })
+          result.IsSome
+        | None -> false
+
+  member scope.IsBindingALambdaAtPositionPatched pos =
+    match scope.ParseTree with
+    | Some input ->
+      let result =
+          AstTraversal.Traverse(pos, input, { new AstTraversal.AstVisitorBase<_>() with
+              member _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
+                  defaultTraverse expr
+
+              override _.VisitBinding(defaultTraverse, binding) =
+                  match binding with
+                  | SynBinding.Binding(_, _, _, _, _, _, _, _, _, expr, range, _) when Pos.posEq range.Start pos ->
+                      match expr with
+                      | SynExpr.Lambda _ -> Some range
+                      | _ -> None
+                  | _ -> defaultTraverse binding })
+      result.IsSome
+    | None -> false
+
 module SyntaxTreeOps =
   open FSharp.Compiler.SyntaxTree
   let rec synExprContainsError inpExpr =
