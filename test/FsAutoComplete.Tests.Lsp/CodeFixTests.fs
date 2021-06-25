@@ -252,11 +252,7 @@ let unusedValueTests state =
         Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
-        Expect.exists
-          actions
-          (function ActReplace -> true | _ -> false)
-          "Failed to 'Replace with _'"
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace |])) -> ()
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -277,36 +273,7 @@ let unusedValueTests state =
         Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
-        Expect.exists
-          actions
-          (function ActReplace -> true | _ -> false)
-          "Failed to 'Replace with _'"
-    | Ok other ->
-        failtestf $"Should have generated _, but instead generated %A{other}"
-    | Error reason ->
-        failtestf $"Should have succeeded, but failed with %A{reason}"
-  })
-
-  let canPrefixUnusedBinding = testCaseAsync "can prefix unused binding" (async {
-    let! server, file, diagnostics = server
-    let diagnostic =
-      diagnostics
-      |> Array.tryFind (fun d ->
-          d.Range.Start = { Line = 9; Character = 4 } &&
-          d.Range.End   = { Line = 9; Character = 7 }
-      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
-    let detected = {
-        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = diagnostic.Range
-        Context = { Diagnostics = [| diagnostic |] }
-    }
-    match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
-        Expect.exists
-          actions
-          (function ActPrefix "six" -> true | _ -> false)
-          "Failed to 'Prefix with _'"
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "six" |])) -> ()
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -327,36 +294,7 @@ let unusedValueTests state =
         Context = { Diagnostics = [| diagnostic |] }
     }
     match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
-        Expect.exists
-          actions
-          (function ActReplace -> true | _ -> false)
-          "Failed to 'Replace with _'"
-    | Ok other ->
-        failtestf $"Should have generated _, but instead generated %A{other}"
-    | Error reason ->
-        failtestf $"Should have succeeded, but failed with %A{reason}"
-  })
-
-  let canPrefixUnusedParameter = testCaseAsync "can prefix unused parameter" (async {
-    let! server, file, diagnostics = server
-    let diagnostic =
-      diagnostics
-      |> Array.tryFind (fun d ->
-          d.Range.Start = { Line = 15; Character = 16 } &&
-          d.Range.End   = { Line = 15; Character = 21 }
-      ) |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
-    let detected = {
-        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-        Range = diagnostic.Range
-        Context = { Diagnostics = [| diagnostic |] }
-    }
-    match! server.TextDocumentCodeAction detected with
-    | Ok (Some (TextDocumentCodeActionResult.CodeActions actions)) ->
-        Expect.exists
-          actions
-          (function ActPrefix "three" -> true | _ -> false)
-          "Failed to 'Prefix with _'"
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "three" |])) -> ()
     | Ok other ->
         failtestf $"Should have generated _, but instead generated %A{other}"
     | Error reason ->
@@ -366,9 +304,7 @@ let unusedValueTests state =
   testList "unused value" [
     canReplaceUnusedSelfReference
     canReplaceUnusedBinding
-    canPrefixUnusedBinding
     canReplaceUnusedParameter
-    canPrefixUnusedParameter
   ]
 
 let tests state = testList "codefix tests" [
