@@ -38,7 +38,7 @@ module Types =
       SourceDiagnostic: Diagnostic option
       Kind: FixKind }
 
-  type CodeFix = CodeActionParams -> Async<Fix list>
+  type CodeFix = CodeActionParams -> Async<Result<Fix list, string>>
 
   type CodeAction with
     static member OfFix getFileVersion clientCapabilities (fix: Fix) =
@@ -158,20 +158,16 @@ module Run =
   open Types
 
   let ifEnabled enabled codeFix: CodeFix =
-    fun codeActionParams -> if enabled () then codeFix codeActionParams else async.Return []
+    fun codeActionParams -> if enabled () then codeFix codeActionParams else AsyncResult.retn []
 
   let private runDiagnostics pred handler: CodeFix =
-    let logger = LogProvider.getLoggerByName "CodeFixes"
     fun codeActionParams ->
       codeActionParams.Context.Diagnostics
       |> Array.choose (fun d -> if pred d then Some d else None)
       |> Array.toList
       |> List.traverseAsyncResultM (fun d -> handler d codeActionParams)
       |> AsyncResult.map List.concat
-      |> AsyncResult.foldResult id (fun errs ->
-        logger.warn (Log.setMessage "CodeFix returned an error: {error}" >> Log.addContextDestructured "error" errs)
-        []
-      )
+
 
   let ifDiagnosticByMessage (checkMessage: string) handler : CodeFix =
     runDiagnostics (fun d -> d.Message.Contains checkMessage) handler

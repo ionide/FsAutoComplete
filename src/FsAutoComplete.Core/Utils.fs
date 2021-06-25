@@ -397,6 +397,15 @@ module Array =
         | _ when n >= xs.Length || n < 0 -> xs, [||]
         | _ -> xs.[0..n-1], xs.[n..]
 
+    let partitionResults (xs: _ []) =
+      let oks = ResizeArray(xs.Length)
+      let errors = ResizeArray(xs.Length)
+      for x in xs do
+        match x with
+        | Ok ok -> oks.Add ok
+        | Error err -> errors.Add err
+      oks.ToArray(), errors.ToArray()
+
 module List =
 
     ///Returns the greatest of all elements in the list that is less than the threshold

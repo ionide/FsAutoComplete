@@ -39,4 +39,3 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
                 Kind = FixKind.Fix } ]
       | _ -> return []
     }
-    |> AsyncResult.foldResult id (fun _ -> [])

@@ -29,4 +29,3 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
                        NewText = replacementString } |] }
       ]
     }
-    |> AsyncResult.foldResult id (fun _ -> [])

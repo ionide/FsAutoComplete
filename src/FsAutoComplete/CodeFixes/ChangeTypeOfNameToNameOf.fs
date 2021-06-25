@@ -50,4 +50,3 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         SourceDiagnostic = None
         Kind = FixKind.Refactor }]
     }
-    |> AsyncResult.foldResult id (fun _ -> [])

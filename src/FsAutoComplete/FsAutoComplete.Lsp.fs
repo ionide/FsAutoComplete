@@ -1,6 +1,7 @@
 module FsAutoComplete.Lsp
 
 open FsAutoComplete
+open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
@@ -177,7 +178,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     let mutable config = FSharpConfig.Default
     let mutable rootPath : string option = None
-    let mutable codeFixes = fun p -> [||]
+    let mutable codeFixes: CodeFix [] = [||]
     let mutable sigHelpKind = None
 
     let parseFile (p: DidChangeTextDocumentParams) =
@@ -607,7 +608,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
-        codeFixes <- fun p ->
+        codeFixes <-
           [|
             Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) UnusedOpens.fix
             Run.ifEnabled (fun _ -> config.ResolveNamespaces) (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
@@ -647,11 +648,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
             ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
             AddMissingInstanceMember.fix
+            AddExplicitTypeToParameter.fix
           |]
-          |> Array.map (fun fixer -> async {
-              let! fixes = fixer p
-              return List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value) fixes
-           })
 
 
         match p.RootPath, c.AutomaticWorkspaceInit with
@@ -1225,14 +1223,33 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | ResultOrString.Error s ->
             AsyncLspResult.internalError s
         | ResultOrString.Ok (opts, lines) ->
-        async {
-            let! actions =
-              Async.Parallel (codeFixes codeActionParams)
-              |> Async.map (List.concat >> Array.ofList)
+        asyncResult {
+            let (fixes: Async<Result<Fix list, string> []>) =
+              codeFixes
+              |> Array.map (fun codeFix -> codeFix codeActionParams)
+              |> Async.Parallel
+
+            let! fixes = fixes
+            let (actions: Fix list [] , errors: string []) = Array.partitionResults fixes
+            let actions = actions |> List.concat
+            if errors.Length <> 0 then
+              logger.warn (
+                Log.setMessage "Errors while processing code action request for {file} with {context} at {range}: {errors}"
+                >> Log.addContextDestructured "file" codeActionParams.TextDocument.Uri
+                >> Log.addContextDestructured "context" codeActionParams.Context
+                >> Log.addContextDestructured "range" codeActionParams.Range
+                >> Log.addContextDestructured "errors" errors
+              )
+
             match actions with
-            | [||] -> return success None
+            | [] ->
+              return None
             | actions ->
-              return actions |> TextDocumentCodeActionResult.CodeActions |> Some |> success
+              return
+                actions
+                |> List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value)
+                |> List.toArray
+                |> TextDocumentCodeActionResult.CodeActions |> Some
         }
 
     override __.TextDocumentCodeLens(p) = async {

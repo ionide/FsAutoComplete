@@ -40,6 +40,4 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
                        NewText = replaced } |]
                 Kind = FixKind.Fix } ]
       | _ -> return []
-
     }
-    |> AsyncResult.foldResult id (fun _ -> [])
