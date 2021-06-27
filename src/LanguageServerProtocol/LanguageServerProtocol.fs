@@ -1426,15 +1426,12 @@ module Types =
         Title: string
 
         /// The identifier of the actual command handler.
-        Command: string option
+        Command: string
 
         /// Arguments that the command handler should be
         /// invoked with.
         Arguments: JToken[] option
     }
-
-
-
 
     /// Defines whether the insert text in a completion item should be interpreted as
     /// plain text or a snippet.

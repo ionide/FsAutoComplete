@@ -1297,8 +1297,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
                     | ResultOrString.Error s ->
                         logger.error (Log.setMessage "CodeLensResolve - Getting file checker options failed for {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" s)
-                        let cmd = { Title = "No options"; Command = None; Arguments = None }
-                        { p with Command = Some cmd } |> success |> async.Return
+                        { p with Command = None } |> success |> async.Return
                     | ResultOrString.Ok (options, _, lineStr) ->
                         try
                             async {
@@ -1307,8 +1306,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                                     match tyResOpt with
                                     | None ->
                                         logger.warn (Log.setMessage "CodeLensResolve - Cached typecheck results not yet available for {file}" >> Log.addContextDestructured "file" file)
-                                        let cmd = { Title = "No typecheck results"; Command = None; Arguments = None }
-                                        { p with Command = Some cmd } |> success |> async.Return
+                                        { p with Command = None } |> success |> async.Return
                                     | Some tyRes ->
                                         async {
                                             let! r = Async.Catch (f arg pos tyRes lineStr data.[1] file)
@@ -1316,14 +1314,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                                             | Choice1Of2 r -> return r
                                             | Choice2Of2 e ->
                                                 logger.error (Log.setMessage "CodeLensResolve - Child operation failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
-                                                let cmd = { Title = ""; Command = None; Arguments = None }
-                                                return { p with Command = Some cmd } |> success
+                                                return { p with Command = None } |> success
                                         }
                             }
                         with e ->
                             logger.error (Log.setMessage "CodeLensResolve - Operation failed on {file}" >> Log.addContextDestructured "file" file >> Log.addExn e)
-                            let cmd = { Title = ""; Command = None; Arguments = None }
-                            { p with Command = Some cmd } |> success |> async.Return
+                            { p with Command = None } |> success |> async.Return
             }
 
 
@@ -1333,13 +1329,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     match commands.SignatureData tyRes pos lineStr with
                     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                         logger.error (Log.setMessage "CodeLensResolve - error on file {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" msg)
-                        let cmd = { Title = ""; Command = None; Arguments = None }
                         return
-                          { p with Command = Some cmd }
+                          { p with Command = None }
                           |> success
                     | CoreResponse.Res (typ, parms, _) ->
                         let formatted = SigantureData.formatSignature typ parms
-                        let cmd = { Title = formatted; Command = None; Arguments = None }
+                        let cmd = { Title = formatted; Command = ""; Arguments = None }
                         return
                           { p with Command = Some cmd }
                           |> success
@@ -1349,8 +1344,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         match res with
                         | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                             logger.error (Log.setMessage "CodeLensResolve - error getting symbol use for {file}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "error" msg)
-                            let cmd = {Title = ""; Command = None; Arguments = None}
-                            {p with Command = Some cmd} |> success
+                            { p with Command = None } |> success
                         | CoreResponse.Res (LocationResponse.Use (sym, uses)) ->
                             let formatted =
                                 if uses.Length = 1 then "1 Reference"
@@ -1365,7 +1359,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                                 JToken.FromObject locs
                             |]
 
-                            let cmd = {Title = formatted; Command = Some "fsharp.showReferences"; Arguments = Some args}
+                            let cmd = {Title = formatted; Command = "fsharp.showReferences"; Arguments = Some args}
                             {p with Command = Some cmd} |> success
                         | CoreResponse.Res (LocationResponse.UseRange (uses)) ->
                             let formatted =
@@ -1382,7 +1376,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                                 JToken.FromObject locs
                             |]
 
-                            let cmd = {Title = formatted; Command = Some "fsharp.showReferences"; Arguments = Some args}
+                            let cmd = {Title = formatted; Command = "fsharp.showReferences"; Arguments = Some args}
                             {p with Command = Some cmd} |> success
                     return res
             }
