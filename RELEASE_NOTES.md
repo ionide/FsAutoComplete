@@ -1,6 +1,13 @@
+### 0.46.6 - 27.06.2021
+
+* ENHANCEMENT: [Make the Unused Value analyzer suggest single-underscore discards](https://github.com/fsharp/FsAutoComplete/pull/795) (thanks @pblasucci)
+* ENHANCEMENT: [Add new 'Add explicit type annotation' codefix](https://github.com/fsharp/FsAutoComplete/pull/807)
+  * This works for parameters, but not function-typed parameters
+* BUGFIX: [Align with LSP protocol around command fields](https://github.com/fsharp/FsAutoComplete/commit/a3f5564ea579767f40cf673595db1efbcf755d85)
+  * Fixes an issue in Ionide-vim (thanks @cannorin)
 ### 0.46.5 - 21.06.2021
 
-* ENHANCEMENT [Add diagnostic code links to Compiler, Linter, and Analyzer diagnostics](https://github.com/fsharp/FsAutoComplete/pull/804)
+* ENHANCEMENT: [Add diagnostic code links to Compiler, Linter, and Analyzer diagnostics](https://github.com/fsharp/FsAutoComplete/pull/804)
 
 ### 0.46.4 - 18.06.2021
 
