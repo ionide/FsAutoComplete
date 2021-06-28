@@ -23,7 +23,7 @@ It's based on:
 
 ## Required software
 
-FsAutoComplete can run on .NET/mono or .NET Core. We highly recommend using .Net Core version of FSAC as we plan to remove "full framework" version soon - [read more](https://github.com/fsharp/FsAutoComplete/issues/506)
+FsAutoComplete can run on .NET/mono or .NET Core. We highly recommend using .Net Core version of FSAC as we plan to remove the "full framework" version soon - [read more](https://github.com/fsharp/FsAutoComplete/issues/506)
 
 ### FSAC .NET Core
 
@@ -48,7 +48,7 @@ The repository additionally provides DevContainer definition that can be used wi
 
 ### Gitpod.io
 
-This repository is setup to use gitpod for a web-based VSCode-style IDE. Click the button below to begin!
+This repository is prepared to use Gitpod for a web-based VSCode-style IDE. Click the button below to begin!
 
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/fsharp/fsautocomplete)
 
