@@ -413,6 +413,10 @@ let fsacDiagnostics file =
   fileDiagnostics file
   >> diagnosticsFromSource "FSAC"
 
+let compilerDiagnostics file =
+  fileDiagnostics file
+  >> diagnosticsFromSource "F# Compiler"
+
 let diagnosticsToResult =
   Observable.map (function | [||] -> Ok () | diags -> Core.Error diags)
 
@@ -423,6 +427,11 @@ let waitForParseResultsForFile file =
 
 let waitForFsacDiagnosticsForFile file =
   fsacDiagnostics file
+  >> diagnosticsToResult
+  >> Async.AwaitObservable
+
+let waitForCompilerDiagnosticsForFile file =
+  compilerDiagnostics file
   >> diagnosticsToResult
   >> Async.AwaitObservable
 

@@ -6,6 +6,9 @@ open Helpers
 open LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 
+let pos (line, character) = { Line = line; Character = character }
+let range st e = { Start = pos st; End = pos e }
+
 let (|Refactor|_|) title newText action =
     match action with
     | { Title = title'
@@ -15,6 +18,13 @@ let (|Refactor|_|) title newText action =
         |] }
       }
       when title' = title && newText' = newText -> Some ()
+    | _ -> None
+
+let (|AtRange|_|) range (action: CodeAction) =
+  match action with
+    | { Edit = { DocumentChanges = Some [|
+          { Edits = [| { Range = range' } |] }
+        |] } } when range = range' -> Some ()
     | _ -> None
 
 let abstractClassGenerationTests state =
@@ -307,6 +317,97 @@ let unusedValueTests state =
     canReplaceUnusedParameter
   ]
 
+let removeUnusedBindingTests state =
+  let (|RemoveBinding|_|) = (|Refactor|_|) "Remove unused binding" ""
+  let (|RemoveParameter|_|) = (|Refactor|_|) "Remove unused parameter" ""
+
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RemoveUnusedBinding")
+      let cfg = { defaultConfigDto with FSIExtraParameters = Some [| "--warnon:1182" |] }
+      let! (server, events) = serverInitialize path cfg  state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      let! diagnostics =
+          events
+          |> waitForCompilerDiagnosticsForFile "Script.fsx"
+          |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  let canRemoveUnusedSingleCharacterFunctionParameter = testCaseAsync "can remove unused single character function parameter" (async {
+    let! server, file, diagnostics = server
+    let targetRange = range (0, 9) (0, 10)
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d -> d.Range = targetRange  && d.Code = Some "1182")
+      |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range and code")
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
+    }
+    let replacementRange = range (0, 8) (0, 10)
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| RemoveParameter & AtRange replacementRange ;  _ (* explicit type annotation codefix *) |])) -> ()
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canRemoveUnusedSingleCharacterFunctionParameterInParens = testCaseAsync "can remove unused single character function parameter in parens" (async {
+    let! server, file, diagnostics = server
+    let targetRange = range (2, 11) (2, 12)
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d -> d.Range = targetRange  && d.Code = Some "1182")
+      |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range and code")
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
+    }
+    let replacementRange = range (2, 9) (2, 13)
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| RemoveParameter & AtRange replacementRange ;  _ (* explicit type annotation codefix *) |])) -> ()
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+  let canRemoveUnusedBindingInsideTopLevel = testCaseAsync "can remove unused binding inside top level" (async {
+    let! server, file, diagnostics = server
+    let targetRange = range (5, 6) (5, 10)
+    let diagnostic =
+      diagnostics
+      |> Array.tryFind (fun d -> d.Range = targetRange  && d.Code = Some "1182")
+      |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range and code")
+    let detected = {
+        CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+        Range = diagnostic.Range
+        Context = { Diagnostics = [| diagnostic |] }
+    }
+    let replacementRange = range (5,2) (5,16) // span of whole `let incr...` binding
+    match! server.TextDocumentCodeAction detected with
+    | Ok (Some (TextDocumentCodeActionResult.CodeActions [| RemoveBinding & AtRange replacementRange |])) -> ()
+    | Ok other ->
+        failtestf $"Should have generated _, but instead generated %A{other}"
+    | Error reason ->
+        failtestf $"Should have succeeded, but failed with %A{reason}"
+  })
+
+
+  testList "remove unused binding" [
+    canRemoveUnusedSingleCharacterFunctionParameter
+    canRemoveUnusedSingleCharacterFunctionParameterInParens
+    canRemoveUnusedBindingInsideTopLevel
+  ]
+
 let addExplicitTypeAnnotationTests state =
   let server =
     async {
@@ -354,4 +455,5 @@ let tests state = testList "codefix tests" [
   missingInstanceMemberTests state
   unusedValueTests state
   addExplicitTypeAnnotationTests state
+  removeUnusedBindingTests state
 ]

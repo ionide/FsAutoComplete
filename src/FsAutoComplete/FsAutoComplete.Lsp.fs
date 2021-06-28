@@ -614,7 +614,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             Run.ifEnabled (fun _ -> config.ResolveNamespaces) (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
             SuggestedIdentifier.fix
             RedundantQualifier.fix
-            UnusedValue.fix getRangeText
+            Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (UnusedValue.fix getRangeText)
             NewWithDisposables.fix getRangeText
             Run.ifEnabled (fun _ -> config.UnionCaseStubGeneration)
               (GenerateUnionCases.fix getFileLines tryGetParseResultsForFile commands.GetUnionPatternMatchCases getUnionCaseStubReplacements)
