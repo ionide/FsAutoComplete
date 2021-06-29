@@ -1,3 +1,7 @@
+### 0.46.7 - 29.06.2021
+
+* ENHANCEMENT: [Make the RemoveUnusedBinding codefix work for parameters as well as nested bindings](https://github.com/fsharp/FsAutoComplete/pull/812)
+
 ### 0.46.6 - 27.06.2021
 
 * ENHANCEMENT: [Make the Unused Value analyzer suggest single-underscore discards](https://github.com/fsharp/FsAutoComplete/pull/795) (thanks @pblasucci)
