@@ -46,7 +46,7 @@ module DotnetNewTemplate =
     let parseTemplateOutput (x: string) =
         let xs =
             x.Split('\n')
-            |> Array.skipWhile(fun n -> not (n.StartsWith "Templates"))
+            |> Array.skipWhile(fun n -> not (n.StartsWith "Template"))
             |> Array.filter (fun n -> not (String.IsNullOrWhiteSpace n))
         let header = xs.[0]
         let body = xs.[2..]
