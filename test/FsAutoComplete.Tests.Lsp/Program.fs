@@ -35,6 +35,7 @@ let tests =
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
+        Templates.tests()
         let state = FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
         initTests state
         codeLensTest state
