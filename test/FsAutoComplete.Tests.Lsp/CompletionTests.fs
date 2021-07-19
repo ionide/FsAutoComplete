@@ -188,24 +188,27 @@ let autocompleteTest state =
 
 let autoOpenTests state =
   let dirPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CompletionAutoOpenTests")
-  let serverFor (scriptPath: string) = async {
-    // Auto Open requires unopened things in completions -> External
-    let config = { defaultConfigDto with ExternalAutocomplete = Some true; ResolveNamespaces = Some true }
+  let serverFor (scriptPath: string) =
+    async {
+      // Auto Open requires unopened things in completions -> External
+      let config = { defaultConfigDto with ExternalAutocomplete = Some true; ResolveNamespaces = Some true }
 
-    let dirPath = Path.GetDirectoryName scriptPath
-    let scriptName = Path.GetFileName scriptPath
-    let! (server, events) = serverInitialize dirPath config state
-    do! waitForWorkspaceFinishedParsing events
+      let dirPath = Path.GetDirectoryName scriptPath
+      let scriptName = Path.GetFileName scriptPath
+      let! (server, events) = serverInitialize dirPath config state
+      do! waitForWorkspaceFinishedParsing events
 
-    let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
-    do! server.TextDocumentDidOpen tdop
-    do!
-      waitForParseResultsForFile scriptName events
-      |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-      |> Async.Ignore
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+      do! server.TextDocumentDidOpen tdop
+      do!
+        waitForParseResultsForFile scriptName events
+        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
+        |> Async.Ignore
 
-    return (server, scriptPath)
-  }
+      return (server, scriptPath)
+    }
+    |> Async.Cache
+
   let calcOpenPos (edit: TextEdit) =
     let text = edit.NewText
     let pos = edit.Range.Start
@@ -268,8 +271,7 @@ let autoOpenTests state =
               let text = edit.NewText
               Expect.equal (text.Trim()) $"open {ns}" $"Edit should be `open {ns}`"
               let openPos = calcOpenPos edit
-              Expect.equal openPos.Line expectedOpen.Line "Should be on correct line"
-              Expect.equal openPos.Character expectedOpen.Character "Should have correct indentation"
+              Expect.equal openPos expectedOpen $"Should be on correct position in file {path}"
               Expect.stringEnds text "\n" "Should end with New Line"
 
               if compareWithQuickFix then
@@ -278,7 +280,7 @@ let autoOpenTests state =
                 //  * Code Completion: nearest position
                 //  * Quick Fix: Top Level
                 let! (_, _, qfOpenPos) = getQuickFix (server, path) (word, ns) cursor
-                Expect.equal qfOpenPos openPos "Auto-Open and Open Quick Fix should open at same location"
+                Expect.equal qfOpenPos openPos $"Auto-Open and Open Quick Fix should open at same location in file {path}"
     }
 
   /// In passed file: Cursor positions are marked with comments (multi-line comments: `(*...*)`)

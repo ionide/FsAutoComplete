@@ -6,8 +6,11 @@ open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Syntax
 
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
   fun codeActionParams ->
@@ -27,11 +30,11 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         // TODO: remove patched functions and uncomment this boolean check after FCS 40 update
         let isLambdaIfFunction =
         //     funcOrValue.IsFunction &&
-             parseFileResults.IsBindingALambdaAtPositionPatched symbolUse.RangeAlternate.Start
+             parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
 
         (funcOrValue.IsValue || isLambdaIfFunction) &&
-        parseFileResults.IsPositionContainedInACurriedParameter symbolUse.RangeAlternate.Start &&
-        not (parseFileResults.IsTypeAnnotationGivenAtPositionPatched symbolUse.RangeAlternate.Start) &&
+        parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.Start &&
+        not (parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.Start) &&
         not funcOrValue.IsMember &&
         not funcOrValue.IsMemberThisValue &&
         not funcOrValue.IsConstructorThisValue &&
@@ -41,7 +44,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
       | :? FSharpMemberOrFunctionOrValue as v when isValidParameterWithoutTypeAnnotation v symbolUse ->
         let typeString = v.FullType.Format symbolUse.DisplayContext
         let title = "Add explicit type annotation"
-        let fcsSymbolRange = symbolUse.RangeAlternate
+        let fcsSymbolRange = symbolUse.Range
         let protocolSymbolRange = fcsRangeToLsp fcsSymbolRange
         let! symbolText = sourceText.GetText(fcsSymbolRange)
 

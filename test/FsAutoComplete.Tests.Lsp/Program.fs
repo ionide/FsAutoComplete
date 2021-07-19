@@ -80,7 +80,7 @@ let main args =
   then
     switch.MinimumLevel <- LogEventLevel.Verbose
   else
-    switch.MinimumLevel <- LogEventLevel.Information
+    switch.MinimumLevel <- LogEventLevel.Error
 
   let serilogLogger =
     LoggerConfiguration()

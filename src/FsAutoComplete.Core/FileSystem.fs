@@ -28,7 +28,14 @@ type SourceTextExtensions =
     else
       if m.StartLine = m.EndLine then // slice of a single line, just do that
         let lineText = t.GetLineString (m.StartLine - 1)
-        lineText.Substring(m.StartColumn, m.EndColumn - m.StartColumn) |> Ok
+        let actualEnd =
+          if m.EndColumn > (lineText.Length - 1)
+          then lineText.Length - 1
+          else m.EndColumn
+        let spanLength = actualEnd - m.StartColumn
+        if spanLength < 0
+        then Error $"Tried to cut a length %d{spanLength} from range %A{m} in line '%s{lineText}'."
+        else lineText.Substring(m.StartColumn, spanLength) |> Ok
       else
         // multiline, use a builder
         let builder = new System.Text.StringBuilder()

@@ -298,68 +298,66 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
           GetLineText1 = fun i -> lines.GetLineString (i - 1)
       }
 
-    let wholeLineRange (pos: Position) = Range.mkRange "dummy.fs" (Position.mkPos pos.Line 0) (Position.mkPos pos.Line Int32.MaxValue)
-    let linesToZero (pos: Position): Range seq =
-      seq {
-        for line in pos.Line-1 .. -1 .. 0 do
-          yield wholeLineRange (Position.mkPos line 0)
-      }
-
     let calculateNamespaceInsert (decl : DeclarationListItem) (pos : Position) (sourceText: ISourceText): CompletionNamespaceInsert option =
+      maybe {
         let idents = decl.FullName.Split '.'
-        decl.NamespaceToOpen
-        |> Option.bind (fun n ->
-            state.CurrentAST
-            |> Option.map (fun ast -> ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
-            |> Option.map (fun ic ->
-                //TODO: unite with `CodeFix/ResolveNamespace`
-                //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
-                let startPos = ic.Pos
+        let! namespaceToOpen = decl.NamespaceToOpen
+        let! ast = state.CurrentAST
+        let insertionContext = ParsedInput.FindNearestPointToInsertOpenDeclaration pos.Line ast idents OpenStatementInsertionPoint.Nearest
+        //TODO: unite with `CodeFix/ResolveNamespace`
+        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
+        let startPos = insertionContext.Pos
+        let detectIndentation (line: string) =
+            line
+            |> Seq.takeWhile ((=) ' ')
+            |> Seq.length
 
-                let detectIndentation (line: string) =
-                    line
-                    |> Seq.takeWhile ((=) ' ')
-                    |> Seq.length
+        let allLines = sourceText.Lines()
+        let previousLines = allLines.[0..(startPos.Line - 1)]
 
-                // adjust line
-                let l =
-                    match ic.ScopeKind with
-                    | ScopeKind.Namespace ->
-                        // for namespace `open` isn't created close at namespace,
-                        // but instead on first member
-                        // -> move `open` closer to namespace
-                        // this only happens when there are no other `open`
+        // adjust line
+        let correctedLine =
+            match insertionContext.ScopeKind with
+            | ScopeKind.Namespace ->
+                // for namespace `open` isn't created close at namespace,
+                // but instead on first member
+                // -> move `open` closer to namespace
+                // this only happens when there are no other `open`
 
-                        // from insert position go up until first open OR namespace
-                        linesToZero startPos
-                        |> Seq.tryFind (fun m ->
-                            let lineStr = sourceText.GetText(m) |> Result.bimap id (fun _ -> "")
-                            // namespace MUST be top level -> no indentation
-                            lineStr.StartsWith "namespace "
-                        )
-                        |> function
-                           // move to the next line below "namespace"
-                           | Some l -> Position.mkPos (l.StartLine + 1) 0
-                           | None -> startPos
-                    | _ -> startPos
+                // from insert position go up until first open OR namespace
+                previousLines
+                |> Array.tryFindIndexBack (fun lineStr ->
+                    // namespace MUST be top level -> no indentation
+                    lineStr.StartsWith "namespace "
+                )
+                |> function
+                   // move to the next line below "namespace"
+                   | Some lineNo -> Position.mkPos (lineNo + 1) startPos.Column
+                   | None -> startPos
+            | _ -> startPos
 
-                // adjust column
-                let adjustedColumnPosition =
-                    match l.Line, startPos.Column with
-                    | 0, c -> Position.mkPos 0 c
-                    | lineNo, 0 ->
-                        let prev = sourceText.GetText (wholeLineRange (Position.mkPos (lineNo - 1) 0)) |> Result.bimap id (fun _ -> "")
-                        let indentation = detectIndentation prev
-                        if indentation <> 0 then
-                            // happens when there are already other `open`s
-                            Position.mkPos lineNo indentation
-                        else
-                            l
-                    | _, c -> Position.mkPos l.Line c
+        // adjust column
+        let adjustedColumnPosition =
+            match correctedLine.Line, correctedLine.Column with
+            | 0, c -> Position.mkPos 0 c
+            | lineNo, 0 ->
+                let previousLineWithText =
+                  previousLines
+                  |> Array.tryFindBack (fun r -> not (String.IsNullOrWhiteSpace r))
 
-                { Namespace = n; Position = adjustedColumnPosition; Scope = ic.ScopeKind }
-            )
-        )
+                match previousLineWithText with
+                | Some prev ->
+                  let indentation = detectIndentation prev
+                  if indentation <> 0 then
+                      // happens when there are already other `open`s
+                      Position.mkPos lineNo indentation
+                  else
+                      correctedLine
+                | None -> correctedLine
+            | _, c -> Position.mkPos correctedLine.Line c
+
+        return { Namespace = namespaceToOpen; Position = adjustedColumnPosition; Scope = insertionContext.ScopeKind }
+      }
 
     let fillHelpTextInTheBackground decls (pos : Position) fn getLine =
         let declName (d: DeclarationListItem) = d.Name
