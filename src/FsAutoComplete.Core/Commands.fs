@@ -298,12 +298,14 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
           GetLineText1 = fun i -> lines.GetLineString (i - 1)
       }
 
-    let calculateNamespaceInsert (decl : DeclarationListItem) (pos : Position) getLine: CompletionNamespaceInsert option =
-        let getLine i =
-            try
-                getLine i
-            with
-            | _ -> ""
+    let wholeLineRange (pos: Position) = Range.mkRange "dummy.fs" (Position.mkPos pos.Line 0) (Position.mkPos pos.Line Int32.MaxValue)
+    let linesToZero (pos: Position): Range seq =
+      seq {
+        for line in pos.Line-1 .. -1 .. 0 do
+          yield wholeLineRange (Position.mkPos line 0)
+      }
+
+    let calculateNamespaceInsert (decl : DeclarationListItem) (pos : Position) (sourceText: ISourceText): CompletionNamespaceInsert option =
         let idents = decl.FullName.Split '.'
         decl.NamespaceToOpen
         |> Option.bind (fun n ->
@@ -312,7 +314,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             |> Option.map (fun ic ->
                 //TODO: unite with `CodeFix/ResolveNamespace`
                 //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
-                let l,c = ic.Pos.Line, ic.Pos.Column
+                let startPos = ic.Pos
 
                 let detectIndentation (line: string) =
                     line
@@ -329,34 +331,33 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                         // this only happens when there are no other `open`
 
                         // from insert position go up until first open OR namespace
-                        seq { l-1 .. -1 .. 0 }
-                        |> Seq.tryFind (fun l ->
-                            let lineStr = getLine l
+                        linesToZero startPos
+                        |> Seq.tryFind (fun m ->
+                            let lineStr = sourceText.GetText(m) |> Result.bimap id (fun _ -> "")
                             // namespace MUST be top level -> no indentation
                             lineStr.StartsWith "namespace "
                         )
                         |> function
                            // move to the next line below "namespace"
-                           | Some l -> l + 1
-                           | None -> l
-                    | _ -> l
+                           | Some l -> Position.mkPos (l.StartLine + 1) 0
+                           | None -> startPos
+                    | _ -> startPos
 
                 // adjust column
-                let c =
-                    match l, c with
-                    | 0, c -> c
-                    | l, 0 ->
-                        let prev = getLine (l-1)
+                let adjustedColumnPosition =
+                    match l.Line, startPos.Column with
+                    | 0, c -> Position.mkPos 0 c
+                    | lineNo, 0 ->
+                        let prev = sourceText.GetText (wholeLineRange (Position.mkPos (lineNo - 1) 0)) |> Result.bimap id (fun _ -> "")
                         let indentation = detectIndentation prev
                         if indentation <> 0 then
                             // happens when there are already other `open`s
-                            indentation
+                            Position.mkPos lineNo indentation
                         else
-                            0
-                    | _, c -> c
+                            l
+                    | _, c -> Position.mkPos l.Line c
 
-                let pos = Position.mkPos l c
-                { Namespace = n; Position = pos; Scope = ic.ScopeKind }
+                { Namespace = n; Position = adjustedColumnPosition; Scope = ic.ScopeKind }
             )
         )
 
@@ -699,7 +700,6 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             match source with
             | None -> return CoreResponse.ErrorRes (sprintf "No help text available for symbol '%s'" sym)
             | Some source ->
-                let getSource = fun i -> source.GetLineString (i - 1)
 
                 let tip =
                   match state.HelpText.TryFind sym with
@@ -711,7 +711,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
                 let n =
                     match state.CompletionNamespaceInsert.TryFind sym with
-                    | None -> calculateNamespaceInsert decl pos getSource
+                    | None -> calculateNamespaceInsert decl pos source
                     | Some s -> Some s
                 return CoreResponse.Res (HelpText.Full (sym, tip, n))
     }
@@ -727,7 +727,6 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         match res with
         | Some (decls, residue, shouldKeywords) ->
             let declName (d: DeclarationListItem) = d.Name
-            let getLine = fun i -> lines.GetLineString(i - 1)
 
             //Init cache for current list
             state.Declarations.Clear()
@@ -736,7 +735,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             state.CurrentAST <- Some tyRes.GetAST
 
             //Fill cache for current list
-            do fillHelpTextInTheBackground decls pos fileName getLine
+            do fillHelpTextInTheBackground decls pos fileName lines
 
             // Send the first help text without being requested.
             // This allows it to be displayed immediately in the editor.

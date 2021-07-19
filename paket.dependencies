@@ -16,7 +16,7 @@ nuget Argu ~> 5.2.0
 nuget Ionide.ProjInfo
 nuget Ionide.ProjInfo.FCS
 nuget Ionide.ProjInfo.ProjectSystem
-nuget FSharp.Compiler.Service prerelease
+nuget FSharp.Compiler.Service >= 40
 
 nuget Microsoft.Build 16.9 copy_local: false
 nuget Microsoft.Build.Framework 16.9 copy_local: false
