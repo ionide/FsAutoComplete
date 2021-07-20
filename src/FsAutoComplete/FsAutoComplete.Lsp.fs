@@ -26,9 +26,16 @@ type FcsRange = FSharp.Compiler.Text.Range
 module FcsPos = FSharp.Compiler.Text.Pos
 type FcsPos = FSharp.Compiler.Text.Pos
 
+module Result =
+  let ofCoreResponse (r: CoreResponse<'a>) =
+    match r with
+    | CoreResponse.Res a -> Ok a
+    | CoreResponse.ErrorRes msg
+    | CoreResponse.InfoRes msg -> Error (JsonRpc.Error.InternalErrorMessage msg)
+
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) =
-    ar |> Async.map (function | CoreResponse.Res a -> Ok a | CoreResponse.ErrorRes msg | CoreResponse.InfoRes msg -> Error (JsonRpc.Error.InternalErrorMessage msg))
+    ar |> Async.map Result.ofCoreResponse
 
   let ofStringErr (ar: Async<Result<'a, string>>) =
     ar |> AsyncResult.mapError JsonRpc.Error.InternalErrorMessage

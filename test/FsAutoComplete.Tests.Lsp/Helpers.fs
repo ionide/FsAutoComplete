@@ -160,7 +160,11 @@ let defaultConfigDto : FSharpConfigDto =
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}
   let workspaceCaps : WorkspaceClientCapabilities =
-    let weCaps : WorkspaceEditCapabilities = { DocumentChanges = Some true}
+    let weCaps : WorkspaceEditCapabilities = { DocumentChanges = Some true
+                                               ResourceOperations = None
+                                               FailureHandling = None
+                                               NormalizesLineEndings = None
+                                               ChangeAnnotationSupport = None }
     let symbolCaps: SymbolCapabilities = { DynamicRegistration = Some true
                                            SymbolKind = None}
     let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities = { RefreshSupport = Some true }
