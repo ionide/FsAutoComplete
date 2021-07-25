@@ -375,7 +375,8 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     do disposables.Add <| state.ProjectController.Notifications.Subscribe (fun ev ->
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
-        let opts = state.ProjectController.GetProjectOptionsForFsproj p.ProjectFileName
+        let controller = state.ProjectController
+        let opts = controller.GetProjectOptionsForFsproj p.ProjectFileName
         opts |> Option.iter (fun opts -> backgroundService.UpdateProject(p.ProjectFileName, opts))
 
         if not isFromCache then
