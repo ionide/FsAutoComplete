@@ -43,22 +43,16 @@
             ]
         },
         {
-            "name": ".NET Core mode stdio (debug)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build_debug_netcore",
-            "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net5.0/fsautocomplete.dll",
-            "args": ["--mode", "stdio", "-v"],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "internalConsoleOptions": "openOnSessionStart"
-        },
-        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach",
-            "processId": "${command:pickProcess}"
+            "processId": "${command:pickProcess}",
+            "sourceLinkOptions": {
+              "*": {
+                "enabled": true
+              }
+            },
+            "justMyCode": false
         }
     ]
 }
