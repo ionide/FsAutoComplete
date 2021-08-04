@@ -1186,15 +1186,15 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let fileName = doc.GetFilePath() |> Utils.normalizePath
         let! res = commands.FormatDocument fileName
         match res with
-        | Some (lines, formatted) ->
+        | Ok (lines, formatted) ->
             let range =
                 let zero = { Line = 0; Character = 0 }
                 let lastPos = lines.GetLastFilePosition()
                 { Start = zero; End = fcsPosToLsp lastPos }
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
-        | None ->
-            return LspResult.notImplemented
+        | Error ex ->
+            return LspResult.internalError ex
     }
 
     member private x.HandleTypeCheckCodeAction file pos f =

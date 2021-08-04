@@ -1149,10 +1149,14 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
               | None ->
                 fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
                 Fantomas.FormatConfig.FormatConfig.Default
-          let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
-          return text, formatted
+          try
+            let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
+            return text, formatted
+          with
+          | ex ->
+            fantomasLogger.warn (Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}" >> Log.addContextDestructured "message" ex.Message >> Log.addExn ex)
+            return! Core.Error ex.Message
       }
-      |> AsyncResult.foldResult Some (fun _ -> None)
 
     /// gets the semantic classification ranges for a file, optionally filtered by a given range.
     member x.GetHighlighting (file: string<LocalPath>, range: Range option) =
