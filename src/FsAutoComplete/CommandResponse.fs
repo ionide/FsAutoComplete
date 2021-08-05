@@ -345,6 +345,11 @@ module CommandResponse =
     PrecedingNonPipeExprLine : int option
   }
 
+  type TestResult = {
+    File: string
+    Tests: TestAdapter.TestAdapterEntry []
+  }
+
   let private errorG (serialize : Serializer) (errorData: ErrorData) message =
     let inline ser code data =
         serialize { Kind = "error"; Data = { Code = (int code); Message = message; AdditionalData = data }  }
@@ -550,3 +555,7 @@ module CommandResponse =
         PrecedingNonPipeExprLine = pnp
       })
     serialize { Kind = "pipelineHint"; Data = ctn }
+
+  let test (serialize: Serializer) fn tests =
+    let data = {File = fn; Tests = tests}
+    serialize {Kind = "tests"; Data = data}
