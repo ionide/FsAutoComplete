@@ -2,10 +2,9 @@ name: Create diagram
 on:
   workflow_dispatch: {}
   push:
-    branches:
-      - master
-    paths-ignore:
-      - 'docs/**'
+    tags:        
+      - '*'
+
 jobs:
   get_data:
     runs-on: ubuntu-latest
