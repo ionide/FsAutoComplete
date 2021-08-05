@@ -54,6 +54,7 @@ type NotificationEvent=
     | Canceled of errorMessage: string
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
+    | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry []
 
 type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool) =
     let fileParsed = Event<FSharpParseFileResults>()
@@ -244,6 +245,24 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             | ex ->
                 Loggers.analyzers.error (Log.setMessage "Run failed for {file}" >> Log.addContextDestructured "file" file >> Log.addExn ex)
         } |> Async.Start
+    )
+
+    do disposables.Add <| fileParsed.Publish.Subscribe (fun parseResults ->
+      let fn = UMX.tag parseResults.FileName
+      match state.GetProjectOptions fn with
+      | None -> ()
+      | Some proj ->
+        let res =
+          if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+            TestAdapter.getExpectoTests parseResults.ParseTree
+          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+            TestAdapter.getNUnitTest parseResults.ParseTree
+          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+            TestAdapter.getXUnitTest parseResults.ParseTree
+          else
+            []
+        NotificationEvent.TestDetected (fn, res |> List.toArray)
+        |> notify.Trigger
     )
 
     let parseFilesInTheBackground files =

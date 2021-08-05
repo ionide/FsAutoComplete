@@ -377,6 +377,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                           Data = fixes }
                     )
                 diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
+          | NotificationEvent.TestDetected(file, tests) ->
+              let res = CommandResponse.test JsonSerializer.writeJson (UMX.untag file) tests
+              {Content = res}
+              |> lspClient.NotifyWorkspace
+              |> Async.Start
       with
       | _ -> ()
 
