@@ -330,7 +330,7 @@ let getXUnitTest ast : TestAdapterEntry list =
         |> List.collect (fun (attr : SynAttributeList) -> attr.Attributes)
         |> List.exists (fun a ->
             let str = a.TypeName.Lid |> List.last
-            str.idText.EndsWith "Fact" || str.idText.EndsWith "Factttribute" ||
+            str.idText.EndsWith "Fact" || str.idText.EndsWith "FactAttribute" ||
             str.idText.EndsWith "Theory" || str.idText.EndsWith "TheoryAttribute" ||
             str.idText.EndsWith "Property" || str.idText.EndsWith "PropertyAttribute"
         )
