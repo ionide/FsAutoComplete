@@ -1,3 +1,7 @@
+### 0.47.1 - 04.08.2021
+
+* BUGFIX: [Handle exceptions from fantomas a bit more safely](https://github.com/fsharp/FsAutoComplete/pull/823)
+
 ### 0.47.0 - 25.07.2021
 
 * BUGFIX: [Fix loading of dotnet new templates](https://github.com/fsharp/FsAutoComplete/pull/815) (thanks @Happypig375)
