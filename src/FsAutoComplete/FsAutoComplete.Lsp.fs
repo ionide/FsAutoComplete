@@ -91,6 +91,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     member __.NotifyFileParsed (p: PlainNotification) =
         sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
+    member __.NotifyTestResult (p: PlainNotification) =
+        sendServerNotification "fsharp/testResult" (box p) |> Async.Ignore
+
 type DiagnosticMessage =
   | Add of source: string * diags: Diagnostic []
   | Clear of source: string
@@ -380,7 +383,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | NotificationEvent.TestDetected(file, tests) ->
               let res = CommandResponse.test JsonSerializer.writeJson (UMX.untag file) tests
               {Content = res}
-              |> lspClient.NotifyWorkspace
+              |> lspClient.NotifyTestResult
               |> Async.Start
       with
       | _ -> ()
