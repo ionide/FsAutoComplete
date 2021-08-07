@@ -359,23 +359,26 @@ type Commands
       }
       |> Async.Start)
 
-  do disposables.Add <| fileParsed.Publish.Subscribe (fun parseResults ->
-    let fn = UMX.tag parseResults.FileName
-    match state.GetProjectOptions fn with
-    | None -> ()
-    | Some proj ->
-      let res =
-        if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
-          TestAdapter.getExpectoTests parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
-          TestAdapter.getNUnitTest parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
-          TestAdapter.getXUnitTest parseResults.ParseTree
-        else
-          []
-      NotificationEvent.TestDetected (fn, res |> List.toArray)
-      |> notify.Trigger
-  )
+    do disposables.Add <| fileParsed.Publish.Subscribe (fun parseResults ->
+      commandsLogger.info (Log.setMessage "Test Detection of {file} started" >> Log.addContextDestructured "file" parseResults.FileName)
+      let fn = UMX.tag parseResults.FileName
+      match state.GetProjectOptions fn with
+      | None ->
+        commandsLogger.info (Log.setMessage "Test Detection of {file} - no project file" >> Log.addContextDestructured "file" parseResults.FileName)
+      | Some proj ->
+        let res =
+          if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+            TestAdapter.getExpectoTests parseResults.ParseTree
+          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+            TestAdapter.getNUnitTest parseResults.ParseTree
+          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+            TestAdapter.getXUnitTest parseResults.ParseTree
+          else
+            []
+        commandsLogger.info (Log.setMessage "Test Detection of {file} - {res}" >> Log.addContextDestructured "file" parseResults.FileName >> Log.addContextDestructured "res" res)
+        NotificationEvent.TestDetected (fn, res |> List.toArray)
+        |> notify.Trigger
+    )
 
   let parseFilesInTheBackground files =
     async {
