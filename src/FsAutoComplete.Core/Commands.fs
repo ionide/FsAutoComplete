@@ -248,9 +248,11 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     )
 
     do disposables.Add <| fileParsed.Publish.Subscribe (fun parseResults ->
+      commandsLogger.info (Log.setMessage "Test Detection of {file} started" >> Log.addContextDestructured "file" parseResults.FileName)
       let fn = UMX.tag parseResults.FileName
       match state.GetProjectOptions fn with
-      | None -> ()
+      | None ->
+        commandsLogger.info (Log.setMessage "Test Detection of {file} - no project file" >> Log.addContextDestructured "file" parseResults.FileName)
       | Some proj ->
         let res =
           if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
@@ -261,6 +263,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             TestAdapter.getXUnitTest parseResults.ParseTree
           else
             []
+        commandsLogger.info (Log.setMessage "Test Detection of {file} - {res}" >> Log.addContextDestructured "file" parseResults.FileName >> Log.addContextDestructured "res" res)
         NotificationEvent.TestDetected (fn, res |> List.toArray)
         |> notify.Trigger
     )
