@@ -188,6 +188,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let mutable config = FSharpConfig.Default
     let mutable codeFixes: CodeFix [] = [||]
     let mutable sigHelpKind = None
+    let mutable binaryLogConfig = Ionide.ProjInfo.BinaryLogGeneration.Off
 
     let parseFile (p: DidChangeTextDocumentParams) =
 
@@ -436,7 +437,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
-
+        // TODO(CH): make the destination part of config, so that non-FSAC editors don't have the '.ionide' path
+        binaryLogConfig <-
+          match config.GenerateBinlog with
+          | false -> Ionide.ProjInfo.BinaryLogGeneration.Off
+          | true -> Ionide.ProjInfo.BinaryLogGeneration.Within (Path.Combine(rootPath.Value, ".ionide"))
 
     do
         rootPath |> Option.iter backgroundService.Start
@@ -667,7 +672,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | Some p, true ->
             async {
                 let! peek = commands.WorkspacePeek p config.WorkspaceModePeekDeepLevel (List.ofArray config.ExcludeProjectDirectories)
-
                 match peek with
                 | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                     ()
@@ -687,7 +691,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
-                        commands.WorkspaceLoad projs.Fsprojs false config.ScriptTFM config.GenerateBinlog
+                        commands.WorkspaceLoad projs.Fsprojs false binaryLogConfig
                         |> Async.Ignore
                         |> Async.Start
                     | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
@@ -695,7 +699,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             sln.Items
                             |> List.collect Workspace.foldFsproj
                             |> List.map fst
-                        commands.WorkspaceLoad projs false config.ScriptTFM config.GenerateBinlog
+                        commands.WorkspaceLoad projs false binaryLogConfig
                         |> Async.Ignore
                         |> Async.Start
                     | _ ->
@@ -1677,7 +1681,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
-        let! res = commands.WorkspaceLoad fns config.DisableInMemoryProjectReferences config.ScriptTFM config.GenerateBinlog
+        let! res = commands.WorkspaceLoad fns config.DisableInMemoryProjectReferences binaryLogConfig
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1708,7 +1712,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "FSharpProject Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn config.GenerateBinlog
+        let! res = commands.Project fn binaryLogConfig
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

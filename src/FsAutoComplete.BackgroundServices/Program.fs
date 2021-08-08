@@ -125,11 +125,27 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     let mutable latestRuntimeVersion = lazy None
     //TODO: does the backgroundservice ever get config updates?
     do
+      let allowedVersionRange =
+        let maxVersion = System.Environment.Version.Major + 1
+        SemanticVersioning.Range.Parse $"< %d{maxVersion}"
       let sdkRoot = Environment.dotnetSDKRoot.Value
       if sdkRoot.Exists
       then
-        latestSdkVersion <- Environment.latest3xSdkVersion sdkRoot
-        latestRuntimeVersion <- Environment.latest3xRuntimeVersion sdkRoot
+        let sdk = lazy (
+            Ionide.ProjInfo.SdkDiscovery.sdks sdkRoot.FullName
+            |> Seq.map fst
+            |> Array.ofSeq
+            |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
+        )
+        let runtime = lazy (
+            Ionide.ProjInfo.SdkDiscovery.runtimes sdkRoot.FullName
+            |> Seq.map fst
+            |> Array.ofSeq
+            |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
+        )
+
+        latestSdkVersion <- sdk
+        latestRuntimeVersion <- runtime
 
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =

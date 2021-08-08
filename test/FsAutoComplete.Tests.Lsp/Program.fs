@@ -31,7 +31,7 @@ let loaders = [
 ///Global list of tests
 [<Tests>]
 let tests =
-  let toolsPath = Ionide.ProjInfo.Init.init ()
+  let toolsPath = Ionide.ProjInfo.Init.init Environment.CurrentDirectory
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [

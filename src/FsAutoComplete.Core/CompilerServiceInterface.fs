@@ -304,8 +304,24 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     then ()
     else
       sdkRoot <- Some directory
-      sdkVersion <- Environment.latest3xSdkVersion directory
-      runtimeVersion <- Environment.latest3xRuntimeVersion directory
+      //TODO(CH): shoudl this range be user-assignable somehow?
+      let allowedVersionRange =
+        let maxVersion = System.Environment.Version.Major + 1
+        SemanticVersioning.Range.Parse $"< %d{maxVersion}"
+      let sdk = lazy (
+          Ionide.ProjInfo.SdkDiscovery.sdks directory.FullName
+          |> Seq.map fst
+          |> Array.ofSeq
+          |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
+      )
+      let runtime = lazy (
+          Ionide.ProjInfo.SdkDiscovery.runtimes directory.FullName
+          |> Seq.map fst
+          |> Array.ofSeq
+          |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
+      )
+      sdkVersion <- sdk
+      runtimeVersion <- runtime
       discoveredAssembliesByName <- lazy(computeAssemblyMap ())
       scriptTypecheckRequirementsChanged.Trigger ()
 

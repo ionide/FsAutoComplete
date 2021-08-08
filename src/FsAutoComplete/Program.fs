@@ -62,8 +62,8 @@ let entry args =
         if projectGraphEnabled then Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
         else Ionide.ProjInfo.WorkspaceLoader.Create
 
-      let toolsPath = Ionide.ProjInfo.Init.init ()
-      use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
+      let toolsPath = Ionide.ProjInfo.Init.init Environment.CurrentDirectory
+      use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
       let result = FsAutoComplete.Lsp.start backgroundServiceEnabled toolsPath workspaceLoaderFactory
       Serilog.Log.CloseAndFlush()
       result

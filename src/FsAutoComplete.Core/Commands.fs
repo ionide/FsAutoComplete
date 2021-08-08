@@ -1041,17 +1041,18 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
         return CoreResponse.Res d
     }
 
-    member x.WorkspaceLoad (files: string list) (disableInMemoryProjectReferences: bool) tfmForScripts (generateBinlog: bool) = async {
+    member x.WorkspaceLoad (files: string list) (disableInMemoryProjectReferences: bool) binaryLogs = async {
         commandsLogger.info (Log.setMessage "Workspace loading started '{files}'" >> Log.addContextDestructured "files" files)
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-        state.ProjectController.LoadWorkspace(files, generateBinlog)
+
+        state.ProjectController.LoadWorkspace(files, binaryLogs)
         commandsLogger.info (Log.setMessage "Workspace loading finished ")
         return CoreResponse.Res true
     }
 
-    member x.Project projectFileName (generateBinlog: bool)  = async {
+    member x.Project projectFileName binaryLogs  = async {
         commandsLogger.info (Log.setMessage "Project loading '{file}'" >> Log.addContextDestructured "file" projectFileName)
-        state.ProjectController.LoadProject(projectFileName, generateBinlog)
+        state.ProjectController.LoadProject(projectFileName, binaryLogs)
         return CoreResponse.Res true
     }
 
