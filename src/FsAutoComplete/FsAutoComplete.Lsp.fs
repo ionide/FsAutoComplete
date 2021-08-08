@@ -2035,7 +2035,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             |> async.Return
       )
 
-    override x.Dispose () = ()
+    override x.Dispose () = x.Shutdown() |> Async.Start
 
 let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
     use input = Console.OpenStandardInput()

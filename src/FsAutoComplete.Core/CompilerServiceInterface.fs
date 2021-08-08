@@ -65,7 +65,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   /// evaluates the set of assemblies found given the current sdkRoot/sdkVersion/runtimeVersion
   let computeAssemblyMap () =
-    match sdkRoot, sdkVersion.Value, runtimeVersion.Value with
+    match sdkRoot, sdkVersion.Force(), runtimeVersion.Force() with
     | None, _, _ ->
       sdkRefsLogger.info (Log.setMessage "No dotnet SDK root path found")
       Map.empty
@@ -304,18 +304,19 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     then ()
     else
       sdkRoot <- Some directory
-      //TODO(CH): shoudl this range be user-assignable somehow?
+      //TODO(CH): should this range be user-assignable somehow?
       let allowedVersionRange =
         let maxVersion = System.Environment.Version.Major + 1
         SemanticVersioning.Range.Parse $"< %d{maxVersion}"
+      let dotnetExe = Path.Combine(directory.FullName, "dotnet")
       let sdk = lazy (
-          Ionide.ProjInfo.SdkDiscovery.sdks directory.FullName
+          Ionide.ProjInfo.SdkDiscovery.sdks dotnetExe
           |> Seq.map fst
           |> Array.ofSeq
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
       )
       let runtime = lazy (
-          Ionide.ProjInfo.SdkDiscovery.runtimes directory.FullName
+          Ionide.ProjInfo.SdkDiscovery.runtimes dotnetExe
           |> Seq.map fst
           |> Array.ofSeq
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true

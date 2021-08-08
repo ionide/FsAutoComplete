@@ -24,13 +24,10 @@ let testTimeout =
 
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
-  // These are commented out because of https://github.com/ionide/proj-info/issues/109
-  // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
+  "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
 ]
 
-///Global list of tests
-[<Tests>]
-let tests =
+let tests loaders =
   let toolsPath = Ionide.ProjInfo.Init.init Environment.CurrentDirectory
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
@@ -73,13 +70,21 @@ let tests =
 [<EntryPoint>]
 let main args =
   let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
-
+  let verbose = args |> Seq.contains "--debug"
   let switch = LoggingLevelSwitch()
-  if args |> Seq.contains "--debug"
+  if verbose
   then
     switch.MinimumLevel <- LogEventLevel.Verbose
   else
     switch.MinimumLevel <- LogEventLevel.Information
+
+  let loaders =
+    args
+    |> Array.windowed 2
+    |> Array.tryPick (function [| "--loader"; "ionide" |] -> Some ["Ionide WorkspaceLoader", WorkspaceLoader.Create]
+                               | [| "--loader"; "graph" |] -> Some ["MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create]
+                               | _ -> None )
+    |> Option.defaultValue loaders
 
   let serilogLogger =
     LoggerConfiguration()
@@ -112,5 +117,6 @@ let main args =
     { defaultConfig
       with runInParallel = false
            failOnFocusedTests = true
-           printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer }
-  runTestsWithArgsAndCancel cts.Token config args tests
+           printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
+           verbosity = if verbose then Expecto.Logging.LogLevel.Debug else Expecto.Logging.LogLevel.Info }
+  runTestsWithCancel cts.Token config (tests loaders)
