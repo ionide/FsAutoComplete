@@ -441,7 +441,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         binaryLogConfig <-
           match config.GenerateBinlog with
           | false -> Ionide.ProjInfo.BinaryLogGeneration.Off
-          | true -> Ionide.ProjInfo.BinaryLogGeneration.Within (Path.Combine(rootPath.Value, ".ionide"))
+          | true -> Ionide.ProjInfo.BinaryLogGeneration.Within (DirectoryInfo (Path.Combine(rootPath.Value, ".ionide")))
 
     do
         rootPath |> Option.iter backgroundService.Start

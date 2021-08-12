@@ -27,7 +27,8 @@ let loaders = [
   "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
 ]
 
-let tests loaders =
+[<Tests>]
+let tests =
   let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory)
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
@@ -125,4 +126,4 @@ let main args =
            failOnFocusedTests = true
            printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
            verbosity = if verbose then Expecto.Logging.LogLevel.Debug else Expecto.Logging.LogLevel.Info }
-  runTestsWithArgsAndCancel cts.Token config fixedUpArgs (tests loaders)
+  runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
