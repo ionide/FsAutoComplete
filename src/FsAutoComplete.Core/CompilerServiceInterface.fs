@@ -186,8 +186,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     logQueueLength optsLogger (Log.setMessage "Getting NetCore options for script file {file}" >> Log.addContextDestructured "file" file)
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(UMX.untag file, source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
+    optsLogger.trace (Log.setMessage "Got NetCore options {opts} for file {file} with errors {errors}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "opts" opts >> Log.addContextDestructured "errors" errors)
     let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
-    return allModifications opts, errors
+    let modified = allModifications opts
+    optsLogger.trace (Log.setMessage "Replaced options to {opts}" >> Log.addContextDestructured "opts" opts)
+    return modified, errors
   }
 
   member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm) = async {
@@ -308,15 +311,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       let allowedVersionRange =
         let maxVersion = System.Environment.Version.Major + 1
         SemanticVersioning.Range.Parse $"< %d{maxVersion}"
-      let dotnetExe = Path.Combine(directory.FullName, "dotnet")
       let sdk = lazy (
-          Ionide.ProjInfo.SdkDiscovery.sdks dotnetExe
+          Ionide.ProjInfo.SdkDiscovery.sdks directory
           |> Seq.map fst
           |> Array.ofSeq
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
       )
       let runtime = lazy (
-          Ionide.ProjInfo.SdkDiscovery.runtimes dotnetExe
+          Ionide.ProjInfo.SdkDiscovery.runtimes directory
           |> Seq.map fst
           |> Array.ofSeq
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true

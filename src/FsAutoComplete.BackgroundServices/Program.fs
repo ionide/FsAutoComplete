@@ -132,13 +132,13 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
       if sdkRoot.Exists
       then
         let sdk = lazy (
-            Ionide.ProjInfo.SdkDiscovery.sdks sdkRoot.FullName
+            Ionide.ProjInfo.SdkDiscovery.sdks sdkRoot
             |> Seq.map fst
             |> Array.ofSeq
             |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
         )
         let runtime = lazy (
-            Ionide.ProjInfo.SdkDiscovery.runtimes sdkRoot.FullName
+            Ionide.ProjInfo.SdkDiscovery.runtimes sdkRoot
             |> Seq.map fst
             |> Array.ofSeq
             |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true

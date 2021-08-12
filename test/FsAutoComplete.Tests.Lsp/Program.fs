@@ -28,7 +28,7 @@ let loaders = [
 ]
 
 let tests loaders =
-  let toolsPath = Ionide.ProjInfo.Init.init Environment.CurrentDirectory
+  let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory)
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
@@ -72,19 +72,20 @@ let main args =
   let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
   let verbose = args |> Seq.contains "--debug"
   let switch = LoggingLevelSwitch()
+
   if verbose
   then
     switch.MinimumLevel <- LogEventLevel.Verbose
   else
     switch.MinimumLevel <- LogEventLevel.Information
 
-  let loaders =
+  let argsToRemove, loaders =
     args
     |> Array.windowed 2
-    |> Array.tryPick (function [| "--loader"; "ionide" |] -> Some ["Ionide WorkspaceLoader", WorkspaceLoader.Create]
-                               | [| "--loader"; "graph" |] -> Some ["MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create]
+    |> Array.tryPick (function [| "--loader"; "ionide" |] as args -> Some(args, ["Ionide WorkspaceLoader", WorkspaceLoader.Create])
+                               | [| "--loader"; "graph" |] as args -> Some(args, ["MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create])
                                | _ -> None )
-    |> Option.defaultValue loaders
+    |> Option.defaultValue ([||], loaders)
 
   let serilogLogger =
     LoggerConfiguration()
@@ -112,6 +113,11 @@ let main args =
   Serilog.Log.Logger <- serilogLogger
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
+  let fixedUpArgs =
+    args
+    |> Array.except ["--debug"]
+    |> Array.except argsToRemove
+
   let cts = new CancellationTokenSource(testTimeout)
   let config =
     { defaultConfig
@@ -119,4 +125,4 @@ let main args =
            failOnFocusedTests = true
            printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
            verbosity = if verbose then Expecto.Logging.LogLevel.Debug else Expecto.Logging.LogLevel.Info }
-  runTestsWithCancel cts.Token config (tests loaders)
+  runTestsWithArgsAndCancel cts.Token config fixedUpArgs (tests loaders)
