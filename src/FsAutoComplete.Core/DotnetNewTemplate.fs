@@ -36,6 +36,7 @@ module DotnetNewTemplate =
       si.UseShellExecute <- false
       si.RedirectStandardOutput <- true
       si.WorkingDirectory <- Environment.CurrentDirectory
+      si.EnvironmentVariables.["DOTNET_CLI_UI_LANGUAGE"] <- "en-us"
       let proc = System.Diagnostics.Process.Start(si)
       let mutable output = ""
       while not proc.StandardOutput.EndOfStream do
