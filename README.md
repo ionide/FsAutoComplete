@@ -13,6 +13,7 @@ Currently it is used by:
 * [Neovim](https://github.com/neovim/nvim-lspconfig/blob/master/CONFIG.md#fsautocomplete)
 * [Vim](https://github.com/fsharp/vim-fsharp)
 * [Visual Studio Code](https://github.com/ionide/ionide-vscode-fsharp)
+* [Sublime Text](https://lsp.sublimetext.io/language_servers/#f)
 
 It's based on:
 
