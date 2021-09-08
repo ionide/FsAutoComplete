@@ -950,7 +950,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
                     LspResult.internalError msg
                     |> async.Return
-                | CoreResponse.Res(tip, signature, footer, typeDoc) ->
+                | CoreResponse.Res None ->
+                  async.Return (success None)
+                | CoreResponse.Res(Some(tip, signature, footer, typeDoc)) ->
                     let formatCommentStyle =
                         if config.TooltipMode = "full" then
                             TipFormatter.FormatCommentStyle.FullEnhanced

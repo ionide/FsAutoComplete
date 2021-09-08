@@ -234,38 +234,44 @@ type ParseAndCheckResults
       | _ ->
         Ok(tip)
 
-  member __.TryGetToolTipEnhanced (pos: Pos) (lineStr: LineStr) =
-    match Lexer.findLongIdents(pos.Column, lineStr) with
-    | None -> Error "Cannot find ident for tooltip"
-    | Some(col,identIsland) ->
-      let identIsland = Array.toList identIsland
-      // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
-      let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+  member x.TryGetToolTipEnhanced (pos: Pos) (lineStr: LineStr) =
+    match x.GetParseResults.ParseTree with
+    | None -> Error "No parse tree"
+    | Some parsedInput ->
+      match Completion.atPos (pos, parsedInput) with
+      | Completion.Context.StringLiteral -> Ok None
+      | Completion.Context.Unknown ->
+        match Lexer.findLongIdents(pos.Column, lineStr) with
+        | None -> Error "Cannot find ident for tooltip"
+        | Some(col,identIsland) ->
+          let identIsland = Array.toList identIsland
+          // TODO: Display other tooltip types, for example for strings or comments where appropriate
+          let tip = checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+          let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
-      match tip with
-      | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
-          match identIsland with
-          | [ident] ->
-             match KeywordList.keywordTooltips.TryGetValue ident with
-             | true, tip ->
-                Ok (tip, ident, "", None)
-             | _ ->
+          match tip with
+          | FSharpToolTipText(elems) when elems |> List.forall ((=) FSharpToolTipElement.None) && symbol.IsNone ->
+              match identIsland with
+              | [ident] ->
+                 match KeywordList.keywordTooltips.TryGetValue ident with
+                 | true, tip ->
+                    Ok (Some (tip, ident, "", None))
+                 | _ ->
+                    Error "No tooltip information"
+              | _ ->
                 Error "No tooltip information"
           | _ ->
-            Error "No tooltip information"
-      | _ ->
-        match symbol with
-        | None ->
-          Error "No tooltip information"
-        | Some symbol ->
+            match symbol with
+            | None ->
+              Error "No tooltip information"
+            | Some symbol ->
 
-          match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
-          | None ->
-            Error "No tooltip information"
-          | Some (signature, footer) ->
-              let typeDoc = getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
-              Ok (tip, signature, footer, typeDoc)
+              match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
+              | None ->
+                Error "No tooltip information"
+              | Some (signature, footer) ->
+                  let typeDoc = getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
+                  Ok (Some (tip, signature, footer, typeDoc))
 
   member __.TryGetFormattedDocumentation (pos: Pos) (lineStr: LineStr) =
     match Lexer.findLongIdents(pos.Column - 1, lineStr) with
