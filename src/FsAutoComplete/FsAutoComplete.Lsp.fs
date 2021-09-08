@@ -872,7 +872,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 return! success (Some completionList)
             | _ ->
               logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
-              return! success (Some { IsIncomplete = true; Items = [||] })
+              return! success (Some { IsIncomplete = false; Items = [||] })
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) = async {
