@@ -1882,3 +1882,33 @@ module Printf =
         | _ -> ()
         //debug "%A" idents
         result.ToArray()
+
+module Completion =
+
+  [<RequireQualifiedAccess>]
+  type Context =
+  | StringLiteral
+  | Unknown
+
+  let atPos (pos: Pos, ast: ParsedInput): Context =
+    let visitor =
+      { new SourceCodeServices.AstTraversal.AstVisitorBase<Context>() with
+
+        member x.VisitExpr(path, traverseExpr, defaultTraverse, expr): Context option =
+          if Range.rangeContainsPos expr.Range pos
+          then
+              match expr with
+              | SynExpr.Const(SynConst.String _, _) -> Some Context.StringLiteral
+              | SynExpr.InterpolatedString (parts, _) ->
+                parts
+                |> List.tryPick (
+                  function | SynInterpolatedStringPart.String(s, m) when Range.rangeContainsPos m pos -> Some Context.StringLiteral
+                           | SynInterpolatedStringPart.String _ -> None
+                           | SynInterpolatedStringPart.FillExpr(e, _) when Range.rangeContainsPos e.Range pos -> defaultTraverse e // gotta dive into the expr to see if we're in a literal inside the expr
+                           | SynInterpolatedStringPart.FillExpr _ -> None
+                )
+              | _ -> defaultTraverse expr
+          else None
+      }
+    FSharp.Compiler.SourceCodeServices.AstTraversal.Traverse(pos, ast, visitor)
+    |> Option.defaultValue Context.Unknown
