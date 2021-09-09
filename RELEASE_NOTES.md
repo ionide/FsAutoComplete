@@ -1,3 +1,9 @@
+### 0.47.2 - 09.09.2021
+
+* BUGFIX: [Fix dotnet template rendering on non-english locales](https://github.com/fsharp/FsAutoComplete/pull/826) (thanks @jmiven)
+* ENHANCEMENT: [Don't provide completions or tooltips for string literals of all kinds](https://github.com/fsharp/FsAutoComplete/pull/830)
+  * This allows for other extensions to provide completions/hover tooltips for these strings when configured to do so
+
 ### 0.47.1 - 04.08.2021
 
 * BUGFIX: [Handle exceptions from fantomas a bit more safely](https://github.com/fsharp/FsAutoComplete/pull/823)
