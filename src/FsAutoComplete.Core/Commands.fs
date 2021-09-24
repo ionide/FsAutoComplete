@@ -1700,12 +1700,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member _.ClearFantomasCache() = fantomasService.ClearCache()
 
+
   /// gets the semantic classification ranges for a file, optionally filtered by a given range.
   member x.GetHighlighting(file: string<LocalPath>, range: Range option) =
     asyncOption {
       let! res = x.TryGetRecentTypeCheckResultsForFile file
 
-      let r = res.GetCheckResults.GetSemanticClassification(range)
+      let r = res.GetSemanticClassification(range)
 
       let filteredRanges = scrubRanges r
       return CoreResponse.Res filteredRanges

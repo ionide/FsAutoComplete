@@ -14,6 +14,7 @@ open System.IO
 open Utils
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.Syntax
+open FsAutoComplete.FCSPatches
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
@@ -678,7 +679,9 @@ type ParseAndCheckResults
   member __.GetAllSymbolUsesInFile() =
     checkResults.GetAllUsesOfAllSymbolsInFile()
 
-  member __.GetSemanticClassification = checkResults.GetSemanticClassification None
+  member __.GetSemanticClassification range =
+    [| yield! parseResults.ParseTree.GetSemanticClassification(range)
+       yield! checkResults.GetSemanticClassification range |]
 
   // member this.GetExpandedType (pos: Position) =
   //   match parseResults.ParseTree with
