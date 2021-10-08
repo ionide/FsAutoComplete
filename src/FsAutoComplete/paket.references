@@ -11,8 +11,6 @@ Ionide.ProjInfo.ProjectSystem
 Dapper
 Microsoft.Data.Sqlite
 ICSharpCode.Decompiler
-Fantomas
-Fantomas.Extras
 FSharp.Analyzers.SDK
 FsToolkit.ErrorHandling
 Serilog

@@ -1139,19 +1139,23 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.FormatDocument (file: string<LocalPath>) =
       asyncResult {
-          let! (opts, text) = x.TryGetFileCheckerOptionsWithLines file
-          let parsingOptions = Utils.projectOptionsToParseOptions opts
-          let checker : FSharpChecker = checker.GetFSharpChecker()
-          // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
-          let config =
-              match Fantomas.Extras.EditorConfig.tryReadConfiguration (UMX.untag file) with
-              | Some c -> c
-              | None ->
-                fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
-                Fantomas.FormatConfig.FormatConfig.Default
           try
-            let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
-            return text, formatted
+            let! _, text = x.TryGetFileCheckerOptionsWithLines file
+            let currentCode = string text
+            let fantomasService = Fantomas.Client.FantomasToolLocator.createForWorkingDirectory @"C:\Users\fverdonck\Projects\fantomas"
+            match fantomasService with
+            | Error error ->
+              fantomasLogger.error (Log.setMessage error)
+              return! Core.Error (sprintf "Could not create fantomas daemon\n%A" error)
+            | Ok service ->
+              let! fantomasResponse = service.FormatDocumentAsync { SourceCode = currentCode; FilePath = (UMX.untag file); IsLastFile = false; Config = None }
+              match fantomasResponse with
+              | { Code = 1; Content = Some code } ->
+                fantomasLogger.info (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
+                return text, code
+              | _ ->
+                fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\"" fantomasResponse))
+                return! Core.Error (sprintf "Formatting failed!\n%A" fantomasResponse)
           with
           | ex ->
             fantomasLogger.warn (Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}" >> Log.addContextDestructured "message" ex.Message >> Log.addExn ex)
