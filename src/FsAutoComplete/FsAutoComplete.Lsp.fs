@@ -176,15 +176,13 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let logger = LogProvider.getLoggerByName "LSP"
     let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
     let backgroundService: BackgroundServices.BackgroundService = if backgroundServiceEnabled then BackgroundServices.ActualBackgroundService() :> _ else BackgroundServices.MockBackgroundService() :> _
-    let mutable commands = new Commands(FSharpCompilerServiceChecker(backgroundServiceEnabled, false), state, backgroundService, false)
+    let mutable rootPath : string option = None
+    let mutable commands = new Commands(FSharpCompilerServiceChecker(backgroundServiceEnabled, false), state, backgroundService, false, rootPath)
     let mutable commandDisposables = ResizeArray()
-
     let mutable clientCapabilities: ClientCapabilities option = None
     let mutable glyphToCompletionKind = glyphToCompletionKindGenerator None
     let mutable glyphToSymbolKind = glyphToSymbolKindGenerator None
-
     let mutable config = FSharpConfig.Default
-    let mutable rootPath : string option = None
     let mutable codeFixes: CodeFix [] = [||]
     let mutable sigHelpKind = None
 
@@ -410,7 +408,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         if hadAnalyzersBefore <> hasAnalyzersNow then
           let oldCommands = commands
           let oldDisposables = commandDisposables
-          let newCommands = new Commands(FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzersNow), state, backgroundService, hasAnalyzersNow)
+          let newCommands = new Commands(FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzersNow), state, backgroundService, hasAnalyzersNow, rootPath)
           commands <- newCommands
           commandDisposables <- ResizeArray()
           commands.SetWorkspaceRoot rootPath
@@ -555,6 +553,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | None -> p.RootPath
 
         rootPath <- actualRootPath
+        commands.SetWorkspaceRoot actualRootPath
 
         let c =
             p.InitializationOptions

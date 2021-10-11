@@ -55,14 +55,14 @@ type NotificationEvent=
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
 
-type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool) =
+type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool, rootPath: string option) =
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
     let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let disposables = ResizeArray()
 
-    let mutable workspaceRoot: string option = None
+    let mutable workspaceRoot: string option = rootPath
     let mutable linterConfigFileRelativePath: string option = None
     let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
@@ -371,6 +371,22 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                 | None -> ()
         } |> Async.Start
 
+    let fantomasDaemon =
+      lazy (
+          match workspaceRoot with
+          | None ->
+            fantomasLogger.warn (Log.setMessage "The workspace must be known to launch the Fantomas Daemon")
+            None
+          | Some workspaceRoot ->
+            let fantomasService = Fantomas.Client.FantomasToolLocator.createForWorkingDirectory workspaceRoot
+            match fantomasService with
+            | Error error ->
+              fantomasLogger.error (Log.setMessage error)
+              None
+            | Ok service ->
+              disposables.Add service
+              Some service
+      )
 
     do disposables.Add <| state.ProjectController.Notifications.Subscribe (fun ev ->
       match ev with
@@ -1139,27 +1155,38 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member x.FormatDocument (file: string<LocalPath>) =
       asyncResult {
-          try
-            let! _, text = x.TryGetFileCheckerOptionsWithLines file
-            let currentCode = string text
-            let fantomasService = Fantomas.Client.FantomasToolLocator.createForWorkingDirectory @"C:\Users\fverdonck\Projects\fantomas"
-            match fantomasService with
-            | Error error ->
-              fantomasLogger.error (Log.setMessage error)
-              return! Core.Error (sprintf "Could not create fantomas daemon\n%A" error)
-            | Ok service ->
-              let! fantomasResponse = service.FormatDocumentAsync { SourceCode = currentCode; FilePath = (UMX.untag file); IsLastFile = false; Config = None }
-              match fantomasResponse with
-              | { Code = 1; Content = Some code } ->
-                fantomasLogger.info (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
-                return text, code
-              | _ ->
-                fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\"" fantomasResponse))
-                return! Core.Error (sprintf "Formatting failed!\n%A" fantomasResponse)
-          with
-          | ex ->
-            fantomasLogger.warn (Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}" >> Log.addContextDestructured "message" ex.Message >> Log.addExn ex)
-            return! Core.Error ex.Message
+        try
+          let! _, text = x.TryGetFileCheckerOptionsWithLines file
+          let currentCode = string text
+
+          match fantomasDaemon.Value with
+          | None ->
+            fantomasLogger.warn (Log.setMessage "Fantomas daemon is not present")
+            return! Core.Error "Fantomas daemon is not present"
+          | Some fantomasService ->
+            let! fantomasResponse =
+              fantomasService.FormatDocumentAsync
+                { SourceCode = currentCode
+                  FilePath = (UMX.untag file)
+                  IsLastFile = false
+                  Config = None }
+
+            match fantomasResponse with
+            | { Code = 1; Content = Some code } ->
+              fantomasLogger.info (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
+              return text, code
+            | _ ->
+              fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\"" fantomasResponse))
+              return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        with
+        | ex ->
+          fantomasLogger.warn (
+            Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
+            >> Log.addContextDestructured "message" ex.Message
+            >> Log.addExn ex
+          )
+
+          return! Core.Error ex.Message
       }
 
     /// gets the semantic classification ranges for a file, optionally filtered by a given range.
