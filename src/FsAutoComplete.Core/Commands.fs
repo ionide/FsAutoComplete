@@ -1173,10 +1173,19 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
             match fantomasResponse with
             | { Code = 1; Content = Some code } ->
-              fantomasLogger.info (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
+              fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
               return text, code
+            | { Code = 2 } ->
+              fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+              return text, null
+            | { Code = 3; Content = Some error } ->
+              fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error ))
+              return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+            | { Code = 4 } ->
+              fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+              return text, null
             | _ ->
-              fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\"" fantomasResponse))
+              fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A" file fantomasResponse.Code fantomasResponse))
               return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
         with
         | ex ->
