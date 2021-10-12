@@ -1156,19 +1156,27 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member x.FormatDocument (file: string<LocalPath>) =
       asyncResult {
         try
-          let! _, text = x.TryGetFileCheckerOptionsWithLines file
-          let currentCode = string text
-
           match fantomasDaemon.Value with
           | None ->
             fantomasLogger.warn (Log.setMessage "Fantomas daemon is not present")
             return! Core.Error "Fantomas daemon is not present"
           | Some fantomasService ->
+            let! _, text = x.TryGetFileCheckerOptionsWithLines file
+            let currentCode = string text
+            let filePath = (UMX.untag file)
+            let isLastFile =
+              state.GetProjectOptions file
+              |> Option.bind (fun options ->
+                fantomasLogger.debug (Log.setMessage (sprintf "Project options were found for \"%A\"" file))
+                Seq.tryLast options.SourceFiles)
+              |> Option.map (fun  lastFile -> lastFile = filePath)
+              |> Option.defaultValue false // TODO: not sure if this is a good default
+
             let! fantomasResponse =
               fantomasService.FormatDocumentAsync
                 { SourceCode = currentCode
-                  FilePath = (UMX.untag file)
-                  IsLastFile = false
+                  FilePath = filePath
+                  IsLastFile = isLastFile
                   Config = None }
 
             match fantomasResponse with
