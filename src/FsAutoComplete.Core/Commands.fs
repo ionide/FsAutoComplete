@@ -1153,7 +1153,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
-    member x.FormatDocument (file: string<LocalPath>) =
+    member x.FormatDocument (file: string<LocalPath>) : Async<Result<(ISourceText * string) option, string>>  =
       asyncResult {
         try
           match fantomasDaemon.Value with
@@ -1182,16 +1182,16 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             match fantomasResponse with
             | { Code = 1; Content = Some code } ->
               fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
-              return text, code
+              return Some(text, code)
             | { Code = 2 } ->
               fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-              return text, null
+              return None
             | { Code = 3; Content = Some error } ->
               fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error ))
               return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
             | { Code = 4 } ->
               fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-              return text, null
+              return None
             | _ ->
               fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A" file fantomasResponse.Code fantomasResponse))
               return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)

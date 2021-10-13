@@ -1187,13 +1187,15 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let fileName = doc.GetFilePath() |> Utils.normalizePath
         let! res = commands.FormatDocument fileName
         match res with
-        | Ok (lines, formatted) ->
+        | Ok (Some (lines, formatted)) ->
             let range =
                 let zero = { Line = 0; Character = 0 }
                 let lastPos = lines.GetLastFilePosition()
                 { Start = zero; End = fcsPosToLsp lastPos }
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
+        | Ok None ->
+          return LspResult.success None
         | Error ex ->
             return LspResult.internalError ex
     }
