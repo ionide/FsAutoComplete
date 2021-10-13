@@ -1187,21 +1187,40 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let fileName = doc.GetFilePath() |> Utils.normalizePath
         let! res = commands.FormatDocument fileName
         match res with
-        | Ok (Some (lines, formatted)) ->
+        | Ok (FormatDocumentResponse.Formatted (lines, formatted)) ->
             let range =
                 let zero = { Line = 0; Character = 0 }
                 let lastPos = lines.GetLastFilePosition()
                 { Start = zero; End = fcsPosToLsp lastPos }
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
-        | Ok None ->
+        | Ok (FormatDocumentResponse.UnChanged | FormatDocumentResponse.Ignored) ->
           return LspResult.success None
+        | Ok FormatDocumentResponse.ToolNotPresent ->
+              let actions =
+                [| { Title = "Install locally" }
+                   { Title = "Install globally" } |]
+              let! response =
+                lspClient.WindowShowMessageRequest { Type = MessageType.Warning
+                                                     Message = "No Fantomas install was found."
+                                                     Actions = Some actions }
+
+              match response with
+              | Ok (Some { Title = "Install locally" }) ->
+                () // todo
+              | Ok (Some { Title = "Install globally" }) ->
+                let didInstall = System.Diagnostics.Process.Start("dotnet", @"tool install -g --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
+                if didInstall then fantomasLogger.info (Log.setMessage "fantomas was install globally")
+
+                // TODO: make sure that the fantomasDaemon is refreshed in Commands.fs
+                // Do we want try the entire format function again?
+                // Or just wait until the user makes the next format request
+                ()
+              | _ -> ()
+
+              return LspResult.internalError "Fantomas install not found."
+        | Ok (FormatDocumentResponse.Error ex)
         | Error ex ->
-            if ex = "Fantomas daemon is not present" then
-              do!
-                lspClient.WindowShowMessage
-                  { Type = MessageType.Warning
-                    Message = "The latest version of Fantomas needs to installed as a .NET tool. Here is [why](https://www.youtube.com/watch?v=dQw4w9WgXcQ)" }
             return LspResult.internalError ex
     }
 

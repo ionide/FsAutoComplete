@@ -33,6 +33,14 @@ type CoreResponse<'a> =
     | ErrorRes of text: string
     | Res of 'a
 
+[<RequireQualifiedAccess>]
+type FormatDocumentResponse =
+  | Formatted of source: ISourceText * formatted: string
+  | UnChanged
+  | Ignored
+  | ToolNotPresent
+  | Error of string
+
 module AsyncResult =
 
   let inline mapErrorRes ar: Async<CoreResponse<'a>> =
@@ -1153,13 +1161,13 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
-    member x.FormatDocument (file: string<LocalPath>) : Async<Result<(ISourceText * string) option, string>>  =
+    member x.FormatDocument (file: string<LocalPath>) : Async<Result<FormatDocumentResponse,string>>  =
       asyncResult {
         try
           match fantomasDaemon.Value with
           | None ->
             fantomasLogger.warn (Log.setMessage "Fantomas daemon is not present")
-            return! Core.Error "Fantomas daemon is not present"
+            return FormatDocumentResponse.ToolNotPresent
           | Some fantomasService ->
             let! _, text = x.TryGetFileCheckerOptionsWithLines file
             let currentCode = string text
@@ -1182,19 +1190,19 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             match fantomasResponse with
             | { Code = 1; Content = Some code } ->
               fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
-              return Some(text, code)
+              return FormatDocumentResponse.Formatted(text, code)
             | { Code = 2 } ->
               fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-              return None
+              return FormatDocumentResponse.UnChanged
             | { Code = 3; Content = Some error } ->
               fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error ))
-              return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+              return FormatDocumentResponse.Error (sprintf "Formatting failed!\n%A" fantomasResponse)
             | { Code = 4 } ->
               fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-              return None
+              return FormatDocumentResponse.Ignored
             | _ ->
               fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A" file fantomasResponse.Code fantomasResponse))
-              return! Core.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+              return FormatDocumentResponse.Error (sprintf "Formatting failed!\n%A" fantomasResponse)
         with
         | ex ->
           fantomasLogger.warn (

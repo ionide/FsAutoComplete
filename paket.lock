@@ -756,8 +756,8 @@ NUGET
       FSharp.Core (>= 4.6) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       System.Collections.Immutable (>= 1.5 < 5.1) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
   remote: C:\Users\fverdonck\Projects\fantomas\bin\
-    Fantomas.Client (4.6.0-alpha-004)
-      FSharp.Core (>= 5.0.1)
+    Fantomas.Client (0.1.0)
+      FSharp.Core (>= 5.0)
       StreamJsonRpc (>= 2.8.28)
 GITHUB
   remote: TheAngryByrd/FsLibLog
