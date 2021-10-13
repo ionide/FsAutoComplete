@@ -1197,6 +1197,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | Ok None ->
           return LspResult.success None
         | Error ex ->
+            if ex = "Fantomas daemon is not present" then
+              do!
+                lspClient.WindowShowMessage
+                  { Type = MessageType.Warning
+                    Message = "The latest version of Fantomas needs to installed as a .NET tool. Here is [why](https://www.youtube.com/watch?v=dQw4w9WgXcQ)" }
             return LspResult.internalError ex
     }
 
