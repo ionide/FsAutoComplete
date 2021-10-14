@@ -3,6 +3,7 @@ namespace FsAutoComplete
 open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
+open Fantomas.Client.Contracts
 open FsAutoComplete.Logging
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
@@ -379,22 +380,21 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                 | None -> ()
         } |> Async.Start
 
-    let fantomasDaemon =
-      lazy (
-          match workspaceRoot with
-          | None ->
-            fantomasLogger.warn (Log.setMessage "The workspace must be known to launch the Fantomas Daemon")
+    let mutable fantomasDaemon : FantomasService option = None
+    let getFantomasDaemon (filePath:string) =
+      match fantomasDaemon with
+      | Some fantomasDaemon -> Some fantomasDaemon
+      | None ->
+          let root = Option.defaultValue (Path.GetDirectoryName(filePath)) workspaceRoot
+          let fantomasService = Fantomas.Client.FantomasToolLocator.createForWorkingDirectory root
+          match fantomasService with
+          | Error error ->
+            fantomasLogger.error (Log.setMessage error)
             None
-          | Some workspaceRoot ->
-            let fantomasService = Fantomas.Client.FantomasToolLocator.createForWorkingDirectory workspaceRoot
-            match fantomasService with
-            | Error error ->
-              fantomasLogger.error (Log.setMessage error)
-              None
-            | Ok service ->
-              disposables.Add service
-              Some service
-      )
+          | Ok service ->
+            fantomasDaemon <- Some service
+            disposables.Add service
+            Some service
 
     do disposables.Add <| state.ProjectController.Notifications.Subscribe (fun ev ->
       match ev with
@@ -1164,21 +1164,34 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member x.FormatDocument (file: string<LocalPath>) : Async<Result<FormatDocumentResponse,string>>  =
       asyncResult {
         try
-          match fantomasDaemon.Value with
+          let filePath = (UMX.untag file)
+          match getFantomasDaemon filePath with
           | None ->
             fantomasLogger.warn (Log.setMessage "Fantomas daemon is not present")
             return FormatDocumentResponse.ToolNotPresent
           | Some fantomasService ->
             let! _, text = x.TryGetFileCheckerOptionsWithLines file
             let currentCode = string text
-            let filePath = (UMX.untag file)
+
             let isLastFile =
               state.GetProjectOptions file
               |> Option.bind (fun options ->
                 fantomasLogger.debug (Log.setMessage (sprintf "Project options were found for \"%A\"" file))
                 Seq.tryLast options.SourceFiles)
               |> Option.map (fun  lastFile -> lastFile = filePath)
-              |> Option.defaultValue false // TODO: not sure if this is a good default
+              |> Option.defaultWith (fun () ->
+                // This scenario can happen when a user opens an individual file.
+                // Meaning there is no workspace and we need to figure out if the file has a module or not
+                let extension = (Path.GetExtension filePath).ToLower()
+                if extension = ".fs" then
+                  let trimmedCurrentCode = currentCode.TrimStart()
+                  not (trimmedCurrentCode.StartsWith("namespace"))
+                  && not (trimmedCurrentCode.StartsWith("module"))
+                else
+                  // In case of a script file or signature file, the AST parsing cannot fail
+                  // So the value of isLastFile will have little impact
+                  false
+              )
 
             let! fantomasResponse =
               fantomasService.FormatDocumentAsync
