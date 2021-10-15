@@ -99,6 +99,14 @@ module private Format =
         else
             Map.empty
 
+    type AttrLookup = Map<string, string> -> Option<string>
+
+    let private cref: AttrLookup = Map.tryFind "cref"
+    let private langword: AttrLookup = Map.tryFind "langword"
+    let private href: AttrLookup = Map.tryFind "href"
+    let private lang: AttrLookup = Map.tryFind "lang"
+    let private name: AttrLookup = Map.tryFind "name"
+
     let rec private applyFormatter (info : FormatterInfo) text =
         let pattern = tagPattern info.TagName
         match Regex.Match(text, pattern, RegexOptions.IgnoreCase) with
@@ -159,7 +167,7 @@ module private Format =
 
                 | NonVoidElement (innerText, attributes) ->
                     let lang =
-                        match Map.tryFind "lang" attributes with
+                        match lang attributes with
                         | Some lang ->
                             lang
 
@@ -207,7 +215,7 @@ module private Format =
 
                 | NonVoidElement (innerText, attributes) ->
                     let href =
-                        match Map.tryFind "href" attributes with
+                        match href attributes with
                         | Some href ->
                             href
 
@@ -248,45 +256,33 @@ module private Format =
         |> applyFormatter
 
     let private see =
-        let getCRef (attributes : Map<string, string>) = Map.tryFind "cref" attributes
+        let formatFromAttributes (attrs: Map<string, string>) =
+          match cref attrs with
+          // crefs can have backticks in them, which mess with formatting.
+          // for safety we can just double-backtick and markdown is ok with that.
+          | Some cref -> Some $"``{extractMemberText cref}``"
+          | None ->
+            match langword attrs with
+            | Some langword -> Some $"`%s{langword}`"
+            | None -> None
         {
             TagName = "see"
             Formatter =
                 function
-                | VoidElement attributes ->
-                    match getCRef attributes with
-                    | Some cref ->
-                        // TODO: Add config to generates command
-                        "`" + extractMemberText cref + "`"
-                        |> Some
-
-                    | None ->
-                        None
-
+                | VoidElement attributes -> formatFromAttributes attributes
                 | NonVoidElement (innerText, attributes) ->
-                    if String.IsNullOrWhiteSpace innerText then
-                        match getCRef attributes with
-                        | Some cref ->
-                            // TODO: Add config to generates command
-                            "`" + extractMemberText cref + "`"
-                            |> Some
-
-                        | None ->
-                            None
-                    else
-                        "`" + innerText + "`"
-                        |> Some
+                    if String.IsNullOrWhiteSpace innerText then formatFromAttributes attributes
+                    else Some $"`{innerText}`"
         }
         |> applyFormatter
 
     let private xref =
-        let getHRef (attributes : Map<string, string>) = Map.tryFind "href" attributes
         {
             TagName = "xref"
             Formatter =
                 function
                 | VoidElement attributes ->
-                    match getHRef attributes with
+                    match href attributes with
                     | Some href ->
                         // TODO: Add config to generates command
                         "`" + extractMemberText href + "`"
@@ -297,7 +293,7 @@ module private Format =
 
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then
-                        match getHRef attributes with
+                        match href attributes with
                         | Some href ->
                             // TODO: Add config to generates command
                             "`" + extractMemberText href + "`"
@@ -312,14 +308,12 @@ module private Format =
         |> applyFormatter
 
     let private paramRef =
-        let getName (attributes : Map<string, string>) = Map.tryFind "name" attributes
-
         {
             TagName = "paramref"
             Formatter =
                 function
                 | VoidElement attributes ->
-                    match getName attributes with
+                    match name attributes with
                     | Some name ->
                         "`" + name + "`"
                         |> Some
@@ -329,7 +323,7 @@ module private Format =
 
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then
-                        match getName attributes with
+                        match name attributes with
                         | Some name ->
                             // TODO: Add config to generates command
                             "`" + name + "`"
@@ -345,14 +339,12 @@ module private Format =
         |> applyFormatter
 
     let private typeParamRef =
-        let getName (attributes : Map<string, string>) = Map.tryFind "name" attributes
-
         {
             TagName = "typeparamref"
             Formatter =
                 function
                 | VoidElement attributes ->
-                    match getName attributes with
+                    match name attributes with
                     | Some name ->
                         "`" + name + "`"
                         |> Some
@@ -362,7 +354,7 @@ module private Format =
 
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then
-                        match getName attributes with
+                        match name attributes with
                         | Some name ->
                             // TODO: Add config to generates command
                             "`" + name + "`"
