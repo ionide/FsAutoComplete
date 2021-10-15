@@ -1211,8 +1211,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               | Ok (Some { Title = "Install globally" }) ->
                 let didInstall = System.Diagnostics.Process.Start("dotnet", @"tool install -g --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
                 if didInstall then fantomasLogger.info (Log.setMessage "fantomas was install globally")
-
-                // TODO: make sure that the fantomasDaemon is refreshed in Commands.fs
+                commands.ClearFantomasCache ()
                 // Do we want try the entire format function again?
                 // Or just wait until the user makes the next format request
                 ()
