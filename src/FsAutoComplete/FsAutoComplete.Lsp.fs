@@ -1,5 +1,9 @@
 module FsAutoComplete.Lsp
 
+open System
+open System.IO
+open System.Threading
+open System.Diagnostics
 open FsAutoComplete
 open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
@@ -13,13 +17,10 @@ open LanguageServerProtocol.Types
 open LspHelpers
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
-open System
-open System.IO
 open FsToolkit.ErrorHandling
 open FSharp.UMX
 open FSharp.Analyzers
 open FSharp.Compiler.Text
-open System.Threading
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -1198,7 +1199,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           return LspResult.success None
         | Ok FormatDocumentResponse.ToolNotPresent ->
               let actions =
-                [| { Title = "Install locally" }
+                [| if Option.isSome rootPath then { Title = "Install locally" }
                    { Title = "Install globally" } |]
               let! response =
                 lspClient.WindowShowMessageRequest { Type = MessageType.Warning
@@ -1207,10 +1208,26 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
               match response with
               | Ok (Some { Title = "Install locally" }) ->
-                () // todo
+                let didInstall =
+                  rootPath
+                  |> Option.map (fun rootPath->
+                    let dotConfig = Path.Combine(rootPath, ".config", "dotnet-tools.json")
+                    if not (File.Exists dotConfig) then
+                      Process.Start("dotnet", "new tool-manifest").WaitForExit(5000) |> ignore
+                    Process.Start("dotnet", @"tool install --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
+                    )
+                  |> Option.defaultValue false
+
+                if didInstall then
+                  fantomasLogger.info (Log.setMessage (sprintf "fantomas was install locally at %s" rootPath))
+                  do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = "fantomas-tool was installed locally" }
+                  commands.ClearFantomasCache ()
+
               | Ok (Some { Title = "Install globally" }) ->
-                let didInstall = System.Diagnostics.Process.Start("dotnet", @"tool install -g --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
-                if didInstall then fantomasLogger.info (Log.setMessage "fantomas was install globally")
+                let didInstall = Process.Start("dotnet", @"tool install -g --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
+                if didInstall then
+                  fantomasLogger.info (Log.setMessage "fantomas was install globally")
+                  do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = "fantomas-tool was installed globally" }
                 commands.ClearFantomasCache ()
                 // Do we want try the entire format function again?
                 // Or just wait until the user makes the next format request
