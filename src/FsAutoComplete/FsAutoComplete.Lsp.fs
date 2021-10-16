@@ -1214,12 +1214,18 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     let dotConfig = Path.Combine(rootPath, ".config", "dotnet-tools.json")
                     if not (File.Exists dotConfig) then
                       Process.Start("dotnet", "new tool-manifest").WaitForExit(5000) |> ignore
+                    else
+                      let dotConfigContent = File.ReadAllText dotConfig
+                      if dotConfigContent.Contains("fantomas-tool") then
+                        // uninstall a older, non-compatible version of fantomas-tool
+                        Process.Start("dotnet", @"tool uninstall fantomas-tool").WaitForExit(5000) |> ignore
+
                     Process.Start("dotnet", @"tool install --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
                     )
                   |> Option.defaultValue false
 
                 if didInstall then
-                  fantomasLogger.info (Log.setMessage (sprintf "fantomas was install locally at %s" rootPath))
+                  fantomasLogger.info (Log.setMessage (sprintf "fantomas was install locally at %A" rootPath))
                   do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = "fantomas-tool was installed locally" }
                   commands.ClearFantomasCache ()
 
