@@ -70,21 +70,21 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       sdkRefsLogger.info (Log.setMessage "No dotnet SDK root path found")
       Map.empty
     | Some root, None, None ->
-      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk and runtime versions inside {root}" >> Log.addContextDestructured "root" root)
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find matching sdk and runtime versions inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some root, None, _ ->
-      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x sdk version inside {root}" >> Log.addContextDestructured "root" root)
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find matching sdk version inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some root, _, None ->
-      sdkRefsLogger.warn (Log.setMessage "Couldn't find latest 3.x runtime version inside {root}" >> Log.addContextDestructured "root" root)
+      sdkRefsLogger.warn (Log.setMessage "Couldn't find matching runtime version inside {root}" >> Log.addContextDestructured "root" root)
       Map.empty
     | Some dotnetSdkRoot, Some sdkVersion, Some runtimeVersion ->
       let tfm = FSIRefs.tfmForRuntime sdkVersion
       let refs = FSIRefs.netCoreRefs dotnetSdkRoot (string sdkVersion) (string runtimeVersion) tfm true
       sdkRefsLogger.info (Log.setMessage "Found refs for {sdk} inside {root}"
                           >> Log.addContextDestructured "root" dotnetSdkRoot
-                          >> Log.addContextDestructured "sdk" sdkVersion
-                          >> Log.addContextDestructured "runtimeVersion" runtimeVersion
+                          >> Log.addContext "sdk" sdkVersion
+                          >> Log.addContext "runtimeVersion" runtimeVersion
                           >> Log.addContextDestructured "tfm" tfm
                           >> Log.addContextDestructured "refs" refs)
 
@@ -135,6 +135,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
           else if assemblyName.Contains "System.Runtime.WindowsRuntime"
             || assemblyName.Contains "System.Runtime.WindowsRuntime.UI.Xaml"
           then None
+          else if assemblyName.Contains "mscorlib" then None
           else Some (assemblyName, path)
       )
       |> Map.ofArray
@@ -156,9 +157,18 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     { projectOptions with
         SourceFiles = files }
 
+  let (|Reference|_|) (opt: string) = 
+    if opt.StartsWith "-r:" then Some (opt.[3..]) else None
+
   /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
   let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =
-    { projectOptions with SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath }
+    { projectOptions with 
+        SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath
+        OtherOptions = projectOptions.OtherOptions |> Array.map (fun opt ->
+          match opt with
+          | Reference r -> $"-r:{Path.GetFullPath r}"
+          | opt -> opt
+        ) }
 
   member __.DisableInMemoryProjectReferences
     with get() = disableInMemoryProjectReferences
@@ -187,9 +197,12 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(UMX.untag file, source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
     optsLogger.trace (Log.setMessage "Got NetCore options {opts} for file {file} with errors {errors}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "opts" opts >> Log.addContextDestructured "errors" errors)
-    let allModifications = replaceFrameworkRefs >> addLoadedFiles >> resolveRelativeFilePaths
+    let allModifications = 
+      // replaceFrameworkRefs >> 
+      addLoadedFiles >> 
+      resolveRelativeFilePaths
     let modified = allModifications opts
-    optsLogger.trace (Log.setMessage "Replaced options to {opts}" >> Log.addContextDestructured "opts" opts)
+    optsLogger.trace (Log.setMessage "Replaced options to {opts}" >> Log.addContextDestructured "opts" modified)
     return modified, errors
   }
 
@@ -202,10 +215,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
         self.GetNetCoreScriptOptions(file, source)
 
     match errors with
-    | [] ->
-      let refs, otherOpts = projOptions.OtherOptions |> Array.partition (fun o -> o.StartsWith("-r"))
-      logQueueLength optsLogger (Log.setMessage "Resolved references: {refs}" >> Log.addContextDestructured "refs" refs)
-      logQueueLength optsLogger (Log.setMessage "Resolved other options: {otherOpts}" >> Log.addContextDestructured "otherOpts" otherOpts)
+    | [] -> ()
     | errs ->
       logQueueLength optsLogger (Log.setLogLevel LogLevel.Error >> Log.setMessage "Resolved {opts} with {errors}" >> Log.addContextDestructured "opts" projOptions >> Log.addContextDestructured "errors" errs)
 
@@ -261,6 +271,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
           logQueueLength checkerLogger (Log.setMessage "{opName} completed with errors: {errors}" >> Log.addContextDestructured "opName" opName >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
           return ResultOrString.Error (sprintf "Check aborted (%A). Errors: %A" c parseErrors)
         | FSharpCheckFileAnswer.Succeeded(c) ->
+          logQueueLength checkerLogger (Log.setMessage "{opName} completed successfully" >> Log.addContextDestructured "opName" opName)
           return Ok (ParseAndCheckResults(p, c, entityCache))
       with
       | ex ->
@@ -302,25 +313,23 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   member internal __.GetFSharpChecker() = checker
 
-  member __.SetDotnetRoot(directory: DirectoryInfo) =
-    if sdkRoot = Some directory
+  member __.SetDotnetRoot(dotnetBinary: FileInfo) =
+    if sdkRoot = Some dotnetBinary.Directory
     then ()
     else
-      sdkRoot <- Some directory
+      sdkRoot <- Some dotnetBinary.Directory
       //TODO(CH): should this range be user-assignable somehow?
       let allowedVersionRange =
         let maxVersion = System.Environment.Version.Major + 1
         SemanticVersioning.Range.Parse $"< %d{maxVersion}"
       let sdk = lazy (
-          Ionide.ProjInfo.SdkDiscovery.sdks directory
-          |> Seq.map fst
-          |> Array.ofSeq
+          Ionide.ProjInfo.SdkDiscovery.sdks dotnetBinary
+          |> Array.map (fun sdk -> sdk.Version)
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
       )
       let runtime = lazy (
-          Ionide.ProjInfo.SdkDiscovery.runtimes directory
-          |> Seq.map fst
-          |> Array.ofSeq
+          Ionide.ProjInfo.SdkDiscovery.runtimes dotnetBinary
+          |> Array.map (fun runtime -> runtime.Version)
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
       )
       sdkVersion <- sdk

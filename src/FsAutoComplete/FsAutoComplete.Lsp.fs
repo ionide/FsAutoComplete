@@ -193,28 +193,25 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let parseFile (p: DidChangeTextDocumentParams) =
 
         async {
-            if not commands.IsWorkspaceReady && rootPath.IsSome then
-                logger.warn (Log.setMessage "ParseFile - Workspace not ready")
-            else
-                let doc = p.TextDocument
-                let filePath = doc.GetFilePath() |> Utils.normalizePath
-                let contentChange = p.ContentChanges |> Seq.tryLast
-                match contentChange, doc.Version with
-                | Some contentChange, Some version ->
-                    if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                        let content = SourceText.ofString contentChange.Text
-                        let tfmConfig = config.UseSdkScripts
-                        logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
-                        do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
+            let doc = p.TextDocument
+            let filePath = doc.GetFilePath() |> Utils.normalizePath
+            let contentChange = p.ContentChanges |> Seq.tryLast
+            match contentChange, doc.Version with
+            | Some contentChange, Some version ->
+                if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
+                    let content = SourceText.ofString contentChange.Text
+                    let tfmConfig = config.UseSdkScripts
+                    logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
+                    do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
-                        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-                        if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
-                        if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
-                        if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
-                    else
-                        logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
-                | _ ->
-                    logger.info (Log.setMessage "ParseFile - Found no change for {file}" >> Log.addContextDestructured "file" filePath)
+                    if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+                    if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
+                    if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
+                    if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
+                else
+                    logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
+            | _ ->
+                logger.info (Log.setMessage "ParseFile - Found no change for {file}" >> Log.addContextDestructured "file" filePath)
         } |> Async.Start
 
     let parseFileDebuncer = Debounce(500, parseFile)
@@ -425,7 +422,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let di = DirectoryInfo config.DotNetRoot
         if di.Exists
         then
-          commands.SetDotnetSDKRoot di
+          let dotnetBinary = 
+            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform (Runtime.InteropServices.OSPlatform.Windows) 
+            then FileInfo (Path.Combine (di.FullName, "dotnet.exe"))
+            else FileInfo (Path.Combine (di.FullName, "dotnet"))
+          if dotnetBinary.Exists then commands.SetDotnetSDKRoot dotnetBinary else ()
         else
           // if we were mistakenly given the path to a dotnet binary
           // then use the parent directory as the dotnet root instead
@@ -433,7 +434,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           if fi.Exists &&
             ( fi.Name = "dotnet" || fi.Name = "dotnet.exe")
           then
-            commands.SetDotnetSDKRoot (fi.Directory)
+            commands.SetDotnetSDKRoot fi
 
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
@@ -770,11 +771,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "TextDocumentDidOpen Request: {parms}" >> Log.addContextDestructured "parms" filePath )
 
         commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
-
-
-        if not commands.IsWorkspaceReady && rootPath.IsSome then
-            do! commands.WorkspaceReady |> Async.AwaitEvent
-            logger.info (Log.setMessage "TextDocumentDidOpen - workspace ready")
 
         do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
@@ -1359,7 +1355,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             let (actions: Fix list [] , errors: string []) = Array.partitionResults fixes
             let actions = actions |> List.concat
             if errors.Length <> 0 then
-              logger.warn (
+              logger.trace (
                 Log.setMessage "Errors while processing code action request for {file} with {context} at {range}: {errors}"
                 >> Log.addContextDestructured "file" codeActionParams.TextDocument.Uri
                 >> Log.addContextDestructured "context" codeActionParams.Context

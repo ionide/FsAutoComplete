@@ -128,19 +128,17 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
       let allowedVersionRange =
         let maxVersion = System.Environment.Version.Major + 1
         SemanticVersioning.Range.Parse $"< %d{maxVersion}"
-      let sdkRoot = Environment.dotnetSDKRoot.Value
-      if sdkRoot.Exists
+      let dotnetExe = Ionide.ProjInfo.Paths.dotnetRoot
+      if dotnetExe.Exists
       then
         let sdk = lazy (
-            Ionide.ProjInfo.SdkDiscovery.sdks sdkRoot
-            |> Seq.map fst
-            |> Array.ofSeq
+            Ionide.ProjInfo.SdkDiscovery.sdks dotnetExe
+            |> Array.map (fun info -> info.Version)
             |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
         )
         let runtime = lazy (
-            Ionide.ProjInfo.SdkDiscovery.runtimes sdkRoot
-            |> Seq.map fst
-            |> Array.ofSeq
+            Ionide.ProjInfo.SdkDiscovery.runtimes dotnetExe
+            |> Array.map (fun info -> info.Version)
             |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
         )
 

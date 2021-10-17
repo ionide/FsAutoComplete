@@ -39,7 +39,7 @@
             "enableStepFiltering": false,
             "args": [
               "--filter",
-              "lsp.Ionide WorkspaceLoader.codefix tests.remove unused binding"
+              "lsp.Ionide WorkspaceLoader.Autocomplete Tests.Autocomplete within project files.Get Autocomplete module members"
             ]
         },
         {

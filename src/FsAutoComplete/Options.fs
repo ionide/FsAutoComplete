@@ -66,7 +66,7 @@ module Options =
             logConfig.WriteTo.Async(fun c -> c.File(path = s, levelSwitch = levelSwitch) |> ignore) |> ignore
           with
           | e ->
-            printfn "Bad log file: %s" e.Message
+            eprintfn "Bad log file: %s" e.Message
             exit 1
       | Filter categories ->
           categories

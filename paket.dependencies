@@ -5,7 +5,7 @@ framework: netstandard2.0, net5.0
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
 #source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
-#source: ./libs
+source: ./libs
 storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
@@ -13,9 +13,9 @@ github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibL
 nuget Argu ~> 5.2.0
 nuget Fantomas.Client 0.3.1
 nuget FSharp.Compiler.Service ~> 39
-nuget Ionide.ProjInfo 0.54
-nuget Ionide.ProjInfo.FCS 0.54
-nuget Ionide.ProjInfo.ProjectSystem 0.54
+nuget Ionide.ProjInfo 0.54.1
+nuget Ionide.ProjInfo.FCS 0.54.1
+nuget Ionide.ProjInfo.ProjectSystem 0.54.1
 nuget Microsoft.Build copy_local:false
 nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
@@ -26,7 +26,7 @@ nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 # nuget Fake.Runtime prerelease
 nuget FSharpLint.Core
-nuget FSharp.Core
+nuget FSharp.Core < 6.0.0
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
 nuget Microsoft.Data.Sqlite.Core 2.2.4

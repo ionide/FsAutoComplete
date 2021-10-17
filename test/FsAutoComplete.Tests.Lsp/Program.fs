@@ -22,19 +22,22 @@ let testTimeout =
   |> float
   |> TimeSpan.FromMinutes
 
+// delay in ms between workspace start + stop notifications because the system goes too fast :-/
+Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
+
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
-  "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
+  // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
 ]
 
 [<Tests>]
 let tests =
-  let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory)
+  let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
         Templates.tests()
-        let state = FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
+        let state () = FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
         initTests state
         codeLensTest state
         documentSymbolTest state

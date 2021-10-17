@@ -403,14 +403,9 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member __.Notify = notify.Publish
 
-    member __.WorkspaceReady = state.ProjectController.WorkspaceReady
-
     member __.FileChecked = fileChecked.Publish
 
     member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
-
-    member __.IsWorkspaceReady
-        with get() = state.ProjectController.IsWorkspaceReady
 
     member __.LastVersionChecked
         with get() = lastVersionChecked
@@ -1044,7 +1039,6 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member x.WorkspaceLoad (files: string list) (disableInMemoryProjectReferences: bool) binaryLogs = async {
         commandsLogger.info (Log.setMessage "Workspace loading started '{files}'" >> Log.addContextDestructured "files" files)
         checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-
         state.ProjectController.LoadWorkspace(files, binaryLogs)
         commandsLogger.info (Log.setMessage "Workspace loading finished ")
         return CoreResponse.Res true
@@ -1147,7 +1141,7 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
             return ranges
     }
 
-    member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
+    member __.SetDotnetSDKRoot(dotnetBinary: System.IO.FileInfo) = checker.SetDotnetRoot(dotnetBinary)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
     member x.FormatDocument (file: string<LocalPath>) : Async<Result<FormatDocumentResponse,string>>  =
