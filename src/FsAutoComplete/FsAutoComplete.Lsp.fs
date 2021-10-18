@@ -1196,7 +1196,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
             return LspResult.success(Some([| { Range = range; NewText = formatted  } |]))
         | Ok FormatDocumentResponse.Ignored ->
-          do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = (sprintf "\"%A\" is ignored by a .fantomasignore file." fileName) }
+          let fileName = UMX.untag fileName |> Path.GetFileName
+          do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = (sprintf "\"%s\" is ignored by a .fantomasignore file." fileName) }
           return LspResult.success None
         | Ok FormatDocumentResponse.UnChanged ->
           return LspResult.success None
