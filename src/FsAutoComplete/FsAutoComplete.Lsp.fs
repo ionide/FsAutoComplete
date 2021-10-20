@@ -1224,7 +1224,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         // uninstall a older, non-compatible version of fantomas-tool
                         Process.Start("dotnet", @"tool uninstall fantomas-tool").WaitForExit(5000) |> ignore
 
-                    Process.Start("dotnet", @"tool install --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
+                    Process.Start("dotnet", @"tool install --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
                     )
                   |> Option.defaultValue false
 
@@ -1234,7 +1234,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                   commands.ClearFantomasCache ()
 
               | Ok (Some { Title = "Install globally" }) ->
-                let didInstall = Process.Start("dotnet", @"tool install -g --add-source C:\Users\fverdonck\Projects\fantomas\bin --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
+                let didInstall = Process.Start("dotnet", @"tool install -g --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
                 if didInstall then
                   fantomasLogger.info (Log.setMessage "fantomas was installed globally")
                   do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = "fantomas-tool was installed globally" }

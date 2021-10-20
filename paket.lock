@@ -14,6 +14,9 @@ NUGET
     Expecto (9.0.2)
       FSharp.Core (>= 4.6)
       Mono.Cecil (>= 0.11.2)
+    Fantomas.Client (0.3)
+      FSharp.Core (>= 5.0)
+      StreamJsonRpc (>= 2.8.28)
     FParsec (1.1.1) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= net5.0))
       FSharp.Core (>= 4.3.4)
     FSharp.Analyzers.SDK (0.8)
@@ -755,10 +758,6 @@ NUGET
       Expecto (>= 9.0 < 10.0) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       FSharp.Core (>= 4.6) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       System.Collections.Immutable (>= 1.5 < 5.1) - restriction: || (== net5.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
-  remote: C:\Users\fverdonck\Projects\fantomas\bin\
-    Fantomas.Client (0.2.2)
-      FSharp.Core (>= 5.0)
-      StreamJsonRpc (>= 2.8.28)
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
