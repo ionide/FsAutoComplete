@@ -204,26 +204,24 @@ module private Format =
                     |> Some
         }
         |> applyFormatter
+    
+    let private link text uri = $"[`%s{text}`](%s{uri})"
+    let private code text = $"`%s{text}`"
 
     let private anchor =
         {
             TagName = "a"
             Formatter =
                 function
-                | VoidElement _ ->
-                    None
+                | VoidElement attributes -> 
+                    match href attributes with
+                    | Some href -> Some (link href href)
+                    | None -> None
 
                 | NonVoidElement (innerText, attributes) ->
-                    let href =
-                        match href attributes with
-                        | Some href ->
-                            href
-
-                        | None ->
-                            ""
-
-                    sprintf "[%s](%s)" innerText href
-                    |> Some
+                    match href attributes with
+                    | Some href -> Some (link innerText href)
+                    | None -> Some (code innerText)
         }
         |> applyFormatter
 
@@ -263,7 +261,7 @@ module private Format =
           | Some cref -> Some $"``{extractMemberText cref}``"
           | None ->
             match langword attrs with
-            | Some langword -> Some $"`%s{langword}`"
+            | Some langword -> Some (code langword)
             | None -> None
         {
             TagName = "see"
@@ -272,7 +270,10 @@ module private Format =
                 | VoidElement attributes -> formatFromAttributes attributes
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then formatFromAttributes attributes
-                    else Some $"`{innerText}`"
+                    else
+                        match href attributes with
+                        | Some externalUrl -> Some (link innerText externalUrl)
+                        | None -> Some $"`{innerText}`"
         }
         |> applyFormatter
 
@@ -283,27 +284,16 @@ module private Format =
                 function
                 | VoidElement attributes ->
                     match href attributes with
-                    | Some href ->
-                        // TODO: Add config to generates command
-                        "`" + extractMemberText href + "`"
-                        |> Some
-
+                    | Some href -> Some (link href href)
                     | None ->
                         None
 
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then
                         match href attributes with
-                        | Some href ->
-                            // TODO: Add config to generates command
-                            "`" + extractMemberText href + "`"
-                            |> Some
-
-                        | None ->
-                            None
-                    else
-                        "`" + innerText + "`"
-                        |> Some
+                        | Some href -> Some (link innerText href)
+                        | None -> None
+                    else Some (code innerText)
         }
         |> applyFormatter
 
@@ -314,26 +304,17 @@ module private Format =
                 function
                 | VoidElement attributes ->
                     match name attributes with
-                    | Some name ->
-                        "`" + name + "`"
-                        |> Some
-
-                    | None ->
-                        None
+                    | Some name -> Some (code name)
+                    | None -> None
 
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then
                         match name attributes with
                         | Some name ->
                             // TODO: Add config to generates command
-                            "`" + name + "`"
-                            |> Some
-
-                        | None ->
-                            None
-                    else
-                        "`" + innerText + "`"
-                        |> Some
+                            Some (code name)
+                        | None -> None
+                    else Some (code innerText)
 
         }
         |> applyFormatter
@@ -345,26 +326,17 @@ module private Format =
                 function
                 | VoidElement attributes ->
                     match name attributes with
-                    | Some name ->
-                        "`" + name + "`"
-                        |> Some
-
-                    | None ->
-                        None
+                    | Some name -> Some (code name)
+                    | None -> None
 
                 | NonVoidElement (innerText, attributes) ->
                     if String.IsNullOrWhiteSpace innerText then
                         match name attributes with
                         | Some name ->
                             // TODO: Add config to generates command
-                            "`" + name + "`"
-                            |> Some
-
-                        | None ->
-                            None
-                    else
-                        "`" + innerText + "`"
-                        |> Some
+                            Some (code name)
+                        | None -> None
+                    else Some (code innerText)
         }
         |> applyFormatter
 
@@ -846,7 +818,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     member __.ToFullEnhancedString() =
         let content =
             summary
-            + Section.fromList "" remarks
+            + Section.fromList "Remarks" remarks
             + Section.fromKeyValueList "Type parameters" typeParams
             + Section.fromKeyValueList "Parameters" parameters
             + Section.fromOption "Returns" returns
@@ -865,7 +837,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize : int, columnOffset 
     member __.ToDocumentationString() =
         "**Description**" + nl + nl
         + summary
-        + Section.fromList "" remarks
+        + Section.fromList "Remarks" remarks
         + Section.fromKeyValueList "Type parameters" typeParams
         + Section.fromKeyValueList "Parameters" parameters
         + Section.fromOption "Returns" returns
