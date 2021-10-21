@@ -3,6 +3,8 @@ namespace FsAutoComplete
 open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
+open Fantomas.Client.Contracts
+open Fantomas.Client.LSPFantomasService
 open FsAutoComplete.Logging
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
@@ -33,6 +35,14 @@ type CoreResponse<'a> =
     | ErrorRes of text: string
     | Res of 'a
 
+[<RequireQualifiedAccess>]
+type FormatDocumentResponse =
+  | Formatted of source: ISourceText * formatted: string
+  | UnChanged
+  | Ignored
+  | ToolNotPresent
+  | Error of string
+
 module AsyncResult =
 
   let inline mapErrorRes ar: Async<CoreResponse<'a>> =
@@ -55,14 +65,14 @@ type NotificationEvent=
     | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
     | FileParsed of string<LocalPath>
 
-type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool) =
+type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundService: BackgroundServices.BackgroundService, hasAnalyzers: bool, rootPath: string option) =
     let fileParsed = Event<FSharpParseFileResults>()
     let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
     let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
     let disposables = ResizeArray()
 
-    let mutable workspaceRoot: string option = None
+    let mutable workspaceRoot: string option = rootPath
     let mutable linterConfigFileRelativePath: string option = None
     let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
     let mutable lastVersionChecked = -1
@@ -371,6 +381,8 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
                 | None -> ()
         } |> Async.Start
 
+    let fantomasService : FantomasService = new LSPFantomasService() :> FantomasService
+    do disposables.Add fantomasService
 
     do disposables.Add <| state.ProjectController.Notifications.Subscribe (fun ev ->
       match ev with
@@ -1137,26 +1149,49 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
     member __.SetDotnetSDKRoot(directory: System.IO.DirectoryInfo) = checker.SetDotnetRoot(directory)
     member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
-    member x.FormatDocument (file: string<LocalPath>) =
+    member x.FormatDocument (file: string<LocalPath>) : Async<Result<FormatDocumentResponse,string>>  =
       asyncResult {
-          let! (opts, text) = x.TryGetFileCheckerOptionsWithLines file
-          let parsingOptions = Utils.projectOptionsToParseOptions opts
-          let checker : FSharpChecker = checker.GetFSharpChecker()
-          // ENHANCEMENT: consider caching the Fantomas configuration and reevaluate when the configuration file changes.
-          let config =
-              match Fantomas.Extras.EditorConfig.tryReadConfiguration (UMX.untag file) with
-              | Some c -> c
-              | None ->
-                fantomasLogger.warn (Log.setMessage "No fantomas configuration found for file '{filePath}' or parent directories. Using the default configuration." >> Log.addContextDestructured "filePath" file)
-                Fantomas.FormatConfig.FormatConfig.Default
-          try
-            let! formatted = Fantomas.CodeFormatter.FormatDocumentAsync(UMX.untag file, Fantomas.SourceOrigin.SourceText text, config, parsingOptions, checker)
-            return text, formatted
-          with
-          | ex ->
-            fantomasLogger.warn (Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}" >> Log.addContextDestructured "message" ex.Message >> Log.addExn ex)
-            return! Core.Error ex.Message
+        try
+          let filePath = (UMX.untag file)
+          let! _, text = x.TryGetFileCheckerOptionsWithLines file
+          let currentCode = string text
+
+          let! fantomasResponse =
+            fantomasService.FormatDocumentAsync
+              { SourceCode = currentCode
+                FilePath = filePath
+                Config = None }
+
+          match fantomasResponse with
+          | { Code = 1; Content = Some code } ->
+            fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
+            return FormatDocumentResponse.Formatted(text, code)
+          | { Code = 2 } ->
+            fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+            return FormatDocumentResponse.UnChanged
+          | { Code = 3; Content = Some error } ->
+            fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error ))
+            return FormatDocumentResponse.Error (sprintf "Formatting failed!\n%A" fantomasResponse)
+          | { Code = 4 } ->
+            fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+            return FormatDocumentResponse.Ignored
+          | { Code = 6 } ->
+            return FormatDocumentResponse.ToolNotPresent
+          | _ ->
+            fantomasLogger.warn (Log.setMessage (sprintf "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A" file fantomasResponse.Code fantomasResponse))
+            return FormatDocumentResponse.Error (sprintf "Formatting failed!\n%A" fantomasResponse)
+        with
+        | ex ->
+          fantomasLogger.warn (
+            Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
+            >> Log.addContextDestructured "message" ex.Message
+            >> Log.addExn ex
+          )
+
+          return! Core.Error ex.Message
       }
+
+    member _.ClearFantomasCache () = fantomasService.ClearCache ()
 
     /// gets the semantic classification ranges for a file, optionally filtered by a given range.
     member x.GetHighlighting (file: string<LocalPath>, range: Range option) =

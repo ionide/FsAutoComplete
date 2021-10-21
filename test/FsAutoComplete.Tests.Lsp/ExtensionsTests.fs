@@ -228,6 +228,7 @@ let formattingTests state =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
       let! (server, events) = serverInitialize path defaultConfigDto state
+      do! dotnetToolRestore path // need to restore CLI tools in order to use fantomas
       return server, events, path
     }
     |> Async.Cache

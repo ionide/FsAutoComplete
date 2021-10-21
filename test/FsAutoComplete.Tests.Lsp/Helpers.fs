@@ -309,13 +309,20 @@ let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (arg
 let inline expectExitCodeZero (exitCode, _) =
   Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
 
+let dotnetRestore dir =
+  runProcess (logDotnetRestore ("Restore" + dir)) dir "dotnet" "restore"
+  |> Async.map expectExitCodeZero
+
+let dotnetToolRestore dir =
+  runProcess (logDotnetRestore ("ToolRestore" + dir)) dir "dotnet" "tool restore"
+  |> Async.map expectExitCodeZero
+
 let serverInitialize path (config: FSharpConfigDto) state = async {
   dotnetCleanup path
   let files = Directory.GetFiles(path)
 
   if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
-    do! runProcess (logDotnetRestore ("Restore" + path)) path "dotnet" "restore"
-        |> Async.map expectExitCodeZero
+    do! dotnetRestore path
 
   let server, event = createServer state
 
