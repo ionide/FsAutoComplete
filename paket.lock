@@ -6,6 +6,10 @@ NUGET
     Argu (5.2)
       FSharp.Core (>= 4.3.2)
       System.Configuration.ConfigurationManager (>= 4.4)
+    CliWrap (3.3.3)
+      Microsoft.Bcl.AsyncInterfaces (>= 5.0) - restriction: || (&& (== net5.0) (>= net461)) (&& (== net5.0) (< netstandard2.1)) (== netstandard2.0)
+      System.Buffers (>= 4.5.1) - restriction: || (&& (== net5.0) (>= net461)) (&& (== net5.0) (< netstandard2.1)) (== netstandard2.0)
+      System.Threading.Tasks.Extensions (>= 4.5.4) - restriction: || (&& (== net5.0) (>= net461)) (&& (== net5.0) (< netstandard2.1)) (== netstandard2.0)
     Dapper (2.0.78)
       System.Reflection.Emit.Lightweight (>= 4.7) - restriction: == netstandard2.0
     Destructurama.FSharp (1.1.1-dev-00035)

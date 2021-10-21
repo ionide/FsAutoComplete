@@ -21,6 +21,8 @@ open FsToolkit.ErrorHandling
 open FSharp.UMX
 open FSharp.Analyzers
 open FSharp.Compiler.Text
+open CliWrap
+open CliWrap.Buffered
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -1212,36 +1214,96 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
               match response with
               | Ok (Some { Title = "Install locally" }) ->
-                let didInstall =
+                do!
                   rootPath
-                  |> Option.map (fun rootPath->
-                    let dotConfig = Path.Combine(rootPath, ".config", "dotnet-tools.json")
-                    if not (File.Exists dotConfig) then
-                      Process.Start("dotnet", "new tool-manifest").WaitForExit(5000) |> ignore
-                    else
-                      let dotConfigContent = File.ReadAllText dotConfig
-                      if dotConfigContent.Contains("fantomas-tool") then
-                        // uninstall a older, non-compatible version of fantomas-tool
-                        Process.Start("dotnet", @"tool uninstall fantomas-tool").WaitForExit(5000) |> ignore
+                  |> Option.map (fun rootPath ->
+                    async {
+                      let dotConfig =
+                        Path.Combine(rootPath, ".config", "dotnet-tools.json")
 
-                    Process.Start("dotnet", @"tool install --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
-                    )
-                  |> Option.defaultValue false
+                      if not (File.Exists dotConfig) then
+                        let! result =
+                          Cli.Wrap("dotnet").WithArguments(
+                            "new tool-manifest"
+                          )
+                            .WithWorkingDirectory(
+                            rootPath
+                          )
+                            .ExecuteBufferedAsync()
+                            .Task
+                          |> Async.AwaitTask
 
-                if didInstall then
-                  fantomasLogger.info (Log.setMessage (sprintf "fantomas was installed locally at %A" rootPath))
-                  do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = "fantomas-tool was installed locally" }
-                  commands.ClearFantomasCache ()
+                        if result.ExitCode <> 0 then
+                          fantomasLogger.warn (Log.setMessage (sprintf "Unable to create a new tool manifest in %s" rootPath))
+                      else
+                        let dotConfigContent = File.ReadAllText dotConfig
 
+                        if dotConfigContent.Contains("fantomas-tool") then
+                          // uninstall a older, non-compatible version of fantomas-tool
+                          let! result =
+                            Cli.Wrap("dotnet").WithArguments(
+                              "tool uninstall fantomas-tool"
+                            )
+                              .WithWorkingDirectory(
+                              rootPath
+                            )
+                              .ExecuteBufferedAsync()
+                              .Task
+                            |> Async.AwaitTask
+
+                          if result.ExitCode <> 0 then
+                            fantomasLogger.warn (
+                              Log.setMessage (sprintf "Unable to uninstall a non compatible version of fantomas-tool in %s" rootPath)
+                            )
+
+                      let! result =
+                        Cli.Wrap("dotnet").WithArguments(
+                          "tool install --version 4.6.0-alpha-004 fantomas-tool"
+                        )
+                          .WithWorkingDirectory(
+                          rootPath
+                        )
+                          .ExecuteBufferedAsync()
+                          .Task
+                        |> Async.AwaitTask
+
+                      if result.ExitCode = 0 then
+                        fantomasLogger.info (Log.setMessage (sprintf "fantomas was installed locally at %A" rootPath))
+
+                        do!
+                          lspClient.WindowShowMessage
+                            { Type = MessageType.Info
+                              Message = "fantomas-tool was installed locally" }
+
+                        commands.ClearFantomasCache()
+                      else
+                        fantomasLogger.warn (
+                          Log.setMessage (sprintf "Unable to install a compatible version of fantomas-tool in %s" rootPath)
+                        )
+                    }
+
+                  )
+                  |> Option.defaultValue (async { return () })
               | Ok (Some { Title = "Install globally" }) ->
-                let didInstall = Process.Start("dotnet", @"tool install -g --version 4.6.0-alpha-004 fantomas-tool").WaitForExit(5000)
-                if didInstall then
+                let! result =
+                  Cli.Wrap("dotnet").WithArguments(
+                    "tool install -g --version 4.6.0-alpha-004 fantomas-tool"
+                  )
+                    .ExecuteBufferedAsync()
+                    .Task
+                  |> Async.AwaitTask
+
+                if result.ExitCode = 0 then
                   fantomasLogger.info (Log.setMessage "fantomas was installed globally")
-                  do! lspClient.WindowShowMessage { Type = MessageType.Info; Message = "fantomas-tool was installed globally" }
-                commands.ClearFantomasCache ()
-                // Do we want try the entire format function again?
-                // Or just wait until the user makes the next format request
-                ()
+
+                  do!
+                    lspClient.WindowShowMessage
+                      { Type = MessageType.Info
+                        Message = "fantomas-tool was installed globally" }
+
+                  commands.ClearFantomasCache()
+                else
+                  fantomasLogger.warn (Log.setMessage "Unable to install a compatible version of fantomas-tool globally")
               | _ -> ()
 
               return LspResult.internalError "Fantomas install not found."

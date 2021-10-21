@@ -19,5 +19,6 @@ Serilog.Sinks.Console
 Serilog.Sinks.Async
 Destructurama.FSharp
 FSharp.UMX
+CliWrap
 
 Microsoft.NETFramework.ReferenceAssemblies

@@ -42,6 +42,7 @@ nuget FSharp.UMX
 nuget FSharp.Formatting
 nuget FsToolkit.ErrorHandling
 nuget FSharpx.Async
+nuget CliWrap
 
 nuget Microsoft.NET.Test.Sdk ~> 16.8.0
 nuget Microsoft.SourceLink.GitHub copy_local:true
