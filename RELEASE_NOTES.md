@@ -1,3 +1,9 @@
+### 0.48.0 - 23.10.2021
+
+* BUGFIX: [update handling of langword and crefs in see xmldoc nodes](https://github.com/fsharp/FsAutoComplete/pull/838)
+* BUGFIX: [handle href elements on a, see, and xref xml doc comments](https://github.com/fsharp/FsAutoComplete/pull/839)
+* FEATURE: [Use user's managed Fantomas dotnet tool instead of embedding directly into FSAC](https://github.com/fsharp/FsAutoComplete/pull/836) (thanks @nojaf!)
+
 ### 0.47.2 - 09.09.2021
 
 * BUGFIX: [Fix dotnet template rendering on non-english locales](https://github.com/fsharp/FsAutoComplete/pull/826) (thanks @jmiven)
