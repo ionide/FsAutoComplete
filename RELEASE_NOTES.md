@@ -1,3 +1,7 @@
+### 0.48.1 - 24.10.2021
+
+* BUGFIX: [Bump Fantomas.Client to 0.3.1](https://github.com/fsharp/FsAutoComplete/pull/842) (thanks @nojaf!)
+
 ### 0.48.0 - 23.10.2021
 
 * BUGFIX: [update handling of langword and crefs in see xmldoc nodes](https://github.com/fsharp/FsAutoComplete/pull/838)
