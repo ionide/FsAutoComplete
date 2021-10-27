@@ -31,8 +31,7 @@ let loaders = [
 ]
 
 [<Tests>]
-let tests =
-  let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
+let tests toolsPath =
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
@@ -73,6 +72,8 @@ let tests =
 
 [<EntryPoint>]
 let main args =
+  let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
+
   let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
   let verbose = args |> Seq.contains "--debug"
   let switch = LoggingLevelSwitch()
@@ -129,4 +130,4 @@ let main args =
            failOnFocusedTests = true
            printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
            verbosity = if verbose then Expecto.Logging.LogLevel.Debug else Expecto.Logging.LogLevel.Info }
-  runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
+  runTestsWithArgsAndCancel cts.Token config fixedUpArgs (tests toolsPath)
