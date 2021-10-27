@@ -1,3 +1,7 @@
+### 0.48.2 - 27.10.2021
+
+* BUGFIX: [Fix Fantomas.Client reference in the fsautocomplete dotnet tool](https://github.com/fsharp/FsAutoComplete/pull/844)
+
 ### 0.48.1 - 24.10.2021
 
 * BUGFIX: [Bump Fantomas.Client to 0.3.1](https://github.com/fsharp/FsAutoComplete/pull/842) (thanks @nojaf!)
