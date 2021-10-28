@@ -1,5 +1,4 @@
 FSharp.Compiler.Service
-FSharpLint.Core
 Ionide.ProjInfo
 Ionide.ProjInfo.FCS
 Ionide.ProjInfo.ProjectSystem
@@ -16,5 +15,4 @@ FsToolkit.ErrorHandling
 Fantomas.Client
 
 System.Reflection.Metadata
-FSharp.Formatting
 Microsoft.Build.Utilities.Core
