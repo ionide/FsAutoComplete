@@ -26,16 +26,16 @@
             "console": "integratedTerminal",
             "stopAtEntry": false,
             "justMyCode": false,
-            "symbolOptions": {
-              "searchPaths": [],
-              "searchMicrosoftSymbolServer": true,
-              "searchNuGetOrgSymbolServer": true
-            },
-            "sourceLinkOptions": {
-              "*": {
-                "enabled": true
-              }
-            },
+            // "symbolOptions": {
+            //   "searchPaths": [],
+            //   "searchMicrosoftSymbolServer": true,
+            //   "searchNuGetOrgSymbolServer": true
+            // },
+            // "sourceLinkOptions": {
+            //   "*": {
+            //     "enabled": true
+            //   }
+            // },
             "enableStepFiltering": false,
             "args": [
               "--filter",
