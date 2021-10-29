@@ -42,7 +42,7 @@ let tests =
         codeLensTest state
         documentSymbolTest state
         Completion.autocompleteTest state
-        Completion.autoOpenTests state
+        // Completion.autoOpenTests state
         Rename.tests state
         foldingTests state
         tooltipTests state

@@ -157,17 +157,27 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     { projectOptions with
         SourceFiles = files }
 
-  let (|Reference|_|) (opt: string) = 
+  let (|Reference|_|) (opt: string) =
     if opt.StartsWith "-r:" then Some (opt.[3..]) else None
 
   /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
   let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =
-    { projectOptions with 
+    { projectOptions with
         SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath
         OtherOptions = projectOptions.OtherOptions |> Array.map (fun opt ->
           match opt with
           | Reference r -> $"-r:{Path.GetFullPath r}"
           | opt -> opt
+        ) }
+
+  let filterOutPlatformSpecificRefs (projectOptions: FSharpProjectOptions) =
+    { projectOptions with
+        OtherOptions = projectOptions.OtherOptions |> Array.filter (fun opt ->
+          match opt with
+          | Reference r ->
+            let dllName = Path.GetFileNameWithoutExtension r
+            not (dllName.StartsWith "Microsoft") && not (dllName.StartsWith "Windows") && not (dllName.StartsWith "System")
+          | _ -> true
         ) }
 
   member __.DisableInMemoryProjectReferences
@@ -197,9 +207,10 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     let allFlags = Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
     let! (opts, errors) = checker.GetProjectOptionsFromScript(UMX.untag file, source, assumeDotNetFramework = false, useSdkRefs = true, useFsiAuxLib = true, otherFlags = allFlags, userOpName = "getNetCoreScriptOptions")
     optsLogger.trace (Log.setMessage "Got NetCore options {opts} for file {file} with errors {errors}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "opts" opts >> Log.addContextDestructured "errors" errors)
-    let allModifications = 
-      // replaceFrameworkRefs >> 
-      addLoadedFiles >> 
+    let allModifications =
+      replaceFrameworkRefs >>
+      // filterOutPlatformSpecificRefs >>
+      addLoadedFiles >>
       resolveRelativeFilePaths
     let modified = allModifications opts
     optsLogger.trace (Log.setMessage "Replaced options to {opts}" >> Log.addContextDestructured "opts" modified)
@@ -331,6 +342,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
           Ionide.ProjInfo.SdkDiscovery.runtimes dotnetBinary
           |> Array.map (fun runtime -> runtime.Version)
           |> Environment.maxVersionWithThreshold (Some allowedVersionRange) true
+          |> Option.map (fun v -> SemanticVersioning.Version(v.Major, v.Minor, 0))
       )
       sdkVersion <- sdk
       runtimeVersion <- runtime
