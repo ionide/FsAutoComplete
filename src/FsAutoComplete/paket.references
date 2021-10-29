@@ -4,7 +4,6 @@ Newtonsoft.Json
 FSharp.Core
 Microsoft.SourceLink.GitHub
 System.Configuration.ConfigurationManager
-FSharpLint.Core
 Ionide.ProjInfo
 Ionide.ProjInfo.ProjectSystem
 #Fake.Runtime

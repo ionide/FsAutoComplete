@@ -204,7 +204,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
                     do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
-                    if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+                    // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
                     if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
                     if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
                     if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
@@ -295,44 +295,44 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               )
               diagnosticCollections.SetFor(uri, "F# simplify names", diags)
 
-          | NotificationEvent.Lint (file, warnings) ->
-              let uri = Path.LocalPathToUri file
-              // let fs =
-              //     warnings |> List.choose (fun w ->
-              //         w.Warning.Details.SuggestedFix
-              //         |> Option.bind (fun f ->
-              //             let f = f.Force()
-              //             let range = fcsRangeToLsp w.Warning.Details.Range
-              //             f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
-              //         )
-              //     )
+          // | NotificationEvent.Lint (file, warnings) ->
+          //     let uri = Path.LocalPathToUri file
+          //     // let fs =
+          //     //     warnings |> List.choose (fun w ->
+          //     //         w.Warning.Details.SuggestedFix
+          //     //         |> Option.bind (fun f ->
+          //     //             let f = f.Force()
+          //     //             let range = fcsRangeToLsp w.Warning.Details.Range
+          //     //             f |> Option.map (fun f -> range, {Range = range; NewText = f.ToText})
+          //     //         )
+          //     //     )
 
-              let diags =
-                  warnings
-                  |> List.map(fun w ->
-                      let range = fcsRangeToLsp w.Warning.Details.Range
-                      let fixes =
-                        match w.Warning.Details.SuggestedFix with
-                        | None -> None
-                        | Some lazyFix ->
-                          match lazyFix.Value with
-                          | None -> None
-                          | Some fix ->
-                            Some (box [ { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText } ] )
-                      let uri = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) })
-                      { Range = range
-                        Code = Some w.Code
-                        Severity = Some DiagnosticSeverity.Information
-                        Source = "F# Linter"
-                        Message = w.Warning.Details.Message
-                        RelatedInformation = None
-                        Tags = None
-                        Data = fixes
-                        CodeDescription = uri }
-                  )
-                  |> List.sortBy (fun diag -> diag.Range)
-                  |> List.toArray
-              diagnosticCollections.SetFor(uri, "F# Linter", diags)
+          //     let diags =
+          //         warnings
+          //         |> List.map(fun w ->
+          //             let range = fcsRangeToLsp w.Warning.Details.Range
+          //             let fixes =
+          //               match w.Warning.Details.SuggestedFix with
+          //               | None -> None
+          //               | Some lazyFix ->
+          //                 match lazyFix.Value with
+          //                 | None -> None
+          //                 | Some fix ->
+          //                   Some (box [ { Range = fcsRangeToLsp fix.FromRange; NewText = fix.ToText } ] )
+          //             let uri = Option.ofObj w.HelpUrl |> Option.map (fun url -> { Href = Some (Uri url) })
+          //             { Range = range
+          //               Code = Some w.Code
+          //               Severity = Some DiagnosticSeverity.Information
+          //               Source = "F# Linter"
+          //               Message = w.Warning.Details.Message
+          //               RelatedInformation = None
+          //               Tags = None
+          //               Data = fixes
+          //               CodeDescription = uri }
+          //         )
+          //         |> List.sortBy (fun diag -> diag.Range)
+          //         |> List.toArray
+          //     diagnosticCollections.SetFor(uri, "F# Linter", diags)
 
           | NotificationEvent.Canceled (msg) ->
               let ntf = {Content = msg}
@@ -422,8 +422,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let di = DirectoryInfo config.DotNetRoot
         if di.Exists
         then
-          let dotnetBinary = 
-            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform (Runtime.InteropServices.OSPlatform.Windows) 
+          let dotnetBinary =
+            if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform (Runtime.InteropServices.OSPlatform.Windows)
             then FileInfo (Path.Combine (di.FullName, "dotnet.exe"))
             else FileInfo (Path.Combine (di.FullName, "dotnet"))
           if dotnetBinary.Exists then commands.SetDotnetSDKRoot dotnetBinary else ()
@@ -774,7 +774,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         do! (commands.Parse filePath content doc.Version (Some tfmConfig) |> Async.Ignore)
 
-        if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+        // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
         if config.UnusedOpensAnalyzer then Async.Start (commands.CheckUnusedOpens filePath)
         if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath)
         if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
@@ -2002,21 +2002,21 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
     member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
-    member __.FSharpLiterate (p: FSharpLiterateRequest) = async {
-      logger.info (Log.setMessage "FSharpLiterate Request: {parms}" >> Log.addContextDestructured "parms" p )
+    // member __.FSharpLiterate (p: FSharpLiterateRequest) = async {
+    //   logger.info (Log.setMessage "FSharpLiterate Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-      let fn = p.FileName |> Utils.normalizePath
-      let! res = commands.FSharpLiterate fn
-      let res =
-        match res with
-        | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
-            LspResult.internalError msg
-        | CoreResponse.Res (res) ->
-            { Content = CommandResponse.fsharpLiterate FsAutoComplete.JsonSerializer.writeJson res }
-            |> success
+    //   let fn = p.FileName |> Utils.normalizePath
+    //   let! res = commands.FSharpLiterate fn
+    //   let res =
+    //     match res with
+    //     | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
+    //         LspResult.internalError msg
+    //     | CoreResponse.Res (res) ->
+    //         { Content = CommandResponse.fsharpLiterate FsAutoComplete.JsonSerializer.writeJson res }
+    //         |> success
 
-      return res
-    }
+    //   return res
+    // }
 
     member x.FSharpPipelineHints (p: FSharpPipelineHintRequest) =
       logger.info (Log.setMessage "FSharpPipelineHints Request: {parms}" >> Log.addContextDestructured "parms" p )
@@ -2057,7 +2057,7 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
         |> Map.add "fsharp/documentation" (requestHandling (fun s p -> s.FSharpDocumentation(p) ))
         |> Map.add "fsharp/documentationSymbol" (requestHandling (fun s p -> s.FSharpDocumentationSymbol(p) ))
         |> Map.add "fsharp/loadAnalyzers" (requestHandling (fun s p -> s.LoadAnalyzers(p) ))
-        |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
+        // |> Map.add "fsharp/fsharpLiterate" (requestHandling (fun s p -> s.FSharpLiterate(p) ))
         |> Map.add "fsharp/pipelineHint" (requestHandling (fun s p -> s.FSharpPipelineHints(p) ))
         // |> Map.add "fake/listTargets" (requestHandling (fun s p -> s.FakeTargets(p) ))
         // |> Map.add "fake/runtimePath" (requestHandling (fun s p -> s.FakeRuntimePath(p) ))
