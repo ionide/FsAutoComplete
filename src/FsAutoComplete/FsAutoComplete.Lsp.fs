@@ -188,30 +188,33 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let mutable config = FSharpConfig.Default
     let mutable codeFixes: CodeFix [] = [||]
     let mutable sigHelpKind = None
-    let mutable binaryLogConfig = Ionide.ProjInfo.BinaryLogGeneration.Off
+    let binaryLogConfig () = Ionide.ProjInfo.BinaryLogGeneration.Within (DirectoryInfo (Path.Combine(rootPath.Value, ".ionide")))
 
     let parseFile (p: DidChangeTextDocumentParams) =
 
         async {
-            let doc = p.TextDocument
-            let filePath = doc.GetFilePath() |> Utils.normalizePath
-            let contentChange = p.ContentChanges |> Seq.tryLast
-            match contentChange, doc.Version with
-            | Some contentChange, Some version ->
-                if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-                    let content = SourceText.ofString contentChange.Text
-                    let tfmConfig = config.UseSdkScripts
-                    logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
-                    do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
+            if not commands.IsWorkspaceReady && rootPath.IsSome then
+                logger.warn (Log.setMessage "ParseFile - Workspace not ready")
+            else
+                let doc = p.TextDocument
+                let filePath = doc.GetFilePath() |> Utils.normalizePath
+                let contentChange = p.ContentChanges |> Seq.tryLast
+                match contentChange, doc.Version with
+                | Some contentChange, Some version ->
+                    if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
+                        let content = SourceText.ofString contentChange.Text
+                        let tfmConfig = config.UseSdkScripts
+                        logger.info (Log.setMessage "ParseFile - Parsing {file}" >> Log.addContextDestructured "file" filePath)
+                        do! (commands.Parse filePath content version (Some tfmConfig) |> Async.Ignore)
 
-                    // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-                    if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
-                    if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
-                    if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
-                else
-                    logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
-            | _ ->
-                logger.info (Log.setMessage "ParseFile - Found no change for {file}" >> Log.addContextDestructured "file" filePath)
+                        // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+                        if config.UnusedOpensAnalyzer then  Async.Start (commands.CheckUnusedOpens filePath)
+                        if config.UnusedDeclarationsAnalyzer then Async.Start (commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
+                        if config.SimplifyNameAnalyzer then Async.Start (commands.CheckSimplifiedNames filePath)
+                    else
+                        logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
+                | _ ->
+                    logger.info (Log.setMessage "ParseFile - Found no change for {file}" >> Log.addContextDestructured "file" filePath)
         } |> Async.Start
 
     let parseFileDebuncer = Debounce(500, parseFile)
@@ -439,10 +442,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commands.SetFSIAdditionalArguments [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument; yield! config.FSIExtraParameters |]
         commands.SetLinterConfigRelativePath config.LinterConfig
         // TODO(CH): make the destination part of config, so that non-FSAC editors don't have the '.ionide' path
-        binaryLogConfig <-
-          match config.GenerateBinlog with
-          | false -> Ionide.ProjInfo.BinaryLogGeneration.Off
-          | true -> Ionide.ProjInfo.BinaryLogGeneration.Within (DirectoryInfo (Path.Combine(rootPath.Value, ".ionide")))
+        // binaryLogConfig <-
+        //   match config.GenerateBinlog with
+        //   | false -> Ionide.ProjInfo.BinaryLogGeneration.Off
+        //   | true -> Ionide.ProjInfo.BinaryLogGeneration.Within (DirectoryInfo (Path.Combine(rootPath.Value, ".ionide")))
 
     do
         rootPath |> Option.iter backgroundService.Start
@@ -692,7 +695,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     match peeks with
                     | [] -> ()
                     | [CommandResponse.WorkspacePeekFound.Directory projs] ->
-                        commands.WorkspaceLoad projs.Fsprojs false binaryLogConfig
+                        commands.WorkspaceLoad projs.Fsprojs false (binaryLogConfig())
                         |> Async.Ignore
                         |> Async.Start
                     | CommandResponse.WorkspacePeekFound.Solution sln::_ ->
@@ -700,7 +703,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                             sln.Items
                             |> List.collect Workspace.foldFsproj
                             |> List.map fst
-                        commands.WorkspaceLoad projs false binaryLogConfig
+                        commands.WorkspaceLoad projs false (binaryLogConfig())
                         |> Async.Ignore
                         |> Async.Start
                     | _ ->
@@ -1677,7 +1680,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "FSharpWorkspaceLoad Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fns = p.TextDocuments |> Array.map (fun fn -> fn.GetFilePath() ) |> Array.toList
-        let! res = commands.WorkspaceLoad fns config.DisableInMemoryProjectReferences binaryLogConfig
+        let! res = commands.WorkspaceLoad fns config.DisableInMemoryProjectReferences (binaryLogConfig())
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->
@@ -1708,7 +1711,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         logger.info (Log.setMessage "FSharpProject Request: {parms}" >> Log.addContextDestructured "parms" p )
 
         let fn = p.Project.GetFilePath()
-        let! res = commands.Project fn binaryLogConfig
+        let! res = commands.Project fn (binaryLogConfig())
         let res =
             match res with
             | CoreResponse.InfoRes msg | CoreResponse.ErrorRes msg ->

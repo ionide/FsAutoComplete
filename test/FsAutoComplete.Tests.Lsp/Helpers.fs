@@ -114,8 +114,7 @@ let logger = Expecto.Logging.Log.create "LSPTests"
 
 type ClientEvents = IObservable<string * obj>
 
-let createServer (state: unit -> State) =
-  let state = state()
+let createServer (state: State) =
   let event = new System.Reactive.Subjects.ReplaySubject<_>()
   let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
   let originalFs = FSharp.Compiler.SourceCodeServices.FileSystemAutoOpens.FileSystem
@@ -377,15 +376,9 @@ let waitForWorkspaceFinishedParsing (events : ClientEvents) =
     | _ -> None
 
   logger.debug (eventX "waiting for workspace to finish loading")
-  let work = 
-    events
-    |> Observable.choose chooser
-    |> Async.AwaitObservable  
-  async {
-    let! child = Async.StartChild(work, 10_000)
-    return! child
-  }
-
+  events
+  |> Observable.choose chooser
+  |> Async.AwaitObservable
 
 let private typedEvents<'t> typ =
   Observable.choose (fun (typ', _o) -> if typ' = typ then Some (unbox _o) else None)

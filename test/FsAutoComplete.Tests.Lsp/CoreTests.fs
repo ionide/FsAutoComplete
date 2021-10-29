@@ -64,7 +64,12 @@ let codeLensTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-      let! (server, events) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} state
+      let config = 
+        { defaultConfigDto with 
+            EnableReferenceCodeLens = Some true
+            GenerateBinlog = Some true
+        }
+      let! (server, events) = serverInitialize path config state
       let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
       do! server.TextDocumentDidOpen tdop

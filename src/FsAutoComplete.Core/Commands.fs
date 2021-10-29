@@ -403,9 +403,13 @@ type Commands (checker: FSharpCompilerServiceChecker, state: State, backgroundSe
 
     member __.Notify = notify.Publish
 
+    member __.WorkspaceReady = state.ProjectController.WorkspaceReady
+
     member __.FileChecked = fileChecked.Publish
 
     member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
+
+    member __.IsWorkspaceReady = state.ProjectController.IsWorkspaceReady
 
     member __.LastVersionChecked
         with get() = lastVersionChecked
