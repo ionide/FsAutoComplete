@@ -8,6 +8,7 @@ end_of_line = lf
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
+max_line_length=120
 
 # The JSON files contain newlines inconsistently
 [*.json]
@@ -18,6 +19,9 @@ trim_trailing_whitespace = false
 
 [*.fs]
 indent_size = 2
+fsharp_max_value_binding_width=80
+fsharp_max_function_binding_width=80
+fsharp_max_dot_get_expression_width=80
 
 [*.fsx]
 indent_size = 2
