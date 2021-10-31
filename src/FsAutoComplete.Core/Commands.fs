@@ -1313,9 +1313,9 @@ type Commands
     asyncResult {
       let isScript = Utils.isAScript (UMX.untag file)
 
-      let! (opts, _) = state.TryGetFileCheckerOptionsWithSource file
+      let! (opts, source) = state.TryGetFileCheckerOptionsWithSource file
 
-      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
       match tyResOpt with
       | None -> ()

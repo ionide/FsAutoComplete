@@ -311,14 +311,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
        >> Log.addContextDestructured "file" fn)
 
     let path = UMX.untag fn
-
-    let path =
-      if System.Char.IsLower path.[0] then
-        string (System.Char.ToUpper path.[0])
-        + path.Substring(1)
-      else
-        path
-
     checker.ParseFile(path, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source, options) =
@@ -332,13 +324,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
       let options = clearProjectReferences options
       let path = UMX.untag filePath
-
-      let path =
-        if System.Char.IsLower path.[0] then
-          string (System.Char.ToUpper path.[0])
-          + path.Substring(1)
-        else
-          path
 
       try
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
