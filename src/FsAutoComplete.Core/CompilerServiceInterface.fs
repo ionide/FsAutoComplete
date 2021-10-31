@@ -50,8 +50,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   /// the root path to the dotnet sdk installations, eg /usr/local/share/dotnet
   let mutable sdkRoot: DirectoryInfo option = None
-  /// the chosen version of the dotnet sdk for deriving F# compiler FSI references, eg 3.0.100
-  let mutable sdkVersion = lazy (None)
+  let mutable sdkFsharpCore: FileInfo option = None
+  let mutable sdkFsiAuxLib: FileInfo option = None
+
   /// additional arguments that are added to typechecking of scripts
   let mutable fsiAdditionalArguments = Array.empty
   let mutable fsiAdditionalFiles = Array.empty
@@ -62,6 +63,24 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
   let scriptTypecheckRequirementsChanged = Event<_>()
 
   let mutable disableInMemoryProjectReferences = false
+
+  let fixupFsharpCoreAndFSIPaths (p: FSharpProjectOptions) =
+    match sdkFsharpCore, sdkFsiAuxLib with
+    | None, _
+    | _, None -> p
+    | Some fsc, Some fsi ->
+      let toReplace, otherOpts =
+        p.OtherOptions
+        |> Array.partition (fun opt ->
+          opt.EndsWith "FSharp.Core.dll"
+          || opt.EndsWith "FSharp.Compiler.Interactive.Settings.dll")
+
+      { p with
+          OtherOptions =
+            Array.append
+              otherOpts
+              [| $"-r:%s{fsc.FullName}"
+                 $"-r:%s{fsi.FullName}" |] }
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
     if s.StartsWith(prefix) then
@@ -215,7 +234,9 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
       let allModifications =
         // filterBadRuntimeRefs >>
-        addLoadedFiles >> resolveRelativeFilePaths
+        addLoadedFiles
+        >> resolveRelativeFilePaths
+        >> fixupFsharpCoreAndFSIPaths
 
       let modified = allModifications opts
 
@@ -289,7 +310,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       (Log.setMessage "ParseFile - {file}"
        >> Log.addContextDestructured "file" fn)
 
-    checker.ParseFile(UMX.untag fn, source, fpo)
+    let path = UMX.untag fn
+
+    let path =
+      if System.Char.IsLower path.[0] then
+        string (System.Char.ToUpper path.[0])
+        + path.Substring(1)
+      else
+        path
+
+    checker.ParseFile(path, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source, options) =
     async {
@@ -301,10 +331,17 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
          >> Log.addContextDestructured "opName" opName)
 
       let options = clearProjectReferences options
+      let path = UMX.untag filePath
+
+      let path =
+        if System.Char.IsLower path.[0] then
+          string (System.Char.ToUpper path.[0])
+          + path.Substring(1)
+        else
+          path
 
       try
-        let! (p, c) =
-          checker.ParseAndCheckFileInProject(UMX.untag filePath, version, source, options, userOpName = opName)
+        let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
 
@@ -398,7 +435,21 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       match sdks
             |> Array.tryFind (fun sdk -> sdk.Version = sdkVersion)
         with
-      | Some sdk -> sdkRoot <- Some sdk.Path
+      | Some sdk ->
+        sdkRoot <- Some sdk.Path
+        let fsharpDir = Path.Combine(sdk.Path.FullName, "FSharp")
+        let dll = Path.Combine(fsharpDir, "FSharp.Core.dll")
+        let fi = FileInfo(dll)
+
+        if fi.Exists then
+          sdkFsharpCore <- Some fi
+
+        let dll = Path.Combine(fsharpDir, "FSharp.Compiler.Interactive.Settings.dll")
+        let fi = FileInfo(dll)
+
+        if fi.Exists then
+          sdkFsiAuxLib <- Some fi
+
       | None -> ()
 
       scriptTypecheckRequirementsChanged.Trigger()
