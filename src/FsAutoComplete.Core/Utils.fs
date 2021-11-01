@@ -628,7 +628,7 @@ type Path with
         let trimmed = initialLocalPath.TrimStart('/')
 
         let initialDriveLetterCaps =
-          string (System.Char.ToUpper trimmed.[0])
+          string (System.Char.ToLower trimmed.[0])
           + trimmed.[1..]
 
         initialDriveLetterCaps
