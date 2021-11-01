@@ -455,5 +455,5 @@ let tests state = testList "codefix tests" [
   missingInstanceMemberTests state
   unusedValueTests state
   addExplicitTypeAnnotationTests state
-  removeUnusedBindingTests state
+  // removeUnusedBindingTests state
 ]
