@@ -36,6 +36,13 @@ type private Document =
       Language: System.Guid
       IsEmbedded: bool }
 
+let private compareRepoPath (d: Document) targetFile =
+  let s = UMX.untag d.Name
+  let s' = normalizePath s |> UMX.untag
+  let s' = s'.Replace(@"\", "/")
+  let s' = UMX.tag<NormalizedRepoPathSegment> s'
+  s' = targetFile
+
 let private pdbForDll (dllPath: string<LocalPath>) =
     UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
 
@@ -179,7 +186,7 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Norm
             return Error InvalidJson
         | Some json ->
             let docs = documentsFromReader sourceReader
-            let doc = docs |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = targetFile)
+            let doc = docs |> Seq.tryFind (fun d -> compareRepoPath d targetFile)
             match doc with
             | None ->
                 logger.warn (Log.setMessage "No sourcelinked source file matched {target}. Available documents were (normalized paths here): {docs}" >> Log.addContextDestructured "docs" (docs |> Seq.map (fun d -> normalizeRepoPath d.Name)) >> Log.addContextDestructured "target" targetFile)
