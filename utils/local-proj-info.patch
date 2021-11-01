@@ -1,0 +1,51 @@
+diff --git a/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj b/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj
+index 469f825..c7f0349 100644
+--- a/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj
++++ b/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj
+@@ -6,6 +6,8 @@
+   <ItemGroup>
+     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
+     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
++    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo\Ionide.ProjInfo.fsproj" />
++    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
+   </ItemGroup>
+   <ItemGroup>
+     <Compile Include="Debug.fs" />
+diff --git a/src/FsAutoComplete.Core/paket.references b/src/FsAutoComplete.Core/paket.references
+index 09835df..4c7756f 100644
+--- a/src/FsAutoComplete.Core/paket.references
++++ b/src/FsAutoComplete.Core/paket.references
+@@ -1,7 +1,4 @@
+ FSharp.Compiler.Service
+-Ionide.ProjInfo
+-Ionide.ProjInfo.FCS
+-Ionide.ProjInfo.ProjectSystem
+ FSharp.Analyzers.SDK
+ Newtonsoft.Json
+ #Fake.Runtime
+diff --git a/src/FsAutoComplete/FsAutoComplete.fsproj b/src/FsAutoComplete/FsAutoComplete.fsproj
+index a215b87..bb7d3a7 100644
+--- a/src/FsAutoComplete/FsAutoComplete.fsproj
++++ b/src/FsAutoComplete/FsAutoComplete.fsproj
+@@ -33,6 +33,8 @@
+     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
+     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
+     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
++    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo\Ionide.ProjInfo.fsproj" />
++    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
+   </ItemGroup>
+
+   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
+diff --git a/src/FsAutoComplete/paket.references b/src/FsAutoComplete/paket.references
+index d2088b9..5823f0e 100644
+--- a/src/FsAutoComplete/paket.references
++++ b/src/FsAutoComplete/paket.references
+@@ -4,8 +4,6 @@ Newtonsoft.Json
+ FSharp.Core
+ Microsoft.SourceLink.GitHub
+ System.Configuration.ConfigurationManager
+-Ionide.ProjInfo
+-Ionide.ProjInfo.ProjectSystem
+ #Fake.Runtime
+ Dapper
+ Microsoft.Data.Sqlite
