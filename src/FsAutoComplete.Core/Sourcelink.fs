@@ -8,6 +8,7 @@ open Newtonsoft.Json
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.Utils
+open Ionide.ProjInfo.ProjectSystem
 
 let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
@@ -37,11 +38,14 @@ type private Document =
       IsEmbedded: bool }
 
 let private compareRepoPath (d: Document) targetFile =
-  let s = UMX.untag d.Name
-  let s' = normalizePath s |> UMX.untag
-  let s' = s'.Replace(@"\", "/")
-  let s' = UMX.tag<NormalizedRepoPathSegment> s'
-  s' = targetFile
+  if Environment.isWindows  then
+    let s = UMX.untag d.Name
+    let s' = normalizePath s |> UMX.untag
+    let s' = s'.Replace(@"\", "/")
+    let s' = UMX.tag<NormalizedRepoPathSegment> s'
+    s' = targetFile
+  else
+    normalizeRepoPath d.Name = targetFile
 
 let private pdbForDll (dllPath: string<LocalPath>) =
     UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
