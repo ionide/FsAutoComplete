@@ -55,13 +55,13 @@ let uriTests =
   }
 
   let samples =
-    [ "file:///C%3A/foo/bar/baz", "C:/foo/bar/baz"
-      "file:///C%3A/foo/bar bar/baz", "C:/foo/bar bar/baz" // spaces, windows-root
+    [ "file:///c%3A/foo/bar/baz", "c:/foo/bar/baz"
+      "file:///c%3A/foo/bar bar/baz", "c:/foo/bar bar/baz" // spaces, windows-root
       "file:///Users/bob jones/foo/bar", "/Users/bob jones/foo/bar" // spaces, unix-root
       "file:///Users/bobjones/foo/bar", "/Users/bobjones/foo/bar"
-      "file:///C%3A/f%23/bar/baz", "C:/f#/bar/baz" // escaped chars, windows-root
+      "file:///c%3A/f%23/bar/baz", "c:/f#/bar/baz" // escaped chars, windows-root
       "file:///Users/carlyrae/oss/f%23test", "/Users/carlyrae/oss/f#test" // escaped chars, unix-root
-      "file:///C%3A/carly rae/oss/f%23test", "C:/carly rae/oss/f#test" // spaces and escaped chars, windows-root
+      "file:///c%3A/carly rae/oss/f%23test", "c:/carly rae/oss/f#test" // spaces and escaped chars, windows-root
       "file:///Users/carly rae/oss/f%23test", "/Users/carly rae/oss/f#test" // spaces and escaped chars, unix-root
       "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs"
     ]
