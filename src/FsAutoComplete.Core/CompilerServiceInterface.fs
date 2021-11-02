@@ -218,10 +218,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
           useSdkRefs = true,
           useFsiAuxLib = true,
           otherFlags = allFlags,
-          ?sdkDirOverride =
-            (match sdkRoot with
-             | Some d -> Some d.FullName
-             | None -> None),
           userOpName = "getNetCoreScriptOptions"
         )
 
@@ -235,7 +231,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       let allModifications =
         // filterBadRuntimeRefs >>
         addLoadedFiles
-        >> resolveRelativeFilePaths
+        // >> resolveRelativeFilePaths
         >> fixupFsharpCoreAndFSIPaths
 
       let modified = allModifications opts
