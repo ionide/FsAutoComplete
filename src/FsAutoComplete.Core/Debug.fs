@@ -47,7 +47,7 @@ module Debug =
 
       let mutable source = null
 
-      let inflightEvents = ConcurrentDictionary<Guid, DateTimeOffset>()
+      let inflightEvents = ConcurrentDictionary<_, DateTimeOffset>()
 
       let eventLevelToLogLevel (e: EventLevel) =
         match e with
@@ -70,16 +70,16 @@ module Debug =
           | "Log" -> Log.setMessage "Inside Compiler Function {function}" >> logFunctionName eventArgs.Payload.[0]
           | "LogMessage" -> Log.setMessage "({function}) {message}" >> logFunctionName eventArgs.Payload.[1] >> Log.addContextDestructured "message" (eventArgs.Payload.[0] :?> string)
           | "BlockStart" | "BlockMessageStart" ->
-             inflightEvents.TryAdd(eventArgs.RelatedActivityId, DateTimeOffset.UtcNow) |> ignore
+             inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
              id
           | "BlockEnd" ->
-            match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
+            match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
               Log.setMessage "Finished compiler function {function} in {seconds}" >> logFunctionName eventArgs.Payload.[0] >> Log.addContextDestructured "seconds" delta.TotalSeconds
             | false, _ -> id
           | "BlockMessageStop" ->
-            match inflightEvents.TryRemove(eventArgs.RelatedActivityId) with
+            match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
               Log.setMessage "Finished compiler function {function} with parameter {parameter} in {seconds}"
