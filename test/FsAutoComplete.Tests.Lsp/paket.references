@@ -6,6 +6,7 @@ Expecto
 Microsoft.NET.Test.Sdk
 YoloDev.Expecto.TestSdk
 AltCover
+GitHubActionsTestLogger
 
 Microsoft.Build copy_local:false
 Microsoft.Build.Framework copy_local:false

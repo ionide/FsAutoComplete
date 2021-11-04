@@ -51,6 +51,7 @@ nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
+nuget GitHubActionsTestLogger
 
 group Build
   source https://api.nuget.org/v3/index.json
