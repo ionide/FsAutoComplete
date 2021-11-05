@@ -1,4 +1,7 @@
 FSharp.Compiler.Service
+Ionide.ProjInfo
+Ionide.ProjInfo.FCS
+Ionide.ProjInfo.ProjectSystem
 FSharp.Analyzers.SDK
 Newtonsoft.Json
 #Fake.Runtime
@@ -10,5 +13,6 @@ System.Configuration.ConfigurationManager
 FSharp.UMX
 FsToolkit.ErrorHandling
 Fantomas.Client
+
 System.Reflection.Metadata
 Microsoft.Build.Utilities.Core

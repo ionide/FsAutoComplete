@@ -10,6 +10,8 @@ FSharp.UMX
 #FSharpLint.Core
 FsToolkit.ErrorHandling
 ICSharpCode.Decompiler
+Ionide.ProjInfo
+Ionide.ProjInfo.ProjectSystem
 Microsoft.Data.Sqlite
 Microsoft.NETFramework.ReferenceAssemblies
 Microsoft.SourceLink.GitHub

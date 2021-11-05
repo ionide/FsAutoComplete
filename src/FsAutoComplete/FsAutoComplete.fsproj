@@ -33,8 +33,6 @@
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
     <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
-    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo\Ionide.ProjInfo.fsproj" />
-    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
