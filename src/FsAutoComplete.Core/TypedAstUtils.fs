@@ -3,7 +3,7 @@ namespace FsAutoComplete
 
 open System
 open System.Text.RegularExpressions
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 open UntypedAstUtils
 
 
@@ -230,7 +230,7 @@ module TypedAstExtensionHelpers =
             | :? FSharpUnionCase as fsu -> fsu.XmlDoc
             | :? FSharpActivePatternCase as apc -> apc.XmlDoc
             | :? FSharpGenericParameter as gp -> gp.XmlDoc
-            | _ -> ResizeArray() :> Collections.Generic.IList<_>
+            | _ -> FSharpXmlDoc.None 
 
     type FSharpGenericParameterMemberConstraint with
         member x.IsProperty =

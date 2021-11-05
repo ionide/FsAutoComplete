@@ -1,19 +1,24 @@
 namespace FsAutoComplete
 
-open System
-open System.IO
-open FSharp.Compiler.SourceCodeServices
-open Utils
-open FSharp.Compiler.Text
-open FSharp.Compiler
 open FsAutoComplete.Logging
 open FsAutoComplete.UntypedAstUtils
+open FSharp.Compiler
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Text
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
+open System
+open System.IO
+open Utils
+open FSharp.Compiler.Tokenization
+open FSharp.Compiler.Syntax
 
 [<RequireQualifiedAccess>]
 type FindDeclarationResult =
   | ExternalDeclaration of Decompiler.ExternalContentPosition
-  | Range of Range
+  | Range of FSharp.Compiler.Text.Range
   /// The declaration refers to a file.
   | File of string
 
@@ -26,7 +31,7 @@ type ParseAndCheckResults
 
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
-  member __.TryFindDeclaration (pos: Pos) (lineStr: LineStr) =
+  member __.TryFindDeclaration (pos: Position) (lineStr: LineStr) =
     async {
       // try find identifier first
       let! identResult = __.TryFindIdentifierDeclaration pos lineStr
@@ -42,7 +47,7 @@ type ParseAndCheckResults
         | Error _ -> return Error identErr
     }
 
-  member __.TryFindLoadDirectiveSource (pos: Pos) (lineStr: LineStr) =
+  member __.TryFindLoadDirectiveSource (pos: Position) (lineStr: LineStr) =
     async {
       let tryGetFullPath fileName =
         try
@@ -63,7 +68,7 @@ type ParseAndCheckResults
       | None -> return Error "load directive not recognized"
     }
 
-  member __.TryFindIdentifierDeclaration (pos: Pos) (lineStr: LineStr) =
+  member __.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> async.Return(ResultOrString.Error "Could not find ident at this location")
     | Some (col, identIsland) ->
@@ -85,19 +90,19 @@ type ParseAndCheckResults
           )
 
       /// these are all None because you can't easily get the source file from the external symbol information here.
-      let tryGetSourceRangeForSymbol (sym: FSharpExternalSymbol) : (string<NormalizedRepoPathSegment> * Pos) option =
+      let tryGetSourceRangeForSymbol (sym: FindDeclExternalSymbol) : (string<NormalizedRepoPathSegment> * Position) option =
         match sym with
-        | FSharpExternalSymbol.Type name -> None
-        | FSharpExternalSymbol.Constructor (typeName, args) -> None
-        | FSharpExternalSymbol.Method (typeName, name, paramSyms, genericArity) -> None
-        | FSharpExternalSymbol.Field (typeName, name) -> None
-        | FSharpExternalSymbol.Event (typeName, name) -> None
-        | FSharpExternalSymbol.Property (typeName, name) -> None
+        | FindDeclExternalSymbol.Type name -> None
+        | FindDeclExternalSymbol.Constructor (typeName, args) -> None
+        | FindDeclExternalSymbol.Method (typeName, name, paramSyms, genericArity) -> None
+        | FindDeclExternalSymbol.Field (typeName, name) -> None
+        | FindDeclExternalSymbol.Event (typeName, name) -> None
+        | FindDeclExternalSymbol.Property (typeName, name) -> None
 
       // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid declfound for f# members.
       let tryRecoverExternalSymbolForNonexistentDecl
-        (rangeInNonexistentFile: Range)
+        (rangeInNonexistentFile: FSharp.Compiler.Text.Range)
         : ResultOrString<string<LocalPath> * string<NormalizedRepoPathSegment>> =
         match Lexer.findLongIdents (pos.Column - 1, lineStr) with
         | None ->
@@ -127,20 +132,20 @@ type ParseAndCheckResults
 
       async {
         match declarations with
-        | FSharpFindDeclResult.DeclNotFound reason ->
+        | FindDeclResult.DeclNotFound reason ->
           let elaboration =
             match reason with
-            | FSharpFindDeclFailureReason.NoSourceCode -> "No source code was found for the declaration"
-            | FSharpFindDeclFailureReason.ProvidedMember m ->
+            | FindDeclFailureReason.NoSourceCode -> "No source code was found for the declaration"
+            | FindDeclFailureReason.ProvidedMember m ->
               sprintf "Go-to-declaration is not available for Type Provider-provided member %s" m
-            | FSharpFindDeclFailureReason.ProvidedType t ->
+            | FindDeclFailureReason.ProvidedType t ->
               sprintf "Go-to-declaration is not available from Type Provider-provided type %s" t
-            | FSharpFindDeclFailureReason.Unknown r -> r
+            | FindDeclFailureReason.Unknown r -> r
 
           return ResultOrString.Error(sprintf "Could not find declaration. %s" elaboration)
-        | FSharpFindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) ->
+        | FindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) ->
           return ResultOrString.Error "Could not find declaration"
-        | FSharpFindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
+        | FindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
           let rangeStr = range.ToString()
 
           logger.info (
@@ -149,7 +154,7 @@ type ParseAndCheckResults
           )
 
           return Ok(FindDeclarationResult.Range range)
-        | FSharpFindDeclResult.DeclFound rangeInNonexistentFile ->
+        | FindDeclResult.DeclFound rangeInNonexistentFile ->
           let range = rangeInNonexistentFile.ToString()
 
           logger.warn (
@@ -169,7 +174,7 @@ type ParseAndCheckResults
                 )
             | Error reason -> return ResultOrString.Error(sprintf "%A" reason)
           | Error e -> return Error e
-        | FSharpFindDeclResult.ExternalDecl (assembly, externalSym) ->
+        | FindDeclResult.ExternalDecl (assembly, externalSym) ->
           // not enough info on external symbols to get a range-like thing :(
           match tryGetSourceRangeForSymbol externalSym with
           | Some (sourceFile, pos) ->
@@ -191,7 +196,7 @@ type ParseAndCheckResults
           | None -> return decompile assembly externalSym
       }
 
-  member __.TryFindTypeDeclaration (pos: Pos) (lineStr: LineStr) =
+  member __.TryFindTypeDeclaration (pos: Position) (lineStr: LineStr) =
     async {
       match Lexer.findLongIdents (pos.Column, lineStr) with
       | None -> return Error "Cannot find ident at this location"
@@ -241,7 +246,7 @@ type ParseAndCheckResults
             async {
               match ty.TryFullName with
               | Some fullName ->
-                let externalSym = FSharpExternalSymbol.Type fullName
+                let externalSym = FindDeclExternalSymbol.Type fullName
                 // from TryFindIdentifierDeclaration
                 let decompile assembly externalSym =
                   match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
@@ -288,19 +293,19 @@ type ParseAndCheckResults
           return! tryGetSource ty
     }
 
-  member __.TryGetToolTip (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetToolTip (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> ResultOrString.Error "Cannot find ident for tooltip"
     | Some (col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
-        checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+        checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
-      | FSharpToolTipText (elems) when
+      | ToolTipText (elems) when
         elems
-        |> List.forall ((=) FSharpToolTipElement.None)
+        |> List.forall ((=) ToolTipElement.None)
         ->
         match identIsland with
         | [ ident ] ->
@@ -310,64 +315,60 @@ type ParseAndCheckResults
         | _ -> ResultOrString.Error "No tooltip information"
       | _ -> Ok(tip)
 
-  member x.TryGetToolTipEnhanced (pos: Pos) (lineStr: LineStr) =
-    match x.GetParseResults.ParseTree with
-    | None -> Error "No parse tree"
-    | Some parsedInput ->
-      match Completion.atPos (pos, parsedInput) with
-      | Completion.Context.StringLiteral -> Ok None
-      | Completion.Context.Unknown ->
-        match Lexer.findLongIdents (pos.Column, lineStr) with
-        | None -> Error "Cannot find ident for tooltip"
-        | Some (col, identIsland) ->
-          let identIsland = Array.toList identIsland
-          // TODO: Display other tooltip types, for example for strings or comments where appropriate
-          let tip =
-            checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+  member x.TryGetToolTipEnhanced (pos: Position) (lineStr: LineStr) =
+    match Completion.atPos (pos, x.GetParseResults.ParseTree) with
+    | Completion.Context.StringLiteral -> Ok None
+    | Completion.Context.Unknown ->
+      match Lexer.findLongIdents (pos.Column, lineStr) with
+      | None -> Error "Cannot find ident for tooltip"
+      | Some (col, identIsland) ->
+        let identIsland = Array.toList identIsland
+        // TODO: Display other tooltip types, for example for strings or comments where appropriate
+        let tip =
+          checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
-          let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+        let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
-          match tip with
-          | FSharpToolTipText (elems) when
-            elems
-            |> List.forall ((=) FSharpToolTipElement.None)
-            && symbol.IsNone
-            ->
-            match identIsland with
-            | [ ident ] ->
-              match KeywordList.keywordTooltips.TryGetValue ident with
-              | true, tip -> Ok(Some(tip, ident, "", None))
-              | _ -> Error "No tooltip information"
+        match tip with
+        | ToolTipText (elems) when
+          elems
+          |> List.forall ((=) ToolTipElement.None)
+          && symbol.IsNone
+          ->
+          match identIsland with
+          | [ ident ] ->
+            match KeywordList.keywordTooltips.TryGetValue ident with
+            | true, tip -> Ok(Some(tip, ident, "", None))
             | _ -> Error "No tooltip information"
-          | _ ->
-            match symbol with
+          | _ -> Error "No tooltip information"
+        | _ ->
+          match symbol with
+          | None -> Error "No tooltip information"
+          | Some symbol ->
+
+            match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
             | None -> Error "No tooltip information"
-            | Some symbol ->
+            | Some (signature, footer) ->
+              let typeDoc =
+                getTypeIfConstructor symbol.Symbol
+                |> Option.map (fun n -> n.XmlDocSig)
 
-              match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
-              | None -> Error "No tooltip information"
-              | Some (signature, footer) ->
-                let typeDoc =
-                  getTypeIfConstructor symbol.Symbol
-                  |> Option.map (fun n -> n.XmlDocSig)
+              Ok(Some(tip, signature, footer, typeDoc))
 
-                Ok(Some(tip, signature, footer, typeDoc))
-
-  member __.TryGetFormattedDocumentation (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column - 1, lineStr) with
     | None -> Error "Cannot find ident"
     | Some (col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let tip =
-        checkResults.GetToolTipText(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let tip = checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
       match tip with
-      | FSharpToolTipText (elems) when
+      | ToolTipText (elems) when
         elems
-        |> List.forall ((=) FSharpToolTipElement.None)
+        |> List.forall ((=) ToolTipElement.None)
         && symbol.IsNone
         ->
         match identIsland with
@@ -461,20 +462,20 @@ type ParseAndCheckResults
         Ok(
           symbol.XmlDocSig,
           symbol.Assembly.FileName |> Option.defaultValue "",
-          symbol.XmlDoc |> Seq.toList,
+          symbol.XmlDoc,
           signature,
           footer,
           cn
         )
 
-  member __.TryGetSymbolUse (pos: Pos) (lineStr: LineStr) : FSharpSymbolUse option =
+  member __.TryGetSymbolUse (pos: Position) (lineStr: LineStr) : FSharpSymbolUse option =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> None
     | Some (colu, identIsland) ->
       let identIsland = Array.toList identIsland
       checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
-  member x.TryGetSymbolUseAndUsages (pos: Pos) (lineStr: LineStr) =
+  member x.TryGetSymbolUseAndUsages (pos: Position) (lineStr: LineStr) =
     let symboluse = x.TryGetSymbolUse pos lineStr
 
     match symboluse with
@@ -483,7 +484,7 @@ type ParseAndCheckResults
       let symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
       Ok(symboluse, symboluses)
 
-  member __.TryGetSignatureData (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetSignatureData (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column - 1, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some (colu, identIsland) ->
@@ -530,7 +531,7 @@ type ParseAndCheckResults
           Ok(typ, [], [])
         | _ -> ResultOrString.Error "Not a member, function or value"
 
-  member __.TryGetF1Help (pos: Pos) (lineStr: LineStr) =
+  member __.TryGetF1Help (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column - 1, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some (colu, identIsland) ->
@@ -542,119 +543,116 @@ type ParseAndCheckResults
       | None -> ResultOrString.Error "No symbol information found"
       | Some hlp -> Ok hlp
 
-  member x.TryGetCompletions (pos: Pos) (lineStr: LineStr) filter (getAllSymbols: unit -> AssemblySymbol list) =
+  member x.TryGetCompletions (pos: Position) (lineStr: LineStr) filter (getAllSymbols: unit -> AssemblySymbol list) =
     async {
-      match x.GetParseResults.ParseTree with
-      | None -> return None
-      | Some parsedInput ->
-        match Completion.atPos (pos, parsedInput) with
-        | Completion.Context.StringLiteral -> return None
-        | Completion.Context.Unknown ->
-          try
-            let longName =
-              FSharp.Compiler.SourceCodeServices.QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
+      match Completion.atPos (pos, x.GetParseResults.ParseTree) with
+      | Completion.Context.StringLiteral -> return None
+      | Completion.Context.Unknown ->
+        try
+          let longName =
+            QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
 
-            let residue = longName.PartialIdent
+          let residue = longName.PartialIdent
 
-            logger.info (
-              Log.setMessage "TryGetCompletions - long name: {longName}"
-              >> Log.addContextDestructured "longName" longName
-            )
+          logger.info (
+            Log.setMessage "TryGetCompletions - long name: {longName}"
+            >> Log.addContextDestructured "longName" longName
+          )
 
-            let getAllSymbols () =
-              getAllSymbols ()
-              |> List.filter (fun entity ->
-                entity.FullName.Contains "."
-                && not (PrettyNaming.IsOperatorName entity.Symbol.DisplayName))
+          let getAllSymbols () =
+            getAllSymbols ()
+            |> List.filter (fun entity ->
+              entity.FullName.Contains "."
+              && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
 
-            let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.Simple [||]
+          let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.Simple [||]
 
-            logger.info (
-              Log.setMessage "TryGetCompletions - token: {token}"
-              >> Log.addContextDestructured "token" token
-            )
+          logger.info (
+            Log.setMessage "TryGetCompletions - token: {token}"
+            >> Log.addContextDestructured "token" token
+          )
 
-            let isEmpty =
-              longName.QualifyingIdents.IsEmpty
-              && String.IsNullOrWhiteSpace longName.PartialIdent
-              && longName.LastDotPos.IsNone
+          let isEmpty =
+            longName.QualifyingIdents.IsEmpty
+            && String.IsNullOrWhiteSpace longName.PartialIdent
+            && longName.LastDotPos.IsNone
 
-            match token with
-            | Some k when k.Kind = Other && not isEmpty -> return None
-            | Some k when k.Kind = Operator -> return None
-            | Some k when k.Kind = Keyword -> return None
-            | _ ->
+          match token with
+          | Some k when k.Kind = Other && not isEmpty -> return None
+          | Some k when k.Kind = Operator -> return None
+          | Some k when k.Kind = Keyword -> return None
+          | _ ->
 
-              let results =
-                checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
+            let results =
+              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
 
-              let getKindPriority =
-                function
-                | FSharpCompletionItemKind.CustomOperation -> -1
-                | FSharpCompletionItemKind.Property -> 0
-                | FSharpCompletionItemKind.Field -> 1
-                | FSharpCompletionItemKind.Method(isExtension = false) -> 2
-                | FSharpCompletionItemKind.Event -> 3
-                | FSharpCompletionItemKind.Argument -> 4
-                | FSharpCompletionItemKind.Other -> 5
-                | FSharpCompletionItemKind.Method(isExtension = true) -> 6
+            let getKindPriority =
+              function
+              | CompletionItemKind.CustomOperation -> -1
+              | CompletionItemKind.Property -> 0
+              | CompletionItemKind.Field -> 1
+              | CompletionItemKind.Method(isExtension = false) -> 2
+              | CompletionItemKind.Event -> 3
+              | CompletionItemKind.Argument -> 4
+              | CompletionItemKind.Other -> 5
+              | CompletionItemKind.Method(isExtension = true) -> 6
 
-              let decls =
-                match filter with
-                | Some "StartsWith" ->
-                  results.Items
-                  |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-                | Some "Contains" ->
-                  results.Items
-                  |> Array.filter (fun d ->
-                    d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase)
-                    >= 0)
-                | _ -> results.Items
+            let decls =
+              match filter with
+              | Some "StartsWith" ->
+                results.Items
+                |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+              | Some "Contains" ->
+                results.Items
+                |> Array.filter (fun d ->
+                  d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase)
+                  >= 0)
+              | _ -> results.Items
 
-              let sortedDecls =
-                decls
-                |> Array.sortWith (fun x y ->
-                  let transformKind (item: FSharpDeclarationListItem) =
-                    if item.Kind = FSharpCompletionItemKind.Field
-                       && item.Glyph = FSharpGlyph.Method then
-                      FSharpCompletionItemKind.Method false
-                    elif item.Kind = FSharpCompletionItemKind.Argument
-                         && item.Glyph = FSharpGlyph.Property then
-                      FSharpCompletionItemKind.Property
-                    else
-                      item.Kind
+            let sortedDecls =
+              decls
+              |> Array.sortWith (fun x y ->
+                let transformKind (item: DeclarationListItem) =
+                  if item.Kind = CompletionItemKind.Field
+                     && item.Glyph = FSharpGlyph.Method then
+                    CompletionItemKind.Method false
+                  elif item.Kind = CompletionItemKind.Argument
+                       && item.Glyph = FSharpGlyph.Property then
+                    CompletionItemKind.Property
+                  else
+                    item.Kind
 
-                  let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
+                let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
+
+                if n <> 0 then
+                  n
+                else
+                  n <-
+                    (getKindPriority <| transformKind x)
+                      .CompareTo(getKindPriority <| transformKind y)
 
                   if n <> 0 then
                     n
                   else
-                    n <-
-                      (getKindPriority <| transformKind x)
-                        .CompareTo(getKindPriority <| transformKind y)
+                    n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
 
                     if n <> 0 then
                       n
                     else
-                      n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
+                      n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
 
                       if n <> 0 then
                         n
                       else
-                        n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
+                        x.MinorPriority.CompareTo(y.MinorPriority))
 
-                        if n <> 0 then
-                          n
-                        else
-                          x.MinorPriority.CompareTo(y.MinorPriority))
+            let shouldKeywords =
+              sortedDecls.Length > 0
+              && not results.IsForType
+              && not results.IsError
+              && List.isEmpty longName.QualifyingIdents
 
-              let shouldKeywords =
-                sortedDecls.Length > 0
-                && not results.IsForType
-                && not results.IsError
-                && List.isEmpty longName.QualifyingIdents
-
-              return Some(sortedDecls, residue, shouldKeywords)
+            return Some(sortedDecls, residue, shouldKeywords)
           with
           | :? TimeoutException -> return None
     }
@@ -663,7 +661,7 @@ type ParseAndCheckResults
     try
       let res =
         [ yield!
-            AssemblyContentProvider.getAssemblySignatureContent
+            AssemblyContent.GetAssemblySignatureContent
               AssemblyContentType.Full
               checkResults.PartialAssemblySignature
           let ctx = checkResults.ProjectContext
@@ -675,10 +673,10 @@ type ParseAndCheckResults
           // get Content.Entities from it.
 
           for fileName, signatures in assembliesByFileName do
-            let contentType = if publicOnly then Public else Full
+            let contentType = if publicOnly then AssemblyContentType.Public else AssemblyContentType.Full
 
             let content =
-              AssemblyContentProvider.getAssemblyContent entityCache.Locking contentType fileName signatures
+              AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
 
             yield! content ]
 
@@ -690,11 +688,11 @@ type ParseAndCheckResults
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
 
-  // member this.GetExpandedType (pos: Pos) =
+  // member this.GetExpandedType (pos: Position) =
   //   match parseResults.ParseTree with
   //   | Some input ->
-  //     AstTraversal.Traverse(pos, input, {
-  //       new AstTraversal.AstVisitorBase<_>() with
+  //     SyntaxTraversal.Traverse(pos, input, {
+  //       new SyntaxVisitorBase<_>() with
   //     })
   //   | None -> None
 

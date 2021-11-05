@@ -9,7 +9,6 @@ open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
-open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open LanguageServerProtocol.Server
@@ -23,11 +22,14 @@ open FSharp.Analyzers
 open FSharp.Compiler.Text
 open CliWrap
 open CliWrap.Buffered
+open FSharp.Compiler.Tokenization
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
-module FcsPos = FSharp.Compiler.Text.Pos
-type FcsPos = FSharp.Compiler.Text.Pos
+module FcsPos = FSharp.Compiler.Text.Position
+type FcsPos = FSharp.Compiler.Text.Position
 
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
@@ -1147,7 +1149,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 elif d.NamespaceToOpen.IsSome then
                   d.Name
                 else
-                  FSharpKeywords.QuoteIdentifierIfNeeded d.Name
+                  FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
 
               let label =
                 match d.NamespaceToOpen with
@@ -1354,7 +1356,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               let edits =
                 symbols
                 |> Array.map (fun sym ->
-                  let range = fcsRangeToLsp sym.RangeAlternate
+                  let range = fcsRangeToLsp sym.Range
 
                   let range =
                     { range with
@@ -1469,7 +1471,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         let ranges: FSharp.Compiler.Text.Range [] =
           match res with
-          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
           | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
 
         let filtered =
@@ -1502,7 +1504,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | CoreResponse.Res (symbol, uses) ->
         uses
         |> Array.map (fun s ->
-          { DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
+          { DocumentHighlight.Range = fcsRangeToLsp s.Range
             Kind = None })
         |> Some
         |> success
@@ -1523,7 +1525,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         let ranges: FSharp.Compiler.Text.Range [] =
           match res with
-          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
           | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
 
         let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
@@ -1959,7 +1961,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
                 let locs =
                   uses
-                  |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
+                  |> Array.map (fun n -> fcsRangeToLspLocation n.Range)
 
                 let args =
                   [| JToken.FromObject(Path.LocalPathToUri file)
@@ -2565,12 +2567,18 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | Ok (CoreResponse.InfoRes msg)
       | Ok (CoreResponse.ErrorRes msg) -> AsyncLspResult.internalError msg
       | Ok (CoreResponse.Res (xml, assembly, doc, signature, footer, cn)) ->
+        let xmldoc = 
+          match doc with
+          | FSharpXmlDoc.None -> [||]
+          | FSharpXmlDoc.FromXmlFile _ -> [||]
+          | FSharpXmlDoc.FromXmlText d -> d.GetElaboratedXmlLines()
+
         { Content =
             CommandResponse.formattedDocumentationForSymbol
               FsAutoComplete.JsonSerializer.writeJson
               xml
               assembly
-              doc
+              xmldoc
               (signature, footer, cn) }
         |> success
         |> async.Return
@@ -2626,7 +2634,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
 
   member private x.handleSemanticTokens
-    (getTokens: Async<CoreResponse<option<(struct (FcsRange * SemanticClassificationType)) array>>>)
+    (getTokens: Async<CoreResponse<option<SemanticClassificationItem array>>>)
     : AsyncLspResult<SemanticTokens option> =
     asyncResult {
       match! getTokens |> AsyncResult.ofCoreResponse with
@@ -2634,9 +2642,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | Some rangesAndHighlights ->
         let lspTypedRanges =
           rangesAndHighlights
-          |> Array.map (fun (struct (fcsRange, fcsTokenType)) ->
-            let ty, mods = ClassificationUtils.map fcsTokenType
-            struct (fcsRangeToLsp fcsRange, ty, mods))
+          |> Array.map (fun item ->
+            let ty, mods = ClassificationUtils.map item.Type
+            struct (fcsRangeToLsp item.Range, ty, mods))
 
         match encodeSemanticHighlightRanges lspTypedRanges with
         | None -> return! success None
@@ -2743,8 +2751,8 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
 
   let state = State.Initial toolsPath workspaceLoaderFactory
 
-  let originalFs = FileSystemAutoOpens.FileSystem
-  FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
+  let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
+  FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
   LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
     new FSharpLspServer(backgroundServiceEnabled, state, lspClient))

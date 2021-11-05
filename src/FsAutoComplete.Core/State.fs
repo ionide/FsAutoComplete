@@ -1,16 +1,18 @@
 ﻿namespace FsAutoComplete
 
 open System
-open FSharp.Compiler.SourceCodeServices
 open System.Collections.Concurrent
 open System.Threading
 open FSharp.Compiler.Text
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
 open System.Diagnostics
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.CodeAnalysis
 
 type DeclName = string
-type CompletionNamespaceInsert = { Namespace: string; Position: Pos; Scope : ScopeKind }
+type CompletionNamespaceInsert = { Namespace: string; Position: Position; Scope : ScopeKind }
 
 [<DebuggerDisplay("{DebugString}")>]
 type State =
@@ -19,12 +21,12 @@ type State =
     LastCheckedVersion: ConcurrentDictionary<string<LocalPath>, int>
     ProjectController: ProjectController
 
-    HelpText : ConcurrentDictionary<DeclName, FSharpToolTipText>
-    Declarations: ConcurrentDictionary<DeclName, FSharpDeclarationListItem * Pos * string<LocalPath>>
+    HelpText : ConcurrentDictionary<DeclName, ToolTipText>
+    Declarations: ConcurrentDictionary<DeclName, DeclarationListItem * Position * string<LocalPath>>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
-    mutable CurrentAST: FSharp.Compiler.SyntaxTree.ParsedInput option
+    mutable CurrentAST: ParsedInput option
 
-    NavigationDeclarations : ConcurrentDictionary<string<LocalPath>, FSharpNavigationTopLevelDeclaration[]>
+    NavigationDeclarations : ConcurrentDictionary<string<LocalPath>, NavigationTopLevelDeclaration[]>
     CancellationTokens: ConcurrentDictionary<string<LocalPath>, CancellationTokenSource list>
 
     ScriptProjectOptions: ConcurrentDictionary<string<LocalPath>, int * FSharpProjectOptions>
@@ -112,7 +114,6 @@ type State =
       LoadTime = DateTime.Now
       UnresolvedReferences = None
       OriginalLoadReferences = []
-      ExtraProjectInfo = None
       Stamp = None}
 
   member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
@@ -134,7 +135,7 @@ type State =
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some f -> Ok f.Lines
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Pos) : ResultOrString<FSharpProjectOptions * ISourceText * LineStr> =
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Position) : ResultOrString<FSharpProjectOptions * ISourceText * LineStr> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | Error x -> Error x
     | Ok (opts, text) ->

@@ -3,9 +3,11 @@ namespace FsAutoComplete
 open System
 
 open FSharp.Compiler
-open FSharp.Compiler.SourceCodeServices
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Diagnostics
+open FSharp.Compiler.Xml
 
 module internal CompletionUtils =
   let getIcon (glyph : FSharpGlyph) =
@@ -34,14 +36,14 @@ module internal CompletionUtils =
 
 
   let getEnclosingEntityChar = function
-    | FSharpEnclosingEntityKind.Namespace -> "N"
-    | FSharpEnclosingEntityKind.Module -> "M"
-    | FSharpEnclosingEntityKind.Class -> "C"
-    | FSharpEnclosingEntityKind.Exception -> "E"
-    | FSharpEnclosingEntityKind.Interface -> "I"
-    | FSharpEnclosingEntityKind.Record -> "R"
-    | FSharpEnclosingEntityKind.Enum -> "En"
-    | FSharpEnclosingEntityKind.DU -> "D"
+    | NavigationEntityKind.Namespace -> "N"
+    | NavigationEntityKind.Module -> "M"
+    | NavigationEntityKind.Class -> "C"
+    | NavigationEntityKind.Exception -> "E"
+    | NavigationEntityKind.Interface -> "I"
+    | NavigationEntityKind.Record -> "R"
+    | NavigationEntityKind.Enum -> "En"
+    | NavigationEntityKind.Union -> "D"
 
 module internal ClassificationUtils =
 
@@ -86,6 +88,7 @@ module internal ClassificationUtils =
       | SemanticClassificationType.Value
       | SemanticClassificationType.LocalValue -> "variable"
       | SemanticClassificationType.Plaintext -> "text"
+      | n -> "unknown"
 
 module CommandResponse =
   open FSharp.Compiler.Text
@@ -207,15 +210,15 @@ module CommandResponse =
       Message: string
       Subcategory: string
     }
-    static member IsIgnored(e:FSharp.Compiler.SourceCodeServices.FSharpDiagnostic) =
+    static member IsIgnored(e: FSharpDiagnostic) =
         // FST-1027 support in Fake 5
         e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
 
-    static member OfFSharpError(e:FSharp.Compiler.SourceCodeServices.FSharpDiagnostic) =
+    static member OfFSharpError(e: FSharpDiagnostic) =
       {
         FileName = e.FileName
-        StartLine = e.StartLineAlternate
-        EndLine = e.EndLineAlternate
+        StartLine = e.StartLine
+        EndLine = e.EndLine
         StartColumn = e.StartColumn + 1
         EndColumn = e.EndColumn + 1
         Severity = e.Severity
@@ -237,7 +240,7 @@ module CommandResponse =
       EnclosingEntity: string
       IsAbstract: bool
     }
-    static member OfDeclarationItem(e:FSharpNavigationDeclarationItem, fn) =
+    static member OfDeclarationItem(e: NavigationItem, fn) =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
       {
         UniqueName = e.UniqueName
@@ -495,7 +498,7 @@ module CommandResponse =
                 Data = { CommandName = commandName
                          ParameterStr = parameterStr} }
 
-  let declarations (serialize : Serializer) (decls : (FSharpNavigationTopLevelDeclaration * string<LocalPath>) []) =
+  let declarations (serialize : Serializer) (decls : (NavigationTopLevelDeclaration * string<LocalPath>) []) =
      let decls' =
       decls |> Array.map (fun (d, fn) ->
         { Declaration = Declaration.OfDeclarationItem (d.Declaration, UMX.untag fn);
@@ -513,9 +516,9 @@ module CommandResponse =
       | _ -> failwith "Shouldn't happen"
     serialize { Kind = "formattedDocumentation"; Data = data }
 
-  let formattedDocumentationForSymbol (serialize : Serializer) xml assembly (xmlDoc : string list) (signature, footer, cn) =
+  let formattedDocumentationForSymbol (serialize : Serializer) xml assembly (xmldoc: string[]) (signature, footer, cn) =
     let data = TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn |> List.map(List.map(fun (n,cns, fds, funcs, intf, attrs, ts, m,f, cn) ->
-      let m = if String.IsNullOrWhiteSpace m then xmlDoc |> String.concat Environment.NewLine else m
+      let m = if String.IsNullOrWhiteSpace m then xmldoc |> String.concat Environment.NewLine else m
       {XmlKey = cn; Constructors = cns |> Seq.toList; Fields = fds |> Seq.toList; Functions = funcs |> Seq.toList; Interfaces = intf |> Seq.toList; Attributes = attrs |> Seq.toList; Types = ts |> Seq.toList; Footer =f; Signature = n; Comment = m} ))
     serialize { Kind = "formattedDocumentation"; Data = data }
 

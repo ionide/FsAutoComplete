@@ -1,14 +1,15 @@
 namespace FsAutoComplete
 
-open UntypedAstUtils
 [<AutoOpen>]
 module PrintParameter =
     let print sb = Printf.bprintf sb "%s"
 
 
 module SignatureFormatter =
-    open FSharp.Compiler
-    open FSharp.Compiler.SourceCodeServices
+    open FSharp.Compiler.CodeAnalysis
+    open FSharp.Compiler.Symbols
+    open FSharp.Compiler.Syntax
+    open FSharp.Compiler.Tokenization
     open System
     open System.Text
 
@@ -70,10 +71,10 @@ module SignatureFormatter =
                       sprintf "%s array" genericArgs
               elif isMeasureType typeDef then
                 typ.Format context
-              else sprintf "%s<%s>" (FSharpKeywords.QuoteIdentifierIfNeeded typeDef.DisplayName) genericArgs
+              else sprintf "%s<%s>" (FSharpKeywords.AddBackticksToIdentifierIfNeeded typeDef.DisplayName) genericArgs
           else
               if typ.HasTypeDefinition then
-                  FSharpKeywords.QuoteIdentifierIfNeeded typ.TypeDefinition.DisplayName
+                  FSharpKeywords.AddBackticksToIdentifierIfNeeded typ.TypeDefinition.DisplayName
               else typ.Format context
         with
         | _ -> typ.Format context
@@ -93,7 +94,7 @@ module SignatureFormatter =
                         chopped, true
                     | _, _ ->
                         if PrettyNaming.IsMangledOpName c.MemberName then
-                            PrettyNaming.DemangleOperatorName c.MemberName, false
+                            PrettyNaming.DecompileOpName c.MemberName, false
                         else
                             c.MemberName, false
 
@@ -150,9 +151,9 @@ module SignatureFormatter =
         sb.ToString()
 
     let getUnioncaseSignature (displayContext: FSharpDisplayContext) (unionCase:FSharpUnionCase) =
-        if unionCase.UnionCaseFields.Count > 0 then
+        if unionCase.Fields.Count > 0 then
             let typeList =
-                unionCase.UnionCaseFields
+                unionCase.Fields
                 |> Seq.map (fun unionField ->
                     if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
                         formatFSharpType displayContext unionField.FieldType
@@ -171,10 +172,10 @@ module SignatureFormatter =
                     match func.EnclosingEntitySafe with
                     | Some ent -> ent.DisplayName
                     | _ -> func.DisplayName
-                    |> FSharpKeywords.QuoteIdentifierIfNeeded
+                    |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
                 elif func.IsOperatorOrActivePattern then func.DisplayName
-                elif func.DisplayName.StartsWith "( " then FSharpKeywords.QuoteIdentifierIfNeeded func.LogicalName
-                else FSharpKeywords.QuoteIdentifierIfNeeded func.DisplayName
+                elif func.DisplayName.StartsWith "( " then FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
+                else FSharpKeywords.AddBackticksToIdentifierIfNeeded func.DisplayName
             name
 
         let modifiers =
@@ -229,7 +230,7 @@ module SignatureFormatter =
                 argInfos
                 |> List.concat
                 |> List.map (fun p -> let name = Option.defaultValue p.DisplayName p.Name
-                                      let normalisedName = FSharpKeywords.QuoteIdentifierIfNeeded name
+                                      let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded name
                                       normalisedName.Length )
             match allLengths with
             | [] -> 0
@@ -237,7 +238,7 @@ module SignatureFormatter =
 
         let formatName indent padding (parameter:FSharpParameter) =
             let name = Option.defaultValue parameter.DisplayName parameter.Name
-            let normalisedName = FSharpKeywords.QuoteIdentifierIfNeeded name
+            let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded name
             indent + normalisedName.PadRight padding + ":"
 
         let isDelegate =
@@ -310,7 +311,7 @@ module SignatureFormatter =
             let name =
                 if func.IsConstructor then "new"
                 elif func.IsOperatorOrActivePattern then func.DisplayName
-                elif func.DisplayName.StartsWith "( " then FSharpKeywords.QuoteIdentifierIfNeeded func.LogicalName
+                elif func.DisplayName.StartsWith "( " then FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
                 elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.defaultValue func.DisplayName
                 else func.DisplayName
             name
@@ -353,7 +354,7 @@ module SignatureFormatter =
                     match func.EnclosingEntitySafe with
                     | Some ent -> ent.DisplayName
                     | _ -> func.DisplayName
-                    |> FSharpKeywords.QuoteIdentifierIfNeeded
+                    |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
                 else
                     formatFSharpType displayContext func.ReturnParameter.Type
             with _ex ->
@@ -430,7 +431,7 @@ module SignatureFormatter =
         let name =
             if v.DisplayName.StartsWith "( "
             then v.LogicalName else v.DisplayName
-            |> FSharpKeywords.QuoteIdentifierIfNeeded
+            |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
         let constraints =
             match v.FullTypeSafe with
             | Some fulltype when fulltype.IsGenericParameter ->
@@ -554,7 +555,7 @@ module SignatureFormatter =
 
         let typeDisplay =
             let name =
-                let normalisedName = FSharpKeywords.QuoteIdentifierIfNeeded fse.DisplayName
+                let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded fse.DisplayName
                 if fse.GenericParameters.Count > 0 then
                     let paramsAndConstraints =
                         fse.GenericParameters

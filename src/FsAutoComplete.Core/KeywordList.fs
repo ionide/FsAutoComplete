@@ -1,7 +1,10 @@
 namespace FsAutoComplete
 
 open LanguageServerProtocol.Types
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Text
+open FSharp.Compiler.Tokenization
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 module KeywordList =
 
@@ -14,8 +17,9 @@ module KeywordList =
       |> Seq.map (fun kv ->
         let lines = kv.Value.Replace("\r\n", "\n").Split('\n')
         let allLines = Array.concat [| [|"<summary>"|]; lines; [| "</summary>" |] |]
-        let tip = FSharpToolTipText [FSharpToolTipElement.Single(kv.Key, FSharpXmlDoc.Text (allLines, allLines))]
-        kv.Key, tip)
+        let tip = ToolTipText [ToolTipElement.Single([| TaggedText.tagText kv.Key |], FSharpXmlDoc.FromXmlText (FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))) ]
+        kv.Key, tip
+      )
       |> dict
 
     let hashDirectives =
