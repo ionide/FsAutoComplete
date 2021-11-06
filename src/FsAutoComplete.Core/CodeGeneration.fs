@@ -4,9 +4,11 @@ namespace FsAutoComplete
 open System
 open System.IO
 open System.CodeDom.Compiler
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.Tokenization
+open FSharp.Compiler.CodeAnalysis
 
 [<Measure>] type Line0
 [<Measure>] type Line1
@@ -22,7 +24,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             with
             | _ -> None
 
-    member x.GetSymbolAtPosition(fileName, pos: Pos) =
+    member x.GetSymbolAtPosition(fileName, pos: Position) =
         match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
         | ResultOrString.Error _ -> None
         | ResultOrString.Ok (opts, lines, line) ->
@@ -31,14 +33,14 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
             with
             | _ -> None
 
-    member x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Pos, kind) =
+    member x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
         asyncMaybe {
             let! symbol = x.GetSymbolAtPosition(fileName,pos)
             if symbol.Kind = kind then
                 match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
                 | ResultOrString.Error _ -> return! None
-                | ResultOrString.Ok (opts, _, line) ->
-                    let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts)
+                | ResultOrString.Ok (opts, text, line) ->
+                    let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
                     let symbolUse = result.TryGetSymbolUse pos line
                     return! Some (symbol, symbolUse)
             else
@@ -48,14 +50,14 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
     member x.ParseFileInProject(fileName) =
         match state.TryGetFileCheckerOptionsWithLines fileName with
         | ResultOrString.Error _ -> None
-        | ResultOrString.Ok (opts, lines) ->
+        | ResultOrString.Ok (opts, text) ->
             try
-                checker.TryGetRecentCheckResultsForFile(fileName, opts) |> Option.map (fun n -> n.GetParseResults)
+                checker.TryGetRecentCheckResultsForFile(fileName, opts, text) |> Option.map (fun n -> n.GetParseResults)
             with
             | _ -> None
 
 module CodeGenerationUtils =
-    open FSharp.Compiler.SourceCodeServices.PrettyNaming
+    open FSharp.Compiler.Syntax.PrettyNaming
 
     type ColumnIndentedTextWriter() =
         let stringWriter = new StringWriter()
@@ -91,13 +93,6 @@ module CodeGenerationUtils =
                 stringWriter.Dispose()
                 indentWriter.Dispose()
 
-    let (|IndexerArg|) = function
-        | SynIndexerArg.Two(e1,e1FromEnd, e2, e2FromEnd, _e1Range, _e2Range) -> [e1, e1FromEnd; e2, e2FromEnd]
-        | SynIndexerArg.One(e, fromEnd, _range) -> [e, fromEnd]
-
-    let (|IndexerArgList|) xs =
-        List.collect (|IndexerArg|) xs
-
     let hasAttribute<'T> (attrs: seq<FSharpAttribute>) =
         attrs |> Seq.exists (fun a -> a.AttributeType.CompiledName = typeof<'T>.Name)
 
@@ -114,7 +109,7 @@ module CodeGenerationUtils =
             if range.EndLine > document.LineCount then
                 let newEndLine = document.LineCount
                 let newEndColumn = document.GetLineText1(document.LineCount).Length
-                let newEndPos = Pos.mkPos newEndLine newEndColumn
+                let newEndPos = Position.mkPos newEndLine newEndColumn
 
                 Range.mkRange range.FileName range.Start newEndPos
             else
@@ -144,7 +139,7 @@ module CodeGenerationUtils =
                 predicate tokenInfo
         )
         |> Option.map (fun (line1, tokenInfo) ->
-            tokenInfo, (Pos.fromZ (int line1 - 1) tokenInfo.LeftColumn)
+            tokenInfo, (Position.fromZ (int line1 - 1) tokenInfo.LeftColumn)
         )
 
     /// Represent environment where a captured identifier should be renamed
@@ -550,14 +545,14 @@ module CodeGenerationUtils =
     // On merged properties (consisting both getters and setters), they have the same range values,
     // so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
     let (|MemberNameAndRange|_|) = function
-        | Binding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range),
-                    _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = MemberKind.PropertyGet ->
+        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range),
+                     _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = SynMemberKind.PropertyGet ->
             if name.StartsWith("get_") then Some(name, range) else Some("get_" + name, range)
-        | Binding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range),
-                    _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = MemberKind.PropertySet ->
+        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range),
+                     _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = SynMemberKind.PropertySet ->
             if name.StartsWith("set_") then Some(name, range) else Some("set_" + name, range)
-        | Binding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, LongIdentPattern(name, range),
-                    _retTy, _expr, _bindingRange, _seqPoint) ->
+        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, LongIdentPattern(name, range),
+                     _retTy, _expr, _bindingRange, _seqPoint) ->
             Some(name, range)
         | _ ->
             None
@@ -618,12 +613,12 @@ module CodeGenerationUtils =
             res <- res + powerNumber
         res
 
-    let findLastPositionOfWithKeyword (tokens: FSharpTokenInfo list) (entity: FSharpEntity) (pos: Pos) (entityAdvancer) =
+    let findLastPositionOfWithKeyword (tokens: FSharpTokenInfo list) (entity: FSharpEntity) (pos: Position) (entityAdvancer) =
       let endPosOfWidth =
           tokens
           |> List.tryPick (fun (t: FSharpTokenInfo) ->
                   if t.CharClass = FSharpTokenCharKind.Keyword && t.LeftColumn >= pos.Column && t.TokenName = "WITH" then
-                      Some (Pos.fromZ (pos.Line - 1) (t.RightColumn + 1))
+                      Some (Position.fromZ (pos.Line - 1) (t.RightColumn + 1))
                   else None)
 
       match endPosOfWidth with
@@ -634,11 +629,11 @@ module CodeGenerationUtils =
           let position =
               if entity.GenericParameters.Count = 0 then
                   let token = entityAdvancer tokens
-                  Pos.fromZ (pos.Line - 1) (token.RightColumn + 1)
+                  Position.fromZ (pos.Line - 1) (token.RightColumn + 1)
               // Otherwise, returns the position after the last greater angle (>)
               else
                   let token = findLastGreaterOperator tokens
-                  Pos.fromZ (pos.Line - 1) (token.RightColumn + 1)
+                  Position.fromZ (pos.Line - 1) (token.RightColumn + 1)
 
           Some (true, position)
 
@@ -776,11 +771,11 @@ module CodeGenerationUtils =
             sprintf "- %s" s
 
     let rec (|TypeIdent|_|) = function
-        | SynType.Var(SynTypar.Typar(s, req , _), _) ->
+        | SynType.Var(SynTypar(s, req , _), _) ->
             match req with
-            | NoStaticReq ->
+            | TyparStaticReq.None ->
                 Some ("'" + s.idText)
-            | HeadTypeStaticReq ->
+            | TyparStaticReq.HeadType ->
                 Some ("^" + s.idText)
         | SynType.LongIdent(LongIdentWithDots(xs, _)) ->
             xs |> Seq.map (fun x -> x.idText) |> String.concat "." |> Some

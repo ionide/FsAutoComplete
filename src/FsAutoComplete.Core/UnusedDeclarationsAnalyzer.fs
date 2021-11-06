@@ -2,7 +2,8 @@
 namespace FsAutoComplete
 
 open FsAutoComplete
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.CodeAnalysis
 
 module UnusedDeclarationsAnalyzer =
     open System.Collections.Generic
@@ -41,7 +42,7 @@ module UnusedDeclarationsAnalyzer =
         let unusedRanges =
             definitions
             |> Seq.map (fun defSu -> defSu, usages.Contains defSu.Symbol.DeclarationLocation.Value)
-            |> Seq.groupBy (fun (defSu, _) -> defSu.RangeAlternate)
+            |> Seq.groupBy (fun (defSu, _) -> defSu.Range)
             |> Seq.filter (fun (_, defSus) -> defSus |> Seq.forall (fun (_, isUsed) -> not isUsed))
             |> Seq.choose (fun (range, defSus) ->
 

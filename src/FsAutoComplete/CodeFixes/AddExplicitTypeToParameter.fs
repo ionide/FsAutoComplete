@@ -6,8 +6,10 @@ open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.Syntax
 
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
   fun codeActionParams ->
@@ -27,21 +29,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         // TODO: remove patched functions and uncomment this boolean check after FCS 40 update
         let isLambdaIfFunction =
         //     funcOrValue.IsFunction &&
-             parseFileResults.IsBindingALambdaAtPositionPatched symbolUse.RangeAlternate.Start
+             parseFileResults.IsBindingALambdaAtPositionPatched symbolUse.Range.Start
 
         (funcOrValue.IsValue || isLambdaIfFunction) &&
-        parseFileResults.IsPositionContainedInACurriedParameter symbolUse.RangeAlternate.Start &&
-        not (parseFileResults.IsTypeAnnotationGivenAtPositionPatched symbolUse.RangeAlternate.Start) &&
+        parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.Start &&
+        not (parseFileResults.IsTypeAnnotationGivenAtPositionPatched symbolUse.Range.Start) &&
         not funcOrValue.IsMember &&
         not funcOrValue.IsMemberThisValue &&
         not funcOrValue.IsConstructorThisValue &&
-        not (PrettyNaming.IsOperatorName funcOrValue.DisplayName)
+        not (PrettyNaming.IsOperatorDisplayName funcOrValue.DisplayName)
 
       match symbolUse.Symbol with
       | :? FSharpMemberOrFunctionOrValue as v when isValidParameterWithoutTypeAnnotation v symbolUse ->
         let typeString = v.FullType.Format symbolUse.DisplayContext
         let title = "Add explicit type annotation"
-        let fcsSymbolRange = symbolUse.RangeAlternate
+        let fcsSymbolRange = symbolUse.Range
         let protocolSymbolRange = fcsRangeToLsp fcsSymbolRange
         let! symbolText = sourceText.GetText(fcsSymbolRange)
 

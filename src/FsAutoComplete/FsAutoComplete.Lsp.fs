@@ -9,7 +9,6 @@ open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
-open FSharp.Compiler.SourceCodeServices
 open LanguageServerProtocol
 open LanguageServerProtocol.LspResult
 open LanguageServerProtocol.Server
@@ -23,11 +22,14 @@ open FSharp.Analyzers
 open FSharp.Compiler.Text
 open CliWrap
 open CliWrap.Buffered
+open FSharp.Compiler.Tokenization
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
-module FcsPos = FSharp.Compiler.Text.Pos
-type FcsPos = FSharp.Compiler.Text.Pos
+module FcsPos = FSharp.Compiler.Text.Position
+type FcsPos = FSharp.Compiler.Text.Position
 
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
@@ -589,7 +591,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         return! AsyncLspResult.internalError s
       | ResultOrString.Ok (options, lines, lineStr) ->
         try
-          let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+          let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
           match tyResOpt with
           | None ->
@@ -598,7 +600,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               >> Log.addContextDestructured "file" file
             )
 
-            return! AsyncLspResult.internalError "Cached typecheck results not yet available"
+            return! AsyncLspResult.success Unchecked.defaultof<_>
           | Some tyRes ->
             let! r = Async.Catch(f arg pos tyRes lineStr lines)
 
@@ -636,43 +638,32 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       return!
         try
           async {
-            let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
-
+            let! tyRes = commands.GetLatestTypeCheckResultsForFile(file)
             return!
-              match tyResOpt with
-              | None ->
+              match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+              | ResultOrString.Error s ->
                 logger.error (
-                  Log.setMessage
-                    "PositionHandler - Cached typecheck results for {file} not yet available and are required"
+                  Log.setMessage "PositionHandler - Getting file checker options for {file} failed"
+                  >> Log.addContextDestructured "error" s
                   >> Log.addContextDestructured "file" file
                 )
 
-                AsyncLspResult.internalError "Cached typecheck results not yet available"
-              | Some tyRes ->
-                match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
-                | ResultOrString.Error s ->
-                  logger.error (
-                    Log.setMessage "PositionHandler - Getting file checker options for {file} failed"
-                    >> Log.addContextDestructured "error" s
-                    >> Log.addContextDestructured "file" file
-                  )
+                AsyncLspResult.internalError s
+              | ResultOrString.Ok (options, lines, lineStr) ->
+                async {
+                  let! r = Async.Catch(f arg pos tyRes lineStr lines)
 
-                  AsyncLspResult.internalError s
-                | ResultOrString.Ok (options, lines, lineStr) ->
-                  async {
-                    let! r = Async.Catch(f arg pos tyRes lineStr lines)
+                  match r with
+                  | Choice1Of2 r -> return r
+                  | Choice2Of2 e ->
+                    logger.error (
+                      Log.setMessage "PositionHandler - Failed during child operation on file {file}"
+                      >> Log.addContextDestructured "file" file
+                      >> Log.addExn e
+                    )
 
-                    match r with
-                    | Choice1Of2 r -> return r
-                    | Choice2Of2 e ->
-                      logger.error (
-                        Log.setMessage "PositionHandler - Failed during child operation on file {file}"
-                        >> Log.addContextDestructured "file" file
-                        >> Log.addExn e
-                      )
-
-                      return LspResult.internalError e.Message
-                  }
+                    return LspResult.internalError e.Message
+                }
           }
         with
         | e ->
@@ -706,7 +697,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           AsyncLspResult.internalError s
         | ResultOrString.Ok (options, lines) ->
           try
-            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options)
+            let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
             match tyResOpt with
             | None ->
@@ -789,7 +780,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           let! (projectOptions, fileLines, lineAtPos) =
             commands.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos)
 
-          match! commands.TryGetLatestTypeCheckResultsForFile(fileName) with
+          match commands.TryGetRecentTypeCheckResultsForFile(fileName) with
           | None -> return! Error $"No typecheck results available for %A{fileName}"
           | Some tyRes -> return tyRes, lineAtPos, fileLines
         }
@@ -1113,16 +1104,16 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let! typeCheckResults =
           match p.Context with
           | None ->
-            commands.TryGetRecentTypeCheckResultsForFile(file, options)
+            commands.TryGetRecentTypeCheckResultsForFile(file)
             |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
             |> async.Return
           | Some ctx ->
             //ctx.triggerKind = CompletionTriggerKind.Invoked ||
             if (ctx.triggerCharacter = Some '.') then
-              commands.TryGetLatestTypeCheckResultsForFile(file)
-              |> Async.map (Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results"))
+              commands.GetLatestTypeCheckResultsForFile(file)
+              |> Async.map Ok
             else
-              commands.TryGetRecentTypeCheckResultsForFile(file, options)
+              commands.TryGetRecentTypeCheckResultsForFile(file)
               |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
               |> async.Return
 
@@ -1147,7 +1138,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 elif d.NamespaceToOpen.IsSome then
                   d.Name
                 else
-                  FSharpKeywords.QuoteIdentifierIfNeeded d.Name
+                  FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
 
               let label =
                 match d.NamespaceToOpen with
@@ -1354,7 +1345,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               let edits =
                 symbols
                 |> Array.map (fun sym ->
-                  let range = fcsRangeToLsp sym.RangeAlternate
+                  let range = fcsRangeToLsp sym.Range
 
                   let range =
                     { range with
@@ -1469,7 +1460,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         let ranges: FSharp.Compiler.Text.Range [] =
           match res with
-          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
           | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
 
         let filtered =
@@ -1502,7 +1493,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | CoreResponse.Res (symbol, uses) ->
         uses
         |> Array.map (fun s ->
-          { DocumentHighlight.Range = fcsRangeToLsp s.RangeAlternate
+          { DocumentHighlight.Range = fcsRangeToLsp s.Range
             Kind = None })
         |> Some
         |> success
@@ -1523,7 +1514,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
         let ranges: FSharp.Compiler.Text.Range [] =
           match res with
-          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.RangeAlternate)
+          | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
           | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
 
         let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
@@ -1735,7 +1726,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | ResultOrString.Ok (options, lines, lineStr) ->
           try
             async {
-              let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
+              let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
               match tyResOpt with
               | None -> return []
@@ -1870,7 +1861,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | ResultOrString.Ok (options, _, lineStr) ->
             try
               async {
-                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
+                let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
                 return!
                   match tyResOpt with
@@ -1959,7 +1950,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
                 let locs =
                   uses
-                  |> Array.map (fun n -> fcsRangeToLspLocation n.RangeAlternate)
+                  |> Array.map (fun n -> fcsRangeToLspLocation n.Range)
 
                 let args =
                   [| JToken.FromObject(Path.LocalPathToUri file)
@@ -2139,7 +2130,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | ResultOrString.Ok (options, _, lineStr) ->
             try
               async {
-                let! tyResOpt = commands.TryGetLatestTypeCheckResultsForFile(file)
+                let tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
                 return!
                   match tyResOpt with
@@ -2565,12 +2556,18 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | Ok (CoreResponse.InfoRes msg)
       | Ok (CoreResponse.ErrorRes msg) -> AsyncLspResult.internalError msg
       | Ok (CoreResponse.Res (xml, assembly, doc, signature, footer, cn)) ->
+        let xmldoc = 
+          match doc with
+          | FSharpXmlDoc.None -> [||]
+          | FSharpXmlDoc.FromXmlFile _ -> [||]
+          | FSharpXmlDoc.FromXmlText d -> d.GetElaboratedXmlLines()
+
         { Content =
             CommandResponse.formattedDocumentationForSymbol
               FsAutoComplete.JsonSerializer.writeJson
               xml
               assembly
-              doc
+              xmldoc
               (signature, footer, cn) }
         |> success
         |> async.Return
@@ -2626,21 +2623,19 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
 
   member private x.handleSemanticTokens
-    (getTokens: Async<CoreResponse<option<(struct (FcsRange * SemanticClassificationType)) array>>>)
+    (getTokens: Async<CoreResponse<SemanticClassificationItem array>>)
     : AsyncLspResult<SemanticTokens option> =
     asyncResult {
-      match! getTokens |> AsyncResult.ofCoreResponse with
-      | None -> return! LspResult.internalError "No highlights found"
-      | Some rangesAndHighlights ->
-        let lspTypedRanges =
-          rangesAndHighlights
-          |> Array.map (fun (struct (fcsRange, fcsTokenType)) ->
-            let ty, mods = ClassificationUtils.map fcsTokenType
-            struct (fcsRangeToLsp fcsRange, ty, mods))
+      let! rangesAndHighlights = getTokens |> AsyncResult.ofCoreResponse
+      let lspTypedRanges =
+        rangesAndHighlights
+        |> Array.map (fun item ->
+          let ty, mods = ClassificationUtils.map item.Type
+          struct (fcsRangeToLsp item.Range, ty, mods))
 
-        match encodeSemanticHighlightRanges lspTypedRanges with
-        | None -> return! success None
-        | Some encoded -> return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
+      match encodeSemanticHighlightRanges lspTypedRanges with
+      | None -> return! success None
+      | Some encoded -> return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }
 
   override x.TextDocumentSemanticTokensFull(p: SemanticTokensParams) : AsyncLspResult<SemanticTokens option> =
@@ -2743,8 +2738,8 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
 
   let state = State.Initial toolsPath workspaceLoaderFactory
 
-  let originalFs = FileSystemAutoOpens.FileSystem
-  FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
+  let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
+  FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
   LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
     new FSharpLspServer(backgroundServiceEnabled, state, lspClient))

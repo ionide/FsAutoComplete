@@ -6,7 +6,7 @@ open System.Threading.Tasks
 open System.IO
 open System.Collections.Concurrent
 open System
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
 
 module Map =

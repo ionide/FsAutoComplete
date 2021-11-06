@@ -2,17 +2,20 @@ module FsAutoComplete.SignatureHelp
 
 open System
 open FSharp.Compiler.Text
-open FSharp.Compiler.SourceCodeServices
 open FsToolkit.ErrorHandling
 open FsAutoComplete
 open FSharp.UMX
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Tokenization
 
 type SignatureHelpKind = MethodCall | FunctionApplication
 
 type SignatureHelpInfo = {
   /// all potential overloads of the member at the position where signaturehelp was invoked
-  Methods: FSharpMethodGroupItem []
+  Methods: MethodGroupItem []
   /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
   ActiveOverload: int option
   /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
@@ -20,26 +23,26 @@ type SignatureHelpInfo = {
   SigHelpKind: SignatureHelpKind
 }
 
-let private lineText (lines: ISourceText) (pos: Pos) = lines.GetLineString(pos.Line - 1)
+let private lineText (lines: ISourceText) (pos: Position) = lines.GetLineString(pos.Line - 1)
 
-let private charAt (lines: ISourceText) (pos: Pos) =
+let private charAt (lines: ISourceText) (pos: Position) =
       (lineText lines pos).[pos.Column - 1]
 
-let dec (lines: ISourceText) (pos: Pos): Pos =
+let dec (lines: ISourceText) (pos: Position): Position =
   if pos.Column = 0 then
     let prevLine = lines.GetLineString (pos.Line - 2)
     // retreat to the end of the previous line
-    Pos.mkPos (pos.Line - 1) (prevLine.Length - 1)
+    Position.mkPos (pos.Line - 1) (prevLine.Length - 1)
   else
-    Pos.mkPos pos.Line (pos.Column - 1)
+    Position.mkPos pos.Line (pos.Column - 1)
 
-let inc (lines: ISourceText) (pos: Pos): Pos =
+let inc (lines: ISourceText) (pos: Position): Position =
   let currentLine = lineText lines pos
   if pos.Column - 1 = currentLine.Length then
     // advance to the beginning of the next line
-    Pos.mkPos (pos.Line + 1) 0
+    Position.mkPos (pos.Line + 1) 0
   else
-    Pos.mkPos pos.Line (pos.Column + 1)
+    Position.mkPos pos.Line (pos.Column + 1)
 
 let getText (lines: ISourceText) (range: Range) =
   if range.Start.Line = range.End.Line then
@@ -55,7 +58,7 @@ let getText (lines: ISourceText) (range: Range) =
       yield endLine.Substring(0, range.End.Column - 1)
     })
 
-let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Pos, endOfPreviousIdentPos: Pos, lines: ISourceText) : Async<SignatureHelpInfo option> =
+let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Position, endOfPreviousIdentPos: Position, lines: ISourceText) : Async<SignatureHelpInfo option> =
   asyncMaybe {
     let lineStr = lineText lines endOfPreviousIdentPos
     let! possibleApplicationSymbolEnd = maybe {
@@ -71,18 +74,18 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
     let! symbolUse = tyRes.GetCheckResults.GetSymbolUseAtLocation(possibleApplicationSymbolEnd.Line, endCol, lineStr, idents)
 
     let isValid (mfv: FSharpMemberOrFunctionOrValue) =
-      not (PrettyNaming.IsOperatorName mfv.DisplayName) &&
+      not (PrettyNaming.IsOperatorDisplayName mfv.DisplayName) &&
       not mfv.IsProperty &&
       mfv.CurriedParameterGroups.Count > 0
 
     match symbolUse.Symbol with
     | :? FSharpMemberOrFunctionOrValue as mfv when isValid mfv ->
-      let tooltip = tyRes.GetCheckResults.GetToolTipText(possibleApplicationSymbolEnd.Line, endCol, possibleApplicationSymbolLineStr, idents, FSharpTokenTag.IDENT)
+      let tooltip = tyRes.GetCheckResults.GetToolTip(possibleApplicationSymbolEnd.Line, endCol, possibleApplicationSymbolLineStr, idents, FSharpTokenTag.IDENT)
       match tooltip with
-      | FSharpToolTipText []
-      | FSharpToolTipText [FSharpToolTipElement.None] -> return! None
+      | ToolTipText []
+      | ToolTipText [ ToolTipElement.None ] -> return! None
       | _ ->
-        let symbolStart = symbolUse.RangeAlternate.Start
+        let symbolStart = symbolUse.Range.Start
         let possiblePipelineIdent = tyRes.GetParseResults.TryIdentOfPipelineContainingPosAndNumArgsApplied symbolStart
         let numArgsAlreadyApplied = possiblePipelineIdent |> Option.map snd |> Option.defaultValue 0
         let definedArgs = mfv.CurriedParameterGroups |> Array.ofSeq
@@ -103,7 +106,7 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
           | None ->
               let possibleNextIndex =
                   curriedArgsInSource
-                  |> Array.tryFindIndex(fun argRange -> Pos.posGeq argRange.Start caretPos)
+                  |> Array.tryFindIndex(fun argRange -> Position.posGeq argRange.Start caretPos)
 
               match possibleNextIndex with
               | Some index -> Some index
@@ -112,7 +115,7 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
                       Some (numDefinedArgs - (numDefinedArgs - curriedArgsInSource.Length))
                   else
                       None
-        let methods = tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.RangeAlternate.End.Column, lineText lines symbolStart, None)
+        let methods = tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, lineText lines symbolStart, None)
 
         return {
           ActiveParameter = Some argumentIndex
@@ -124,9 +127,9 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
       return! None
   }
 
-let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Pos, lines: ISourceText, triggerChar) =
+let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Position, lines: ISourceText, triggerChar) =
   asyncMaybe {
-    let! paramLocations = tyRes.GetParseResults.FindNoteworthyParamInfoLocations caretPos
+    let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
     let lidEnd = paramLocations.LongIdEndLocation
     let lineText = lineText lines lidEnd
@@ -194,7 +197,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
       }
   }
 
-let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Pos, lines: ISourceText, triggerChar, possibleSessionKind) =
+let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Position, lines: ISourceText, triggerChar, possibleSessionKind) =
   asyncResult {
     let previousNonWhitespaceCharPos =
       let rec loop ch pos =

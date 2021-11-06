@@ -50,7 +50,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
             match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
             | Some lexSym ->
                 let fcsStartPos =
-                  FSharp.Compiler.Text.Pos.mkPos lexSym.Line lexSym.LeftColumn
+                  FSharp.Compiler.Text.Position.mkPos lexSym.Line lexSym.LeftColumn
 
                 let symbolStartRange = fcsPosToProtocolRange fcsStartPos
 

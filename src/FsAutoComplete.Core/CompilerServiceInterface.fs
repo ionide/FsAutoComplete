@@ -1,12 +1,14 @@
 namespace FsAutoComplete
 
 open System.IO
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open Utils
 open FSharp.Compiler.Text
 open FsAutoComplete.Logging
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 type Version = int
 
@@ -21,7 +23,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       enableBackgroundItemKeyStoreAndSemanticClassification = true
     )
 
-  do checker.ImplicitlyStartBackgroundWork <- not backgroundServiceEnabled
   do checker.BeforeBackgroundFileCheck.Add ignore
 
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
@@ -29,7 +30,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     if not backgroundServiceEnabled then
       checker.FileChecked
     else
-      (new Event<string * obj option>()).Publish
+      (new Event<_>()).Publish
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
@@ -102,14 +103,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     else
       opts
 
-  let logQueueLength (logger: ILog) msg =
-    checkerLogger.trace (
-      Log.setMessage "Current Queue Length is {queueLength}"
-      >> Log.addContextDestructured "queueLength" checker.CurrentQueueLength
-    )
-
-    logger.info msg
-
   let filterBadRuntimeRefs =
     let badRefs =
       [ "System.Private"
@@ -130,8 +123,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
     let files = Array.append fsiAdditionalFiles projectOptions.SourceFiles
 
-    logQueueLength
-      optsLogger
+    optsLogger.info
       (Log.setMessage "Source file list is {files}"
        >> Log.addContextDestructured "files" files)
 
@@ -174,13 +166,12 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
           |> Seq.distinctBy (fun o -> o.ProjectFileName)
           |> Seq.filter (fun o ->
             o.ReferencedProjects
-            |> Array.map (fun (_, v) -> Path.GetFullPath v.ProjectFileName)
+            |> Array.map (fun p -> Path.GetFullPath p.FileName)
             |> Array.contains option.ProjectFileName) ])
 
   member private __.GetNetFxScriptOptions(file: string<LocalPath>, source) =
     async {
-      logQueueLength
-        optsLogger
+      optsLogger.info
         (Log.setMessage "Getting NetFX options for script file {file}"
          >> Log.addContextDestructured "file" file)
 
@@ -203,8 +194,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   member private __.GetNetCoreScriptOptions(file: string<LocalPath>, source) =
     async {
-      logQueueLength
-        optsLogger
+      optsLogger.info
         (Log.setMessage "Getting NetCore options for script file {file}"
          >> Log.addContextDestructured "file" file)
 
@@ -254,8 +244,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       match errors with
       | [] -> ()
       | errs ->
-        logQueueLength
-          optsLogger
+        optsLogger.info
           (Log.setLogLevel LogLevel.Error
            >> Log.setMessage "Resolved {opts} with {errors}"
            >> Log.addContextDestructured "opts" projOptions
@@ -284,8 +273,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     }
 
   member __.GetBackgroundCheckResultsForFileInProject(fn: string<LocalPath>, opt) =
-    logQueueLength
-      checkerLogger
+    checkerLogger.info
       (Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}"
        >> Log.addContextDestructured "file" fn)
 
@@ -294,15 +282,14 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     checker.GetBackgroundCheckResultsForFileInProject(UMX.untag fn, opt)
     |> Async.map (fun (pr, cr) -> ParseAndCheckResults(pr, cr, entityCache))
 
-  member __.FileChecked: IEvent<string<LocalPath> * obj option> =
+  member __.FileChecked: IEvent<string<LocalPath> * FSharpProjectOptions> =
     safeFileCheckedEvent
     |> Event.map (fun (fileName, blob) -> UMX.tag fileName, blob) //path comes from the compiler, so it's safe to assume the tag in this case
 
   member __.ScriptTypecheckRequirementsChanged = scriptTypecheckRequirementsChanged.Publish
 
   member __.ParseFile(fn: string<LocalPath>, source, fpo) =
-    logQueueLength
-      checkerLogger
+    checkerLogger.info
       (Log.setMessage "ParseFile - {file}"
        >> Log.addContextDestructured "file" fn)
 
@@ -312,9 +299,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
   member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source, options) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
-
-      logQueueLength
-        checkerLogger
+      checkerLogger.info
         (Log.setMessage "{opName}"
          >> Log.addContextDestructured "opName" opName)
 
@@ -324,20 +309,18 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       try
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
-        let parseErrors = p.Errors |> Array.map (fun p -> p.Message)
+        let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
 
         match c with
         | FSharpCheckFileAnswer.Aborted ->
-          logQueueLength
-            checkerLogger
+          checkerLogger.info
             (Log.setMessage "{opName} completed with errors: {errors}"
              >> Log.addContextDestructured "opName" opName
-             >> Log.addContextDestructured "errors" (List.ofArray p.Errors))
+             >> Log.addContextDestructured "errors" (List.ofArray p.Diagnostics))
 
           return ResultOrString.Error(sprintf "Check aborted (%A). Errors: %A" c parseErrors)
         | FSharpCheckFileAnswer.Succeeded (c) ->
-          logQueueLength
-            checkerLogger
+          checkerLogger.info
             (Log.setMessage "{opName} completed successfully"
              >> Log.addContextDestructured "opName" opName)
 
@@ -346,17 +329,16 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       | ex -> return ResultOrString.Error(ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, ?source) =
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
-    logQueueLength
-      checkerLogger
+    checkerLogger.info
       (Log.setMessage "{opName}"
        >> Log.addContextDestructured "opName" opName)
 
     let options = clearProjectReferences options
 
-    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, ?sourceText = source, userOpName = opName)
+    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
 
   member x.GetUsesOfSymbol
@@ -366,8 +348,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       symbol: FSharpSymbol
     ) =
     async {
-      logQueueLength
-        checkerLogger
+      checkerLogger.info
         (Log.setMessage "GetUsesOfSymbol - {file}"
          >> Log.addContextDestructured "file" file)
 
@@ -394,8 +375,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
     async {
-      logQueueLength
-        checkerLogger
+      checkerLogger.info
         (Log.setMessage "GetDeclarations - {file}"
          >> Log.addContextDestructured "file" fileName)
 

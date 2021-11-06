@@ -7,8 +7,9 @@ open LanguageServerProtocol.Server
 open LanguageServerProtocol.Types
 open LanguageServerProtocol
 open FSharp.Compiler
+open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Text
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open System.Collections.Concurrent
 open FsAutoComplete
 open Ionide.ProjInfo.ProjectSystem
@@ -66,8 +67,8 @@ module Helpers =
         {
             Range =
                 {
-                    Start = { Line = error.StartLineAlternate - 1; Character = error.StartColumn }
-                    End = { Line = error.EndLineAlternate - 1; Character = error.EndColumn }
+                    Start = { Line = error.StartLine - 1; Character = error.StartColumn }
+                    End = { Line = error.StartLine - 1; Character = error.EndColumn }
                 }
             Severity = fcsSeverityToDiagnostic error.Severity
             Source = "F# Compiler"
@@ -120,7 +121,6 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
     let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = false)
 
-    do checker.ImplicitlyStartBackgroundWork <- false
     let mutable latestSdkVersion = lazy None
     let mutable latestRuntimeVersion = lazy None
     //TODO: does the backgroundservice ever get config updates?
@@ -224,7 +224,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
                     | _ ->
-                        let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
+                        let errors = Array.append pr.Diagnostics res.Diagnostics |> Array.map (Helpers.fcsErrorToDiagnostic)
                         let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
                         do! client.SendDiagnostics msg
                         return ()
@@ -242,7 +242,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
                     | _ ->
-                        let errors = Array.append pr.Errors res.Errors |> Array.map (Helpers.fcsErrorToDiagnostic)
+                        let errors = Array.append pr.Diagnostics res.Diagnostics |> Array.map (Helpers.fcsErrorToDiagnostic)
                         let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
                         do! client.SendDiagnostics msg
                         return ()
@@ -261,8 +261,8 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             |> Seq.distinctBy (fun o -> o.ProjectFileName)
             |> Seq.filter (fun o ->
                 o.ReferencedProjects
-                |> Array.map (fun (_,v) -> Path.GetFullPath v.ProjectFileName)
-                |> Array.contains s.ProjectFileName )
+                |> Array.map (fun p -> Path.GetFullPath p.FileName)
+                |> Array.contains s.ProjectFileName)
             |> Seq.toList
 
     let reactor = MailboxProcessor.Start(fun agent ->
@@ -412,6 +412,7 @@ module Program =
 
         LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
 
+    open FSharp.Compiler.IO
 
 
     [<EntryPoint>]
@@ -419,7 +420,7 @@ module Program =
 
         let pid = Int32.Parse argv.[0]
         let originalFs = FileSystemAutoOpens.FileSystem
-        let fs = FileSystem(originalFs, state.Files.TryFind) :> IFileSystem
+        let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind) :> IFileSystem
         FileSystemAutoOpens.FileSystem <- fs
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
         SymbolCache.initCache (Environment.CurrentDirectory)

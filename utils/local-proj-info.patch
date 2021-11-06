@@ -1,3 +1,15 @@
+From 958a0beb8717779bd273d809dfec6b374057ecb5 Mon Sep 17 00:00:00 2001
+From: Chet Husk <chusk3@gmail.com>
+Date: Fri, 5 Nov 2021 10:36:36 -0500
+Subject: [PATCH] update path to use local proj info
+
+---
+ src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj | 2 ++
+ src/FsAutoComplete.Core/paket.references           | 4 ----
+ src/FsAutoComplete/FsAutoComplete.fsproj           | 2 ++
+ src/FsAutoComplete/paket.references                | 2 --
+ 4 files changed, 4 insertions(+), 6 deletions(-)
+
 diff --git a/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj b/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj
 index 469f825..c7f0349 100644
 --- a/src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj
@@ -12,7 +24,7 @@ index 469f825..c7f0349 100644
    <ItemGroup>
      <Compile Include="Debug.fs" />
 diff --git a/src/FsAutoComplete.Core/paket.references b/src/FsAutoComplete.Core/paket.references
-index 09835df..4c7756f 100644
+index 09835df..6c4ec25 100644
 --- a/src/FsAutoComplete.Core/paket.references
 +++ b/src/FsAutoComplete.Core/paket.references
 @@ -1,7 +1,4 @@
@@ -23,6 +35,13 @@ index 09835df..4c7756f 100644
  FSharp.Analyzers.SDK
  Newtonsoft.Json
  #Fake.Runtime
+@@ -13,6 +10,5 @@ System.Configuration.ConfigurationManager
+ FSharp.UMX
+ FsToolkit.ErrorHandling
+ Fantomas.Client
+-
+ System.Reflection.Metadata
+ Microsoft.Build.Utilities.Core
 diff --git a/src/FsAutoComplete/FsAutoComplete.fsproj b/src/FsAutoComplete/FsAutoComplete.fsproj
 index a215b87..bb7d3a7 100644
 --- a/src/FsAutoComplete/FsAutoComplete.fsproj
@@ -34,18 +53,21 @@ index a215b87..bb7d3a7 100644
 +    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo\Ionide.ProjInfo.fsproj" />
 +    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
    </ItemGroup>
-
+ 
    <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
 diff --git a/src/FsAutoComplete/paket.references b/src/FsAutoComplete/paket.references
-index d2088b9..5823f0e 100644
+index fc07883..04299f7 100644
 --- a/src/FsAutoComplete/paket.references
 +++ b/src/FsAutoComplete/paket.references
-@@ -4,8 +4,6 @@ Newtonsoft.Json
- FSharp.Core
- Microsoft.SourceLink.GitHub
- System.Configuration.ConfigurationManager
+@@ -10,8 +10,6 @@ FSharp.UMX
+ #FSharpLint.Core
+ FsToolkit.ErrorHandling
+ ICSharpCode.Decompiler
 -Ionide.ProjInfo
 -Ionide.ProjInfo.ProjectSystem
- #Fake.Runtime
- Dapper
  Microsoft.Data.Sqlite
+ Microsoft.NETFramework.ReferenceAssemblies
+ Microsoft.SourceLink.GitHub
+-- 
+2.33.1.windows.1
+
