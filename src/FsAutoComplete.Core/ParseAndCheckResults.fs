@@ -653,8 +653,8 @@ type ParseAndCheckResults
               && List.isEmpty longName.QualifyingIdents
 
             return Some(sortedDecls, residue, shouldKeywords)
-          with
-          | :? TimeoutException -> return None
+        with
+        | :? TimeoutException -> return None
     }
 
   member __.GetAllEntities(publicOnly: bool) : AssemblySymbol list =
