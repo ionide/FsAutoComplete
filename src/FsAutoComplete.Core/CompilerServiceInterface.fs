@@ -329,7 +329,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       | ex -> return ResultOrString.Error(ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, ?source) =
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
     checkerLogger.info
@@ -338,7 +338,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
     let options = clearProjectReferences options
 
-    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, ?sourceText = source, userOpName = opName)
+    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
 
   member x.GetUsesOfSymbol

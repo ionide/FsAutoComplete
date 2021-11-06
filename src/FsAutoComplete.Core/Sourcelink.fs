@@ -41,7 +41,6 @@ let private compareRepoPath (d: Document) targetFile =
   if Environment.isWindows  then
     let s = UMX.untag d.Name
     let s' = normalizePath s |> UMX.untag
-    let s' = s'.Replace(@"\", "/")
     let s' = UMX.tag<NormalizedRepoPathSegment> s'
     s' = targetFile
   else

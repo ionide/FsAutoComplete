@@ -1,4 +1,4 @@
- #r "nuget: FSharp.Compiler.Service, 39.0.0"
+#r "nuget: FSharp.Compiler.Service, 39.0.0"
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Text
 open System.IO

@@ -350,6 +350,14 @@ type Commands
 
   let parseFilesInTheBackground files =
     async {
+      let rec loopForProjOpts file = async {
+        match state.GetProjectOptions file with
+        | None ->
+          do! Async.Sleep (TimeSpan.FromSeconds 1.)
+          return! loopForProjOpts file
+        | Some opts -> return Utils.projectOptionsToParseOptions opts
+      }
+
       for file in files do
         try
           let sourceOpt =
@@ -377,11 +385,8 @@ type Commands
           match sourceOpt with
           | None -> ()
           | Some source ->
-            let opts =
-              state.GetProjectOptions' file
-              |> Utils.projectOptionsToParseOptions
-
             async {
+              let! opts = loopForProjOpts file
               let! parseRes = checker.ParseFile(file, source, opts)
               fileParsed.Trigger parseRes
             }
@@ -675,13 +680,16 @@ type Commands
     state.GetCancellationTokens filename
     |> List.iter (fun cts -> cts.Cancel())
 
-  member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>, opts) =
-    checker.TryGetRecentCheckResultsForFile(file, opts)
+  member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>) =
+    match state.TryGetFileCheckerOptionsWithLines file with
+    | Ok (opts, text) ->
+      checker.TryGetRecentCheckResultsForFile(file, opts, text)
+    | _ -> None
 
   ///Gets recent type check results, waiting for the results of in-progress type checking
-  /// if version of file in memory is grater than last type checked version.
+  /// if version of file in memory is greater than last type checked version.
   /// It also waits if there are no FSharpProjectOptions available for given file
-  member x.TryGetLatestTypeCheckResultsForFile(file: string<LocalPath>) =
+  member x.GetLatestTypeCheckResultsForFile(file: string<LocalPath>) =
     let stateVersion = state.TryGetFileVersion file
     let checkedVersion = state.TryGetLastCheckedVersion file
 
@@ -698,28 +706,23 @@ type Commands
       |> Event.filter (fun (_, n, _) -> n = file)
       |> Event.map ignore
       |> Async.AwaitEvent
-      |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
+      |> Async.bind (fun _ -> x.GetLatestTypeCheckResultsForFile(file))
     | Some _, None
     | None, Some _ ->
       x.FileChecked
       |> Event.filter (fun (_, n, _) -> n = file)
       |> Event.map ignore
       |> Async.AwaitEvent
-      |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
+      |> Async.bind (fun _ -> x.GetLatestTypeCheckResultsForFile(file))
     | _ ->
-      match state.TryGetFileCheckerOptionsWithLines(file) with
-      | ResultOrString.Ok (opts, _) ->
-        x.TryGetRecentTypeCheckResultsForFile(file, opts)
-        |> async.Return
-      | ResultOrString.Error _ ->
+      match x.TryGetRecentTypeCheckResultsForFile(file) with
+      | Some results -> async.Return results
+      | None ->
         x.FileChecked
         |> Event.filter (fun (_, n, _) -> n = file)
         |> Event.map ignore
         |> Async.AwaitEvent
-        |> Async.bind (fun _ -> x.TryGetLatestTypeCheckResultsForFile(file))
-
-
-
+        |> Async.bind (fun _ -> x.GetLatestTypeCheckResultsForFile(file))
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
     state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos)
@@ -1334,7 +1337,7 @@ type Commands
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
       match tyResOpt with
       | None -> ()
@@ -1352,7 +1355,7 @@ type Commands
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      match checker.TryGetRecentCheckResultsForFile(file, opts) with
+      match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
       | None -> return ()
       | Some tyRes ->
         let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> source.GetLineString(i - 1)))
@@ -1468,18 +1471,10 @@ type Commands
   /// gets the semantic classification ranges for a file, optionally filtered by a given range.
   member x.GetHighlighting(file: string<LocalPath>, range: Range option) =
     async {
-      let! res = x.TryGetLatestTypeCheckResultsForFile file
-
-      let res =
-        match res with
-        | Some res ->
-          let r = res.GetCheckResults.GetSemanticClassification(range)
-
-          let filteredRanges = scrubRanges r
-          Some filteredRanges
-        | None -> None
-
-      return CoreResponse.Res res
+      let! res = x.GetLatestTypeCheckResultsForFile file
+      let r = res.GetCheckResults.GetSemanticClassification(range)
+      let filteredRanges = scrubRanges r
+      return CoreResponse.Res filteredRanges
     }
 
   member __.SetWorkspaceRoot(root: string option) = workspaceRoot <- root
