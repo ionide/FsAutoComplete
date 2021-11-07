@@ -1154,7 +1154,7 @@ type Commands
                         |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
 
             let createEntity =
-              ParsedInput.TryFindInsertionContext pos.Line tyRes.GetParseResults.ParseTree maybeUnresolvedIdents OpenStatementInsertionPoint.TopLevel
+              ParsedInput.TryFindInsertionContext pos.Line tyRes.GetParseResults.ParseTree maybeUnresolvedIdents OpenStatementInsertionPoint.Nearest
 
             let word = sym.Text
 

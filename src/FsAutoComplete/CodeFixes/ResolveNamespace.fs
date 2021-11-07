@@ -35,15 +35,17 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
 
         if isImplicitTopLevelModule then 1 else l
     | ScopeKind.TopModule -> 1
-    | ScopeKind.Namespace when l > 1 ->
-        [ 0 .. l - 1 ]
-        |> List.mapi (fun i line -> i, lines.GetLineString line)
-        |> List.tryPick (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
-        |> function
+    | ScopeKind.Namespace ->
+        let mostRecentNamespaceInScope = 
+          let lineNos = if l = 0 then [] else [0 .. l-1]
+          lineNos
+          |> List.mapi (fun i line -> i, lines.GetLineString line)
+          |> List.choose (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
+          |> List.tryLast
+        match mostRecentNamespaceInScope with
         // move to the next line below "namespace" and convert it to F# 1-based line number
         | Some line -> line + 2
         | None -> l
-    | ScopeKind.Namespace -> 1
     | _ -> l
 
   let qualifierFix file diagnostic qual =
@@ -58,7 +60,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
   let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
     let insertPoint = adjustInsertionPoint text ctx
     let docLine = insertPoint - 1
-
+    
     let actualOpen =
       if name.EndsWith word && name <> word then
         let prefix =
