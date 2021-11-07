@@ -171,6 +171,7 @@ module TypedAstExtensionHelpers =
         member x.IsConstructor = x.CompiledName = ".ctor"
 
         member x.IsOperatorOrActivePattern =
+            x.CompiledName.StartsWith "op_" ||
             let name = x.DisplayName
             if name.StartsWith "( " && name.EndsWith " )" && name.Length > 4
             then name.Substring (2, name.Length - 4) |> String.forall (fun c -> c <> ' ')
