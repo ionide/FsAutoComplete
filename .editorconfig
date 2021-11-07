@@ -17,11 +17,10 @@ insert_final_newline = ignore
 [*.md]
 trim_trailing_whitespace = false
 
-[*.fs]
+[*.fs, *.fsx]
 indent_size = 2
-fsharp_max_value_binding_width=80
-fsharp_max_function_binding_width=80
+fsharp_max_array_or_list_width=80
 fsharp_max_dot_get_expression_width=80
-
-[*.fsx]
-indent_size = 2
+fsharp_max_dot_get_expression_width=80
+fsharp_max_function_binding_width=80
+fsharp_max_value_binding_width=80

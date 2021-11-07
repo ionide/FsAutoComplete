@@ -492,7 +492,7 @@ module DocumentationFormatter =
         let uniontip () =
             $" ={nl}  |" ++ (fse.UnionCases
                           |> Seq.map (getUnioncaseSignature displayContext)
-                          |> String.concat ("{nl}  | " ) )
+                          |> String.concat ($"{nl}  | " ) )
 
         let delegateTip () =
             let invoker =
