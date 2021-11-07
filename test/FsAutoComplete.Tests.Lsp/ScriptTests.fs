@@ -54,7 +54,7 @@ let scriptEvictionTests state =
     |> Async.Cache
 
   testSequenced <|
-    testList "script eviction tests" [
+    ptestList "script eviction tests" [
       testList "tests" [
         testCaseAsync "can update script typechecking when arguments change" (async {
           let! server, events, scriptPath = server

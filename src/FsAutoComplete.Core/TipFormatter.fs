@@ -1139,9 +1139,12 @@ let formatDocumentationFromXmlSig
   let comment = buildFormatComment xmlDoc FormatCommentStyle.Documentation None
   [ [ (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn) ] ]
 
+/// use this when you want the raw text strings, for example in fsharp/signature calls
+let unformattedTexts (t: TaggedText []) = t |> Array.map (fun t -> t.Text) |> String.concat ""
+
 let extractSignature (ToolTipText tips) =
   let getSignature (t: TaggedText []) =
-    let str = formatTaggedTexts t
+    let str = unformattedTexts t
     let nlpos = str.IndexOfAny([| '\r'; '\n' |])
 
     let firstLine =

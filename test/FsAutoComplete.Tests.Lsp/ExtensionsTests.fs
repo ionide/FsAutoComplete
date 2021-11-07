@@ -388,9 +388,9 @@ let signatureTests state =
   testSequenced <|
     testList "signature evaluation" [
       testList "tests" [
-        verifySignature 0 (4, 16) "val arrayOfTuples : (int * int) []"
-        verifySignature 1 (4, 15) "val listOfTuples : (int * int) list"
-        verifySignature 2 (4, 15) "val someFunction : a:'a -> unit"
+        verifySignature 0 (4, 16) "val arrayOfTuples: (int * int)[]"
+        verifySignature 1 (4, 15) "val listOfTuples: (int * int) list"
+        verifySignature 2 (4, 15) "val someFunction: a: 'a -> unit"
       ]
       testCaseAsync "cleanup" (async {
         let! server, _ = server
