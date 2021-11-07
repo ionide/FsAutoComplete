@@ -1005,20 +1005,13 @@ let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: s
 
 let formatTaggedText (t: TaggedText) : string =
   match t.Tag with
-  | TextTag.ActivePatternCase
   | TextTag.ActivePatternResult
-  | TextTag.Class
-  | TextTag.Union
   | TextTag.UnionCase
   | TextTag.Delegate
-  | TextTag.Enum
-  | TextTag.Event
   | TextTag.Field
-  | TextTag.Interface
   | TextTag.Keyword
   | TextTag.LineBreak
   | TextTag.Local
-  | TextTag.Record
   | TextTag.RecordField
   | TextTag.Method
   | TextTag.Member
@@ -1032,12 +1025,19 @@ let formatTaggedText (t: TaggedText) : string =
   | TextTag.Property
   | TextTag.Space
   | TextTag.StringLiteral
-  | TextTag.Struct
   | TextTag.Text
   | TextTag.Punctuation
   | TextTag.UnknownType
   | TextTag.UnknownEntity -> t.Text
+  | TextTag.Enum
+  | TextTag.Event
+  | TextTag.ActivePatternCase
+  | TextTag.Struct
   | TextTag.Alias
+  | TextTag.Class
+  | TextTag.Union
+  | TextTag.Interface
+  | TextTag.Record
   | TextTag.TypeParameter -> $"`{t.Text}`"
 
 let formatTaggedTexts = Array.map formatTaggedText >> String.concat ""
