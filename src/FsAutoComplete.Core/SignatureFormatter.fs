@@ -107,7 +107,7 @@ module SignatureFormatter =
           | true, Some (chopped) when chopped <> c.MemberName -> chopped, true
           | _, _ ->
             if PrettyNaming.IsMangledOpName c.MemberName then
-              PrettyNaming.DecompileOpName c.MemberName, false
+              $"( {PrettyNaming.DecompileOpName c.MemberName} )", false
             else
               c.MemberName, false
 
