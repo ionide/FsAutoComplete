@@ -781,7 +781,8 @@ type Commands
                 else
                   n) }
 
-      if Utils.isAScript (UMX.untag file) then
+      if Utils.isAScript (UMX.untag file) 
+      then
         commandsLogger.info (
           Log.setMessage "Checking script file '{file}'"
           >> Log.addContextDestructured "file" file

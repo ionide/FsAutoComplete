@@ -221,7 +221,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       let allModifications =
         // filterBadRuntimeRefs >>
         addLoadedFiles
-        // >> resolveRelativeFilePaths
+        >> resolveRelativeFilePaths
         >> fixupFsharpCoreAndFSIPaths
 
       let modified = allModifications opts
