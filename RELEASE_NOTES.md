@@ -1,3 +1,7 @@
+### 0.49.0 - 8.11.2021
+
+* FEATURE: [Support .Net 6 and F# 6](https://github.com/fsharp/FsAutoComplete/pull/846)
+
 ### 0.48.2 - 27.10.2021
 
 * BUGFIX: [Fix Fantomas.Client reference in the fsautocomplete dotnet tool](https://github.com/fsharp/FsAutoComplete/pull/844)
