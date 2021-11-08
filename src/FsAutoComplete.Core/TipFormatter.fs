@@ -1180,7 +1180,8 @@ let extractSignature (ToolTipText tips) =
   |> Option.map getSignature
   |> Option.defaultValue ""
 
-let extractGenerics (ToolTipText tips) =
+/// extracts any generic parameters present in this tooltip, rendering them as plain text
+let extractGenericParameters (ToolTipText tips) =
   let firstResult x =
     match x with
     | ToolTipElement.Group gs ->
@@ -1196,4 +1197,4 @@ let extractGenerics (ToolTipText tips) =
   tips
   |> Seq.tryPick firstResult
   |> Option.defaultValue []
-  |> List.map formatTaggedTexts
+  |> List.map unformattedTexts

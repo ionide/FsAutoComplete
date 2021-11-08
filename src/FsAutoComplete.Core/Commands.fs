@@ -1510,7 +1510,7 @@ type Commands
         let res = tyRes.TryGetToolTip(Position.fromZ line token.RightColumn) lineStr
 
         match res with
-        | Ok tip -> TipFormatter.extractGenerics tip
+        | Ok tip -> TipFormatter.extractGenericParameters tip
         | _ ->
           commandsLogger.info (
             Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}"
