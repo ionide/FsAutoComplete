@@ -44,7 +44,9 @@ let private compareRepoPath (d: Document) targetFile =
     let s' = UMX.tag<NormalizedRepoPathSegment> s'
     s' = targetFile
   else
-    normalizeRepoPath d.Name = targetFile
+    let t = UMX.untag targetFile |> UMX.tag<RepoPathSegment>
+    let t' = normalizeRepoPath t
+    normalizeRepoPath d.Name = t'
 
 let private pdbForDll (dllPath: string<LocalPath>) =
     UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))

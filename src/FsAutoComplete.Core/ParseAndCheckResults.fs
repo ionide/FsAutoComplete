@@ -31,6 +31,12 @@ type ParseAndCheckResults
 
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
+  let getFileName (loc: range) =
+    if Ionide.ProjInfo.ProjectSystem.Environment.isWindows then
+      UMX.tag<NormalizedRepoPathSegment> loc.FileName
+    else
+      UMX.tag<NormalizedRepoPathSegment> (Path.GetFileName loc.FileName)
+
   member __.TryFindDeclaration (pos: Position) (lineStr: LineStr) =
     async {
       // try find identifier first
@@ -121,7 +127,7 @@ type ParseAndCheckResults
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
             | Some fullFilePath ->
-              Ok(UMX.tag<LocalPath> fullFilePath, UMX.tag<NormalizedRepoPathSegment> rangeInNonexistentFile.FileName)
+              Ok(UMX.tag<LocalPath> fullFilePath, getFileName rangeInNonexistentFile)
             | None ->
               ResultOrString.Error(
                 sprintf
@@ -226,7 +232,7 @@ type ParseAndCheckResults
                 match ty.Assembly.FileName with
                 | Some dllFile ->
                   let dllFile = UMX.tag<LocalPath> dllFile
-                  let sourceFile = UMX.tag<NormalizedRepoPathSegment> loc.FileName
+                  let sourceFile = getFileName loc
                   let! source = Sourcelink.tryFetchSourcelinkFile dllFile sourceFile
 
                   match source with
