@@ -1,58 +1,62 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": ".NET Core mode lsp (debug)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build_debug_netcore",
-            "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net5.0/fsautocomplete.dll",
-            "args": ["--mode", "lsp"],
-            "cwd": "${workspaceFolder}",
-            "console": "internalConsole",
-            "stopAtEntry": false,
-            "internalConsoleOptions": "openOnSessionStart"
-        },
-        {
-            "name": "LSP tests",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build_lsp_tests",
-            "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net5.0/FsAutoComplete.Tests.Lsp.dll",
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "justMyCode": false,
-            "symbolOptions": {
-              "searchPaths": [],
-              "searchMicrosoftSymbolServer": true,
-              "searchNuGetOrgSymbolServer": true
-            },
-            "sourceLinkOptions": {
-              "*": {
-                "enabled": true
-              }
-            },
-            "enableStepFiltering": false,
-            "args": [
-              "--filter",
-              "lsp.Ionide WorkspaceLoader.codefix tests.remove unused binding"
-            ]
-        },
-        {
-            "name": ".NET Core Attach",
-            "type": "coreclr",
-            "request": "attach",
-            "processId": "${command:pickProcess}",
-            "sourceLinkOptions": {
-              "*": {
-                "enabled": true
-              }
-            },
-            "justMyCode": false
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Core mode lsp (debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build_debug_netcore",
+      "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net5.0/fsautocomplete.dll",
+      "args": [
+        "--mode",
+        "lsp"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "name": "LSP tests",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build_lsp_tests",
+      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net5.0/FsAutoComplete.Tests.Lsp.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": false,
+      "symbolOptions": {
+        "searchPaths": [],
+        "searchMicrosoftSymbolServer": true,
+        "searchNuGetOrgSymbolServer": true
+      },
+      "sourceLinkOptions": {
+        "*": {
+          "enabled": true
         }
-    ]
+      },
+      "enableStepFiltering": false,
+      "args": [
+        "--debug",
+        "--filter",
+        "lsp.Ionide WorkspaceLoader.Completion.AutoOpen.with root module with comments and new line before open.completion"
+      ]
+    },
+    {
+      "name": ".NET Core Attach",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickProcess}",
+      "sourceLinkOptions": {
+        "*": {
+          "enabled": true
+        }
+      },
+      "justMyCode": false
+    }
+  ]
 }

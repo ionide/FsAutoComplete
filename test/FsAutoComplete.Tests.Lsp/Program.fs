@@ -22,16 +22,18 @@ let testTimeout =
   |> float
   |> TimeSpan.FromMinutes
 
+// delay in ms between workspace start + stop notifications because the system goes too fast :-/
+Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
+
 let loaders = [
   "Ionide WorkspaceLoader",  WorkspaceLoader.Create
-  // These are commented out because of https://github.com/ionide/proj-info/issues/109
   // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
 ]
 
-///Global list of tests
+let mutable toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
+
 [<Tests>]
 let tests =
-  let toolsPath = Ionide.ProjInfo.Init.init ()
   testSequenced <| testList "lsp" [
     for (name, workspaceLoaderFactory) in loaders do
       testSequenced <| testList name [
@@ -55,7 +57,7 @@ let tests =
         // commented out because FSDN is down
         //fsdnTest state
         uriTests
-        linterTests state
+        //linterTests state
         formattingTests state
         // fake isn't updated to FCS 39, disabling tests until that's resolved
         //fakeInteropTests toolsPath
@@ -73,13 +75,22 @@ let tests =
 [<EntryPoint>]
 let main args =
   let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
-
+  let verbose = args |> Seq.contains "--debug"
   let switch = LoggingLevelSwitch()
-  if args |> Seq.contains "--debug"
+
+  if verbose
   then
     switch.MinimumLevel <- LogEventLevel.Verbose
   else
     switch.MinimumLevel <- LogEventLevel.Information
+
+  let argsToRemove, loaders =
+    args
+    |> Array.windowed 2
+    |> Array.tryPick (function [| "--loader"; "ionide" |] as args -> Some(args, ["Ionide WorkspaceLoader", WorkspaceLoader.Create])
+                               | [| "--loader"; "graph" |] as args -> Some(args, ["MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create])
+                               | _ -> None )
+    |> Option.defaultValue ([||], loaders)
 
   let serilogLogger =
     LoggerConfiguration()
@@ -98,7 +109,7 @@ let main args =
 
       .Destructure.FSharpTypes()
       .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r -> box {| FileName = r.FileName; Start = r.Start; End = r.End |})
-      .Destructure.ByTransforming<FSharp.Compiler.Text.Pos>(fun r -> box {| Line = r.Line; Column = r.Column |})
+      .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
       .WriteTo.Async(
@@ -107,10 +118,16 @@ let main args =
   Serilog.Log.Logger <- serilogLogger
   LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
+  let fixedUpArgs =
+    args
+    |> Array.except ["--debug"]
+    |> Array.except argsToRemove
+
   let cts = new CancellationTokenSource(testTimeout)
   let config =
     { defaultConfig
       with runInParallel = false
            failOnFocusedTests = true
-           printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer }
-  runTestsWithArgsAndCancel cts.Token config args tests
+           printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
+           verbosity = if verbose then Expecto.Logging.LogLevel.Debug else Expecto.Logging.LogLevel.Info }
+  runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests

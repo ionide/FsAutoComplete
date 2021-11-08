@@ -50,8 +50,8 @@ let autocompleteTest state =
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
       let! (server, event) = serverInitialize path defaultConfigDto state
       let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
-      do! parseProject projectPath server
       do! waitForWorkspaceFinishedParsing event
+      do! parseProject projectPath server
       let path = Path.Combine(path, "Script.fs")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
       do! server.TextDocumentDidOpen tdop

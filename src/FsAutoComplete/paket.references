@@ -7,7 +7,7 @@ FSharp.Analyzers.SDK
 FSharp.Compiler.Service
 FSharp.Core
 FSharp.UMX
-FSharpLint.Core
+#FSharpLint.Core
 FsToolkit.ErrorHandling
 ICSharpCode.Decompiler
 Ionide.ProjInfo

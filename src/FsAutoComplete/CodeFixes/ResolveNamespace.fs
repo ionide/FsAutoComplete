@@ -4,15 +4,15 @@ open LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsToolkit.ErrorHandling
-open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.LspHelpers
 open FsAutoComplete
 open FSharp.Compiler.Text
+open FSharp.Compiler.EditorServices
 
 type LineText = string
 
 /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
-let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestions: ParseAndCheckResults -> FcsPos -> LineText -> Async<CoreResponse<string * list<StringLongIdent * StringLongIdent * InsertContext * bool> * list<StringLongIdent * StringLongIdent>>>) =
+let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestions: ParseAndCheckResults -> FcsPos -> LineText -> Async<CoreResponse<string * list<string * string * InsertionContext * bool> * list<string * string>>>) =
 
   /// insert a line of text at a given line
   let insertLine line lineStr =
@@ -21,11 +21,11 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
           End = { Line = line; Character = 0 } }
       NewText = lineStr }
 
-  let adjustInsertionPoint (lines: ISourceText) (ctx: InsertContext) =
+  let adjustInsertionPoint (lines: ISourceText) (ctx: InsertionContext) =
     let l = ctx.Pos.Line
 
     match ctx.ScopeKind with
-    | TopModule when l > 1 ->
+    | ScopeKind.TopModule when l > 1 ->
         let line = lines.GetLineString (l - 2)
 
         let isImplicitTopLevelModule =
@@ -34,16 +34,18 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
              && not (line.EndsWith "="))
 
         if isImplicitTopLevelModule then 1 else l
-    | TopModule -> 1
-    | ScopeKind.Namespace when l > 1 ->
-        [ 0 .. l - 1 ]
-        |> List.mapi (fun i line -> i, lines.GetLineString line)
-        |> List.tryPick (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
-        |> function
+    | ScopeKind.TopModule -> 1
+    | ScopeKind.Namespace ->
+        let mostRecentNamespaceInScope = 
+          let lineNos = if l = 0 then [] else [0 .. l-1]
+          lineNos
+          |> List.mapi (fun i line -> i, lines.GetLineString line)
+          |> List.choose (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
+          |> List.tryLast
+        match mostRecentNamespaceInScope with
         // move to the next line below "namespace" and convert it to F# 1-based line number
         | Some line -> line + 2
         | None -> l
-    | ScopeKind.Namespace -> 1
     | _ -> l
 
   let qualifierFix file diagnostic qual =
@@ -58,7 +60,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
   let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, multiple): Fix =
     let insertPoint = adjustInsertionPoint text ctx
     let docLine = insertPoint - 1
-
+    
     let actualOpen =
       if name.EndsWith word && name <> word then
         let prefix =
@@ -77,7 +79,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
     let edits =
       [| yield insertLine docLine lineStr
          if text.GetLineString(docLine + 1).Trim() <> "" then yield insertLine (docLine + 1) ""
-         if (ctx.Pos.Column = 0 || ctx.ScopeKind = Namespace)
+         if (ctx.Pos.Column = 0 || ctx.ScopeKind = ScopeKind.Namespace)
             && docLine > 0
             && not (text.GetLineString(docLine - 1).StartsWith "open") then
            yield insertLine (docLine - 1) "" |]

@@ -5,7 +5,8 @@ open FsAutoComplete.CodeFix.Types
 open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.EditorServices
+open FSharp.Compiler.Symbols
 
 /// fix inderminate type errors by adding an explicit type to a value
 let fix
@@ -22,7 +23,7 @@ let fix
       let! (tyRes, line, lines) = getParseResultsForFile typedFileName fcsRange.Start
       let! (endColumn, identIslands) = Lexer.findLongIdents(fcsRange.Start.Column, line) |> Result.ofOption (fun _ -> "No long ident at position")
       match tyRes.GetCheckResults.GetDeclarationLocation(fcsRange.Start.Line, endColumn, line, List.ofArray identIslands) with
-      | FSharpFindDeclResult.DeclFound declRange when declRange.FileName = filename ->
+      | FindDeclResult.DeclFound declRange when declRange.FileName = filename ->
         let! projectOptions = getProjectOptionsForFile typedFileName
         let protocolDeclRange = fcsRangeToLsp declRange
         let! declText = lines.GetText declRange

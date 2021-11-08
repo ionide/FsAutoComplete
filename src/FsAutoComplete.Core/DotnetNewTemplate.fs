@@ -52,11 +52,9 @@ module DotnetNewTemplate =
         let header = xs.[0]
         let body = xs.[2..]
         let nameLegth = header.IndexOf("Short")
-        printfn "Length: %A" nameLegth
         let body =
             body
             |> Array.map (fun (n: string) ->
-                printfn "ROW: %s" n
                 let name = n.[0..nameLegth - 1].Trim()
                 let shortName = n.[nameLegth..].Split(' ').[0].Trim()
                 name, shortName

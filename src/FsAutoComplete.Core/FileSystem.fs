@@ -1,6 +1,6 @@
 namespace FsAutoComplete
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open System
 open FsAutoComplete.Logging
 open FSharp.UMX
@@ -13,13 +13,14 @@ type VolatileFile =
     Version: int option }
 
 open System.IO
+open FSharp.Compiler.IO
 
 
 [<Extension>]
 type SourceTextExtensions =
   [<Extension>]
   static member GetText(t: ISourceText, m: FSharp.Compiler.Text.Range): Result<string, string> =
-    let allFileRange = Range.mkRange m.FileName Pos.pos0 (t.GetLastFilePosition())
+    let allFileRange = Range.mkRange m.FileName Position.pos0 (t.GetLastFilePosition())
     if not (Range.rangeContainsRange allFileRange m)
     then Error $"%A{m} is outside of the bounds of the file"
     else
@@ -47,9 +48,9 @@ type SourceTextExtensions =
   [<Extension>]
   /// a safe alternative to GetLastCharacterPosition, which returns untagged indexes. this version
   /// returns a FCS Pos to prevent confusion about line index offsets
-  static member GetLastFilePosition(t: ISourceText): FSharp.Compiler.Text.Pos =
+  static member GetLastFilePosition(t: ISourceText): Position =
     let endLine, endChar = t.GetLastCharacterPosition()
-    Pos.mkPos endLine endChar
+    Position.mkPos endLine endChar
 
 type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
     let getContent (filename: string<LocalPath>) =
@@ -92,38 +93,26 @@ type FileSystem (actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volati
             |> Path.FileUriToLocalPath
           fsLogger.debug (Log.setMessage "{path} expanded to {expanded}" >> Log.addContext "path" f >> Log.addContext "expanded" expanded)
           expanded
+        
+        member _.GetLastWriteTimeShim (f: string) = 
+          f |> Utils.normalizePath |> tryFindFile |> Option.map (fun f -> f.Touched) |> Option.defaultValue DateTime.MinValue
 
-        (* These next members all make use of the VolatileFile concept, and so need to check that before delegating to the original FS implementation *)
+        member _.NormalizePathShim (f: string) = f |> Utils.normalizePath |> UMX.untag
 
-        (* Note that in addition to this behavior, we _also_ do not normalize the file paths anymore for any other members of this interfact,
-           because these members are always used by the compiler with paths returned from `GetFullPathShim`, which has done the normalization *)
-
-        member _.ReadAllBytesShim (f) =
-          f
-          |> Utils.normalizePath
-          |> getContent
-          |> Option.defaultWith (fun _ -> actualFs.ReadAllBytesShim f)
-
-        member _.FileStreamReadShim (f) =
-          f
-          |> Utils.normalizePath
-          |> getContent
-          |> Option.map (fun bytes -> new MemoryStream(bytes) :> Stream)
-          |> Option.defaultWith (fun _ -> actualFs.FileStreamReadShim f)
-
-        member _.GetLastWriteTimeShim (f) =
-          f
-          |> Utils.normalizePath
-          |> tryFindFile
-          |> Option.map (fun f -> f.Touched)
-          |> Option.defaultWith (fun _ -> actualFs.GetLastWriteTimeShim f)
-
-        member _.FileStreamCreateShim (f) = actualFs.FileStreamCreateShim f
-        member _.FileStreamWriteExistingShim (f) = actualFs.FileStreamWriteExistingShim f
         member _.IsInvalidPathShim (f) = actualFs.IsInvalidPathShim f
         member _.GetTempPathShim () = actualFs.GetTempPathShim()
-        member _.SafeExists (f) = actualFs.SafeExists f
-        member _.FileDelete (f) = actualFs.FileDelete f
-        member _.AssemblyLoadFrom (f) = actualFs.AssemblyLoadFrom f
-        member _.AssemblyLoad (f) = actualFs.AssemblyLoad f
         member _.IsStableFileHeuristic (f) = actualFs.IsStableFileHeuristic f
+        member _.CopyShim(src, dest, o) = actualFs.CopyShim(src, dest, o)
+        member _.DirectoryCreateShim p = actualFs.DirectoryCreateShim p
+        member _.DirectoryDeleteShim p = actualFs.DirectoryDeleteShim p
+        member _.DirectoryExistsShim p = actualFs.DirectoryExistsShim p
+        member _.EnumerateDirectoriesShim p = actualFs.EnumerateDirectoriesShim p
+        member _.EnumerateFilesShim (p, pat) = actualFs.EnumerateFilesShim(p, pat)
+        member _.FileDeleteShim f = actualFs.FileDeleteShim f
+        member _.FileExistsShim f = actualFs.FileExistsShim f
+        member _.GetCreationTimeShim p = actualFs.GetCreationTimeShim p
+        member _.GetDirectoryNameShim p = actualFs.GetDirectoryNameShim p
+        member _.GetFullFilePathInDirectoryShim dir f = actualFs.GetFullFilePathInDirectoryShim dir f
+        member _.OpenFileForReadShim (filePath:string, useMemoryMappedFile, shouldShadowCopy) = actualFs.OpenFileForReadShim(filePath, ?useMemoryMappedFile=useMemoryMappedFile, ?shouldShadowCopy=shouldShadowCopy)
+        member _.OpenFileForWriteShim (filePath:string, fileMode, fileAccess, fileShare) = actualFs.OpenFileForWriteShim(filePath, ?fileMode=fileMode, ?fileAccess=fileAccess, ?fileShare=fileShare)
+        member _.AssemblyLoader = actualFs.AssemblyLoader

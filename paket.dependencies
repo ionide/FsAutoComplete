@@ -11,11 +11,12 @@ storage: none
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Argu ~> 5.2.0
-nuget Fantomas.Client 0.3.1
-nuget FSharp.Compiler.Service ~> 39
-nuget Ionide.ProjInfo 0.52
-nuget Ionide.ProjInfo.FCS 0.52
-nuget Ionide.ProjInfo.ProjectSystem 0.52
+nuget Fantomas.Client
+nuget FSharp.Compiler.Service ~> 41
+nuget Ionide.ProjInfo 0.55.0
+nuget Ionide.ProjInfo.FCS 0.55.0
+nuget Ionide.ProjInfo.ProjectSystem 0.55.0
+nuget Ionide.ProjInfo.Sln 0.55.0
 nuget Microsoft.Build copy_local:false
 nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
@@ -37,19 +38,20 @@ nuget Serilog
 nuget Serilog.Sinks.File
 nuget Serilog.Sinks.Console
 nuget Serilog.Sinks.Async
-nuget Destructurama.FSharp 1.1.1-dev-00035 # prerelease is stable, just has different FSharp.Core version constraints
+nuget Destructurama.FSharp
 nuget FSharp.UMX
 nuget FSharp.Formatting
 nuget FsToolkit.ErrorHandling
 nuget FSharpx.Async
 nuget CliWrap
 
-nuget Microsoft.NET.Test.Sdk ~> 16.8.0
-nuget Microsoft.SourceLink.GitHub copy_local:true
+nuget Microsoft.NET.Test.Sdk
+nuget Dotnet.ReproducibleBuilds copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
 nuget Expecto
-nuget YoloDev.Expecto.TestSdk ~> 0.11
+nuget YoloDev.Expecto.TestSdk
 nuget AltCover
+nuget GitHubActionsTestLogger
 
 group Build
   source https://api.nuget.org/v3/index.json

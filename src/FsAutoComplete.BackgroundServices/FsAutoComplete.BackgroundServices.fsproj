@@ -14,9 +14,6 @@
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <Compile Include="..\ProjectSystem\Utils.fs" />
-    <Compile Include="..\ProjectSystem\FSIRefs.fs" />
-    <Compile Include="..\ProjectSystem\Environment.fs" /> -->
     <Compile Include="..\FsAutoComplete.Core\Utils.fs" />
     <Compile Include="..\FsAutoComplete.Core\Debug.fs" />
     <Compile Include="..\FsAutoComplete.Core\ProcessWatcher.fs" />

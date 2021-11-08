@@ -2794,8 +2794,10 @@ module Server =
                   let! result = handleNotification requestHandlings notification lspServer
                   match result with
                   | Result.Ok _ -> ()
-                  | Result.Error error ->
-                    logger.error (Log.setMessage "HandleClientMessage - Error {error} when handling notification {notification}" >> Log.addContextDestructured "error" error >> Log.addContextDestructured "notification" notification)
+                  | Result.Error ( { Code = code }) when code = JsonRpc.Error.MethodNotFound.Code -> 
+                    logger.trace (Log.setMessage "don't know how to handle method {messageType}" >> Log.addContext "messageType" notification.Method)
+                  | Result.Error (error) ->
+                    logger.error (Log.setMessage "HandleClientMessage - Error {error} when handling notification {notification}" >> Log.addContext "error" error >> Log.addContextDestructured "notification" notification)
                     //TODO: Handle error on receiving notification, send message to user?
                     ()
                 }

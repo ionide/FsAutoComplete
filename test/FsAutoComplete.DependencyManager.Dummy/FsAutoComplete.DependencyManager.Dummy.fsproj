@@ -8,4 +8,9 @@
     <Compile Include="Library.fs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Keep this up to date with paket.lock, this is here to prevent error messages about downgrades -->
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+  </ItemGroup>
+
 </Project>

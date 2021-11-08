@@ -64,7 +64,12 @@ let codeLensTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-      let! (server, events) = serverInitialize path {defaultConfigDto with EnableReferenceCodeLens = Some true} state
+      let config = 
+        { defaultConfigDto with 
+            EnableReferenceCodeLens = Some true
+            GenerateBinlog = Some true
+        }
+      let! (server, events) = serverInitialize path config state
       let path = Path.Combine(path, "Script.fsx")
       let tdop : DidOpenTextDocumentParams = { TextDocument = loadDocument path}
       do! server.TextDocumentDidOpen tdop
@@ -291,8 +296,8 @@ let tooltipTests state =
         verifySignature 39 7  (concatLines ["val ( .>> ):"; "   x: int ->"; "   y: int";"   -> int"])
         // verify formatting for single-char operators
         verifySignature 41 6  (concatLines ["val ( ^ ):"; "   x: int ->"; "   y: int"; "   -> int"])
-        // verify rendeirng of generic constraints
-        verifySignature 43 13 (concatLines ["val add:"; "   x: ^a (requires static member ( + ) ) ->"; "   y: ^b (requires static member ( + ) )"; "   -> ^c"])
+        // verify rendering of generic constraints
+        verifySignature 43 13 (concatLines ["val inline add:"; "   x: ^a (requires static member ( + ) ) ->"; "   y: ^b (requires static member ( + ) )"; "   -> ^c"])
         // verify rendering of solved generic constraints in tooltips for members where they are solved
         verifyDescription 45 15 ["";"";"**Generic Parameters**";"";"* `'a` is `int`";"* `'b` is `int`";"* `'c` is `int`"]
       ]

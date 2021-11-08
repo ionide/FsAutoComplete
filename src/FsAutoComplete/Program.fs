@@ -1,7 +1,6 @@
 module FsAutoComplete.Program
 
 open System
-open FSharp.Compiler.SourceCodeServices
 open FsAutoComplete.JsonSerializer
 open Argu
 open Serilog
@@ -29,7 +28,7 @@ let entry args =
           .Enrich.FromLogContext()
           .Destructure.FSharpTypes()
           .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r -> box {| FileName = r.FileName; Start = r.Start; End = r.End |})
-          .Destructure.ByTransforming<FSharp.Compiler.Text.Pos>(fun r -> box {| Line = r.Line; Column = r.Column |})
+          .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
           .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
           .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
           .WriteTo.Async(
@@ -62,8 +61,8 @@ let entry args =
         if projectGraphEnabled then Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
         else Ionide.ProjInfo.WorkspaceLoader.Create
 
-      let toolsPath = Ionide.ProjInfo.Init.init ()
-      use compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
+      let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
+      use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
       let result = FsAutoComplete.Lsp.start backgroundServiceEnabled toolsPath workspaceLoaderFactory
       Serilog.Log.CloseAndFlush()
       result

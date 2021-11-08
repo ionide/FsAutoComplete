@@ -1,7 +1,8 @@
 [<AutoOpen>]
 module FsAutoComplete.Patterns
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 
 
 /// Active patterns over `FSharpSymbolUse`.

@@ -33,6 +33,10 @@ Target.initEnvironment ()
 let fsacAssemblies =
   "FsAutoComplete|FsAutoComplete.Core|FsAutoComplete.BackgroundServices|LanguageServerProtocol"
 
+let versionProp = "Version", release.AssemblyVersion
+let packAsToolProp = "PackAsTool", "true"
+let latestReleaseNotesProp = "PackageReleaseNotes", release.Notes |> String.concat "\n"
+
 Target.create "LspTest" (fun _ ->
 
   let msbuildCli : Fake.DotNet.MSBuild.CliArguments =
@@ -41,6 +45,8 @@ Target.create "LspTest" (fun _ ->
             [ "AltCover", "true"
               // "AltCoverAssemblyFilter", fsacAssemblies
               "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager|FsAutoComplete.Tests.Lsp"
+              versionProp
+              latestReleaseNotesProp
             ]
           }
   let testOpts (opts: DotNet.TestOptions) =
@@ -65,10 +71,6 @@ Target.create "ReleaseArchive" (fun _ ->
     !! (sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" release.AssemblyVersion)
     |> Shell.copy "bin/pkgs"
 )
-
-let versionProp = "Version", release.AssemblyVersion
-let packAsToolProp = "PackAsTool", "true"
-let latestReleaseNotesProp = "PackageReleaseNotes", release.Notes |> String.concat "\n"
 
 Target.create "LocalRelease" (fun _ ->
     Directory.ensure "bin/release_netcore"
@@ -103,7 +105,7 @@ Target.create "Build" (fun _ ->
   DotNet.build (fun p ->
      { p with
          Configuration = DotNet.BuildConfiguration.fromString configuration
-         MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ "Version", release.AssemblyVersion ] } }) "FsAutoComplete.sln"
+         MSBuildParams = { MSBuild.CliArguments.Create () with Properties = [versionProp ] } }) "FsAutoComplete.sln"
 )
 
 let ensureGitUser user email =

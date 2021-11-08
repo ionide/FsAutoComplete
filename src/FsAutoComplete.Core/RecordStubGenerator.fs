@@ -2,11 +2,11 @@
 module FsAutoComplete.RecordStubGenerator
 
 open FsAutoComplete.UntypedAstUtils
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-open FSharp.Compiler.SourceCodeServices
 open System.Diagnostics
 open FsAutoComplete.CodeGenerationUtils
+open FSharp.Compiler.Symbols
 
 // Algorithm
 // [x] Make sure '}' is the last token of the expression
@@ -35,7 +35,7 @@ type PositionKind =
 type RecordStubsInsertionParams =
     {
         Kind: PositionKind
-        InsertionPos: Pos
+        InsertionPos: Position
         IndentColumn: int
     }
     static member TryCreateFromRecordExpression (expr: RecordExpr) =
@@ -44,7 +44,7 @@ type RecordStubsInsertionParams =
             match expr.CopyExprOption with
             | None ->
                 let exprRange = expr.Expr.Range
-                let pos = Pos.fromZ (exprRange.StartLine - 1) (exprRange.StartColumn + 1)
+                let pos = Position.fromZ (exprRange.StartLine - 1) (exprRange.StartColumn + 1)
                 { Kind = PositionKind.AfterLeftBrace
                   IndentColumn = pos.Column + 1
                   InsertionPos = pos }
@@ -187,7 +187,7 @@ let formatRecord (insertionPos: RecordStubsInsertionParams) (fieldDefaultValue: 
 
     writer.Dump()
 
-let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInput) =
+let private tryFindRecordBindingInParsedInput (pos: Position) (parsedInput: ParsedInput) =
     let inline getIfPosInRange range f =
         if Range.rangeContainsPos range pos then f()
         else None
@@ -223,9 +223,10 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
                 None
         )
 
-    and walkSynTypeDefn(TypeDefn(_componentInfo, representation, members, range)) =
+    and walkSynTypeDefn(SynTypeDefn(_componentInfo, representation, members, implicitCtor, range)) =
         getIfPosInRange range (fun () ->
             walkSynTypeDefnRepr representation
+            |> Option.orElseWith (fun _ -> Option.bind walkSynMemberDefn implicitCtor)
             |> Option.orElseWith (fun _ -> List.tryPick walkSynMemberDefn members)
         )
 
@@ -262,8 +263,8 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
                 None
         )
 
-    and walkBinding (Binding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, retTy, expr, _bindingRange, _seqPoint) as binding) =
-        getIfPosInRange binding.RangeOfBindingAndRhs (fun () ->
+    and walkBinding (SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, retTy, expr, _bindingRange, _seqPoint) as binding) =
+        getIfPosInRange binding.RangeOfBindingWithRhs (fun () ->
             match retTy with
             | Some(SynBindingReturnInfo(_ty, _range, _attributes)) ->
                 match expr with
@@ -332,9 +333,9 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
 
             | SynExpr.Paren(synExpr, _, _, _)
             | SynExpr.New(_, _, synExpr, _)
-            | SynExpr.ArrayOrListOfSeqExpr(_, synExpr, _)
-            | SynExpr.CompExpr(_, _, synExpr, _)
-            | SynExpr.Lambda(_, _, _, synExpr, _, _)
+            | SynExpr.ArrayOrListComputed(_, synExpr, _)
+            | SynExpr.ComputationExpr(_, synExpr, _)
+            | SynExpr.Lambda(_, _, _, _, synExpr, _, _)
             | SynExpr.Lazy(synExpr, _)
             | SynExpr.Do(synExpr, _)
             | SynExpr.Assert(synExpr, _) ->
@@ -368,10 +369,10 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
                 List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
 
             | SynExpr.MatchLambda(_isExnMatch, _argm, synMatchClauseList, _spBind, _wholem) ->
-                synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e)
+                synMatchClauseList |> List.tryPick (fun (SynMatchClause(_, _, _, e, _, _)) -> walkExpr e)
             | SynExpr.Match(_sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) ->
                 walkExpr synExpr
-                |> Option.orElseWith (fun _ -> synMatchClauseList |> List.tryPick (fun (Clause(_, _, e, _, _)) -> walkExpr e))
+                |> Option.orElseWith (fun _ -> synMatchClauseList |> List.tryPick (fun (SynMatchClause(_, _, _, e, _, _)) -> walkExpr e))
 
             | SynExpr.App(_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
                 List.tryPick walkExpr [synExpr1; synExpr2]
@@ -392,7 +393,7 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
             | Sequentials exprs ->
                 List.tryPick walkExpr exprs
 
-            | SynExpr.IfThenElse(synExpr1, synExpr2, synExprOpt, _sequencePointInfoForBinding, _isRecovery, _range, _range2) ->
+            | SynExpr.IfThenElse(_, _, synExpr1, _, synExpr2, _, synExprOpt, _sequencePointInfoForBinding, _isRecovery, _range, _range2) ->
                 match synExprOpt with
                 | Some synExpr3 ->
                     List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
@@ -412,16 +413,14 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
             | SynExpr.DotSet(synExpr1, _longIdent, synExpr2, _range) ->
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
-            | SynExpr.DotIndexedGet(synExpr, IndexerArgList synExprList, _range, _range2) ->
-                synExprList
-                |> List.map fst
-                |> List.tryPick walkExpr
+            | SynExpr.DotIndexedGet(synExpr, argList, _range, _range2) ->
+                walkExpr argList
                 |> Option.orElseWith (fun _ -> walkExpr synExpr)
 
-            | SynExpr.DotIndexedSet(synExpr1, IndexerArgList synExprList, synExpr2, _, _range, _range2) ->
-                [ yield synExpr1
-                  yield! synExprList |> List.map fst
-                  yield synExpr2 ]
+            | SynExpr.DotIndexedSet(synExpr1, argList, synExpr2, _, _range, _range2) ->
+                [ synExpr1
+                  argList
+                  synExpr2 ]
                 |> List.tryPick walkExpr
 
             | SynExpr.JoinIn(synExpr1, _range, synExpr2, _range2) ->
@@ -478,20 +477,19 @@ let private tryFindRecordBindingInParsedInput (pos: Pos) (parsedInput: ParsedInp
         | Some synExpr when Range.rangeContainsPos synExpr.Range pos -> walkExpr synExpr
         | _ -> None
 
-    and walkSynInterfaceImpl (InterfaceImpl(_synType, synBindings, _range)) =
+    and walkSynInterfaceImpl (SynInterfaceImpl(_synType, synBindings, _range)) =
         List.tryPick walkBinding synBindings
 
     match parsedInput with
     | ParsedInput.SigFile _input -> None
     | ParsedInput.ImplFile input -> walkImplFileInput input
 
-let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
+let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Position) (document : Document) =
     asyncMaybe {
         let! parseResults = codeGenService.ParseFileInProject(document.FullName)
 
         return!
-            parseResults.ParseTree
-            |> Option.bind (tryFindRecordBindingInParsedInput pos)
+            tryFindRecordBindingInParsedInput pos parseResults.ParseTree
     }
 
 let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (document : Document) (expr: RecordExpr) =
@@ -523,7 +521,7 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (d
     }
     |> Option.isSome
 
-let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
+let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: Position) (document : Document) =
     asyncMaybe {
         let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
         if checkThatRecordExprEndsWithRBrace codeGenService document recordExpression then
@@ -539,7 +537,7 @@ let shouldGenerateRecordStub (recordExpr: RecordExpr) (entity: FSharpEntity) =
     let writtenFieldCount = recordExpr.FieldExprList.Length
     fieldCount > 0 && writtenFieldCount < fieldCount
 
-let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: Pos) (document : Document) =
+let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: Position) (document : Document) =
     asyncMaybe {
         let! recordExpression, insertionPos =
             tryFindStubInsertionParamsAtPos codeGenService pos document

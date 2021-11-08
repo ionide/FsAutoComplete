@@ -3,7 +3,7 @@ namespace FsAutoComplete
 
 open System
 open System.Text.RegularExpressions
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 open UntypedAstUtils
 
 
@@ -171,6 +171,7 @@ module TypedAstExtensionHelpers =
         member x.IsConstructor = x.CompiledName = ".ctor"
 
         member x.IsOperatorOrActivePattern =
+            x.CompiledName.StartsWith "op_" ||
             let name = x.DisplayName
             if name.StartsWith "( " && name.EndsWith " )" && name.Length > 4
             then name.Substring (2, name.Length - 4) |> String.forall (fun c -> c <> ' ')
@@ -230,7 +231,7 @@ module TypedAstExtensionHelpers =
             | :? FSharpUnionCase as fsu -> fsu.XmlDoc
             | :? FSharpActivePatternCase as apc -> apc.XmlDoc
             | :? FSharpGenericParameter as gp -> gp.XmlDoc
-            | _ -> ResizeArray() :> Collections.Generic.IList<_>
+            | _ -> FSharpXmlDoc.None 
 
     type FSharpGenericParameterMemberConstraint with
         member x.IsProperty =

@@ -8,6 +8,7 @@ open Newtonsoft.Json
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.Utils
+open Ionide.ProjInfo.ProjectSystem
 
 let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
@@ -35,6 +36,17 @@ type private Document =
       Hash: byte[]
       Language: System.Guid
       IsEmbedded: bool }
+
+let private compareRepoPath (d: Document) targetFile =
+  if Environment.isWindows  then
+    let s = UMX.untag d.Name
+    let s' = normalizePath s |> UMX.untag
+    let s' = UMX.tag<NormalizedRepoPathSegment> s'
+    s' = targetFile
+  else
+    let t = UMX.untag targetFile |> UMX.tag<RepoPathSegment>
+    let t' = normalizeRepoPath t
+    normalizeRepoPath d.Name = t'
 
 let private pdbForDll (dllPath: string<LocalPath>) =
     UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
@@ -179,7 +191,7 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Norm
             return Error InvalidJson
         | Some json ->
             let docs = documentsFromReader sourceReader
-            let doc = docs |> Seq.tryFind (fun d -> normalizeRepoPath d.Name = targetFile)
+            let doc = docs |> Seq.tryFind (fun d -> compareRepoPath d targetFile)
             match doc with
             | None ->
                 logger.warn (Log.setMessage "No sourcelinked source file matched {target}. Available documents were (normalized paths here): {docs}" >> Log.addContextDestructured "docs" (docs |> Seq.map (fun d -> normalizeRepoPath d.Name)) >> Log.addContextDestructured "target" targetFile)
