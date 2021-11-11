@@ -10,7 +10,7 @@ It can be hosted using the Language Server Protocol.
 Currently it is used by:
 
 * [Emacs](https://github.com/fsharp/emacs-fsharp-mode)
-* [Neovim](https://github.com/neovim/nvim-lspconfig/blob/master/CONFIG.md#fsautocomplete)
+* [Neovim](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#fsautocomplete)
 * [Vim](https://github.com/fsharp/vim-fsharp)
 * [Visual Studio Code](https://github.com/ionide/ionide-vscode-fsharp)
 * [Sublime Text](https://lsp.sublimetext.io/language_servers/#f)
