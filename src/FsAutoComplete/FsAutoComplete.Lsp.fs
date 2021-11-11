@@ -1891,35 +1891,25 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | ResultOrString.Ok (options, _, lineStr) ->
             try
               async {
-                let tyResOpt =
-                  commands.TryGetRecentTypeCheckResultsForFile(file)
+                let! tyRes =
+                  commands.GetLatestTypeCheckResultsForFile(file)
 
-                return!
-                  match tyResOpt with
-                  | None ->
-                    logger.warn (
-                      Log.setMessage "CodeLensResolve - Cached typecheck results not yet available for {file}"
-                      >> Log.addContextDestructured "file" file
-                    )
+                logger.info (
+                  Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
+                  >> Log.addContextDestructured "file" file
+                )
+                let! r = Async.Catch(f arg pos tyRes lineStr data.[1] file)
+                
+                match r with
+                | Choice1Of2 r -> return r
+                | Choice2Of2 e ->
+                  logger.error (
+                    Log.setMessage "CodeLensResolve - Child operation failed for {file}"
+                    >> Log.addContextDestructured "file" file
+                    >> Log.addExn e
+                  )
 
-                    { p with Command = None }
-                    |> success
-                    |> async.Return
-                  | Some tyRes ->
-                    async {
-                      let! r = Async.Catch(f arg pos tyRes lineStr data.[1] file)
-
-                      match r with
-                      | Choice1Of2 r -> return r
-                      | Choice2Of2 e ->
-                        logger.error (
-                          Log.setMessage "CodeLensResolve - Child operation failed for {file}"
-                          >> Log.addContextDestructured "file" file
-                          >> Log.addExn e
-                        )
-
-                        return { p with Command = None } |> success
-                    }
+                  return { p with Command = None } |> success
               }
             with
             | e ->
