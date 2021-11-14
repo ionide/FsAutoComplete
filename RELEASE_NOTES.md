@@ -1,3 +1,7 @@
+### 0.49.1 - 14.11.2021
+
+* BUGFIX: [Fix stuck code lenses](https://github.com/fsharp/FsAutoComplete/pull/852) (thanks @beauvankirk!)
+
 ### 0.49.0 - 8.11.2021
 
 * FEATURE: [Support .Net 6 and F# 6](https://github.com/fsharp/FsAutoComplete/pull/846)

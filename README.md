@@ -53,6 +53,12 @@ This repository is prepared to use Gitpod for a web-based VSCode-style IDE. Clic
 
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/fsharp/fsautocomplete)
 
+## Releasing
+
+* Update RELEASE_NOTES.md with the new version number, release date (DD.MM.YYYY format), and changelog. We generally use headings like `BUGFIX`, `FEATURE`, and `ENHANCEMENT` followed by a link to the PR with the PR title.
+* Make a commit with this change to `main`
+* A user with workflow access on the repository can then manually trigger the `release` pipeline in github's workflow actions page.
+
 ## Communication protocol
 
 FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protocol/) as a communication protocol.
