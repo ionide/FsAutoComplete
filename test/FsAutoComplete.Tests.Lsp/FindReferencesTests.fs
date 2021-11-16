@@ -26,7 +26,7 @@ let tests state =
         }
         |> Async.Cache
 
-      testCaseAsync
+      ptestCaseAsync
         "Can find references for foo identifier in script"
         (async {
           let! server, scriptPath = server

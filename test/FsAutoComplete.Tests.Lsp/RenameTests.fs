@@ -17,7 +17,7 @@ let tests state =
       return (server, testDir, event)
     }
 
-  testSequenced <| testList "Rename Tests" [
+  testSequenced <| ptestList "Rename Tests" [
       testCaseAsync "Rename from usage within project file" (async {
         let! server, testDir, events = server
         let path = Path.Combine(testDir, "Program.fs")

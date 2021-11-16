@@ -1,6 +1,6 @@
 ### 0.49.2 - 16.11.2021
 
-* BUGFIX: [Fix probing for dotnet binary locations in the dotnet tool]()
+* BUGFIX: [Fix probing for dotnet binary locations in the dotnet tool](https://github.com/fsharp/FsAutoComplete/pull/854)
 
 ### 0.49.1 - 14.11.2021
 
