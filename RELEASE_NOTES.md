@@ -1,3 +1,7 @@
+### 0.49.2 - 16.11.2021
+
+* BUGFIX: [Fix probing for dotnet binary locations in the dotnet tool]()
+
 ### 0.49.1 - 14.11.2021
 
 * BUGFIX: [Fix stuck code lenses](https://github.com/fsharp/FsAutoComplete/pull/852) (thanks @beauvankirk!)
