@@ -13,14 +13,14 @@ github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibL
 nuget Argu ~> 5.2.0
 nuget Fantomas.Client
 nuget FSharp.Compiler.Service ~> 41
-nuget Ionide.ProjInfo 0.55.0
-nuget Ionide.ProjInfo.FCS 0.55.0
-nuget Ionide.ProjInfo.ProjectSystem 0.55.0
-nuget Ionide.ProjInfo.Sln 0.55.0
-nuget Microsoft.Build copy_local:false
-nuget Microsoft.Build.Framework copy_local:false
-nuget Microsoft.Build.Utilities.Core copy_local:false
-nuget Microsoft.Build.Tasks.Core copy_local: false
+nuget Ionide.ProjInfo ~> 0.55.0
+nuget Ionide.ProjInfo.FCS ~> 0.55.0
+nuget Ionide.ProjInfo.ProjectSystem ~> 0.55.0
+nuget Ionide.ProjInfo.Sln ~> 0.55.0
+nuget Microsoft.Build < 17.0 copy_local:false
+nuget Microsoft.Build.Framework < 17.0 copy_local:false
+nuget Microsoft.Build.Utilities.Core < 17.0 copy_local:false
+nuget Microsoft.Build.Tasks.Core < 17.0 copy_local: false
 nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.10.0-beta7

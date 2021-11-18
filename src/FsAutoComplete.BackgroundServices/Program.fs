@@ -128,9 +128,9 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
       let allowedVersionRange =
         let maxVersion = System.Environment.Version.Major + 1
         SemanticVersioning.Range.Parse $"< %d{maxVersion}"
-      let dotnetExe = Ionide.ProjInfo.Paths.dotnetRoot
-      if dotnetExe.Exists
-      then
+      let dotnetExe = Ionide.ProjInfo.Paths.dotnetRoot.Value
+      match dotnetExe with
+      | Some dotnetExe when dotnetExe.Exists ->
         let sdk = lazy (
             Ionide.ProjInfo.SdkDiscovery.sdks dotnetExe
             |> Array.map (fun info -> info.Version)
@@ -144,7 +144,11 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
 
         latestSdkVersion <- sdk
         latestRuntimeVersion <- runtime
-
+      | Some exe ->
+        let message = $"A dotnet binary was located at '{exe.FullName}' but doesn't exist. This is...nonsensical to say the least."
+        failwith message
+      | None ->
+        failwith "No dotnet binary could be located"
 
     let getFilesFromOpts (opts: FSharpProjectOptions) =
         (if Array.isEmpty opts.SourceFiles then

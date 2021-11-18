@@ -243,9 +243,11 @@ let autoOpenTests state =
         return (edit, ns, openPos)
     | Ok _ -> return failtest $"Quick fix on `{word}` doesn't contain open action"
   }
-  let test (compareWithQuickFix: bool) (name: string option) (server: Async<FSharpLspServer * string>) (word: string, ns: string) (cursor: Position) (expectedOpen: Position) =
+  
+  let test (compareWithQuickFix: bool) (name: string option) (server: Async<FSharpLspServer * string>) (word: string, ns: string) (cursor: Position) (expectedOpen: Position) pending =
     let name = name |> Option.defaultWith (fun _ -> sprintf "completion on `Regex` at (%i, %i) should `open System.Text.RegularExpressions` at (%i, %i) (0-based)" (cursor.Line) (cursor.Character) (expectedOpen.Line) (expectedOpen.Character))
-    testCaseAsync name <| async {
+    let runner = if pending then ptestCaseAsync else testCaseAsync
+    runner name <| async {
       let! server, path = server
 
       let p : CompletionParams = { TextDocument = { Uri = Path.FilePathToUri path}
@@ -359,10 +361,25 @@ let autoOpenTests state =
       let server = serverFor scriptPath
       let tests =
           readData scriptPath
-          |> List.map (fun (cursor, expectedOpen) -> test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen)
+          |> List.map (fun (cursor, expectedOpen) -> test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen false)
       yield! tests
 
       testCaseAsync "cleanup" (async {
+          let! server, _ = server
+          do! server.Shutdown()
+        })
+    ]
+  
+  let ptestScript name scriptName =
+    testList name [
+      let scriptPath = Path.Combine(dirPath, scriptName)
+      let server = serverFor scriptPath
+      let tests =
+          readData scriptPath
+          |> List.map (fun (cursor, expectedOpen) -> test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen true)
+      yield! tests
+
+      ptestCaseAsync "cleanup" (async {
           let! server, _ = server
           do! server.Shutdown()
         })
@@ -374,8 +391,8 @@ let autoOpenTests state =
     testScript "with root module" "Module.fsx"
     testScript "with root module with open" "ModuleWithOpen.fsx"
     testScript "with root module with open and new line" "ModuleWithOpenAndNewLine.fsx"
-    testScript "with namespace with new line" "NamespaceWithNewLine.fsx"
-    testScript "with namespace" "Namespace.fsx"
+    ptestScript "with namespace with new line" "NamespaceWithNewLine.fsx"
+    ptestScript "with namespace" "Namespace.fsx"
     testScript "with namespace with open" "NamespaceWithOpen.fsx"
     testScript "with namespace with open and new line" "NamespaceWithOpenAndNewLine.fsx"
     testScript "with implicit top level module with new line" "ImplicitTopLevelModuleWithNewLine.fsx"

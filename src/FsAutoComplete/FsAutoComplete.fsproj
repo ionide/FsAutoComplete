@@ -36,8 +36,9 @@
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
-    <AssemblyName>dotnet-fsautocomplete</AssemblyName>
+    <AssemblyName>fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
+    <ToolCommandName>fsautocomplete</ToolCommandName>
     <PackageType>DotnetTool</PackageType>
     <!-- This rollforward enables us to actually run on the .net 6 runtime without
          retargeting the whole app, minimizing packaged binary size. -->
