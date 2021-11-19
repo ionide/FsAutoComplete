@@ -517,14 +517,17 @@ type Commands
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
         let controller = state.ProjectController
-
         let opts =
           controller.GetProjectOptionsForFsproj p.ProjectFileName
 
-        opts
-        |> Option.iter (fun opts -> backgroundService.UpdateProject(p.ProjectFileName, opts))
-
         if not isFromCache then
+          opts
+          |> Option.iter (fun opts ->
+            commandsLogger.info (
+              Log.setMessage "Sending project {project} update"
+              >> Log.addContextDestructured "project" p.ProjectFileName
+            )
+            backgroundService.UpdateProject(p.ProjectFileName, opts))
           p.ProjectItems
           |> List.choose (function
             | ProjectViewerItem.Compile (p, _) -> Some(Utils.normalizePath p))
