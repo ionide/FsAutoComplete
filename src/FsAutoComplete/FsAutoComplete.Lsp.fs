@@ -603,8 +603,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         return! AsyncLspResult.internalError s
       | ResultOrString.Ok (options, lines, lineStr) ->
         try
-          let tyResOpt =
-            commands.TryGetRecentTypeCheckResultsForFile(file)
+          let! tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
           match tyResOpt with
           | None ->
@@ -698,54 +697,49 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     async {
 
       // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
+      match commands.TryGetFileCheckerOptionsWithLines(file) with
+      | ResultOrString.Error s ->
+        logger.error (
+          Log.setMessage "FileHandler - Getting file checker options for {file} failed"
+          >> Log.addContextDestructured "error" s
+          >> Log.addContextDestructured "file" file
+        )
 
-      return!
-        match commands.TryGetFileCheckerOptionsWithLines(file) with
-        | ResultOrString.Error s ->
-          logger.error (
-            Log.setMessage "FileHandler - Getting file checker options for {file} failed"
-            >> Log.addContextDestructured "error" s
-            >> Log.addContextDestructured "file" file
-          )
+        return LspResult.internalError s
+      | ResultOrString.Ok (options, lines) ->
+        try
+          let! tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
-          AsyncLspResult.internalError s
-        | ResultOrString.Ok (options, lines) ->
-          try
-            let tyResOpt =
-              commands.TryGetRecentTypeCheckResultsForFile(file)
-
-            match tyResOpt with
-            | None ->
-              logger.info (
-                Log.setMessage "FileHandler - Cached typecheck results not yet available for {file}"
-                >> Log.addContextDestructured "file" file
-              )
-
-              AsyncLspResult.internalError "Cached typecheck results not yet available"
-            | Some tyRes ->
-              async {
-                let! r = Async.Catch(f file tyRes lines)
-
-                match r with
-                | Choice1Of2 r -> return r
-                | Choice2Of2 e ->
-                  logger.error (
-                    Log.setMessage "FileHandler - Failed during child operation on file {file}"
-                    >> Log.addContextDestructured "file" file
-                    >> Log.addExn e
-                  )
-
-                  return LspResult.internalError e.Message
-              }
-          with
-          | e ->
-            logger.error (
-              Log.setMessage "FileHandler - Operation failed for file {file}"
+          match tyResOpt with
+          | None ->
+            logger.info (
+              Log.setMessage "FileHandler - Cached typecheck results not yet available for {file}"
               >> Log.addContextDestructured "file" file
-              >> Log.addExn e
             )
 
-            AsyncLspResult.internalError e.Message
+            return LspResult.internalError "Cached typecheck results not yet available"
+          | Some tyRes ->
+            let! r = Async.Catch(f file tyRes lines)
+
+            match r with
+            | Choice1Of2 r -> return r
+            | Choice2Of2 e ->
+              logger.error (
+                Log.setMessage "FileHandler - Failed during child operation on file {file}"
+                >> Log.addContextDestructured "file" file
+                >> Log.addExn e
+              )
+
+              return LspResult.internalError e.Message
+        with
+        | e ->
+          logger.error (
+            Log.setMessage "FileHandler - Operation failed for file {file}"
+            >> Log.addContextDestructured "file" file
+            >> Log.addExn e
+          )
+
+          return LspResult.internalError e.Message
     }
 
   override __.Shutdown() =
@@ -795,7 +789,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           let! (projectOptions, fileLines, lineAtPos) =
             commands.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos)
 
-          match commands.TryGetRecentTypeCheckResultsForFile(fileName) with
+          match! commands.TryGetRecentTypeCheckResultsForFile(fileName) with
           | None -> return! Error $"No typecheck results available for %A{fileName}"
           | Some tyRes -> return tyRes, lineAtPos, fileLines
         }
@@ -1125,8 +1119,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           match p.Context with
           | None ->
             commands.TryGetRecentTypeCheckResultsForFile(file)
-            |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
-            |> async.Return
+            |> AsyncResult.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
           | Some ctx ->
             //ctx.triggerKind = CompletionTriggerKind.Invoked ||
             if (ctx.triggerCharacter = Some '.') then
@@ -1134,8 +1127,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               |> Async.map Ok
             else
               commands.TryGetRecentTypeCheckResultsForFile(file)
-              |> Result.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
-              |> async.Return
+              |> AsyncResult.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
 
         match!
           commands.Completion
@@ -1754,8 +1746,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | ResultOrString.Ok (options, lines, lineStr) ->
           try
             async {
-              let tyResOpt =
-                commands.TryGetRecentTypeCheckResultsForFile(file)
+              let! tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
 
               match tyResOpt with
               | None -> return []
@@ -1891,15 +1882,15 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | ResultOrString.Ok (options, _, lineStr) ->
             try
               async {
-                let! tyRes =
-                  commands.GetLatestTypeCheckResultsForFile(file)
+                let! tyRes = commands.GetLatestTypeCheckResultsForFile(file)
 
                 logger.info (
                   Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
                   >> Log.addContextDestructured "file" file
                 )
+
                 let! r = Async.Catch(f arg pos tyRes lineStr data.[1] file)
-                
+
                 match r with
                 | Choice1Of2 r -> return r
                 | Choice2Of2 e ->
@@ -2156,17 +2147,14 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let tyResOpt =
                   commands.TryGetRecentTypeCheckResultsForFile(file)
 
-                return!
-                  match tyResOpt with
-                  | None -> AsyncLspResult.internalError "No typecheck results"
-                  | Some tyRes ->
-                    async {
-                      let! r = Async.Catch(f arg pos tyRes lineStr)
+                match! tyResOpt with
+                | None -> return LspResult.internalError "No typecheck results"
+                | Some tyRes ->
+                  let! r = Async.Catch(f arg pos tyRes lineStr)
 
-                      match r with
-                      | Choice1Of2 r -> return r
-                      | Choice2Of2 e -> return LspResult.internalError e.Message
-                    }
+                  match r with
+                  | Choice1Of2 r -> return r
+                  | Choice2Of2 e -> return LspResult.internalError e.Message
               }
             with
             | e -> AsyncLspResult.internalError e.Message
