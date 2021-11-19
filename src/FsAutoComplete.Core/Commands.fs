@@ -717,52 +717,6 @@ type Commands
       | _ -> return None
     }
 
-  ///Gets recent type check results, waiting for the results of in-progress type checking
-  /// if version of file in memory is greater than last type checked version.
-  /// It also waits if there are no FSharpProjectOptions available for given file
-  member x.GetLatestTypeCheckResultsForFile(file: string<LocalPath>) =
-    async {
-      let stateVersion = state.TryGetFileVersion file
-      let checkedVersion = state.TryGetLastCheckedVersion file
-
-      commandsLogger.debug (
-        Log.setMessage "TryGetLatestTypeCheckResultsFor {file}, State@{stateVersion}, Checked@{checkedVersion}"
-        >> Log.addContextDestructured "file" file
-        >> Log.addContextDestructured "stateVersion" stateVersion
-        >> Log.addContextDestructured "checkedVersion" checkedVersion
-      )
-
-      match stateVersion, checkedVersion with
-      | Some sv, Some cv when cv < sv ->
-        do!
-          x.FileChecked
-          |> Event.filter (fun (_, n, _) -> n = file)
-          |> Event.map ignore
-          |> Async.AwaitEvent
-
-        return! x.GetLatestTypeCheckResultsForFile(file)
-      | Some _, None
-      | None, Some _ ->
-        do!
-          x.FileChecked
-          |> Event.filter (fun (_, n, _) -> n = file)
-          |> Event.map ignore
-          |> Async.AwaitEvent
-
-        return! x.GetLatestTypeCheckResultsForFile(file)
-      | _, _ ->
-        match! x.TryGetRecentTypeCheckResultsForFile(file) with
-        | Some results -> return results
-        | None ->
-          do!
-            x.FileChecked
-            |> Event.filter (fun (_, n, _) -> n = file)
-            |> Event.map ignore
-            |> Async.AwaitEvent
-
-          return! x.GetLatestTypeCheckResultsForFile(file)
-    }
-
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
     state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos)
 
@@ -1538,8 +1492,8 @@ type Commands
 
   /// gets the semantic classification ranges for a file, optionally filtered by a given range.
   member x.GetHighlighting(file: string<LocalPath>, range: Range option) =
-    async {
-      let! res = x.GetLatestTypeCheckResultsForFile file
+    asyncOption {
+      let! res = x.TryGetRecentTypeCheckResultsForFile file
 
       let r =
         res.GetCheckResults.GetSemanticClassification(range)
