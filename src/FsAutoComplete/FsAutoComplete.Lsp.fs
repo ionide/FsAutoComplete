@@ -637,58 +637,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           return! AsyncLspResult.internalError e.Message
     }
 
-  ///Helper function for handling Position requests using **latest** type check results
-  member x.positionHandlerWithLatest<'a, 'b when 'b :> ITextDocumentPositionParams>
-    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> ISourceText -> AsyncLspResult<'a>)
-    (arg: 'b)
-    : AsyncLspResult<'a> =
-    async {
-      let pos = arg.GetFcsPos()
-      let file = arg.GetFilePath() |> Utils.normalizePath
-      // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
-
-      return!
-        try
-          async {
-            let! tyRes = commands.GetLatestTypeCheckResultsForFile(file)
-
-            return!
-              match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
-              | ResultOrString.Error s ->
-                logger.error (
-                  Log.setMessage "PositionHandler - Getting file checker options for {file} failed"
-                  >> Log.addContextDestructured "error" s
-                  >> Log.addContextDestructured "file" file
-                )
-
-                AsyncLspResult.internalError s
-              | ResultOrString.Ok (options, lines, lineStr) ->
-                async {
-                  let! r = Async.Catch(f arg pos tyRes lineStr lines)
-
-                  match r with
-                  | Choice1Of2 r -> return r
-                  | Choice2Of2 e ->
-                    logger.error (
-                      Log.setMessage "PositionHandler - Failed during child operation on file {file}"
-                      >> Log.addContextDestructured "file" file
-                      >> Log.addExn e
-                    )
-
-                    return LspResult.internalError e.Message
-                }
-          }
-        with
-        | e ->
-          logger.error (
-            Log.setMessage "PositionHandler - Operation failed for file {file}"
-            >> Log.addContextDestructured "file" file
-            >> Log.addExn e
-          )
-
-          AsyncLspResult.internalError e.Message
-    }
-
   ///Helper function for handling file requests using **recent** type check results
   member x.fileHandler<'a>
     (f: string<LocalPath> -> ParseAndCheckResults -> ISourceText -> AsyncLspResult<'a>)
@@ -1116,18 +1064,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         return! success (Some completionList)
       else
         let! typeCheckResults =
-          match p.Context with
-          | None ->
-            commands.TryGetRecentTypeCheckResultsForFile(file)
-            |> AsyncResult.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
-          | Some ctx ->
-            //ctx.triggerKind = CompletionTriggerKind.Invoked ||
-            if (ctx.triggerCharacter = Some '.') then
-              commands.GetLatestTypeCheckResultsForFile(file)
-              |> Async.map Ok
-            else
-              commands.TryGetRecentTypeCheckResultsForFile(file)
-              |> AsyncResult.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
+          commands.TryGetRecentTypeCheckResultsForFile(file)
+          |> AsyncResult.ofOption (fun _ -> JsonRpc.Error.InternalErrorMessage "No Typecheck results")
+
 
         match!
           commands.Completion
@@ -1234,7 +1173,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     )
 
     sigHelpParams
-    |> x.positionHandlerWithLatest (fun sigHelpParams fcsPos tyRes lineStr lines ->
+    |> x.positionHandler (fun sigHelpParams fcsPos tyRes lineStr lines ->
       asyncResult {
         let charAtCaret =
           sigHelpParams.Context
@@ -1882,7 +1821,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | ResultOrString.Ok (options, _, lineStr) ->
             try
               async {
-                let! tyRes = commands.GetLatestTypeCheckResultsForFile(file)
+                let! tyRes = commands.TryGetRecentTypeCheckResultsForFile(file)
+                match tyRes with
+                | None -> return { p with Command = None } |> success
+                | Some tyRes ->
 
                 logger.info (
                   Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
@@ -2636,10 +2578,14 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
 
   member private x.handleSemanticTokens
-    (getTokens: Async<CoreResponse<SemanticClassificationItem array>>)
+    (getTokens: Async<CoreResponse<SemanticClassificationItem array> option>)
     : AsyncLspResult<SemanticTokens option> =
     asyncResult {
-      let! rangesAndHighlights = getTokens |> AsyncResult.ofCoreResponse
+      match! getTokens with
+      | None -> return! success None
+      | Some rangesAndHighlights ->
+      let! rangesAndHighlights = rangesAndHighlights |> Result.ofCoreResponse
+
 
       let lspTypedRanges =
         rangesAndHighlights
