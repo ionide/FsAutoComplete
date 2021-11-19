@@ -84,7 +84,9 @@ type ActualBackgroundService() =
 
     Client.Client(
       "dotnet",
-      Path.Combine(p, "fsautocomplete.backgroundservices.dll")
+      "--roll-forward LatestMajor"
+      + " "
+      + Path.Combine(p, "fsautocomplete.backgroundservices.dll")
       + " "
       + pid,
       notificationsHandler
@@ -92,6 +94,7 @@ type ActualBackgroundService() =
 
   interface BackgroundService with
     member x.Start (workspaceDir) =
+      logger.info (Log.setMessage "Starting background service")
       SymbolCache.initCache workspaceDir
       client.Start()
 
