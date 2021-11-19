@@ -575,10 +575,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       match config.GenerateBinlog with
       | false -> Ionide.ProjInfo.BinaryLogGeneration.Off
       | true -> Ionide.ProjInfo.BinaryLogGeneration.Within(DirectoryInfo(Path.Combine(rootPath.Value, ".ionide")))
+    ()
 
   do
-    rootPath |> Option.iter backgroundService.Start
-
     commandDisposables.Add
     <| commands.Notify.Subscribe handleCommandEvents
 
@@ -713,6 +712,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       rootPath <- actualRootPath
       commands.SetWorkspaceRoot actualRootPath
+      rootPath |> Option.iter backgroundService.Start
 
       let c =
         p.InitializationOptions
