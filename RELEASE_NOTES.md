@@ -1,3 +1,7 @@
+### 0.49.3 - 19.11.2021
+* ENHANCEMENT: [Better handling of file typechecking after FCS 40 update](https://github.com/fsharp/FsAutoComplete/pull/857)
+* BUGFIX: [Fix regression in cross-project support after FCS 40 update in proj-info](https://github.com/fsharp/FsAutoComplete/pull/857)
+
 ### 0.49.2 - 16.11.2021
 
 * BUGFIX: [Fix probing for dotnet binary locations in the dotnet tool](https://github.com/fsharp/FsAutoComplete/pull/854)
@@ -95,7 +99,7 @@
   * finding type definitions
   * getting symbol usages
   * checking for inclusion in a file
- 
+
 ### 0.45.2 - 18.04.2021
 
 * Improve overload detection in `textDocument/signatureHelp` for methods
