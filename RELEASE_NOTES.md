@@ -1,3 +1,7 @@
+### 0.49.4 - 20.11.2021
+* BUGFIX: [Fix background service](https://github.com/fsharp/FsAutoComplete/pull/858)
+* BUGFIX: [Fix File System](https://github.com/fsharp/FsAutoComplete/pull/860)
+
 ### 0.49.3 - 19.11.2021
 * ENHANCEMENT: [Better handling of file typechecking after FCS 40 update](https://github.com/fsharp/FsAutoComplete/pull/857)
 * BUGFIX: [Fix regression in cross-project support after FCS 40 update in proj-info](https://github.com/fsharp/FsAutoComplete/pull/857)
