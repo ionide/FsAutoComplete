@@ -161,11 +161,11 @@ let updateSymbols (fn: string<LocalPath>) (symbols: FSharpSymbolUse seq) =
     let sus =
       symbols
       |> Seq.map (fromSymbolUse)
-      |> Seq.chunkBySize 100
+      |> Seq.toArray
 
-    for batch in sus do
-      PersistentCacheImpl.connection
-      |> Option.iter (fun con -> PersistentCacheImpl.insert(con.Value, UMX.untag fn, batch) )
+
+    PersistentCacheImpl.connection
+    |> Option.iter (fun con -> PersistentCacheImpl.insert(con.Value, UMX.untag fn, sus) )
 
 let getSymbols symbolName =
     async {
