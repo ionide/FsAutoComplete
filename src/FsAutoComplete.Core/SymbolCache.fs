@@ -140,9 +140,9 @@ module private PersistentCacheImpl =
 
 let fromSymbolUse (su : FSharpSymbolUse) =
     {   StartLine = su.Range.StartLine
-        StartColumn = su.Range.StartColumn + 1
+        StartColumn = su.Range.StartColumn
         EndLine = su.Range.EndLine
-        EndColumn = su.Range.EndColumn + 1
+        EndColumn = su.Range.EndColumn
         FileName = su.FileName
         IsFromDefinition = su.IsFromDefinition
         IsFromAttribute = su.IsFromAttribute
