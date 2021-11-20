@@ -43,6 +43,10 @@ type FileParms = {
     File: BackgroundFileCheckType
 }
 
+type InitParms = {
+  Ready: bool
+}
+
 type Msg = {Value: string}
 
 type State = {
@@ -121,6 +125,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     inherit LspServer()
 
     let checker = FSharpChecker.Create(projectCacheSize = 1, keepAllBackgroundResolutions = false, suggestNamesForErrors = false)
+    let mutable isWorkspaceReady = false
 
     let mutable latestSdkVersion = lazy None
     let mutable latestRuntimeVersion = lazy None
@@ -212,6 +217,34 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 |> async.Return
                 |> Some
 
+    let typecheckProject (project: FSharpProjectOptions) =
+      async {
+        do! client.Notify {Value = sprintf "Project - Typechecking %s" project.ProjectFileName }
+        let! projectResult = checker.ParseAndCheckProject(project)
+        do! client.Notify {Value = sprintf "Project - Typechecking project %s done" project.ProjectFileName }
+
+        projectResult.Diagnostics
+        |> Array.groupBy (fun d -> d.FileName)
+        |> Array.iter (fun (file, diags) ->
+          let diags =
+            diags
+            |> Array.map Helpers.fcsErrorToDiagnostic
+          let uri = file |> Utils.normalizePath |> Helpers.filePathToUri
+          client.Notify {Value = sprintf "Project - Sending diagnostics %s" (UMX.untag file) } |> Async.RunSynchronously
+          client.SendDiagnostics {  Uri = uri; Diagnostics = diags } |> Async.RunSynchronously
+          ()
+        )
+
+        projectResult.GetAllUsesOfAllSymbols()
+        |> Array.groupBy (fun d -> d.FileName)
+        |> Array.iter (fun (file, symbols) ->
+          let file = Utils.normalizePath file
+          client.Notify {Value = sprintf "Project - Got symbols for file %s - %d" (UMX.untag file) (symbols |> Seq.length) } |> Async.RunSynchronously
+          SymbolCache.updateSymbols file symbols
+        )
+
+        ()
+      }
     let typecheckFile ignoredFile (file: string<LocalPath>) =
         async {
             do! client.Notify {Value = sprintf "Typechecking %s" (UMX.untag file) }
@@ -367,15 +400,15 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 Version = Some p.Version }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore
             let! filesToCheck = defaultArg (getListOfFilesForProjectChecking p.File) (async.Return [])
-            do! client.Notify { Value = sprintf "Files to check %A" filesToCheck }
-            bouncer.Bounce (false, file,filesToCheck)
+            if isWorkspaceReady then
+              do! client.Notify { Value = sprintf "Files to check %A" filesToCheck }
+              bouncer.Bounce (false, file,filesToCheck)
             return LspResult.success ()
         }
 
     member __.UpdateProject(p: ProjectParms) =
         async {
 
-            do! client.Notify {Value = sprintf "Project update recived %s" p.File}
             let knowOptions =
               state.FileCheckOptions.Values
 
@@ -405,6 +438,9 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                 |> ignore
             )
             do! client.Notify {Value = sprintf "Project Updated %s, references: %d" options.ProjectFileName options.ReferencedProjects.Length}
+            if isWorkspaceReady then
+              do! client.Notify { Value = sprintf "Files to check from project update %A" sf }
+              bouncer.Bounce (false, sf |> Array.last,sf |> List.ofArray)
             return LspResult.success ()
         }
 
@@ -422,9 +458,26 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     yield! filesToCheck
                     yield! projects |> Seq.collect getFilesFromOpts
                 ]
-            bouncer.Bounce (true, file,filesToCheck)
+            if isWorkspaceReady then
+              bouncer.Bounce (true, file,filesToCheck)
             return LspResult.success ()
         }
+
+    member __.InitWorkspace() =
+      async {
+        do! client.Notify {Value = "Init workspace" }
+        do! Async.Sleep 100
+        let knownProjects = state.FileCheckOptions.Values |> Seq.distinctBy (fun o -> o.ProjectFileName)
+        do! client.Notify {Value = sprintf "Init workspace - starting typechecking on %d projects" (knownProjects |> Seq.length) }
+        knownProjects
+        |> Seq.iter (fun opts ->
+            typecheckProject opts
+            |> Async.RunSynchronously
+        )
+        do! client.Notify {Value = "Init workspace completed" }
+        isWorkspaceReady <- true
+        return LspResult.success ()
+      }
 
     override _.Dispose () =
       clearOldCacheSubscription.Dispose()
@@ -442,6 +495,7 @@ module Program =
             |> Map.add "background/update" (requestHandling (fun s p -> s.UpdateTextFile(p) ))
             |> Map.add "background/project" (requestHandling (fun s p -> s.UpdateProject(p) ))
             |> Map.add "background/save" (requestHandling (fun s p -> s.FileSaved(p) ))
+            |> Map.add "background/init" (requestHandling (fun s p -> s.InitWorkspace() ))
 
         LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
 
