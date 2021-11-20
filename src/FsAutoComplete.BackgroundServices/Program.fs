@@ -35,6 +35,7 @@ type UpdateFileParms = {
 
 type ProjectParms = {
     Options: FSharpProjectOptions
+    ReferencedProjects: string array
     File: string
 }
 
@@ -223,13 +224,18 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     do! client.Notify {Value = sprintf "Typechecking aborted %s" (UMX.untag file) }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
-                    let symbols = res.GetAllUsesOfAllSymbolsInFile()
-                    SymbolCache.updateSymbols file symbols
+                    do! client.Notify {Value = sprintf "Typechecking successful %s" (UMX.untag file) }
+                    async {
+                      let symbols = res.GetAllUsesOfAllSymbolsInFile()
+                      do! client.Notify {Value = sprintf "Got symbols for file %s - %d" (UMX.untag file) (symbols |> Seq.length) }
+                      SymbolCache.updateSymbols file symbols
+                    } |> Async.Start
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
                     | _ ->
                         let errors = Array.append pr.Diagnostics res.Diagnostics |> Array.map (Helpers.fcsErrorToDiagnostic)
                         let msg = {Diagnostics = errors; Uri = Helpers.filePathToUri file}
+                        do! client.Notify {Value = sprintf "Sending diagnostics %s" (UMX.untag file) }
                         do! client.SendDiagnostics msg
                         return ()
             | Some vf, None when (UMX.untag file).EndsWith ".fsx" ->
@@ -241,8 +247,10 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
                     do! client.Notify {Value = sprintf "Typechecking aborted %s" (UMX.untag file) }
                     return ()
                 | FSharpCheckFileAnswer.Succeeded res ->
-                    let symbols = res.GetAllUsesOfAllSymbolsInFile()
-                    SymbolCache.updateSymbols file symbols
+                    async {
+                      let symbols = res.GetAllUsesOfAllSymbolsInFile()
+                      SymbolCache.updateSymbols file symbols
+                    } |> Async.Start
                     match ignoredFile with
                     | Some fn when fn = file -> return ()
                     | _ ->
@@ -328,7 +336,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         loop (false, [])
     )
 
-    let bouncer = Debounce(500, reactor.Post)
+    let bouncer = Debounce(200, reactor.Post)
 
     let clearOldFilesFromCache () =
       async {
@@ -367,15 +375,36 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
     member __.UpdateProject(p: ProjectParms) =
         async {
 
+            do! client.Notify {Value = sprintf "Project update recived %s" p.File}
+            let knowOptions =
+              state.FileCheckOptions.Values
 
-            let sf = getFilesFromOpts p.Options
+            let refs = p.ReferencedProjects |> Array.choose (fun p ->
+              knowOptions
+              |> Seq.tryFind (fun o ->
+                //This is bad check, but no idea how to do it better
+                let outputOpt =
+                  o.OtherOptions
+                  |> Seq.find (fun oo -> oo.StartsWith "-o:")
+                let outputDll = outputOpt.Substring(3).Split('\\') |> Array.last
+                let refDll = p.Split('\\') |> Array.last
+                outputDll = refDll
+              )
+              |> Option.map (fun opt ->
+                FSharpReferencedProject.CreateFSharp(p, opt)
+              )
+            )
+            let options = {p.Options with ReferencedProjects = refs}
+
+
+            let sf = getFilesFromOpts options
 
             sf
             |> Seq.iter (fun file ->
-                state.FileCheckOptions.AddOrUpdate(file, (fun _ -> p.Options), (fun _ _ -> p.Options))
+                state.FileCheckOptions.AddOrUpdate(file, (fun _ -> options), (fun _ _ -> options))
                 |> ignore
             )
-            do! client.Notify {Value = sprintf "Project Updated %s" p.Options.ProjectFileName}
+            do! client.Notify {Value = sprintf "Project Updated %s, references: %d" options.ProjectFileName options.ReferencedProjects.Length}
             return LspResult.success ()
         }
 

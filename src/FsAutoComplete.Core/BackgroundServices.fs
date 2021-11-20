@@ -28,6 +28,7 @@ type UpdateFileParms =
 
 type ProjectParms =
   { Options: FSharpProjectOptions
+    ReferencedProjects: string array
     File: string }
 
 type FileParms = { File: BackgroundFileCheckType }
@@ -107,7 +108,13 @@ type ActualBackgroundService() =
       client.SendNotification "background/update" msg
 
     member x.UpdateProject(file, opts) =
-      let msg = { File = file; Options = opts }
+      let optsToSend = {opts with ReferencedProjects = [||] }
+      let refs =
+        opts.ReferencedProjects |> Array.map (fun x ->
+          x.FileName
+
+        )
+      let msg = { File = file; Options = optsToSend; ReferencedProjects = refs }
       client.SendNotification "background/project" msg
 
     member x.SaveFile(file) =
