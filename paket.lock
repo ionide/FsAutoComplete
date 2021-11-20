@@ -23,7 +23,7 @@ NUGET
     Expecto (9.0.4)
       FSharp.Core (>= 4.6)
       Mono.Cecil (>= 0.11.3)
-    Fantomas.Client (0.3.2)
+    Fantomas.Client (0.3.3)
       FSharp.Core (>= 5.0)
       Microsoft.SourceLink.GitHub (>= 1.0)
       StreamJsonRpc (>= 2.8.28)
