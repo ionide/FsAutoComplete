@@ -540,6 +540,16 @@ type Commands
           )
       | _ -> ())
 
+  //Initialize background service when the workspace is ready.
+  do
+    disposables.Add
+    <| state.ProjectController.WorkspaceReady.Subscribe(fun _ ->
+      commandsLogger.info (
+        Log.setMessage "Workspace ready - sending init request to background service"
+      )
+      backgroundService.InitWorkspace())
+
+
   member __.Notify = notify.Publish
 
   member __.FileChecked = fileChecked.Publish

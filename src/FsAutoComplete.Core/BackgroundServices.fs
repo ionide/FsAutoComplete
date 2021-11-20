@@ -33,6 +33,10 @@ type ProjectParms =
 
 type FileParms = { File: BackgroundFileCheckType }
 
+type InitParms = {
+  Ready: bool
+}
+
 let p =
   let t = typeof<State>
   Path.GetDirectoryName t.Assembly.Location
@@ -50,6 +54,7 @@ type BackgroundService =
   abstract UpdateFile : BackgroundFileCheckType * string * int -> unit
   abstract UpdateProject : string * FSharpProjectOptions -> unit
   abstract SaveFile : BackgroundFileCheckType -> unit
+  abstract InitWorkspace : unit -> unit
   abstract MessageReceived : IEvent<MessageType>
   abstract Start : workspaceDir: string -> unit
   abstract GetSymbols: string -> Async<option<SymbolCache.SymbolUseRange array>>
@@ -121,6 +126,9 @@ type ActualBackgroundService() =
       let msg : FileParms = { File = file }
       client.SendNotification "background/save" msg
 
+    member x.InitWorkspace () =
+      client.SendNotification "background/init" {Ready = true}
+
     member x.MessageReceived = messageRecieved.Publish
 
     member x.GetSymbols symbolName =
@@ -140,6 +148,8 @@ type MockBackgroundService() =
     member x.UpdateProject(file, opts) = ()
 
     member x.SaveFile(file) = ()
+
+    member x.InitWorkspace () = ()
 
     member x.MessageReceived = m.Publish
 
