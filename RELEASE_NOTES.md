@@ -1,3 +1,7 @@
+### 0.49.5 - 1.12.2021
+
+* ENHANCEMENT: Update Fantomas.Client
+
 ### 0.49.4 - 20.11.2021
 * BUGFIX: [Fix background service](https://github.com/fsharp/FsAutoComplete/pull/858)
 * BUGFIX: [Fix File System](https://github.com/fsharp/FsAutoComplete/pull/860)
