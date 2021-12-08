@@ -520,9 +520,9 @@ module String =
 
     [| let line = ref (reader.ReadLine())
 
-       while not (isNull (!line)) do
-         yield !line
-         line := reader.ReadLine()
+       while not (isNull (line.Value)) do
+         yield line.Value
+         line.Value <- reader.ReadLine()
 
        if str.EndsWith("\n") then
          // last trailing space not returned

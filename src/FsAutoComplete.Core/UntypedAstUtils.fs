@@ -1642,10 +1642,11 @@ module Printf =
         let appStack: AppWithArg list ref = ref []
 
         let addAppWithArg appWithArg =
-            match !appStack with
+            match appStack.Value with
             | lastApp :: _ when not (Range.rangeContainsRange lastApp.Range appWithArg.Range) ->
-                appStack := [appWithArg]
-            | _ -> appStack := appWithArg :: !appStack
+                appStack.Value <- [appWithArg]
+            | _ -> 
+                appStack.Value <- appWithArg :: appStack.Value
 
         let rec walkImplFileInput (ParsedImplFileInput(_, _, _, _, _, moduleOrNamespaceList, _)) =
             List.iter walkSynModuleOrNamespace moduleOrNamespaceList
@@ -1693,7 +1694,7 @@ module Printf =
         and walkExpr e =
             match e with
             | SynExpr.App (_, _, SynExpr.Ident _, SynExpr.Const (SynConst.String (_, _, stringRange), _), r) ->
-                match !appStack with
+                match appStack.Value with
                 | (lastApp :: _) as apps when Range.rangeContainsRange lastApp.Range e.Range ->
                     let intersectsWithFuncOrString (arg: Range) =
                         Range.rangeContainsRange arg stringRange
@@ -1724,7 +1725,7 @@ module Printf =
                                 Args = args }
                     result.Add res
                 | _ -> ()
-                appStack := []
+                appStack.Value <- []
             | SynExpr.App (_, _, SynExpr.App(_, true, SynExpr.Ident op, e1, _), e2, _) ->
                 let rec deconstruct = function
                     | SynExpr.Paren (exp, _, _, _) -> deconstruct exp
