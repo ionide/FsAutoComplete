@@ -57,16 +57,30 @@ module DocumentationFormatter =
               if arg <> typ.GenericArguments.[0] then yield separator
               yield! formatType displayContext arg ]
         elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
-            let r =
+            let args =
                 typ.GenericArguments
                 |> Seq.collect (formatType displayContext)
+            let args' =
+                let intersperse sep ls =
+                    Seq.foldBack (fun x -> function
+                        | [] -> [x]
+                        | xs -> x::sep::xs) ls []
+                if Seq.length args > 1 then
+                    args
+                    |> intersperse (",",1)
+                    |> List.rev
+                    |> List.fold (fun st (s,l) -> (s + fst st),(l + snd st)) ("",0)
+                else
+                    Seq.head args
+                |> fun s -> seq { s }
+                
             // we set this context specifically because we want to enforce prefix-generic form on tooltip displays
             let newContext = displayContext.WithPrefixGenericParameters()
             let org = typ.Format newContext
             let t = Regex.Replace(org, """<.*>""", "<")
             [ yield formatLink t xmlDocSig assemblyName
               if t.EndsWith "<" then
-                  yield! r
+                  yield! (if typ2.IsTupleType then args else args') // not working
                   yield formatLink ">" xmlDocSig assemblyName ]
         elif typ.IsGenericParameter then
             let name =
