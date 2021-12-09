@@ -38,6 +38,17 @@ module Map =
         yield value
     }
 
+module Seq =
+  let intersperse separator (sequence: #seq<'a>) =
+    seq {
+      let mutable notFirst = false
+
+      for element in sequence do
+        if notFirst then yield separator
+        yield element
+        notFirst <- true
+    }
+
 module ProcessHelper =
   let WaitForExitAsync (p: Process) =
     async {
@@ -46,7 +57,10 @@ module ProcessHelper =
       p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
 
       let! token = Async.CancellationToken
-      let _registered = token.Register(fun _ -> tcs.SetCanceled())
+
+      let _registered =
+        token.Register(fun _ -> tcs.SetCanceled())
+
       let! _ = tcs.Task |> Async.AwaitTask
       ()
     }
@@ -95,7 +109,8 @@ let normalizePath (file: string) : string<LocalPath> =
   else
     UMX.tag<LocalPath> file
 
-let inline combinePaths path1 (path2: string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
+let inline combinePaths path1 (path2: string) =
+  Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
 let inline (</>) path1 path2 = combinePaths path1 path2
 
@@ -370,7 +385,9 @@ module Array =
     if array.Length = 0 then
       state
     else
-      let folder = OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt folder
+      let folder =
+        OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt folder
+
       let mutable state: 'State = state
       let len = array.Length
 
@@ -416,7 +433,8 @@ module Array =
   let startsWith (prefix: _ []) (whole: _ []) = isSubArray prefix whole 0
 
   /// Returns true if one array has trailing elements equal to another's.
-  let endsWith (suffix: _ []) (whole: _ []) = isSubArray suffix whole (whole.Length - suffix.Length)
+  let endsWith (suffix: _ []) (whole: _ []) =
+    isSubArray suffix whole (whole.Length - suffix.Length)
 
   /// Returns a new array with an element replaced with a given value.
   let replace index value (array: _ []) =
@@ -465,7 +483,8 @@ module Array =
 module List =
 
   ///Returns the greatest of all elements in the list that is less than the threshold
-  let maxUnderThreshold nmax = List.maxBy (fun n -> if n > nmax then 0 else n)
+  let maxUnderThreshold nmax =
+    List.maxBy (fun n -> if n > nmax then 0 else n)
 
 
 
@@ -564,7 +583,8 @@ type Path with
   static member FilePathToUri(filePath: string) : string =
     let filePath, finished =
       if filePath.Contains "Untitled-" then
-        let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
+        let rg =
+          System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
 
         if rg.Success then
           rg.Groups.[1].Value, true
@@ -574,7 +594,8 @@ type Path with
         filePath, false
 
     if not finished then
-      let uri = System.Text.StringBuilder(filePath.Length)
+      let uri =
+        System.Text.StringBuilder(filePath.Length)
 
       for c in filePath do
         if (c >= 'a' && c <= 'z')
@@ -694,7 +715,9 @@ module Version =
 
     match assemblies with
     | [| x |] ->
-      let assembly = x :?> AssemblyInformationalVersionAttribute
+      let assembly =
+        x :?> AssemblyInformationalVersionAttribute
+
       assembly.InformationalVersion
     | _ -> ""
 
