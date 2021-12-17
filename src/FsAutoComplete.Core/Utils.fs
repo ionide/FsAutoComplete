@@ -737,23 +737,8 @@ type Debounce<'a>(timeout, fn) =
   /// Calls the function, after debouncing has been applied.
   member __.Bounce(arg) = mailbox.Post(arg)
 
-let filePathContents (path: string) =
-    Path.GetDirectoryName(path)
-        .Split(Path.DirectorySeparatorChar, System.StringSplitOptions.RemoveEmptyEntries)
-    |> Array.toList
+let createDirectoryIfMissing projPath dir =
+    let dir' = Path.Combine(projPath, dir)
+    if not <| Directory.Exists dir' then
+        Directory.CreateDirectory dir' |> ignore
 
-let createDirectoryIfMissing projPath dirs =
-    let rec create dirs =
-        match dirs with
-        | [] -> ()
-        | dir :: dirs ->
-            let dir' = Path.Combine(projPath, dir)
-            if not <| Directory.Exists dir' then
-                Directory.CreateDirectory dir' |> ignore
-            if List.isEmpty dirs then ()
-            else
-                let next = Path.Combine(dir, List.head dirs)
-                let rest = List.tail dirs
-                if List.isEmpty rest then create [ next ]
-                else create (next::rest)
-    create dirs
