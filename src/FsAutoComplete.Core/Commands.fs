@@ -648,8 +648,9 @@ type Commands
       try
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
+        let newDir = Path.Combine(dir, virtPathDir)
 
-        newFileName |> Path.GetDirectoryName |> createDirectoryIfMissing dir
+        newFileName |> Path.GetDirectoryName |> createDirectoryIfMissing newDir
 
         let newFilePath =
           Path.Combine(dir, virtPathDir, newFileName)
@@ -669,8 +670,9 @@ type Commands
       try
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
+        let newDir = Path.Combine(dir, virtPathDir)
 
-        newFileName |> Path.GetDirectoryName |> createDirectoryIfMissing dir
+        newFileName |> Path.GetDirectoryName |> createDirectoryIfMissing newDir
 
         let newFilePath =
           Path.Combine(dir, virtPathDir, newFileName)
