@@ -751,28 +751,45 @@ type Commands
     do x.CancelQueue file
 
     async {
-      let colorizations = state.ColorizationOutput
+      let parse' isScript (fileToParse: string<LocalPath>) text options =
+        asyncResult {
+          let! result = checker.ParseAndCheckFileInProject(fileToParse, version, text, options)
 
-      let parse' (fileName: string<LocalPath>) text options =
-        async {
-          let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
+          let parseResult = result.GetParseResults
+          let results = result.GetCheckResults
+          do fileParsed.Trigger parseResult
+          do lastVersionChecked <- version
+          do lastCheckResult <- Some result
+          do state.SetLastCheckedVersion fileToParse version
+          do fileChecked.Trigger(result, fileToParse, version)
 
-          return
-            match result with
-            | ResultOrString.Error e -> CoreResponse.ErrorRes e
-            | ResultOrString.Ok (parseAndCheck) ->
-              let parseResult = parseAndCheck.GetParseResults
-              let results = parseAndCheck.GetCheckResults
-              do fileParsed.Trigger parseResult
-              do lastVersionChecked <- version
-              do lastCheckResult <- Some parseAndCheck
-              do state.SetLastCheckedVersion fileName version
-              do fileChecked.Trigger(parseAndCheck, fileName, version)
+          let errors =
+            Array.append results.Diagnostics parseResult.Diagnostics
 
-              let errors =
-                Array.append results.Diagnostics parseResult.Diagnostics
+          if isScript
+          then
+            let dependents =
+              state.ScriptProjectOptions
+              |> Seq.choose (fun (KeyValue(fsxPath, (_, opts))) ->
+                  match opts.OriginalLoadReferences |> List.tryFind (fun (_, shortName, fullPath) -> fullPath = UMX.untag fileToParse) with
+                  | Some _ -> Some fsxPath
+                  | _ -> None)
+              |> Seq.distinct
+            dependents
+            |> Seq.iter (fun dependentFile ->
+              asyncMaybe {
+                // need to call command.Parse, so assemble all of the info
+                let! text = state.TryGetFileSource dependentFile |> Option.ofResult
+                let! version = state.TryGetFileVersion dependentFile
+                return! x.Parse dependentFile text version (Some true) |> Async.map Some
+              }
+              |> Async.Ignore
+              |> Async.Start
+            )
+          else
+            ()
 
-              CoreResponse.Res(errors, fileName)
+          return errors, fileToParse
         }
 
       let normalizeOptions (opts: FSharpProjectOptions) =
@@ -820,17 +837,16 @@ type Commands
         scriptFileProjectOptions.Trigger checkOptions
         state.AddFileTextAndCheckerOptions(file, text, normalizeOptions checkOptions, Some version)
         fileStateSet.Trigger()
-        return! parse' file text checkOptions
+        return! parse' true file text checkOptions
       else
         match state.RefreshCheckerOptions(file, text) with
         | Some c ->
           state.SetFileVersion file version
           fileStateSet.Trigger()
-          return! parse' file text c
-        | None -> return CoreResponse.InfoRes "`.fs` file not in project file"
-
-
+          return! parse' false file text c
+        | None -> return Error "`.fs` file not in project file"
     }
+    |> x.MapResult(CoreResponse.Res, CoreResponse.ErrorRes)
     |> x.AsCancellable file
     |> AsyncResult.recoverCancellation
 
