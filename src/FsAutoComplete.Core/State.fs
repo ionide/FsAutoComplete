@@ -20,7 +20,7 @@ type State =
     Files : ConcurrentDictionary<string<LocalPath>, VolatileFile>
     LastCheckedVersion: ConcurrentDictionary<string<LocalPath>, int>
     ProjectController: ProjectController
-
+    ProjectDerivedInformation: ConcurrentDictionary<string<LocalPath>, ProjectResult>
     HelpText : ConcurrentDictionary<DeclName, ToolTipText>
     Declarations: ConcurrentDictionary<DeclName, DeclarationListItem * Position * string<LocalPath>>
     CompletionNamespaceInsert : ConcurrentDictionary<DeclName, CompletionNamespaceInsert>
@@ -46,7 +46,8 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ScriptProjectOptions = ConcurrentDictionary()
-      ColorizationOutput = false }
+      ColorizationOutput = false
+      ProjectDerivedInformation = ConcurrentDictionary() }
 
   member x.RefreshCheckerOptions(file: string<LocalPath>, text: ISourceText) : FSharpProjectOptions option =
     x.ProjectController.GetProjectOptions (UMX.untag file)

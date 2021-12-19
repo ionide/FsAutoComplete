@@ -516,6 +516,8 @@ type Commands
     <| state.ProjectController.Notifications.Subscribe (fun ev ->
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
+        state.ProjectDerivedInformation.AddOrUpdate(UMX.tag p.ProjectFileName, p, (fun localPath existing -> p))
+        |> ignore<ProjectResult>
         let controller = state.ProjectController
         let opts =
           controller.GetProjectOptionsForFsproj p.ProjectFileName
@@ -739,60 +741,67 @@ type Commands
   member x.TryGetFileVersion = state.TryGetFileVersion
 
   member x.Parse file (text: ISourceText) version (isSdkScript: bool option) =
-    let tmf =
-      isSdkScript
-      |> Option.map (fun n ->
-        if n then
-          FSIRefs.NetCore
+    let innerParseSingleFile (dependentFile: string<LocalPath>) isScript =
+      asyncMaybe {
+        // need to call command.Parse, so assemble all of the info
+        let! text = state.TryGetFileSource dependentFile |> Option.ofResult
+        let! version = state.TryGetFileVersion dependentFile
+        return! x.Parse dependentFile text version (Some isScript) |> Async.map Some
+      }
+      |> Async.Ignore
+      |> Async.Start
+
+    let parse' isScript (fileToParse: string<LocalPath>) text options =
+      asyncResult {
+        let! result = checker.ParseAndCheckFileInProject(fileToParse, version, text, options)
+
+        let parseResult = result.GetParseResults
+        let results = result.GetCheckResults
+        do fileParsed.Trigger parseResult
+        do lastVersionChecked <- version
+        do lastCheckResult <- Some result
+        do state.SetLastCheckedVersion fileToParse version
+        do fileChecked.Trigger(result, fileToParse, version)
+
+        let errors =
+          Array.append results.Diagnostics parseResult.Diagnostics
+
+        if isScript
+        then
+          let dependents =
+            state.ScriptProjectOptions
+            |> Seq.choose (fun (KeyValue(fsxPath, (_, opts))) ->
+                match opts.OriginalLoadReferences |> List.tryFind (fun (_, shortName, fullPath) -> fullPath = UMX.untag fileToParse) with
+                | Some _ -> Some fsxPath
+                | _ -> None)
+            |> Seq.distinct
+          dependents
+          |> Seq.iter (fun dependentFile -> innerParseSingleFile dependentFile true)
         else
-          FSIRefs.NetFx)
-      |> Option.defaultValue FSIRefs.NetFx
+          let _filesBefore, dependentFilesInThisProject =
+            options.SourceFiles |> Array.splitAt (Array.IndexOf(options.SourceFiles, UMX.untag fileToParse) + 1)
 
-    do x.CancelQueue file
+          // for projects, we need to find all projects that depend on this one
+          // and trigger project-level parsing for them. the compiler should figure out the rest
+          let dependentProjects = System.Collections.Generic.Dictionary()
+          match state.ProjectDerivedInformation.TryFind (UMX.tag options.ProjectFileName) with
+          | None -> ()
+          | Some crackedInfo ->
+            for (fs, opts) in state.ProjectController.ProjectOptions do
+              if dependentProjects.ContainsKey(opts.ProjectFileName) then ()
+              else
+                  if opts.ReferencedProjects |> Array.exists (fun dep -> Some dep.FileName = crackedInfo.OutFileOpt) then
+                    dependentProjects.Add(opts.ProjectFileName, opts)
 
-    async {
-      let parse' isScript (fileToParse: string<LocalPath>) text options =
-        asyncResult {
-          let! result = checker.ParseAndCheckFileInProject(fileToParse, version, text, options)
+          let dependentProjectFiles = dependentProjects.Values |> Seq.collect (fun dependentProject -> dependentProject.SourceFiles)
+          Seq.append dependentFilesInThisProject dependentProjectFiles
+          |> Seq.distinct
+          |> Seq.iter (fun dependentFile -> innerParseSingleFile (UMX.tag dependentFile) (Path.GetExtension dependentFile = ".fsx"))
 
-          let parseResult = result.GetParseResults
-          let results = result.GetCheckResults
-          do fileParsed.Trigger parseResult
-          do lastVersionChecked <- version
-          do lastCheckResult <- Some result
-          do state.SetLastCheckedVersion fileToParse version
-          do fileChecked.Trigger(result, fileToParse, version)
+        return errors, fileToParse
+      }
 
-          let errors =
-            Array.append results.Diagnostics parseResult.Diagnostics
-
-          if isScript
-          then
-            let dependents =
-              state.ScriptProjectOptions
-              |> Seq.choose (fun (KeyValue(fsxPath, (_, opts))) ->
-                  match opts.OriginalLoadReferences |> List.tryFind (fun (_, shortName, fullPath) -> fullPath = UMX.untag fileToParse) with
-                  | Some _ -> Some fsxPath
-                  | _ -> None)
-              |> Seq.distinct
-            dependents
-            |> Seq.iter (fun dependentFile ->
-              asyncMaybe {
-                // need to call command.Parse, so assemble all of the info
-                let! text = state.TryGetFileSource dependentFile |> Option.ofResult
-                let! version = state.TryGetFileVersion dependentFile
-                return! x.Parse dependentFile text version (Some true) |> Async.map Some
-              }
-              |> Async.Ignore
-              |> Async.Start
-            )
-          else
-            ()
-
-          return errors, fileToParse
-        }
-
-      let normalizeOptions (opts: FSharpProjectOptions) =
+    let normalizeOptions (opts: FSharpProjectOptions) =
         { opts with
             SourceFiles =
               opts.SourceFiles
@@ -805,6 +814,18 @@ type Commands
                   Path.GetFullPath n
                 else
                   n) }
+
+    async {
+      let tmf =
+        isSdkScript
+        |> Option.map (fun n ->
+          if n then
+            FSIRefs.NetCore
+          else
+            FSIRefs.NetFx)
+        |> Option.defaultValue FSIRefs.NetFx
+
+      do x.CancelQueue file
 
       if Utils.isAScript (UMX.untag file) then
         commandsLogger.info (

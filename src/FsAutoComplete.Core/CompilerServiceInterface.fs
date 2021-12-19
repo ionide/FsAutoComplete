@@ -23,7 +23,6 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       enableBackgroundItemKeyStoreAndSemanticClassification = true
     )
 
-  do checker.BeforeBackgroundFileCheck.Add ignore
 
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
   let safeFileCheckedEvent =
