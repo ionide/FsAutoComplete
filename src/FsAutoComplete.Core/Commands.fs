@@ -741,7 +741,8 @@ type Commands
   member x.TryGetFileVersion = state.TryGetFileVersion
 
   member x.Parse file (text: ISourceText) version (isSdkScript: bool option) =
-    let innerParseSingleFile (dependentFile: string<LocalPath>) isScript =
+    /// Start checking one file that's a dependent of this file, without waiting for the results.
+    let innerCheckSingleFile (dependentFile: string<LocalPath>) isScript =
       asyncMaybe {
         // need to call command.Parse, so assemble all of the info
         let! text = state.TryGetFileSource dependentFile |> Option.ofResult
@@ -751,7 +752,8 @@ type Commands
       |> Async.Ignore
       |> Async.Start
 
-    let parse' isScript (fileToParse: string<LocalPath>) text options =
+    /// Check a file, update all the caches, and start work on dependent files
+    let parseAndUpdateDependents isScript (fileToParse: string<LocalPath>) text options =
       asyncResult {
         let! result = checker.ParseAndCheckFileInProject(fileToParse, version, text, options)
 
@@ -768,6 +770,8 @@ type Commands
 
         if isScript
         then
+          // for scripts, dependent files are those that are load-ed in other scripts,
+          // so scrape the project options for any that match that condition
           let dependents =
             state.ScriptProjectOptions
             |> Seq.choose (fun (KeyValue(fsxPath, (_, opts))) ->
@@ -776,13 +780,14 @@ type Commands
                 | _ -> None)
             |> Seq.distinct
           dependents
-          |> Seq.iter (fun dependentFile -> innerParseSingleFile dependentFile true)
+          |> Seq.iter (fun dependentFile -> innerCheckSingleFile dependentFile true)
         else
+          // for projects, dependent files come in two kinds:
+          // 1. files that are further down the project's source files listing
           let _filesBefore, dependentFilesInThisProject =
             options.SourceFiles |> Array.splitAt (Array.IndexOf(options.SourceFiles, UMX.untag fileToParse) + 1)
 
-          // for projects, we need to find all projects that depend on this one
-          // and trigger project-level parsing for them. the compiler should figure out the rest
+          // 2. files that belong to projects that reference this one
           let dependentProjects = System.Collections.Generic.Dictionary()
           match state.ProjectDerivedInformation.TryFind (UMX.tag options.ProjectFileName) with
           | None -> ()
@@ -793,10 +798,11 @@ type Commands
                   if opts.ReferencedProjects |> Array.exists (fun dep -> Some dep.FileName = crackedInfo.OutFileOpt) then
                     dependentProjects.Add(opts.ProjectFileName, opts)
 
+          // once we have all files, start checking them
           let dependentProjectFiles = dependentProjects.Values |> Seq.collect (fun dependentProject -> dependentProject.SourceFiles)
           Seq.append dependentFilesInThisProject dependentProjectFiles
           |> Seq.distinct
-          |> Seq.iter (fun dependentFile -> innerParseSingleFile (UMX.tag dependentFile) (Path.GetExtension dependentFile = ".fsx"))
+          |> Seq.iter (fun dependentFile -> innerCheckSingleFile (UMX.tag dependentFile) (Path.GetExtension dependentFile = ".fsx"))
 
         return errors, fileToParse
       }
@@ -858,13 +864,13 @@ type Commands
         scriptFileProjectOptions.Trigger checkOptions
         state.AddFileTextAndCheckerOptions(file, text, normalizeOptions checkOptions, Some version)
         fileStateSet.Trigger()
-        return! parse' true file text checkOptions
+        return! parseAndUpdateDependents true file text checkOptions
       else
         match state.RefreshCheckerOptions(file, text) with
         | Some c ->
           state.SetFileVersion file version
           fileStateSet.Trigger()
-          return! parse' false file text c
+          return! parseAndUpdateDependents false file text c
         | None -> return Error "`.fs` file not in project file"
     }
     |> x.MapResult(CoreResponse.Res, CoreResponse.ErrorRes)
