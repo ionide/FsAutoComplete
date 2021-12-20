@@ -665,28 +665,23 @@ type ParseAndCheckResults
 
   member __.GetAllEntities(publicOnly: bool) : AssemblySymbol list =
     try
-      let res =
-        [ yield!
-            AssemblyContent.GetAssemblySignatureContent
-              AssemblyContentType.Full
-              checkResults.PartialAssemblySignature
-          let ctx = checkResults.ProjectContext
+      [ yield!
+          AssemblyContent.GetAssemblySignatureContent
+            AssemblyContentType.Full
+            checkResults.PartialAssemblySignature
+        let ctx = checkResults.ProjectContext
 
-          let assembliesByFileName =
-            ctx.GetReferencedAssemblies()
-            |> List.groupBy (fun asm -> asm.FileName)
-            |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
-          // get Content.Entities from it.
+        let assembliesByFileName =
+          ctx.GetReferencedAssemblies()
+          |> List.groupBy (fun asm -> asm.FileName)
+          |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
+        // get Content.Entities from it.
 
-          for fileName, signatures in assembliesByFileName do
-            let contentType = if publicOnly then AssemblyContentType.Public else AssemblyContentType.Full
+        let contentType = if publicOnly then AssemblyContentType.Public else AssemblyContentType.Full
+        for fileName, signatures in assembliesByFileName do
+            yield! AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
 
-            let content =
-              AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
-
-            yield! content ]
-
-      res
+        ]
     with
     | _ -> []
 

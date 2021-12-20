@@ -231,8 +231,19 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   let mutable sigHelpKind = None
   let mutable binaryLogConfig = Ionide.ProjInfo.BinaryLogGeneration.Off
 
-  let parseFile (p: DidChangeTextDocumentParams) =
+  let triggerBuiltinAnalyzers (filePath: string<LocalPath>) = 
+    // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
+    if config.UnusedOpensAnalyzer then
+      Async.Start(commands.CheckUnusedOpens filePath)
 
+    if config.UnusedDeclarationsAnalyzer then
+      Async.Start(commands.CheckUnusedDeclarations filePath)
+
+    if config.SimplifyNameAnalyzer then
+      Async.Start(commands.CheckSimplifiedNames filePath)
+
+  let parseFile (p: DidChangeTextDocumentParams) =
+    
     async {
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
@@ -254,15 +265,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             commands.Parse filePath content version (Some tfmConfig)
             |> Async.Ignore
 
-          // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-          if config.UnusedOpensAnalyzer then
-            Async.Start(commands.CheckUnusedOpens filePath)
-
-          if config.UnusedDeclarationsAnalyzer then
-            Async.Start(commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
-
-          if config.SimplifyNameAnalyzer then
-            Async.Start(commands.CheckSimplifiedNames filePath)
+          
         else
           logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
       | _ ->
@@ -580,6 +583,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   do
     commandDisposables.Add
     <| commands.Notify.Subscribe handleCommandEvents
+
+    commandDisposables.Add <| commands.FileChecked.Subscribe (fun (_checkResults, filePath, _fileVersion) -> triggerBuiltinAnalyzers filePath)
 
   ///Helper function for handling Position requests using **recent** type check results
   member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams>
@@ -959,18 +964,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
       do!
-        (commands.Parse filePath content doc.Version (Some tfmConfig)
-         |> Async.Ignore)
-
-      // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-      if config.UnusedOpensAnalyzer then
-        Async.Start(commands.CheckUnusedOpens filePath)
-
-      if config.UnusedDeclarationsAnalyzer then
-        Async.Start(commands.CheckUnusedDeclarations filePath)
-
-      if config.SimplifyNameAnalyzer then
-        Async.Start(commands.CheckSimplifiedNames filePath)
+        commands.Parse filePath content doc.Version (Some tfmConfig)
+        |> Async.Ignore
     }
 
   override __.TextDocumentDidChange(p) =
