@@ -4,7 +4,7 @@ namespace FsAutoComplete.CodeFix
 
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FsToolkit.ErrorHandling
@@ -14,7 +14,7 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 
-module LspTypes = LanguageServerProtocol.Types
+module LspTypes = Ionide.LanguageServerProtocol.Types
 
 module Types =
   type IsEnabled = unit -> bool
@@ -67,8 +67,11 @@ module Types =
              | FixKind.Refactor -> "refactor"
              | FixKind.Rewrite -> "refactor.rewrite")
         Diagnostics = diagnostic |> Option.map Array.singleton
-        Edit = workspaceEdit
-        Command = None }
+        IsPreferred = None
+        Disabled = None
+        Edit = Some workspaceEdit
+        Command = None
+        Data = None }
 
 /// helpers for iterating along text lines
 module Navigation =

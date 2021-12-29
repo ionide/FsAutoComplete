@@ -3,7 +3,7 @@ module FsAutoComplete.CodeFix.GenerateInterfaceStub
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open System.IO

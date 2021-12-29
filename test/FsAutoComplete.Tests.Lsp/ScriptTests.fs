@@ -2,8 +2,8 @@ module FsAutoComplete.Tests.ScriptTest
 
 open Expecto
 open System.IO
-open LanguageServerProtocol
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers

@@ -3,7 +3,7 @@ module FsAutoComplete.Tests.SignatureHelp
 open Expecto
 open System.IO
 open Helpers
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
 open FsAutoComplete
 

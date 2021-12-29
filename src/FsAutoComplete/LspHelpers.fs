@@ -2,7 +2,7 @@ module FsAutoComplete.LspHelpers
 
 open System
 open System.IO
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 open FSharp.Reflection
 open System.Collections.Generic
@@ -17,7 +17,7 @@ type FcsPos = FSharp.Compiler.Text.Position
 
 [<AutoOpen>]
 module Conversions =
-    module Lsp = LanguageServerProtocol.Types
+    module Lsp = Ionide.LanguageServerProtocol.Types
 
     /// convert an LSP position to a compiler position
     let protocolPosToPos (pos: Lsp.Position): FcsPos =
@@ -209,7 +209,7 @@ module internal GlyphConversions =
         fun glyph ->
             cache.[glyph]
 
-    type CompletionItemKind = LanguageServerProtocol.Types.CompletionItemKind
+    type CompletionItemKind = Ionide.LanguageServerProtocol.Types.CompletionItemKind
 
     /// Compute the best possible CompletionItemKind for each FSharpGlyph according
     /// to the client capabilities
@@ -795,9 +795,9 @@ let createTokenLegend<'types, 'modifiers when 'types : enum<int> and
 /// </summary>
 /// <param name="rangesAndHighlights"></param>
 /// <returns></returns>
-let encodeSemanticHighlightRanges (rangesAndHighlights: (struct(LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)) array) =
+let encodeSemanticHighlightRanges (rangesAndHighlights: (struct(Ionide.LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)) array) =
   let fileStart = { Start = { Line = 0; Character = 0}; End = { Line = 0; Character = 0 } }
-  let computeLine (prev: LanguageServerProtocol.Types.Range) ((range, ty, mods): struct(LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)): uint32 [] =
+  let computeLine (prev: Ionide.LanguageServerProtocol.Types.Range) ((range, ty, mods): struct(Ionide.LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)): uint32 [] =
     let lineDelta =
       if prev.Start.Line = range.Start.Line then 0u
       else uint32 (range.Start.Line - prev.Start.Line)

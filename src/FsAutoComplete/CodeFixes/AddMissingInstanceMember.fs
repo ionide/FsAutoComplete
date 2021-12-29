@@ -2,7 +2,7 @@ module FsAutoComplete.CodeFix.AddMissingInstanceMember
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 
 let fix =
     Run.ifDiagnosticByCode (Set.ofList [ "673" ]) (fun diagnostic codeActionParams -> asyncResult {

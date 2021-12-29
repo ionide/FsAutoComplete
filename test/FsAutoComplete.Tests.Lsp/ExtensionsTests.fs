@@ -3,7 +3,7 @@ module FsAutoComplete.Tests.ExtensionsTests
 open System
 open Expecto
 open System.IO
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers

@@ -16,3 +16,4 @@ Fantomas.Client
 
 System.Reflection.Metadata
 Microsoft.Build.Utilities.Core
+Ionide.LanguageServerProtocol

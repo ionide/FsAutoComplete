@@ -4,7 +4,7 @@ module FsAutoComplete.CodeFix.RemoveUnusedBinding
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.CodeAnalysis

@@ -1,6 +1,6 @@
 module FsAutoComplete.CodeFix.UnusedOpens
 
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsToolkit.ErrorHandling

@@ -3,7 +3,6 @@ module FsAutoComplete.CodeFix.ConvertBangEqualsToInequality
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 

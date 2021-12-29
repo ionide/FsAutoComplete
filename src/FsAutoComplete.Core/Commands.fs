@@ -72,7 +72,7 @@ type NotificationEvent =
   | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool) []
   | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange []
   | Canceled of errorMessage: string
-  | Diagnostics of LanguageServerProtocol.Types.PublishDiagnosticsParams
+  | Diagnostics of Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams
   | FileParsed of string<LocalPath>
 
 type Commands

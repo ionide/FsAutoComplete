@@ -9,10 +9,10 @@ open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
-open LanguageServerProtocol
-open LanguageServerProtocol.LspResult
-open LanguageServerProtocol.Server
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol
+open Ionide.LanguageServerProtocol.LspResult
+open Ionide.LanguageServerProtocol.Server
+open Ionide.LanguageServerProtocol.Types
 open LspHelpers
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
@@ -747,10 +747,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commands.TryGetFileCheckerOptionsWithLines
         >> Result.map snd
 
-      let getLineText (lines: ISourceText) (range: LanguageServerProtocol.Types.Range) =
+      let getLineText (lines: ISourceText) (range: Ionide.LanguageServerProtocol.Types.Range) =
         lines.GetText(protocolRangeToRange "unknown.fsx" range)
 
-      let getRangeText fileName (range: LanguageServerProtocol.Types.Range) =
+      let getRangeText fileName (range: Ionide.LanguageServerProtocol.Types.Range) =
         getFileLines fileName
         |> Result.bind (fun lines -> lines.GetText(protocolRangeToRange (UMX.untag fileName) range))
 
@@ -920,7 +920,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                         AllCommitCharacters = None //TODO: what chars shoudl commit completions?
                       }
                   CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
-                  CodeActionProvider = Some true
+                  CodeActionProvider =
+                    Some
+                      { CodeActionKinds = None
+                        ResolveProvider = None }
                   TextDocumentSync =
                     Some
                       { TextDocumentSyncOptions.Default with
@@ -2705,7 +2708,7 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
 
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
-  LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
+  Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
     new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
 
 let start backgroundServiceEnabled toolsPath workspaceLoaderFactory =

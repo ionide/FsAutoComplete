@@ -21,3 +21,4 @@ Serilog.Sinks.Async
 Serilog.Sinks.Console
 Serilog.Sinks.File
 System.Configuration.ConfigurationManager
+Ionide.LanguageServerProtocol

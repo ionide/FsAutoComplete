@@ -3,7 +3,7 @@ module FsAutoComplete.CodeFix.RedundantQualifier
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 
 /// a codefix that removes unnecessary qualifiers from an identifier
 let fix =

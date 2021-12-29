@@ -1,6 +1,5 @@
 module FsAutoComplete.CodeFix.SuggestedIdentifier
 
-open LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsToolkit.ErrorHandling

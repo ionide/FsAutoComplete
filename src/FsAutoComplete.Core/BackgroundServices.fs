@@ -1,7 +1,7 @@
 module BackgroundServices
 
 open FsAutoComplete
-open LanguageServerProtocol
+open Ionide.LanguageServerProtocol
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Ionide.ProjInfo.ProjectSystem

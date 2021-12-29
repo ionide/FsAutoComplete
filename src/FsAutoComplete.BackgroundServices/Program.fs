@@ -3,9 +3,9 @@
 open System
 open System.IO
 open System.Text
-open LanguageServerProtocol.Server
-open LanguageServerProtocol.Types
-open LanguageServerProtocol
+open Ionide.LanguageServerProtocol.Server
+open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol
 open FSharp.Compiler
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Text
@@ -497,7 +497,7 @@ module Program =
             |> Map.add "background/save" (requestHandling (fun s p -> s.FileSaved(p) ))
             |> Map.add "background/init" (requestHandling (fun s p -> s.InitWorkspace() ))
 
-        LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
+        Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
 
     open FSharp.Compiler.IO
 

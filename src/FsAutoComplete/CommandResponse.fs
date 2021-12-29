@@ -333,7 +333,7 @@ module CommandResponse =
     ParameterStr : string
   }
 
-  type HighlightingRange = { Range: LanguageServerProtocol.Types.Range ; TokenType: string }
+  type HighlightingRange = { Range: Ionide.LanguageServerProtocol.Types.Range ; TokenType: string }
 
   type HighlightingResponse = {
     Highlights: HighlightingRange []

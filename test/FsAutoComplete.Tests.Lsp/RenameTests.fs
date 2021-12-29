@@ -2,7 +2,7 @@ module FsAutoComplete.Tests.Rename
 open System.IO
 open Helpers
 open Expecto.Tests
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
 open Expecto
 open FsAutoComplete.Utils

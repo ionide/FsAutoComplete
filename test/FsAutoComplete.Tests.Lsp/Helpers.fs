@@ -4,8 +4,8 @@ open System
 open Expecto
 open System.IO
 open FsAutoComplete.Lsp
-open LanguageServerProtocol
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Control.Reactive
@@ -116,7 +116,7 @@ type ClientEvents = IObservable<string * obj>
 
 let createServer (state: State) =
   let event = new System.Reactive.Subjects.ReplaySubject<_>()
-  let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
+  let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new Ionide.LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
@@ -234,6 +234,17 @@ let clientCaps : ClientCapabilities =
         MultilineTokenSupport = None
       }
 
+    let codeActionCaps =
+      {
+        DynamicRegistration = Some true
+        CodeActionLiteralSupport = None
+        IsPreferredSupport = None
+        DisabledSupport = None
+        DataSupport = None
+        ResolveSupport = None
+        HonorsChangeAnnotations = None
+      }
+
     { Synchronization = Some syncCaps
       PublishDiagnostics = diagCaps
       Completion = Some compCaps
@@ -246,7 +257,7 @@ let clientCaps : ClientCapabilities =
       RangeFormatting = Some dynCaps
       OnTypeFormatting = Some dynCaps
       Definition = Some dynCaps
-      CodeAction = Some dynCaps
+      CodeAction = Some codeActionCaps
       CodeLens = Some dynCaps
       DocumentLink = Some dynCaps
       Rename = Some dynCaps
@@ -387,11 +398,11 @@ let private payloadAs<'t> =
   Observable.map (fun (_typ, o) -> unbox<'t> o)
 
 let private getDiagnosticsEvents: IObservable<string * obj> -> IObservable<_> =
-  typedEvents<LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
+  typedEvents<Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
 
 /// note that the files here are intended to be the filename only., not the full URI.
 let private matchFiles (files: string Set) =
-  Observable.choose (fun (p: LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
+  Observable.choose (fun (p: Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
     let filename = p.Uri.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
     if Set.contains filename files
     then Some (filename, p)
@@ -448,7 +459,7 @@ let waitForCompilerDiagnosticsForFile file =
 
 let waitForParsedScript (event: ClientEvents) =
   event
-  |> typedEvents<LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
+  |> typedEvents<Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
   |> Observable.choose (fun n ->
     let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
     if filename = "Script.fs" then Some n else None

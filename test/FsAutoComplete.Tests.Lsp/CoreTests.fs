@@ -3,8 +3,8 @@ module FsAutoComplete.Tests.CoreTest
 open System
 open Expecto
 open System.IO
-open LanguageServerProtocol
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
@@ -26,7 +26,7 @@ let initTests state =
     let! result = server.Initialize p
     match result with
     | Result.Ok res ->
-      Expect.equal res.Capabilities.CodeActionProvider (Some true) "Code Action Provider"
+      Expect.equal res.Capabilities.CodeActionProvider (Some {CodeActionOptions.ResolveProvider = None; CodeActionOptions.CodeActionKinds = None}) "Code Action Provider"
       Expect.equal res.Capabilities.CodeLensProvider (Some {CodeLensOptions.ResolveProvider = Some true}) "Code Lens Provider"
       Expect.equal res.Capabilities.DefinitionProvider (Some true) "Definition Provider"
       Expect.equal res.Capabilities.DocumentFormattingProvider (Some true) "Document Formatting Provider"
