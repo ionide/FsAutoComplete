@@ -47,11 +47,12 @@ nuget CliWrap
 
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
-nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.0
+nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.2
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
+nuget StreamJsonRpc 2.9.85
 
 group Build
   source https://api.nuget.org/v3/index.json
