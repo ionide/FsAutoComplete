@@ -28,6 +28,14 @@ let normalizeRepoPath (repo: string<RepoPathSegment>): string<NormalizedRepoPath
   let s' = s.Replace(@"\", "/")
   UMX.tag<NormalizedRepoPathSegment> s'
 
+/// Some sourcelink urls (even after normalization?) have a leading slash, which we don't want.
+/// keeping the slash results in temporary file paths with two slashes being created, which
+/// results in invalid paths being generated (.NET treats a // in the path as a re-root of the path).
+/// The shortest solution is to strip the leading slash as part of normalization, which works on Windows,
+/// but I'm unsure of the effect on Linux and MacOS.
+let stripLeadingSlash (repo: string<NormalizedRepoPathSegment>) = 
+    (UMX.untag repo).TrimStart('/') |> UMX.tag<NormalizedRepoPathSegment>
+
 type SourceLinkJson =
  { documents: System.Collections.Generic.Dictionary<string<SourcelinkPattern>, string<Url>> }
 
@@ -134,7 +142,7 @@ let private tryGetUrlWithWildcard (pathPattern: string<SourcelinkPattern>) (urlP
       logger.info (Log.setMessage "document {doc} did not match pattern {pattern}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern)
       None
     | m ->
-        let replacement = normalizeRepoPath (UMX.tag<RepoPathSegment> m.Groups.[1].Value)
+        let replacement = UMX.tag<RepoPathSegment> m.Groups.[1].Value |> normalizeRepoPath |> stripLeadingSlash
         logger.info (Log.setMessage "document {doc} did match pattern {pattern} with value {replacement}" >> Log.addContext "doc" document.Name >> Log.addContext "pattern" pattern >> Log.addContext "replacement" replacement)
         Some (replace urlPattern replacement, replacement, document)
 
