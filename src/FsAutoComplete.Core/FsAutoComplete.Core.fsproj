@@ -25,6 +25,7 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="KeywordList.fs" />
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
+    <Compile Include="DeclarationLocationClassifier.fs" />
     <Compile Include="Decompiler.fs" />
     <Compile Include="Sourcelink.fs" />
     <!-- <Compile Include="FakeSupport.fs" /> -->

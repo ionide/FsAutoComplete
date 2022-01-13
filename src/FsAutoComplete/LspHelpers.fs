@@ -420,6 +420,7 @@ module Structure =
           Kind             = kind }
 
 module ClassificationUtils =
+  open DeclarationLocationClassifier
   [<RequireQualifiedAccess>]
   type SemanticTokenTypes =
   (* implementation note: these indexes map to array indexes *)
@@ -472,6 +473,10 @@ module ClassificationUtils =
   (* custom modifiers *)
   | Mutable        =  0b100_0000_0000
   | Disposable     = 0b1000_0000_0000
+  | Local          = 0b1_0000_0000_0000
+  | ProjectReference = 0b10_0000_0000_0000
+  | FSharpCore     = 0b100_0000_0000_0000
+  | ExternalReference = 0b1_000_0000_0000_0000
 
 
   let map (t: SemanticClassificationType) : SemanticTokenTypes * SemanticTokenModifier list =
@@ -514,6 +519,14 @@ module ClassificationUtils =
       | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
       | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
       | unknown -> SemanticTokenTypes.Text, []
+
+  let mapLocationClassifier (t: DeclarationLocation): SemanticTokenModifier list =
+    match t with
+    | Local -> [SemanticTokenModifier.Local]
+    | Unknown -> []
+    | ProjectReference -> [SemanticTokenModifier.ProjectReference]
+    | FSharpCore -> [SemanticTokenModifier.FSharpCore]
+    | External -> [SemanticTokenModifier.ExternalReference]
 
 type PlainNotification= { Content: string }
 
@@ -588,7 +601,7 @@ type FSharpConfigDto = {
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
-
+    DeclarationLocationClassification: bool option
 }
 
 type FSharpConfigRequest = {
@@ -628,6 +641,7 @@ type FSharpConfig = {
     FSICompilerToolLocations: string []
     TooltipMode : string
     GenerateBinlog: bool
+    DeclarationLocationClassification: bool
 }
 with
     static member Default : FSharpConfig =
@@ -667,6 +681,7 @@ with
             FSICompilerToolLocations = [||]
             TooltipMode = "full"
             GenerateBinlog = false
+            DeclarationLocationClassification = true //TODO: change to false when ready
         }
 
     static member FromDto(dto: FSharpConfigDto): FSharpConfig =
@@ -709,6 +724,7 @@ with
             AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
             AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
             AbstractClassStubGenerationMethodBody = defaultArg dto.AbstractClassStubGenerationMethodBody "failwith \Not Implemented\""
+            DeclarationLocationClassification = defaultArg dto.DeclarationLocationClassification true
         }
 
     /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -753,6 +769,7 @@ with
             FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
             TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
             GenerateBinlog = defaultArg dto.GenerateBinlog x.GenerateBinlog
+            DeclarationLocationClassification = defaultArg dto.DeclarationLocationClassification x.DeclarationLocationClassification
         }
 
     member x.ScriptTFM =

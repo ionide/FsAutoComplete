@@ -1504,7 +1504,7 @@ type Commands
   member _.ClearFantomasCache() = fantomasService.ClearCache()
 
   /// gets the semantic classification ranges for a file, optionally filtered by a given range.
-  member x.GetHighlighting(file: string<LocalPath>, range: Range option) =
+  member x.GetHighlighting(file: string<LocalPath>, range: Range option, inlcudeDeclarationLocationClassification: bool) =
     asyncOption {
       let! res = x.TryGetRecentTypeCheckResultsForFile file
 
@@ -1512,7 +1512,18 @@ type Commands
         res.GetCheckResults.GetSemanticClassification(range)
 
       let filteredRanges = scrubRanges r
-      return CoreResponse.Res filteredRanges
+      let result =
+        if inlcudeDeclarationLocationClassification then
+          let classifications =
+            res.GetAllSymbolUsesInFile()
+            |> DeclarationLocationClassifier.getDeclarationLocationClassification
+            |> Seq.toArray
+
+          filteredRanges
+          |> Array.map (fun r -> r, classifications |> Seq.tryFind (fun (cr, c) -> cr = r.Range) |> Option.map snd)
+        else
+          filteredRanges |> Array.map (fun r-> r, None)
+      return CoreResponse.Res result
     }
 
   member __.SetWorkspaceRoot(root: string option) = workspaceRoot <- root

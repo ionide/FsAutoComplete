@@ -2578,7 +2578,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
 
   member private x.handleSemanticTokens
-    (getTokens: Async<CoreResponse<SemanticClassificationItem array> option>)
+    (getTokens: Async<CoreResponse<(SemanticClassificationItem * DeclarationLocationClassifier.DeclarationLocation option) array> option>)
     : AsyncLspResult<SemanticTokens option> =
     asyncResult {
       match! getTokens with
@@ -2589,9 +2589,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       let lspTypedRanges =
         rangesAndHighlights
-        |> Array.map (fun item ->
+        |> Array.map (fun (item, declarationMods) ->
+          let locationsMods = ClassificationUtils.mapLocationClassifier (declarationMods |> Option.defaultValue DeclarationLocationClassifier.Unknown)
           let ty, mods = ClassificationUtils.map item.Type
-          struct (fcsRangeToLsp item.Range, ty, mods))
+          struct (fcsRangeToLsp item.Range, ty, [yield! mods; yield! locationsMods]))
 
       match encodeSemanticHighlightRanges lspTypedRanges with
       | None -> return! success None
@@ -2608,7 +2609,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       p.TextDocument.GetFilePath()
       |> Utils.normalizePath
 
-    x.handleSemanticTokens (commands.GetHighlighting(fn, None))
+    x.handleSemanticTokens (commands.GetHighlighting(fn, None, config.DeclarationLocationClassification))
 
   override x.TextDocumentSemanticTokensRange(p: SemanticTokensRangeParams) : AsyncLspResult<SemanticTokens option> =
     logger.info (
@@ -2623,7 +2624,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let fcsRange =
       protocolRangeToRange (UMX.untag fn) p.Range
 
-    x.handleSemanticTokens (commands.GetHighlighting(fn, Some fcsRange))
+    x.handleSemanticTokens (commands.GetHighlighting(fn, Some fcsRange, config.DeclarationLocationClassification))
 
   member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
