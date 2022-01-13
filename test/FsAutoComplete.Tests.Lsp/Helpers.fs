@@ -155,7 +155,8 @@ let defaultConfigDto : FSharpConfigDto =
     GenerateBinlog = Some true
     AbstractClassStubGeneration = None
     AbstractClassStubGenerationMethodBody = None
-    AbstractClassStubGenerationObjectIdentifier = None }
+    AbstractClassStubGenerationObjectIdentifier = None
+    DeclarationLocationClassification = Some true }
 
 let clientCaps : ClientCapabilities =
   let dynCaps : DynamicCapabilities = { DynamicRegistration = Some true}
