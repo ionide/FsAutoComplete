@@ -1624,7 +1624,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
                 let! result =
                   Cli.Wrap("dotnet").WithArguments(
-                    "tool install --version 4.6.0-alpha-010 fantomas-tool"
+                    "tool install fantomas-tool"
                   )
                     .WithWorkingDirectory(
                     rootPath
@@ -1653,7 +1653,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         | Ok (Some { Title = "Install globally" }) ->
           let! result =
             Cli.Wrap("dotnet").WithArguments(
-              "tool install -g --version 4.6.0-alpha-010 fantomas-tool"
+              "tool install -g fantomas-tool"
             )
               .ExecuteBufferedAsync()
               .Task
