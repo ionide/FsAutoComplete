@@ -47,7 +47,9 @@ nuget CliWrap
 
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
-nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.2
+
+nuget Microsoft.NETFramework.ReferenceAssemblies
+nuget Ionide.KeepAChangelog.Tasks copy_local: true
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover

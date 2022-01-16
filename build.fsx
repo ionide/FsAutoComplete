@@ -195,8 +195,11 @@ Target.create "PublishTool" (fun _ ->
 
 Target.create "GenerateChangelog" (fun _ ->
   let toChangelog (r: ReleaseNotes.ReleaseNotes): Changelog.ChangelogEntry =
-    let entry = 
-      Changelog.Change.New("Added", r.Notes |> String.concat "\n")
+    let entry =
+      r.Notes
+      |> List.map (fun s -> "* " + s)
+      |> String.concat "\n"
+      |> fun note -> Changelog.Change.New("Added", note)
     Changelog.ChangelogEntry.New (r.AssemblyVersion, r.NugetVersion, r.Date, None, [entry], false)
     
 

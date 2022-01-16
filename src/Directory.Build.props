@@ -2,12 +2,7 @@
   <Import Project="..\Directory.Build.props" />
 
   <PropertyGroup>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-
-    <EnableSourceLink>true</EnableSourceLink>
-    <EnableSourceLink Condition=" '$(OS)' != 'Windows_NT' AND '$(MSBuildRuntimeType)' != 'Core' ">false</EnableSourceLink>
-
     <!-- suppress false positive warning FS2003 about invalid version of AssemblyInformationalVersionAttribute -->
     <NoWarn>$(NoWarn);FS2003</NoWarn>
   </PropertyGroup>

@@ -94,6 +94,7 @@ NUGET
     ICSharpCode.Decompiler (7.1.0.6543)
       System.Collections.Immutable (>= 5.0)
       System.Reflection.Metadata (>= 5.0)
+    Ionide.KeepAChangelog.Tasks (0.1.1) - copy_local: true
     Ionide.LanguageServerProtocol (0.3.1)
       FSharp.Core (>= 6.0.1)
       Microsoft.NETFramework.ReferenceAssemblies (>= 1.0.2)

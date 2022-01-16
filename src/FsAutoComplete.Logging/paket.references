@@ -3,3 +3,4 @@ FSharp.Core
 File: FsLibLog.fs
 
 Microsoft.NETFramework.ReferenceAssemblies
+Ionide.KeepAChangelog.Tasks

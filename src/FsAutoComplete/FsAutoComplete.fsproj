@@ -13,6 +13,7 @@
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <Authors>FsAutoComplete contributors</Authors>
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+    <ChangelogFile>$(MSBuildThisFileDirectory)../../CHANGELOG.md</ChangelogFile>
   </PropertyGroup>
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="\" />
