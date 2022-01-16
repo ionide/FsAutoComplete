@@ -193,6 +193,20 @@ Target.create "PublishTool" (fun _ ->
   |> Seq.iter (DotNet.nugetPush configurePush)
 )
 
+Target.create "GenerateChangelog" (fun _ ->
+  let toChangelog (r: ReleaseNotes.ReleaseNotes): Changelog.ChangelogEntry =
+    let entry = 
+      Changelog.Change.New("Added", r.Notes |> String.concat "\n")
+    Changelog.ChangelogEntry.New (r.AssemblyVersion, r.NugetVersion, r.Date, None, [entry], false)
+    
+
+  ReleaseNotes.parseAll (System.IO.File.ReadAllLines "./RELEASE_NOTES.md")
+  |> List.sortByDescending (fun (r: ReleaseNotes.ReleaseNotes) -> r.SemVer)
+  |> List.map toChangelog
+  |> Changelog.create None None
+  |> Changelog.save "./CHANGELOG.md"
+)
+
 Target.create "NoOp" ignore
 Target.create "Test" ignore
 Target.create "All" ignore
