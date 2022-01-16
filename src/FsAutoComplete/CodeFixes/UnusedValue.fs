@@ -3,7 +3,6 @@ module FsAutoComplete.CodeFix.UnusedValue
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 

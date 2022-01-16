@@ -2,7 +2,6 @@ module FsAutoComplete.CodeFix.DoubleEqualsToSingleEquals
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 

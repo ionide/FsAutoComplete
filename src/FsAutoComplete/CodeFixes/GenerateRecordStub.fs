@@ -2,7 +2,7 @@ module FsAutoComplete.CodeFix.GenerateRecordStub
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 

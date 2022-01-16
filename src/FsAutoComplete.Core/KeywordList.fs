@@ -1,6 +1,6 @@
 namespace FsAutoComplete
 
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FSharp.Compiler.Text
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices

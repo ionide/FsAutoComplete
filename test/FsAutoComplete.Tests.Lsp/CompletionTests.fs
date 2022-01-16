@@ -3,7 +3,7 @@ module FsAutoComplete.Tests.Completion
 open Expecto
 open System.IO
 open Helpers
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 open FsAutoComplete.Lsp
 
@@ -238,7 +238,7 @@ let autoOpenTests state =
     | Ok None -> return failtest "Quick fix Request none"
     | Ok (Some (TextDocumentCodeActionResult.CodeActions (ContainsOpenAction quickfix))) ->
         let ns = quickfix.Title.Substring ("open ".Length)
-        let edit = quickfix.Edit.DocumentChanges.Value.[0].Edits.[0]
+        let edit = quickfix.Edit.Value.DocumentChanges.Value.[0].Edits.[0]
         let openPos = calcOpenPos edit
         return (edit, ns, openPos)
     | Ok _ -> return failtest $"Quick fix on `{word}` doesn't contain open action"

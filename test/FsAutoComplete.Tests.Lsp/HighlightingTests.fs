@@ -4,7 +4,7 @@ open System.IO
 open Expecto
 open Helpers
 open FsAutoComplete.LspHelpers
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 
 let tests state =

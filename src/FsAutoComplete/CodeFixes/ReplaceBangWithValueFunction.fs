@@ -3,10 +3,8 @@ module FsAutoComplete.CodeFix.ReplaceBangWithValueFunction
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
-open LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FsAutoComplete.FCSPatches
 
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText): CodeFix =
   fun codeActionParams ->

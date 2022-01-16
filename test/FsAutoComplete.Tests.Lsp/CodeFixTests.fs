@@ -3,7 +3,7 @@ module FsAutoComplete.Tests.CodeFixTests
 open Expecto
 open System.IO
 open Helpers
-open LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 
 let pos (line, character) = { Line = line; Character = character }
@@ -13,7 +13,7 @@ let (|Refactor|_|) title newText action =
     match action with
     | { Title = title'
         Kind = Some "refactor"
-        Edit = { DocumentChanges = Some [|
+        Edit = Some { DocumentChanges = Some [|
           { Edits = [| { NewText = newText' } |] }
         |] }
       }
@@ -22,7 +22,7 @@ let (|Refactor|_|) title newText action =
 
 let (|AtRange|_|) range (action: CodeAction) =
   match action with
-    | { Edit = { DocumentChanges = Some [|
+    | { Edit = Some { DocumentChanges = Some [|
           { Edits = [| { Range = range' } |] }
         |] } } when range = range' -> Some ()
     | _ -> None
@@ -124,7 +124,7 @@ let missingFunKeywordTests state =
       match response with
       | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Add missing 'fun' keyword"
                                                                 Kind = Some "quickfix"
-                                                                Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "fun " } |] } |] } } |] )) -> ()
+                                                                Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "fun " } |] } |] } } |] )) -> ()
       | Ok other -> failtestf $"Should have generated missing fun keyword, but instead generated %A{other}"
       | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
     })
@@ -155,7 +155,7 @@ let outerBindingRecursiveTests state =
       match response with
       | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Make outer binding recursive"
                                                                 Kind = Some "quickfix"
-                                                                Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "rec " } |] } |] } } |] )) -> ()
+                                                                Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "rec " } |] } |] } } |] )) -> ()
       | Ok other -> failtestf $"Should have generated a rec keyword, but instead generated %A{other}"
       | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
     })
@@ -184,7 +184,7 @@ let nameofInsteadOfTypeofNameTests state =
       match response with
       | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Use 'nameof'"
                                                                 Kind = Some "refactor"
-                                                                Edit = { DocumentChanges = Some [| { Edits = [| { NewText = "nameof(Async<string>)" } |] } |] } } |] )) -> ()
+                                                                Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "nameof(Async<string>)" } |] } |] } } |] )) -> ()
       | Ok other -> failtestf $"Should have generated nameof, but instead generated %A{other}"
       | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
     })
@@ -217,7 +217,7 @@ let missingInstanceMemberTests state =
           Some (
             TextDocumentCodeActionResult.CodeActions [| { Title = "Add missing instance member parameter"
                                                           Kind = Some "quickfix"
-                                                          Edit = {
+                                                          Edit = Some {
                                                             DocumentChanges = Some [|
                                                               { Edits = [|
                                                                 { NewText = "x." } |] } |] } } |] )) -> ()
