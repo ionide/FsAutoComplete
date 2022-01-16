@@ -1,7 +1,9 @@
-### 0.49.5 - 16.01.2022
+### 0.49.6 - 16.01.2022
 
 * ENHANCEMENT: [Update Fantomas.Client to prefer stable versions](https://github.com/fsharp/FsAutoComplete/pull/880)
 * BUGFIX: [Sourcelink's go-to-definition works better on windows for deterministic paths](https://github.com/fsharp/FsAutoComplete/pull/878)
+
+### 0.49.5 - 01.12.2021
 
 ### 0.49.4 - 20.11.2021
 * BUGFIX: [Fix background service](https://github.com/fsharp/FsAutoComplete/pull/858)
