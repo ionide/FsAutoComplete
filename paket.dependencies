@@ -52,7 +52,7 @@ nuget Expecto
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
-nuget Ionide.LanguageServerProtocol 0.3.0
+nuget Ionide.LanguageServerProtocol
 
 group Build
   source https://api.nuget.org/v3/index.json
