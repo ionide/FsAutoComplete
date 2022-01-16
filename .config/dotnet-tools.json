@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "fake-cli": {
-      "version": "5.20.4-alpha.1642",
+      "version": "5.21.0-alpha004",
       "commands": [
         "fake"
       ]
@@ -21,13 +21,13 @@
       ]
     },
     "dotnet-reportgenerator-globaltool": {
-      "version": "4.8.7",
+      "version": "5.0.2",
       "commands": [
         "reportgenerator"
       ]
     },
     "fantomas-tool": {
-      "version": "4.6.0-alpha-004",
+      "version": "4.6.0",
       "commands": [
         "fantomas"
       ]
