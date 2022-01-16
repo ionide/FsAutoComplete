@@ -14,8 +14,8 @@ open Fake.Tools
 
 let project = "FsAutoComplete"
 
-// Read additional information from the release notes document
-let release = ReleaseNotes.load "RELEASE_NOTES.md"
+let changelogs = Changelog.load "CHANGELOG.md"
+let currentRelease = changelogs.LatestEntry
 
 let configuration = Environment.environVarOrDefault "configuration" "Release"
 
@@ -33,9 +33,7 @@ Target.initEnvironment ()
 let fsacAssemblies =
   "FsAutoComplete|FsAutoComplete.Core|FsAutoComplete.BackgroundServices|LanguageServerProtocol"
 
-let versionProp = "Version", release.AssemblyVersion
 let packAsToolProp = "PackAsTool", "true"
-let latestReleaseNotesProp = "PackageReleaseNotes", release.Notes |> String.concat "\n"
 
 Target.create "LspTest" (fun _ ->
 
@@ -45,8 +43,6 @@ Target.create "LspTest" (fun _ ->
             [ "AltCover", "true"
               // "AltCoverAssemblyFilter", fsacAssemblies
               "AltCoverAssemblyExcludeFilter", "System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager|FsAutoComplete.Tests.Lsp"
-              versionProp
-              latestReleaseNotesProp
             ]
           }
   let testOpts (opts: DotNet.TestOptions) =
@@ -68,7 +64,7 @@ Target.create "ReleaseArchive" (fun _ ->
     !! "bin/release_netcore/**/*"
     |> Zip.zip "bin/release_netcore" releaseArchiveNetCore
 
-    !! (sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" release.AssemblyVersion)
+    !! (sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" currentRelease.AssemblyVersion)
     |> Shell.copy "bin/pkgs"
 )
 
@@ -81,8 +77,7 @@ Target.create "LocalRelease" (fun _ ->
        { p with
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_netcore")
            Framework = Some "net5.0"
-           Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ versionProp ] } }) "src/FsAutoComplete"
+           Configuration = DotNet.BuildConfiguration.fromString configuration }) "src/FsAutoComplete"
 
     Directory.ensure "bin/release_as_tool"
     Shell.cleanDirs [ "bin/release_as_tool" ]
@@ -90,7 +85,7 @@ Target.create "LocalRelease" (fun _ ->
        { p with
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_as_tool")
            Configuration = DotNet.BuildConfiguration.fromString configuration
-           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ versionProp; packAsToolProp; latestReleaseNotesProp ] } }) "src/FsAutoComplete"
+           MSBuildParams = { MSBuild.CliArguments.Create () with Properties =  [ packAsToolProp ] } }) "src/FsAutoComplete"
 )
 
 Target.create "Clean" (fun _ ->
@@ -104,8 +99,7 @@ Target.create "Restore" (fun _ ->
 Target.create "Build" (fun _ ->
   DotNet.build (fun p ->
      { p with
-         Configuration = DotNet.BuildConfiguration.fromString configuration
-         MSBuildParams = { MSBuild.CliArguments.Create () with Properties = [versionProp ] } }) "FsAutoComplete.sln"
+         Configuration = DotNet.BuildConfiguration.fromString configuration }) "FsAutoComplete.sln"
 )
 
 let ensureGitUser user email =
@@ -145,11 +139,11 @@ Target.create "ReleaseGitHub" (fun _ ->
     ensureGitUser user email
 
     Git.Staging.stageAll ""
-    Git.Commit.exec "" (sprintf "Bump version to %s" release.NugetVersion)
+    Git.Commit.exec "" (sprintf "Bump version to %s" currentRelease.NuGetVersion)
     Git.Branches.pushBranch "" remote (Git.Information.getBranchName "")
 
-    Git.Branches.tag "" release.NugetVersion
-    Git.Branches.pushTag "" remote release.NugetVersion
+    Git.Branches.tag "" currentRelease.NuGetVersion
+    Git.Branches.pushTag "" remote currentRelease.NuGetVersion
 
     let client =
         let token =
@@ -160,14 +154,14 @@ Target.create "ReleaseGitHub" (fun _ ->
         GitHub.createClientWithToken token
 
     let notes =
-      release.Notes
-      |> List.map (fun s -> "* " + s)
+      currentRelease.Changes
+      |> List.map string
 
     let files = !! (pkgsDir </> "*.*")
     // release on github
     let cl =
         client
-        |> GitHub.draftNewRelease gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) notes
+        |> GitHub.draftNewRelease gitOwner gitName currentRelease.NuGetVersion (currentRelease.SemVer.PreRelease <> None) notes
     (cl,files)
     ||> Seq.fold (fun acc e -> GitHub.uploadFile e acc)
     |> GitHub.publishDraft
