@@ -60,8 +60,6 @@ group Build
   source https://api.nuget.org/v3/index.json
   storage: none
 
-  framework: netstandard2.0
-
   nuget Fake.Core.Target
   nuget Fake.Core.Process
   nuget Fake.DotNet.Cli

@@ -1,16 +1,9 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      username:
-        description: Github username of the person triggering the release
-        default: "Krzysztof-Cieslak"
-        required: true
-      email:
-        description: Email of the person triggering the release
-        default: "krzysztof_cieslak@windowslive.com"
-        required: true
+  push:
+    tags:
+      - "v*"
 
 jobs:
   release:
@@ -21,25 +14,32 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    # manual triggers are detached HEADs, so we need to checkout the branch
-    # to actually create + push a commit later on in the workflow.
-    - uses: actions/checkout@v2
-      with:
-        ref: ${{ github.head_ref }}
-        # use the same token as the commit to sidestep github's branch protection nonsense
-        token: ${{ secrets.FSAC_CHECKS_TOKEN }}
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: ${{ matrix.dotnet }}
-    - name: Restore tools
-      run: dotnet tool restore
-    - name: Run Build
-      run: dotnet fake build -t Build
-    - name: Publish Release
-      env:
-        nuget-key: ${{ secrets.NUGET_KEY }}
-        github-token: ${{ secrets.FSAC_CHECKS_TOKEN }}
-        github-user: ${{ github.event.inputs.username }}
-        user-email: ${{ github.event.inputs.email }}
-      run: dotnet fake build -t Release
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      
+      - name: Restore tools
+        run: dotnet tool restore
+      
+      - name: Run Build
+        run: dotnet fake build -t Release
+      
+      - name: Get Changelog Entry
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v1.1.0
+        with:
+          version: ${{ github.ref }}
+          path: ./CHANGELOG.md
+      
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: bin/pkgs/*.nupkg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.changelog_reader.outputs.log_entry }}
+      
+      - name: Push packages
+        run: dotnet nuget push bin/pkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
