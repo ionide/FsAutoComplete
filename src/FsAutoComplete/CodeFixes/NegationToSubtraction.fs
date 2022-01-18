@@ -25,7 +25,7 @@ let fix (getFileLines: GetFileLines): CodeFix =
                   Title = "Use subtraction instead of negation"
                   File = codeActionParams.TextDocument
                   Edits =
-                    [| { Range = { Start = dash; End = inc lines dash }
+                    [| { Range = { Start = dash; End = dec lines dash }
                          NewText = "- " } |]
                   Kind = FixKind.Fix } ]
         | None -> return []
