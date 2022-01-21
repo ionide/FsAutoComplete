@@ -1,6 +1,5 @@
 module FsAutoComplete.Tests.InfoPanelTests
 
-open System
 open Expecto
 open System.IO
 open LanguageServerProtocol.Types
@@ -8,7 +7,6 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
-open FsAutoComplete.CommandResponse
 
 let trySerialize (t: string): 't option =
   try
@@ -17,7 +15,7 @@ let trySerialize (t: string): 't option =
 
 let (|As|_|) (m: PlainNotification): 't option =
   match trySerialize m.Content with
-  | Some(r: ResponseMsg<'t>) -> Some r.Data
+  | Some(r: FsAutoComplete.CommandResponse.ResponseMsg<'t>) -> Some r.Data
   | None -> None
 
 let docFormattingTest state =
@@ -40,7 +38,7 @@ let docFormattingTest state =
         let! doc = server.FSharpDocumentation { TextDocument = { Uri = path }; Position = { Character = 5; Line = 0 } } // Map.map
         match doc with
         | Result.Error err -> failtest $"Doc error: {err.Message}"
-        | Result.Ok (As ([[model: DocumentationDescription]])) ->
+        | Result.Ok (As ([[model: FsAutoComplete.CommandResponse.DocumentationDescription]])) ->
             Expect.stringContains model.Signature "'Key, 'U" "Formatted doc contains both params separated by (, )"
         | Result.Ok _ ->
             failtest "couldn't parse doc as the json type we expected"
@@ -51,7 +49,7 @@ let docFormattingTest state =
         let! doc = server.FSharpDocumentation { TextDocument = { Uri = path }; Position = { Character = 7; Line = 1 } } // List.unzip3
         match doc with
         | Result.Error err -> failtest $"Doc error: {err.Message}"
-        | Result.Ok (As ([[model: DocumentationDescription]])) ->
+        | Result.Ok (As ([[model: FsAutoComplete.CommandResponse.DocumentationDescription]])) ->
             Expect.stringContains model.Signature "'T1 * 'T2 * 'T3" "Formatted doc contains 3 params separated by ( * )"
         | Result.Ok _ ->
             failtest "couldn't parse doc as the json type we expected"
