@@ -68,6 +68,7 @@ let tests =
         Completion.tests state
         GoTo.tests state
         FindReferences.tests state
+        InfoPanelTests.docFormattingTest state
       ]
   ]
 

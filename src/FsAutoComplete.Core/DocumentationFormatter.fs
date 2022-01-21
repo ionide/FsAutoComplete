@@ -1,7 +1,7 @@
 namespace FsAutoComplete
 
 module DocumentationFormatter =
-    
+
     open FSharp.Compiler.CodeAnalysis
     open FSharp.Compiler.EditorServices
     open FSharp.Compiler.Symbols
@@ -26,65 +26,87 @@ module DocumentationFormatter =
         | true, false -> b
         | false, false -> a + " " + b
 
-    let internal formatLink (name: string) xmlDocSig assemblyName =
+    let internal formatShowDocumentationLink (name: string) xmlDocSig assemblyName =
         if assemblyName = "-" || xmlDocSig = "_" then name, name.Length
         else
-            let content = sprintf """[{ "XmlDocSig": "%s", "AssemblyName": "%s"}]""" xmlDocSig assemblyName
-            let cnt = Uri.EscapeDataString content
-            sprintf "<a href='command:fsharp.showDocumentation?%s'>%s</a>" cnt name, name.Length
+            let content = Uri.EscapeDataString (sprintf """[{ "XmlDocSig": "%s", "AssemblyName": "%s" }]""" xmlDocSig assemblyName)
+            $"<a href='command:fsharp.showDocumentation?%s{content}'>%s{name}</a>", name.Length
 
-    let rec formatType (displayContext: FSharpDisplayContext) (typ : FSharpType) : (string*int) list =
-        let typ2 = if typ.IsAbbreviation then typ.AbbreviatedType else typ
+    let rec formatType (displayContext: FSharpDisplayContext) (typ : FSharpType) : string * int =
+        let combineParts (parts: (string * int) seq): string * int =
+            // make a single type name out of all of the tuple parts, since each part is correct by construction
+            (("", 0), parts)
+            ||> Seq.fold  (fun (s, l) (ps, pl) -> (s + ps), (l + pl))
+
+        let resolvedType =
+            // unwrap any type abbreviations to their wrapped type
+            if typ.IsAbbreviation then typ.AbbreviatedType else typ
+
         let xmlDocSig =
             try
-                if typ2.HasTypeDefinition then
-                    typ2.TypeDefinition.XmlDocSig
+                // if this type resolves to an actual type, then get the xmldoc signature of it, if any.
+                // some times
+                if resolvedType.HasTypeDefinition then
+                    resolvedType.TypeDefinition.XmlDocSig
                  else
                     "-"
             with
             | _ -> "-"
+
         let assemblyName =
             try
-                if typ2.IsGenericParameter then
+                if resolvedType.IsGenericParameter then
+                    // generic parameters are unsolved, they don't correspond to actual types,
+                    // so we can't get the assembly name from them
                     "-"
                 else
-                    typ2.TypeDefinition.Assembly.SimpleName
+                    resolvedType.TypeDefinition.Assembly.SimpleName
             with
             | _ -> "-"
+
         if typ.IsTupleType || typ.IsStructTupleType then
-            let separator = formatLink " * " xmlDocSig assemblyName
-            [ for arg in typ.GenericArguments do
-              if arg <> typ.GenericArguments.[0] then yield separator
-              yield! formatType displayContext arg ]
-        elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
-            let r =
+            // tuples are made of individual type names for the elements separated by asterisks
+            let separator = formatShowDocumentationLink " * " xmlDocSig assemblyName
+            let parts =
                 typ.GenericArguments
-                |> Seq.collect (formatType displayContext)
+                |> Seq.map (formatType displayContext)
+                |> Seq.intersperse separator
+                |> List.ofSeq
+            combineParts parts
+
+        elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
+            // this type has generic arguments, so we need to format each of them.
+            // types with generic arguments get rendered as TYPENAME<P1, P2, P3, ..., PN>
+            let renderedGenericArgumentTypes =
+                typ.GenericArguments
+                |> Seq.map (formatType displayContext)
             // we set this context specifically because we want to enforce prefix-generic form on tooltip displays
             let newContext = displayContext.WithPrefixGenericParameters()
             let org = typ.Format newContext
             let t = Regex.Replace(org, """<.*>""", "<")
-            [ yield formatLink t xmlDocSig assemblyName
+            [ yield formatShowDocumentationLink t xmlDocSig assemblyName
               if t.EndsWith "<" then
-                  yield! r
-                  yield formatLink ">" xmlDocSig assemblyName ]
+                  yield! renderedGenericArgumentTypes |> Seq.intersperse (", ", 2)
+                  yield formatShowDocumentationLink ">" xmlDocSig assemblyName ]
+            |> combineParts
+
         elif typ.IsGenericParameter then
+            // generic parameters are either ^ or ' prefixed, depending on if they are inline or not
             let name =
                 if typ.GenericParameter.IsSolveAtCompileTime then "^" else "'"
                 + typ.GenericParameter.Name
-            [formatLink name xmlDocSig assemblyName]
+            formatShowDocumentationLink name xmlDocSig assemblyName
         else
           if typ.HasTypeDefinition then
             let name = typ.TypeDefinition.DisplayName |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
-            [formatLink name xmlDocSig assemblyName]
+            formatShowDocumentationLink name xmlDocSig assemblyName
           else
             let name = typ.Format displayContext
-            [formatLink name xmlDocSig assemblyName]
+            formatShowDocumentationLink name xmlDocSig assemblyName
 
 
     let format displayContext (typ : FSharpType) : (string * int) =
         formatType displayContext typ
-        |> Seq.reduce (fun (aLink,aLen) (bLink,bLen) -> (aLink+bLink, aLen+bLen))
 
     let formatGenericParameter includeMemberConstraintTypes displayContext (param:FSharpGenericParameter) =
 
@@ -314,7 +336,7 @@ module DocumentationFormatter =
                 elif func.DisplayName.StartsWith "( " then FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
                 elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then PrettyNaming.TryChopPropertyName func.DisplayName |> Option.defaultValue func.DisplayName
                 else func.DisplayName
-            fst (formatLink name func.XmlDocSig func.Assembly.SimpleName)
+            fst (formatShowDocumentationLink name func.XmlDocSig func.Assembly.SimpleName)
 
         let modifiers =
             let accessibility =
@@ -452,7 +474,7 @@ module DocumentationFormatter =
         sprintf "active pattern %s: %s" apc.Name findVal
 
     let getAttributeSignature displayContext (attr: FSharpAttribute) =
-        let name = formatLink attr.AttributeType.DisplayName attr.AttributeType.XmlDocSig attr.AttributeType.Assembly.SimpleName
+        let name = formatShowDocumentationLink attr.AttributeType.DisplayName attr.AttributeType.XmlDocSig attr.AttributeType.Assembly.SimpleName
         let attr =
             attr.ConstructorArguments
             |> Seq.map (snd >> string)
@@ -568,7 +590,7 @@ module DocumentationFormatter =
             let types =
                 fse.NestedEntities
                 |> Seq.filter (fun ne -> not ne.IsNamespace )
-                |> Seq.map (fun ne -> (typeName ne) ++ fst (formatLink ne.DisplayName ne.XmlDocSig ne.Assembly.SimpleName ))
+                |> Seq.map (fun ne -> (typeName ne) ++ fst (formatShowDocumentationLink ne.DisplayName ne.XmlDocSig ne.Assembly.SimpleName ))
                 |> Seq.toArray
 
 
@@ -606,38 +628,43 @@ module DocumentationFormatter =
         elif fse.IsDelegate then (typeDisplay + delegateTip ()), emptyTypeTip
         else typeDisplay, typeTip ()
 
-
+    type FSharpSymbol with
+        /// trims the leading 'Microsoft.' from the full name of the symbol
+        member m.SafeFullName =
+            if m.FullName.StartsWith "Microsoft." && m.Assembly.SimpleName = "FSharp.Core" then
+                m.FullName.Substring "Microsoft.".Length
+            else m.FullName
 
     let footerForType (entity: FSharpSymbolUse) =
         try
             match entity with
             | SymbolUse.MemberFunctionOrValue m ->
                 match m.DeclaringEntity with
-                | None -> sprintf "Full name: %s\nAssembly: %s" m.FullName m.Assembly.SimpleName
+                | None -> sprintf "Full name: %s\nAssembly: %s" m.SafeFullName m.Assembly.SimpleName
                 | Some e ->
-                    let link = fst (formatLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
-                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" m.FullName link m.Assembly.SimpleName
+                    let link = fst (formatShowDocumentationLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
+                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" m.SafeFullName link m.Assembly.SimpleName
 
             | SymbolUse.Entity (c, _) ->
                 match c.DeclaringEntity with
-                | None -> sprintf "Full name: %s\nAssembly: %s" c.FullName c.Assembly.SimpleName
+                | None -> sprintf "Full name: %s\nAssembly: %s" c.SafeFullName c.Assembly.SimpleName
                 | Some e ->
-                    let link = fst (formatLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
-                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" c.FullName link c.Assembly.SimpleName
+                    let link = fst (formatShowDocumentationLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
+                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" c.SafeFullName link c.Assembly.SimpleName
 
 
             | SymbolUse.Field f ->
                 match f.DeclaringEntity with
-                | None -> sprintf "Full name: %s\nAssembly: %s" f.FullName f.Assembly.SimpleName
+                | None -> sprintf "Full name: %s\nAssembly: %s" f.SafeFullName f.Assembly.SimpleName
                 | Some e ->
-                    let link = fst (formatLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
-                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" f.FullName link f.Assembly.SimpleName
+                    let link = fst (formatShowDocumentationLink e.DisplayName e.XmlDocSig e.Assembly.SimpleName)
+                    sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" f.SafeFullName link f.Assembly.SimpleName
 
             | SymbolUse.ActivePatternCase ap ->
-                sprintf "Full name: %s\nAssembly: %s" ap.FullName ap.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" ap.SafeFullName ap.Assembly.SimpleName
 
             | SymbolUse.UnionCase uc ->
-                sprintf "Full name: %s\nAssembly: %s" uc.FullName uc.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" uc.SafeFullName uc.Assembly.SimpleName
             | _ -> ""
         with
         | _ -> ""
@@ -646,19 +673,19 @@ module DocumentationFormatter =
         try
             match entity with
             | MemberFunctionOrValue m ->
-                sprintf "Full name: %s\nAssembly: %s" m.FullName m.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" m.SafeFullName m.Assembly.SimpleName
 
             | EntityFromSymbol (c, _) ->
-                sprintf "Full name: %s\nAssembly: %s" c.FullName c.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" c.SafeFullName c.Assembly.SimpleName
 
             | Field (f, _) ->
-                sprintf "Full name: %s\nAssembly: %s" f.FullName f.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" f.SafeFullName f.Assembly.SimpleName
 
             | ActivePatternCase ap ->
-                sprintf "Full name: %s\nAssembly: %s" ap.FullName ap.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" ap.SafeFullName ap.Assembly.SimpleName
 
             | UnionCase uc ->
-                sprintf "Full name: %s\nAssembly: %s" uc.FullName uc.Assembly.SimpleName
+                sprintf "Full name: %s\nAssembly: %s" uc.SafeFullName uc.Assembly.SimpleName
             | _ -> ""
         with
         | _ -> ""
