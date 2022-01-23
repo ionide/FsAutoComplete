@@ -1,4 +1,4 @@
-version 5.251.0
+version 6.2.1
 
 framework: netstandard2.0, net5.0
 
@@ -47,7 +47,9 @@ nuget CliWrap
 
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
-nuget Microsoft.NETFramework.ReferenceAssemblies 1.0.2
+
+nuget Microsoft.NETFramework.ReferenceAssemblies
+nuget Ionide.KeepAChangelog.Tasks copy_local: true
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
@@ -57,8 +59,6 @@ nuget Ionide.LanguageServerProtocol
 group Build
   source https://api.nuget.org/v3/index.json
   storage: none
-
-  framework: netstandard2.0
 
   nuget Fake.Core.Target
   nuget Fake.Core.Process

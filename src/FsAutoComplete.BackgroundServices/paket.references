@@ -10,3 +10,4 @@ Ionide.ProjInfo.ProjectSystem
 FSharp.UMX
 Microsoft.NETFramework.ReferenceAssemblies
 Ionide.LanguageServerProtocol
+Ionide.KeepAChangelog.Tasks

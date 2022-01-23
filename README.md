@@ -55,9 +55,11 @@ This repository is prepared to use Gitpod for a web-based VSCode-style IDE. Clic
 
 ## Releasing
 
-* Update RELEASE_NOTES.md with the new version number, release date (DD.MM.YYYY format), and changelog. We generally use headings like `BUGFIX`, `FEATURE`, and `ENHANCEMENT` followed by a link to the PR with the PR title.
-* Make a commit with this change to `main`
-* A user with workflow access on the repository can then manually trigger the `release` pipeline in github's workflow actions page.
+* Update CHANGELOG.md with the release notes from the current release in the `Unreleased` section. Use section headings like `Added`, `Fixed`, etc from keepachangelog.com.
+* For individual section items in the Changelog, use headings like `BUGFIX`, `FEATURE`, and `ENHANCEMENT` followed by a link to the PR with the PR title.
+* Run the `Promote` FAKE target via `dotnet fake build -t Promote` to create the appropriate release version from the current `Unreleased` section and stamp the date, as well as create a commit and tag for this promotion
+* push this commit and tag to main
+* the CI pipeline will publish a release from the tag.
 
 ## Communication protocol
 
