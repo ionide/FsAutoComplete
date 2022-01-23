@@ -9,11 +9,13 @@ open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
 open Fake.DotNet
 open Fake.Core.TargetOperators
+open Fake.Tools
 
 let project = "FsAutoComplete"
 
-let changelogs = Changelog.load "CHANGELOG.md"
-let currentRelease = changelogs.LatestEntry
+let changeLogFile = "CHANGELOG.md"
+let mutable changelogs = Changelog.load changeLogFile
+let mutable currentRelease = changelogs.LatestEntry
 
 let configuration = Environment.environVarOrDefault "configuration" "Release"
 
@@ -111,6 +113,62 @@ Target.create "NoOp" ignore
 Target.create "Test" ignore
 Target.create "All" ignore
 Target.create "Release" ignore
+
+type SemverBump = 
+  | Major | Minor | Patch 
+  static member Combine l r = 
+    match l, r with
+    | Major, _ | _, Major -> Major
+    | Minor, _ | _, Minor -> Minor
+    | _ -> Patch
+
+let determineBump (currentBump: SemverBump) (c: Changelog.Change) =
+  let thisChange = 
+    match c with
+    | Changelog.Change.Added _ -> Minor
+    | Changelog.Change.Removed _ -> Major
+    | Changelog.Change.Changed _
+    | Changelog.Change.Custom _ // TODO: handle?
+    | Changelog.Change.Deprecated _
+    | Changelog.Change.Fixed _
+    | Changelog.Change.Security _ -> Patch
+  SemverBump.Combine currentBump thisChange
+
+let bumpVersion (ver: SemVerInfo) bump  = 
+  match bump with
+  | Major -> { ver with Major = ver.Major + 1u; Minor = 0u; Patch = 0u; PreRelease = None; Original = None }
+  | Minor -> { ver with Minor = ver.Minor + 1u; Patch = 0u; PreRelease = None; Original = None }
+  | Patch -> { ver with Patch = ver.Patch + 1u; PreRelease = None; Original = None }
+
+Target.create "PromoteUnreleasedToVersion" (fun _ ->
+  match changelogs.Unreleased with
+  | None -> failwith "No unreleased changes to be promoted"
+  | Some unreleased -> 
+    let nextReleaseNumber =
+      Trace.tracefn $"Determining bump for version %O{currentRelease.SemVer}"
+      let bump = 
+        (Minor, unreleased.Changes)
+        ||> List.fold determineBump
+      Trace.tracefn $"Bump type is %O{bump}"
+      bumpVersion changelogs.LatestEntry.SemVer bump
+    Trace.tracefn $"Promoting unreleased changes to version {nextReleaseNumber}"
+    changelogs <- Changelog.promoteUnreleased (string nextReleaseNumber) changelogs
+    changelogs |> Changelog.save changeLogFile
+    currentRelease <- changelogs.LatestEntry
+)
+
+Target.create "CreateVersionTag" (fun _ ->
+  Git.Staging.stageFile "." changeLogFile |> ignore<_>
+  Git.Commit.exec "." $"Promote changelog entry for %O{currentRelease.SemVer}"
+  Git.CommandHelper.gitCommand "." $"tag v%O{currentRelease.SemVer}"
+)
+
+Target.create "Promote" ignore
+
+"PromoteUnreleasedToVersion"
+==> "CreateVersionTag"
+==> "Promote"
+
 
 "Restore"
   ==> "ReplaceFsLibLogNamespaces"
