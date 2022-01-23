@@ -1,7 +1,9 @@
 # Changelog
 
+## [Unreleased]
 
-## Unreleased
+## [0.50.0] - 2022-01-23
+
 ### Added
 
 * New release process driven by this Changelog
@@ -135,6 +137,7 @@ Fixes an issue in Ionide-vim (thanks @cannorin)
 * [Add new codefixes](https://github.com/fsharp/FsAutoComplete/pull/784)
 * Add missing self-identifier to instance member
 * Refactor `typeof<'t>.Name` to `nameof('t)`
+
 ## [0.45.4] - 2021-04-30
 
 ### Added
