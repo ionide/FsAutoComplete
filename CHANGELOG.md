@@ -8,10 +8,13 @@
 
 ### Changed
 
-* ENHANCEMENT: [Update Fantomas.Client to prefer stable versions](https://github.com/fsharp/FsAutoComplete/pull/880) (Thanks @nojaf)
-* BUGFIX: [Sourcelink's go-to-definition works better on windows for deterministic paths](https://github.com/fsharp/FsAutoComplete/pull/878)
+* [Update Fantomas.Client to prefer stable versions](https://github.com/fsharp/FsAutoComplete/pull/880) (Thanks @nojaf)
 * [Moved to use the Ionide.LanguageServerProtocol shared nuget package](https://github.com/fsharp/FsAutoComplete/pull/875)
+
+### Fixed
+* [Sourcelink's go-to-definition works better on windows for deterministic paths](https://github.com/fsharp/FsAutoComplete/pull/878)
 * [Fix missing commas in Info Panel generic type signatures](https://github.com/fsharp/FsAutoComplete/pull/870) (Thanks @jcmrva!)
+* [Fix off-by-1 error in the negation-to-subtraction codefix](https://github.com/fsharp/FsAutoComplete/pull/882) (Thanks @jasiozet!)
 
 ## [0.49.5] - 2021-12-01
 
