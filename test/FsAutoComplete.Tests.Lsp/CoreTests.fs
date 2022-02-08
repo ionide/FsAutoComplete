@@ -2,6 +2,8 @@ module FsAutoComplete.Tests.CoreTest
 
 open System
 open Expecto
+open Expecto.Logging
+open Expecto.Logging.Message
 open System.IO
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types
@@ -9,6 +11,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
+open FSharp.Control.Reactive
 
 ///Test for initialization of the server
 let initTests state =
@@ -58,6 +61,69 @@ let initTests state =
     | Result.Error e ->
       failtest "Initialization failed"
   })
+
+let diagnosticsTests state =
+  testSequenced <| testList "diagnostics tests" [
+    let server =
+      async {
+        let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Empty")
+        let config =
+          { defaultConfigDto with
+              UnusedOpensAnalyzer = Some true
+              UnusedDeclarationsAnalyzer = Some true
+              SimplifyNameAnalyzer = Some true
+          }
+        let! (server, events) = serverInitialize path config state
+        return (server, events, path)
+      }
+      |> Async.Cache
+
+    for i in 1..100 do
+      testCaseAsync $"can get all publishDiagnostics events {i}" <| async {
+        let logger = Expecto.Logging.Log.create $"diags tests {i}"
+
+        let! (server, events, _) = server
+        let uri = $"untitled:Untitled-{i}"
+        logger.info (eventX "Creating `{uri}`" >> setField "uri" uri)
+        // source doesn't really matter
+        let source = """
+  open System                   // unused open
+  open System.Diagnostics
+
+  let a = 42                    // unused decl
+  let b = 5
+
+  let f (v: System.String) = v  // simplify name
+        """
+        let tdop : DidOpenTextDocumentParams = {
+          TextDocument = {
+            Uri = uri
+            LanguageId = "fsharp"
+            Version = 0
+            Text = source
+          }
+        }
+
+        do! server.TextDocumentDidOpen tdop
+        // there should be 4 `textDocument/publishDiagnostics` events:
+        //   one for F# Compiler, one for each of the three (enabled) built-in analyzers
+        let! _ =
+          events
+          |> fileDiagnostics uri
+          |> Observable.take 4
+          |> Observable.last
+          |> Observable.timeoutSpan (TimeSpan.FromSeconds 3.0)
+          |> Async.AwaitObservable
+
+        let tdcp : DidCloseTextDocumentParams = {
+          TextDocument = {
+            Uri = uri
+          }
+        }
+        do! server.TextDocumentDidClose tdcp
+        ()
+      }
+  ]
 
 ///Tests for getting and resolving code(line) lenses with enabled reference code lenses
 let codeLensTest state =

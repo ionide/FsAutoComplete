@@ -111,6 +111,8 @@ type DiagnosticMessage =
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
 type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async<unit>) =
+  let logger = LogProvider.getLoggerByName "DiagnosticCollection"
+
   let send uri (diags: Map<string, Diagnostic []>) =
     Map.toArray diags
     |> Array.collect snd
@@ -147,10 +149,12 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
             async {
               match! inbox.Receive() with
               | Add (source, diags) ->
+                logger.info (Log.setMessage "-> Add({source})" >> Log.addContext "source" source)
                 let newState = state |> Map.add source diags
                 do! send uri newState
                 return! loop newState
               | Clear source ->
+                logger.info (Log.setMessage "-> Clear({source})" >> Log.addContext "source" source)
                 let newState = state |> Map.remove source
                 do! send uri newState
                 return! loop newState
@@ -171,6 +175,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
     mailbox
 
   and getOrAddAgent fileUri =
+    logger.info (Log.setMessage ":: getOrAdd({uri})" >> Log.addContext "uri" (UMX.untag fileUri))
     match agents.TryGetValue fileUri with
     | true, mailbox -> mailbox
     | false, _ ->
@@ -182,7 +187,9 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
         mailbox)
 
   member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic []) =
+    logger.info (Log.setMessage ">> setFor({kind}, {uri})" >> Log.addContext "kind" kind >> Log.addContext "uri" (UMX.untag fileUri))
     let mailbox = getOrAddAgent fileUri
+    logger.info (Log.setMessage "<< mailbox({kind}, {uri})" >> Log.addContext "kind" kind >> Log.addContext "uri" (UMX.untag fileUri))
 
     match values with
     | [||] -> mailbox.Post(Clear kind)
