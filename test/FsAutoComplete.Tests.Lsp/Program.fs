@@ -41,6 +41,7 @@ let tests =
         Templates.tests()
         let state = FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
         initTests state
+        diagnosticsTests state
         codeLensTest state
         documentSymbolTest state
         Completion.autocompleteTest state
