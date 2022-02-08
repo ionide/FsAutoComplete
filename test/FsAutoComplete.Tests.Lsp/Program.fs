@@ -13,6 +13,7 @@ open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open Ionide.ProjInfo
 open System.Threading
+open Serilog.Filters
 
 let testTimeout =
   Environment.GetEnvironmentVariable "TEST_TIMEOUT_MINUTES"
@@ -76,14 +77,63 @@ let tests =
 [<EntryPoint>]
 let main args =
   let outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
-  let verbose = args |> Seq.contains "--debug"
-  let switch = LoggingLevelSwitch()
 
-  if verbose
-  then
-    switch.MinimumLevel <- LogEventLevel.Verbose
-  else
-    switch.MinimumLevel <- LogEventLevel.Information
+  let parseLogLevel args =
+    let debugMarker = "--debug"
+    let logMarker = "--log="
+    let logLevel =
+      if args |> Array.contains "--debug" then
+        Logging.LogLevel.Verbose
+      else
+        match args |> Array.tryFind (fun arg -> arg.StartsWith logMarker) |> Option.map (fun log -> log.Substring(logMarker.Length)) with
+        | Some ("warn" | "warning") ->
+          Logging.LogLevel.Warn
+        | Some "error" ->
+          Logging.LogLevel.Error
+        | Some "fatal" ->
+          Logging.LogLevel.Fatal
+        | Some "info" ->
+          Logging.LogLevel.Info
+        | Some "verbose" ->
+          Logging.LogLevel.Verbose
+        | Some "debug" ->
+          Logging.LogLevel.Debug
+        | _ -> Logging.LogLevel.Info
+    let args =
+      args 
+      |> Array.except [debugMarker]
+      |> Array.filter (fun arg -> not <| arg.StartsWith logMarker)
+    logLevel, args
+  let expectoToSerilogLevel =
+    function
+    | Logging.LogLevel.Debug -> LogEventLevel.Debug
+    | Logging.LogLevel.Verbose -> LogEventLevel.Verbose
+    | Logging.LogLevel.Info -> LogEventLevel.Information
+    | Logging.LogLevel.Warn -> LogEventLevel.Warning
+    | Logging.LogLevel.Error -> LogEventLevel.Error
+    | Logging.LogLevel.Fatal -> LogEventLevel.Fatal
+  let parseLogExcludes (args: string[]) =
+    let excludeMarker = "--exclude-from-log="
+    let toExclude =
+      args
+      |> Array.filter (fun arg -> arg.StartsWith excludeMarker)
+      |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
+    let args =
+      args
+      |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
+    toExclude, args
+
+  let logLevel, args = parseLogLevel args
+  let switch = LoggingLevelSwitch(expectoToSerilogLevel logLevel)
+  let logSourcesToExclude, args = parseLogExcludes args
+  let sourcesToExclude = 
+    Matching.WithProperty<string>(
+      Constants.SourceContextPropertyName, 
+      fun s ->
+        s <> null
+        &&
+        logSourcesToExclude |> Array.contains s
+    )
 
   let argsToRemove, loaders =
     args
@@ -97,16 +147,8 @@ let main args =
     LoggerConfiguration()
       .Enrich.FromLogContext()
       .MinimumLevel.ControlledBy(switch)
-      .Filter.ByExcluding(fun ev ->
-        match ev.Properties.["SourceContext"] with
-        | null -> false
-        | :? ScalarValue as scalar ->
-          match scalar.Value with
-          | null -> false
-          | :? string as text when text = "FileSystem" -> true
-          | _ -> false
-        | _ -> false
-      )
+      .Filter.ByExcluding(Matching.FromSource("FileSystem"))
+      .Filter.ByExcluding(sourcesToExclude)
 
       .Destructure.FSharpTypes()
       .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r -> box {| FileName = r.FileName; Start = r.Start; End = r.End |})
@@ -121,7 +163,6 @@ let main args =
 
   let fixedUpArgs =
     args
-    |> Array.except ["--debug"]
     |> Array.except argsToRemove
 
   let cts = new CancellationTokenSource(testTimeout)
@@ -130,5 +171,5 @@ let main args =
       with runInParallel = false
            failOnFocusedTests = true
            printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
-           verbosity = if verbose then Expecto.Logging.LogLevel.Debug else Expecto.Logging.LogLevel.Info }
+           verbosity = logLevel }
   runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
