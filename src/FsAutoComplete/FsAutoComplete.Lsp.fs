@@ -118,25 +118,16 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
     |> Array.collect snd
     |> sendDiagnostics uri
 
-  let agents =
-    System.Collections.Generic.Dictionary<DocumentUri, MailboxProcessor<DiagnosticMessage>>()
-
-  let ctoks =
-    System.Collections.Generic.Dictionary<DocumentUri, CancellationTokenSource>()
-
+  let agents = System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> * CancellationTokenSource>()
 
   let rec restartAgent (fileUri: DocumentUri) =
     removeAgent fileUri
     getOrAddAgent fileUri |> ignore
 
   and removeAgent (fileUri: DocumentUri) =
-    let mailbox = getOrAddAgent fileUri
-
-    lock agents (fun _ ->
-      let ctok = ctoks.[fileUri]
-      ctok.Cancel()
-      ctoks.Remove(fileUri) |> ignore
-      agents.Remove(fileUri) |> ignore)
+    match agents.TryRemove(fileUri) with
+    | false, _ -> ()
+    | true, (_, ctok) -> ctok.Cancel()
 
   and agentFor (uri: DocumentUri) cTok =
     let logger =
@@ -176,16 +167,12 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
 
   and getOrAddAgent fileUri =
     logger.info (Log.setMessage ":: getOrAdd({uri})" >> Log.addContext "uri" (UMX.untag fileUri))
-    match agents.TryGetValue fileUri with
-    | true, mailbox -> mailbox
-    | false, _ ->
-      logger.info (Log.setMessage "!! lock(agents, {uri})" >> Log.addContext "uri" (UMX.untag fileUri))
-      lock agents (fun _ ->
-        let cts = new CancellationTokenSource()
-        let mailbox = agentFor fileUri cts.Token
-        agents.Add(fileUri, mailbox)
-        ctoks.Add(fileUri, cts)
-        mailbox)
+    agents.GetOrAdd(fileUri, fun fileUri ->
+      let cts = new CancellationTokenSource()
+      let mailbox = agentFor fileUri cts.Token
+      (mailbox, cts)
+    )
+    |> fst
 
   member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic []) =
     logger.info (Log.setMessage ">> setFor({kind}, {uri})" >> Log.addContext "kind" kind >> Log.addContext "uri" (UMX.untag fileUri))
@@ -210,7 +197,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
 
   interface IDisposable with
     member x.Dispose() =
-      for KeyValue (fileUri, cts) in ctoks do
+      for (_, cts) in agents.Values do
         cts.Cancel()
 
 type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FSharpLspClient) =
