@@ -179,6 +179,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
     match agents.TryGetValue fileUri with
     | true, mailbox -> mailbox
     | false, _ ->
+      logger.info (Log.setMessage "!! lock(agents, {uri})" >> Log.addContext "uri" (UMX.untag fileUri))
       lock agents (fun _ ->
         let cts = new CancellationTokenSource()
         let mailbox = agentFor fileUri cts.Token
@@ -188,7 +189,13 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
 
   member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic []) =
     logger.info (Log.setMessage ">> setFor({kind}, {uri})" >> Log.addContext "kind" kind >> Log.addContext "uri" (UMX.untag fileUri))
-    let mailbox = getOrAddAgent fileUri
+    let mailbox =
+      try
+        getOrAddAgent fileUri
+      with
+      | ex -> 
+          logger.info (Log.setMessage "-- Error({kind}): {ex}" >> Log.addContext "kind" kind >> Log.addContextDestructured "ex" ex.Message)
+          reraise()
     logger.info (Log.setMessage "<< mailbox({kind}, {uri})" >> Log.addContext "kind" kind >> Log.addContext "uri" (UMX.untag fileUri))
 
     match values with
