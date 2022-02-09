@@ -482,7 +482,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
     with
-    | _ -> ()
+    | ex ->
+        logger.error (
+          Log.setMessage "Exception while handling command event {evt}: {ex}"
+          >> Log.addContextDestructured "evt" n
+          >> Log.addContext "ex" ex.Message
+        )
 
   /// centralize any state changes when the config is updated here
   let updateConfig (newConfig: FSharpConfig) =
