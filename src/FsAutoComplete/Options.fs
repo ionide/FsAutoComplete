@@ -7,12 +7,18 @@ open System
 open Serilog
 open Serilog.Core
 open Serilog.Events
+open System.CommandLine
+open System.CommandLine.Parsing
+open System.CommandLine.Builder
+open System.Threading.Tasks
+open Serilog.Filters
 
 module Options =
-  open System.CommandLine
-  open System.CommandLine.Parsing
-  open System.CommandLine.Builder
-  open System.Threading.Tasks
+  [<Struct>]
+  type Pos = { Line: int; Column: int }
+
+  [<Struct>]
+  type Rng = { File: string; Start: FSharp.Compiler.Text.pos; End: FSharp.Compiler.Text.pos }
 
   let private setArity arity (o: #Option) = o.Arity <- arity; o
   let inline private zero x = setArity ArgumentArity.Zero x
@@ -20,35 +26,33 @@ module Options =
   let inline private many x = setArity ArgumentArity.OneOrMore x
 
   let verboseOption =
-    Option<bool>([|"--verbose"; "-v"|], "enable verbose logging")
+    Option<bool>([|"--verbose"; "-v"; "--debug"|], "Enable verbose logging. This is equivalent to --log debug.")
     |> setArity ArgumentArity.Zero
 
+  let logLevelOption = Option<LogEventLevel>("--log", "Set the log verbosity to a specific level.")
+
   let attachOption =
-    Option<bool>("--attach-debugger", "launch the system debugger and break")
+    Option<bool>("--attach-debugger", "Launch the system debugger and break immediately")
     |> zero
 
   let logFileOption =
-    Option<string>([|"--logfile"; "-l"|], "send verbose output to specified log file")
+    Option<string>([|"--logfile"; "-l"; "--log-file"|], "Send log output to specified file.")
     |> one
 
   let logFilterOption =
-    Option<string[]>("--filter", "filter log messages by category")
+    Option<string[]>("--filter", "Filter logs by category. The category can be seen in the logs inside []. For example: [Compiler].")
     |> many
 
   let waitForDebuggerOption =
-    Option<bool>("--wait-for-debugger", "wait for a debugger to attach to the process")
+    Option<bool>("--wait-for-debugger", "Stop execution on startup until an external debugger to attach to this process")
     |> zero
 
-  let hostPIDOption =
-    Option<int>("--hostPID", "the Host process ID")
-    |> one
-
   let backgroundServiceOption =
-    Option<bool>("--background-service-enabled", "enable background service")
+    Option<bool>("--background-service-enabled", "Enable running typechecking services in a background process. Enables various performance optimizations.")
     |> zero
 
   let projectGraphOption =
-    Option<bool>("--project-graph-enabled", "enable MSBuild ProjectGraph for workspace loading. Experimental.")
+    Option<bool>("--project-graph-enabled", "Enable MSBuild Graph workspace loading. Should be faster than the default, but is experimental.")
     |> zero
 
   let rootCommand =
@@ -59,9 +63,9 @@ module Options =
     rootCommand.AddOption logFileOption
     rootCommand.AddOption logFilterOption
     rootCommand.AddOption waitForDebuggerOption
-    rootCommand.AddOption hostPIDOption
     rootCommand.AddOption backgroundServiceOption
     rootCommand.AddOption projectGraphOption
+    rootCommand.AddOption logLevelOption
     rootCommand
 
   let waitForDebugger = Invocation.InvocationMiddleware (fun ctx next ->
@@ -93,24 +97,35 @@ module Options =
 
     // will use later when a mapping-style config of { "category": "minLevel" } is established
     let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
-    // default the verbosity to warning
-    let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
+    let args = ctx.ParseResult
+    let logLevel =
+      if args.HasOption verboseOption then LogEventLevel.Debug
+      else if args.HasOption logLevelOption then
+        args.GetValueForOption logLevelOption
+      else
+        LogEventLevel.Warning
+    let logSourcesToExclude = if args.HasOption logFilterOption then args.GetValueForOption logFilterOption else [||]
+    let sourcesToExclude = Matching.WithProperty<string>(
+      Constants.SourceContextPropertyName,
+      fun s -> s<> null && Array.contains s logSourcesToExclude
+    )
+    let verbositySwitch = LoggingLevelSwitch(logLevel)
     let outputTemplate = "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
     let logConf =
       LoggerConfiguration()
         .MinimumLevel.ControlledBy(verbositySwitch)
+        .Filter.ByExcluding(Matching.FromSource("FileSystem"))
+        .Filter.ByExcluding(sourcesToExclude)
         .Enrich.FromLogContext()
         .Destructure.FSharpTypes()
-        .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r -> box {| FileName = r.FileName; Start = r.Start; End = r.End |})
-        .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
+        .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r -> { File = r.FileName; Start = r.Start; End = r.End })
+        .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> { Line = r.Line; Column = r.Column })
         .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
         .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
         .WriteTo.Async(
           fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
         ) // make it so that every console log is logged to stderr so that we don't interfere with LSP stdio
 
-    let args = ctx.ParseResult
-    if args.HasOption verboseOption then verbositySwitch.MinimumLevel <- LogEventLevel.Verbose
     if args.HasOption logFileOption then
       let logFile = args.GetValueForOption logFileOption
 
