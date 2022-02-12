@@ -76,38 +76,46 @@ module Options =
     next.Invoke(ctx)
   )
 
-  let serilogFlush = Invocation.InvocationMiddleware (fun ctx next -> task {
-    do! next.Invoke ctx
-    Serilog.Log.CloseAndFlush()
-  })
-
-  let parser =
-    CommandLineBuilder(rootCommand).UseDefaults().AddMiddleware(waitForDebugger).AddMiddleware(immediateAttach).AddMiddleware(serilogFlush).Build()
-
-  let isCategory (category: string) (e: LogEvent) =
-    match e.Properties.TryGetValue "SourceContext" with
-    | true, loggerName ->
-      match loggerName with
-      | :? ScalarValue as v ->
-        match v.Value with
-        | :? string as s when s = category -> true
+  let configureLogging = Invocation.InvocationMiddleware (fun ctx next ->
+    let isCategory (category: string) (e: LogEvent) =
+      match e.Properties.TryGetValue "SourceContext" with
+      | true, loggerName ->
+        match loggerName with
+        | :? ScalarValue as v ->
+          match v.Value with
+          | :? string as s when s = category -> true
+          | _ -> false
         | _ -> false
-      | _ -> false
-    | false,  _ -> false
+      | false,  _ -> false
 
-  let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) =
-    e.Level >= minLevel
+    let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) =
+      e.Level >= minLevel
 
-  // will use later when a mapping-style config of { "category": "minLevel" } is established
-  let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
+    // will use later when a mapping-style config of { "category": "minLevel" } is established
+    let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
+    // default the verbosity to warning
+    let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
+    let outputTemplate = "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+    let logConf =
+      LoggerConfiguration()
+        .MinimumLevel.ControlledBy(verbositySwitch)
+        .Enrich.FromLogContext()
+        .Destructure.FSharpTypes()
+        .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r -> box {| FileName = r.FileName; Start = r.Start; End = r.End |})
+        .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
+        .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
+        .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
+        .WriteTo.Async(
+          fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
+        ) // make it so that every console log is logged to stderr so that we don't interfere with LSP stdio
 
-  let apply (levelSwitch: LoggingLevelSwitch) (logConfig: Serilog.LoggerConfiguration) (args: ParseResult) =
-    if args.HasOption verboseOption then levelSwitch.MinimumLevel <- LogEventLevel.Verbose
+    let args = ctx.ParseResult
+    if args.HasOption verboseOption then verbositySwitch.MinimumLevel <- LogEventLevel.Verbose
     if args.HasOption logFileOption then
       let logFile = args.GetValueForOption logFileOption
 
       try
-        logConfig.WriteTo.Async(fun c -> c.File(path = logFile, levelSwitch = levelSwitch) |> ignore) |> ignore
+        logConf.WriteTo.Async(fun c -> c.File(path = logFile, levelSwitch = verbositySwitch) |> ignore) |> ignore
       with
       | e ->
         eprintfn "Bad log file: %s" e.Message
@@ -118,6 +126,20 @@ module Options =
       categories
       |> Array.iter (fun category ->
         // category is encoded in the SourceContext property, so we filter messages based on that property's value
-        logConfig.Filter.ByExcluding(Func<_,_>(isCategory category)) |> ignore
+        logConf.Filter.ByExcluding(Func<_,_>(isCategory category)) |> ignore
       )
+
+    let logger = logConf.CreateLogger()
+    Serilog.Log.Logger <- logger
+    Logging.LogProvider.setLoggerProvider (Logging.Providers.SerilogProvider.create())
+    next.Invoke(ctx)
+  )
+
+  let serilogFlush = Invocation.InvocationMiddleware (fun ctx next -> task {
+    do! next.Invoke ctx
+    Serilog.Log.CloseAndFlush()
+  })
+
+  let parser =
+    CommandLineBuilder(rootCommand).UseDefaults().AddMiddleware(waitForDebugger).AddMiddleware(immediateAttach).AddMiddleware(serilogFlush).Build()
 
