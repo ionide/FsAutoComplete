@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
+    <TrimmerRootAssembly Include="FsAutoComplete.Core" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Debug.fs" />

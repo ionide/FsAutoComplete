@@ -5,5 +5,7 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <!-- suppress false positive warning FS2003 about invalid version of AssemblyInformationalVersionAttribute -->
     <NoWarn>$(NoWarn);FS2003</NoWarn>
+    <!-- We've got a prerelease dep on System.CommandLine, and NuGet doesn't like that. NuGet can be quiet in this instance. -->
+    <NoWarn>$(NoWarn);NU5104</NoWarn>
   </PropertyGroup>
 </Project>

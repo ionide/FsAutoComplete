@@ -26,7 +26,7 @@ nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 # nuget Fake.Runtime prerelease
 nuget FSharpLint.Core
-nuget FSharp.Core
+nuget FSharp.Core content: none
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
 nuget Microsoft.Data.Sqlite.Core 2.2.4

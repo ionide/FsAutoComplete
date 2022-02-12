@@ -765,7 +765,7 @@ NUGET
       System.Drawing.Common (>= 6.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp3.1))
     YoloDev.Expecto.TestSdk (0.12.20)
       Expecto (>= 9.0 < 10.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
-      FSharp.Core (>= 4.6) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
+      >= 4.6) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       System.Collections.Immutable (>= 1.7.1) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
 GITHUB
   remote: TheAngryByrd/FsLibLog
