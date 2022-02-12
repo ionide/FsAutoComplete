@@ -10,7 +10,6 @@ storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
-nuget Argu
 nuget Fantomas.Client
 nuget FSharp.Compiler.Service
 nuget Ionide.ProjInfo
@@ -44,6 +43,7 @@ nuget FSharp.Formatting
 nuget FsToolkit.ErrorHandling
 nuget FSharpx.Async
 nuget CliWrap
+nuget System.CommandLine prerelease
 
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true

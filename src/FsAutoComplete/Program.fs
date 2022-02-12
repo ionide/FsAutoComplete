@@ -1,24 +1,18 @@
 module FsAutoComplete.Program
 
 open System
-open FsAutoComplete.JsonSerializer
-open Argu
 open Serilog
 open Serilog.Core
 open Serilog.Events
 open FsAutoComplete.Logging
+open System.CommandLine
+open System.CommandLine.Parsing
+open System.Threading.Tasks
 
 [<EntryPoint>]
 let entry args =
-
-
-    try
-      let parser = ArgumentParser.Create<Options.CLIArguments>(programName = "fsautocomplete")
-
-      let results = parser.Parse args
-
-      System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
-
+    System.Threading.ThreadPool.SetMinThreads(16, 16) |> ignore
+    Options.rootCommand.SetHandler(Func<_,Task>(fun (args: ParseResult) ->
       // default the verbosity to warning
       let verbositySwitch = LoggingLevelSwitch(LogEventLevel.Warning)
       let outputTemplate = "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
@@ -35,27 +29,14 @@ let entry args =
             fun c -> c.Console(outputTemplate = outputTemplate, standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose), theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code) |> ignore
           ) // make it so that every console log is logged to stderr
 
-
-      results.TryGetResult(<@ Options.CLIArguments.WaitForDebugger @>)
-      |> Option.iter (ignore >> Debug.waitForDebugger)
-
-      results.TryGetResult(<@ Options.CLIArguments.Version @>)
-      |> Option.iter (fun _ ->
-          let version = Version.info ()
-          printfn "FsAutoComplete %s (git sha %s)" (version.Version) (version.GitSha)
-          exit 0 )
-
-      Options.apply verbositySwitch logConf results
+      Options.apply verbositySwitch logConf args
 
       let logger = logConf.CreateLogger()
       Serilog.Log.Logger <- logger
       LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
-      let backgroundServiceEnabled =
-        results.Contains <@ Options.CLIArguments.BackgroundServiceEnabled @>
-
-      let projectGraphEnabled =
-        results.Contains <@ Options.CLIArguments.ProjectGraphEnabled @>
+      let backgroundServiceEnabled = args.HasOption Options.backgroundServiceOption
+      let projectGraphEnabled = args.HasOption Options.projectGraphOption
 
       let workspaceLoaderFactory =
         if projectGraphEnabled then Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
@@ -64,14 +45,9 @@ let entry args =
       let toolsPath = Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
       use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
       let result = FsAutoComplete.Lsp.start backgroundServiceEnabled toolsPath workspaceLoaderFactory
-      Serilog.Log.CloseAndFlush()
-      result
-    with
-    | :? ArguParseException as ex ->
-      printfn "%s" ex.Message
-      match ex.ErrorCode with
-      | ErrorCode.HelpText -> 0
-      | _ -> 1  // Unrecognised arguments
-    | e ->
-      printfn "Server crashing error - %s \n %s" e.Message e.StackTrace
-      3
+
+      Task.FromResult result :> Task
+    ))
+
+    let results = Options.parser.Invoke args
+    results
