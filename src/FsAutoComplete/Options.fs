@@ -34,10 +34,10 @@ module Options =
   let inline private multipleArgs (x: #Option) = x.AllowMultipleArgumentsPerToken <- true; x
 
   let verboseOption =
-    Option<bool>([|"--verbose"; "-v"; "--debug"|], "Enable verbose logging. This is equivalent to --log debug.")
+    Option<bool>([|"--verbose"; "-v"; "--debug"|], "Enable verbose logging. This is equivalent to --log-level debug.")
     |> setArity ArgumentArity.Zero
 
-  let logLevelOption = Option<LogEventLevel>("--log", "Set the log verbosity to a specific level.")
+  let logLevelOption = Option<LogEventLevel>("--log-level", "Set the log verbosity to a specific level.")
 
   let attachOption =
     Option<bool>("--attach-debugger", "Launch the system debugger and break immediately")
