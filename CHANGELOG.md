@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+* [Fix textDocument/publishDiagnostics sometimes not getting sent](https://github.com/fsharp/FsAutoComplete/pull/887) (Thanks @Booksbaum!)
+
 ## [0.50.0] - 2022-01-23
 
 ### Added
