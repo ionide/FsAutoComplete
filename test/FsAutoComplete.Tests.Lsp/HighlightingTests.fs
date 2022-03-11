@@ -116,7 +116,7 @@ let tests state =
       tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
       tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
       tokenIsOfType (9, 10) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type alias should be a type
-      tokenIsOfType (16, 2) ClassificationUtils.SemanticTokenTypes.Namespace fullHighlights // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
+      tokenIsOfType (15, 2) ClassificationUtils.SemanticTokenTypes.Namespace fullHighlights // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
     ]
     testCaseAsync "cleanup" (async {
       let! server = server
