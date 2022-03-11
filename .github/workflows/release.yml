@@ -9,7 +9,7 @@ jobs:
   release:
     strategy:
       matrix:
-        dotnet: [6.0.100]
+        dotnet: [6.0.200]
 
     runs-on: ubuntu-20.04
 
@@ -20,26 +20,26 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ matrix.dotnet }}
-      
+
       - name: Restore tools
         run: dotnet tool restore
-      
+
       - name: Run Build
         run: dotnet fake build -t Release
-      
+
       - name: Get Changelog Entry
         id: changelog_reader
         uses: mindsers/changelog-reader-action@v1.1.0
         with:
           version: ${{ github.ref }}
           path: ./CHANGELOG.md
-      
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: bin/pkgs/*.nupkg
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.changelog_reader.outputs.log_entry }}
-      
+
       - name: Push packages
         run: dotnet nuget push bin/pkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
