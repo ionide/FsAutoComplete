@@ -535,7 +535,7 @@ module CodeGenerationUtils =
         getInterfaceMembers e |> Seq.isEmpty
 
     let (|LongIdentPattern|_|) = function
-        | SynPat.LongIdent(LongIdentWithDots(xs, _), _, _, _, _, _) ->
+        | SynPat.LongIdent(longDotId = LongIdentWithDots(xs, _)) ->
     //            let (name, range) = xs |> List.map (fun x -> x.idText, x.idRange) |> List.last
             let last = List.last xs
             Some(last.idText, last.idRange)
@@ -546,14 +546,11 @@ module CodeGenerationUtils =
     // On merged properties (consisting both getters and setters), they have the same range values,
     // so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
     let (|MemberNameAndRange|_|) = function
-        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range),
-                     _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = SynMemberKind.PropertyGet ->
+        | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when mf.MemberKind = SynMemberKind.PropertyGet ->
             if name.StartsWith("get_") then Some(name, range) else Some("get_" + name, range)
-        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range),
-                     _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = SynMemberKind.PropertySet ->
+        | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when mf.MemberKind = SynMemberKind.PropertySet ->
             if name.StartsWith("set_") then Some(name, range) else Some("set_" + name, range)
-        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, LongIdentPattern(name, range),
-                     _retTy, _expr, _bindingRange, _seqPoint) ->
+        | SynBinding(headPat = LongIdentPattern(name, range)) ->
             Some(name, range)
         | _ ->
             None

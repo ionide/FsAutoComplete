@@ -44,7 +44,7 @@ type FSharpParseFileResults with
 
         override _.VisitBinding(_, defaultTraverse, binding) =
             match binding with
-            | SynBinding(_, SynBindingKind.Normal, _, _, _, _, _, pat, _, _, _, _) as binding ->
+            | SynBinding(kind = SynBindingKind.Normal; headPat = pat) as binding ->
                 // walk the patterns in the binding first, to allow the parameter traversal a chance to fire
                 match defaultTraverse binding with
                 | None ->
@@ -54,7 +54,7 @@ type FSharpParseFileResults with
                   else
                       // Check if it's an operator
                       match pat with
-                      | SynPat.LongIdent(LongIdentWithDots([id], _), _, _, _, _, _) when id.idText.StartsWith("op_") ->
+                      | SynPat.LongIdent(longDotId = LongIdentWithDots([id], _)) when id.idText.StartsWith("op_") ->
                           if Range.rangeContainsRange id.idRange diagnosticRange then
                               Some (FullBinding binding.RangeOfBindingWithRhs)
                           else

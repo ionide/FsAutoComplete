@@ -38,13 +38,13 @@ let getMemberNameAndRanges = function
     | InterfaceData.ObjExpr(_, bindings) ->
         List.choose (|MemberNameAndRange|_|) bindings
 
-let private walkTypeDefn pos (SynTypeDefn(info, repr, members, implicitCtor, range)) =
+let private walkTypeDefn pos (SynTypeDefn(members = members; implicitConstructor = implicitCtor)) =
   Option.toList implicitCtor @ members
   |> List.tryPick (fun m ->
     if Range.rangeContainsPos m.Range pos
     then
       match m with
-      | SynMemberDefn.Interface(iface, members, _) ->
+      | SynMemberDefn.Interface(interfaceType = iface; members = members) ->
         Some (InterfaceData.Interface(iface, members))
       | _ -> None
     else
@@ -56,14 +56,14 @@ let tryFindInterfaceDeclAt (pos: Position) (tree: ParsedInput) =
       new SyntaxVisitorBase<_>() with
         member _.VisitExpr (_, _, defaultTraverse, expr) =
           match expr with
-            SynExpr.ObjExpr(ty, baseCallOpt, binds, ifaces, _, _) ->
+            SynExpr.ObjExpr(objType = ty; argOptions = baseCallOpt; bindings = binds; extraImpls = ifaces) ->
                 match baseCallOpt with
                 | None ->
                     if Range.rangeContainsPos ty.Range pos then
                         Some (InterfaceData.ObjExpr(ty, binds))
                     else
                         ifaces
-                        |> List.tryPick (fun (SynInterfaceImpl(ty, binds, range)) ->
+                        |> List.tryPick (fun (SynInterfaceImpl(interfaceTy = ty; bindings = binds; range = range)) ->
                             if Range.rangeContainsPos range pos then
                                 Some (InterfaceData.ObjExpr(ty, binds))
                             else None

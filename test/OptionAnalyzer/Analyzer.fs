@@ -19,7 +19,7 @@ let rec visitExpr memberCallHandler (e:FSharpExpr) =
         visitObjArg memberCallHandler objExprOpt; visitExprs memberCallHandler argExprs
     | FSharpExprPatterns.Coerce(targetType, inpExpr) ->
         visitExpr memberCallHandler inpExpr
-    | FSharpExprPatterns.FastIntegerForLoop(startExpr, limitExpr, consumeExpr, isUp) ->
+    | FSharpExprPatterns.FastIntegerForLoop(startExpr, limitExpr, consumeExpr, isUp, _, _) ->
         visitExpr memberCallHandler startExpr; visitExpr memberCallHandler limitExpr; visitExpr memberCallHandler consumeExpr
     | FSharpExprPatterns.ILAsm(asmCode, typeArgs, argExprs) ->
         visitExprs memberCallHandler argExprs
@@ -31,10 +31,10 @@ let rec visitExpr memberCallHandler (e:FSharpExpr) =
         visitExpr memberCallHandler guardExpr; visitExpr memberCallHandler thenExpr; visitExpr memberCallHandler elseExpr
     | FSharpExprPatterns.Lambda(lambdaVar, bodyExpr) ->
         visitExpr memberCallHandler bodyExpr
-    | FSharpExprPatterns.Let((bindingVar, bindingExpr), bodyExpr) ->
+    | FSharpExprPatterns.Let((bindingVar, bindingExpr, _), bodyExpr) ->
         visitExpr memberCallHandler bindingExpr; visitExpr memberCallHandler bodyExpr
     | FSharpExprPatterns.LetRec(recursiveBindings, bodyExpr) ->
-        List.iter (snd >> visitExpr memberCallHandler) recursiveBindings; visitExpr memberCallHandler bodyExpr
+        List.iter ((fun (_, x, _) -> x)  >> visitExpr memberCallHandler) recursiveBindings; visitExpr memberCallHandler bodyExpr
     | FSharpExprPatterns.NewArray(arrayType, argExprs) ->
         visitExprs memberCallHandler argExprs
     | FSharpExprPatterns.NewDelegate(delegateType, delegateBodyExpr) ->
@@ -55,9 +55,9 @@ let rec visitExpr memberCallHandler (e:FSharpExpr) =
         visitObjArg memberCallHandler objExprOpt; visitExpr memberCallHandler argExpr
     | FSharpExprPatterns.Sequential(firstExpr, secondExpr) ->
         visitExpr memberCallHandler firstExpr; visitExpr memberCallHandler secondExpr
-    | FSharpExprPatterns.TryFinally(bodyExpr, finalizeExpr) ->
+    | FSharpExprPatterns.TryFinally(bodyExpr, finalizeExpr, _, _) ->
         visitExpr memberCallHandler bodyExpr; visitExpr memberCallHandler finalizeExpr
-    | FSharpExprPatterns.TryWith(bodyExpr, _, _, catchVar, catchExpr) ->
+    | FSharpExprPatterns.TryWith(bodyExpr, _, _, catchVar, catchExpr, _, _) ->
         visitExpr memberCallHandler bodyExpr; visitExpr memberCallHandler catchExpr
     | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, tupleExpr) ->
         visitExpr memberCallHandler tupleExpr
@@ -85,7 +85,7 @@ let rec visitExpr memberCallHandler (e:FSharpExpr) =
         visitExprs memberCallHandler argExprs
     | FSharpExprPatterns.ValueSet(valToSet, valueExpr) ->
         visitExpr memberCallHandler valueExpr
-    | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr) ->
+    | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr, _) ->
         visitExpr memberCallHandler guardExpr; visitExpr memberCallHandler bodyExpr
     | FSharpExprPatterns.BaseValue baseType -> ()
     | FSharpExprPatterns.DefaultValue defaultType -> ()

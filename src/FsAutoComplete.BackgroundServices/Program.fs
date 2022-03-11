@@ -306,7 +306,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             |> Seq.distinctBy (fun o -> o.ProjectFileName)
             |> Seq.filter (fun o ->
                 o.ReferencedProjects
-                |> Array.map (fun p -> Path.GetFullPath p.FileName)
+                |> Array.map (fun p -> Path.GetFullPath p.OutputFile)
                 |> Array.contains s.ProjectFileName)
             |> Seq.toList
 

@@ -231,7 +231,7 @@ module TypedAstExtensionHelpers =
             | :? FSharpUnionCase as fsu -> fsu.XmlDoc
             | :? FSharpActivePatternCase as apc -> apc.XmlDoc
             | :? FSharpGenericParameter as gp -> gp.XmlDoc
-            | _ -> FSharpXmlDoc.None 
+            | _ -> FSharpXmlDoc.None
 
     type FSharpGenericParameterMemberConstraint with
         member x.IsProperty =

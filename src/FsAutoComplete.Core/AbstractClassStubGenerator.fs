@@ -19,7 +19,7 @@ type AbstractClassData =
     | ExplicitImpl(t, _, _) -> expandTypeParameters t
 
 /// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
-let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range)) =
+let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, trivia)) =
   let reprMembers =
     match repr with
     | SynTypeDefnRepr.ObjectModel (_, members, _) -> members
@@ -53,7 +53,7 @@ let private tryFindAbstractClassExprInParsedInput (pos: Position) (parsedInput: 
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr (path, traverseExpr, defaultTraverse, expr) =
           match expr with
-          | SynExpr.ObjExpr (baseTy, constructorArgs, bindings, extraImpls, newExprRange, range) ->
+          | SynExpr.ObjExpr (baseTy, constructorArgs, withKeyword, bindings, members, extraImpls, newExprRange, range) ->
             Some (AbstractClassData.ObjExpr(baseTy, bindings, range))
           | _ -> defaultTraverse expr
         override _.VisitModuleDecl (_, defaultTraverse, decl) =

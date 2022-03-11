@@ -115,10 +115,7 @@ type ActualBackgroundService() =
     member x.UpdateProject(file, opts) =
       let optsToSend = {opts with ReferencedProjects = [||] }
       let refs =
-        opts.ReferencedProjects |> Array.map (fun x ->
-          x.FileName
-
-        )
+        opts.ReferencedProjects |> Array.map (fun x -> x.OutputFile)
       let msg = { File = file; Options = optsToSend; ReferencedProjects = refs }
       client.SendNotification "background/project" msg
 
