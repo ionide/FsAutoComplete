@@ -23,9 +23,13 @@ module Conversions =
     let protocolPosToPos (pos: Lsp.Position): FcsPos =
         FcsPos.mkPos (pos.Line + 1) (pos.Character)
 
+    let protocolPosToRange (pos: Lsp.Position): Lsp.Range =
+      { Start = pos; End = pos }
+
     /// convert a compiler position to an LSP position
-    let fcsPosToLsp (pos: FcsPos): Lsp.Position =
-        { Line = pos.Line - 1; Character = pos.Column }
+    let fcsPosToLsp (pos: FcsPos) : Lsp.Position =
+      { Line = pos.Line - 1
+        Character = pos.Column }
 
     /// convert a compiler range to an LSP range
     let fcsRangeToLsp(range: FcsRange): Lsp.Range =
