@@ -67,8 +67,8 @@ let codeLensTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-      let config = 
-        { defaultConfigDto with 
+      let config =
+        { defaultConfigDto with
             EnableReferenceCodeLens = Some true
             GenerateBinlog = Some true
         }
@@ -282,7 +282,7 @@ let tooltipTests state =
         verifySignature 1 5 "val listOfTuples : list<int * int>" // verify we default to prefix-generics style
         verifySignature 2 5 "val listOfStructTuples : list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
         verifySignature 3 5 "val floatThatShouldHaveGenericReportedInTooltip : float" // verify we strip <MeasureOne> measure annotations
-        verifyDescription 4 4 ["**Description**";"";"Print to a string using the given format.";"";"**Parameters**";"";"* `format`: The formatter.";"";"**Returns**";"";"The formatted result.";"";"**Generic Parameters**";"";"* `'T` is `string`"]
+        verifyDescription 4 4 ["**Description**";"";"Print to a string using the given format.";"";"**Parameters**";"";"* `format`: The formatter.";"";"**Returns**";"";"The formatted result.";"";"**Examples**";"";"See `Printf.sprintf` (link: ``Microsoft.FSharp.Core.PrintfModule.PrintFormatToStringThen``1``) for examples.";"";"**Generic Parameters**";"";"* `'T` is `string`"] // verify fancy descriptions for external library functions
         verifyDescription 13 11 ["**Description**"; ""; ""; "My super summary"; " "; ""; "**Parameters**"; ""; "* `c`: foo"; "* `b`: bar"; "* `a`: baz"; ""; "**Returns**"; ""; ""]
         verifySignature 14 5 "val nestedTuples : int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
         verifySignature 15 5 "val nestedStructTuples : int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
