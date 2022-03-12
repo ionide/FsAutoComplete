@@ -48,8 +48,9 @@ module KeywordList =
         |> Seq.toArray
 
     let allKeywords : string list =
-        FSharpKeywords.KeywordsWithDescription
-        |> List.map fst
+        keywordDescriptions
+        |> Seq.map ((|KeyValue|) >> fst)
+        |> Seq.toList
 
     let keywordCompletionItems =
         allKeywords

@@ -1047,10 +1047,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let lineSegmentFCSRange = protocolRangeToRange (UMX.untag file) lineSegmentLSPRange
       let! lineStr = lines.GetText lineSegmentFCSRange |> Result.mapError JsonRpc.Error.InternalErrorMessage
 
-      if (lineStr.StartsWith "#"
-          && (KeywordList.hashDirectives.Keys
-              |> Seq.exists (fun k -> k.StartsWith lineStr)
-              || lineStr.Contains "\n")) then
+      if lineStr.StartsWith "#" then
         let completionList =
           { IsIncomplete = false
             Items = KeywordList.hashSymbolCompletionItems }
