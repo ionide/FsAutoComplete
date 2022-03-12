@@ -521,6 +521,8 @@ module ClassificationUtils =
 
 type PlainNotification= { Content: string }
 
+type TestDetectedNotification = { Content: string }
+
 type ProjectParms = {
     /// Project file to compile
     Project: TextDocumentIdentifier

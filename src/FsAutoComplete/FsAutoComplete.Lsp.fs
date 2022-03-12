@@ -106,8 +106,8 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     sendServerNotification "fsharp/fileParsed" (box p)
     |> Async.Ignore
 
-    member __.NotifyTestDetected (p: PlainNotification) =
-        sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
+  member __.NotifyTestDetected (p: TestDetectedNotification) =
+      sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
 type DiagnosticMessage =
   | Add of source: string * diags: Diagnostic []
@@ -461,7 +461,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       | NotificationEvent.TestDetected(file, tests) ->
           let res = CommandResponse.test JsonSerializer.writeJson (UMX.untag file) tests
-          {Content = res}
+          { Content = res }
           |> lspClient.NotifyTestDetected
           |> Async.Start
     with
