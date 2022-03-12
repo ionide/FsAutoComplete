@@ -41,6 +41,46 @@ let tests state =
       | Error e ->
         failtestf "Got an error while retrieving completions: %A" e
     })
+
+    testCaseAsync "completion at start of line" (async {
+      let! server, path = server
+      let completionParams : CompletionParams =
+        {
+          TextDocument = { Uri = Path.FilePathToUri path }
+          Position = { Line = 6; Character = 5 } // the '.' in 'List.'
+          Context = Some { triggerKind = CompletionTriggerKind.TriggerCharacter; triggerCharacter = Some '.' }
+        }
+      let! response = server.TextDocumentCompletion completionParams
+      match response with
+      | Ok (Some completions) ->
+        Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+        let firstItem = completions.Items.[0]
+        Expect.equal firstItem.Label "Empty" "first member should be List.Empty, since properties are preferred over functions"
+      | Ok None ->
+        failtest "Should have gotten some completion items"
+      | Error e ->
+        failtestf "Got an error while retrieving completions: %A" e
+    })
+
+    testCaseAsync "completion at end of line" (async {
+      let! server, path = server
+      let completionParams : CompletionParams =
+        {
+          TextDocument = { Uri = Path.FilePathToUri path }
+          Position = { Line = 8; Character = 16 } // the '.' in 'List.'
+          Context = Some { triggerKind = CompletionTriggerKind.TriggerCharacter; triggerCharacter = Some '.' }
+        }
+      let! response = server.TextDocumentCompletion completionParams
+      match response with
+      | Ok (Some completions) ->
+        Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+        let firstItem = completions.Items.[0]
+        Expect.equal firstItem.Label "Empty" "first member should be List.Empty, since properties are preferred over functions"
+      | Ok None ->
+        failtest "Should have gotten some completion items"
+      | Error e ->
+        failtestf "Got an error while retrieving completions: %A" e
+    })
   ]
 
   ///Tests for getting autocomplete
@@ -243,7 +283,7 @@ let autoOpenTests state =
         return (edit, ns, openPos)
     | Ok _ -> return failtest $"Quick fix on `{word}` doesn't contain open action"
   }
-  
+
   let test (compareWithQuickFix: bool) (name: string option) (server: Async<FSharpLspServer * string>) (word: string, ns: string) (cursor: Position) (expectedOpen: Position) pending =
     let name = name |> Option.defaultWith (fun _ -> sprintf "completion on `Regex` at (%i, %i) should `open System.Text.RegularExpressions` at (%i, %i) (0-based)" (cursor.Line) (cursor.Character) (expectedOpen.Line) (expectedOpen.Character))
     let runner = if pending then ptestCaseAsync else testCaseAsync
@@ -369,7 +409,7 @@ let autoOpenTests state =
           do! server.Shutdown()
         })
     ]
-  
+
   let ptestScript name scriptName =
     testList name [
       let scriptPath = Path.Combine(dirPath, scriptName)

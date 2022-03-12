@@ -25,6 +25,7 @@ open CliWrap.Buffered
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
+open FSharp.UMX
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -1041,18 +1042,15 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commands.TryGetFileCheckerOptionsWithLines file
         |> Result.mapError JsonRpc.Error.InternalErrorMessage
 
-      let line, col = p.Position.Line, p.Position.Character
-      let lineStr = lines.GetLineString line
-
-      let word =
-        lineStr.Substring(0, min col lineStr.Length)
-
-      do! ensureInBounds lines (line, col)
+      let lineSegmentLSPRange =
+        { Start = { p.Position with Character = 0}; End = p.Position }
+      let lineSegmentFCSRange = protocolRangeToRange (UMX.untag file) lineSegmentLSPRange
+      let! lineStr = lines.GetText lineSegmentFCSRange |> Result.mapError JsonRpc.Error.InternalErrorMessage
 
       if (lineStr.StartsWith "#"
           && (KeywordList.hashDirectives.Keys
-              |> Seq.exists (fun k -> k.StartsWith word)
-              || word.Contains "\n")) then
+              |> Seq.exists (fun k -> k.StartsWith lineStr)
+              || lineStr.Contains "\n")) then
         let completionList =
           { IsIncomplete = false
             Items = KeywordList.hashSymbolCompletionItems }
