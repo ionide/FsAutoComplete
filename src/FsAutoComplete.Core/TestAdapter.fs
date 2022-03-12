@@ -21,8 +21,6 @@ let private NUnitType = "NUnit"
 [<Literal>]
 let private XUnitType = "XUnit"
 
-
-
 let rec private (|Sequentials|_|) =
   function
   | SynExpr.Sequential (_, _, e, Sequentials es, _) -> Some(e :: es)
@@ -222,8 +220,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) ->
-    visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
@@ -367,8 +364,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) ->
-    visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
@@ -509,8 +505,7 @@ let getXUnitTest ast : TestAdapterEntry list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) ->
-    visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
