@@ -577,7 +577,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
   ///Helper function for handling Position requests using **recent** type check results
   member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams>
-    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> ISourceText -> AsyncLspResult<'a>)
+    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> NamedText -> AsyncLspResult<'a>)
     (arg: 'b)
     : AsyncLspResult<'a> =
     async {
@@ -818,7 +818,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            ChangeComparisonToMutableAssignment.fix tryGetParseResultsForFile
            ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
            RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
-           RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
            ChangeCSharpLambdaToFSharp.fix tryGetParseResultsForFile getLineText
            AddMissingFunKeyword.fix getFileLines getLineText
            MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
@@ -1019,14 +1018,13 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       let pos = p.GetFcsPos()
 
-      let! (options, lines) =
-        commands.TryGetFileCheckerOptionsWithLines file
-        |> Result.mapError JsonRpc.Error.InternalErrorMessage
+      match commands.TryGetFileCheckerOptionsWithLines file with
+      | Error _ -> return! success None
+      | Ok (options, lines) ->
 
-      let lineSegmentLSPRange =
-        { Start = { p.Position with Character = 0}; End = p.Position }
-      let lineSegmentFCSRange = protocolRangeToRange (UMX.untag file) lineSegmentLSPRange
-      let! lineStr = lines.GetText lineSegmentFCSRange |> Result.mapError JsonRpc.Error.InternalErrorMessage
+      match lines.GetLine pos with
+      | None -> return! success None
+      | Some lineStr ->
 
       if lineStr.StartsWith "#" then
         let completionList =

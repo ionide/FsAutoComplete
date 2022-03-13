@@ -22,10 +22,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
 
         match tyRes.GetParseResults.TryRangeOfParenEnclosingOpEqualsGreaterUsage fcsPos with
         | Some (fullParenRange, lambdaArgRange, lambdaBodyRange) ->
-            let argExprText =
+            let! argExprText =
               getLineText lines (fcsRangeToLsp lambdaArgRange)
 
-            let bodyExprText =
+            let! bodyExprText =
               getLineText lines (fcsRangeToLsp lambdaBodyRange)
 
             let replacementText = $"fun {argExprText} -> {bodyExprText}"

@@ -17,14 +17,14 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
 
         let errorRangeStart = protocolPosToPos diagnostic.Range.Start
         let! (tyres, _line, lines) = getParseResultsForFile fileName errorRangeStart
-        let missingMemberName = getLineText lines diagnostic.Range
+        let! missingMemberName = getLineText lines diagnostic.Range
 
         let! outerBindingRange =
           tyres.GetParseResults.TryRangeOfNameOfNearestOuterBindingContainingPos errorRangeStart
           |> Result.ofOption (fun _ -> "No outer binding found at pos")
 
         let lspOuterBindingRange = fcsRangeToLsp outerBindingRange
-        let outerBindingName = getLineText lines lspOuterBindingRange
+        let! outerBindingName = getLineText lines lspOuterBindingRange
 
         do! Result.guard
               (fun _ -> missingMemberName = outerBindingName)

@@ -27,12 +27,15 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
 
       let isValidParameterWithoutTypeAnnotation (funcOrValue: FSharpMemberOrFunctionOrValue) (symbolUse: FSharpSymbolUse) =
         let isLambdaIfFunction =
-             funcOrValue.IsFunction &&
+            funcOrValue.IsFunction &&
              parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
 
+        let IsPositionContainedInACurriedParameter = parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.End
+        let IsTypeAnnotationGivenAtPosition = parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.End
+
         (funcOrValue.IsValue || isLambdaIfFunction) &&
-        parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.Start &&
-        not (parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.Start) &&
+        IsPositionContainedInACurriedParameter &&
+        not IsTypeAnnotationGivenAtPosition &&
         not funcOrValue.IsMember &&
         not funcOrValue.IsMemberThisValue &&
         not funcOrValue.IsConstructorThisValue &&
@@ -44,7 +47,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         let title = "Add explicit type annotation"
         let fcsSymbolRange = symbolUse.Range
         let protocolSymbolRange = fcsRangeToLsp fcsSymbolRange
-        let! symbolText = sourceText.GetText(fcsSymbolRange)
+        let! symbolText = sourceText.GetText fcsSymbolRange
 
         let alreadyWrappedInParens =
           let hasLeftParen = Navigation.walkBackUntilConditionWithTerminal sourceText protocolSymbolRange.Start (fun c -> c = '(') System.Char.IsWhiteSpace
