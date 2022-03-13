@@ -461,8 +461,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       | NotificationEvent.TestDetected(file, tests) ->
-          let res = CommandResponse.test JsonSerializer.writeJson (UMX.untag file) tests
-          { Content = res }
+          { File = UMX.untag file
+            Tests = tests }
           |> lspClient.NotifyTestDetected
           |> Async.Start
     with

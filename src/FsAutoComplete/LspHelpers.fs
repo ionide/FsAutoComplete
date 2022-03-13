@@ -521,7 +521,9 @@ module ClassificationUtils =
 
 type PlainNotification= { Content: string }
 
-type TestDetectedNotification = { Content: string }
+type TestDetectedNotification =
+    { File: string
+      Tests: TestAdapter.TestAdapterEntry array }
 
 type ProjectParms = {
     /// Project file to compile
