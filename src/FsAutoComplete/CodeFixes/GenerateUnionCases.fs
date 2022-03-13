@@ -6,6 +6,7 @@ open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
+open FsAutoComplete.CodeFix.Navigation
 
 /// a codefix that generates union cases for an incomplete match expression
 let fix (getFileLines: GetFileLines)
@@ -21,9 +22,11 @@ let fix (getFileLines: GetFileLines)
 
         let! lines = getFileLines fileName
         // try to find the first case already written
-        let caseLine = diagnostic.Range.Start.Line + 1
-        let caseCol = lines.GetLineString(caseLine).IndexOf('|') + 3 // Find column of first case in patern matching
-        let casePos = { Line = caseLine; Character = caseCol }
+        let fcsRange = protocolRangeToRange (FSharp.UMX.UMX.untag fileName) diagnostic.Range
+        let! nextLine = lines.NextLine fcsRange.Start |> Result.ofOption (fun _ -> "no next line")
+        let! caseLine = lines.GetLine (nextLine) |> Result.ofOption (fun _ -> "No case line")
+        let caseCol = caseLine.IndexOf('|') + 3 // Find column of first case in patern matching
+        let casePos = { Line = nextLine.Line - 1; Character = caseCol }
         let casePosFCS = protocolPosToPos casePos
 
         let! (tyRes, line, lines) = getParseResultsForFile fileName casePosFCS

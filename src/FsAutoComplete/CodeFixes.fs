@@ -20,9 +20,9 @@ module Types =
   type IsEnabled = unit -> bool
 
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> ResultOrString<string>
-  type GetFileLines = string<LocalPath> -> ResultOrString<FSharp.Compiler.Text.ISourceText>
-  type GetLineText = FSharp.Compiler.Text.ISourceText -> LspTypes.Range -> Result<string, string>
-  type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Position -> Async<ResultOrString<ParseAndCheckResults * string * FSharp.Compiler.Text.ISourceText>>
+  type GetFileLines = string<LocalPath> -> ResultOrString<NamedText>
+  type GetLineText = NamedText -> LspTypes.Range -> Result<string, string>
+  type GetParseResultsForFile = string<LocalPath> -> FSharp.Compiler.Text.Position -> Async<ResultOrString<ParseAndCheckResults * string * NamedText>>
   type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>
 
   [<RequireQualifiedAccess>]
@@ -98,64 +98,51 @@ module Navigation =
 
     fcsPos
 
-  /// advance along positions from a starting location, incrementing in a known way until a condition is met.
-  /// when the condition is met, return that position.
-  /// if the condition is never met, return None
-  let walkPos (lines: ISourceText) (pos: LspTypes.Position) posChange terminalCondition checkCondition: LspTypes.Position option =
-    let charAt (pos: LspTypes.Position) = lines.GetLineString(pos.Line).[pos.Character - 1]
+  let inc (lines: NamedText) (pos: LspTypes.Position): LspTypes.Position option =
+    lines.NextPos (protocolPosToPos pos)
+    |> Option.map fcsPosToLsp
 
-    let firstPos = { Line = 0; Character = 0 }
-    let finalPos = fcsPosToLsp (lines.GetLastFilePosition())
-
-    let rec loop pos =
-      let charAt = charAt pos
-      if firstPos = pos || finalPos = pos
-      then None
-      else if terminalCondition charAt then None
-      else if not (checkCondition charAt) then loop (posChange pos)
-      else Some pos
-
-    loop pos
-
-  let inc (lines: ISourceText) (pos: LspTypes.Position): LspTypes.Position =
-    let lineLength = lines.GetLineString(pos.Line).Length
-
-    if pos.Character = lineLength - 1 then
-      { Line = pos.Line + 1; Character = 0 }
-    else
-      { pos with
-          Character = pos.Character + 1 }
-
-  let dec (lines: ISourceText) (pos: LspTypes.Position): LspTypes.Position =
-    if pos.Character = 0 then
-      let newLine = pos.Line - 1
-      // decrement to end of previous line
-      { pos with
-          Line = newLine
-          Character = lines.GetLineString(newLine).Length - 1 }
-    else
-      { pos with
-          Character = pos.Character - 1 }
+  let dec (lines: NamedText) (pos: LspTypes.Position): LspTypes.Position option =
+    lines.PrevPos (protocolPosToPos pos)
+    |> Option.map fcsPosToLsp
 
   let rec decMany lines pos count =
-    if count <= 0 then pos
-    else decMany lines (dec lines pos) (count - 1)
+    option {
+      let mutable pos = pos
+      let mutable count = count
+      while count > 0 do
+        let! nextPos = dec lines pos
+        pos <- nextPos
+        count <- count - 1
+      return pos
+    }
 
   let rec incMany lines pos count =
-    if count <= 0 then pos
-    else incMany lines (inc lines pos) (count - 1)
+    option {
+      let mutable pos = pos
+      let mutable count = count
+      while count > 0 do
+        let! nextPos = inc lines pos
+        pos <- nextPos
+        count <- count - 1
+      return pos
+    }
 
-  let walkBackUntilCondition (lines: ISourceText) (pos: LspTypes.Position) =
-    walkPos lines pos (dec lines) (fun c -> false)
+  let walkBackUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
+    let fcsStartPos = protocolPosToPos pos
+    lines.WalkBackwards(fcsStartPos, terminal, condition)
+    |> Option.map fcsPosToLsp
 
-  let walkForwardUntilCondition (lines: ISourceText) (pos: LspTypes.Position) =
-    walkPos lines pos (inc lines) (fun c -> false)
+  let walkForwardUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
+    let fcsStartPos = protocolPosToPos pos
+    lines.WalkForward(fcsStartPos, terminal, condition)
+    |> Option.map fcsPosToLsp
 
-  let walkBackUntilConditionWithTerminal lines pos check terminal =
-    walkPos lines pos (dec lines) terminal check
+  let walkBackUntilCondition lines pos condition =
+    walkBackUntilConditionWithTerminal lines pos condition (fun _ -> false)
 
-  let walkForwardUntilConditionWithTerminal (lines: ISourceText) (pos: LspTypes.Position) check terminal =
-    walkPos lines pos (inc lines) terminal check
+  let walkForwardUntilCondition lines pos condition =
+    walkForwardUntilConditionWithTerminal lines pos condition (fun _ -> false)
 
 module Run =
   open Types

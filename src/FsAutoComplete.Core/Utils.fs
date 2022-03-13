@@ -137,6 +137,7 @@ module Option =
     with
     | _ -> None
 
+  /// ensure the condition is true before continuing
   let inline guard (b) = if b then Some() else None
 
 [<RequireQualifiedAccess>]
@@ -151,6 +152,7 @@ module Result =
     | Some x -> Ok x
     | None -> Error(recover ())
 
+  /// ensure the condition is true before continuing
   let inline guard condition errorValue =
     if condition () then
       Ok()

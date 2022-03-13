@@ -90,12 +90,13 @@ let fix (getParseResults: GetParseResultsForFile): CodeFix =
       | FullBinding bindingRangeWithPats ->
         let protocolRange = fcsRangeToLsp bindingRangeWithPats
         // the pos at the end of the previous keyword
+        let! walkPos = dec lines protocolRange.Start |> Result.ofOption (fun _ -> "failed to walk")
         let! endOfPrecedingKeyword =
-          Navigation.walkBackUntilCondition lines (dec lines protocolRange.Start) (System.Char.IsWhiteSpace >> not)
+          Navigation.walkBackUntilCondition lines walkPos (System.Char.IsWhiteSpace >> not)
           |> Result.ofOption (fun _ -> "failed to walk")
 
         // walk back to the start of the keyword, which is always `let` or `use`
-        let keywordStartColumn = decMany lines endOfPrecedingKeyword 3
+        let! keywordStartColumn = decMany lines endOfPrecedingKeyword 3 |> Result.ofOption (fun _ -> "failed to walk")
         let replacementRange = { Start = keywordStartColumn; End = protocolRange.End }
         return [ { Title = "Remove unused binding"
                    Edits = [| { Range = replacementRange; NewText = "" } |]

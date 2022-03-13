@@ -10,6 +10,7 @@ open System.Diagnostics
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.CodeAnalysis
+open FsToolkit.ErrorHandling
 
 type DeclName = string
 type CompletionNamespaceInsert = { Namespace: string; Position: Position; Scope : ScopeKind }
@@ -48,7 +49,7 @@ type State =
       ScriptProjectOptions = ConcurrentDictionary()
       ColorizationOutput = false }
 
-  member x.RefreshCheckerOptions(file: string<LocalPath>, text: ISourceText) : FSharpProjectOptions option =
+  member x.RefreshCheckerOptions(file: string<LocalPath>, text: NamedText) : FSharpProjectOptions option =
     x.ProjectController.GetProjectOptions (UMX.untag file)
     |> Option.map (fun opts ->
         x.Files.[file] <- { Lines = text; Touched = DateTime.Now; Version = None }
@@ -83,12 +84,12 @@ type State =
   member x.SetLastCheckedVersion (file: string<LocalPath>) (version: int) =
     x.LastCheckedVersion.[file] <- version
 
-  member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: ISourceText, opts, version) =
+  member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: NamedText, opts, version) =
     let fileState = { Lines = text; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
     x.ProjectController.SetProjectOptions(UMX.untag file, opts)
 
-  member x.AddFileText(file: string<LocalPath>, text: ISourceText, version) =
+  member x.AddFileText(file: string<LocalPath>, text: NamedText, version) =
     let fileState = { Lines = text; Touched = DateTime.Now; Version = version }
     x.Files.[file] <- fileState
 
@@ -116,7 +117,7 @@ type State =
       OriginalLoadReferences = []
       Stamp = None}
 
-  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
+  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * NamedText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some (volFile) ->
@@ -125,26 +126,19 @@ type State =
       | None -> Ok (State.FileWithoutProjectOptions(file), volFile.Lines)
       | Some opts -> Ok (opts, volFile.Lines)
 
-  member x.TryGetFileCheckerOptionsWithSource(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * ISourceText> =
+  member x.TryGetFileCheckerOptionsWithSource(file: string<LocalPath>) : ResultOrString<FSharpProjectOptions * NamedText> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok (opts, lines) -> Ok (opts, lines)
 
-  member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<ISourceText> =
+  member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<NamedText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error (sprintf "File '%s' not parsed" (UMX.untag file))
     | Some f -> Ok f.Lines
 
-  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Position) : ResultOrString<FSharpProjectOptions * ISourceText * LineStr> =
-    match x.TryGetFileCheckerOptionsWithLines(file) with
-    | Error x -> Error x
-    | Ok (opts, text) ->
-      let lineCount = text.GetLineCount()
-      if pos.Line < 1 || pos.Line > lineCount then Error "Position is out of range"
-      else
-        let line = text.GetLineString (pos.Line - 1)
-        let lineLength = line.Length
-        if pos.Column < 0 || pos.Column > lineLength // since column is 0-based, lineLength is actually longer than the column is allowed to be
-        then Error "Position is out of range"
-        else
-          Ok (opts, text, line)
+  member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos : Position) : ResultOrString<FSharpProjectOptions * NamedText * LineStr> =
+    result {
+      let! (opts, text) = x.TryGetFileCheckerOptionsWithLines(file)
+      let! line = text.GetLine pos |> Result.ofOption (fun _ -> "Position is out of range")
+      return (opts, text, line)
+    }

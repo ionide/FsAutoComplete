@@ -16,15 +16,16 @@ let fix (getFileLines: GetFileLines) : CodeFix =
         |> Utils.normalizePath
 
       let! lines = getFileLines fileName
-
-      match walkForwardUntilCondition lines (inc lines diagnostic.Range.End) (fun ch -> ch = '-') with
+      let! walkPos = inc lines diagnostic.Range.End |> Result.ofOption (fun _ -> "No walk pos")
+      match walkForwardUntilCondition lines walkPos (fun ch -> ch = '-') with
       | Some dash ->
+        let! oneBack = dec lines dash |> Result.ofOption (fun _ -> "No one back")
         return
           [ { SourceDiagnostic = Some diagnostic
               Title = "Use subtraction instead of negation"
               File = codeActionParams.TextDocument
               Edits =
-                [| { Range = { Start = dash; End = dec lines dash }
+                [| { Range = { Start = oneBack; End = dash }
                      NewText = "- " } |]
               Kind = FixKind.Fix } ]
       | None -> return []

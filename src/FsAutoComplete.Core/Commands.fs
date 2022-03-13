@@ -40,7 +40,7 @@ type CoreResponse<'a> =
 
 [<RequireQualifiedAccess>]
 type FormatDocumentResponse =
-  | Formatted of source: ISourceText * formatted: string
+  | Formatted of source: NamedText * formatted: string
   | UnChanged
   | Ignored
   | ToolNotPresent
@@ -376,7 +376,7 @@ type Commands
             | Some f -> Some(f.Lines)
             | None when File.Exists(UMX.untag file) ->
               let ctn = File.ReadAllText(UMX.untag file)
-              let text = SourceText.ofString ctn
+              let text = NamedText(file, ctn)
 
               state.Files.[file] <-
                 { Touched = DateTime.Now
@@ -425,11 +425,9 @@ type Commands
       GetLineText1 = fun i -> lines.GetLineString(i - 1) }
 
   let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
-    let getLine i =
-      try
-        getLine i
-      with
-      | _ -> ""
+    let getLine (p: Position) =
+        getLine p
+        |> Option.defaultValue ""
 
     let idents = decl.FullName.Split '.'
 
@@ -441,13 +439,12 @@ type Commands
       |> Option.map (fun ic ->
         //TODO: unite with `CodeFix/ResolveNamespace`
         //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
-        let l, c = ic.Pos.Line, ic.Pos.Column
 
         let detectIndentation (line: string) =
           line |> Seq.takeWhile ((=) ' ') |> Seq.length
 
         // adjust line
-        let l =
+        let pos =
           match ic.ScopeKind with
           | ScopeKind.Namespace ->
             // for namespace `open` isn't created close at namespace,
@@ -456,33 +453,31 @@ type Commands
             // this only happens when there are no other `open`
 
             // from insert position go up until first open OR namespace
-            seq { l - 1 .. -1 .. 0 }
+            ic.Pos.LinesToBeginning()
             |> Seq.tryFind (fun l ->
               let lineStr = getLine l
               // namespace MUST be top level -> no indentation
               lineStr.StartsWith "namespace ")
             |> function
               // move to the next line below "namespace"
-              | Some l -> l + 1
-              | None -> l
-          | _ -> l
+              | Some l -> l.IncLine()
+              | None -> ic.Pos
+          | _ -> ic.Pos
 
         // adjust column
-        let c =
-          match l, c with
-          | 0, c -> c
-          | l, 0 ->
-            let prev = getLine (l - 1)
+        let pos =
+          match pos with
+          | Pos(0, c) -> pos
+          | Pos(l, 0) ->
+            let prev = getLine (pos.DecLine())
             let indentation = detectIndentation prev
 
             if indentation <> 0 then
               // happens when there are already other `open`s
-              indentation
+              Position.mkPos l indentation
             else
-              0
-          | _, c -> c
-
-        let pos = Position.mkPos l c
+              pos
+          | Pos(_, c) -> pos
 
         { Namespace = n
           Position = pos
@@ -561,7 +556,7 @@ type Commands
 
   member __.LastCheckResult = lastCheckResult
 
-  member __.SetFileContent(file: string<LocalPath>, lines: ISourceText, version, tfmIfScript) =
+  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version, tfmIfScript) =
     state.AddFileText(file, lines, version)
 
     let payload =
@@ -738,7 +733,7 @@ type Commands
 
   member x.TryGetFileVersion = state.TryGetFileVersion
 
-  member x.Parse file (text: ISourceText) version (isSdkScript: bool option) =
+  member x.Parse file (text: NamedText) version (isSdkScript: bool option) =
     let tmf =
       isSdkScript
       |> Option.map (fun n ->
@@ -796,7 +791,7 @@ type Commands
         )
 
         let hash =
-          text.Lines()
+          text.Lines
           |> Array.filter (fun n ->
             n.StartsWith "#r"
             || n.StartsWith "#load"
@@ -905,8 +900,6 @@ type Commands
             match source with
             | None -> return CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
             | Some source ->
-              let getSource = fun i -> source.GetLineString(i - 1)
-
               let tip =
                 match state.HelpText.TryFind sym with
                 | Some tip -> tip
@@ -917,7 +910,7 @@ type Commands
 
               let n =
                 match state.CompletionNamespaceInsert.TryFind sym with
-                | None -> calculateNamespaceInsert decl pos getSource
+                | None -> calculateNamespaceInsert decl pos source.GetLine
                 | Some s -> Some s
 
               return CoreResponse.Res(HelpText.Full(sym, tip, n))
@@ -933,7 +926,7 @@ type Commands
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     lineStr
-    (lines: ISourceText)
+    (lines: NamedText)
     (fileName: string<LocalPath>)
     filter
     includeKeywords
@@ -951,7 +944,6 @@ type Commands
       match res with
       | Some (decls, residue, shouldKeywords) ->
         let declName (d: DeclarationListItem) = d.Name
-        let getLine = fun i -> lines.GetLineString(i - 1)
 
         //Init cache for current list
         state.Declarations.Clear()
@@ -960,7 +952,7 @@ type Commands
         state.CurrentAST <- Some tyRes.GetAST
 
         //Fill cache for current list
-        do fillHelpTextInTheBackground decls pos fileName getLine
+        do fillHelpTextInTheBackground decls pos fileName lines.GetLine
 
         // Send the first help text without being requested.
         // This allows it to be displayed immediately in the editor.
@@ -1374,7 +1366,7 @@ type Commands
       match tyResOpt with
       | None -> ()
       | Some tyRes ->
-        let getSourceLine lineNo = source.GetLineString(lineNo - 1)
+        let getSourceLine lineNo = (source :> ISourceText).GetLineString(lineNo - 1)
         let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
         let simplified = Array.ofSeq simplified
         notify.Trigger(NotificationEvent.SimplifyNames(file, simplified))
@@ -1390,7 +1382,7 @@ type Commands
       match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
       | None -> return ()
       | Some tyRes ->
-        let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> source.GetLineString(i - 1)))
+        let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
         notify.Trigger(NotificationEvent.UnusedOpens(file, (unused |> List.toArray)))
 
     }
@@ -1543,21 +1535,16 @@ type Commands
       let! contents = state.TryGetFileSource tyRes.FileName
 
       let getGenerics line (token: FSharpTokenInfo) =
-        let lineStr = contents.GetLineString line
+        option {
+          let! lineStr = contents.GetLine (Position.mkPos line 0)
 
-        let res =
-          tyRes.TryGetToolTip(Position.fromZ line token.RightColumn) lineStr
+          let! tip =
+            tyRes.TryGetToolTip(Position.fromZ line token.RightColumn) lineStr
+            |> Option.ofResult
 
-        match res with
-        | Ok tip -> TipFormatter.extractGenericParameters tip
-        | _ ->
-          commandsLogger.info (
-            Log.setMessage "ParameterHints - No tooltips for token: '{token}'\n Line: \n{line}"
-            >> Log.addContextDestructured "token" token
-            >> Log.addContextDestructured "line" lineStr
-          )
-
-          []
+          return TipFormatter.extractGenericParameters tip
+        }
+        |> Option.defaultValue []
 
       let areTokensCommentOrWhitespace (tokens: FSharpTokenInfo list) =
         tokens
@@ -1593,7 +1580,7 @@ type Commands
         | false, None -> currentIndex, false, acc
 
       let hints =
-        Array.init (contents.GetLineCount()) (fun line -> contents.GetLineString line)
+        Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
         |> Array.map (Lexer.tokenizeLine [||])
         |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
         |> Array.fold folder (0, false, [])

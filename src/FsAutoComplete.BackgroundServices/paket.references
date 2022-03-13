@@ -11,3 +11,4 @@ FSharp.UMX
 Microsoft.NETFramework.ReferenceAssemblies
 Ionide.LanguageServerProtocol
 Ionide.KeepAChangelog.Tasks
+FsToolkit.ErrorHandling

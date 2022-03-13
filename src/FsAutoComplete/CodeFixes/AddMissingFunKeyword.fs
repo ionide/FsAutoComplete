@@ -20,8 +20,9 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
         let! errorText = getLineText lines diagnostic.Range
         do! Result.guard (fun _ -> errorText = "->") "Expected error source code text not matched"
 
-        let lineLen =
-          lines.GetLineString(diagnostic.Range.Start.Line).Length
+        let! lineLen =
+          lines.GetLineLength(protocolPosToPos diagnostic.Range.Start)
+          |> Result.ofOption (fun _ -> "Could not get line length")
 
         let! line =
           getLineText
@@ -33,14 +34,9 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
                 { diagnostic.Range.End with
                     Character = lineLen } }
 
-        let charAtPos =
-          getLineText
-            lines
-            ({ Start = diagnostic.Range.Start
-               End = inc lines diagnostic.Range.Start })
-
+        let! prevPos = dec lines diagnostic.Range.Start |> Result.ofOption (fun _ -> "previous position wasn't valid")
         let adjustedPos =
-          walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not)
+          walkBackUntilCondition lines prevPos (System.Char.IsWhiteSpace >> not)
 
         match adjustedPos with
         | None -> return []

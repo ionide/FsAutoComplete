@@ -23,13 +23,15 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         | Some recordExpressionRange ->
             let recordExpressionRange = fcsRangeToLsp recordExpressionRange
 
-            let startInsertRange =
-              let next = inc lines recordExpressionRange.Start
-              { Start = next; End = next }
+            let! startInsertRange =
+              inc lines recordExpressionRange.Start
+              |> Option.map (fun next -> { Start = next; End = next })
+              |> Result.ofOption (fun _ -> "No start insert range")
 
-            let endInsertRange =
-              let prev = dec lines recordExpressionRange.End
-              { Start = prev; End = prev }
+            let! endInsertRange =
+              dec lines recordExpressionRange.End
+              |> Option.map (fun prev -> { Start = prev; End = prev })
+              |> Result.ofOption (fun _ -> "No end insert range")
 
             return
               [ { Title = "Convert to anonymous record"

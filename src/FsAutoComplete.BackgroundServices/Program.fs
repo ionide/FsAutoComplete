@@ -395,7 +395,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             let file = Utils.normalizePath p.File.FilePath
 
             let vf =
-              { Lines = SourceText.ofString p.Content
+              { Lines = NamedText(file, p.Content)
                 Touched = DateTime.Now
                 Version = Some p.Version }
             state.Files.AddOrUpdate(file, (fun _ -> vf),( fun _ _ -> vf) ) |> ignore

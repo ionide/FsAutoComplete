@@ -19,10 +19,10 @@ let fix (getFileLines: GetFileLines) =
             codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
           let! lines = getFileLines fileName
-
-          match walkBackUntilCondition lines (dec lines diagnostic.Range.Start) (System.Char.IsWhiteSpace >> not) with
+          let! walkPos = dec lines diagnostic.Range.Start |> Result.ofOption (fun _ -> "No walk pos")
+          match walkBackUntilCondition lines walkPos (System.Char.IsWhiteSpace >> not) with
           | Some firstNonWhitespaceChar ->
-              let insertPos = inc lines firstNonWhitespaceChar
+              let! insertPos = inc lines firstNonWhitespaceChar |> Result.ofOption (fun _ -> "No insert pos")
 
               return
                 [ { SourceDiagnostic = Some diagnostic

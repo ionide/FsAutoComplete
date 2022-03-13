@@ -27,7 +27,7 @@ let fix
         let! projectOptions = getProjectOptionsForFile typedFileName
         let protocolDeclRange = fcsRangeToLsp declRange
         let! declText = lines.GetText declRange
-        let declTextLine = lines.GetLineString protocolDeclRange.Start.Line
+        let! declTextLine = lines.GetLine declRange.Start |> Result.ofOption (fun _ -> "No line found at pos")
         let! declLexerSymbol = Lexer.getSymbol declRange.Start.Line declRange.Start.Column declText SymbolLookupKind.ByLongIdent projectOptions.OtherOptions |> Result.ofOption (fun _ -> "No lexer symbol for declaration")
         let! declSymbolUse = tyRes.GetCheckResults.GetSymbolUseAtLocation(declRange.Start.Line, declRange.End.Column, declTextLine, declLexerSymbol.Text.Split('.') |> List.ofArray) |> Result.ofOption (fun _ -> "No lexer symbol")
         match declSymbolUse.Symbol with
