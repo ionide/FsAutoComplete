@@ -23,44 +23,9 @@ type SignatureHelpInfo = {
   SigHelpKind: SignatureHelpKind
 }
 
-let private lineText (lines: ISourceText) (pos: Position) = lines.GetLineString(pos.Line - 1)
-
-let private charAt (lines: ISourceText) (pos: Position) =
-      (lineText lines pos).[pos.Column - 1]
-
-let dec (lines: ISourceText) (pos: Position): Position =
-  if pos.Column = 0 then
-    let prevLine = lines.GetLineString (pos.Line - 2)
-    // retreat to the end of the previous line
-    Position.mkPos (pos.Line - 1) (prevLine.Length - 1)
-  else
-    Position.mkPos pos.Line (pos.Column - 1)
-
-let inc (lines: ISourceText) (pos: Position): Position =
-  let currentLine = lineText lines pos
-  if pos.Column - 1 = currentLine.Length then
-    // advance to the beginning of the next line
-    Position.mkPos (pos.Line + 1) 0
-  else
-    Position.mkPos pos.Line (pos.Column + 1)
-
-let getText (lines: ISourceText) (range: Range) =
-  if range.Start.Line = range.End.Line then
-    let line = lineText lines range.Start
-    line.Substring(range.StartColumn - 1, (range.End.Column - range.Start.Column))
-  else
-    String.concat Environment.NewLine (seq {
-      let startLine = lineText lines range.Start
-      yield startLine.Substring(range.StartColumn - 1, (startLine.Length - 1 - range.Start.Column))
-      for lineNo in (range.Start.Line+1)..(range.End.Line-1) do
-        yield lines.GetLineString(lineNo - 1)
-      let endLine = lineText lines range.End
-      yield endLine.Substring(0, range.End.Column - 1)
-    })
-
 let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Position, endOfPreviousIdentPos: Position, lines: ISourceText) : Async<SignatureHelpInfo option> =
   asyncMaybe {
-    let lineStr = lineText lines endOfPreviousIdentPos
+    let! lineStr = lines.GetLine endOfPreviousIdentPos
     let! possibleApplicationSymbolEnd = maybe {
       if tyRes.GetParseResults.IsPosContainedInApplicationPatched endOfPreviousIdentPos then
         let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingAppliedPatched endOfPreviousIdentPos
@@ -68,7 +33,7 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
       else return endOfPreviousIdentPos
     }
 
-    let possibleApplicationSymbolLineStr = lineText lines possibleApplicationSymbolEnd
+    let! possibleApplicationSymbolLineStr = lines.GetLine possibleApplicationSymbolEnd
     let! (endCol, names) = Lexer.findLongIdents(possibleApplicationSymbolEnd.Column, possibleApplicationSymbolLineStr)
     let idents = List.ofArray names
     let! symbolUse = tyRes.GetCheckResults.GetSymbolUseAtLocation(possibleApplicationSymbolEnd.Line, endCol, lineStr, idents)
@@ -115,7 +80,8 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
                       Some (numDefinedArgs - (numDefinedArgs - curriedArgsInSource.Length))
                   else
                       None
-        let methods = tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, lineText lines symbolStart, None)
+        let! symbolStartLineText = lines.GetLine symbolStart
+        let methods = tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, symbolStartLineText, None)
 
         return {
           ActiveParameter = Some argumentIndex
@@ -132,12 +98,12 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
     let lidEnd = paramLocations.LongIdEndLocation
-    let lineText = lineText lines lidEnd
+    let! lineText = lines.GetLine lidEnd
     let methodGroup = tyRes.GetCheckResults.GetMethods(lidEnd.Line, lidEnd.Column, lineText, Some names)
     let methods = methodGroup.Methods
     do! Option.guard (methods.Length > 0 && not(methodGroup.MethodName.EndsWith("> )")))
 
-    let isStaticArgTip = charAt lines paramLocations.OpenParenLocation = '<'
+    let isStaticArgTip =  lines.TryGetChar paramLocations.OpenParenLocation = Some '<'
     let filteredMethods =
       [|
         for m in methods do
@@ -148,15 +114,19 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
 
     let endPos =
       let last = paramLocations.TupleEndLocations |> Array.last
-      if paramLocations.IsThereACloseParen then dec lines last else last
+      if paramLocations.IsThereACloseParen
+      then
+        lines.PrevPos last
+        |> Option.defaultValue last
+      else last
 
-    let startOfArgs = inc lines paramLocations.OpenParenLocation
+    let startOfArgs = lines.NextPos paramLocations.OpenParenLocation
     let tupleEnds =
       [|
-          startOfArgs
+          yield! Option.toList startOfArgs
           for i in 0..paramLocations.TupleEndLocations.Length-2 do
-              paramLocations.TupleEndLocations.[i]
-          endPos
+              yield paramLocations.TupleEndLocations.[i]
+          yield endPos
       |]
     // If we are pressing "(" or "<" or ",", then only pop up the info if this is one of the actual, real detected positions in the detected promptable call
     //
@@ -199,19 +169,24 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
 
 let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Position, lines: ISourceText, triggerChar, possibleSessionKind) =
   asyncResult {
-    let previousNonWhitespaceCharPos =
+    let previousNonWhitespaceChar =
       let rec loop ch pos =
         if Char.IsWhiteSpace ch then
-          let prevPos = dec lines pos
-          loop (charAt lines prevPos) prevPos
+          match lines.TryGetPrevChar pos with
+          | Some (prevPos, prevChar) ->
+            loop prevChar prevPos
+          | None -> None
         else
-          pos
-      let initialPos = dec lines pos
-      loop (charAt lines initialPos) initialPos
+          Some (pos, ch)
+      match lines.TryGetPrevChar pos with
+      | Some (prevPos, prevChar) ->
+        loop prevChar prevPos
+      | None ->
+        None
 
-    let charAtPos = match triggerChar with Some char -> char | None -> charAt lines pos
+    let! (previousNonWhitespaceCharPos, previousNonWhitespaceChar)  = previousNonWhitespaceChar |> Result.ofOption (fun _ -> "Couldn't find previous non-whitespace char")
+    let! charAtPos = triggerChar |> Option.orElseWith (fun _ -> lines.TryGetChar pos) |> Result.ofOption (fun _ -> "Couldn't find a trigger char")
 
-    let previousNonWhitespaceChar = charAt lines previousNonWhitespaceCharPos
     match charAtPos, possibleSessionKind with
     // Generally ' ' indicates a function application, but it's also used commonly after a comma in a method call.
     // This means that the adjusted position relative to the caret could be a ',' or a '(' or '<',
