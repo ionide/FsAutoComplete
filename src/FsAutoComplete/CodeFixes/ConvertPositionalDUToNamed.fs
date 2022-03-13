@@ -33,12 +33,12 @@ type ParseAndCheckResults with
     let rec (|UnionNameAndPatterns|_|) =
       function
       | SynPat.LongIdent (longDotId = ident
-                          argPats = SynArgPats.Pats [ SynPat.Paren (pat = singleDUFieldPattern; range = parenRange) ]) ->
-        Some(ident, [ singleDUFieldPattern ], parenRange)
-      | SynPat.LongIdent (longDotId = ident
                           argPats = SynArgPats.Pats [ SynPat.Paren (pat = SynPat.Tuple (elementPats = duFieldPatterns)
                                                                     range = parenRange) ]) ->
         Some(ident, duFieldPatterns, parenRange)
+      | SynPat.LongIdent (longDotId = ident
+                          argPats = SynArgPats.Pats [ SynPat.Paren (pat = singleDUFieldPattern; range = parenRange) ]) ->
+        Some(ident, [ singleDUFieldPattern ], parenRange)
       | SynPat.Paren(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
         Some(ident, duFieldPatterns, parenRange)
       | SynPat.Paren(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
@@ -130,21 +130,25 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         |> List.ofSeq
         |> List.map (fun f -> f.Name)
 
-      let edits =
+      let! edits =
         match (duFields, allFieldNames) with
-        | MatchedFields pairs -> pairs |> List.collect createEdit |> List.toArray
+        | MatchedFields pairs -> pairs |> List.collect createEdit |> List.toArray |> Ok
 
         | UnmatchedFields (pairs, leftover) ->
-          let endPos =
-            dec sourceText (fcsPosToLsp parenRange.End)
-            |> protocolPosToRange
+          result {
+            let! endPos =
+              dec sourceText (fcsPosToLsp parenRange.End)
+              |> Option.map protocolPosToRange
+              |> Result.ofOption (fun _ -> "No end position for range")
 
-          let matchedEdits = pairs |> List.collect createEdit
-          let leftoverEdits = leftover |> List.map (createWildCard endPos)
+            let matchedEdits = pairs |> List.collect createEdit
+            let leftoverEdits = leftover |> List.map (createWildCard endPos)
 
-          List.append matchedEdits leftoverEdits
-          |> List.toArray
-        | NotEnoughFields -> [||]
+            return
+              List.append matchedEdits leftoverEdits
+              |> List.toArray
+          }
+        | NotEnoughFields -> Ok [||]
 
       match edits with
       | [||] -> return []
