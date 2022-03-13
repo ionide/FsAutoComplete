@@ -296,7 +296,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
     let path = UMX.untag fn
     checker.ParseFile(path, source, fpo)
 
-  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source, options) =
+  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: NamedText, options) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
       checkerLogger.info
@@ -329,7 +329,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       | ex -> return ResultOrString.Error(ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source) =
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
     checkerLogger.info

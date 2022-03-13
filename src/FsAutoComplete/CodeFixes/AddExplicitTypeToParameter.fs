@@ -26,14 +26,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         |> Result.ofOption (fun _ -> $"Couldn't find symbolUse at %A{(fcsStartPos.Line, rightCol)} in file %s{codeActionParams.TextDocument.GetFilePath()}")
 
       let isValidParameterWithoutTypeAnnotation (funcOrValue: FSharpMemberOrFunctionOrValue) (symbolUse: FSharpSymbolUse) =
-        // TODO: remove patched functions and uncomment this boolean check after FCS 40 update
         let isLambdaIfFunction =
-        //     funcOrValue.IsFunction &&
-             parseFileResults.IsBindingALambdaAtPositionPatched symbolUse.Range.Start
+             funcOrValue.IsFunction &&
+             parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
 
         (funcOrValue.IsValue || isLambdaIfFunction) &&
         parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.Start &&
-        not (parseFileResults.IsTypeAnnotationGivenAtPositionPatched symbolUse.Range.Start) &&
+        not (parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.Start) &&
         not funcOrValue.IsMember &&
         not funcOrValue.IsMemberThisValue &&
         not funcOrValue.IsConstructorThisValue &&

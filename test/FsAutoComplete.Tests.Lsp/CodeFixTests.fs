@@ -637,10 +637,10 @@ let negationToSubstraction state =
                                                                           Range = {
                                                                             Start = {
                                                                               Line = 2;
-                                                                              Character = 16 };
+                                                                              Character = 15 };
                                                                             End = {
                                                                               Line = 2;
-                                                                              Character = 15 }
+                                                                              Character = 16 }
                                                                           };
                                                                           NewText = "- "
                                                                         }|] }|] } } |]))

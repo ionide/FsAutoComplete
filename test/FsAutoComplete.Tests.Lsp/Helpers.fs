@@ -274,7 +274,8 @@ open Expecto.Logging
 open Expecto.Logging.Message
 open System.Threading
 open FsAutoComplete.CommandResponse
-
+open CliWrap
+open CliWrap.Buffered
 
 let logEvent (name, payload) =
   logger.debug (eventX "{name}: {payload}" >> setField "name" name >> setField "payload" payload)
@@ -289,43 +290,21 @@ let dotnetCleanup baseDir =
   |> List.filter Directory.Exists
   |> List.iter (fun path -> Directory.Delete(path, true))
 
-let runProcess (log: string -> unit) (workingDir: string) (exePath: string) (args: string) = async {
-  let psi = System.Diagnostics.ProcessStartInfo()
-  psi.FileName <- exePath
-  psi.WorkingDirectory <- workingDir
-  psi.RedirectStandardOutput <- true
-  psi.RedirectStandardError <- true
-  psi.Arguments <- args
-  psi.CreateNoWindow <- true
-  psi.UseShellExecute <- false
-
-  use p = new System.Diagnostics.Process()
-  p.StartInfo <- psi
-
-  p.OutputDataReceived.Add(fun ea -> log (ea.Data))
-
-  p.ErrorDataReceived.Add(fun ea -> log (ea.Data))
-
+let runProcess (workingDir: string) (exePath: string) (args: string) = async {
   let! ctok = Async.CancellationToken
-  p.Start() |> ignore<bool>
-  p.BeginOutputReadLine()
-  p.BeginErrorReadLine()
-  do! p.WaitForExitAsync(ctok) |> Async.AwaitTask
-
-  let exitCode = p.ExitCode
-
-  return exitCode, (workingDir, exePath, args)
+  let! result = Cli.Wrap(exePath).WithArguments(args).WithWorkingDirectory(workingDir).WithValidation(CommandResultValidation.None).ExecuteBufferedAsync(ctok).Task |> Async.AwaitTask
+  return result
 }
 
-let inline expectExitCodeZero (exitCode, _) =
-  Expect.equal exitCode 0 (sprintf "expected exit code zero but was %i" exitCode)
+let inline expectExitCodeZero (r: BufferedCommandResult) =
+  Expect.equal r.ExitCode 0 $"Expected exit code zero but was %i{r.ExitCode}.\nStdOut: %s{r.StandardOutput}\nStdErr: %s{r.StandardError}"
 
 let dotnetRestore dir =
-  runProcess (logDotnetRestore ("Restore" + dir)) dir "dotnet" "restore"
+  runProcess dir "dotnet" "restore"
   |> Async.map expectExitCodeZero
 
 let dotnetToolRestore dir =
-  runProcess (logDotnetRestore ("ToolRestore" + dir)) dir "dotnet" "tool restore"
+  runProcess dir "dotnet" "tool restore"
   |> Async.map expectExitCodeZero
 
 let serverInitialize path (config: FSharpConfigDto) state = async {

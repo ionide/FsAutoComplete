@@ -24,7 +24,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         | None -> return []
         | Some endPos ->
           let fcsPos = protocolPosToPos endPos
-          let line = lines.GetLineString endPos.Line
+          let! line = lines.GetLine fcsPos |> Result.ofOption (fun _ -> "No line found at pos")
 
           let! symbol =
             tyRes.TryGetSymbolUse fcsPos line
@@ -38,6 +38,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
               match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
               | Some equalsPos ->
+                  let! nextPos = inc lines equalsPos |> Result.ofOption (fun _ -> "next position wasn't valid")
                   return
                     [ { File = codeActionParams.TextDocument
                         Title = "Use '<-' to mutate value"
@@ -45,7 +46,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                         Edits =
                           [| { Range =
                                  { Start = equalsPos
-                                   End = (inc lines equalsPos) }
+                                   End = nextPos }
                                NewText = "<-" } |]
                         Kind = FixKind.Refactor } ]
               | None -> return []

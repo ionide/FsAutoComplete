@@ -231,7 +231,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | Some contentChange, Some version ->
         if contentChange.Range.IsNone
            && contentChange.RangeLength.IsNone then
-          let content = SourceText.ofString contentChange.Text
+          let content = NamedText(filePath, contentChange.Text)
           let tfmConfig = config.UseSdkScripts
 
           logger.info (
@@ -741,8 +741,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commands.TryGetFileCheckerOptionsWithLines
         >> Result.map snd
 
-      let getLineText (lines: ISourceText) (range: Ionide.LanguageServerProtocol.Types.Range) =
-        lines.GetText(protocolRangeToRange "unknown.fsx" range)
+      let getLineText (lines: NamedText) (range: Ionide.LanguageServerProtocol.Types.Range) =
+        lines.GetText(protocolRangeToRange (UMX.untag lines.FileName) range)
 
       let getRangeText fileName (range: Ionide.LanguageServerProtocol.Types.Range) =
         getFileLines fileName
@@ -945,7 +945,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     async {
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
-      let content = SourceText.ofString doc.Text
+      let content = NamedText(filePath, doc.Text)
       let tfmConfig = config.UseSdkScripts
 
       logger.info (
@@ -986,7 +986,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | Some contentChange, Some version ->
         if contentChange.Range.IsNone
            && contentChange.RangeLength.IsNone then
-          let content = SourceText.ofString contentChange.Text
+          let content = NamedText(filePath, contentChange.Text)
           commands.SetFileContent(filePath, content, Some version, config.ScriptTFM)
         else
           ()
@@ -1539,7 +1539,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       | Ok (FormatDocumentResponse.Formatted (lines, formatted)) ->
         let range =
           let zero = { Line = 0; Character = 0 }
-          let lastPos = lines.GetLastFilePosition()
+          let lastPos = lines.LastFilePosition
 
           { Start = zero
             End = fcsPosToLsp lastPos }

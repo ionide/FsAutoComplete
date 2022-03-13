@@ -9,20 +9,21 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.CodeAnalysis
+open FsToolkit.ErrorHandling
 
 [<Measure>] type Line0
 [<Measure>] type Line1
 
 type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State) =
     member x.TokenizeLine(fileName, i) =
-        match state.TryGetFileCheckerOptionsWithLines fileName with
-        | ResultOrString.Error _ -> None
-        | ResultOrString.Ok (opts, text) ->
-            try
-                let line = text.GetLineString (i - 1)
-                Lexer.tokenizeLine [||] line |> Some
-            with
-            | _ -> None
+      option {
+        let! text = state.TryGetFileSource fileName |> Option.ofResult
+        try
+            let! line = text.GetLine (Position.mkPos (i - 1) 0)
+            return Lexer.tokenizeLine [||] line
+        with
+        | _ -> return! None
+      }
 
     member x.GetSymbolAtPosition(fileName, pos: Position) =
         match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with

@@ -26,16 +26,18 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
         // * get the range of the symbol, in order to
         // * get the symbol name
         // * so we can format a nice message in the code fix
+        let! nextPos = inc lines endOfError |> Result.ofOption (fun _ -> "next position wasn't valid")
         let firstWhiteSpaceAfterError =
-          walkForwardUntilCondition lines (inc lines endOfError) (System.Char.IsWhiteSpace >> not)
+          walkForwardUntilCondition lines nextPos (System.Char.IsWhiteSpace >> not)
 
         match firstWhiteSpaceAfterError with
         | None -> return []
         | Some startOfBindingName ->
             let fcsPos = protocolPosToPos startOfBindingName
 
-            let lineLen =
-              lines.GetLineString(diagnostic.Range.Start.Line).Length
+            let! lineLen =
+              lines.GetLineLength (protocolPosToPos diagnostic.Range.Start)
+              |> Result.ofOption (fun _ -> "Could not get line length")
 
             let! line =
               getLineText
