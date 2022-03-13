@@ -8,11 +8,6 @@ open FSharp.Compiler.Text
 open System.Runtime.CompilerServices
 open FsToolkit.ErrorHandling
 
-type VolatileFile =
-  { Touched: DateTime
-    Lines: ISourceText
-    Version: int option }
-
 open System.IO
 open FSharp.Compiler.IO
 
@@ -281,6 +276,11 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
       member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
           str.CopyTo(sourceIndex, destination, destinationIndex, count)
+
+type VolatileFile =
+  { Touched: DateTime
+    Lines: NamedText
+    Version: int option }
 
 type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
   let fsLogger = LogProvider.getLoggerByName "FileSystem"

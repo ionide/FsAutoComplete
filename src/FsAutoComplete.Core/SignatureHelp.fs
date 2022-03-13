@@ -23,7 +23,7 @@ type SignatureHelpInfo = {
   SigHelpKind: SignatureHelpKind
 }
 
-let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Position, endOfPreviousIdentPos: Position, lines: ISourceText) : Async<SignatureHelpInfo option> =
+let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults, caretPos: Position, endOfPreviousIdentPos: Position, lines: NamedText) : Async<SignatureHelpInfo option> =
   asyncMaybe {
     let! lineStr = lines.GetLine endOfPreviousIdentPos
     let! possibleApplicationSymbolEnd = maybe {
@@ -93,7 +93,7 @@ let private getSignatureHelpForFunctionApplication (tyRes: ParseAndCheckResults,
       return! None
   }
 
-let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Position, lines: ISourceText, triggerChar) =
+let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Position, lines: NamedText, triggerChar) =
   asyncMaybe {
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
@@ -167,7 +167,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
       }
   }
 
-let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Position, lines: ISourceText, triggerChar, possibleSessionKind) =
+let getSignatureHelpFor (tyRes : ParseAndCheckResults, pos: Position, lines: NamedText, triggerChar, possibleSessionKind) =
   asyncResult {
     let previousNonWhitespaceChar =
       let rec loop ch pos =

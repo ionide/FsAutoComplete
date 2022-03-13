@@ -95,7 +95,7 @@ type FSharpParseFileResults with
       function | SynExpr.App(ExprAtomicFlag.NonAtomic, false, SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, _), actualLambdaBodyExpr, _) -> Some (actualParamListExpr, actualLambdaBodyExpr)
                | _ -> None
 
-    
+
     let visitor = {
         new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
@@ -277,7 +277,7 @@ type FSharpParseFileResults with
               traverseSynExpr expr
               |> Option.map (fun expr -> expr)
 
-      
+
       SyntaxTraversal.Traverse(pos, scope.ParseTree, { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
               match expr with
@@ -303,50 +303,6 @@ type FSharpParseFileResults with
                 else
                     None
             | _ -> defaultTraverse expr })
-
-  member scope.IsTypeAnnotationGivenAtPositionPatched pos =
-      let result =
-          SyntaxTraversal.Traverse(pos, scope.ParseTree, { new SyntaxVisitorBase<_>() with
-              member _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
-                  match expr with
-                  | SynExpr.Typed (_expr, _typeExpr, range) when Position.posEq range.Start pos ->
-                      Some range
-                  | _ -> defaultTraverse expr
-
-              override _.VisitSimplePats(_, pats) =
-                  match pats with
-                  | [] -> None
-                  | _ ->
-                      let exprFunc pat =
-                          match pat with
-                          | SynSimplePat.Typed (_pat, _targetExpr, range) when Position.posEq range.Start pos ->
-                              Some range
-                          | _ ->
-                              None
-
-                      pats |> List.tryPick exprFunc
-
-              override _.VisitPat(_, defaultTraverse, pat) =
-                  match pat with
-                  | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos ->
-                      Some range
-                  | _ -> defaultTraverse pat })
-      result.IsSome
-
-  member scope.IsBindingALambdaAtPositionPatched pos =
-      let result =
-          SyntaxTraversal.Traverse(pos, scope.ParseTree, { new SyntaxVisitorBase<_>() with
-              member _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
-                  defaultTraverse expr
-
-              override _.VisitBinding(_, defaultTraverse, binding) =
-                  match binding with
-                  | SynBinding(_, _, _, _, _, _, _, _, _, expr, range, _) when Position.posEq range.Start pos ->
-                      match expr with
-                      | SynExpr.Lambda _ -> Some range
-                      | _ -> None
-                  | _ -> defaultTraverse binding })
-      result.IsSome
 
 module SyntaxTreeOps =
   open FSharp.Compiler.Syntax

@@ -1071,7 +1071,7 @@ type Commands
     (
       tyRes: ParseAndCheckResults,
       pos: Position,
-      lines: ISourceText,
+      lines: NamedText,
       triggerChar,
       possibleSessionKind
     ) =
