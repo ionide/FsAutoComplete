@@ -1007,25 +1007,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     }
 
   override __.TextDocumentCompletion(p: CompletionParams) =
-    let ensureInBounds (lines: ISourceText) (line, col) =
-      let lineStr = lines.GetLineString line
-
-      if line <= lines.Length
-         && line >= 0
-         && col <= lineStr.Length + 1
-         && col >= 0 then
-        Ok()
-      else
-        logger.info (
-          Log.setMessage
-            "TextDocumentCompletion Not OK:\n COL: {col}\n LINE_STR: {lineStr}\n LINE_STR_LENGTH: {lineStrLength}"
-          >> Log.addContextDestructured "col" col
-          >> Log.addContextDestructured "lineStr" lineStr
-          >> Log.addContextDestructured "lineStrLength" lineStr.Length
-        )
-
-        Error(JsonRpc.Error.InternalErrorMessage "not ok")
-
     asyncResult {
       logger.info (
         Log.setMessage "TextDocumentCompletion Request: {context}"
