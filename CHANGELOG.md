@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.51.0] - 2022.03.13
+
+### Fixed
+
+* [No longer cause SignatureHelp errors due to errors in text navigation](https://github.com/fsharp/FsAutoComplete/pull/894)
+
+### Added
+
+* [New Codefix: Convert positional DU patterns to named patterns](https://github.com/fsharp/FsAutoComplete/pull/895)
+
 ## [0.50.1] - 2022-03-12
 
 ### Fixed
