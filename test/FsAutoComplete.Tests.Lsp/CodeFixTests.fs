@@ -686,6 +686,10 @@ let positionalToNamedDUTests state =
                     End = { Line = 2; Character = 8 } }
                 NewText = "; " }
               { Range =
+                  { Start = { Line = 2; Character = 9 }
+                    End = { Line = 2; Character = 9 } }
+                NewText = "" }
+              { Range =
                   { Start = { Line = 2; Character = 10 }
                     End = { Line = 2; Character = 10 } }
                 NewText = "b = " }
@@ -710,6 +714,10 @@ let positionalToNamedDUTests state =
                   { Start = { Line = 5; Character = 5 }
                     End = { Line = 5; Character = 5 } }
                 NewText = "; " }
+              { Range =
+                  { Start = { Line = 5; Character = 6 }
+                    End = { Line = 5; Character = 6 } }
+                NewText = "" }
               { Range =
                   { Start = { Line = 5; Character = 7 }
                     End = { Line = 5; Character = 7 } }
@@ -736,6 +744,10 @@ let positionalToNamedDUTests state =
                     End = { Line = 8; Character = 6 } }
                 NewText = "; " }
               { Range =
+                  { Start = { Line = 8; Character = 7 }
+                    End = { Line = 8; Character = 7 } }
+                NewText = "" }
+              { Range =
                   { Start = { Line = 8; Character = 8 }
                     End = { Line = 8; Character = 8 } }
                 NewText = "b = " }
@@ -760,6 +772,10 @@ let positionalToNamedDUTests state =
                   { Start = { Line = 12; Character = 29 }
                     End = { Line = 12; Character = 29 } }
                 NewText = "; " }
+              { Range =
+                  { Start = { Line = 12; Character = 30 }
+                    End = { Line = 12; Character = 30 } }
+                NewText = "" }
               { Range =
                   { Start = { Line = 12; Character = 31 }
                     End = { Line = 12; Character = 31 } }
