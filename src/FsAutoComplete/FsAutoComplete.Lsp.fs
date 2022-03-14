@@ -461,7 +461,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       | NotificationEvent.TestDetected(file, tests) ->
-          { File = UMX.untag file
+          { File = Path.LocalPathToUri file
             Tests = tests }
           |> lspClient.NotifyTestDetected
           |> Async.Start
