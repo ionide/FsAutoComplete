@@ -102,6 +102,15 @@ let private createWildCard endRange (duField: string) : TextEdit =
   let range = endRange
   { NewText = wildcard; Range = range }
 
+let private toPosSeq (range: FSharp.Compiler.Text.Range, text: NamedText) =
+  range.Start
+  |> Seq.unfold (fun currentPos ->
+    match text.NextPos currentPos with
+    | None -> None
+    | Some nextPos ->
+      if FSharp.Compiler.Text.Range.rangeContainsPos range nextPos then Some (currentPos, nextPos) else None
+  )
+
 let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
   fun codeActionParams ->
     asyncResult {
@@ -130,7 +139,31 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         |> List.ofSeq
         |> List.map (fun f -> f.Name)
 
-      let! edits =
+      let notInsidePatterns =
+        let ranges =
+          duFields
+          |> List.map (fun f -> f.Range)
+
+        fun (pos: FSharp.Compiler.Text.Position) ->
+          ranges
+          |> List.forall (fun r -> not(FSharp.Compiler.Text.Range.rangeContainsPos r pos))
+
+
+      let commasBetweenFields =
+          toPosSeq (parenRange, sourceText)
+          |> Seq.filter notInsidePatterns
+          |> Seq.filter (fun pos ->
+            sourceText.GetCharUnsafe pos = ','
+          )
+
+      let removeCommaEdits =
+        commasBetweenFields
+        |> Seq.map (fun pos ->
+          { NewText = ""; Range = pos |> fcsPosToProtocolRange }
+        )
+        |> Seq.toArray
+
+      let! patternEdits =
         match (duFields, allFieldNames) with
         | MatchedFields pairs -> pairs |> List.collect createEdit |> List.toArray |> Ok
 
@@ -150,11 +183,12 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
           }
         | NotEnoughFields -> Ok [||]
 
-      match edits with
+      match patternEdits with
       | [||] -> return []
-      | edits ->
+      | patternEdits ->
+        let allEdits = Array.append patternEdits removeCommaEdits |> Array.sortBy (fun e -> e.Range)
         return
-          [ { Edits = edits
+          [ { Edits = allEdits
               File = codeActionParams.TextDocument
               Title = "Convert to named patterns"
               SourceDiagnostic = None

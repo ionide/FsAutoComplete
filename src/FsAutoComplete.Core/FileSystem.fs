@@ -128,8 +128,8 @@ type NamedText(fileName: string<LocalPath>, str: string) =
   member x.GetLineLength(pos: FSharp.Compiler.Text.Position) =
     if pos.Line > getLines.Value.Length then None else Some (x.GetLineUnsafe pos).Length
 
-  member private x.GetCharUnsafe(pos: FSharp.Compiler.Text.Position): char =
-    x.GetLine(pos).Value[pos.Column]
+  member x.GetCharUnsafe(pos: FSharp.Compiler.Text.Position): char =
+    x.GetLine(pos).Value[pos.Column - 1]
 
   /// <summary>Provides safe access to a character of the file via FCS-provided Position.
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
