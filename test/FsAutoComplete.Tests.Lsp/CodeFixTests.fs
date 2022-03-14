@@ -677,26 +677,31 @@ let positionalToNamedDUTests state =
             End = { Line = 2; Character = 10 } }
 
          let edits =
-           [| { Range =
-                  { Start = { Line = 2; Character = 7 }
-                    End = { Line = 2; Character = 7 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 2; Character = 8 }
-                    End = { Line = 2; Character = 8 } }
-                NewText = "; " }
-              { Range =
-                  { Start = { Line = 2; Character = 9 }
-                    End = { Line = 2; Character = 9 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 2; Character = 10 }
-                    End = { Line = 2; Character = 10 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 2; Character = 11 }
-                    End = { Line = 2; Character = 11 } }
-                NewText = "; " } |]
+           [| { Range = { Start = { Line = 2
+                                    Character = 7 }
+                          End = { Line = 2
+                                  Character = 7 } }
+                NewText = "a = " };
+              { Range = { Start = { Line = 2
+                                    Character = 8 }
+                          End = { Line = 2
+                                  Character = 8 } }
+                NewText = ";" };
+              { Range = { Start = { Line = 2
+                                    Character = 8 }
+                          End = { Line = 2
+                                  Character = 9 } }
+                NewText = "" };
+              { Range = { Start = { Line = 2
+                                    Character = 10 }
+                          End = { Line = 2
+                                  Character = 10 } }
+                NewText = "b = " };
+              { Range = { Start = { Line = 2
+                                    Character = 11 }
+                          End = { Line = 2
+                                  Character = 11 } }
+                NewText = ";" } |]
 
          expectEdits patternPos edits)
       testCaseAsync
@@ -706,26 +711,31 @@ let positionalToNamedDUTests state =
             End = { Line = 5; Character = 6 } }
 
          let edits =
-           [| { Range =
-                  { Start = { Line = 5; Character = 4 }
-                    End = { Line = 5; Character = 4 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 5; Character = 5 }
-                    End = { Line = 5; Character = 5 } }
-                NewText = "; " }
-              { Range =
-                  { Start = { Line = 5; Character = 6 }
-                    End = { Line = 5; Character = 6 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 5; Character = 7 }
-                    End = { Line = 5; Character = 7 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 5; Character = 8 }
-                    End = { Line = 5; Character = 8 } }
-                NewText = "; " } |]
+           [| { Range = { Start = { Line = 5
+                                    Character = 4 }
+                          End = { Line = 5
+                                  Character = 4 } }
+                NewText = "a = " };
+              { Range = { Start = { Line = 5
+                                    Character = 5 }
+                          End = { Line = 5
+                                  Character = 5 } }
+                NewText = ";" };
+              { Range = { Start = { Line = 5
+                                    Character = 5 }
+                          End = { Line = 5
+                                  Character = 6 } }
+                NewText = "" };
+              { Range = { Start = { Line = 5
+                                    Character = 7 }
+                          End = { Line = 5
+                                  Character = 7 } }
+                NewText = "b = " };
+              { Range = { Start = { Line = 5
+                                    Character = 8 }
+                          End = { Line = 5
+                                  Character = 8 } }
+                NewText = ";" } |]
 
          expectEdits patternPos edits)
       testCaseAsync
@@ -735,26 +745,31 @@ let positionalToNamedDUTests state =
             End = { Line = 8; Character = 8 } }
 
          let edits =
-           [| { Range =
-                  { Start = { Line = 8; Character = 5 }
-                    End = { Line = 8; Character = 5 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 8; Character = 6 }
-                    End = { Line = 8; Character = 6 } }
-                NewText = "; " }
-              { Range =
-                  { Start = { Line = 8; Character = 7 }
-                    End = { Line = 8; Character = 7 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 8; Character = 8 }
-                    End = { Line = 8; Character = 8 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 8; Character = 9 }
-                    End = { Line = 8; Character = 9 } }
-                NewText = "; " } |]
+           [| { Range = { Start = { Line = 8
+                                    Character = 5 }
+                          End = { Line = 8
+                                  Character = 5 } }
+                NewText = "a = " };
+              { Range = { Start = { Line = 8
+                                    Character = 6 }
+                          End = { Line = 8
+                                  Character = 6 } }
+                NewText = ";" };
+              { Range = { Start = { Line = 8
+                                    Character = 6 }
+                          End = { Line = 8
+                                  Character = 7 } }
+                NewText = "" };
+              { Range = { Start = { Line = 8
+                                    Character = 8 }
+                          End = { Line = 8
+                                  Character = 8 } }
+                NewText = "b = " };
+              { Range = { Start = { Line = 8
+                                    Character = 9 }
+                          End = { Line = 8
+                                  Character = 9 } }
+                NewText = ";" } |]
 
          expectEdits patternPos edits)
       testCaseAsync
@@ -764,30 +779,36 @@ let positionalToNamedDUTests state =
             End = { Line = 12; Character = 30 } }
 
          let edits =
-           [| { Range =
-                  { Start = { Line = 12; Character = 28 }
-                    End = { Line = 12; Character = 28 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 12; Character = 29 }
-                    End = { Line = 12; Character = 29 } }
-                NewText = "; " }
-              { Range =
-                  { Start = { Line = 12; Character = 30 }
-                    End = { Line = 12; Character = 30 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 12; Character = 31 }
-                    End = { Line = 12; Character = 31 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 12; Character = 32 }
-                    End = { Line = 12; Character = 32 } }
-                NewText = "; " }
-              { Range =
-                  { Start = { Line = 12; Character = 32 }
-                    End = { Line = 12; Character = 32 } }
-                NewText = "c = _; " } |]
+           [| { Range = { Start = { Line = 12
+                                    Character = 28 }
+                          End = { Line = 12
+                                  Character = 28 } }
+                NewText = "a = " };
+              { Range = { Start = { Line = 12
+                                    Character = 29 }
+                          End = { Line = 12
+                                  Character = 29 } }
+                NewText = ";" };
+              { Range = { Start = { Line = 12
+                                    Character = 29 }
+                          End = { Line = 12
+                                  Character = 30 } }
+                NewText = "" }; { Range = { Start = { Line = 12
+                                                      Character = 31 }
+                                            End = { Line = 12
+                                                    Character = 31 } }
+                                  NewText = "b = " };
+              { Range = { Start = { Line = 12
+                                    Character = 32 }
+                          End = { Line = 12
+                                  Character = 32 } }
+                NewText = ";" };
+              { Range = { Start = { Line = 12
+                                    Character = 32 }
+                          End = { Line = 12
+                                  Character = 32 } }
+                NewText = "c = _;" }
+            |]
 
          expectEdits patternPos edits) ]
 
