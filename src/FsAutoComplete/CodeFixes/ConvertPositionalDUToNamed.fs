@@ -91,14 +91,14 @@ let private (|MatchedFields|UnmatchedFields|NotEnoughFields|) (astFields: SynPat
 let private createEdit (astField: SynPat, duField: string) : TextEdit list =
   let prefix = $"{duField} = "
   let startRange = astField.Range.Start |> fcsPosToProtocolRange
-  let suffix = "; "
+  let suffix = ";"
   let endRange = astField.Range.End |> fcsPosToProtocolRange
 
   [ { NewText = prefix; Range = startRange }
     { NewText = suffix; Range = endRange } ]
 
 let private createWildCard endRange (duField: string) : TextEdit =
-  let wildcard = $"{duField} = _; "
+  let wildcard = $"{duField} = _;"
   let range = endRange
   { NewText = wildcard; Range = range }
 
@@ -159,7 +159,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
       let removeCommaEdits =
         commasBetweenFields
         |> Seq.map (fun pos ->
-          { NewText = ""; Range = pos |> fcsPosToProtocolRange }
+          let startPos = fcsPosToLsp (FSharp.Compiler.Text.Position.mkPos pos.Line (pos.Column - 1))
+          let endPos = fcsPosToLsp pos
+          { NewText = ""; Range = { Start = startPos; End = endPos } }
         )
         |> Seq.toArray
 
