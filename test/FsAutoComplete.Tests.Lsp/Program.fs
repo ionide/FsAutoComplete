@@ -70,6 +70,7 @@ let tests =
         GoTo.tests state
         FindReferences.tests state
         InfoPanelTests.docFormattingTest state
+        DetectNUnitTests.tests state
       ]
   ]
 
@@ -100,7 +101,7 @@ let main args =
           Logging.LogLevel.Debug
         | _ -> Logging.LogLevel.Info
     let args =
-      args 
+      args
       |> Array.except [debugMarker]
       |> Array.filter (fun arg -> not <| arg.StartsWith logMarker)
     logLevel, args
@@ -126,9 +127,9 @@ let main args =
   let logLevel, args = parseLogLevel args
   let switch = LoggingLevelSwitch(expectoToSerilogLevel logLevel)
   let logSourcesToExclude, args = parseLogExcludes args
-  let sourcesToExclude = 
+  let sourcesToExclude =
     Matching.WithProperty<string>(
-      Constants.SourceContextPropertyName, 
+      Constants.SourceContextPropertyName,
       fun s ->
         s <> null
         &&
