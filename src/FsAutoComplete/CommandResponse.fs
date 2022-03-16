@@ -550,3 +550,4 @@ module CommandResponse =
         PrecedingNonPipeExprLine = pnp
       })
     serialize { Kind = "pipelineHint"; Data = ctn }
+

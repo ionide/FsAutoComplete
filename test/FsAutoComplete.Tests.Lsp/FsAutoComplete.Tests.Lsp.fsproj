@@ -30,6 +30,7 @@
     <Compile Include="FindReferencesTests.fs" />
     <Compile Include="HighlightingTests.fs" />
     <Compile Include="InfoPanelTests.fs" />
+    <Compile Include="DetectUnitTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

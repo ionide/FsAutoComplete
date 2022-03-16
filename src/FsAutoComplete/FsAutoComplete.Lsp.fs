@@ -5,6 +5,7 @@ open System.IO
 open System.Threading
 open System.Diagnostics
 open FsAutoComplete
+open FsAutoComplete.LspHelpers
 open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
@@ -105,6 +106,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member __.NotifyFileParsed(p: PlainNotification) =
     sendServerNotification "fsharp/fileParsed" (box p)
     |> Async.Ignore
+
+  member __.NotifyTestDetected (p: TestDetectedNotification) =
+      sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
 type DiagnosticMessage =
   | Add of source: string * diags: Diagnostic []
@@ -282,7 +286,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     try
       match n with
       | NotificationEvent.FileParsed fn ->
-        { Content = UMX.untag fn }
+        ({ Content = UMX.untag fn } : PlainNotification)
         |> lspClient.NotifyFileParsed
         |> Async.Start
       | NotificationEvent.Workspace ws ->
@@ -301,7 +305,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           | ProjectResponse.WorkspaceLoad (finished) -> CommandResponse.workspaceLoad JsonSerializer.writeJson finished
           | ProjectResponse.ProjectChanged (projectFileName) -> failwith "Not Implemented"
 
-        { Content = ws }
+        ({ Content = ws }: PlainNotification)
         |> lspClient.NotifyWorkspace
         |> Async.Start
 
@@ -409,7 +413,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       //     diagnosticCollections.SetFor(uri, "F# Linter", diags)
 
       | NotificationEvent.Canceled (msg) ->
-        let ntf = { Content = msg }
+        let ntf: PlainNotification = { Content = msg }
 
         lspClient.NotifyCancelledRequest ntf
         |> Async.Start
@@ -456,6 +460,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 Data = fixes })
 
           diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
+      | NotificationEvent.TestDetected(file, tests) ->
+          { File = Path.LocalPathToUri file
+            Tests = tests }
+          |> lspClient.NotifyTestDetected
+          |> Async.Start
     with
     | ex ->
         logger.error (
@@ -2462,11 +2471,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
        | CoreResponse.InfoRes msg
        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
        | CoreResponse.Res (tip, xml, signature, footer, cm) ->
-         { Content =
-             CommandResponse.formattedDocumentation
-               FsAutoComplete.JsonSerializer.writeJson
-               (tip, xml, signature, footer, cm) }
-         |> success)
+         let notification: PlainNotification =
+           { Content =
+               CommandResponse.formattedDocumentation
+                 FsAutoComplete.JsonSerializer.writeJson
+                 (tip, xml, signature, footer, cm) }
+         success notification)
       |> async.Return)
 
   member x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =

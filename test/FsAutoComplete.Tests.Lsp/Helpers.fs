@@ -370,7 +370,7 @@ let waitForWorkspaceFinishedParsing (events : ClientEvents) =
   |> Observable.choose chooser
   |> Async.AwaitObservable
 
-let private typedEvents<'t> typ =
+let private typedEvents<'t> (typ: string): IObservable<string * obj> -> IObservable<'t> =
   Observable.choose (fun (typ', _o) -> if typ' = typ then Some (unbox _o) else None)
 
 let private payloadAs<'t> =
@@ -443,4 +443,11 @@ let waitForParsedScript (event: ClientEvents) =
     let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
     if filename = "Script.fs" then Some n else None
   )
+  |> Async.AwaitObservable
+
+let waitForTestDetected (fileName: string) (events: ClientEvents): Async<TestDetectedNotification> =
+  typedEvents<TestDetectedNotification> "fsharp/testDetected" events
+  |> Observable.filter (fun (tdn: TestDetectedNotification) ->
+    let testNotificationFileName = Path.GetFileName(tdn.File)
+    testNotificationFileName = fileName)
   |> Async.AwaitObservable
