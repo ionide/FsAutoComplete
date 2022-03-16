@@ -70,7 +70,7 @@ let tests =
         GoTo.tests state
         FindReferences.tests state
         InfoPanelTests.docFormattingTest state
-        DetectNUnitTests.tests state
+        DetectUnitTests.tests state
       ]
   ]
 
