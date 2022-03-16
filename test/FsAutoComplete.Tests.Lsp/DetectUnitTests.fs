@@ -35,4 +35,11 @@ let tests state =
         (async {
           let! testNotification = geTestNotification "XUnitTests" "Tests.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 xunit test"
+        })
+      testCaseAsync
+        "Find expecto tests"
+        (async {
+          let! testNotification = geTestNotification "ExpectoTests" "Sample.fs"
+          Expect.hasLength testNotification.Tests 1 "Expected to have found 1 expecto test list"
+          Expect.hasLength testNotification.Tests.[0].Childs 8 "Expected to have found 8 expecto tests"
         }) ]
