@@ -74,7 +74,7 @@ type NotificationEvent =
   | Canceled of errorMessage: string
   | Diagnostics of Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams
   | FileParsed of string<LocalPath>
-  | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry []
+  | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range> []
 
 type Commands
   (

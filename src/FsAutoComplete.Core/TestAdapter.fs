@@ -4,10 +4,10 @@ module TestAdapter
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 
-type TestAdapterEntry =
+type TestAdapterEntry<'range> =
   { Name: string
-    Range: range
-    Childs: ResizeArray<TestAdapterEntry>
+    Range: 'range
+    Childs: ResizeArray<TestAdapterEntry<'range>>
     Id: int
     List: bool
     Type: string }
@@ -27,7 +27,7 @@ let rec private (|Sequentials|_|) =
   | SynExpr.Sequential (_, _, e1, e2, _) -> Some [ e1; e2 ]
   | _ -> None
 
-let getExpectoTests (ast: ParsedInput) : TestAdapterEntry list =
+let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
   let mutable ident = 0
 
   let isExpectoName (str: string) =
@@ -81,7 +81,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry list =
         NotExpecto
     | _ -> NotExpecto
 
-  let rec visitExpr (parent: TestAdapterEntry) =
+  let rec visitExpr (parent: TestAdapterEntry<range>) =
     function
     | SynExpr.App (_, _, SynExpr.App (_, _, expr1, SynExpr.Const (SynConst.String (text = s), _), range), expr2, _) ->
       match expr1, expr2 with
@@ -226,7 +226,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry list =
   List.ofSeq allTests.Childs
 
 
-let getNUnitTest (ast: ParsedInput) : TestAdapterEntry list =
+let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
   let mutable ident = 0
 
   let isNUnitTest (attrs: SynAttributes) =
@@ -252,7 +252,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry list =
     | SynPat.LongIdent (LongIdentWithDots (ident, _), _, _, _, _, _) -> ident |> List.last |> fun n -> n.idText
     | _ -> ""
 
-  let rec visitMember (parent: TestAdapterEntry) =
+  let rec visitMember (parent: TestAdapterEntry<range>) =
     function
     | SynMemberDefn.Member (b, _) -> visitBinding parent b
     | SynMemberDefn.LetBindings (bindings, _, _, _) ->
@@ -305,7 +305,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry list =
 
       parent.Childs.Add entry
 
-  let rec visitDeclarations (parent: TestAdapterEntry) decls =
+  let rec visitDeclarations (parent: TestAdapterEntry<range>) decls =
     for declaration in decls do
       match declaration with
       | SynModuleDecl.Let (_, bindings, _) ->
@@ -369,7 +369,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry list =
 
   List.ofSeq allTests.Childs
 
-let getXUnitTest ast : TestAdapterEntry list =
+let getXUnitTest ast : TestAdapterEntry<range> list =
   let mutable ident = 0
 
   let isXUnitTest (attrs: SynAttributes) =
@@ -391,7 +391,7 @@ let getXUnitTest ast : TestAdapterEntry list =
     | SynPat.LongIdent (LongIdentWithDots (ident, _), _, _, _, _, _) -> ident |> List.last |> fun n -> n.idText
     | _ -> ""
 
-  let rec visitMember (parent: TestAdapterEntry) =
+  let rec visitMember (parent: TestAdapterEntry<range>) =
     function
     | SynMemberDefn.Member (b, _) -> visitBinding parent b
     | SynMemberDefn.LetBindings (bindings, _, _, _) ->
@@ -446,7 +446,7 @@ let getXUnitTest ast : TestAdapterEntry list =
 
       parent.Childs.Add entry
 
-  let rec visitDeclarations (parent: TestAdapterEntry) decls =
+  let rec visitDeclarations (parent: TestAdapterEntry<range>) decls =
     for declaration in decls do
       match declaration with
       | SynModuleDecl.Let (_, bindings, _) ->

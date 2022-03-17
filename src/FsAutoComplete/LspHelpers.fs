@@ -523,7 +523,7 @@ type PlainNotification= { Content: string }
 
 type TestDetectedNotification =
     { File: string
-      Tests: TestAdapter.TestAdapterEntry array }
+      Tests: TestAdapter.TestAdapterEntry<Range> array }
 
 type ProjectParms = {
     /// Project file to compile

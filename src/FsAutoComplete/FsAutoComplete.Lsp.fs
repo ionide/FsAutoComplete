@@ -461,8 +461,18 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
       | NotificationEvent.TestDetected(file, tests) ->
+          let rec map (r: TestAdapter.TestAdapterEntry<FSharp.Compiler.Text.range>): TestAdapter.TestAdapterEntry<Ionide.LanguageServerProtocol.Types.Range> =
+            {
+              Id = r.Id
+              List = r.List
+              Name = r.Name
+              Type = r.Type
+              Range = fcsRangeToLsp r.Range
+              Childs = ResizeArray(r.Childs |> Seq.map map)
+            }
+
           { File = Path.LocalPathToUri file
-            Tests = tests }
+            Tests = tests |> Array.map map }
           |> lspClient.NotifyTestDetected
           |> Async.Start
     with
