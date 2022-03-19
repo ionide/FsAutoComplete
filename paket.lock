@@ -2,7 +2,7 @@ STORAGE: NONE
 RESTRICTION: || (== net6.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    altcover (8.2.837)
+    AltCover (8.2.837)
     Argu (5.2)
       FSharp.Core (>= 4.3.2)
       System.Configuration.ConfigurationManager (>= 4.4)
