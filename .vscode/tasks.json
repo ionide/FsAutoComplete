@@ -6,7 +6,7 @@
         {
             "taskName": "build_debug_netcore",
             "type": "shell",
-            "command": "dotnet build src/FsAutoComplete -f net5.0",
+            "command": "dotnet build src/FsAutoComplete -f net6.0",
             "group": {
                 "kind": "build",
                 "isDefault": true

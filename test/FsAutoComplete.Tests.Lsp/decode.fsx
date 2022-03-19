@@ -1,5 +1,5 @@
-#r "../../src/FsAutoComplete/bin/Debug/net5.0/fsautocomplete.dll"
-#r "../../src/FsAutoComplete/bin/Debug/net5.0/LanguageServerProtocol.dll"
+#r "../../src/FsAutoComplete/bin/Debug/net6.0/fsautocomplete.dll"
+#r "../../src/FsAutoComplete/bin/Debug/net6.0/LanguageServerProtocol.dll"
 
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
