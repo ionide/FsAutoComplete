@@ -73,7 +73,7 @@ Target.create "LocalRelease" (fun _ ->
     DotNet.publish (fun p ->
        { p with
            OutputPath = Some (__SOURCE_DIRECTORY__ </> "bin/release_netcore")
-           Framework = Some "net5.0"
+           Framework = Some "net6.0"
            Configuration = DotNet.BuildConfiguration.fromString configuration }) "src/FsAutoComplete"
 
     Directory.ensure "bin/release_as_tool"

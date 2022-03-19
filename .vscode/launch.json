@@ -9,7 +9,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build_debug_netcore",
-      "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net5.0/fsautocomplete.dll",
+      "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net6.0/fsautocomplete.dll",
       "args": [
         "--mode",
         "lsp"
@@ -24,7 +24,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build_lsp_tests",
-      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net5.0/FsAutoComplete.Tests.Lsp.dll",
+      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net6.0/FsAutoComplete.Tests.Lsp.dll",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopAtEntry": false,

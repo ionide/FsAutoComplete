@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
@@ -57,9 +57,9 @@
   <Target Name="CopyBackgroundServiceJsonToOutputDir"
           AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\net5.0\fsautocomplete.backgroundservices.deps.json"
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\net6.0\fsautocomplete.backgroundservices.deps.json"
                              RelativePath="fsautocomplete.backgroundservices.deps.json" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\net5.0\fsautocomplete.backgroundservices.runtimeconfig.json"
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\net6.0\fsautocomplete.backgroundservices.runtimeconfig.json"
                              RelativePath="fsautocomplete.backgroundservices.runtimeconfig.json" />
     </ItemGroup>
   </Target>
