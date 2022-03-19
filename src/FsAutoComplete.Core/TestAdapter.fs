@@ -157,7 +157,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     | SynExpr.Paren (expr, _, _, _)
     | SynExpr.DoBang (expr, _)
     | SynExpr.Downcast (expr, _, _)
-    | SynExpr.For (_, _, _, _, _, expr, _)
+    | SynExpr.For (doBody = expr)
     | SynExpr.Lazy (expr, _)
     | SynExpr.TypeTest (expr, _, _)
     | SynExpr.Upcast (expr, _, _)
@@ -165,35 +165,35 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     | SynExpr.InferredDowncast (expr, _)
     | SynExpr.LongIdentSet (_, expr, _)
     | SynExpr.DotGet (expr, _, _, _)
-    | SynExpr.ForEach (_, _, _, _, _, expr, _) -> visitExpr parent expr
+    | SynExpr.ForEach (bodyExpr = expr) -> visitExpr parent expr
     | SynExpr.App (_, _, expr1, expr2, _)
-    | SynExpr.TryFinally (expr1, expr2, _, _, _)
+    | SynExpr.TryFinally (tryExpr = expr1; finallyExpr = expr2)
     | SynExpr.NamedIndexedPropertySet (_, expr1, expr2, _)
     | SynExpr.DotNamedIndexedPropertySet (_, _, expr1, expr2, _)
-    | SynExpr.LetOrUseBang (_, _, _, _, expr1, _, expr2, _)
+    | SynExpr.LetOrUseBang (rhs = expr1; body = expr2)
     | SynExpr.While (_, expr1, expr2, _) ->
       visitExpr parent expr1
       visitExpr parent expr2
     | Sequentials exprs
     | SynExpr.Tuple (_, exprs, _, _)
     | SynExpr.ArrayOrList (_, exprs, _) -> List.iter (visitExpr parent) exprs
-    | SynExpr.Match (_, expr, clauses, _)
-    | SynExpr.TryWith (expr, _, clauses, _, _, _, _) ->
+    | SynExpr.Match (expr = expr; clauses = clauses)
+    | SynExpr.TryWith (tryExpr = expr; withCases = clauses) ->
       visitExpr parent expr
       visitMatches parent clauses
     | SynExpr.IfThenElse (ifExpr = cond; thenExpr = trueBranch; elseExpr = falseBranchOpt) ->
       visitExpr parent cond
       visitExpr parent trueBranch
       falseBranchOpt |> Option.iter (visitExpr parent)
-    | SynExpr.LetOrUse (_, _, bindings, body, _) ->
+    | SynExpr.LetOrUse (bindings = bindings; body = body) ->
       visitBindindgs parent bindings
       visitExpr parent body
     | SynExpr.Record (_, _, fields, _) ->
       fields
-      |> List.choose (fun (_, expr, _) -> expr)
+      |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
       |> List.iter (visitExpr parent)
     | SynExpr.MatchLambda (_, _, clauses, _, _) -> visitMatches parent clauses
-    | SynExpr.ObjExpr (_, _, bindings, _, _, _) -> visitBindindgs parent bindings
+    | SynExpr.ObjExpr (bindings = bindings) -> visitBindindgs parent bindings
     | _ -> ()
 
   and visitBinding prefix (SynBinding (expr = body)) = visitExpr prefix body
@@ -205,7 +205,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     for declaration in decls do
       match declaration with
       | SynModuleDecl.Let (_, bindings, _) -> visitBindindgs prefix bindings
-      | SynModuleDecl.NestedModule (_, _, decls, _, _) -> visitDeclarations prefix decls
+      | SynModuleDecl.NestedModule (decls = decls) -> visitDeclarations prefix decls
       | _ -> ()
 
   let visitModulesAndNamespaces prefix modulesOrNss =
@@ -249,7 +249,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
   let getName =
     function
     | SynPat.Named (ident = name) -> name.idText
-    | SynPat.LongIdent (LongIdentWithDots (ident, _), _, _, _, _, _) -> ident |> List.last |> fun n -> n.idText
+    | SynPat.LongIdent (longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> fun n -> n.idText
     | _ -> ""
 
   let rec visitMember (parent: TestAdapterEntry<range>) =
@@ -262,7 +262,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     | _ -> ()
 
   and visitTypeDef parent t =
-    let (SynTypeDefn (ci, om, members, _, _r)) = t
+    let (SynTypeDefn (typeInfo = ci; typeRepr = om; members = members)) = t
     let (SynComponentInfo (longId = ids; range = r)) = ci
     let name = String.concat "." [ for i in ids -> i.idText ]
     ident <- ident + 1
@@ -311,7 +311,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       | SynModuleDecl.Let (_, bindings, _) ->
         for b in bindings do
           visitBinding parent b
-      | SynModuleDecl.NestedModule (ci, _, decls, _, _) ->
+      | SynModuleDecl.NestedModule (moduleInfo = ci; decls = decls) ->
         let (SynComponentInfo (longId = ids; range = r)) = ci
         let name = String.concat "." [ for i in ids -> i.idText ]
         ident <- ident + 1
@@ -388,7 +388,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
   let getName =
     function
     | SynPat.Named (ident = name) -> name.idText
-    | SynPat.LongIdent (LongIdentWithDots (ident, _), _, _, _, _, _) -> ident |> List.last |> fun n -> n.idText
+    | SynPat.LongIdent (longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> fun n -> n.idText
     | _ -> ""
 
   let rec visitMember (parent: TestAdapterEntry<range>) =
@@ -401,7 +401,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     | _ -> ()
 
   and visitTypeDef parent t =
-    let (SynTypeDefn (ci, om, members, _, _)) = t
+    let (SynTypeDefn (typeInfo = ci; typeRepr = om; members = members)) = t
     let (SynComponentInfo (longId = ids; range = r)) = ci
     let name = String.concat "." [ for i in ids -> i.idText ]
     ident <- ident + 1
@@ -452,7 +452,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       | SynModuleDecl.Let (_, bindings, _) ->
         for b in bindings do
           visitBinding parent b
-      | SynModuleDecl.NestedModule (ci, _, decls, _, _) ->
+      | SynModuleDecl.NestedModule (moduleInfo = ci; decls = decls) ->
         let (SynComponentInfo (longId = ids; range = r)) = ci
         let name = String.concat "." [ for i in ids -> i.idText ]
         ident <- ident + 1
