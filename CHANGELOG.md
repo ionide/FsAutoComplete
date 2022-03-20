@@ -10,6 +10,7 @@
 
 * [Update to .NET 6](https://github.com/fsharp/FsAutoComplete/pull/903) (Thanks @dsyme!)
 * [Update to FCS 41.0.3](https://github.com/fsharp/FsAutoComplete/pull/890)
+* Update to Ionide.ProjInfo 0.57.2 to get fixes around the project loader loop
 
 ### Fixed
 
