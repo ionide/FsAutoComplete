@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+* [New notification - `fsharp/testDetected`. This notification is fired per-file when tests are detected for the current file. The data in the payload can be used to run individual tests or groups of tests.](https://github.com/fsharp/FsAutoComplete/pull/893)
+
+### Changed
+
+* [Update to .NET 6](https://github.com/fsharp/FsAutoComplete/pull/903) (Thanks @dsyme!)
+* [Update to FCS 41.0.3](https://github.com/fsharp/FsAutoComplete/pull/890)
+
 ## [0.51.0] - 2022-03-13
 
 ### Fixed
