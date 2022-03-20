@@ -33,6 +33,17 @@ type FcsRange = FSharp.Compiler.Text.Range
 module FcsPos = FSharp.Compiler.Text.Position
 type FcsPos = FSharp.Compiler.Text.Position
 
+type OptionallyVersionedTextDocumentPositionParams =
+  {
+      /// The text document.
+      TextDocument: VersionedTextDocumentIdentifier
+      /// The position inside the text document.
+      Position: Ionide.LanguageServerProtocol.Types.Position
+  }
+  interface ITextDocumentPositionParams with
+      member this.TextDocument with get() = { Uri = this.TextDocument.Uri }
+      member this.Position with get() = this.Position
+
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
@@ -2102,7 +2113,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
          |> success)
       |> async.Return)
 
-  member x.FSharpDocumentationGenerator(p: TextDocumentPositionParams) =
+  member x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) =
     logger.info (
       Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
       >> Log.addContextDestructured "parms" p
@@ -2115,7 +2126,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         Label = Some "Generate Xml Documentation"
         Edit = {
           DocumentChanges = Some [|
-            { TextDocument = { Uri = p.TextDocument.Uri; Version = None } //todo: can we verify version here?
+            { TextDocument = p.TextDocument
               Edits = [| { Range = fcsPosToProtocolRange insertPos; NewText = text } |] }
           |]
           Changes = None
