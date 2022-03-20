@@ -44,12 +44,12 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
         | SynPat.Typed(innerPat, _, _) -> patIsCandidate innerPat
         | SynPat.OptionalVal(_, _) ->
             false
-        | SynPat.Or(leftPat, rightPat, _) -> patIsCandidate leftPat || patIsCandidate rightPat
+        | SynPat.Or(lhsPat = leftPat; rhsPat = rightPat) -> patIsCandidate leftPat || patIsCandidate rightPat
         | SynPat.Ands(innerPatList, _) -> List.exists patIsCandidate innerPatList
         // This is the 'hd :: tail -> ...' pattern
-        | SynPat.LongIdent(LongIdentWithDots([ident], []), _, _, _, _, _)
+        | SynPat.LongIdent(longDotId = LongIdentWithDots([ident], []))
             when ident.idText = "op_ColonColon" -> false
-        | SynPat.LongIdent(_, _, _, ConstructorPats nestedPats, _, r) ->
+        | SynPat.LongIdent(argPats = ConstructorPats nestedPats; range = r) ->
             // The cursor should not be in the nested patterns
             Range.rangeContainsPos r cursorPos && List.forall (not << patIsCandidate) nestedPats
         | SynPat.Tuple _ -> false
@@ -69,8 +69,8 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
 
 let private posIsInLhsOfClause (pos: Position) (clause: SynMatchClause) =
     match clause with
-    | SynMatchClause(_, None, _, _, patternRange, _) -> Range.rangeContainsPos patternRange pos
-    | SynMatchClause(_, Some guardExpr, _, _, patternRange, _) ->
+    | SynMatchClause(whenExpr = None; range = patternRange) -> Range.rangeContainsPos patternRange pos
+    | SynMatchClause(whenExpr = Some guardExpr; range = patternRange) ->
         Range.rangeContainsPos (Range.unionRanges guardExpr.Range patternRange) pos
 
 let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: ParsedInput) =
@@ -89,7 +89,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
     and walkSynModuleDecl(decl: SynModuleDecl) =
         getIfPosInRange decl.Range (fun () ->
             match decl with
-            | SynModuleDecl.Exception(SynExceptionDefn(_, synMembers, _), _) ->
+            | SynModuleDecl.Exception(SynExceptionDefn(members = synMembers), _) ->
                 List.tryPick walkSynMemberDefn synMembers
             | SynModuleDecl.Let(_isRecursive, bindings, _range) ->
                 List.tryPick walkBinding bindings
@@ -97,7 +97,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
                 None
             | SynModuleDecl.NamespaceFragment(fragment) ->
                 walkSynModuleOrNamespace fragment
-            | SynModuleDecl.NestedModule(_, _, modules, _, _) ->
+            | SynModuleDecl.NestedModule(decls = modules) ->
                 List.tryPick walkSynModuleDecl modules
             | SynModuleDecl.Types(typeDefs, _range) ->
                 List.tryPick walkSynTypeDefn typeDefs
@@ -109,7 +109,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
                 None
         )
 
-    and walkSynTypeDefn(SynTypeDefn(_componentInfo, representation, members, implicitCtor, range)) =
+    and walkSynTypeDefn(SynTypeDefn(typeRepr = representation; members = members; implicitConstructor = implicitCtor; range = range)) =
         getIfPosInRange range (fun () ->
             walkSynTypeDefnRepr representation
             |> Option.orElseWith (fun _ -> Option.bind walkSynMemberDefn implicitCtor)
@@ -130,9 +130,9 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             match memberDefn with
             | SynMemberDefn.AbstractSlot(_synValSig, _memberFlags, _range) ->
                 None
-            | SynMemberDefn.AutoProperty(_attributes, _isStatic, _id, _type, _memberKind, _memberFlags, _xmlDoc, _access, expr, _r1, _r2) ->
+            | SynMemberDefn.AutoProperty(synExpr = expr) ->
                 walkExpr expr
-            | SynMemberDefn.Interface(_, members, _range) ->
+            | SynMemberDefn.Interface(members = members) ->
                 Option.bind (List.tryPick walkSynMemberDefn) members
             | SynMemberDefn.Member(binding, _range) ->
                 walkBinding binding
@@ -149,7 +149,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
                 None
         )
 
-    and walkBinding (SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, _retTy, expr, _bindingRange, _seqPoint) as binding) =
+    and walkBinding (SynBinding(expr = expr) as binding) =
         getIfPosInRange binding.RangeOfBindingWithRhs (fun () -> walkExpr expr)
 
     and walkExpr expr =
@@ -166,7 +166,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | SynExpr.New(_, _, synExpr, _)
             | SynExpr.ArrayOrListComputed(_, synExpr, _)
             | SynExpr.ComputationExpr(_, synExpr, _)
-            | SynExpr.Lambda(_, _, _, _, synExpr, _, _)
+            | SynExpr.Lambda(body = synExpr)
             | SynExpr.Lazy(synExpr, _)
             | SynExpr.Do(synExpr, _)
             | SynExpr.Assert(synExpr, _) ->
@@ -179,7 +179,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | SynExpr.Record(_inheritOpt, copyOpt, fields, _range) ->
                 let fieldExprList =
                     fields
-                    |> List.choose (fun (_, fieldExprOpt, _) -> fieldExprOpt)
+                    |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
 
                 match copyOpt with
                 | Some(copyExpr, _blockSeparator) ->
@@ -187,16 +187,16 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
                 | None ->
                     List.tryPick walkExpr fieldExprList
 
-            | SynExpr.ObjExpr(_ty, _baseCallOpt, binds, ifaces, _range1, _range2) ->
+            | SynExpr.ObjExpr(bindings = binds; extraImpls = ifaces) ->
                 List.tryPick walkBinding binds
                 |> Option.orElseWith (fun _ -> List.tryPick walkSynInterfaceImpl ifaces)
 
             | SynExpr.While(_sequencePointInfoForWhileLoop, synExpr1, synExpr2, _range) ->
                 List.tryPick walkExpr [synExpr1; synExpr2]
-            | SynExpr.ForEach(_sequencePointInfoForForLoop, _seqExprOnly, _isFromSource, _synPat, synExpr1, synExpr2, _range) ->
+            | SynExpr.ForEach(enumExpr = synExpr1; bodyExpr = synExpr2) ->
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
-            | SynExpr.For(_sequencePointInfoForForLoop, _ident, synExpr1, _, synExpr2, synExpr3, _range) ->
+            | SynExpr.For(identBody = synExpr1; toBody = synExpr2; doBody = synExpr3) ->
                 List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
 
             | SynExpr.MatchLambda(isExnMatch,
@@ -204,7 +204,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
                                   synMatchClauseList,
                                   _, _wholeExprRange) as matchLambdaExpr ->
                 synMatchClauseList
-                |> List.tryPick (fun (SynMatchClause(_, _, _, e, _, _)) -> walkExpr e)
+                |> List.tryPick (fun (SynMatchClause(resultExpr = e)) -> walkExpr e)
                 |> Option.orElseWith (fun () ->
                     if isExnMatch then
                         None
@@ -218,16 +218,16 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
                        else None
                 )
 
-            | SynExpr.Match(sequencePointInfoForBinding, synExpr, synMatchClauseList, _range) as matchExpr ->
+            | SynExpr.Match(matchDebugPoint = debugPoint; expr = synExpr; clauses = synMatchClauseList) as matchExpr ->
                 getIfPosInRange synExpr.Range (fun () -> walkExpr synExpr)
                 |> Option.orElseWith (fun () ->
                     synMatchClauseList
-                    |> List.tryPick (fun (SynMatchClause(_, _, _, e, _, _)) -> walkExpr e)
+                    |> List.tryPick (fun (SynMatchClause(resultExpr = e)) -> walkExpr e)
                 )
                 |> Option.orElseWith (fun () ->
                     let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
                     if currentClause |> Option.map (clauseIsCandidateForCodeGen pos) |> Option.defaultValue false then
-                        match sequencePointInfoForBinding with
+                        match debugPoint with
                         | DebugPointAtBinding.Yes range ->
                             { MatchWithOrFunctionRange = range
                               Expr = matchExpr
@@ -244,20 +244,20 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | SynExpr.TypeApp(synExpr, _, _synTypeList, _commas, _, _, _range) ->
                 walkExpr synExpr
 
-            | SynExpr.LetOrUse(_, _, synBindingList, synExpr, _range) ->
+            | SynExpr.LetOrUse(body = synExpr; bindings = synBindingList) ->
                 walkExpr synExpr
                 |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 
-            | SynExpr.TryWith(synExpr, _range, _synMatchClauseList, _range2, _range3, _sequencePointInfoForTry, _sequencePointInfoForWith) ->
+            | SynExpr.TryWith(tryExpr = synExpr) ->
                 walkExpr synExpr
 
-            | SynExpr.TryFinally(synExpr1, synExpr2, _range, _sequencePointInfoForTry, _sequencePointInfoForFinally) ->
+            | SynExpr.TryFinally(tryExpr = synExpr1; finallyExpr = synExpr2) ->
                 List.tryPick walkExpr [synExpr1; synExpr2]
 
             | Sequentials exprs ->
                 List.tryPick walkExpr exprs
 
-            | SynExpr.IfThenElse(_, _, synExpr1, _, synExpr2, _, synExprOpt, _sequencePointInfoForBinding, _isRecovery, _range, _range2) ->
+            | SynExpr.IfThenElse(ifExpr =synExpr1; thenExpr = synExpr2; elseExpr = synExprOpt) ->
                 match synExprOpt with
                 | Some synExpr3 ->
                     List.tryPick walkExpr [synExpr1; synExpr2; synExpr3]
@@ -315,9 +315,9 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | SynExpr.DoBang(synExpr, _range) ->
                 walkExpr synExpr
 
-            | SynExpr.LetOrUseBang(_sequencePointInfoForBinding, _, _, _synPat, synExpr1, ands, synExpr2, _range) ->
+            | SynExpr.LetOrUseBang(rhs = synExpr1; andBangs =  ands; body = synExpr2) ->
                 [ synExpr1
-                  yield! ands |> List.map (fun (_,_,_,_,body,_) -> body)
+                  yield! ands |> List.map (fun (SynExprAndBang(body = body)) -> body)
                   synExpr2 ] |> List.tryPick walkExpr
 
             | SynExpr.LibraryOnlyILAssembly _
@@ -335,7 +335,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | _ -> None
         )
 
-    and walkSynInterfaceImpl (SynInterfaceImpl(_synType, synBindings, _range)) =
+    and walkSynInterfaceImpl (SynInterfaceImpl(bindings = synBindings)) =
         List.tryPick walkBinding synBindings
 
     match parsedInput with
@@ -347,9 +347,9 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         match pat with
         | SynPat.Const(_const, _) -> false
         // TODO: figure out if these cases are supposed to happen or not
-        | SynPat.Or(_, _, _)
+        | SynPat.Or(_)
         | SynPat.Ands(_, _)
-        | SynPat.LongIdent(_, _, _, _, _, _)
+        | SynPat.LongIdent( _)
         | SynPat.ArrayOrList(_, _, _)
         | SynPat.Null(_)
         | SynPat.InstanceMember(_, _, _, _, _)
@@ -362,7 +362,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
 
         | SynPat.Record(recordInnerPatList, _) ->
             recordInnerPatList
-            |> List.map (fun (_, innerPat) -> innerPat)
+            |> List.map (fun (_, _, innerPat) -> innerPat)
             |> List.forall checkPattern
 
         | SynPat.OptionalVal(_, _) -> true
@@ -371,7 +371,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         | SynPat.Typed(innerPat, _, _)
         | SynPat.Attrib(innerPat, _, _)
         | SynPat.Paren(innerPat, _) -> checkPattern innerPat
-        | SynPat.As(lhsPat, rhsPat, _range) -> 
+        | SynPat.As(lhsPat, rhsPat, _range) ->
             checkPattern lhsPat && checkPattern rhsPat
 
     let getIfArgsAreFree constructorArgs func =
@@ -384,8 +384,8 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         | SynArgPats.NamePatPairs(namedPatList, _) ->
             let patList =
                 namedPatList
-                |> List.unzip
-                |> (fun (_, pat) -> pat)
+                |> List.unzip3
+                |> (fun (_, _, pat) -> pat)
 
             if List.forall checkPattern patList then
                 Some (func())
@@ -394,8 +394,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
 
     let rec getCasesInPattern (pat: SynPat) =
         match pat with
-        | SynPat.LongIdent(LongIdentWithDots(unionCaseLongIdent, _), _, _,
-                           constructorArgs, _, _) ->
+        | SynPat.LongIdent(longDotId = LongIdentWithDots(unionCaseLongIdent, _); argPats = constructorArgs) ->
             // Get list of qualifiers, this can be checked for length later.
             let reversedIdents =
                 unionCaseLongIdent
@@ -409,7 +408,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
                 )
                 |> Option.defaultValue []
 
-        | SynPat.Or(left, right, _) ->
+        | SynPat.Or(lhsPat = left; rhsPat = right) ->
             (getCasesInPattern left) @ (getCasesInPattern right)
         | SynPat.Ands(patList, _) ->
             patList
@@ -548,7 +547,7 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
         // In the case when there's nothing in the RHS of the arrow
         // FCS compiler apparently uses this particular AST representation
         // but with unitRange = empty
-        | SynMatchClause(_, _, _, SynExpr.Const(SynConst.Unit, unitRange), _, _) ->
+        | SynMatchClause(resultExpr = SynExpr.Const(SynConst.Unit, unitRange)) ->
             let rhsExprExists =
                 unitRange.StartLine <> unitRange.EndLine ||
                 unitRange.StartColumn <> unitRange.EndColumn

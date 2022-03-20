@@ -3,8 +3,8 @@
 # Licensed under the MIT License. See https://go.microsoft.com/fwlink/?linkid=2090316 for license information.
 #-------------------------------------------------------------------------------------------------------------
 
-ARG DOTNETCORE_VESRION=5.0.403
-FROM mcr.microsoft.com/dotnet/sdk:${DOTNETCORE_VESRION}
+ARG DOTNETCORE_VERSION=6.0.200
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNETCORE_VERSION}
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive

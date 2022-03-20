@@ -114,16 +114,16 @@ Target.create "Test" ignore
 Target.create "All" ignore
 Target.create "Release" ignore
 
-type SemverBump = 
-  | Major | Minor | Patch 
-  static member Combine l r = 
+type SemverBump =
+  | Major | Minor | Patch
+  static member Combine l r =
     match l, r with
     | Major, _ | _, Major -> Major
     | Minor, _ | _, Minor -> Minor
     | _ -> Patch
 
 let determineBump (currentBump: SemverBump) (c: Changelog.Change) =
-  let thisChange = 
+  let thisChange =
     match c with
     | Changelog.Change.Added _ -> Minor
     | Changelog.Change.Removed _ -> Major
@@ -134,7 +134,7 @@ let determineBump (currentBump: SemverBump) (c: Changelog.Change) =
     | Changelog.Change.Security _ -> Patch
   SemverBump.Combine currentBump thisChange
 
-let bumpVersion (ver: SemVerInfo) bump  = 
+let bumpVersion (ver: SemVerInfo) bump  =
   match bump with
   | Major -> { ver with Major = ver.Major + 1u; Minor = 0u; Patch = 0u; PreRelease = None; Original = None }
   | Minor -> { ver with Minor = ver.Minor + 1u; Patch = 0u; PreRelease = None; Original = None }
@@ -143,10 +143,10 @@ let bumpVersion (ver: SemVerInfo) bump  =
 Target.create "PromoteUnreleasedToVersion" (fun _ ->
   match changelogs.Unreleased with
   | None -> failwith "No unreleased changes to be promoted"
-  | Some unreleased -> 
+  | Some unreleased ->
     let nextReleaseNumber =
       Trace.tracefn $"Determining bump for version %O{currentRelease.SemVer}"
-      let bump = 
+      let bump =
         (Minor, unreleased.Changes)
         ||> List.fold determineBump
       Trace.tracefn $"Bump type is %O{bump}"
