@@ -71,6 +71,7 @@ let tests =
         FindReferences.tests state
         InfoPanelTests.docFormattingTest state
         DetectUnitTests.tests state
+        XmlDocumentationGeneration.tests state
       ]
   ]
 

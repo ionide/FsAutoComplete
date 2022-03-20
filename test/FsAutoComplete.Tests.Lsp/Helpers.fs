@@ -112,16 +112,28 @@ type Async =
 
 let logger = Expecto.Logging.Log.create "LSPTests"
 
+type Cacher<'t> = System.Reactive.Subjects.ReplaySubject<'t>
 type ClientEvents = IObservable<string * obj>
 
+let record (cacher: Cacher<_>) =
+  fun name payload ->
+    cacher.OnNext (name, payload);
+    AsyncLspResult.success Unchecked.defaultof<_>
+
 let createServer (state: State) =
-  let event = new System.Reactive.Subjects.ReplaySubject<_>()
-  let client = FSharpLspClient ((fun name o -> event.OnNext (name ,o); AsyncLspResult.success ()), { new Ionide.LanguageServerProtocol.Server.ClientRequestSender with member __.Send _ _ = AsyncLspResult.notImplemented})
+  let serverInteractions = new Cacher<_>()
+  let recordNotifications = record serverInteractions
+  let recordRequests =
+    { new Server.ClientRequestSender with
+        member __.Send name payload =
+          record serverInteractions name payload
+    }
+  let client = FSharpLspClient (recordNotifications, recordRequests)
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
   let server = new FSharpLspServer(false, state, client)
-  server, event :> ClientEvents
+  server, serverInteractions :> ClientEvents
 
 let defaultConfigDto : FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
@@ -314,9 +326,9 @@ let serverInitialize path (config: FSharpConfigDto) state = async {
   if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
     do! dotnetRestore path
 
-  let server, event = createServer state
+  let server, clientNotifications = createServer state
 
-  event
+  clientNotifications
   |> Observable.add logEvent
 
   let p : InitializeParams =
@@ -329,7 +341,7 @@ let serverInitialize path (config: FSharpConfigDto) state = async {
 
   let! result = server.Initialize p
   match result with
-  | Result.Ok res -> return (server, event)
+  | Result.Ok res -> return (server, clientNotifications)
   | Result.Error e ->
     return failwith "Initialization failed"
 }
@@ -379,13 +391,31 @@ let private payloadAs<'t> =
 let private getDiagnosticsEvents: IObservable<string * obj> -> IObservable<_> =
   typedEvents<Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
 
+let private fileName (u: DocumentUri) =
+  u.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
+
 /// note that the files here are intended to be the filename only., not the full URI.
 let private matchFiles (files: string Set) =
   Observable.choose (fun (p: Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams) ->
-    let filename = p.Uri.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
+    let filename = fileName p.Uri
     if Set.contains filename files
     then Some (filename, p)
     else None
+  )
+
+let workspaceEdits: IObservable<string * obj> -> IObservable<_> =
+  typedEvents<ApplyWorkspaceEditParams> "workspace/applyEdit"
+
+let editsFor (file: string) =
+  let fileAsUri = Path.FilePathToUri file
+  Observable.choose (fun (p: ApplyWorkspaceEditParams) ->
+    let edits = p.Edit.DocumentChanges.Value
+    let forFile =
+      edits
+      |> Array.collect (fun e -> if e.TextDocument.Uri = fileAsUri then e.Edits else [||])
+    match forFile with
+    | [||] -> None
+    | edits -> Some edits
   )
 
 let fileDiagnostics file =
@@ -451,3 +481,9 @@ let waitForTestDetected (fileName: string) (events: ClientEvents): Async<TestDet
     let testNotificationFileName = Path.GetFileName(tdn.File)
     testNotificationFileName = fileName)
   |> Async.AwaitObservable
+
+
+let waitForEditsForFile file =
+  workspaceEdits
+  >> editsFor file
+  >> Async.AwaitObservable

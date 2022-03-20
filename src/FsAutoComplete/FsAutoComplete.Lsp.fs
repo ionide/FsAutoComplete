@@ -2109,14 +2109,21 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     )
 
     p
-    |> x.positionHandler (fun p pos tyRes lineStr lines ->
-      (match commands.SignatureData tyRes pos lineStr with
-       | CoreResponse.InfoRes msg
-       | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-       | CoreResponse.Res (typ, parms, generics) ->
-         { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-         |> success)
-      |> async.Return)
+    |> x.positionHandler (fun p pos tyRes lineStr lines -> asyncResult {
+      let! { InsertPosition = insertPos; InsertText = text } = commands.GenerateXmlDocumentation(tyRes, pos, lineStr) |> AsyncResult.ofStringErr
+      let edit : ApplyWorkspaceEditParams = {
+        Label = Some "Generate Xml Documentation"
+        Edit = {
+          DocumentChanges = Some [|
+            { TextDocument = { Uri = p.TextDocument.Uri; Version = None } //todo: can we verify version here?
+              Edits = [| { Range = fcsPosToProtocolRange insertPos; NewText = text } |] }
+          |]
+          Changes = None
+        }
+      }
+      let! response = lspClient.WorkspaceApplyEdit edit
+      return ()
+    })
 
   member __.FSharpLineLense(p) =
     async {

@@ -31,7 +31,6 @@ type HelpText =
   | Simple of symbol: string * text: string
   | Full of symbol: string * tip: ToolTipText * textEdits: CompletionNamespaceInsert option
 
-
 [<RequireQualifiedAccess>]
 type CoreResponse<'a> =
   | InfoRes of text: string
@@ -45,6 +44,16 @@ type FormatDocumentResponse =
   | Ignored
   | ToolNotPresent
   | Error of string
+
+/// Represents a desired change to a given file
+type DocumentEdit = { InsertPosition: pos; InsertText: string }
+
+module Result =
+  let ofCoreResponse (r: CoreResponse<'a>) =
+    match r with
+    | CoreResponse.Res a -> Ok a
+    | CoreResponse.ErrorRes msg
+    | CoreResponse.InfoRes msg -> Error msg
 
 module AsyncResult =
 
@@ -1019,6 +1028,45 @@ type Commands
   member x.Help (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetF1Help pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
+
+  /// for a given member, use its signature information to generate placeholder XML documentation strings.
+    /// calculates the required indent and gives the position to insert the text.
+    member x.GenerateXmlDocumentation (tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
+      asyncResult {
+        let trimmed = lineStr.TrimStart(' ')
+        let indentLength = lineStr.Length - trimmed.Length
+        let indentString = String.replicate indentLength " "
+        let! (_, memberParameters, genericParameters) = x.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
+        let summarySection = "/// <summary></summary>"
+        let parameterSection (name, _type) = $"/// <param name=\"%s{name}\"></param>"
+        let genericArg name = $"/// <typeparam name=\"'%s{name}\"></typeparam>"
+        let returnsSection = "/// <returns></returns>"
+        let formattedXmlDoc =
+          seq {
+              yield summarySection
+              match memberParameters with
+              | [] -> ()
+              | parameters ->
+                yield!
+                  parameters
+                  |> List.concat
+                  |> List.mapi (fun _index parameter -> parameterSection parameter)
+              match genericParameters with
+              | [] -> ()
+              | generics ->
+                yield!
+                  generics
+                  |> List.mapi (fun _index generic -> genericArg generic)
+              yield returnsSection
+           }
+           |> Seq.map (fun s -> indentString + s)
+           |> String.concat Environment.NewLine
+           |> fun s -> s + Environment.NewLine // need a newline at the very end
+
+        // always insert at the start of the line, because we've prepended the indent to the start of the summary section
+        let insertPosition = Position.mkPos triggerPosition.Line 0
+        return { InsertPosition = insertPosition; InsertText = formattedXmlDoc }
+      }
 
   member x.SymbolUseProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     async {
