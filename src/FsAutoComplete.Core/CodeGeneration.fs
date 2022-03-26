@@ -19,7 +19,7 @@ type CodeGenerationService(checker : FSharpCompilerServiceChecker, state : State
       option {
         let! text = state.TryGetFileSource fileName |> Option.ofResult
         try
-            let! line = text.GetLine (Position.mkPos (i - 1) 0)
+            let! line = text.GetLine (Position.mkPos i 0)
             return Lexer.tokenizeLine [||] line
         with
         | _ -> return! None
@@ -117,7 +117,10 @@ module CodeGenerationUtils =
                 range
 
         let lineIdxAndTokenSeq = seq {
-            for lineIdx = range.StartLine to range.EndLine do
+            let lines =
+              if range.StartLine = range.EndLine then [range.StartLine]
+              else [range.StartLine..range.EndLine]
+            for lineIdx in lines do
               match codeGenService.TokenizeLine(document.FullName, lineIdx)
                     |> Option.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo)) with
               | Some xs -> yield! xs

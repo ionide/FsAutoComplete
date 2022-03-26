@@ -439,12 +439,12 @@ type Commands
 
   let codeGenServer = CodeGenerationService(checker, state)
 
-  let docForText (lines: ISourceText) (tyRes: ParseAndCheckResults) : Document =
-    { LineCount = lines.Length
+  let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
+    { LineCount = lines.Lines.Length
       FullName = tyRes.FileName // from the compiler, assumed safe
       GetText = fun _ -> string lines
-      GetLineText0 = fun i -> lines.GetLineString i
-      GetLineText1 = fun i -> lines.GetLineString(i - 1) }
+      GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
+      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
 
   let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
     let getLine (p: Position) =
@@ -1260,7 +1260,7 @@ type Commands
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
-  member x.GetRecordStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: ISourceText) (line: LineStr) =
+  member x.GetRecordStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (line: LineStr) =
     async {
       let doc = docForText lines tyRes
       let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
@@ -1283,7 +1283,7 @@ type Commands
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
-  member x.GetInterfaceStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: ISourceText) (lineStr: LineStr) =
+  member x.GetInterfaceStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (lineStr: LineStr) =
     async {
       let doc = docForText lines tyRes
       let! res = tryFindInterfaceExprInBufferAtPos codeGenServer pos doc
@@ -1303,7 +1303,7 @@ type Commands
   member x.GetAbstractClassStub
     (tyRes: ParseAndCheckResults)
     (objExprRange: Range)
-    (lines: ISourceText)
+    (lines: NamedText)
     (lineStr: LineStr)
     =
     asyncResult {
