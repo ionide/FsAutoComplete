@@ -11,6 +11,10 @@
 * [Update to .NET 6](https://github.com/fsharp/FsAutoComplete/pull/903) (Thanks @dsyme!)
 * [Update to FCS 41.0.3](https://github.com/fsharp/FsAutoComplete/pull/890)
 
+### Fixed
+
+* [Record stub generation works again](https://github.com/fsharp/FsAutoComplete/pull/905)
+
 ## [0.51.0] - 2022-03-13
 
 ### Fixed
