@@ -8,6 +8,17 @@ open FsAutoComplete.Utils
 
 let pos (line, character) = { Line = line; Character = character }
 let range st e = { Start = pos st; End = pos e }
+let rangeP st e = { Start = st; End = e }
+
+/// naive iteration, assumes start and end are on same line
+let iterateRange (r: Range) =
+  seq {
+    if r.Start = r.End then
+      yield r.Start
+    else
+      for c = r.Start.Character to r.End.Character do
+        yield pos (r.Start.Line, c)
+  }
 
 let (|Refactor|_|) title newText action =
   match action with
@@ -137,6 +148,56 @@ let generateMatchTests state =
           | Ok other -> failtestf $"Should have generated the rest of match cases, but instead generated %A{other}"
           | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
         }) ]
+
+let generateRecordStubTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RecordStubGeneration")
+
+      let! (server, events) = serverInitialize path { defaultConfigDto with RecordStubGeneration = Some true } state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+
+      let! diagnostics =
+        waitForParseResultsForFile "Script.fsx" events
+        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
+
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  testList
+    "generate record stubs"
+    [ testCaseAsync
+        "can generate record stubs for every pos in the record as soon as one field is known"
+        (async {
+          let! server, file, diagnostics = server
+          let expectedDiagnostic = diagnostics.[0]
+          Expect.equal expectedDiagnostic.Code (Some "764") "Should have missing record field diagnostic"
+
+          for pos in iterateRange expectedDiagnostic.Range do
+            let! response =
+              server.TextDocumentCodeAction
+                { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
+                  Range = rangeP pos pos
+                  Context = { Diagnostics = [| expectedDiagnostic |] } }
+
+            match response with
+            | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Generate record stub"
+                                                                      Edit = Some { DocumentChanges = Some [| { Edits = [| { Range = { Start = { Line = 2
+                                                                                                                                                 Character = 18 }
+                                                                                                                                       End = { Line = 2
+                                                                                                                                               Character = 18 } }
+                                                                                                                             NewText = "\n           b = failwith \"Not Implemented\"" } |] } |] } } |])) ->
+              ()
+            | Ok other ->
+              failtestf
+                $"Should have generated the rest of the record body at %d{pos.Line},%d{pos.Character}, but instead generated %A{other}"
+            | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+        }) ]
+
 
 let missingFunKeywordTests state =
   let server =
@@ -677,30 +738,25 @@ let positionalToNamedDUTests state =
             End = { Line = 2; Character = 10 } }
 
          let edits =
-           [| { Range = { Start = { Line = 2
-                                    Character = 7 }
-                          End = { Line = 2
-                                  Character = 7 } }
-                NewText = "a = " };
-              { Range = { Start = { Line = 2
-                                    Character = 8 }
-                          End = { Line = 2
-                                  Character = 8 } }
-                NewText = ";" };
-              { Range = { Start = { Line = 2
-                                    Character = 8 }
-                          End = { Line = 2
-                                  Character = 9 } }
-                NewText = "" };
-              { Range = { Start = { Line = 2
-                                    Character = 10 }
-                          End = { Line = 2
-                                  Character = 10 } }
-                NewText = "b = " };
-              { Range = { Start = { Line = 2
-                                    Character = 11 }
-                          End = { Line = 2
-                                  Character = 11 } }
+           [| { Range =
+                  { Start = { Line = 2; Character = 7 }
+                    End = { Line = 2; Character = 7 } }
+                NewText = "a = " }
+              { Range =
+                  { Start = { Line = 2; Character = 8 }
+                    End = { Line = 2; Character = 8 } }
+                NewText = ";" }
+              { Range =
+                  { Start = { Line = 2; Character = 8 }
+                    End = { Line = 2; Character = 9 } }
+                NewText = "" }
+              { Range =
+                  { Start = { Line = 2; Character = 10 }
+                    End = { Line = 2; Character = 10 } }
+                NewText = "b = " }
+              { Range =
+                  { Start = { Line = 2; Character = 11 }
+                    End = { Line = 2; Character = 11 } }
                 NewText = ";" } |]
 
          expectEdits patternPos edits)
@@ -711,30 +767,25 @@ let positionalToNamedDUTests state =
             End = { Line = 5; Character = 6 } }
 
          let edits =
-           [| { Range = { Start = { Line = 5
-                                    Character = 4 }
-                          End = { Line = 5
-                                  Character = 4 } }
-                NewText = "a = " };
-              { Range = { Start = { Line = 5
-                                    Character = 5 }
-                          End = { Line = 5
-                                  Character = 5 } }
-                NewText = ";" };
-              { Range = { Start = { Line = 5
-                                    Character = 5 }
-                          End = { Line = 5
-                                  Character = 6 } }
-                NewText = "" };
-              { Range = { Start = { Line = 5
-                                    Character = 7 }
-                          End = { Line = 5
-                                  Character = 7 } }
-                NewText = "b = " };
-              { Range = { Start = { Line = 5
-                                    Character = 8 }
-                          End = { Line = 5
-                                  Character = 8 } }
+           [| { Range =
+                  { Start = { Line = 5; Character = 4 }
+                    End = { Line = 5; Character = 4 } }
+                NewText = "a = " }
+              { Range =
+                  { Start = { Line = 5; Character = 5 }
+                    End = { Line = 5; Character = 5 } }
+                NewText = ";" }
+              { Range =
+                  { Start = { Line = 5; Character = 5 }
+                    End = { Line = 5; Character = 6 } }
+                NewText = "" }
+              { Range =
+                  { Start = { Line = 5; Character = 7 }
+                    End = { Line = 5; Character = 7 } }
+                NewText = "b = " }
+              { Range =
+                  { Start = { Line = 5; Character = 8 }
+                    End = { Line = 5; Character = 8 } }
                 NewText = ";" } |]
 
          expectEdits patternPos edits)
@@ -745,30 +796,25 @@ let positionalToNamedDUTests state =
             End = { Line = 8; Character = 8 } }
 
          let edits =
-           [| { Range = { Start = { Line = 8
-                                    Character = 5 }
-                          End = { Line = 8
-                                  Character = 5 } }
-                NewText = "a = " };
-              { Range = { Start = { Line = 8
-                                    Character = 6 }
-                          End = { Line = 8
-                                  Character = 6 } }
-                NewText = ";" };
-              { Range = { Start = { Line = 8
-                                    Character = 6 }
-                          End = { Line = 8
-                                  Character = 7 } }
-                NewText = "" };
-              { Range = { Start = { Line = 8
-                                    Character = 8 }
-                          End = { Line = 8
-                                  Character = 8 } }
-                NewText = "b = " };
-              { Range = { Start = { Line = 8
-                                    Character = 9 }
-                          End = { Line = 8
-                                  Character = 9 } }
+           [| { Range =
+                  { Start = { Line = 8; Character = 5 }
+                    End = { Line = 8; Character = 5 } }
+                NewText = "a = " }
+              { Range =
+                  { Start = { Line = 8; Character = 6 }
+                    End = { Line = 8; Character = 6 } }
+                NewText = ";" }
+              { Range =
+                  { Start = { Line = 8; Character = 6 }
+                    End = { Line = 8; Character = 7 } }
+                NewText = "" }
+              { Range =
+                  { Start = { Line = 8; Character = 8 }
+                    End = { Line = 8; Character = 8 } }
+                NewText = "b = " }
+              { Range =
+                  { Start = { Line = 8; Character = 9 }
+                    End = { Line = 8; Character = 9 } }
                 NewText = ";" } |]
 
          expectEdits patternPos edits)
@@ -779,36 +825,30 @@ let positionalToNamedDUTests state =
             End = { Line = 12; Character = 30 } }
 
          let edits =
-           [| { Range = { Start = { Line = 12
-                                    Character = 28 }
-                          End = { Line = 12
-                                  Character = 28 } }
-                NewText = "a = " };
-              { Range = { Start = { Line = 12
-                                    Character = 29 }
-                          End = { Line = 12
-                                  Character = 29 } }
-                NewText = ";" };
-              { Range = { Start = { Line = 12
-                                    Character = 29 }
-                          End = { Line = 12
-                                  Character = 30 } }
-                NewText = "" }; { Range = { Start = { Line = 12
-                                                      Character = 31 }
-                                            End = { Line = 12
-                                                    Character = 31 } }
-                                  NewText = "b = " };
-              { Range = { Start = { Line = 12
-                                    Character = 32 }
-                          End = { Line = 12
-                                  Character = 32 } }
-                NewText = ";" };
-              { Range = { Start = { Line = 12
-                                    Character = 32 }
-                          End = { Line = 12
-                                  Character = 32 } }
-                NewText = "c = _;" }
-            |]
+           [| { Range =
+                  { Start = { Line = 12; Character = 28 }
+                    End = { Line = 12; Character = 28 } }
+                NewText = "a = " }
+              { Range =
+                  { Start = { Line = 12; Character = 29 }
+                    End = { Line = 12; Character = 29 } }
+                NewText = ";" }
+              { Range =
+                  { Start = { Line = 12; Character = 29 }
+                    End = { Line = 12; Character = 30 } }
+                NewText = "" }
+              { Range =
+                  { Start = { Line = 12; Character = 31 }
+                    End = { Line = 12; Character = 31 } }
+                NewText = "b = " }
+              { Range =
+                  { Start = { Line = 12; Character = 32 }
+                    End = { Line = 12; Character = 32 } }
+                NewText = ";" }
+              { Range =
+                  { Start = { Line = 12; Character = 32 }
+                    End = { Line = 12; Character = 32 } }
+                NewText = "c = _;" } |]
 
          expectEdits patternPos edits) ]
 
@@ -816,6 +856,7 @@ let tests state =
   testList
     "codefix tests"
     [ abstractClassGenerationTests state
+      generateRecordStubTests state
       generateMatchTests state
       missingFunKeywordTests state
       outerBindingRecursiveTests state
