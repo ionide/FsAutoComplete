@@ -168,8 +168,6 @@ let generateRecordStubTests state =
     }
     |> Async.Cache
 
-  let (|NormalizeNewlines|) (s: string) = s.Replace("\r\n", System.Environment.NewLine)
-
   testList
     "generate record stubs"
     [ testCaseAsync
@@ -192,7 +190,7 @@ let generateRecordStubTests state =
                                                                                                                                                  Character = 18 }
                                                                                                                                        End = { Line = 2
                                                                                                                                                Character = 18 } }
-                                                                                                                             NewText = NormalizeNewlines "\r\n           b = failwith \"Not Implemented\"" } |] } |] } } |])) ->
+                                                                                                                             NewText = "\n           b = failwith \"Not Implemented\"" } |] } |] } } |])) ->
               ()
             | Ok other ->
               failtestf

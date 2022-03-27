@@ -62,7 +62,7 @@ module CodeGenerationUtils =
 
     type ColumnIndentedTextWriter() =
         let stringWriter = new StringWriter()
-        let indentWriter = new IndentedTextWriter(stringWriter, " ")
+        let indentWriter = new IndentedTextWriter(stringWriter, " ", NewLine = "\n")
 
         member __.Write(s: string) =
             indentWriter.Write("{0}", s)
