@@ -605,9 +605,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     commands.SetLinterConfigRelativePath config.LinterConfig
     // TODO(CH): make the destination part of config, so that non-FSAC editors don't have the '.ionide' path
     binaryLogConfig <-
-      match config.GenerateBinlog with
-      | false -> Ionide.ProjInfo.BinaryLogGeneration.Off
-      | true -> Ionide.ProjInfo.BinaryLogGeneration.Within(DirectoryInfo(Path.Combine(rootPath.Value, ".ionide")))
+      match config.GenerateBinlog, rootPath with
+      | _, None
+      | false, _ -> Ionide.ProjInfo.BinaryLogGeneration.Off
+      | true, Some rootPath -> Ionide.ProjInfo.BinaryLogGeneration.Within(DirectoryInfo(Path.Combine(rootPath, ".ionide")))
     ()
 
   do
