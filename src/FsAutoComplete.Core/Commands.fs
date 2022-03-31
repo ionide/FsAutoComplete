@@ -1556,12 +1556,12 @@ type Commands
     result {
       let! contents = state.TryGetFileSource tyRes.FileName
 
-      let getGenerics line (token: FSharpTokenInfo) =
+      let getSignatureAtPos pos =
         option {
-          let! lineStr = contents.GetLine (Position.mkPos line 0)
+          let! lineStr = contents.GetLine pos
 
           let! tip =
-            tyRes.TryGetToolTip(Position.fromZ line token.RightColumn) lineStr
+            tyRes.TryGetToolTip pos lineStr
             |> Option.ofResult
 
           return TipFormatter.extractGenericParameters tip
@@ -1608,7 +1608,8 @@ type Commands
         |> Array.fold folder (0, false, [])
         |> (fun (_, _, third) -> third |> Array.ofList)
         |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
-          let gens = getGenerics currentIndex pipeToken
+          let pipePos = Position.fromZ currentIndex pipeToken.RightColumn
+          let gens = getSignatureAtPos pipePos
 
           let previousNonPipeLine =
             if lastExpressionLineWasPipe then
