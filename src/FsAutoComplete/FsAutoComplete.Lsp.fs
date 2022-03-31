@@ -33,6 +33,17 @@ type FcsRange = FSharp.Compiler.Text.Range
 module FcsPos = FSharp.Compiler.Text.Position
 type FcsPos = FSharp.Compiler.Text.Position
 
+type OptionallyVersionedTextDocumentPositionParams =
+  {
+      /// The text document.
+      TextDocument: VersionedTextDocumentIdentifier
+      /// The position inside the text document.
+      Position: Ionide.LanguageServerProtocol.Types.Position
+  }
+  interface ITextDocumentPositionParams with
+      member this.TextDocument with get() = { Uri = this.TextDocument.Uri }
+      member this.Position with get() = this.Position
+
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
@@ -2102,21 +2113,28 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
          |> success)
       |> async.Return)
 
-  member x.FSharpDocumentationGenerator(p: TextDocumentPositionParams) =
+  member x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) =
     logger.info (
       Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
 
     p
-    |> x.positionHandler (fun p pos tyRes lineStr lines ->
-      (match commands.SignatureData tyRes pos lineStr with
-       | CoreResponse.InfoRes msg
-       | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-       | CoreResponse.Res (typ, parms, generics) ->
-         { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-         |> success)
-      |> async.Return)
+    |> x.positionHandler (fun p pos tyRes lineStr lines -> asyncResult {
+      let! { InsertPosition = insertPos; InsertText = text } = commands.GenerateXmlDocumentation(tyRes, pos, lineStr) |> AsyncResult.ofStringErr
+      let edit : ApplyWorkspaceEditParams = {
+        Label = Some "Generate Xml Documentation"
+        Edit = {
+          DocumentChanges = Some [|
+            { TextDocument = p.TextDocument
+              Edits = [| { Range = fcsPosToProtocolRange insertPos; NewText = text } |] }
+          |]
+          Changes = None
+        }
+      }
+      let! response = lspClient.WorkspaceApplyEdit edit
+      return ()
+    })
 
   member __.FSharpLineLense(p) =
     async {
