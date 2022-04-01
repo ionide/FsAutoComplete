@@ -662,7 +662,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
   ///Helper function for handling file requests using **recent** type check results
   member x.fileHandler<'a>
-    (f: string<LocalPath> -> ParseAndCheckResults -> ISourceText -> AsyncLspResult<'a>)
+    (f: string<LocalPath> -> ParseAndCheckResults -> NamedText -> AsyncLspResult<'a>)
     (file: string<LocalPath>)
     : AsyncLspResult<'a> =
     async {
@@ -2652,6 +2652,27 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   //   return res
   // }
 
+  member x.FSharpInlayHints(p: LspHelpers.FSharpInlayHintsRequest) =
+    logger.info (
+      Log.setMessage "FSharpInlayHints Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+
+    let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
+    let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+    fn
+    |> x.fileHandler (fun fn tyRes lines ->
+      let hints = commands.InlayHints(lines, tyRes, fcsRange)
+      let lspHints =
+        hints
+        |> Array.map (fun h -> {|
+          Text = h.Text
+          Pos = fcsPosToLsp h.Pos
+          Kind = h.Kind
+        |})
+      AsyncLspResult.success lspHints
+    )
+
   member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
     logger.info (
       Log.setMessage "FSharpPipelineHints Request: {parms}"
@@ -2705,6 +2726,7 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
     |> Map.add "fsproj/addFileAbove" (requestHandling (fun s p -> s.FsProjAddFileAbove(p)))
     |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p)))
     |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p)))
+    |> Map.add "fsharp/inlayHints" (requestHandling (fun s p -> s.FSharpInlayHints(p)))
 
   let state =
     State.Initial toolsPath workspaceLoaderFactory

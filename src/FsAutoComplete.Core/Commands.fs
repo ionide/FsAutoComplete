@@ -1600,6 +1600,9 @@ type Commands
   //     return CoreResponse.Res html
   //   }
 
+  member _.InlayHints (text, tyRes: ParseAndCheckResults, range) =
+    FsAutoComplete.Core.InlayHints.provideHints(text, tyRes, range)
+
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
     result {
       let! contents = state.TryGetFileSource tyRes.FileName
