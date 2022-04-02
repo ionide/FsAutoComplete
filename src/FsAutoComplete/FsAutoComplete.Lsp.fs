@@ -44,6 +44,15 @@ type OptionallyVersionedTextDocumentPositionParams =
       member this.TextDocument with get() = { Uri = this.TextDocument.Uri }
       member this.Position with get() = this.Position
 
+[<RequireQualifiedAccess>]
+type InlayHintKind = Type | Parameter
+
+type LSPInlayHint = {
+          Text : string
+          Pos : Types.Position
+          Kind : InlayHintKind
+        }
+
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
@@ -2653,6 +2662,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   // }
 
   member x.FSharpInlayHints(p: LspHelpers.FSharpInlayHintsRequest) =
+    let mapHintKind (k: FsAutoComplete.Core.InlayHints.HintKind): InlayHintKind =
+      match k with
+      | FsAutoComplete.Core.InlayHints.HintKind.Type -> InlayHintKind.Type
+      | FsAutoComplete.Core.InlayHints.HintKind.Parameter -> InlayHintKind.Parameter
+
     logger.info (
       Log.setMessage "FSharpInlayHints Request: {parms}"
       >> Log.addContextDestructured "parms" p
@@ -2665,11 +2679,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let hints = commands.InlayHints(lines, tyRes, fcsRange)
       let lspHints =
         hints
-        |> Array.map (fun h -> {|
+        |> Array.map (fun h -> {
           Text = h.Text
           Pos = fcsPosToLsp h.Pos
-          Kind = h.Kind
-        |})
+          Kind = mapHintKind h.Kind
+        })
       AsyncLspResult.success lspHints
     )
 
