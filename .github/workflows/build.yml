@@ -4,6 +4,8 @@ on: [push, pull_request]
 
 jobs:
   build:
+    env:
+      TEST_TIMEOUT_MINUTES: 20
     timeout-minutes: 20 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
