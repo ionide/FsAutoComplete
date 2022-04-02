@@ -44,6 +44,15 @@ type OptionallyVersionedTextDocumentPositionParams =
       member this.TextDocument with get() = { Uri = this.TextDocument.Uri }
       member this.Position with get() = this.Position
 
+[<RequireQualifiedAccess>]
+type InlayHintKind = Type | Parameter
+
+type LSPInlayHint = {
+          Text : string
+          Pos : Types.Position
+          Kind : InlayHintKind
+        }
+
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
@@ -662,7 +671,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
   ///Helper function for handling file requests using **recent** type check results
   member x.fileHandler<'a>
-    (f: string<LocalPath> -> ParseAndCheckResults -> ISourceText -> AsyncLspResult<'a>)
+    (f: string<LocalPath> -> ParseAndCheckResults -> NamedText -> AsyncLspResult<'a>)
     (file: string<LocalPath>)
     : AsyncLspResult<'a> =
     async {
@@ -2652,6 +2661,32 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   //   return res
   // }
 
+  member x.FSharpInlayHints(p: LspHelpers.FSharpInlayHintsRequest) =
+    let mapHintKind (k: FsAutoComplete.Core.InlayHints.HintKind): InlayHintKind =
+      match k with
+      | FsAutoComplete.Core.InlayHints.HintKind.Type -> InlayHintKind.Type
+      | FsAutoComplete.Core.InlayHints.HintKind.Parameter -> InlayHintKind.Parameter
+
+    logger.info (
+      Log.setMessage "FSharpInlayHints Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+
+    let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
+    let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+    fn
+    |> x.fileHandler (fun fn tyRes lines ->
+      let hints = commands.InlayHints(lines, tyRes, fcsRange)
+      let lspHints =
+        hints
+        |> Array.map (fun h -> {
+          Text = h.Text
+          Pos = fcsPosToLsp h.Pos
+          Kind = mapHintKind h.Kind
+        })
+      AsyncLspResult.success lspHints
+    )
+
   member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
     logger.info (
       Log.setMessage "FSharpPipelineHints Request: {parms}"
@@ -2705,6 +2740,7 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
     |> Map.add "fsproj/addFileAbove" (requestHandling (fun s p -> s.FsProjAddFileAbove(p)))
     |> Map.add "fsproj/addFileBelow" (requestHandling (fun s p -> s.FsProjAddFileBelow(p)))
     |> Map.add "fsproj/addFile" (requestHandling (fun s p -> s.FsProjAddFile(p)))
+    |> Map.add "fsharp/inlayHints" (requestHandling (fun s p -> s.FSharpInlayHints(p)))
 
   let state =
     State.Initial toolsPath workspaceLoaderFactory

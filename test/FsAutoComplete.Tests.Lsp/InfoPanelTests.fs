@@ -4,19 +4,8 @@ open Expecto
 open System.IO
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
-open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
-
-let trySerialize (t: string): 't option =
-  try
-    JsonSerializer.readJson t |> Some
-  with _ -> None
-
-let (|As|_|) (m: PlainNotification): 't option =
-  match trySerialize m.Content with
-  | Some(r: FsAutoComplete.CommandResponse.ResponseMsg<'t>) -> Some r.Data
-  | None -> None
 
 let docFormattingTest state =
   let server =

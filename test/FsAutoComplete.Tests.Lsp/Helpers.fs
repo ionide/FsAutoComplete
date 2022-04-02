@@ -115,6 +115,10 @@ let logger = Expecto.Logging.Log.create "LSPTests"
 type Cacher<'t> = System.Reactive.Subjects.ReplaySubject<'t>
 type ClientEvents = IObservable<string * obj>
 
+module Range =
+  let rangeContainsPos (range : Range) (pos : Position) =
+      range.Start <= pos && pos <= range.End
+
 let record (cacher: Cacher<_>) =
   fun name payload ->
     cacher.OnNext (name, payload);
@@ -482,8 +486,17 @@ let waitForTestDetected (fileName: string) (events: ClientEvents): Async<TestDet
     testNotificationFileName = fileName)
   |> Async.AwaitObservable
 
-
 let waitForEditsForFile file =
   workspaceEdits
   >> editsFor file
   >> Async.AwaitObservable
+
+let trySerialize (t: string): 't option =
+  try
+    JsonSerializer.readJson t |> Some
+  with _ -> None
+
+let (|As|_|) (m: PlainNotification): 't option =
+  match trySerialize m.Content with
+  | Some(r: FsAutoComplete.CommandResponse.ResponseMsg<'t>) -> Some r.Data
+  | None -> None

@@ -848,3 +848,9 @@ let encodeSemanticHighlightRanges (rangesAndHighlights: (struct(Ionide.LanguageS
       prev <- currentRange
       idx <- idx + 5
     Some finalArray
+
+
+type FSharpInlayHintsRequest = {
+  TextDocument: TextDocumentIdentifier
+  Range: Range
+}

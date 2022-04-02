@@ -72,6 +72,7 @@ let tests =
         InfoPanelTests.docFormattingTest state
         DetectUnitTests.tests state
         XmlDocumentationGeneration.tests state
+        InlayHintTests.tests state
       ]
   ]
 
