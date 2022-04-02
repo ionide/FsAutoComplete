@@ -1387,9 +1387,9 @@ type Commands
       )
 
       checker.DisableInMemoryProjectReferences <- disableInMemoryProjectReferences
-      state.ProjectController.LoadWorkspace(files, binaryLogs)
-      commandsLogger.info (Log.setMessage "Workspace loading finished ")
-      return CoreResponse.Res true
+      let! response = state.ProjectController.LoadWorkspace(files, binaryLogs)
+      commandsLogger.info (Log.setMessage "Workspace loading finished")
+      return CoreResponse.Res response
     }
 
   member x.Project projectFileName binaryLogs =
@@ -1399,8 +1399,8 @@ type Commands
         >> Log.addContextDestructured "file" projectFileName
       )
 
-      state.ProjectController.LoadProject(projectFileName, binaryLogs)
-      return CoreResponse.Res true
+      let! response = state.ProjectController.LoadProject(projectFileName, binaryLogs)
+      return CoreResponse.Res response
     }
 
   member x.CheckUnusedDeclarations(file: string<LocalPath>) : Async<unit> =
