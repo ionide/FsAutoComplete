@@ -230,17 +230,23 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             diags
             |> Array.map Helpers.fcsErrorToDiagnostic
           let uri = file |> Utils.normalizePath |> Helpers.filePathToUri
-          client.Notify {Value = sprintf "Project - Sending diagnostics %s" (UMX.untag file) } |> Async.RunSynchronously
-          client.SendDiagnostics {  Uri = uri; Diagnostics = diags } |> Async.RunSynchronously
+          async {
+            do! client.Notify {Value = sprintf "Project - Sending diagnostics %s" (UMX.untag file) }
+            do! client.SendDiagnostics {  Uri = uri; Diagnostics = diags }
+          }
+          |> Async.Start
           ()
         )
 
         projectResult.GetAllUsesOfAllSymbols()
         |> Array.groupBy (fun d -> d.FileName)
         |> Array.iter (fun (file, symbols) ->
-          let file = Utils.normalizePath file
-          client.Notify {Value = sprintf "Project - Got symbols for file %s - %d" (UMX.untag file) (symbols |> Seq.length) } |> Async.RunSynchronously
-          SymbolCache.updateSymbols file symbols
+          async {
+            let file = Utils.normalizePath file
+            do! client.Notify {Value = sprintf "Project - Got symbols for file %s - %d" (UMX.untag file) (symbols |> Seq.length) }
+            SymbolCache.updateSymbols file symbols
+          }
+          |> Async.Start
         )
 
         ()
@@ -470,10 +476,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
         let knownProjects = state.FileCheckOptions.Values |> Seq.distinctBy (fun o -> o.ProjectFileName)
         do! client.Notify {Value = sprintf "Init workspace - starting typechecking on %d projects" (knownProjects |> Seq.length) }
         knownProjects
-        |> Seq.iter (fun opts ->
-            typecheckProject opts
-            |> Async.RunSynchronously
-        )
+            |> Seq.iter (fun opts -> typecheckProject opts |> Async.Start)
         do! client.Notify {Value = "Init workspace completed" }
         isWorkspaceReady <- true
         return LspResult.success ()

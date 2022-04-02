@@ -13,8 +13,7 @@ type TriggerType =
 
 let private server state =
   async {
-    let path =
-      Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
+    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
 
     return! serverInitialize path defaultConfigDto state
   }
@@ -29,8 +28,7 @@ let coreTestSignatureHelp hide title file (line, char) triggerType checkResp ser
     (async {
       let! (server: Lsp.FSharpLspServer, event: ClientEvents) = server
 
-      let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
 
       let path = Path.Combine(path, file)
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
@@ -38,7 +36,7 @@ let coreTestSignatureHelp hide title file (line, char) triggerType checkResp ser
 
       do!
         waitForParseResultsForFile file event
-        |> AsyncResult.foldResult id (fun diags -> printfn "Errors checing script file %s: %A" path diags)
+        |> AsyncResult.foldResult id ignore
 
       let sigHelpRequest: SignatureHelpParams =
         { TextDocument = { Uri = Path.FilePathToUri path }
@@ -61,7 +59,7 @@ let coreTestSignatureHelp hide title file (line, char) triggerType checkResp ser
         |> AsyncResult.foldResult id (fun e -> failwithf "unexpected request error %A" e)
 
       checkResp resp
-     })
+    })
 
 let ptestSignatureHelp = coreTestSignatureHelp true
 let testSignatureHelp = coreTestSignatureHelp false
@@ -153,39 +151,32 @@ let checkOverloadsAt pos name =
 let tests state =
   let server = server state
 
-  testSequenced
-  <| testList
-       "signature help"
-       [ testList
-           "function application edge cases"
-           ([ test742
-              test744
-              test745
-              test746
-              test747
-              test748
-              test750 ]
-            |> List.map (fun f -> f server))
-         testList
-           "overload edge cases"
-           [ for c in 37 .. 39 do
-               checkOverloadsAt (0, c) $"Can get overloads at whitespace position {c - 37} of unattached parens" server
-             for c in 39 .. 41 do
-               checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c - 39} of attached parens" server ]
-         testList
-           "parameter position detect"
-           [ testSignatureHelp
-               "Can suggest second parameter when on the second parameter"
-               "ParameterPosition.fsx"
-               (0, 49)
-               Manual
-               (fun resp ->
-                 Expect.isSome resp "should get sigdata when triggered on applications"
-                 Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload")
-               server ]
-         testCaseAsync
-           "cleanup"
-           (async {
-             let! server, _ = server
-             do! server.Shutdown()
-            }) ]
+  testList
+    "signature help"
+    [ testList
+        "function application edge cases"
+        ([ test742
+           test744
+           test745
+           test746
+           test747
+           test748
+           test750 ]
+         |> List.map (fun f -> f server))
+      testList
+        "overload edge cases"
+        [ for c in 37..39 do
+            checkOverloadsAt (0, c) $"Can get overloads at whitespace position {c - 37} of unattached parens" server
+          for c in 39..41 do
+            checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c - 39} of attached parens" server ]
+      testList
+        "parameter position detect"
+        [ testSignatureHelp
+            "Can suggest second parameter when on the second parameter"
+            "ParameterPosition.fsx"
+            (0, 49)
+            Manual
+            (fun resp ->
+              Expect.isSome resp "should get sigdata when triggered on applications"
+              Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload")
+            server ] ]

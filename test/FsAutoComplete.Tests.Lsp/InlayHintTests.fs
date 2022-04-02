@@ -116,11 +116,4 @@ let tests state =
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
           | Result.Ok hints -> Expect.isEmpty hints "Should have had no hints"
-        })
-
-      testCaseAsync
-        "cleanup"
-        (async {
-          let! server, _ = server
-          do! server.Shutdown()
         }) ]

@@ -33,7 +33,7 @@ let normalizeRepoPath (repo: string<RepoPathSegment>): string<NormalizedRepoPath
 /// results in invalid paths being generated (.NET treats a // in the path as a re-root of the path).
 /// The shortest solution is to strip the leading slash as part of normalization, which works on Windows,
 /// but I'm unsure of the effect on Linux and MacOS.
-let stripLeadingSlash (repo: string<NormalizedRepoPathSegment>) = 
+let stripLeadingSlash (repo: string<NormalizedRepoPathSegment>) =
     (UMX.untag repo).TrimStart('/') |> UMX.tag<NormalizedRepoPathSegment>
 
 type SourceLinkJson =
@@ -173,9 +173,9 @@ let private downloadFileToTempDir (url: string<Url>) (repoPathFragment: string<N
     Directory.CreateDirectory tempDir |> ignore
 
     async {
-        use fileStream = File.OpenWrite tempFile
         logger.info (Log.setMessage "Getting file from {url} for document {repoPath}" >> Log.addContextDestructured "url" url >> Log.addContextDestructured "repoPath" repoPathFragment)
         let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
+        use fileStream = File.OpenWrite tempFile
         do! response.CopyToAsync fileStream |> Async.AwaitTask
         return UMX.tag<LocalPath> tempFile
     }

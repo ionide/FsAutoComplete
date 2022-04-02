@@ -11,15 +11,13 @@ let tests state =
     "Find All References tests"
     [ let server =
         async {
-          let path =
-            Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences")
+          let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences")
 
           let! (server, event) = serverInitialize path defaultConfigDto state
           do! waitForWorkspaceFinishedParsing event
           let scriptPath = Path.Combine(path, "Script.fsx")
 
-          let tdop: DidOpenTextDocumentParams =
-            { TextDocument = loadDocument scriptPath }
+          let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
 
           do! server.TextDocumentDidOpen tdop
           return server, scriptPath
@@ -51,4 +49,4 @@ let tests state =
               { Start = { Line = 0; Character = 4 }
                 End = { Line = 0; Character = 7 } }
               "should point to the definition of `foo`"
-         }) ]
+        }) ]
