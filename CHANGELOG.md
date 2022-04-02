@@ -5,16 +5,18 @@
 ### Added
 
 * [New notification - `fsharp/testDetected`. This notification is fired per-file when tests are detected for the current file. The data in the payload can be used to run individual tests or groups of tests.](https://github.com/fsharp/FsAutoComplete/pull/893)
+* [New endpoint - `fsharp/inlayHints](https://github.com/fsharp/FsAutoComplete/pull/907). This provides support for type annotation and parameter name inlay hints.
 
 ### Changed
 
 * [Update to .NET 6](https://github.com/fsharp/FsAutoComplete/pull/903) (Thanks @dsyme!)
 * [Update to FCS 41.0.3](https://github.com/fsharp/FsAutoComplete/pull/890)
-* Update to Ionide.ProjInfo 0.57.2 to get fixes around the project loader loop
+* [Update to Ionide.ProjInfo 0.57.2 to get fixes around the project loader loop](https://github.com/fsharp/FsAutoComplete/pull/904)
 
 ### Fixed
 
 * [Record stub generation works again](https://github.com/fsharp/FsAutoComplete/pull/905)
+* The fsautocomplete.netcore.zip file that was previously added to the release announcement on GitHub is back again.
 
 ## [0.51.0] - 2022-03-13
 
