@@ -24,6 +24,8 @@
     <Compile Include="Utils/Server.fs" />
     <Compile Include="Utils/ServerTests.fs" />
     <Compile Include="Utils/Server.Tests.fs" />
+    <Compile Include="Utils/CursorbasedTests.fs" />
+    <Compile Include="Utils/CursorbasedTests.Tests.fs" />
     <Compile Include="*Tests.fs" Exclude="Helpers.fs;Program.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

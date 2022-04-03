@@ -49,6 +49,7 @@ let lspTests =
             initTests state
 
             Utils.Tests.Server.tests state
+            Utils.Tests.CursorbasedTests.tests state
 
             codeLensTest state
             documentSymbolTest state

@@ -3,6 +3,56 @@ module Utils.Tests.Utils
 open Utils.Utils
 open Expecto
 
+module private Expect =
+  let private failureTests = testList (nameof Expect.failure) [
+    testCaseAsync "failtest should be success" (Expect.failure <| async {
+      failtest "some error"
+    })
+    testCaseAsync "equal failure should be success" (Expect.failure <| async {
+      Expect.equal 1 2 ""
+    })
+    testCaseAsync "no failure should fail" (async {
+      try
+        do! 
+          async { return 1 } 
+          |> Expect.failure
+
+        failtest "should not succeed"
+      with
+      | :? AssertException -> ()
+      | ex -> failtest "Expected AssertException, but was %A" (ex.GetType())
+    })
+    testCaseAsync "`failwith` (`System.Exception`) should fail" (async {
+      let msg = "some error"
+      try
+        do! 
+          async { return failwith msg } 
+          |> Expect.failure
+
+        failtest "should not succeed"
+      with
+      | ex when ex.Message = msg -> ()
+      | ex -> failtest "Expected System.Exception, but was %A" (ex.GetType())
+    })
+    testCaseAsync "`raise NotImplementedException` should fail" (async {
+      let msg = "oh no"
+      try
+        do! 
+          async { return raise (System.NotImplementedException(msg)) } 
+          |> Expect.failure
+
+        failtest "should not succeed"
+      with
+      | :? System.NotImplementedException as ex -> 
+          Expect.equal ex.Message msg "Should have correct error message"
+      | ex -> failtest "Expected System.Exception, but was %A" (ex.GetType())
+    })
+  ]
+
+  let tests = testList (nameof Expect) [
+    failureTests
+  ]
+
 module private Range =
   open Ionide.LanguageServerProtocol.Types
 
@@ -519,6 +569,7 @@ else
   ]
 
 let tests = testList (nameof Utils) [
+  Expect.tests
   Range.tests
   Text.tests
 ]

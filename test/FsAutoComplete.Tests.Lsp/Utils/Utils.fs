@@ -1,5 +1,31 @@
 module Utils.Utils
 
+module Expect =
+  open FsAutoComplete.Utils
+  open Expecto
+
+  let failureMatching (m: AssertException -> bool) (f: Async<_>) = async {
+    let failed = async {
+      try
+        do! f |> Async.map ignore
+        return false
+      with
+      | :? AssertException as ex when m ex -> return true
+      // keep other exceptions
+    }
+
+    let! failed = failed
+    if not failed then
+      failtestf "Expected AssertException, but was no exception"
+  }
+  /// passed Async `f` is expected to throw `Expecto.AssertException`
+  /// -> Expecto Test in `f` is expected to fail
+  /// 
+  /// ~ Basically fancy `Async` wrapper for `Expect.throwsT<Expecto.AssertException>`
+  /// 
+  /// Note: `failwith` doesn't trigger success (throws `System.Exception`). Use `failtest` instead
+  let failure f = failureMatching (fun _ -> true) f
+
 module private Seq =
   let tryMin source =
     source
