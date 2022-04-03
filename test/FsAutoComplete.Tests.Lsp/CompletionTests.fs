@@ -113,6 +113,39 @@ let tests state =
               "first member should be List.Empty, since properties are preferred over functions"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+      testCaseAsync
+        "completion in record defn field type"
+        (async {
+          let! server, path = server
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 13; Character = 10 } // after Lis partial type name in Id record field declaration
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.Invoked
+                    triggerCharacter = None } }
+
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.isLessThan
+              completions.Items.Length
+              300
+              "shouldn't have a very long list of completion items that are only types"
+            Expect.isGreaterThan
+              completions.Items.Length
+              100
+              "should have a reasonable number of completion items that are only types"
+
+            Expect.exists
+              completions.Items
+              (fun item -> item.Label = "list")
+              "completion should contain the list type"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
         }) ]
 
 ///Tests for getting autocomplete

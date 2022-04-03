@@ -324,6 +324,7 @@ type ParseAndCheckResults
   member x.TryGetToolTipEnhanced (pos: Position) (lineStr: LineStr) =
     match Completion.atPos (pos, x.GetParseResults.ParseTree) with
     | Completion.Context.StringLiteral -> Ok None
+    | Completion.Context.SynType
     | Completion.Context.Unknown ->
       match Lexer.findLongIdents (pos.Column, lineStr) with
       | None -> Error "Cannot find ident for tooltip"
@@ -551,9 +552,11 @@ type ParseAndCheckResults
 
   member x.TryGetCompletions (pos: Position) (lineStr: LineStr) filter (getAllSymbols: unit -> AssemblySymbol list) =
     async {
-      match Completion.atPos (pos, x.GetParseResults.ParseTree) with
+      let completionContext = Completion.atPos (pos, x.GetParseResults.ParseTree)
+      match completionContext with
       | Completion.Context.StringLiteral -> return None
-      | Completion.Context.Unknown ->
+      | Completion.Context.Unknown
+      | Completion.Context.SynType ->
         try
           let longName =
             QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
@@ -565,10 +568,12 @@ type ParseAndCheckResults
             >> Log.addContextDestructured "longName" longName
           )
 
-          let getAllSymbols () =
+          let getSymbols () =
             getAllSymbols ()
             |> List.filter (fun entity ->
-              entity.FullName.Contains "."
+              // Attempt to filter to types when we know we're in a type and FCS uses all symbols
+              (completionContext <> Completion.Context.SynType || entity.Kind LookupType.Fuzzy = EntityKind.Type)
+              && entity.FullName.Contains "."
               && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
 
           let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.Simple [||]
@@ -590,8 +595,7 @@ type ParseAndCheckResults
           | _ ->
 
             let results =
-              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
-
+              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
             let getKindPriority =
               function
               | CompletionItemKind.CustomOperation -> -1

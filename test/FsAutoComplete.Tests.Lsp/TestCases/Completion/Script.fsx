@@ -7,3 +7,7 @@ async {
 List.
 
 let tail = List.
+
+type A = {
+  Id : Lis
+}

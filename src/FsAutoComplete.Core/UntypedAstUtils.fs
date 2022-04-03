@@ -1910,6 +1910,7 @@ module Completion =
   type Context =
   | StringLiteral
   | Unknown
+  | SynType
 
   let atPos (pos: Position, ast: ParsedInput): Context =
     let visitor =
@@ -1930,6 +1931,8 @@ module Completion =
                 )
               | _ -> defaultTraverse expr
           else None
+
+        member x.VisitType(path, defaultTraverse, synType) : Context option = Some Context.SynType
       }
     SyntaxTraversal.Traverse(pos, ast, visitor)
     |> Option.defaultValue Context.Unknown
