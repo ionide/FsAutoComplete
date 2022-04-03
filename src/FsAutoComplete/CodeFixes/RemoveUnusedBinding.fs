@@ -63,6 +63,8 @@ type FSharpParseFileResults with
                 | Some range -> Some range
             | _ -> defaultTraverse binding })
 
+let titleParameter = "Remove unused parameter"
+let titleBinding = "Remove unused binding"
 let fix (getParseResults: GetParseResultsForFile): CodeFix =
   Run.ifDiagnosticByCode
     (Set.ofList ["1182"])
@@ -82,7 +84,7 @@ let fix (getParseResults: GetParseResultsForFile): CodeFix =
           |> Result.ofOption (fun _ -> "failed to walk")
         // replace from there to the end of the pattern's range
         let replacementRange = { Start = endOfPrecedingToken; End = protocolRange.End }
-        return [ { Title = "Remove unused parameter"
+        return [ { Title = titleParameter
                    Edits = [| { Range = replacementRange; NewText = "" } |]
                    File = codeActionParams.TextDocument
                    SourceDiagnostic = Some diagnostic
@@ -98,7 +100,7 @@ let fix (getParseResults: GetParseResultsForFile): CodeFix =
         // walk back to the start of the keyword, which is always `let` or `use`
         let! keywordStartColumn = decMany lines endOfPrecedingKeyword 3 |> Result.ofOption (fun _ -> "failed to walk")
         let replacementRange = { Start = keywordStartColumn; End = protocolRange.End }
-        return [ { Title = "Remove unused binding"
+        return [ { Title = titleBinding
                    Edits = [| { Range = replacementRange; NewText = "" } |]
                    File = codeActionParams.TextDocument
                    SourceDiagnostic = Some diagnostic

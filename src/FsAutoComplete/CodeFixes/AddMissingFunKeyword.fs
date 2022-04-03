@@ -7,6 +7,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Add missing 'fun' keyword"
 /// a codefix that adds a missing 'fun' keyword to a lambda
 let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
   Run.ifDiagnosticByCode
@@ -51,7 +52,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
                 let symbolStartRange = fcsPosToProtocolRange fcsStartPos
 
                 return
-                  [ { Title = "Add missing 'fun' keyword"
+                  [ { Title = title
                       File = codeActionParams.TextDocument
                       SourceDiagnostic = Some diagnostic
                       Edits =

@@ -6,6 +6,8 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let titleReplace = "Replace with _"
+let titlePrefix = "Prefix with _"
 /// a codefix that suggests prepending a _ to unused values
 let fix (getRangeText: GetRangeText) =
   Run.ifDiagnosticByMessage
@@ -19,7 +21,7 @@ let fix (getRangeText: GetRangeText) =
                 return
                   [ { SourceDiagnostic = Some diagnostic
                       File = codeActionParams.TextDocument
-                      Title = "Replace with _"
+                      Title = titleReplace
                       Edits =
                         [| { Range = diagnostic.Range
                              NewText = "_" } |]
@@ -31,14 +33,14 @@ let fix (getRangeText: GetRangeText) =
                 return
                   [ { SourceDiagnostic = Some diagnostic
                       File = codeActionParams.TextDocument
-                      Title = "Replace with _"
+                      Title = titleReplace
                       Edits =
                         [| { Range = diagnostic.Range
                              NewText = replaceSuggestion } |]
                       Kind = FixKind.Refactor }
                     { SourceDiagnostic = Some diagnostic
                       File = codeActionParams.TextDocument
-                      Title = "Prefix with _"
+                      Title = titlePrefix
                       Edits =
                         [| { Range = diagnostic.Range
                              NewText = prefixSuggestion } |]

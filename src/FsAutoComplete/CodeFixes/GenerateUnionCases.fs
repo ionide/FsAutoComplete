@@ -8,6 +8,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FsAutoComplete.CodeFix.Navigation
 
+let title = "Generate union pattern match cases"
 /// a codefix that generates union cases for an incomplete match expression
 let fix (getFileLines: GetFileLines)
                        (getParseResultsForFile: GetParseResultsForFile)
@@ -46,7 +47,7 @@ let fix (getFileLines: GetFileLines)
             return
               [ { SourceDiagnostic = Some diagnostic
                   File = codeActionParams.TextDocument
-                  Title = "Generate union pattern match cases"
+                  Title = title
                   Edits = [| { Range = range; NewText = replaced } |]
                   Kind = FixKind.Fix } ]
 

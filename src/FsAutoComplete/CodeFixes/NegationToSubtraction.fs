@@ -7,6 +7,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Use subtraction instead of negation"
 /// a codefix that corrects -<something> to - <something> when negation is not intended
 let fix (getFileLines: GetFileLines) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3" ]) (fun diagnostic codeActionParams ->
@@ -22,7 +23,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
         let! oneBack = dec lines dash |> Result.ofOption (fun _ -> "No one back")
         return
           [ { SourceDiagnostic = Some diagnostic
-              Title = "Use subtraction instead of negation"
+              Title = title
               File = codeActionParams.TextDocument
               Edits =
                 [| { Range = { Start = oneBack; End = dash }

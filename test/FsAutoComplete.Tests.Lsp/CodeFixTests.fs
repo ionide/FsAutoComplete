@@ -1,925 +1,430 @@
 module FsAutoComplete.Tests.CodeFixTests
 
 open Expecto
-open System.IO
 open Helpers
+open Utils.ServerTests
+open Utils.CursorbasedTests
 open Ionide.LanguageServerProtocol.Types
-open FsAutoComplete.Utils
+open FsAutoComplete.CodeFix
 
-let pos (line, character) = { Line = line; Character = character }
-let range st e = { Start = pos st; End = pos e }
-let rangeP st e = { Start = st; End = e }
+module private Diagnostics =
+  let expectCode code (diags: Diagnostic[]) =
+    Expecto.Flip.Expect.exists 
+      $"There should be a Diagnostic with code %s{code}"
+      (fun (d: Diagnostic) -> d.Code = Some code)
+      diags
+  let acceptAll = ignore
 
-/// naive iteration, assumes start and end are on same line
-let iterateRange (r: Range) =
-  seq {
-    if r.Start = r.End then
-      yield r.Start
-    else
-      for c = r.Start.Character to r.End.Character do
-        yield pos (r.Start.Line, c)
-  }
+  open FsAutoComplete.Logging
+  let private logger = FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.Diagnostics"
+  /// Usage: `(Diagnostics.log >> Diagnostics.expectCoode "XXX")`
+  /// Logs as `info`
+  let log (diags: Diagnostic[]) =
+    logger.info (
+      Log.setMessage "diags({count})={diags}"
+      >> Log.addContext "count" diags.Length
+      >> Log.addContextDestructured "diags" diags
+    )
+    diags
 
-let (|Refactor|_|) title newText action =
-  match action with
-  | { Title = title'
-      Kind = Some "refactor"
-      Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = newText' } |] } |] } } when
-    title' = title && newText' = newText
-    ->
-    Some()
-  | _ -> None
+module CodeFix =
+  open FsAutoComplete.Logging
+  let private logger = FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.CodeFix"
+  /// Usage: `(CodeFix.log >> CodeFix.withTitle "XXX")`
+  /// Logs as `info`
+  let log (codeActions: CodeAction[]) =
+    logger.info (
+      Log.setMessage "codeActions({count})={codeActions}"
+      >> Log.addContext "count" codeActions.Length
+      >> Log.addContextDestructured "codeActions" codeActions
+    )
+    codeActions
 
-let (|AtRange|_|) range (action: CodeAction) =
-  match action with
-  | { Edit = Some { DocumentChanges = Some [| { Edits = [| { Range = range' } |] } |] } } when range = range' -> Some()
-  | _ -> None
+let private generateAbstractClassStubTests state = 
+  let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
+  // issue: returns same fix twice: 
+  //        Once for error 54 (`This type is 'abstract' since some abstract members have not been given an implementation.`)
+  //        And once for error 365 (`No implementation was given for those members [...]`)
+  pserverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle GenerateAbstractClassStub.title
+    testCaseAsync "can generate a derivative of a long ident - System.IO.Stream" <|
+      CodeFix.checkApplicable server
+        """
+        type My$0Stream() =
+          inherit System.IO.Stream()
+        """
+        (Diagnostics.expectCode "365")
+        selectCodeFix
+    testCaseAsync "can generate a derivative for a simple ident - Stream" <|
+      CodeFix.checkApplicable server
+        """
+        open System.IO
+        type My$0Stream2() =
+          inherit Stream()
+        """
+        (Diagnostics.expectCode "365")
+        selectCodeFix
+  ])
 
-let abstractClassGenerationTests state =
-  let server =
-    async {
-      let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AbstractClassGeneration")
-
-      let! (server, events) =
-        serverInitialize path { defaultConfigDto with AbstractClassStubGeneration = Some true } state
-
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
-
-      return (server, path, diagnostics)
+let private generateUnionCasesTests state =
+  let config = 
+    { defaultConfigDto with 
+        UnionCaseStubGeneration = Some true 
+        UnionCaseStubGenerationBody = Some "failwith \"---\""
     }
-    |> Async.Cache
+  serverTestList (nameof GenerateUnionCases) state config None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle GenerateUnionCases.title
+    testCaseAsync "can generate match cases for a simple DU" <|
+      CodeFix.check server
+        """
+        type Letter = A | B | C
 
-  let canGenerateForLongIdent =
-    testCaseAsync
-      "can generate a derivative of a long ident - System.IO.Stream"
-      (async {
-        let! server, file, diagnostics = server
+        let char = A
 
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d -> d.Code = Some "365" && d.Range.Start.Line = 0)
-          |> Option.defaultWith (fun _ -> failtest "Should have gotten an error of type 365")
+        match $0char with
+        | A -> ()
+        """
+        (Diagnostics.expectCode "25")
+        (CodeFix.withTitle GenerateUnionCases.title)
+        """
+        type Letter = A | B | C
 
-        let! response =
-          server.TextDocumentCodeAction
-            { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-              Range = diagnostic.Range
-              Context = { Diagnostics = [| diagnostic |] } }
+        let char = A
 
-        match response with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Generate abstract class members" } |])) -> ()
-        | Ok other -> failtestf $"Should have generated the rest of the base class, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
+        match char with
+        | A -> ()
+        | B -> failwith "---"
+        | C -> failwith "---"
+        """
+  ])
 
-  let canGenerateForIdent =
-    testCaseAsync
-      "can generate a derivative for a simple ident - Stream"
-      (async {
-        let! server, file, diagnostics = server
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d -> d.Code = Some "365" && d.Range.Start.Line = 5)
-          |> Option.defaultWith (fun _ -> failtest "Should have gotten an error of type 365")
-
-        let! response =
-          server.TextDocumentCodeAction
-            { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-              Range = diagnostic.Range
-              Context = { Diagnostics = [| diagnostic |] } }
-
-        match response with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Generate abstract class members" } |])) -> ()
-        | Ok other -> failtestf $"Should have generated the rest of the base class, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-  testList
-    "abstract class generation"
-    [ canGenerateForLongIdent
-      canGenerateForIdent ]
-
-let generateMatchTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "MatchCaseGeneration")
-
-      let! (server, events) = serverInitialize path { defaultConfigDto with UnionCaseStubGeneration = Some true } state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
-
-      return (server, path, diagnostics)
+let private generateRecordStubTests state =
+  let config = 
+    { defaultConfigDto with 
+        RecordStubGeneration = Some true 
+        RecordStubGenerationBody = Some "failwith \"---\""
     }
-    |> Async.Cache
-
-  testList
-    "generate match cases"
-    [ testCaseAsync
-        "can generate match cases for a simple DU"
-        (async {
-          let! server, file, diagnostics = server
-          let expectedDiagnostic = diagnostics.[0]
-          Expect.equal expectedDiagnostic.Code (Some "25") "Should have a empty match warning"
-
-          let! response =
-            server.TextDocumentCodeAction
-              { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                Range = expectedDiagnostic.Range
-                Context = { Diagnostics = [| expectedDiagnostic |] } }
-
-          match response with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Generate union pattern match cases" } |])) ->
-            ()
-          | Ok other -> failtestf $"Should have generated the rest of match cases, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let generateRecordStubTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RecordStubGeneration")
-
-      let! (server, events) = serverInitialize path { defaultConfigDto with RecordStubGeneration = Some true } state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  testList
-    "generate record stubs"
-    [ testCaseAsync
-        "can generate record stubs for every pos in the record as soon as one field is known"
-        (async {
-          let! server, file, diagnostics = server
-          let expectedDiagnostic = diagnostics.[0]
-          Expect.equal expectedDiagnostic.Code (Some "764") "Should have missing record field diagnostic"
-
-          for pos in iterateRange expectedDiagnostic.Range do
-            let! response =
-              server.TextDocumentCodeAction
-                { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                  Range = rangeP pos pos
-                  Context = { Diagnostics = [| expectedDiagnostic |] } }
-
-            match response with
-            | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Generate record stub"
-                                                                      Edit = Some { DocumentChanges = Some [| { Edits = [| { Range = { Start = { Line = 2
-                                                                                                                                                 Character = 18 }
-                                                                                                                                       End = { Line = 2
-                                                                                                                                               Character = 18 } }
-                                                                                                                             NewText = "\n           b = failwith \"Not Implemented\"" } |] } |] } } |])) ->
-              ()
-            | Ok other ->
-              failtestf
-                $"Should have generated the rest of the record body at %d{pos.Line},%d{pos.Character}, but instead generated %A{other}"
-            | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-
-let missingFunKeywordTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "MissingFunKeyword")
-
-      let! (server, events) = serverInitialize path defaultConfigDto state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  testList
-    "missing fun keyword"
-    [ testCaseAsync
-        "can generate the fun keyword when error 10 is raised"
-        (async {
-          let! server, file, diagnostics = server
-          let expectedDiagnostic = diagnostics.[0]
-          Expect.equal expectedDiagnostic.Code (Some "10") "Should have a missing fun keyword error"
-
-          let! response =
-            server.TextDocumentCodeAction
-              { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                Range = expectedDiagnostic.Range
-                Context = { Diagnostics = [| expectedDiagnostic |] } }
-
-          match response with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Add missing 'fun' keyword"
-                                                                    Kind = Some "quickfix"
-                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "fun " } |] } |] } } |])) ->
-            ()
-          | Ok other -> failtestf $"Should have generated missing fun keyword, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let outerBindingRecursiveTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "OuterBindingRecursive")
-
-      let! (server, events) = serverInitialize path defaultConfigDto state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  testList
-    "outer binding recursive"
-    [ testCaseAsync
-        "can make the outer binding recursive when self-referential"
-        (async {
-          let! server, file, diagnostics = server
-          let expectedDiagnostic = diagnostics.[0]
-          Expect.equal expectedDiagnostic.Code (Some "39") "Should have a not defined value error"
-
-          let! response =
-            server.TextDocumentCodeAction
-              { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                Range = expectedDiagnostic.Range
-                Context = { Diagnostics = [| expectedDiagnostic |] } }
-
-          match response with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Make outer binding recursive"
-                                                                    Kind = Some "quickfix"
-                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "rec " } |] } |] } } |])) ->
-            ()
-          | Ok other -> failtestf $"Should have generated a rec keyword, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let nameofInsteadOfTypeofNameTests state =
-  let server =
-    async {
-      let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "NameofInsteadOfTypeofName")
-
-      let! (server, events) = serverInitialize path defaultConfigDto state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap id (fun _ -> failtest "Should not have had errors")
-
-      return (server, path)
-    }
-    |> Async.Cache
-
-  testList
-    "use nameof instead of typeof.Name"
-    [ testCaseAsync
-        "can suggest fix"
-        (async {
-          let! server, file = server
-
-          let! response =
-            server.TextDocumentCodeAction
-              { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                Range =
-                  { Start = { Line = 0; Character = 8 }
-                    End = { Line = 0; Character = 8 } }
-                Context = { Diagnostics = [||] } }
-
-          match response with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Use 'nameof'"
-                                                                    Kind = Some "refactor"
-                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "nameof(Async<string>)" } |] } |] } } |])) ->
-            ()
-          | Ok other -> failtestf $"Should have generated nameof, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let missingInstanceMemberTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "MissingInstanceMember")
-
-      let! (server, events) = serverInitialize path defaultConfigDto state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  testList
-    "missing instance member"
-    [ testCaseAsync
-        "can add this member prefix"
-        (async {
-          let! server, file, diagnostics = server
-          let expectedDiagnostic = diagnostics.[0]
-          Expect.equal expectedDiagnostic.Code (Some "673") "Should have a missing self identifier error"
-
-          let! response =
-            server.TextDocumentCodeAction
-              { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-                Range = expectedDiagnostic.Range
-                Context = { Diagnostics = [| expectedDiagnostic |] } }
-
-          match response with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Add missing instance member parameter"
-                                                                    Kind = Some "quickfix"
-                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { NewText = "x." } |] } |] } } |])) ->
-            ()
-          | Ok other -> failtestf $"Should have generated an instance member, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let unusedValueTests state =
-  let (|ActReplace|_|) = (|Refactor|_|) "Replace with _" "_"
-
-  let (|ActPrefix|_|) oldText =
-    (|Refactor|_|) "Prefix with _" $"_{oldText}"
-
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedValue")
-
-      let cfg = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
-
-      let! (server, events) = serverInitialize path cfg state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        events
-        |> waitForFsacDiagnosticsForFile "Script.fsx"
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  let canReplaceUnusedSelfReference =
-    testCaseAsync
-      "can replace unused self-reference"
-      (async {
-        let! server, file, diagnostics = server
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d ->
-            d.Range.Start = { Line = 2; Character = 9 }
-            && d.Range.End = { Line = 2; Character = 13 })
-          |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
-
-        let detected =
-          { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-            Range = diagnostic.Range
-            Context = { Diagnostics = [| diagnostic |] } }
-
-        match! server.TextDocumentCodeAction detected with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace |])) -> ()
-        | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-  let canReplaceUnusedBinding =
-    testCaseAsync
-      "can replace unused binding"
-      (async {
-        let! server, file, diagnostics = server
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d ->
-            d.Range.Start = { Line = 9; Character = 4 }
-            && d.Range.End = { Line = 9; Character = 7 })
-          |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
-
-        let detected =
-          { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-            Range = diagnostic.Range
-            Context = { Diagnostics = [| diagnostic |] } }
-
-        match! server.TextDocumentCodeAction detected with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace; ActPrefix "six" |])) -> ()
-        | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-  let canReplaceUnusedParameter =
-    testCaseAsync
-      "can replace unused parameter"
-      (async {
-        let! server, file, diagnostics = server
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d ->
-            d.Range.Start = { Line = 15; Character = 16 }
-            && d.Range.End = { Line = 15; Character = 21 })
-          |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range")
-
-        let detected =
-          { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-            Range = diagnostic.Range
-            Context = { Diagnostics = [| diagnostic |] } }
-
-        match! server.TextDocumentCodeAction detected with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ActReplace
-                                                                ActPrefix "three"
-                                                                _ (* explicit type annotation codefix *)  |])) -> ()
-        | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-  testList
-    "unused value"
-    [ canReplaceUnusedSelfReference
-      canReplaceUnusedBinding
-      canReplaceUnusedParameter ]
-
-let removeUnusedBindingTests state =
-  let (|RemoveBinding|_|) = (|Refactor|_|) "Remove unused binding" ""
-
-  let (|RemoveParameter|_|) = (|Refactor|_|) "Remove unused parameter" ""
-
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RemoveUnusedBinding")
-
-      let cfg = { defaultConfigDto with FSIExtraParameters = Some [| "--warnon:1182" |] }
-
-      let! (server, events) = serverInitialize path cfg state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        events
-        |> waitForCompilerDiagnosticsForFile "Script.fsx"
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  let canRemoveUnusedSingleCharacterFunctionParameter =
-    testCaseAsync
-      "can remove unused single character function parameter"
-      (async {
-        let! server, file, diagnostics = server
-        let targetRange = range (0, 9) (0, 10)
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d -> d.Range = targetRange && d.Code = Some "1182")
-          |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range and code")
-
-        let detected =
-          { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-            Range = diagnostic.Range
-            Context = { Diagnostics = [| diagnostic |] } }
-
-        let replacementRange = range (0, 8) (0, 10)
-
-        match! server.TextDocumentCodeAction detected with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| RemoveParameter & AtRange replacementRange
-                                                                _ (* explicit type annotation codefix *)  |])) -> ()
-        | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-  let canRemoveUnusedSingleCharacterFunctionParameterInParens =
-    testCaseAsync
-      "can remove unused single character function parameter in parens"
-      (async {
-        let! server, file, diagnostics = server
-        let targetRange = range (2, 11) (2, 12)
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d -> d.Range = targetRange && d.Code = Some "1182")
-          |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range and code")
-
-        let detected =
-          { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-            Range = diagnostic.Range
-            Context = { Diagnostics = [| diagnostic |] } }
-
-        let replacementRange = range (2, 9) (2, 13)
-
-        match! server.TextDocumentCodeAction detected with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| RemoveParameter & AtRange replacementRange
-                                                                _ (* explicit type annotation codefix *)  |])) -> ()
-        | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-  let canRemoveUnusedBindingInsideTopLevel =
-    testCaseAsync
-      "can remove unused binding inside top level"
-      (async {
-        let! server, file, diagnostics = server
-        let targetRange = range (5, 6) (5, 10)
-
-        let diagnostic =
-          diagnostics
-          |> Array.tryFind (fun d -> d.Range = targetRange && d.Code = Some "1182")
-          |> Option.defaultWith (fun () -> failwith "could not find diagnostic with expected range and code")
-
-        let detected =
-          { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri file }
-            Range = diagnostic.Range
-            Context = { Diagnostics = [| diagnostic |] } }
-
-        let replacementRange = range (5, 2) (5, 16) // span of whole `let incr...` binding
-
-        match! server.TextDocumentCodeAction detected with
-        | Ok (Some (TextDocumentCodeActionResult.CodeActions [| RemoveBinding & AtRange replacementRange |])) -> ()
-        | Ok other -> failtestf $"Should have generated _, but instead generated %A{other}"
-        | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-      })
-
-
-  testList
-    "remove unused binding"
-    [ canRemoveUnusedSingleCharacterFunctionParameter
-      canRemoveUnusedSingleCharacterFunctionParameterInParens
-      canRemoveUnusedBindingInsideTopLevel ]
-
-let addExplicitTypeAnnotationTests state =
-  let server =
-    async {
-      let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ExplicitTypeAnnotations")
-
-      let cfg = defaultConfigDto
-      let! (server, events) = serverInitialize path cfg state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      do!
-        events
-        |> waitForParseResultsForFile "Script.fsx"
-        |> AsyncResult.bimap id (fun _ -> failtest "Should not have had errors")
-
-      return (server, path)
-    }
-    |> Async.Cache
-
-  let (|ExplicitAnnotation|_|) = (|Refactor|_|) "Add explicit type annotation"
-
-  testList
-    "explicit type annotations"
-    [ testCaseAsync
-        "can suggest explicit parameter for record-typed function parameters"
-        (async {
-          let! (server, filePath) = server
-
-          let context: CodeActionParams =
-            { Context = { Diagnostics = [||] }
-              Range =
-                { Start = { Line = 3; Character = 9 }
-                  End = { Line = 3; Character = 9 } }
-              TextDocument = { Uri = Path.FilePathToUri filePath } }
-
-          match! server.TextDocumentCodeAction context with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| ExplicitAnnotation "(f: Foo)" |])) -> ()
-          | Ok other -> failtestf $"Should have generated explicit type annotation, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let negationToSubstraction state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "NegationToSubstraction")
-
-      let cfg = defaultConfigDto
-      let! (server, events) = serverInitialize path cfg state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        events
-        |> waitForParseResultsForFile "Script.fsx"
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  let (|NegationToSubstraction|_|) = (|Refactor|_|) "Negation to substraction"
-
-  testList
-    "negation to substraction"
-    [ testCaseAsync
-        "converts negation to substraction"
-        (async {
-          let! (server, filePath, diagnostics) = server
-
-          let diagnostic =
-            diagnostics
-            |> Array.tryFind (fun d -> d.Code = Some "3" && d.Range.Start.Line = 2)
-            |> Option.defaultWith (fun _ -> failtest "Should have gotten an error of type 3")
-
-          let context: CodeActionParams =
-            { Context = { Diagnostics = [| diagnostic |] }
-              Range =
-                { Start = { Line = 2; Character = 13 }
-                  End = { Line = 2; Character = 14 } }
-              TextDocument = { Uri = Path.FilePathToUri filePath } }
-
-          match! server.TextDocumentCodeAction context with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Use subtraction instead of negation"
-                                                                    Kind = Some "quickfix"
-                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { Range = { Start = { Line = 2
-                                                                                                                                               Character = 15 }
-                                                                                                                                     End = { Line = 2
-                                                                                                                                             Character = 16 } }
-                                                                                                                           NewText = "- " } |] } |] } } |])) ->
-            ()
-          | Ok other -> failtestf $"Should have converted negation to substraction, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let positionalToNamedDUTests state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PositionalToNamedDU")
-
-      let cfg = defaultConfigDto
-      let! (server, events) = serverInitialize path cfg state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        events
-        |> waitForParseResultsForFile "Script.fsx"
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-
-      return (server, path)
-    }
-    |> Async.Cache
-
-  let expectEdits invokePos edits =
-    async {
-      let! (server, filePath) = server
-
-      let context: CodeActionParams =
-        { Context = { Diagnostics = [||] }
-          Range = invokePos
-          TextDocument = { Uri = Path.FilePathToUri filePath } }
-
-      match! server.TextDocumentCodeAction context with
-      | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Convert to named patterns"
-                                                                Kind = Some "refactor"
-                                                                Edit = Some { DocumentChanges = Some [| { Edits = es } |] } } |])) when
-        es = edits
-        ->
-        ()
-      | Ok other -> failtestf $"Should have converted positional DUs to named patterns, but instead generated %A{other}"
-      | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-    }
-
-  testList
-    "convert positional DU match to named"
-    [ testCaseAsync
-        "in parenthesized let binding"
-        (let patternPos =
-          { Start = { Line = 2; Character = 9 }
-            End = { Line = 2; Character = 10 } }
-
-         let edits =
-           [| { Range =
-                  { Start = { Line = 2; Character = 7 }
-                    End = { Line = 2; Character = 7 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 2; Character = 8 }
-                    End = { Line = 2; Character = 8 } }
-                NewText = ";" }
-              { Range =
-                  { Start = { Line = 2; Character = 8 }
-                    End = { Line = 2; Character = 9 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 2; Character = 10 }
-                    End = { Line = 2; Character = 10 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 2; Character = 11 }
-                    End = { Line = 2; Character = 11 } }
-                NewText = ";" } |]
-
-         expectEdits patternPos edits)
-      testCaseAsync
-        "in simple match"
-        (let patternPos =
-          { Start = { Line = 5; Character = 5 }
-            End = { Line = 5; Character = 6 } }
-
-         let edits =
-           [| { Range =
-                  { Start = { Line = 5; Character = 4 }
-                    End = { Line = 5; Character = 4 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 5; Character = 5 }
-                    End = { Line = 5; Character = 5 } }
-                NewText = ";" }
-              { Range =
-                  { Start = { Line = 5; Character = 5 }
-                    End = { Line = 5; Character = 6 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 5; Character = 7 }
-                    End = { Line = 5; Character = 7 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 5; Character = 8 }
-                    End = { Line = 5; Character = 8 } }
-                NewText = ";" } |]
-
-         expectEdits patternPos edits)
-      testCaseAsync
-        "in parenthesized match"
-        (let patternPos =
-          { Start = { Line = 8; Character = 7 }
-            End = { Line = 8; Character = 8 } }
-
-         let edits =
-           [| { Range =
-                  { Start = { Line = 8; Character = 5 }
-                    End = { Line = 8; Character = 5 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 8; Character = 6 }
-                    End = { Line = 8; Character = 6 } }
-                NewText = ";" }
-              { Range =
-                  { Start = { Line = 8; Character = 6 }
-                    End = { Line = 8; Character = 7 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 8; Character = 8 }
-                    End = { Line = 8; Character = 8 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 8; Character = 9 }
-                    End = { Line = 8; Character = 9 } }
-                NewText = ";" } |]
-
-         expectEdits patternPos edits)
-      testCaseAsync
-        "when there are new fields on the DU"
-        (let patternPos =
-          { Start = { Line = 12; Character = 29 }
-            End = { Line = 12; Character = 30 } }
-
-         let edits =
-           [| { Range =
-                  { Start = { Line = 12; Character = 28 }
-                    End = { Line = 12; Character = 28 } }
-                NewText = "a = " }
-              { Range =
-                  { Start = { Line = 12; Character = 29 }
-                    End = { Line = 12; Character = 29 } }
-                NewText = ";" }
-              { Range =
-                  { Start = { Line = 12; Character = 29 }
-                    End = { Line = 12; Character = 30 } }
-                NewText = "" }
-              { Range =
-                  { Start = { Line = 12; Character = 31 }
-                    End = { Line = 12; Character = 31 } }
-                NewText = "b = " }
-              { Range =
-                  { Start = { Line = 12; Character = 32 }
-                    End = { Line = 12; Character = 32 } }
-                NewText = ";" }
-              { Range =
-                  { Start = { Line = 12; Character = 32 }
-                    End = { Line = 12; Character = 32 } }
-                NewText = "c = _;" } |]
-
-         expectEdits patternPos edits) ]
-
-let tripleQuotedInterpolationTests state =
-  let server =
-    async {
-      let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "TripleQuotedInterpolation")
-
-      let cfg = defaultConfigDto
-      let! (server, events) = serverInitialize path cfg state
-      do! waitForWorkspaceFinishedParsing events
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      let! diagnostics =
-        events
-        |> waitForParseResultsForFile "Script.fsx"
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-
-      return (server, path, diagnostics)
-    }
-    |> Async.Cache
-
-  testList
-    "interpolation fixes"
-    [ testCaseAsync
-        "converts erroring single-quoted interpolation to triple-quoted"
-        (async {
-          let! (server, filePath, diagnostics) = server
-
-          let diagnostic =
-            diagnostics
-            |> Array.tryFind (fun d -> d.Code = Some "3373")
-            |> Option.defaultWith (fun _ -> failtest "Should have gotten an error of type 3373")
-
-          let context: CodeActionParams =
-            { Context = { Diagnostics = [| diagnostic |] }
-              Range =
-                { Start = diagnostic.Range.Start
-                  End = diagnostic.Range.Start }
-              TextDocument = { Uri = Path.FilePathToUri filePath } }
-
-          match! server.TextDocumentCodeAction context with
-          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Use triple-quoted string interpolation"
-                                                                    Kind = Some "quickfix"
-                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { Range = { Start = { Line = 0
-                                                                                                                                               Character = 8 }
-                                                                                                                                     End = { Line = 0
-                                                                                                                                             Character = 44 } }
-                                                                                                                           NewText = "$\"\"\":^) {if true then \"y\" else \"n\"} d\"\"\"" } |] } |] } } |])) ->
-            ()
-          | Ok other ->
-            failtestf
-              $"Should have converted single quoted interpolations to triple quotes, but instead generated %A{other}"
-          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
-        }) ]
-
-let tests state =
-  testList
-    "codefix tests"
-    [ abstractClassGenerationTests state
-      generateRecordStubTests state
-      generateMatchTests state
-      missingFunKeywordTests state
-      outerBindingRecursiveTests state
-      nameofInsteadOfTypeofNameTests state
-      missingInstanceMemberTests state
-      unusedValueTests state
-      addExplicitTypeAnnotationTests state
-      negationToSubstraction state
-      removeUnusedBindingTests state
-      positionalToNamedDUTests state ]
+  serverTestList (nameof GenerateRecordStub) state config None (fun server -> [
+    CodeFix.testAllPositions "can generate record stubs for every pos in the record as soon as one field is known"
+      server
+      """
+      type R = { a: string; b: int }
+
+      let a = $0{  $0a = $0"";$0  }$0
+      """
+      (Diagnostics.expectCode "764")
+      (CodeFix.withTitle GenerateRecordStub.title)
+      """
+      type R = { a: string; b: int }
+
+      let a = {  a = "";
+                 b = failwith "---"  }
+      """
+  ])
+
+let private addMissingFunKeywordTests state =
+  serverTestList (nameof AddMissingFunKeyword) state defaultConfigDto None (fun server -> [
+    testCaseAsync "can generate the fun keyword when error 10 is raised" <|
+      CodeFix.check server
+        """
+        let doThing = x $0-> printfn "%s" x
+        """
+        (Diagnostics.expectCode "10")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingFunKeyword.title)
+        """
+        let doThing = fun x -> printfn "%s" x
+        """
+  ])
+
+let private makeOuterBindingRecursiveTests state =
+  serverTestList (nameof MakeOuterBindingRecursive) state defaultConfigDto None (fun server -> [
+    testCaseAsync "can make the outer binding recursive when self-referential" <|
+      CodeFix.check server
+        """
+        let mySum xs acc =
+            match xs with
+            | [] -> acc
+            | _ :: tail ->
+                $0mySum tail (acc + 1)
+        """
+        (Diagnostics.expectCode "39")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle MakeOuterBindingRecursive.title)
+        """
+        let rec mySum xs acc =
+            match xs with
+            | [] -> acc
+            | _ :: tail ->
+                mySum tail (acc + 1)
+        """
+  ])
+
+let private changeTypeOfNameToNameOfTests state =
+  serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server -> [
+    testCaseAsync "can suggest fix" <|
+      CodeFix.check server
+        """
+        let x = $0typeof<Async<string>>.Name
+        """
+        (Diagnostics.acceptAll)
+        (CodeFix.ofKind "refactor" >> CodeFix.withTitle ChangeTypeOfNameToNameOf.title)
+        """
+        let x = nameof(Async<string>)
+        """
+  ])
+
+let private addMissingInstanceMemberTests state =
+  serverTestList (nameof AddMissingInstanceMember) state defaultConfigDto None (fun server -> [
+    testCaseAsync "can add this member prefix" <|
+      CodeFix.check server
+        """
+        type C () =
+          member $0Foo() = ()
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        type C () =
+          member x.Foo() = ()
+        """
+  ])
+
+let private unusedValueTests state =
+  let config = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
+  serverTestList (nameof UnusedValue) state config None (fun server -> [
+    let selectReplace = CodeFix.ofKind "refactor" >> CodeFix.withTitle UnusedValue.titleReplace
+    let selectPrefix = CodeFix.ofKind "refactor" >> CodeFix.withTitle UnusedValue.titlePrefix
+
+    testCaseAsync "can replace unused self-reference" <|
+      CodeFix.check server
+        """
+        type MyClass() =
+          member $0this.DoAThing() = ()
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        type MyClass() =
+          member _.DoAThing() = ()
+        """
+    testCaseAsync "can replace unused binding" <|
+      CodeFix.check server
+        """
+        let $0six = 6
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        let _ = 6
+        """
+    testCaseAsync "can prefix unused binding" <|
+      CodeFix.check server
+        """
+        let $0six = 6
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+        """
+        let _six = 6
+        """
+    testCaseAsync "can replace unused parameter" <|
+      CodeFix.check server
+        """
+        let add one two $0three = one + two
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        let add one two _ = one + two
+        """
+    testCaseAsync "can prefix unused parameter" <|
+      CodeFix.check server
+        """
+        let add one two $0three = one + two
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        (CodeFix.log >> selectPrefix)
+        """
+        let add one two _three = one + two
+        """
+  ])
+
+let private removeUnusedBindingTests state =
+  let config = { defaultConfigDto with FSIExtraParameters = Some [| "--warnon:1182" |] }
+  serverTestList (nameof RemoveUnusedBinding) state config None (fun server -> [
+    let selectRemoveUnusedBinding = CodeFix.withTitle RemoveUnusedBinding.titleBinding
+    let selectRemoveUnusedParameter = CodeFix.withTitle RemoveUnusedBinding.titleParameter
+    let validateDiags = Diagnostics.expectCode "1182"
+
+    testCaseAsync "can remove unused single character function parameter" <|
+      CodeFix.check server
+        """
+        let incr $0i x = 2
+        """
+        validateDiags
+        selectRemoveUnusedParameter
+        """
+        let incr x = 2
+        """
+    testCaseAsync "can remove unused single character function parameter in parens" <|
+      CodeFix.check server
+        """
+        let incr ($0i) x = 2
+        """
+        validateDiags
+        selectRemoveUnusedParameter
+        """
+        let incr x = 2
+        """
+    testCaseAsync "can remove unused binding inside top level" <|
+      //ENHANCEMENT: remove empty line
+      CodeFix.check server
+        """
+        let container () =
+          let $0incr x = 2
+          ()
+        """
+        validateDiags
+        selectRemoveUnusedBinding
+        """
+        let container () =
+          
+          ()
+        """
+  ])
+
+let private addExplicitTypeToParameterTests state =
+  serverTestList (nameof AddExplicitTypeToParameter) state defaultConfigDto None (fun server -> [
+    testCaseAsync "can suggest explicit parameter for record-typed function parameters" <|
+      CodeFix.check server
+        """
+        type Foo =
+            { name: string }
+
+        let name $0f =
+            f.name
+        """
+        (Diagnostics.acceptAll)
+        (CodeFix.withTitle AddExplicitTypeToParameter.title)
+        """
+        type Foo =
+            { name: string }
+
+        let name (f: Foo) =
+            f.name
+        """
+  ])
+
+let private negationToSubtractionTests state =
+  serverTestList (nameof NegationToSubtraction) state defaultConfigDto None (fun server -> [
+    testCaseAsync "converts negation to subtraction" <|
+      CodeFix.check server
+        """
+        let getListWithoutFirstAndLastElement list =
+          let l = List.length list
+          list[ 1 .. $0l -1 ]
+        """
+        (Diagnostics.expectCode "3")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle NegationToSubtraction.title)
+        """
+        let getListWithoutFirstAndLastElement list =
+          let l = List.length list
+          list[ 1 .. l - 1 ]
+        """
+  ])
+
+let private convertPositionalDUToNamedTests state =
+  serverTestList (nameof ConvertPositionalDUToNamed) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ConvertPositionalDUToNamed.title
+    testCaseAsync "in parenthesized let binding" <|
+      CodeFix.check server
+        """
+        type A = A of a: int * b: bool
+
+        let (A(a$0, b)) = A(1, true)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type A = A of a: int * b: bool
+
+        let (A(a = a; b = b;)) = A(1, true)
+        """
+    testCaseAsync "in simple match" <|
+      CodeFix.check server
+        """
+        type A = A of a: int * b: bool
+
+        match A(1, true) with
+        | A(a$0, b) -> ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type A = A of a: int * b: bool
+
+        match A(1, true) with
+        | A(a = a; b = b;) -> ()
+        """
+    testCaseAsync "in parenthesized match" <|
+      CodeFix.check server
+        """
+        type A = A of a: int * b: bool
+
+        match A(1, true) with
+        | (A(a$0, b)) -> ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type A = A of a: int * b: bool
+
+        match A(1, true) with
+        | (A(a = a; b = b;)) -> ()
+        """
+    testCaseAsync "when there are new fields on the DU" <|
+      //ENHANCEMENT: add space before wildcard case
+      CodeFix.check server
+        """
+        type ThirdFieldWasJustAdded = ThirdFieldWasJustAdded of a: int * b: bool * c: char
+
+        let (ThirdFieldWasJustAdded($0a, b)) = ThirdFieldWasJustAdded(1, true, 'c')
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type ThirdFieldWasJustAdded = ThirdFieldWasJustAdded of a: int * b: bool * c: char
+
+        let (ThirdFieldWasJustAdded(a = a; b = b;c = _;)) = ThirdFieldWasJustAdded(1, true, 'c')
+        """
+  ])
+
+let private useTripleQuotedInterpolationTests state =
+  serverTestList (nameof UseTripleQuotedInterpolation) state defaultConfigDto None (fun server -> [
+    testCaseAsync "converts erroring single-quoted interpolation to triple-quoted" <|
+      CodeFix.check server
+        """
+        let a = $":^) {if true then $0"y" else "n"} d"
+        """
+        (Diagnostics.expectCode "3373")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle UseTripleQuotedInterpolation.title)
+        // cannot use triple quotes string here: ends with `"""` -> cannot use in string
+        @"
+        let a = $"""""":^) {if true then ""y"" else ""n""} d""""""
+        "
+  ])
+
+let tests state = testList "CodeFix tests" [
+  generateAbstractClassStubTests state
+  generateUnionCasesTests state
+  generateRecordStubTests state
+  addMissingFunKeywordTests state
+  makeOuterBindingRecursiveTests state
+  changeTypeOfNameToNameOfTests state
+  addMissingInstanceMemberTests state
+  unusedValueTests state
+  removeUnusedBindingTests state
+  addExplicitTypeToParameterTests state
+  negationToSubtractionTests state
+  convertPositionalDUToNamedTests state
+  useTripleQuotedInterpolationTests state
+]

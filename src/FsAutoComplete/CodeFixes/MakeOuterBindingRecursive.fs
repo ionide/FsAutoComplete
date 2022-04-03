@@ -7,6 +7,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Make outer binding recursive"
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode
     (Set.ofList [ "39" ])
@@ -31,7 +32,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
               "member names didn't match, don't suggest fix"
 
         return
-          [ { Title = "Make outer binding recursive"
+          [ { Title = title
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Kind = FixKind.Fix

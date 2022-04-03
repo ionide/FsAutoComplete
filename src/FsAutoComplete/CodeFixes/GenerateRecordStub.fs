@@ -6,6 +6,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Generate record stub"
 /// a codefix that generates member stubs for a record declaration
 let fix (getParseResultsForFile: GetParseResultsForFile)
         (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
@@ -31,7 +32,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
 
           return
             [ { SourceDiagnostic = None
-                Title = "Generate record stub"
+                Title = title
                 File = codeActionParams.TextDocument
                 Edits =
                   [| { Range = fcsPosToProtocolRange position
