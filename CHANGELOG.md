@@ -11,7 +11,8 @@
 
 * [Update to .NET 6](https://github.com/fsharp/FsAutoComplete/pull/903) (Thanks @dsyme!)
 * [Update to FCS 41.0.3](https://github.com/fsharp/FsAutoComplete/pull/890)
-* [Update to Ionide.ProjInfo 0.57.2 to get fixes around the project loader loop](https://github.com/fsharp/FsAutoComplete/pull/904)
+* [Update to Ionide.ProjInfo 0.58.1 to get fixes around the project loader loop](https://github.com/fsharp/FsAutoComplete/pull/904), [project cache](https://github.com/ionide/proj-info/pull/139), and [legacy project support](https://github.com/ionide/proj-info/pull/131)
+* [Completions for types are much better now](https://github.com/fsharp/FsAutoComplete/pull/908) (thanks @tboby!)
 
 ### Fixed
 
