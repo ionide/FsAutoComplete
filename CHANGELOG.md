@@ -11,13 +11,15 @@
 
 * [Update to .NET 6](https://github.com/fsharp/FsAutoComplete/pull/903) (Thanks @dsyme!)
 * [Update to FCS 41.0.3](https://github.com/fsharp/FsAutoComplete/pull/890)
-* [Update to Ionide.ProjInfo 0.58.1 to get fixes around the project loader loop](https://github.com/fsharp/FsAutoComplete/pull/904), [project cache](https://github.com/ionide/proj-info/pull/139), and [legacy project support](https://github.com/ionide/proj-info/pull/131)
+* [Update to Ionide.ProjInfo 0.58.2 to get fixes around the project loader loop](https://github.com/fsharp/FsAutoComplete/pull/904), [project cache](https://github.com/ionide/proj-info/pull/139), and [legacy project support](https://github.com/ionide/proj-info/pull/131)
 * [Completions for types are much better now](https://github.com/fsharp/FsAutoComplete/pull/908) (thanks @tboby!)
+* [Completions triggers on the first typed character](https://github.com/fsharp/FsAutoComplete/pull/909) (thanks @tboby!)
 
 ### Fixed
 
 * [Record stub generation works again](https://github.com/fsharp/FsAutoComplete/pull/905)
 * The fsautocomplete.netcore.zip file that was previously added to the release announcement on GitHub is back again.
+
 
 ## [0.51.0] - 2022-03-13
 
