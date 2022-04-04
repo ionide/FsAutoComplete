@@ -24,6 +24,7 @@ type SymbolLookupKind =
     | Fuzzy
     | ByLongIdent
     | Simple
+    | ForCompletion
 
 type private DraftToken =
     { Kind: SymbolKind
@@ -134,6 +135,8 @@ module Lexer =
             match lookupKind with
             | SymbolLookupKind.Simple | SymbolLookupKind.Fuzzy ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn + 1 >= col)
+            | SymbolLookupKind.ForCompletion ->
+                tokens |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn >= col)
             | SymbolLookupKind.ByLongIdent ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
@@ -185,6 +188,7 @@ module Lexer =
                   LeftColumn = token.Token.LeftColumn
                   RightColumn = token.RightColumn + 1
                   Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
+        | SymbolLookupKind.ForCompletion
         | SymbolLookupKind.Simple ->
             tokensUnderCursor
             |> List.tryLast
