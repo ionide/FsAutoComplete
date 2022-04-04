@@ -22,9 +22,9 @@ type LexerSymbol =
 [<RequireQualifiedAccess>]
 type SymbolLookupKind =
     | Fuzzy
-    | ByRightColumn
     | ByLongIdent
     | Simple
+    | ForCompletion
 
 type private DraftToken =
     { Kind: SymbolKind
@@ -135,8 +135,8 @@ module Lexer =
             match lookupKind with
             | SymbolLookupKind.Simple | SymbolLookupKind.Fuzzy ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn + 1 >= col)
-            | SymbolLookupKind.ByRightColumn ->
-                tokens |> List.filter (fun x -> x.RightColumn = col)
+            | SymbolLookupKind.ForCompletion ->
+                tokens |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn >= col)
             | SymbolLookupKind.ByLongIdent ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
@@ -172,8 +172,7 @@ module Lexer =
                       LeftColumn = leftCol
                       RightColumn = first.RightColumn + 1
                       Text = lineStr.[leftCol..first.RightColumn] })
-        | SymbolLookupKind.Fuzzy
-        | SymbolLookupKind.ByRightColumn ->
+        | SymbolLookupKind.Fuzzy ->
             // Select IDENT token. If failed, select OPERATOR token.
             tokensUnderCursor
             |> List.tryFind (fun { DraftToken.Kind = k } ->
@@ -189,6 +188,7 @@ module Lexer =
                   LeftColumn = token.Token.LeftColumn
                   RightColumn = token.RightColumn + 1
                   Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
+        | SymbolLookupKind.ForCompletion
         | SymbolLookupKind.Simple ->
             tokensUnderCursor
             |> List.tryLast

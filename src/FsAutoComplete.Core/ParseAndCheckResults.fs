@@ -576,7 +576,7 @@ type ParseAndCheckResults
               && entity.FullName.Contains "."
               && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
 
-          let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.Simple [||]
+          let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.ForCompletion [||]
 
           logger.info (
             Log.setMessage "TryGetCompletions - token: {token}"
