@@ -127,7 +127,6 @@ module Server =
   /// Note: When `path` is relative: relative to `server.RootPath`!
   let openDocument (path: string) (server: CachedServer) = async {
     let! server = server
-    // assert(server.RootPath |> Option.isSome)
     // two possiblities:
     // * relative path -> relative to `server.RootPath` (-> failure when no `RootPath`)
     // * absolute path
@@ -137,7 +136,15 @@ module Server =
       else
         Expect.isSome server.RootPath "relative path is only possible when `server.RootPath` is specified!"
         Path.Combine(server.RootPath.Value, path)
-    let doc = server |> createDocument (Path.FilePathToUri fullPath)
+    let doc = 
+      server 
+      |> createDocument (
+            fullPath
+            // normalize path is necessary: otherwise might be different lower/upper cases in uri for tests and LSP server:
+            // on windows `E:\...`: `file:///E%3A/...` (before normalize) vs. `file:///e%3A/..` (after normalize)
+            |> normalizePath
+            |> Path.LocalPathToUri
+         )
     let! diags = doc |> Document.openWith (File.ReadAllText fullPath)
 
     return (doc, diags)
