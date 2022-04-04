@@ -22,7 +22,6 @@ type LexerSymbol =
 [<RequireQualifiedAccess>]
 type SymbolLookupKind =
     | Fuzzy
-    | ByRightColumn
     | ByLongIdent
     | Simple
 
@@ -135,8 +134,6 @@ module Lexer =
             match lookupKind with
             | SymbolLookupKind.Simple | SymbolLookupKind.Fuzzy ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn + 1 >= col)
-            | SymbolLookupKind.ByRightColumn ->
-                tokens |> List.filter (fun x -> x.RightColumn = col)
             | SymbolLookupKind.ByLongIdent ->
                 tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
@@ -172,8 +169,7 @@ module Lexer =
                       LeftColumn = leftCol
                       RightColumn = first.RightColumn + 1
                       Text = lineStr.[leftCol..first.RightColumn] })
-        | SymbolLookupKind.Fuzzy
-        | SymbolLookupKind.ByRightColumn ->
+        | SymbolLookupKind.Fuzzy ->
             // Select IDENT token. If failed, select OPERATOR token.
             tokensUnderCursor
             |> List.tryFind (fun { DraftToken.Kind = k } ->
