@@ -34,7 +34,7 @@ let tests state =
 
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 3; Character = 10 } // the '.' in 'Async.'
+              Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
@@ -146,7 +146,47 @@ let tests state =
               "completion should contain the list type"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
-        }) ]
+        })
+        
+      testCaseAsync "completion before first character of expression" (async {
+        let! server, path = server
+        let completionParams : CompletionParams =
+          {
+            TextDocument = { Uri = Path.FilePathToUri path }
+            Position = { Line = 8; Character = 12 } // after the 'L' in 'List.'
+            Context = Some { triggerKind = CompletionTriggerKind.Invoked; triggerCharacter = None }
+          }
+        let! response = server.TextDocumentCompletion completionParams
+        match response with
+        | Ok (Some completions) ->
+          Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
+          let firstItem = completions.Items.[0]
+          Expect.equal firstItem.Label "async" "first member should be async, alphabetically first in the full symbol list"
+        | Ok None ->
+          failtest "Should have gotten some completion items"
+        | Error e ->
+          failtestf "Got an error while retrieving completions: %A" e
+      })
+
+      testCaseAsync "completion after first character of expression" (async {
+        let! server, path = server
+        let completionParams : CompletionParams =
+          {
+            TextDocument = { Uri = Path.FilePathToUri path }
+            Position = { Line = 8; Character = 11 } // before the 'L' in 'List.'
+            Context = Some { triggerKind = CompletionTriggerKind.Invoked; triggerCharacter = None }
+          }
+        let! response = server.TextDocumentCompletion completionParams
+        match response with
+        | Ok (Some completions) ->
+          Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
+          let firstItem = completions.Items.[0]
+          Expect.equal firstItem.Label "async" "first member should be async, alphabetically first in the full symbol list"
+        | Ok None ->
+          failtest "Should have gotten some completion items"
+        | Error e ->
+          failtestf "Got an error while retrieving completions: %A" e
+      }) ]
 
 ///Tests for getting autocomplete
 let autocompleteTest state =
