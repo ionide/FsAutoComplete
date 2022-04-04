@@ -127,6 +127,10 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     sendServerNotification "fsharp/fileParsed" (box p)
     |> Async.Ignore
 
+  member __.NotifyDocumentAnalyzed(p: DocumentAnalyzedNotification) =
+    sendServerNotification "fsharp/documentAnalyzed" (box p)
+    |> Async.Ignore
+
   member __.NotifyTestDetected (p: TestDetectedNotification) =
       sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
@@ -244,7 +248,40 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   let mutable sigHelpKind = None
   let mutable binaryLogConfig = Ionide.ProjInfo.BinaryLogGeneration.Off
 
-  let parseFile (p: DidChangeTextDocumentParams) =
+  let analyzeFile (filePath) =
+    let analyzers = [
+      // if config.Linter then
+      //   commands.Lint filePath |> Async.Ignore
+      if config.UnusedOpensAnalyzer then
+        commands.CheckUnusedOpens filePath
+      if config.UnusedDeclarationsAnalyzer then
+        commands.CheckUnusedDeclarations filePath
+      if config.SimplifyNameAnalyzer then
+        commands.CheckSimplifiedNames filePath
+    ]
+
+    analyzers
+    |> Async.Parallel
+    |> Async.Ignore
+  
+  let parseFile 
+    (filePath: string<LocalPath>) 
+    (version: int) 
+    (content: NamedText) 
+    = async {
+      let tfmConfig = config.UseSdkScripts
+      do! 
+        commands.Parse filePath content version (Some tfmConfig)
+        |> Async.Ignore
+
+      async {
+        do! analyzeFile filePath
+        do! lspClient.NotifyDocumentAnalyzed { TextDocument = { Uri = filePath |> Path.LocalPathToUri; Version = Some version } }
+      }
+      |> Async.Start
+  }
+
+  let parseChangedFile (p: DidChangeTextDocumentParams) =
 
     async {
       let doc = p.TextDocument
@@ -256,26 +293,14 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         if contentChange.Range.IsNone
            && contentChange.RangeLength.IsNone then
           let content = NamedText(filePath, contentChange.Text)
-          let tfmConfig = config.UseSdkScripts
 
           logger.info (
             Log.setMessage "ParseFile - Parsing {file}"
             >> Log.addContextDestructured "file" filePath
           )
 
-          do!
-            commands.Parse filePath content version (Some tfmConfig)
-            |> Async.Ignore
+          do! parseFile filePath version content
 
-          // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-          if config.UnusedOpensAnalyzer then
-            Async.Start(commands.CheckUnusedOpens filePath)
-
-          if config.UnusedDeclarationsAnalyzer then
-            Async.Start(commands.CheckUnusedDeclarations filePath) //fire and forget this analyzer now that it's syncronous
-
-          if config.SimplifyNameAnalyzer then
-            Async.Start(commands.CheckSimplifiedNames filePath)
         else
           logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
       | _ ->
@@ -286,7 +311,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     }
     |> Async.Start
 
-  let parseFileDebuncer = Debounce(500, parseFile)
+  let parseFileDebuncer = Debounce(500, parseChangedFile)
 
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic []) =
@@ -996,19 +1021,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
 
-      do!
-        (commands.Parse filePath content doc.Version (Some tfmConfig)
-         |> Async.Ignore)
-
-      // if config.Linter then do! (commands.Lint filePath |> Async.Ignore)
-      if config.UnusedOpensAnalyzer then
-        Async.Start(commands.CheckUnusedOpens filePath)
-
-      if config.UnusedDeclarationsAnalyzer then
-        Async.Start(commands.CheckUnusedDeclarations filePath)
-
-      if config.SimplifyNameAnalyzer then
-        Async.Start(commands.CheckSimplifiedNames filePath)
+      do! parseFile filePath doc.Version content
     }
 
   override __.TextDocumentDidChange(p) =

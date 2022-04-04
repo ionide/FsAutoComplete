@@ -175,7 +175,46 @@ module Document =
     doc.Server.Events
     |> typedEvents<PublishDiagnosticsParams> "textDocument/publishDiagnostics"
     |> Observable.choose (fun n -> if n.Uri = doc.Uri then Some n.Diagnostics else None)
+  /// `fsharp/documentAnalyzed`
+  let analyzedStream (doc: Document) =
+    doc.Server.Events
+    |> typedEvents<DocumentAnalyzedNotification> "fsharp/documentAnalyzed"
+    |> Observable.filter (fun n -> n.TextDocument.Uri = doc.Uri)
 
+  /// Waits (if necessary) and gets latest diagnostics.
+  ///
+  /// To detect newest diags:  
+  /// * Waits for `fsharp/documentAnalyzed` for passed `doc` and its `doc.Version`.
+  /// * Then waits a but more for potential late diags.
+  /// * Then returns latest diagnostics.
+  ///
+  ///
+  /// ### Explanation: Get latest & correct diagnostics
+  /// Diagnostics aren't collected and then sent once, but instead sent after each parsing/analyzing step.  
+  /// -> There are multiple `textDocument/publishDiagnostics` sent for each parsing/analyzing round:
+  /// * one when file parsed by F# compiler
+  /// * one for each built-in (enabled) Analyzers (in `src\FsAutoComplete\FsAutoComplete.Lsp.fs` > `FsAutoComplete.Lsp.FSharpLspServer.analyzeFile`),
+  /// * for linter (currently disabled)
+  /// * for custom analyzers
+  ///
+  /// -> To receive ALL diagnostics: use Diagnostics of last `textDocument/publishDiagnostics` event.
+  ///
+  /// Issue: What is the last `publishDiagnostics`? Might already be here or arrive in future.  
+  /// -> `fsharp/documentAnalyzed` was introduced. Notification when a doc was completely analyzed  
+  /// -> wait for `documentAnalyzed`
+  ///
+  /// But issue: last `publishDiagnostics` might be received AFTER `documentAnalyzed` (because of async notifications & sending)  
+  /// -> after receiving `documentAnalyzed` wait a bit for late `publishDiagnostics`
+  ///
+  /// But issue: Wait for how long? Too long: extends test execution time. Too short: Might miss diags.  
+  /// -> unresolved. Current wait based on testing on modern_ish PC. Seems to work on CI too.
+  ///
+  ///
+  /// *Inconvenience*: Only newest diags can be retrieved this way. Diags for older file versions cannot be extracted reliably:  
+  /// `doc.Server.Events` is a `ReplaySubject` -> returns ALL previous events on new subscription  
+  /// -> All past `documentAnalyzed` events and their diags are all received at once  
+  /// -> waiting a bit after a version-specific `documentAnalyzed` always returns latest diags.
+  //ENHANCEMENT: Send `publishDiagnostics` with Doc Version (LSP `3.15.0`) -> can correlate `documentAnalyzed` and `publishDiagnostics`
   let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> = async {
     logger.trace (
       Log.setMessage "Waiting for diags for {uri} at version {version}"
@@ -183,7 +222,20 @@ module Document =
       >> Log.addContext "version" doc.Version
     )
     
-    return failwith "not yet implemented"
+    return!
+      doc
+      |> diagnosticsStream
+      |> Observable.takeUntilOther (
+          doc
+          // `fsharp/documentAnalyzed` signals all checks & analyzers done
+          |> analyzedStream
+          |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
+          // wait for late diagnostics
+          |> Observable.delay 5
+      )
+      |> Observable.last
+      |> Observable.timeoutSpan timeout
+      |> Async.AwaitObservable
   }
   let private defaultTimeout = TimeSpan.FromSeconds 5.0
 
