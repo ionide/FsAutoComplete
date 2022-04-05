@@ -21,6 +21,9 @@
     <Compile Include="Utils/Utils.Tests.fs" />
     <Compile Include="Utils/TextEdit.fs" />
     <Compile Include="Utils/TextEdit.Tests.fs" />
+    <Compile Include="Utils/Server.fs" />
+    <Compile Include="Utils/ServerTests.fs" />
+    <Compile Include="Utils/Server.Tests.fs" />
     <Compile Include="*Tests.fs" Exclude="Helpers.fs;Program.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

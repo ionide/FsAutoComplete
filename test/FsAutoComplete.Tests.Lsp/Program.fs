@@ -41,11 +41,15 @@ let lspTests =
     [ for (name, workspaceLoaderFactory) in loaders do
         testList
           name
-          [ Templates.tests ()
+          [ 
+            Templates.tests ()
             let state () =
               FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
 
             initTests state
+
+            Utils.Tests.Server.tests state
+
             codeLensTest state
             documentSymbolTest state
             Completion.autocompleteTest state
@@ -77,7 +81,9 @@ let lspTests =
             InfoPanelTests.docFormattingTest state
             DetectUnitTests.tests state
             XmlDocumentationGeneration.tests state
-            InlayHintTests.tests state ] ]
+            InlayHintTests.tests state 
+          ]
+    ]
 
 [<Tests>]
 let tests = testList "FSAC" [
