@@ -852,6 +852,62 @@ let positionalToNamedDUTests state =
 
          expectEdits patternPos edits) ]
 
+let tripleQuotedInterpolationTests state =
+  let server =
+    async {
+      let path =
+        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "TripleQuotedInterpolation")
+
+      let cfg = defaultConfigDto
+      let! (server, events) = serverInitialize path cfg state
+      do! waitForWorkspaceFinishedParsing events
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+
+      let! diagnostics =
+        events
+        |> waitForParseResultsForFile "Script.fsx"
+        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
+
+      return (server, path, diagnostics)
+    }
+    |> Async.Cache
+
+  testList
+    "interpolation fixes"
+    [ testCaseAsync
+        "converts erroring single-quoted interpolation to triple-quoted"
+        (async {
+          let! (server, filePath, diagnostics) = server
+
+          let diagnostic =
+            diagnostics
+            |> Array.tryFind (fun d -> d.Code = Some "3373")
+            |> Option.defaultWith (fun _ -> failtest "Should have gotten an error of type 3373")
+
+          let context: CodeActionParams =
+            { Context = { Diagnostics = [| diagnostic |] }
+              Range =
+                { Start = diagnostic.Range.Start
+                  End = diagnostic.Range.Start }
+              TextDocument = { Uri = Path.FilePathToUri filePath } }
+
+          match! server.TextDocumentCodeAction context with
+          | Ok (Some (TextDocumentCodeActionResult.CodeActions [| { Title = "Use triple-quoted string interpolation"
+                                                                    Kind = Some "quickfix"
+                                                                    Edit = Some { DocumentChanges = Some [| { Edits = [| { Range = { Start = { Line = 0
+                                                                                                                                               Character = 8 }
+                                                                                                                                     End = { Line = 0
+                                                                                                                                             Character = 44 } }
+                                                                                                                           NewText = "$\"\"\":^) {if true then \"y\" else \"n\"} d\"\"\"" } |] } |] } } |])) ->
+            ()
+          | Ok other ->
+            failtestf
+              $"Should have converted single quoted interpolations to triple quotes, but instead generated %A{other}"
+          | Error reason -> failtestf $"Should have succeeded, but failed with %A{reason}"
+        }) ]
+
 let tests state =
   testList
     "codefix tests"
