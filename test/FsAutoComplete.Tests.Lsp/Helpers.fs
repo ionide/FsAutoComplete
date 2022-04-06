@@ -153,7 +153,7 @@ let record (cacher: Cacher<_>) =
     cacher.OnNext(name, payload)
     AsyncLspResult.success Unchecked.defaultof<_>
 
-let createServer (state: unit -> State) =
+let createServer workingDir (state: unit -> State) =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -166,7 +166,7 @@ let createServer (state: unit -> State) =
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(false, innerState, client)
+  let server = new FSharpLspServer(false, innerState, workingDir, client)
   server, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
@@ -387,7 +387,8 @@ let serverInitialize path (config: FSharpConfigDto) state =
        |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
       do! dotnetRestore path
 
-    let server, clientNotifications = createServer state
+    let tempDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString()) |> DirectoryInfo
+    let server, clientNotifications = createServer tempDir state
 
     clientNotifications |> Observable.add logEvent
 

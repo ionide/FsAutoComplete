@@ -216,7 +216,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
       for (_, cts) in agents.Values do
         cts.Cancel()
 
-type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FSharpLspClient) =
+type FSharpLspServer(backgroundServiceEnabled: bool, state: State, stateDirectory: DirectoryInfo, lspClient: FSharpLspClient) =
   inherit LspServer()
 
   let logger = LogProvider.getLoggerByName "LSP"
@@ -771,7 +771,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       rootPath <- actualRootPath
       commands.SetWorkspaceRoot actualRootPath
-      rootPath |> Option.iter backgroundService.Start
+      backgroundService.Start(stateDirectory.FullName)
 
       let c =
         p.InitializationOptions
@@ -2722,7 +2722,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
   override x.Dispose() = x.Shutdown() |> Async.Start
 
-let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
+let startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
   use input = Console.OpenStandardInput()
   use output = Console.OpenStandardOutput()
 
@@ -2766,14 +2766,14 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
   Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
+    new FSharpLspServer(backgroundServiceEnabled, state, stateStorageDir, lspClient))
 
-let start backgroundServiceEnabled toolsPath workspaceLoaderFactory =
+let start backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
 
   try
     let result =
-      startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory
+      startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory
 
     logger.info (
       Log.setMessage "Start - Ending LSP mode with {reason}"

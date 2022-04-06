@@ -1,6 +1,7 @@
 namespace FsAutoComplete
 
 open System
+open System.IO
 open Serilog
 open Serilog.Core
 open Serilog.Events
@@ -85,6 +86,9 @@ module Parser =
     )
     |> zero
 
+  let stateLocationOption =
+    Option<DirectoryInfo>("--state-directory", getDefaultValue = Func<_> (fun () -> DirectoryInfo(Environment.CurrentDirectory)),  description = "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location.")
+
   let rootCommand =
     let rootCommand = RootCommand("An F# LSP server implementation")
 
@@ -96,18 +100,20 @@ module Parser =
     rootCommand.AddOption backgroundServiceOption
     rootCommand.AddOption projectGraphOption
     rootCommand.AddOption logLevelOption
+    rootCommand.AddOption stateLocationOption
+
     rootCommand.SetHandler(
-      Func<_,_,Task>(fun backgroundServiceEnabled projectGraphEnabled ->
+      Func<_,_,_,Task>(fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
         let workspaceLoaderFactory =
           if projectGraphEnabled then Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
           else Ionide.ProjInfo.WorkspaceLoader.Create
 
         let toolsPath = Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) None
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-        let result = Lsp.start backgroundServiceEnabled toolsPath workspaceLoaderFactory
+        let result = Lsp.start backgroundServiceEnabled toolsPath stateDirectory workspaceLoaderFactory
 
         Task.FromResult result
-      ), backgroundServiceOption, projectGraphOption)
+      ), backgroundServiceOption, projectGraphOption, stateLocationOption)
     rootCommand
 
   let waitForDebugger =
