@@ -54,9 +54,9 @@ type BackgroundService =
   abstract UpdateFile : BackgroundFileCheckType * string * int -> unit
   abstract UpdateProject : string * FSharpProjectOptions -> unit
   abstract SaveFile : BackgroundFileCheckType -> unit
-  abstract InitWorkspace : unit -> unit
+  abstract InitWorkspace : workspaceStateDir: string -> unit
   abstract MessageReceived : IEvent<MessageType>
-  abstract Start : workspaceDir: string -> unit
+  abstract Start : unit -> unit
   abstract GetSymbols: string -> Async<option<SymbolCache.SymbolUseRange array>>
   abstract GetImplementation: string -> Async<option<SymbolCache.SymbolUseRange array>>
 
@@ -99,9 +99,8 @@ type ActualBackgroundService() =
     )
 
   interface BackgroundService with
-    member x.Start (workspaceDir) =
+    member x.Start () =
       logger.info (Log.setMessage "Starting background service")
-      SymbolCache.initCache workspaceDir
       client.Start()
 
     member x.UpdateFile(file, content, version) =
@@ -123,8 +122,9 @@ type ActualBackgroundService() =
       let msg : FileParms = { File = file }
       client.SendNotification "background/save" msg
 
-    member x.InitWorkspace () =
-      client.SendNotification "background/init" {Ready = true}
+    member x.InitWorkspace (workspaceStateDir) =
+      SymbolCache.initCache workspaceStateDir
+      client.SendNotification "background/init" workspaceStateDir
 
     member x.MessageReceived = messageRecieved.Publish
 
@@ -138,7 +138,7 @@ type MockBackgroundService() =
   let m = Event<_>()
 
   interface BackgroundService with
-    member x.Start _ = ()
+    member x.Start () = ()
 
     member x.UpdateFile(file, content, version) = ()
 
@@ -146,7 +146,7 @@ type MockBackgroundService() =
 
     member x.SaveFile(file) = ()
 
-    member x.InitWorkspace () = ()
+    member x.InitWorkspace workspaceStateDir = ()
 
     member x.MessageReceived = m.Publish
 

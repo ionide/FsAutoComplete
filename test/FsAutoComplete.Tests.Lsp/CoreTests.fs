@@ -19,7 +19,7 @@ let initTests state =
     "InitTest"
     (async {
       let tempDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
-      let (server, event) = createServer (DirectoryInfo(tempDir)) state
+      let (server, event) = createServer state
 
       let p: InitializeParams =
         { ProcessId = Some 1

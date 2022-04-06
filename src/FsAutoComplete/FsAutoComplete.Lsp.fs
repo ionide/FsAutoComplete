@@ -216,7 +216,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic [] -> Async
       for (_, cts) in agents.Values do
         cts.Cancel()
 
-type FSharpLspServer(backgroundServiceEnabled: bool, state: State, stateDirectory: DirectoryInfo, lspClient: FSharpLspClient) =
+type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FSharpLspClient) =
   inherit LspServer()
 
   let logger = LogProvider.getLoggerByName "LSP"
@@ -771,7 +771,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, stateDirector
 
       rootPath <- actualRootPath
       commands.SetWorkspaceRoot actualRootPath
-      backgroundService.Start(stateDirectory.FullName)
+      backgroundService.Start()
 
       let c =
         p.InitializationOptions
@@ -2758,7 +2758,7 @@ let startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoader
     |> Map.add "fsharp/inlayHints" (requestHandling (fun s p -> s.FSharpInlayHints(p)))
 
   let state =
-    State.Initial toolsPath workspaceLoaderFactory
+    State.Initial toolsPath stateStorageDir workspaceLoaderFactory
 
   let originalFs =
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
@@ -2766,7 +2766,7 @@ let startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoader
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
   Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    new FSharpLspServer(backgroundServiceEnabled, state, stateStorageDir, lspClient))
+    new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
 
 let start backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
