@@ -16,13 +16,13 @@
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="\" />
     <None Include="logo.png" Pack="true" PackagePath="\" />
-    <Compile Include="Options.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="LspHelpers.fs" />
     <Compile Include="CodeFixes.fs" />
     <Compile Include="CodeFixes/*.fs" />
     <Compile Include="FsAutoComplete.Lsp.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
     <Content Include="default.win32manifest">
