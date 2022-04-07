@@ -1,2 +1,0 @@
-type C () =
-  member Foo() = ()

@@ -521,6 +521,15 @@ module ClassificationUtils =
 
 type PlainNotification= { Content: string }
 
+/// Notification when a `TextDocument` is completely analyzed:
+/// F# Compiler checked file & all Analyzers (like `UnusedOpensAnalyzer`) are done.
+/// 
+/// Used to signal all Diagnostics for this `TextDocument` are collected and sent.
+/// -> For tests to get all Diagnostics of `TextDocument` 
+type DocumentAnalyzedNotification = {
+    TextDocument: VersionedTextDocumentIdentifier
+}
+
 type TestDetectedNotification =
     { File: string
       Tests: TestAdapter.TestAdapterEntry<Range> array }

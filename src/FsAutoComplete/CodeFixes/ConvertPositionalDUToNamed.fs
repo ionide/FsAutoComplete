@@ -111,6 +111,7 @@ let private toPosSeq (range: FSharp.Compiler.Text.Range, text: NamedText) =
       if FSharp.Compiler.Text.Range.rangeContainsPos range nextPos then Some (currentPos, nextPos) else None
   )
 
+let title = "Convert to named patterns"
 let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
   fun codeActionParams ->
     asyncResult {
@@ -192,7 +193,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         return
           [ { Edits = allEdits
               File = codeActionParams.TextDocument
-              Title = "Convert to named patterns"
+              Title = title
               SourceDiagnostic = None
               Kind = FixKind.Refactor } ]
     }

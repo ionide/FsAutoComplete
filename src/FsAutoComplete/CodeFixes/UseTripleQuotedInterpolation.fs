@@ -7,6 +7,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FsAutoComplete.FCSPatches
 
+let title = "Use triple-quoted string interpolation"
 /// a codefix that replaces erroring single-quoted interpolations with triple-quoted interpolations
 let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3373" ]) (fun diagnostic codeActionParams ->
@@ -28,7 +29,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         return
           [ { File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
-              Title = "Use triple-quoted string interpolation"
+              Title = title
               Edits =
                 [| { Range = fcsRangeToLsp range
                      NewText = newText } |]

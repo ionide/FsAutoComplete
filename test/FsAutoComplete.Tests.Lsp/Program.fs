@@ -35,18 +35,22 @@ let loaders =
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
-[<Tests>]
-let tests =
+let lspTests =
   testList
     "lsp"
     [ for (name, workspaceLoaderFactory) in loaders do
         testList
           name
-          [ Templates.tests ()
+          [ 
+            Templates.tests ()
             let state () =
               FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
 
             initTests state
+
+            Utils.Tests.Server.tests state
+            Utils.Tests.CursorbasedTests.tests state
+
             codeLensTest state
             documentSymbolTest state
             Completion.autocompleteTest state
@@ -78,7 +82,19 @@ let tests =
             InfoPanelTests.docFormattingTest state
             DetectUnitTests.tests state
             XmlDocumentationGeneration.tests state
-            InlayHintTests.tests state ] ]
+            InlayHintTests.tests state 
+          ]
+    ]
+
+[<Tests>]
+let tests = testList "FSAC" [
+  testList (nameof(Utils)) [
+    Utils.Tests.Utils.tests
+    Utils.Tests.TextEdit.tests
+  ]
+
+  lspTests
+]
 
 
 [<EntryPoint>]

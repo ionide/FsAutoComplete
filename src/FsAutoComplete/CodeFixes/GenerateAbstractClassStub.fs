@@ -8,6 +8,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.UMX
 
+let title = "Generate abstract class members"
 /// a codefix that generates stubs for required override members in abstract types
 let fix (getParseResultsForFile: GetParseResultsForFile)
         (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
@@ -46,7 +47,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
 
             return
               [ { SourceDiagnostic = Some diagnostic
-                  Title = "Generate abstract class members"
+                  Title = title
                   File = codeActionParams.TextDocument
                   Edits =
                     [| { Range = fcsPosToProtocolRange position

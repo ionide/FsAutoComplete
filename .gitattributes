@@ -21,3 +21,7 @@
 *.sh text eol=lf
 Makefile.orig text eol=lf
 configure.sh text eol=lf
+
+*.fs text eol=lf
+*.fsi text eol=lf
+*.fsx text eol=lf

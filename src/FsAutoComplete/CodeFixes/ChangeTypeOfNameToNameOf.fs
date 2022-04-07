@@ -28,6 +28,7 @@ type FSharpParseFileResults with
                     | _ -> defaultTraverse expr
                 | _ -> defaultTraverse expr })
 
+let title = "Use 'nameof'"
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
   fun codeActionParams ->
     asyncResult {
@@ -42,7 +43,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
       return [{
         Edits = [| { Range = fcsRangeToLsp results.FullExpressionRange; NewText = replacement } |]
         File = codeActionParams.TextDocument
-        Title = "Use 'nameof'"
+        Title = title
         SourceDiagnostic = None
         Kind = FixKind.Refactor }]
     }

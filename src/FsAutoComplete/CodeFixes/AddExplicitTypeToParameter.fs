@@ -11,6 +11,7 @@ open FSharp.Compiler.Symbols
 open FsAutoComplete.FCSPatches
 open FSharp.Compiler.Syntax
 
+let title = "Add explicit type annotation"
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
   fun codeActionParams ->
     asyncResult {
@@ -44,7 +45,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
       match symbolUse.Symbol with
       | :? FSharpMemberOrFunctionOrValue as v when isValidParameterWithoutTypeAnnotation v symbolUse ->
         let typeString = v.FullType.Format symbolUse.DisplayContext
-        let title = "Add explicit type annotation"
+        let title = title
         let fcsSymbolRange = symbolUse.Range
         let protocolSymbolRange = fcsRangeToLsp fcsSymbolRange
         let! symbolText = sourceText.GetText fcsSymbolRange
