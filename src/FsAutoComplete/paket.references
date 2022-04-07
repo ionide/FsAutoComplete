@@ -1,4 +1,4 @@
-Argu
+#FSharpLint.Core
 CliWrap
 Dapper
 Destructurama.FSharp
@@ -7,9 +7,10 @@ FSharp.Analyzers.SDK
 FSharp.Compiler.Service
 FSharp.Core
 FSharp.UMX
-#FSharpLint.Core
 FsToolkit.ErrorHandling
 ICSharpCode.Decompiler
+Ionide.KeepAChangelog.Tasks
+Ionide.LanguageServerProtocol
 Ionide.ProjInfo
 Ionide.ProjInfo.ProjectSystem
 Microsoft.Data.Sqlite
@@ -20,6 +21,5 @@ Serilog
 Serilog.Sinks.Async
 Serilog.Sinks.Console
 Serilog.Sinks.File
+System.CommandLine
 System.Configuration.ConfigurationManager
-Ionide.LanguageServerProtocol
-Ionide.KeepAChangelog.Tasks

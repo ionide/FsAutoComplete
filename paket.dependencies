@@ -10,7 +10,6 @@ storage: none
 
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
-nuget Argu
 nuget Fantomas.Client
 nuget FSharp.Compiler.Service
 nuget Ionide.ProjInfo
@@ -27,7 +26,7 @@ nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
 # nuget Fake.Runtime prerelease
 nuget FSharpLint.Core
-nuget FSharp.Core
+nuget FSharp.Core content: none
 nuget Dapper
 nuget Microsoft.Data.Sqlite 2.2.4
 nuget Microsoft.Data.Sqlite.Core 2.2.4
@@ -44,6 +43,7 @@ nuget FSharp.Formatting
 nuget FsToolkit.ErrorHandling
 nuget FSharpx.Async
 nuget CliWrap
+nuget System.CommandLine prerelease
 
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
