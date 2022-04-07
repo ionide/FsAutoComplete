@@ -125,7 +125,7 @@ module Cursor =
       |> Error
     elif pos.Character > lines.[pos.Line].Length then
       // `>`: character can be AFTER last char in string
-      $"Character {pos.Character} is out of line range {pos.Line}. Line {pos.Line} has length of {text.Length}."
+      $"Character {pos.Character} is out of line range {pos.Line}. Line {pos.Line} has length of {lines[pos.Line].Length}."
       |> Error
     else
       let offsetToLine =
