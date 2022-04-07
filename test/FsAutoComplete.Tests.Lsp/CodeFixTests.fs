@@ -17,7 +17,7 @@ module private Diagnostics =
 
   open FsAutoComplete.Logging
   let private logger = FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.Diagnostics"
-  /// Usage: `(Diagnostics.log >> Diagnostics.expectCoode "XXX")`
+  /// Usage: `(Diagnostics.log >> Diagnostics.expectCode "XXX")`
   /// Logs as `info`
   let log (diags: Diagnostic[]) =
     logger.info (

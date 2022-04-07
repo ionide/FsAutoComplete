@@ -37,16 +37,16 @@ let tests state = testList (nameof(Server)) [
           use doc = doc
           Expect.hasLength diags 1 "There should be 1 error"
           Expect.exists diags (fun d -> d.Message.Contains "notdefined") ""
-          let! diags = doc |> Document.changeTextTo "let bar = doesnexist"
+          let! diags = doc |> Document.changeTextTo "let bar = doesnotexist"
           Expect.hasLength diags 1 "There should be 1 error"
-          Expect.exists diags (fun d -> d.Message.Contains "doesnexist") ""
+          Expect.exists diags (fun d -> d.Message.Contains "doesnotexist") ""
           let! diags = doc |> Document.changeTextTo "let baz = nope"
           Expect.hasLength diags 1 "There should be 1 error"
           Expect.exists diags (fun d -> d.Message.Contains "nope") ""
         })
         testCaseAsync "can get multiple errors" (async {
           let source = "let foo = {0}\nlet bar = {1}\nlet baz = {2}"
-          let names = [|"notdefined"; "doesnexist"; "nope"|]
+          let names = [|"notdefined"; "doesnotexist"; "nope"|]
           let fnames i = names |> Array.map (fun n -> sprintf "%s%i" n i)
           let fsource i = String.Format(source, fnames i |> Seq.cast<obj> |> Seq.toArray)
 
@@ -237,7 +237,7 @@ let tests state = testList (nameof(Server)) [
           UnusedDeclarationsAnalyzer = Some true
           SimplifyNameAnalyzer = Some true
       }
-    serverTestList "dir with just a script and no anaylzers" state noAnalyzersConfig (inTestCases "JustScript") (fun server -> [
+    serverTestList "dir with just a script and no analyzers" state noAnalyzersConfig (inTestCases "JustScript") (fun server -> [
       testCaseAsync "can load script file" (async {
         let! (doc, diags) = server |> Server.openDocument "Script.fsx"
         use doc = doc
@@ -342,7 +342,7 @@ let tests state = testList (nameof(Server)) [
           SimplifyNameAnalyzer = Some true
       }
     serverTestList "waitForLatestDiagnostics" state allAnalyzersConfig None (fun server -> [
-      // `Document.waitForLatestDiagnostics` is crucial for success of tests: Must wait for newest, current Diagnostics, but ignore diags from previoused parses.
+      // `Document.waitForLatestDiagnostics` is crucial for success of tests: Must wait for newest, current Diagnostics, but ignore diags from previous parses.
       // Issues: 
       // * must ignore old events
       // * multiple `publishDiagnostics` for each parse 
@@ -396,7 +396,7 @@ let tests state = testList (nameof(Server)) [
               $"let {identifier}Rep{i}F{j} (v: {ty}) = v"
 
             // `let _identifier = value`:
-            // * value not definied
+            // * value not defined
             // * no unused warning because `_`
             for j in 1..nCompilerErrorsPerRepeat do
               $"let _{identifier}ErrorRep{i}Val{j} = valueRep{i}Val{j}"

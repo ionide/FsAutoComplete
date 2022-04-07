@@ -96,7 +96,7 @@ let private documentTestList'
     cleanup 
     tests
 
-/// Note: Not indended for changing document: always same (intitial) diags
+/// Note: Not intended for changing document: always same (initial) diags
 ///
 /// ## Example
 /// ```fsharp

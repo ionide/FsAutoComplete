@@ -260,7 +260,7 @@ module Text =
   
   /// Trim:
   /// * Leading `\n` from triple quotes string with text starting in next line
-  /// * indendation (measured for non-empty lines)
+  /// * indentation (measured for non-empty lines)
   /// * Trailing whitespace in otherwise empty last line  
   ///   Note: `\n` isn't removed
   /// 

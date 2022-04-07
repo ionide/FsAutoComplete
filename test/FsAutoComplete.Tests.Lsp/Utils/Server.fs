@@ -81,7 +81,7 @@ module Server =
           UntitledCounter = 0
         }
     | Result.Error error ->
-        return failwith $"Inititialization failed: %A{error}"
+        return failwith $"Initialization failed: %A{error}"
   }
 
   let create path config state : CachedServer =
@@ -127,7 +127,7 @@ module Server =
   /// Note: When `path` is relative: relative to `server.RootPath`!
   let openDocument (path: string) (server: CachedServer) = async {
     let! server = server
-    // two possiblities:
+    // two possibilities:
     // * relative path -> relative to `server.RootPath` (-> failure when no `RootPath`)
     // * absolute path
     let fullPath =

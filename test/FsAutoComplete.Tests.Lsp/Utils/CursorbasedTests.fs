@@ -10,8 +10,8 @@ open Ionide.ProjInfo.Logging
 /// Checks for CodeFixes, CodeActions
 /// 
 /// Prefixes:
-/// * `check`: Check to use inside a `testCaseAsync`. Not a Test itstelf!
-/// * `test`: Returnes Expecto Test. Usually combines multiple tests (like: test all positions).
+/// * `check`: Check to use inside a `testCaseAsync`. Not a Test itself!
+/// * `test`: Returns Expecto Test. Usually combines multiple tests (like: test all positions).
 module CodeFix =
   let private logger = LogProvider.getLoggerByName "CursorbasedTests.CodeFix"
 
@@ -105,7 +105,7 @@ module CodeFix =
             |> TextEdits.apply edits
             |> Result.valueOr failCodeFixTest
         
-          Expect.equal actual expected "Incorrect text after applying the choosen code action"
+          Expect.equal actual expected "Incorrect text after applying the chosen code action"
     }
 
   let private checkFix
@@ -126,7 +126,7 @@ module CodeFix =
       do! checkFixAt (doc, diags) (text, range) validateDiagnostics chooseFix expected
     }
 
-  /// Checks a CodeFix (CodeAction) vor validity.
+  /// Checks a CodeFix (CodeAction) for validity.
   /// 
   /// * Extracts cursor position (`$0`) or range (between two `$0`) from `beforeWithCursor`
   /// * Opens untitled Doc with source `beforeWithCursor` (with cursor removed)

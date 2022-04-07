@@ -94,7 +94,7 @@ module Cursor =
 
   /// Returns Range between the first two `$0` (`Cursor.Marker`) and the updated text without the two cursor markers.
   /// 
-  /// If there's only one cursor marker, the range covers exacty that position (`Start = End`)
+  /// If there's only one cursor marker, the range covers exactly that position (`Start = End`)
   let tryExtractRange (text: string) =
     match tryExtractPosition text with
     | None -> None
@@ -157,9 +157,9 @@ module Cursors =
         collect (textWithSingleCursor :: textsWithSingleCursor) textWithCursors
     collect [] textWithCursors
 
-  /// Returnes all cursor (`$0`) positions and the text without any cursors.
+  /// Returns all cursor (`$0`) positions and the text without any cursors.
   /// 
-  /// Unlike `iter` this extracts posititions instead of reducing to texts with one cursor
+  /// Unlike `iter` this extracts positions instead of reducing to texts with one cursor
   let extract (textWithCursors: string) =
     let tps =
       textWithCursors
@@ -319,7 +319,7 @@ module TextEdits =
     // No overlapping
     | Overlapping (edit1, edit2) ->
         Some $"Expected no overlaps, but at least two edits overlap: {edit1.Range} and {edit2.Range}"
-    // For same positon: all inserts must be before at most one Delete/Replace
+    // For same position: all inserts must be before at most one Delete/Replace
     | ReplaceNotLast errs ->
       sprintf 
         "Expected Inserts before at most one Delete/Replace, but there was at least one Delete/Before in invalid position: Invalid Edits: %A"
