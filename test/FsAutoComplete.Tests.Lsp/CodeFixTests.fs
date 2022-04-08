@@ -202,6 +202,21 @@ let private changeTypeOfNameToNameOfTests state =
         """
   ])
 
+let private convertBangEqualsToInequalityTests state = 
+  serverTestList (nameof ConvertBangEqualsToInequality) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ConvertBangEqualsToInequality.title
+    testCaseAsync "can change != to <>" <|
+      CodeFix.check server
+        """
+        1 $0!= 2
+        """
+        (Diagnostics.expectCode "43") 
+        selectCodeFix
+        """
+        1 <> 2
+        """
+  ])
+
 let private convertCSharpLambdaToFSharpTests state =
   serverTestList (nameof ConvertCSharpLambdaToFSharpLambda) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertCSharpLambdaToFSharpLambda.title
@@ -822,6 +837,7 @@ let tests state = testList "CodeFix tests" [
   addTypeToIndeterminateValueTests state
   changeEqualsInFieldTypeToColonTests state
   changeTypeOfNameToNameOfTests state
+  convertBangEqualsToInequalityTests state
   convertCSharpLambdaToFSharpTests state
   convertPositionalDUToNamedTests state
   generateAbstractClassStubTests state
