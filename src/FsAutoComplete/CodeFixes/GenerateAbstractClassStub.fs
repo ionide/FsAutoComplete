@@ -15,23 +15,14 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
         (getTextReplacements: unit -> Map<string, string>)
         : CodeFix =
   Run.ifDiagnosticByCode
-    (Set.ofList [ "365"; "54" ])
+    (Set.ofList [ "365" ])
     (fun diagnostic codeActionParams ->
       asyncResult {
         let fileName =
           codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
-        let interestingRange =
-          (match diagnostic.Code with
-           | Some "365" ->
-               // the object expression diagnostic covers the entire interesting range
-               diagnostic.Range
-           | Some "54" ->
-               // the full-class range is on the typename, which should be enough to enable traversal
-               diagnostic.Range
-           | _ ->
-               // everything else is a best guess
-               codeActionParams.Range)
+        // the object expression diagnostic covers the entire interesting range
+        let interestingRange = diagnostic.Range
 
         let fcsRange = interestingRange |> protocolRangeToRange (UMX.untag fileName)
 
