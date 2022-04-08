@@ -14,6 +14,7 @@ open FsAutoComplete.Tests.InteractiveDirectivesTests
 open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters
+open System.IO
 
 let testTimeout =
   Environment.GetEnvironmentVariable "TEST_TIMEOUT_MINUTES"
@@ -41,10 +42,10 @@ let lspTests =
     [ for (name, workspaceLoaderFactory) in loaders do
         testList
           name
-          [ 
-            Templates.tests ()
+          [ Templates.tests ()
+            let testRunDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString()) |> DirectoryInfo
             let state () =
-              FsAutoComplete.State.Initial toolsPath workspaceLoaderFactory
+              FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
 
             initTests state
 
@@ -82,7 +83,7 @@ let lspTests =
             InfoPanelTests.docFormattingTest state
             DetectUnitTests.tests state
             XmlDocumentationGeneration.tests state
-            InlayHintTests.tests state 
+            InlayHintTests.tests state
           ]
     ]
 

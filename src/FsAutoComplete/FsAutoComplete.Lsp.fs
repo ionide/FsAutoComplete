@@ -771,7 +771,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       rootPath <- actualRootPath
       commands.SetWorkspaceRoot actualRootPath
-      rootPath |> Option.iter backgroundService.Start
+      backgroundService.Start()
 
       let c =
         p.InitializationOptions
@@ -2722,7 +2722,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
   override x.Dispose() = x.Shutdown() |> Async.Start
 
-let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
+let startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
   use input = Console.OpenStandardInput()
   use output = Console.OpenStandardOutput()
 
@@ -2758,7 +2758,7 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
     |> Map.add "fsharp/inlayHints" (requestHandling (fun s p -> s.FSharpInlayHints(p)))
 
   let state =
-    State.Initial toolsPath workspaceLoaderFactory
+    State.Initial toolsPath stateStorageDir workspaceLoaderFactory
 
   let originalFs =
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
@@ -2768,12 +2768,12 @@ let startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory =
   Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
     new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
 
-let start backgroundServiceEnabled toolsPath workspaceLoaderFactory =
+let start backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
 
   try
     let result =
-      startCore backgroundServiceEnabled toolsPath workspaceLoaderFactory
+      startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory
 
     logger.info (
       Log.setMessage "Start - Ending LSP mode with {reason}"

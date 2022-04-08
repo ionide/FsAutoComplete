@@ -469,9 +469,10 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
             return LspResult.success ()
         }
 
-    member __.InitWorkspace() =
+    member __.InitWorkspace(workspaceStateDir) =
       async {
         do! client.Notify {Value = "Init workspace" }
+        SymbolCache.initCache workspaceStateDir
         do! Async.Sleep 100
         let knownProjects = state.FileCheckOptions.Values |> Seq.distinctBy (fun o -> o.ProjectFileName)
         do! client.Notify {Value = sprintf "Init workspace - starting typechecking on %d projects" (knownProjects |> Seq.length) }
@@ -498,21 +499,20 @@ module Program =
             |> Map.add "background/update" (requestHandling (fun s p -> s.UpdateTextFile(p) ))
             |> Map.add "background/project" (requestHandling (fun s p -> s.UpdateProject(p) ))
             |> Map.add "background/save" (requestHandling (fun s p -> s.FileSaved(p) ))
-            |> Map.add "background/init" (requestHandling (fun s p -> s.InitWorkspace() ))
+            |> Map.add "background/init" (requestHandling (fun s p -> s.InitWorkspace p))
 
         Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FsacClient (fun lspClient -> new BackgroundServiceServer(state, lspClient))
 
     open FSharp.Compiler.IO
 
 
+
     [<EntryPoint>]
     let main argv =
-
-        let pid = Int32.Parse argv.[0]
+        let pid= Int32.Parse argv[0]
         let originalFs = FileSystemAutoOpens.FileSystem
         let fs = FsAutoComplete.FileSystem(originalFs, state.Files.TryFind) :> IFileSystem
         FileSystemAutoOpens.FileSystem <- fs
         ProcessWatcher.zombieCheckWithHostPID (fun () -> exit 0) pid
-        SymbolCache.initCache (Environment.CurrentDirectory)
         let _ = startCore()
         0

@@ -33,10 +33,12 @@ type State =
     ScriptProjectOptions: ConcurrentDictionary<string<LocalPath>, int * FSharpProjectOptions>
 
     mutable ColorizationOutput: bool
+
+    WorkspaceStateDirectory: System.IO.DirectoryInfo
   }
   member x.DebugString = $"{x.Files.Count} Files, {x.ProjectController.ProjectOptions |> Seq.length} Projects"
 
-  static member Initial toolsPath workspaceLoaderFactory =
+  static member Initial toolsPath workspaceStateDir workspaceLoaderFactory =
     { Files = ConcurrentDictionary()
       LastCheckedVersion = ConcurrentDictionary()
       ProjectController = new ProjectController(toolsPath, workspaceLoaderFactory)
@@ -47,7 +49,8 @@ type State =
       CancellationTokens = ConcurrentDictionary()
       NavigationDeclarations = ConcurrentDictionary()
       ScriptProjectOptions = ConcurrentDictionary()
-      ColorizationOutput = false }
+      ColorizationOutput = false
+      WorkspaceStateDirectory = workspaceStateDir }
 
   member x.RefreshCheckerOptions(file: string<LocalPath>, text: NamedText) : FSharpProjectOptions option =
     x.ProjectController.GetProjectOptions (UMX.untag file)

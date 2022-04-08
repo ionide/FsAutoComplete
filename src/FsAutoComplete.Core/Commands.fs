@@ -573,7 +573,7 @@ type Commands
       commandsLogger.info (
         Log.setMessage "Workspace ready - sending init request to background service"
       )
-      backgroundService.InitWorkspace())
+      backgroundService.InitWorkspace(state.WorkspaceStateDirectory.FullName))
 
 
   member __.Notify = notify.Publish
