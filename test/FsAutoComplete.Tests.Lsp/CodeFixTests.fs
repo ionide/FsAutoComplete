@@ -170,6 +170,94 @@ let private changeTypeOfNameToNameOfTests state =
         """
   ])
 
+let private convertCSharpLambdaToFSharpTests state =
+  serverTestList (nameof ConvertCSharpLambdaToFSharpLambda) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ConvertCSharpLambdaToFSharpLambda.title
+    testCaseAsync "can convert csharp lambda in variable assignment with cursor on input" <|
+      CodeFix.check server
+        """
+        let x = $0y => 1 + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let x = fun y -> 1 + y
+        """
+    testCaseAsync "can convert csharp lambda in variable assignment with cursor on usage" <|
+      CodeFix.check server
+        """
+        let x = y => 1 + $0y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let x = fun y -> 1 + y
+        """
+    //ENHANCEMENT: trigger on `=>`
+    // testCaseAsync "can convert csharp lambda in variable assignment with cursor on =>" <|
+    //   CodeFix.check server
+    //     """
+    //     let x = y $0=> 1 + y
+    //     """
+    //     Diagnostics.acceptAll
+    //     selectReplaceCSharpLambdaWithFSharp
+    //     """
+    //     let x = fun y -> 1 + y
+    //     """
+    testCaseAsync "can convert csharp lambda in lambda with parens with cursor on input" <|
+      CodeFix.check server
+        """
+        [1..10] |> List.map ($0x => 1 + x)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        [1..10] |> List.map (fun x -> 1 + x)
+        """
+    testCaseAsync "can convert csharp lambda in lambda with parens with cursor on usage" <|
+      CodeFix.check server
+        """
+        [1..10] |> List.map (x => 1 + $0x)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        [1..10] |> List.map (fun x -> 1 + x)
+        """
+    testCaseAsync "keep multi-line lambda intact - cursor on input" <|
+      CodeFix.check server
+        """
+        let x =
+          $0y =>
+            let a = 1 + y
+            a
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let x =
+          fun y ->
+            let a = 1 + y
+            a
+        """
+    testCaseAsync "keep multi-line lambda intact - cursor on usage" <|
+      CodeFix.check server
+        """
+        let x =
+          y =>
+            let a = 1 + $0y
+            a
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let x =
+          fun y ->
+            let a = 1 + y
+            a
+        """
+  ])
+
 let private convertPositionalDUToNamedTests state =
   serverTestList (nameof ConvertPositionalDUToNamed) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertPositionalDUToNamed.title
@@ -701,6 +789,7 @@ let tests state = testList "CodeFix tests" [
   addMissingRecKeywordTests state
   addTypeToIndeterminateValueTests state
   changeTypeOfNameToNameOfTests state
+  convertCSharpLambdaToFSharpTests state
   convertPositionalDUToNamedTests state
   generateAbstractClassStubTests state
   generateRecordStubTests state

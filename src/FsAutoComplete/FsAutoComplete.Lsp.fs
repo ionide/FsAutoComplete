@@ -883,7 +883,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
            ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
            RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
-           ChangeCSharpLambdaToFSharp.fix tryGetParseResultsForFile getLineText
+           ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
            AddMissingFunKeyword.fix getFileLines getLineText
            MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
            AddMissingRecKeyword.fix getFileLines getLineText
