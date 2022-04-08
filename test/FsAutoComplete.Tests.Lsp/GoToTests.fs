@@ -7,6 +7,10 @@ open Helpers
 open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
 open FsAutoComplete
+open Utils.ServerTests
+open Utils.Server
+open Utils.Utils
+open Utils.TextEdit
 
 ///GoTo tests
 let private gotoTest state =
@@ -542,9 +546,76 @@ let private scriptGotoTests state =
                  "should point to the range of the definition of `testFunction`"
            }) ]
 
+let private untitledGotoTests state =
+  serverTestList "Untitled GoTo Tests" state defaultConfigDto None (fun server -> [
+    testCaseAsync "can go to variable declaration" <| async {
+      let (usagePos, declRange, text) = 
+        """
+        let $0x$0 = 1
+        let _ = ()
+        let a = $0x
+        """
+        |> Text.trimTripleQuotation
+        |> Cursor.assertExtractRange
+        |> fun (decl, text) ->
+            let (pos, text) = 
+              text 
+              |> Cursor.assertExtractPosition
+            (pos, decl, text)
+      let! (doc, diags) = server |> Server.createUntitledDocument text
+      use doc = doc
+    
+      let p : TextDocumentPositionParams = {
+        TextDocument = doc.TextDocumentIdentifier
+        Position = usagePos
+      }
+      let! res = doc.Server.Server.TextDocumentDefinition p
+      match res with
+      | Error e -> failtestf "Request failed: %A" e
+      | Ok None -> failtest "Request none"
+      | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+      | Ok (Some (GotoResult.Single r)) ->
+        Expect.stringEnds r.Uri doc.Uri "should navigate to source file"
+        Expect.equal r.Range declRange "should point to the range of variable declaration"
+    }
+    testCaseAsync "can go to function declaration" <| async {
+      let (usagePos, declRange, text) = 
+        """
+        let $0myFun$0 a b = a + b
+        let _ = ()
+        let a = my$0Fun 1 1
+        """
+        |> Text.trimTripleQuotation
+        |> Cursor.assertExtractRange
+        |> fun (decl, text) ->
+            let (pos, text) = 
+              text 
+              |> Cursor.assertExtractPosition
+            (pos, decl, text)
+      let! (doc, diags) = server |> Server.createUntitledDocument text
+      use doc = doc
+    
+      let p : TextDocumentPositionParams = {
+        TextDocument = doc.TextDocumentIdentifier
+        Position = usagePos
+      }
+      let! res = doc.Server.Server.TextDocumentDefinition p
+      match res with
+      | Error e -> failtestf "Request failed: %A" e
+      | Ok None -> failtest "Request none"
+      | Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
+      | Ok (Some (GotoResult.Single r)) ->
+        Expect.stringEnds r.Uri doc.Uri "should navigate to source file"
+        Expect.equal r.Range declRange "should point to the range of function declaration"
+    }
+  ])
+
 let tests state =
   testSequenced
   <| testList
-       "Go to definition tests"
-       [ gotoTest state
-         scriptGotoTests state ]
+      "Go to definition tests"
+      [ 
+        gotoTest state
+        scriptGotoTests state 
+        untitledGotoTests state
+       ]

@@ -692,6 +692,83 @@ let private generateUnionCasesTests state =
         """
   ])
 
+let private makeDeclarationMutableTests state =
+  serverTestList (nameof MakeDeclarationMutable) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle MakeDeclarationMutable.title
+    testCaseAsync "can make decl mutable in top level assignment" <|
+      CodeFix.check server
+        """
+        let x = 0
+        x $0<- 1
+        """
+        (Diagnostics.expectCode "27") 
+        selectCodeFix
+        """
+        let mutable x = 0
+        x <- 1
+        """
+    testCaseAsync "can make decl mutable in nested assignment" <|
+      CodeFix.check server
+        """
+        let x = 0
+        let _ =
+          x $0<- 1
+          ()
+        """
+        (Diagnostics.expectCode "27") 
+        selectCodeFix
+        """
+        let mutable x = 0
+        let _ =
+          x <- 1
+          ()
+        """
+    testCaseAsync "can make decl mutable in function" <|
+      CodeFix.check server
+        """
+        let count xs =
+          let counter = 0
+          for x in xs do
+            counter $0<- counter + 1
+          counter
+        """
+        (Diagnostics.expectCode "27") 
+        selectCodeFix
+        """
+        let count xs =
+          let mutable counter = 0
+          for x in xs do
+            counter <- counter + 1
+          counter
+        """
+    testCaseAsync "doesn't trigger for already mutable variable" <|
+      CodeFix.checkNotApplicable server
+        """
+        let mutable x = 0
+        x $0<- 1
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+    testCaseAsync "doesn't trigger for immutable parameter" <|
+      CodeFix.checkNotApplicable server
+        """
+        let f (v: int) =
+          v $0<- 1
+          v
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+    testCaseAsync "doesn't trigger for immutable member parameter" <|
+      CodeFix.checkNotApplicable server
+        """
+        type C() =
+          member _.M(v: int)
+            v $0<- 1
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+  ])
+
 let private makeOuterBindingRecursiveTests state =
   serverTestList (nameof MakeOuterBindingRecursive) state defaultConfigDto None (fun server -> [
     testCaseAsync "can make the outer binding recursive when self-referential" <|
@@ -924,6 +1001,7 @@ let tests state = testList "CodeFix tests" [
   generateAbstractClassStubTests state
   generateRecordStubTests state
   generateUnionCasesTests state
+  makeDeclarationMutableTests state
   makeOuterBindingRecursiveTests state
   negationToSubtractionTests state
   removeUnusedBindingTests state

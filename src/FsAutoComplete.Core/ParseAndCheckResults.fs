@@ -74,7 +74,7 @@ type ParseAndCheckResults
       | None -> return Error "load directive not recognized"
     }
 
-  member __.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
+  member x.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> async.Return(ResultOrString.Error "Could not find ident at this location")
     | Some (col, identIsland) ->
@@ -151,6 +151,15 @@ type ParseAndCheckResults
           return ResultOrString.Error(sprintf "Could not find declaration. %s" elaboration)
         | FindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) ->
           return ResultOrString.Error "Could not find declaration"
+        | FindDeclResult.DeclFound range when range.FileName = UMX.untag x.FileName ->
+          // decl in same file
+          // necessary to get decl in untitled file (-> `File.Exists range.FileName` is false)
+          logger.info (
+            Log.setMessage "Got a declresult of {range} in same file"
+            >> Log.addContextDestructured "range" range
+          )
+
+          return Ok(FindDeclarationResult.Range range)
         | FindDeclResult.DeclFound range when System.IO.File.Exists range.FileName ->
           let rangeStr = range.ToString()
 
