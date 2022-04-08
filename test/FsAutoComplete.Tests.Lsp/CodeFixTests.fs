@@ -305,6 +305,63 @@ let private convertCSharpLambdaToFSharpTests state =
         """
   ])
 
+ 
+let private convertInvalidRecordToAnonRecordTests state = 
+  serverTestList (nameof ConvertInvalidRecordToAnonRecord) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ConvertInvalidRecordToAnonRecord.title
+    testCaseAsync "can convert single-line record with single field" <|
+      CodeFix.check server
+        """
+        let v = { $0Name = "foo" }
+        """
+        (Diagnostics.expectCode "39") 
+        selectCodeFix
+        """
+        let v = {| Name = "foo" |}
+        """
+    testCaseAsync "can convert single-line record with two fields" <|
+      CodeFix.check server
+        """
+        let v = { $0Name = "foo"; Value = 42 }
+        """
+        (Diagnostics.expectCode "39") 
+        selectCodeFix
+        """
+        let v = {| Name = "foo"; Value = 42 |}
+        """
+    testCaseAsync "can convert multi-line record with two fields" <|
+      CodeFix.check server
+        """
+        let v = {
+          $0Name = "foo"
+          Value = 42
+        }
+        """
+        (Diagnostics.expectCode "39") 
+        selectCodeFix
+        """
+        let v = {|
+          Name = "foo"
+          Value = 42
+        |}
+        """
+    testCaseAsync "doesn't trigger for existing record" <|
+      CodeFix.checkNotApplicable server
+        """
+        type V = { Name: string; Value: int }
+        let v = { $0Name = "foo"; Value = 42 }
+        """
+        (Diagnostics.acceptAll) 
+        selectCodeFix
+    testCaseAsync "doesn't trigger for anon record" <|
+      CodeFix.checkNotApplicable server
+        """
+        let v = {| $0Name = "foo"; Value = 42 |}
+        """
+        (Diagnostics.acceptAll) 
+        selectCodeFix
+  ])
+
 let private convertPositionalDUToNamedTests state =
   serverTestList (nameof ConvertPositionalDUToNamed) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertPositionalDUToNamed.title
@@ -839,6 +896,7 @@ let tests state = testList "CodeFix tests" [
   changeTypeOfNameToNameOfTests state
   convertBangEqualsToInequalityTests state
   convertCSharpLambdaToFSharpTests state
+  convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
   generateAbstractClassStubTests state
   generateRecordStubTests state

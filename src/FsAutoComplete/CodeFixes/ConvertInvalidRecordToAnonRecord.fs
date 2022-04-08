@@ -7,6 +7,7 @@ open FsAutoComplete
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.LspHelpers
 
+let title = "Convert to anonymous record"
 /// a codefix that converts unknown/partial record expressions to anonymous records
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode
@@ -34,7 +35,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               |> Result.ofOption (fun _ -> "No end insert range")
 
             return
-              [ { Title = "Convert to anonymous record"
+              [ { Title = title
                   File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diagnostic
                   Edits =
