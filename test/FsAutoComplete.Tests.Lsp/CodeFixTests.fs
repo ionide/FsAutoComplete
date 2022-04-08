@@ -305,6 +305,28 @@ let private convertCSharpLambdaToFSharpTests state =
         """
   ])
 
+let private convertDoubleEqualsToSingleEqualsTests state = 
+  serverTestList (nameof ConvertDoubleEqualsToSingleEquals) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ConvertDoubleEqualsToSingleEquals.title
+    testCaseAsync "can replace == with =" <|
+      CodeFix.check server
+        """
+        1 $0== 1
+        """
+        (Diagnostics.expectCode "43") 
+        selectCodeFix
+        """
+        1 = 1
+        """
+    testCaseAsync "doesn't replace existing operator == with =" <|
+      CodeFix.checkNotApplicable server
+        """
+        let (==) a b = a = b
+        1 $0== 1
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+  ])
  
 let private convertInvalidRecordToAnonRecordTests state = 
   serverTestList (nameof ConvertInvalidRecordToAnonRecord) state defaultConfigDto None (fun server -> [
@@ -896,6 +918,7 @@ let tests state = testList "CodeFix tests" [
   changeTypeOfNameToNameOfTests state
   convertBangEqualsToInequalityTests state
   convertCSharpLambdaToFSharpTests state
+  convertDoubleEqualsToSingleEqualsTests state
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
   generateAbstractClassStubTests state
