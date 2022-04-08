@@ -1,4 +1,4 @@
-module FsAutoComplete.CodeFix.ChangeComparisonToMutableAssignment
+module FsAutoComplete.CodeFix.UseMutationWhenValueIsMutable
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
@@ -8,6 +8,7 @@ open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.Symbols
 
+let title = "Use '<-' to mutate value"
 /// a codefix that changes equality checking to mutable assignment when the compiler thinks it's relevant
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode
@@ -38,15 +39,15 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
               match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
               | Some equalsPos ->
-                  let! nextPos = inc lines equalsPos |> Result.ofOption (fun _ -> "next position wasn't valid")
+                  let! prevPos = dec lines equalsPos |> Result.ofOption (fun _ -> "prev position wasn't valid")
                   return
                     [ { File = codeActionParams.TextDocument
-                        Title = "Use '<-' to mutate value"
+                        Title = title
                         SourceDiagnostic = Some diagnostic
                         Edits =
                           [| { Range =
-                                 { Start = equalsPos
-                                   End = nextPos }
+                                 { Start = prevPos
+                                   End = equalsPos }
                                NewText = "<-" } |]
                         Kind = FixKind.Refactor } ]
               | None -> return []

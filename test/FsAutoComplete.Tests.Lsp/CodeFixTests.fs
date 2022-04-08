@@ -637,6 +637,62 @@ let private useTripleQuotedInterpolationTests state =
         "
   ])
 
+let private useMutationWhenValueIsMutableTests state =
+  serverTestList (nameof UseMutationWhenValueIsMutable) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle UseMutationWhenValueIsMutable.title
+    testCaseAsync "can replace = with <- when cursor on =" <|
+      CodeFix.check server
+        """
+        let _ =
+          let mutable v = 42
+          v $0= 5
+          v
+        """
+        (Diagnostics.expectCode "20")
+        selectCodeFix
+        """
+        let _ =
+          let mutable v = 42
+          v <- 5
+          v
+        """
+    testCaseAsync "can replace = with <- when cursor on variable" <|
+      CodeFix.check server
+        """
+        let _ =
+          let mutable v = 42
+          $0v = 5
+          v
+        """
+        (Diagnostics.expectCode "20")
+        selectCodeFix
+        """
+        let _ =
+          let mutable v = 42
+          v <- 5
+          v
+        """
+    testCaseAsync "doesn't suggest fix when = is comparison" <|
+      CodeFix.checkNotApplicable server
+        """
+        let _ =
+          let mutable v = 42
+          v $0= 5
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+    testCaseAsync "doesn't suggest fix when variable is not mutable" <|
+      CodeFix.checkNotApplicable server
+        """
+        let _ =
+          let v = 42
+          v $0= 5
+          v
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+  ])
+
 
 let tests state = testList "CodeFix tests" [
   addExplicitTypeToParameterTests state
@@ -654,4 +710,5 @@ let tests state = testList "CodeFix tests" [
   removeUnusedBindingTests state
   unusedValueTests state
   useTripleQuotedInterpolationTests state
+  useMutationWhenValueIsMutableTests state
 ]

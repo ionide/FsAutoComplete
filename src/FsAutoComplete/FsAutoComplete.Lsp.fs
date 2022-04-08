@@ -880,7 +880,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            RefCellAccesToNot.fix tryGetParseResultsForFile
            UseSafeCastInsteadOfUnsafe.fix getRangeText
            MakeDeclarationMutable.fix tryGetParseResultsForFile tryGetProjectOptions
-           ChangeComparisonToMutableAssignment.fix tryGetParseResultsForFile
+           UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
            ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
            RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
            ChangeCSharpLambdaToFSharp.fix tryGetParseResultsForFile getLineText
