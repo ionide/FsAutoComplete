@@ -875,7 +875,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            MissingEquals.fix getFileLines
            NegationToSubtraction.fix getFileLines
            DoubleEqualsToSingleEquals.fix getRangeText
-           ColonInFieldType.fix
+           ChangeEqualsInFieldTypeToColon.fix
            ParenthesizeExpression.fix getRangeText
            RefCellAccesToNot.fix tryGetParseResultsForFile
            UseSafeCastInsteadOfUnsafe.fix getRangeText

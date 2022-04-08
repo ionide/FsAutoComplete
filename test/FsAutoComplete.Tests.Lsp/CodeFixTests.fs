@@ -156,6 +156,38 @@ let private addTypeToIndeterminateValueTests state =
             {| Evens = 0 |}
         """
   ])
+
+let private changeEqualsInFieldTypeToColonTests state = 
+  serverTestList (nameof ChangeEqualsInFieldTypeToColon) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ChangeEqualsInFieldTypeToColon.title
+    testCaseAsync "can change = to : in single line" <|
+      CodeFix.check server
+        """
+        type A = { Name : string; Key $0= int }
+        """
+        (Diagnostics.expectCode "10") 
+        selectCodeFix
+        """
+        type A = { Name : string; Key : int }
+        """
+    testCaseAsync "can change = to : in multi line" <|
+      CodeFix.check server
+        """
+        type A = { 
+          Name : string
+          Key $0= int 
+        }
+        """
+        (Diagnostics.expectCode "10") 
+        selectCodeFix
+        """
+        type A = { 
+          Name : string
+          Key : int 
+        }
+        """
+  ])
+
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server -> [
     testCaseAsync "can suggest fix" <|
@@ -788,6 +820,7 @@ let tests state = testList "CodeFix tests" [
   addMissingInstanceMemberTests state
   addMissingRecKeywordTests state
   addTypeToIndeterminateValueTests state
+  changeEqualsInFieldTypeToColonTests state
   changeTypeOfNameToNameOfTests state
   convertCSharpLambdaToFSharpTests state
   convertPositionalDUToNamedTests state
