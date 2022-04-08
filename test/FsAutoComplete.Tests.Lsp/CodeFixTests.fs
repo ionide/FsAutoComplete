@@ -110,6 +110,52 @@ let private addMissingRecKeywordTests state =
         """
   ])
 
+let private addTypeToIndeterminateValueTests state =
+  serverTestList (nameof AddTypeToIndeterminateValue) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle AddTypeToIndeterminateValue.title
+    testCaseAsync "can add type annotation to error 72 ('Lookup on object of indeterminate type')" <|
+      CodeFix.check server
+        """
+        let data = [
+          {| Name = "foo"; Value = 42 |}
+          {| Name = "bar"; Value = 13 |}
+        ]
+        let res = List.filter (fun d -> $0d.Value > 20) data
+        """
+        (Diagnostics.expectCode "72")
+        selectCodeFix
+        """
+        let data = [
+          {| Name = "foo"; Value = 42 |}
+          {| Name = "bar"; Value = 13 |}
+        ]
+        let res = List.filter (fun (d: {| Name: string; Value: int |}) -> d.Value > 20) data
+        """
+    testCaseAsync "can add type annotation to error 3245 ('The input to a copy-and-update expression that creates an anonymous record must be either an anonymous record or a record')" <|
+      CodeFix.check server
+        """
+        [1..5]
+        |> List.fold
+            (fun s i ->
+              match i % 2 with
+              | 0 -> {| $0s with Evens = s.Evens + 1 |}
+              | _ -> s
+            )
+            {| Evens = 0 |}
+        """
+        (Diagnostics.expectCode "3245")
+        selectCodeFix
+        """
+        [1..5]
+        |> List.fold
+            (fun (s: {| Evens: int |}) i ->
+              match i % 2 with
+              | 0 -> {| s with Evens = s.Evens + 1 |}
+              | _ -> s
+            )
+            {| Evens = 0 |}
+        """
+  ])
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server -> [
     testCaseAsync "can suggest fix" <|
@@ -597,6 +643,7 @@ let tests state = testList "CodeFix tests" [
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
   addMissingRecKeywordTests state
+  addTypeToIndeterminateValueTests state
   changeTypeOfNameToNameOfTests state
   convertPositionalDUToNamedTests state
   generateAbstractClassStubTests state

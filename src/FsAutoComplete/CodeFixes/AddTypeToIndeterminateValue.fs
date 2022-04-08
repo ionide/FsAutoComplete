@@ -7,7 +7,9 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
+open FSharp.UMX
 
+let title = "Add explicit type annotation"
 /// fix inderminate type errors by adding an explicit type to a value
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
@@ -17,14 +19,13 @@ let fix
     (Set.ofList ["72"; "3245"])
     (fun diagnostic codeActionParams ->
     asyncResult {
-      let filename = codeActionParams.TextDocument.GetFilePath ()
-      let typedFileName = filename |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath () |> Utils.normalizePath
       let fcsRange = protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) diagnostic.Range
-      let! (tyRes, line, lines) = getParseResultsForFile typedFileName fcsRange.Start
+      let! (tyRes, line, lines) = getParseResultsForFile fileName fcsRange.Start
       let! (endColumn, identIslands) = Lexer.findLongIdents(fcsRange.Start.Column, line) |> Result.ofOption (fun _ -> "No long ident at position")
       match tyRes.GetCheckResults.GetDeclarationLocation(fcsRange.Start.Line, endColumn, line, List.ofArray identIslands) with
-      | FindDeclResult.DeclFound declRange when declRange.FileName = filename ->
-        let! projectOptions = getProjectOptionsForFile typedFileName
+      | FindDeclResult.DeclFound declRange when declRange.FileName = UMX.untag fileName ->
+        let! projectOptions = getProjectOptionsForFile fileName
         let protocolDeclRange = fcsRangeToLsp declRange
         let! declText = lines.GetText declRange
         let! declTextLine = lines.GetLine declRange.Start |> Result.ofOption (fun _ -> "No line found at pos")
@@ -48,7 +49,7 @@ let fix
               else "(" + declText + ": " + typeString + ")", protocolDeclRange
 
             return [{
-                      Title = "Add explicit type annotation"
+                      Title = title
                       File = codeActionParams.TextDocument
                       SourceDiagnostic = Some diagnostic
                       Kind = FixKind.Fix
