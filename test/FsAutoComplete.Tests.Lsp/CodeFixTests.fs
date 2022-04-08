@@ -93,6 +93,23 @@ let private addMissingInstanceMemberTests state =
         """
   ])
 
+let private addMissingRecKeywordTests state =
+  serverTestList (nameof AddMissingRecKeyword) state defaultConfigDto None (fun server -> [
+    // `rec` in single function is handled in `MakeOuterBindingRecursive`
+    testCaseAsync "can add rec to mutual recursive function" <|
+      CodeFix.check server
+        """
+        $0let a x = x
+        and b x = x
+        """
+        (Diagnostics.expectCode "576")
+        (CodeFix.withTitle (AddMissingRecKeyword.title "a"))
+        """
+        let rec a x = x
+        and b x = x
+        """
+  ])
+
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server -> [
     testCaseAsync "can suggest fix" <|
@@ -579,6 +596,7 @@ let tests state = testList "CodeFix tests" [
   addExplicitTypeToParameterTests state
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
+  addMissingRecKeywordTests state
   changeTypeOfNameToNameOfTests state
   convertPositionalDUToNamedTests state
   generateAbstractClassStubTests state
