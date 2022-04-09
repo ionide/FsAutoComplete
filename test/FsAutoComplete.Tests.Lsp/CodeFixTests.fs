@@ -265,6 +265,47 @@ let private changePrefixNegationToInfixSubtractionTests state =
         """
   ])
 
+let private changeRefCellDerefToNotTests state = 
+  serverTestList (nameof ChangeRefCellDerefToNot) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ChangeRefCellDerefToNot.title
+    testCaseAsync "can change simple deref to not" <|
+      CodeFix.check server
+        """
+        let x = 1
+        !$0x
+        """
+        (Diagnostics.expectCode "1") 
+        selectCodeFix
+        """
+        let x = 1
+        not x
+        """
+    testCaseAsync "can change simple deref with parens to not" <|
+      CodeFix.check server
+        """
+        let x = 1
+        !($0x)
+        """
+        (Diagnostics.expectCode "1") 
+        selectCodeFix
+        """
+        let x = 1
+        not (x)
+        """
+    testCaseAsync "can change deref of binary expr to not" <|
+      CodeFix.check server
+        """
+        let x = 1
+        !($0x = false)
+        """
+        (Diagnostics.expectCode "1") 
+        selectCodeFix
+        """
+        let x = 1
+        not (x = false)
+        """
+  ])
+
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server -> [
     testCaseAsync "can suggest fix" <|
@@ -1111,6 +1152,7 @@ let tests state = testList "CodeFix tests" [
   addTypeToIndeterminateValueTests state
   changeEqualsInFieldTypeToColonTests state
   changePrefixNegationToInfixSubtractionTests state
+  changeRefCellDerefToNotTests state
   changeTypeOfNameToNameOfTests state
   convertBangEqualsToInequalityTests state
   convertCSharpLambdaToFSharpTests state
