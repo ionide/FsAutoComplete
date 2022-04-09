@@ -1154,6 +1154,28 @@ let private removeUnusedBindingTests state =
         """
   ])
 
+let private resolveNamespaceTests state =
+  let config = { defaultConfigDto with ResolveNamespaces = Some true }
+  serverTestList (nameof ResolveNamespace) state config None (fun server -> [
+    testCaseAsync "doesn't fail when target not in last line" <| 
+      CodeFix.checkApplicable server
+        """
+        let x = $0Min(2.0, 1.0)
+        """   // Note: new line at end!
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        (CodeFix.log >> CodeFix.matching (fun ca -> ca.Title.StartsWith "open") >> Array.take 1)
+    testCaseAsync "doesn't fail when target in last line" <| 
+      CodeFix.checkApplicable server
+        "let x = $0Min(2.0, 1.0)"   // Note: No new line at end!
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        (CodeFix.log >> CodeFix.matching (fun ca -> ca.Title.StartsWith "open") >> Array.take 1)
+
+    //TODO: Implement & unify with `Completion.AutoOpen` (`CompletionTests.fs`)
+    // Issues:
+    // * Complex because of nesting modules (-> where to open)
+    // * Different open locations of CodeFix and AutoOpen
+  ])
+
 let private unusedValueTests state =
   let config = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
   serverTestList (nameof UnusedValue) state config None (fun server -> [
@@ -1334,6 +1356,7 @@ let tests state = testList "CodeFix tests" [
   removeRedundantQualifierTests state
   removeUnnecessaryReturnOrYieldTests state
   removeUnusedBindingTests state
+  resolveNamespaceTests state
   unusedValueTests state
   useMutationWhenValueIsMutableTests state
   useTripleQuotedInterpolationTests state
