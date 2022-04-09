@@ -888,7 +888,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
            AddMissingRecKeyword.fix getFileLines getLineText
            ConvertBangEqualsToInequality.fix getRangeText
-           ReplaceBangWithValueFunction.fix tryGetParseResultsForFile getLineText
+           ChangeDerefBangToValue.fix tryGetParseResultsForFile getLineText
            RemoveUnusedBinding.fix tryGetParseResultsForFile
            AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
            ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile

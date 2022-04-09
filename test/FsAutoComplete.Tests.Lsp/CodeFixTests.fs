@@ -216,6 +216,71 @@ let private addTypeToIndeterminateValueTests state =
         """
   ])
 
+let private changeDerefBangToValueTests state =
+  serverTestList (nameof ChangeDerefBangToValue) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ChangeDerefBangToValue.title
+    testCaseAsync "can replace ! with .Value" <|
+      CodeFix.check server
+        """
+        let rv = ref 5
+        let v = $0!rv
+        """
+        (Diagnostics.expectCode "3370")
+        selectCodeFix
+        """
+        let rv = ref 5
+        let v = rv.Value
+        """
+    testCaseAsync "can replace ! with .Value when parens" <|
+      CodeFix.check server
+        """
+        let rv = ref 5
+        let v = $0!(rv)
+        """
+        (Diagnostics.expectCode "3370")
+        selectCodeFix
+        """
+        let rv = ref 5
+        let v = (rv).Value
+        """
+    testCaseAsync "can replace ! with .Value when function in parens" <|
+      CodeFix.check server
+        """
+        let fr a = ref a
+        let v = $0!(fr 5)
+        """
+        (Diagnostics.expectCode "3370")
+        selectCodeFix
+        """
+        let fr a = ref a
+        let v = (fr 5).Value
+        """
+    testCaseAsync "can replace ! with .Value when space between ! and variable" <|
+      CodeFix.check server
+        """
+        let rv = ref 5
+        let v = $0! rv
+        """
+        (Diagnostics.expectCode "3370")
+        selectCodeFix
+        """
+        let rv = ref 5
+        let v = rv.Value
+        """
+    testCaseAsync "can replace ! with .Value when when parens and space between ! and variable" <|
+      CodeFix.check server
+        """
+        let rv = ref 5
+        let v = $0! (rv)
+        """
+        (Diagnostics.expectCode "3370")
+        selectCodeFix
+        """
+        let rv = ref 5
+        let v = (rv).Value
+        """
+  ])
+
 let private changeEqualsInFieldTypeToColonTests state = 
   serverTestList (nameof ChangeEqualsInFieldTypeToColon) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ChangeEqualsInFieldTypeToColon.title
@@ -1211,6 +1276,7 @@ let tests state = testList "CodeFix tests" [
   addMissingRecKeywordTests state
   addNewKeywordToDisposableConstructorInvocationTests state
   addTypeToIndeterminateValueTests state
+  changeDerefBangToValueTests state
   changeEqualsInFieldTypeToColonTests state
   changePrefixNegationToInfixSubtractionTests state
   changeRefCellDerefToNotTests state
