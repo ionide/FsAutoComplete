@@ -945,6 +945,67 @@ let private removeRedundantQualifierTests state =
         selectCodeFix
   ])
 
+let private removeUnnecessaryReturnOrYieldTests state =
+  serverTestList (nameof RemoveUnnecessaryReturnOrYield) state defaultConfigDto None (fun server -> [
+    testCaseAsync "can remove return" <|
+      CodeFix.check server
+        """
+        let f x =
+          $0return x
+        """
+        (Diagnostics.expectCode "748")
+        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "return"))
+        """
+        let f x =
+          x
+        """
+    testCaseAsync "can remove return!" <|
+      CodeFix.check server
+        """
+        let f x =
+          $0return! x
+        """
+        (Diagnostics.expectCode "748")
+        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "return!"))
+        """
+        let f x =
+          x
+        """
+    testCaseAsync "can remove yield" <|
+      CodeFix.check server
+        """
+        let f x =
+          $0yield x
+        """
+        (Diagnostics.expectCode "747")
+        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "yield"))
+        """
+        let f x =
+          x
+        """
+    testCaseAsync "can remove yield!" <|
+      CodeFix.check server
+        """
+        let f x =
+          $0yield! x
+        """
+        (Diagnostics.expectCode "747")
+        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "yield!"))
+        """
+        let f x =
+          x
+        """
+    testCaseAsync "doesn't trigger in seq" <|
+      CodeFix.checkNotApplicable server
+        """
+        let f x = seq {
+          $0yield x
+        }
+        """
+        (Diagnostics.acceptAll)
+        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "yield"))
+  ])
+
 let private removeUnusedBindingTests state =
   let config = { defaultConfigDto with FSIExtraParameters = Some [| "--warnon:1182" |] }
   serverTestList (nameof RemoveUnusedBinding) state config None (fun server -> [
@@ -1165,6 +1226,7 @@ let tests state = testList "CodeFix tests" [
   makeDeclarationMutableTests state
   makeOuterBindingRecursiveTests state
   removeRedundantQualifierTests state
+  removeUnnecessaryReturnOrYieldTests state
   removeUnusedBindingTests state
   unusedValueTests state
   useTripleQuotedInterpolationTests state
