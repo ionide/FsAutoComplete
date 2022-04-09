@@ -879,6 +879,31 @@ let private makeOuterBindingRecursiveTests state =
         """
   ])
 
+let private removeRedundantQualifierTests state =
+  let config = { defaultConfigDto with SimplifyNameAnalyzer = Some true }
+  serverTestList (nameof RemoveRedundantQualifier) state config None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle RemoveRedundantQualifier.title
+    testCaseAsync "can remove redundant namespace" <|
+      CodeFix.check server
+        """
+        open System
+        let _ = $0System.String.IsNullOrWhiteSpace "foo"
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+        """
+        open System
+        let _ = String.IsNullOrWhiteSpace "foo"
+        """
+    testCaseAsync "doesn't remove necessary namespace" <|
+      CodeFix.checkNotApplicable server
+        """
+        let _ = $0System.String.IsNullOrWhiteSpace "foo"
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+  ])
+
 let private removeUnusedBindingTests state =
   let config = { defaultConfigDto with FSIExtraParameters = Some [| "--warnon:1182" |] }
   serverTestList (nameof RemoveUnusedBinding) state config None (fun server -> [
@@ -1097,6 +1122,7 @@ let tests state = testList "CodeFix tests" [
   generateUnionCasesTests state
   makeDeclarationMutableTests state
   makeOuterBindingRecursiveTests state
+  removeRedundantQualifierTests state
   removeUnusedBindingTests state
   unusedValueTests state
   useTripleQuotedInterpolationTests state
