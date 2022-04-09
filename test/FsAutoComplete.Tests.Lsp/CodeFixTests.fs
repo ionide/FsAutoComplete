@@ -63,6 +63,31 @@ let private addExplicitTypeToParameterTests state =
         """
   ])
 
+let private addMissingEqualsToTypeDefinitionTests state =
+  serverTestList (nameof AddMissingEqualsToTypeDefinition) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle AddMissingEqualsToTypeDefinition.title
+    testCaseAsync "can add = to record def" <|
+      CodeFix.check server
+        """
+        type Person $0{ Name : string; Age : int; City : string }
+        """
+        (Diagnostics.expectCode "3360") 
+        selectCodeFix
+        """
+        type Person = { Name : string; Age : int; City : string }
+        """
+    testCaseAsync "can add = to union def" <|
+      CodeFix.check server
+        """
+        type Name $0Name of string
+        """
+        (Diagnostics.expectCode "3360") 
+        selectCodeFix
+        """
+        type Name = Name of string
+        """
+  ])
+
 let private addMissingFunKeywordTests state =
   serverTestList (nameof AddMissingFunKeyword) state defaultConfigDto None (fun server -> [
     testCaseAsync "can generate the fun keyword when error 10 is raised" <|
@@ -987,6 +1012,7 @@ let private useMutationWhenValueIsMutableTests state =
 
 let tests state = testList "CodeFix tests" [
   addExplicitTypeToParameterTests state
+  addMissingEqualsToTypeDefinitionTests state
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
   addMissingRecKeywordTests state

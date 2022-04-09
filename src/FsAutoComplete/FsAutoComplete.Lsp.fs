@@ -872,7 +872,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                tryGetParseResultsForFile
                commands.GetAbstractClassStub
                getAbstractClassStubReplacements)
-           MissingEquals.fix getFileLines
+           AddMissingEqualsToTypeDefinition.fix getFileLines
            NegationToSubtraction.fix getFileLines
            ConvertDoubleEqualsToSingleEquals.fix getRangeText
            ChangeEqualsInFieldTypeToColon.fix
