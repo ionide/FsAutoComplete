@@ -1154,6 +1154,99 @@ let private removeUnusedBindingTests state =
         """
   ])
 
+let private replaceWithSuggestionTests state =
+  serverTestList (nameof ReplaceWithSuggestion) state defaultConfigDto None (fun server -> [
+    let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
+    testCaseAsync "can change Min to min" <|
+      CodeFix.check server
+        """
+        let x = $0Min(2.0, 1.0)
+        """
+        Diagnostics.acceptAll 
+        (selectCodeFix "min")
+        """
+        let x = min(2.0, 1.0)
+        """
+    testSequenced <| testList "can get multiple suggestions for flout" [
+      testCaseAsync "can change flout to float" <|
+        CodeFix.check server
+          """
+          let x = $0flout 2
+          """
+          Diagnostics.acceptAll 
+          (selectCodeFix "float")
+          """
+          let x = float 2
+          """
+      testCaseAsync "can change flout to float32" <|
+        CodeFix.check server
+          """
+          let x = $0flout 2
+          """
+          Diagnostics.acceptAll 
+          (selectCodeFix "float32")
+          """
+          let x = float32 2
+          """
+    ]
+    testCaseAsync "can change flout to float in var type" <|
+      CodeFix.check server
+        """
+        let x: $0flout = 2.0
+        """
+        Diagnostics.acceptAll 
+        (selectCodeFix "float")
+        """
+        let x: float = 2.0
+        """
+    testCaseAsync "can change namespace in open" <|
+      CodeFix.check server
+        """
+        open System.Text.$0RegularEcpressions
+        """
+        Diagnostics.acceptAll 
+        (selectCodeFix "RegularExpressions")
+        """
+        open System.Text.RegularExpressions
+        """
+    testCaseAsync "can change type in type constructor" <|
+      CodeFix.check server
+        """
+        open System.Text.RegularExpressions
+        let x = $0Regec()
+        """
+        Diagnostics.acceptAll 
+        (selectCodeFix "Regex")
+        """
+        open System.Text.RegularExpressions
+        let x = Regex()
+        """
+    testCaseAsync "can replace identifier in double-backticks" <|
+      CodeFix.check server
+        """
+        let ``hello world`` = 2
+        let x = ``$0hello word``
+        """
+        Diagnostics.acceptAll 
+        (selectCodeFix "``hello world``")
+        """
+        let ``hello world`` = 2
+        let x = ``hello world``
+        """
+    testCaseAsync "can add double-backticks" <|
+      CodeFix.check server
+        """
+        let ``hello world`` = 2
+        let x = $0helloword
+        """
+        Diagnostics.acceptAll 
+        (selectCodeFix "``hello world``")
+        """
+        let ``hello world`` = 2
+        let x = ``hello world``
+        """
+  ])
+
 let private resolveNamespaceTests state =
   let config = { defaultConfigDto with ResolveNamespaces = Some true }
   serverTestList (nameof ResolveNamespace) state config None (fun server -> [
@@ -1356,6 +1449,7 @@ let tests state = testList "CodeFix tests" [
   removeRedundantQualifierTests state
   removeUnnecessaryReturnOrYieldTests state
   removeUnusedBindingTests state
+  replaceWithSuggestionTests state
   resolveNamespaceTests state
   unusedValueTests state
   useMutationWhenValueIsMutableTests state

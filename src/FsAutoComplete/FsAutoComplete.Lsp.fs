@@ -847,7 +847,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            Run.ifEnabled
              (fun _ -> config.ResolveNamespaces)
              (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
-           SuggestedIdentifier.fix
+           ReplaceWithSuggestion.fix
            RemoveRedundantQualifier.fix
            Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (UnusedValue.fix getRangeText)
            AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
