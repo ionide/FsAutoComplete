@@ -850,7 +850,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            SuggestedIdentifier.fix
            RedundantQualifier.fix
            Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (UnusedValue.fix getRangeText)
-           NewWithDisposables.fix getRangeText
+           AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
            Run.ifEnabled
              (fun _ -> config.UnionCaseStubGeneration)
              (GenerateUnionCases.fix

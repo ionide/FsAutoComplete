@@ -135,6 +135,40 @@ let private addMissingRecKeywordTests state =
         """
   ])
 
+let private addNewKeywordToDisposableConstructorInvocationTests state =
+  serverTestList (nameof AddNewKeywordToDisposableConstructorInvocation) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle AddNewKeywordToDisposableConstructorInvocation.title
+    testCaseAsync "can add new to Disposable" <|
+      CodeFix.check server
+        """
+        open System.Threading.Tasks
+        let _ = $0Task<int>(fun _ -> 1)
+        """
+        (Diagnostics.expectCode "760")
+        selectCodeFix
+        """
+        open System.Threading.Tasks
+        let _ = new Task<int>(fun _ -> 1)
+        """
+    testCaseAsync "can add new to Disposable with namespace" <|
+      CodeFix.check server
+        """
+        let _ = System.Threading.Tasks.$0Task<int>(fun _ -> 1)
+        """
+        (Diagnostics.expectCode "760")
+        selectCodeFix
+        """
+        let _ = new System.Threading.Tasks.Task<int>(fun _ -> 1)
+        """
+    testCaseAsync "doesn't trigger for not Disposable" <|
+      CodeFix.checkNotApplicable server
+        """
+        let _ = System.$0String('.', 3)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+  ])
+
 let private addTypeToIndeterminateValueTests state =
   serverTestList (nameof AddTypeToIndeterminateValue) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle AddTypeToIndeterminateValue.title
@@ -1016,6 +1050,7 @@ let tests state = testList "CodeFix tests" [
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
   addMissingRecKeywordTests state
+  addNewKeywordToDisposableConstructorInvocationTests state
   addTypeToIndeterminateValueTests state
   changeEqualsInFieldTypeToColonTests state
   changePrefixNegationToInfixSubtractionTests state
