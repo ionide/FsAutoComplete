@@ -1,4 +1,4 @@
-module FsAutoComplete.CodeFix.NegationToSubtraction
+module FsAutoComplete.CodeFix.ChangePrefixNegationToInfixSubtraction
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Navigation

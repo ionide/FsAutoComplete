@@ -873,7 +873,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                commands.GetAbstractClassStub
                getAbstractClassStubReplacements)
            AddMissingEqualsToTypeDefinition.fix getFileLines
-           NegationToSubtraction.fix getFileLines
+           ChangePrefixNegationToInfixSubtraction.fix getFileLines
            ConvertDoubleEqualsToSingleEquals.fix getRangeText
            ChangeEqualsInFieldTypeToColon.fix
            ParenthesizeExpression.fix getRangeText

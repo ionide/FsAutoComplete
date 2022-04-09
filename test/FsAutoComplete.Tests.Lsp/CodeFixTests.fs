@@ -213,6 +213,24 @@ let private changeEqualsInFieldTypeToColonTests state =
         """
   ])
 
+let private changePrefixNegationToInfixSubtractionTests state =
+  serverTestList (nameof ChangePrefixNegationToInfixSubtraction) state defaultConfigDto None (fun server -> [
+    testCaseAsync "converts negation to subtraction" <|
+      CodeFix.check server
+        """
+        let getListWithoutFirstAndLastElement list =
+          let l = List.length list
+          list[ 1 .. $0l -1 ]
+        """
+        (Diagnostics.expectCode "3")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle ChangePrefixNegationToInfixSubtraction.title)
+        """
+        let getListWithoutFirstAndLastElement list =
+          let l = List.length list
+          list[ 1 .. l - 1 ]
+        """
+  ])
+
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server -> [
     testCaseAsync "can suggest fix" <|
@@ -816,24 +834,6 @@ let private makeOuterBindingRecursiveTests state =
         """
   ])
 
-let private negationToSubtractionTests state =
-  serverTestList (nameof NegationToSubtraction) state defaultConfigDto None (fun server -> [
-    testCaseAsync "converts negation to subtraction" <|
-      CodeFix.check server
-        """
-        let getListWithoutFirstAndLastElement list =
-          let l = List.length list
-          list[ 1 .. $0l -1 ]
-        """
-        (Diagnostics.expectCode "3")
-        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle NegationToSubtraction.title)
-        """
-        let getListWithoutFirstAndLastElement list =
-          let l = List.length list
-          list[ 1 .. l - 1 ]
-        """
-  ])
-
 let private removeUnusedBindingTests state =
   let config = { defaultConfigDto with FSIExtraParameters = Some [| "--warnon:1182" |] }
   serverTestList (nameof RemoveUnusedBinding) state config None (fun server -> [
@@ -1018,6 +1018,7 @@ let tests state = testList "CodeFix tests" [
   addMissingRecKeywordTests state
   addTypeToIndeterminateValueTests state
   changeEqualsInFieldTypeToColonTests state
+  changePrefixNegationToInfixSubtractionTests state
   changeTypeOfNameToNameOfTests state
   convertBangEqualsToInequalityTests state
   convertCSharpLambdaToFSharpTests state
@@ -1029,7 +1030,6 @@ let tests state = testList "CodeFix tests" [
   generateUnionCasesTests state
   makeDeclarationMutableTests state
   makeOuterBindingRecursiveTests state
-  negationToSubtractionTests state
   removeUnusedBindingTests state
   unusedValueTests state
   useTripleQuotedInterpolationTests state
