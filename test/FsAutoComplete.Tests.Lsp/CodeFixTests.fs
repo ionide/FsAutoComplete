@@ -1214,21 +1214,6 @@ let private unusedValueTests state =
         """
   ])
 
-let private useTripleQuotedInterpolationTests state =
-  serverTestList (nameof UseTripleQuotedInterpolation) state defaultConfigDto None (fun server -> [
-    testCaseAsync "converts erroring single-quoted interpolation to triple-quoted" <|
-      CodeFix.check server
-        """
-        let a = $":^) {if true then $0"y" else "n"} d"
-        """
-        (Diagnostics.expectCode "3373")
-        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle UseTripleQuotedInterpolation.title)
-        // cannot use triple quotes string here: ends with `"""` -> cannot use in string
-        @"
-        let a = $"""""":^) {if true then ""y"" else ""n""} d""""""
-        "
-  ])
-
 let private useMutationWhenValueIsMutableTests state =
   serverTestList (nameof UseMutationWhenValueIsMutable) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle UseMutationWhenValueIsMutable.title
@@ -1285,6 +1270,21 @@ let private useMutationWhenValueIsMutableTests state =
         selectCodeFix
   ])
 
+let private useTripleQuotedInterpolationTests state =
+  serverTestList (nameof UseTripleQuotedInterpolation) state defaultConfigDto None (fun server -> [
+    testCaseAsync "converts erroring single-quoted interpolation to triple-quoted" <|
+      CodeFix.check server
+        """
+        let a = $":^) {if true then $0"y" else "n"} d"
+        """
+        (Diagnostics.expectCode "3373")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle UseTripleQuotedInterpolation.title)
+        // cannot use triple quotes string here: ends with `"""` -> cannot use in string
+        @"
+        let a = $"""""":^) {if true then ""y"" else ""n""} d""""""
+        "
+  ])
+
 let private wrapExpressionInParenthesesTests state =
   serverTestList (nameof WrapExpressionInParentheses) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle WrapExpressionInParentheses.title
@@ -1335,7 +1335,7 @@ let tests state = testList "CodeFix tests" [
   removeUnnecessaryReturnOrYieldTests state
   removeUnusedBindingTests state
   unusedValueTests state
-  useTripleQuotedInterpolationTests state
   useMutationWhenValueIsMutableTests state
+  useTripleQuotedInterpolationTests state
   wrapExpressionInParenthesesTests state
 ]
