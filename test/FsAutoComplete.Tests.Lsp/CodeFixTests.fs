@@ -1054,6 +1054,27 @@ let private useMutationWhenValueIsMutableTests state =
         selectCodeFix
   ])
 
+let private wrapExpressionInParenthesesTests state =
+  serverTestList (nameof WrapExpressionInParentheses) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle WrapExpressionInParentheses.title
+    testCaseAsync "can add parenthesize expression" <|
+      CodeFix.check server
+        """
+        printfn "%b" System.String.$0IsNullOrWhiteSpace("foo")
+        """
+        (Diagnostics.expectCode "597") 
+        selectCodeFix
+        """
+        printfn "%b" (System.String.IsNullOrWhiteSpace("foo"))
+        """
+    testCaseAsync "doesn't trigger for expression in parens" <|
+      CodeFix.checkNotApplicable server
+        """
+        printfn "%b" (System.String.$0IsNullOrWhiteSpace("foo"))
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+  ])
 
 let tests state = testList "CodeFix tests" [
   addExplicitTypeToParameterTests state
@@ -1080,4 +1101,5 @@ let tests state = testList "CodeFix tests" [
   unusedValueTests state
   useTripleQuotedInterpolationTests state
   useMutationWhenValueIsMutableTests state
+  wrapExpressionInParenthesesTests state
 ]
