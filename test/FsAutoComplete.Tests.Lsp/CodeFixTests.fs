@@ -439,7 +439,7 @@ let private convertBangEqualsToInequalityTests state =
         """
   ])
 
-let private convertCSharpLambdaToFSharpTests state =
+let private ConvertCSharpLambdaToFSharpLambdaTests state =
   serverTestList (nameof ConvertCSharpLambdaToFSharpLambda) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertCSharpLambdaToFSharpLambda.title
     testCaseAsync "can convert csharp lambda in variable assignment with cursor on input" <|
@@ -1322,7 +1322,7 @@ let tests state = testList "CodeFix tests" [
   changeRefCellDerefToNotTests state
   changeTypeOfNameToNameOfTests state
   convertBangEqualsToInequalityTests state
-  convertCSharpLambdaToFSharpTests state
+  ConvertCSharpLambdaToFSharpLambdaTests state
   convertDoubleEqualsToSingleEqualsTests state
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
