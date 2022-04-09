@@ -510,8 +510,7 @@ let private convertPositionalDUToNamedTests state =
         match A(1, true) with
         | (A(a = a; b = b;)) -> ()
         """
-    testCaseAsync "when there are new fields on the DU" <|
-      //ENHANCEMENT: add space before wildcard case
+    testCaseAsync "when there is one new field on the DU" <|
       CodeFix.check server
         """
         type ThirdFieldWasJustAdded = ThirdFieldWasJustAdded of a: int * b: bool * c: char
@@ -523,7 +522,19 @@ let private convertPositionalDUToNamedTests state =
         """
         type ThirdFieldWasJustAdded = ThirdFieldWasJustAdded of a: int * b: bool * c: char
 
-        let (ThirdFieldWasJustAdded(a = a; b = b;c = _;)) = ThirdFieldWasJustAdded(1, true, 'c')
+        let (ThirdFieldWasJustAdded(a = a; b = b; c = _;)) = ThirdFieldWasJustAdded(1, true, 'c')
+        """
+    testCaseAsync "when there are multiple new fields on the DU" <|
+      CodeFix.check server
+        """
+        type U = U of aValue: int * boolean: int * char: char * dec: decimal * element: int
+        let (U($0a, b)) = failwith "..."
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type U = U of aValue: int * boolean: int * char: char * dec: decimal * element: int
+        let (U(aValue = a; boolean = b; char = _; dec = _; element = _;)) = failwith "..."
         """
   ])
 
