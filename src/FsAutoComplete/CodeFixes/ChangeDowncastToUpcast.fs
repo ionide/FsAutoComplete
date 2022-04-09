@@ -1,4 +1,4 @@
-module FsAutoComplete.CodeFix.UseSafeCastInsteadOfUnsafe
+module FsAutoComplete.CodeFix.ChangeDowncastToUpcast
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
@@ -6,6 +6,8 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let titleUpcastOperator = "Use ':>' operator"
+let titleUpcastFunction = "Use 'upcast' function"
 /// a codefix that replaces unsafe casts with safe casts
 let fix (getRangeText: GetRangeText): CodeFix =
   Run.ifDiagnosticByCode
@@ -23,7 +25,7 @@ let fix (getRangeText: GetRangeText): CodeFix =
           | true, false ->
               AsyncResult.retn [ { File = codeActionParams.TextDocument
                                    SourceDiagnostic = Some diagnostic
-                                   Title = "Use ':>' operator"
+                                   Title = titleUpcastOperator
                                    Edits =
                                     [| { Range = diagnostic.Range
                                          NewText = expressionText.Replace(":?>", ":>") } |]
@@ -31,7 +33,7 @@ let fix (getRangeText: GetRangeText): CodeFix =
           | false, true ->
               AsyncResult.retn [ { File = codeActionParams.TextDocument
                                    SourceDiagnostic = Some diagnostic
-                                   Title = "Use 'upcast' function"
+                                   Title = titleUpcastFunction
                                    Edits =
                                       [| { Range = diagnostic.Range
                                            NewText = expressionText.Replace("downcast", "upcast") } |]

@@ -878,7 +878,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
            ChangeEqualsInFieldTypeToColon.fix
            WrapExpressionInParentheses.fix getRangeText
            ChangeRefCellDerefToNot.fix tryGetParseResultsForFile
-           UseSafeCastInsteadOfUnsafe.fix getRangeText
+           ChangeDowncastToUpcast.fix getRangeText
            MakeDeclarationMutable.fix tryGetParseResultsForFile tryGetProjectOptions
            UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
            ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile

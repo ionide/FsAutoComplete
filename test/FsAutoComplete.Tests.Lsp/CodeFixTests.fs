@@ -281,6 +281,45 @@ let private changeDerefBangToValueTests state =
         """
   ])
 
+let private changeDowncastToUpcastTests state = 
+  serverTestList (nameof ChangeDowncastToUpcast) state defaultConfigDto None (fun server -> [
+    let selectOperatorCodeFix = CodeFix.withTitle ChangeDowncastToUpcast.titleUpcastOperator
+    let selectFunctionCodeFix = CodeFix.withTitle ChangeDowncastToUpcast.titleUpcastFunction
+    testCaseAsync "can change :?> to :>" <|
+      CodeFix.check server
+        """
+        type I = interface end
+        type C() = interface I
+
+        let v: I = C() $0:?> I
+        """
+        (Diagnostics.expectCode "3198") 
+        selectOperatorCodeFix
+        """
+        type I = interface end
+        type C() = interface I
+
+        let v: I = C() :> I
+        """
+    testCaseAsync "can change downcast to upcast" <|
+      CodeFix.check server
+        """
+        type I = interface end
+        type C() = interface I
+
+        let v: I = $0downcast C()
+        """
+        (Diagnostics.expectCode "3198") 
+        selectFunctionCodeFix
+        """
+        type I = interface end
+        type C() = interface I
+
+        let v: I = upcast C()
+        """
+    ()
+  ])
+
 let private changeEqualsInFieldTypeToColonTests state = 
   serverTestList (nameof ChangeEqualsInFieldTypeToColon) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ChangeEqualsInFieldTypeToColon.title
@@ -1277,6 +1316,7 @@ let tests state = testList "CodeFix tests" [
   addNewKeywordToDisposableConstructorInvocationTests state
   addTypeToIndeterminateValueTests state
   changeDerefBangToValueTests state
+  changeDowncastToUpcastTests state
   changeEqualsInFieldTypeToColonTests state
   changePrefixNegationToInfixSubtractionTests state
   changeRefCellDerefToNotTests state
