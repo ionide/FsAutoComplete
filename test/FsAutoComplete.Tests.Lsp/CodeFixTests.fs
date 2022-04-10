@@ -1383,11 +1383,11 @@ let private resolveNamespaceTests state =
     // * Different open locations of CodeFix and AutoOpen
   ])
 
-let private unusedValueTests state =
+let private renameUnusedValue state =
   let config = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
-  serverTestList (nameof UnusedValue) state config None (fun server -> [
-    let selectReplace = CodeFix.ofKind "refactor" >> CodeFix.withTitle UnusedValue.titleReplace
-    let selectPrefix = CodeFix.ofKind "refactor" >> CodeFix.withTitle UnusedValue.titlePrefix
+  serverTestList (nameof RenameUnusedValue) state config None (fun server -> [
+    let selectReplace = CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titleReplace
+    let selectPrefix = CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titlePrefix
 
     testCaseAsync "can replace unused self-reference" <|
       CodeFix.check server
@@ -1730,7 +1730,7 @@ let tests state = testList "CodeFix tests" [
   removeUnusedOpensTests state
   replaceWithSuggestionTests state
   resolveNamespaceTests state
-  unusedValueTests state
+  renameUnusedValue state
   useMutationWhenValueIsMutableTests state
   useTripleQuotedInterpolationTests state
   wrapExpressionInParenthesesTests state

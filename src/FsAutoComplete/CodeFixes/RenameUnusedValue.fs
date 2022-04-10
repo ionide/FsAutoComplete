@@ -1,4 +1,4 @@
-module FsAutoComplete.CodeFix.UnusedValue
+module FsAutoComplete.CodeFix.RenameUnusedValue
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix
