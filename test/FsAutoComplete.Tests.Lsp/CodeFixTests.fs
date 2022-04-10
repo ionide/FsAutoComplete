@@ -1154,6 +1154,120 @@ let private removeUnusedBindingTests state =
         """
   ])
 
+let private removeUnusedOpensTests state =
+  let config = { defaultConfigDto with UnusedOpensAnalyzer = Some true }
+  serverTestList (nameof RemoveUnusedOpens) state config None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle RemoveUnusedOpens.title
+    testCaseAsync "can remove single unused open" <|
+      CodeFix.check server
+        """
+        open $0System
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+        ""
+    testCaseAsync "removes just current unused open" <|
+      // unlike VS, `RemoveUnusedOpens` removes just current open (with cursor) and not all unused opens
+      CodeFix.check server
+        """
+        open $0System
+        open System.Text
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+        """
+        open System.Text
+        """
+    testCaseAsync "removes just current unused open 2" <|
+      CodeFix.check server
+        """
+        open System
+        open $0System.Text
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+        """
+        open System
+        """
+    testCaseAsync "doesn't remove used open" <|
+      CodeFix.checkNotApplicable server
+        """
+        open $0System
+
+        let _ = String.IsNullOrWhiteSpace ""
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+    testCaseAsync "can remove open in nested module" <|
+      CodeFix.check server
+        """
+        module A =
+          module B =
+            open $0System
+            ()
+          ()
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+        """
+        module A =
+          module B =
+            ()
+          ()
+        """
+    testCaseAsync "can remove used open in nested module when outer scope opens same open" <|
+      CodeFix.check server
+        """
+        open System
+        module A =
+          module B =
+            open $0System
+            let x = String.IsNullOrWhiteSpace ""
+            ()
+          ()
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+        """
+        open System
+        module A =
+          module B =
+            let x = String.IsNullOrWhiteSpace ""
+            ()
+          ()
+        """
+    //ENHANCEMENT: detect open in outer scope as unused too
+    // testCaseAsync "can remove used open in outer scope when usage in nested scope has own open" <|
+    //   CodeFix.check server
+    //     """
+    //     open $0System
+    //     module A =
+    //       module B =
+    //         open System
+    //         let x = String.IsNullOrWhiteSpace ""
+    //         ()
+    //       ()
+    //     """
+    //     Diagnostics.acceptAll 
+    //     selectCodeFix
+    //     """
+    //     module A =
+    //       module B =
+    //         open System
+    //         let x = String.IsNullOrWhiteSpace ""
+    //         ()
+    //       ()
+    //     """
+    testCaseAsync "doesn't trigger for used open" <|
+      CodeFix.checkNotApplicable server
+        """
+        open $0System
+        let x = String.IsNullOrWhiteSpace ""
+        """
+        Diagnostics.acceptAll 
+        selectCodeFix
+  ])
+
 let private replaceWithSuggestionTests state =
   serverTestList (nameof ReplaceWithSuggestion) state defaultConfigDto None (fun server -> [
     let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
@@ -1422,7 +1536,171 @@ let private wrapExpressionInParenthesesTests state =
         selectCodeFix
   ])
 
+/// Helper functions for CodeFixes
+module private CodeFixHelpers =
+  // `src\FsAutoComplete\CodeFixes.fs` -> `FsAutoComplete.CodeFix`
+  open Navigation
+  open FSharp.Compiler.Text
+  open Utils.TextEdit
+
+  let private navigationTests =
+    testList (nameof Navigation) [
+      let extractTwoCursors text =
+        let (text, poss) = Cursors.extract text
+        let text = SourceText.ofString text
+        (text, (poss[0], poss[1]))
+
+      testList (nameof tryEndOfPrevLine) [
+        testCase "can get end of prev line when not border line" <| fun _ ->
+          let text = """let foo = 4
+let bar = 5
+let baz = 5$0
+let $0x = 5
+let y = 7
+let z = 4"""
+          let (text, (expected, current)) = text |> extractTwoCursors
+          let actual = tryEndOfPrevLine text current.Line
+          Expect.equal actual (Some expected) "Incorrect pos"
+
+        testCase "can get end of prev line when last line" <| fun _ ->
+          let text = """let foo = 4
+let bar = 5
+let baz = 5
+let x = 5
+let y = 7$0
+let z$0 = 4"""
+          let (text, (expected, current)) = text |> extractTwoCursors
+          let actual = tryEndOfPrevLine text current.Line
+          Expect.equal actual (Some expected) "Incorrect pos"
+
+        testCase "cannot get end of prev line when first line" <| fun _ ->
+          let text = """let $0foo$0 = 4
+let bar = 5
+let baz = 5
+let x = 5
+let y = 7
+let z = 4"""
+          let (text, (_, current)) = text |> extractTwoCursors
+          let actual = tryEndOfPrevLine text current.Line
+          Expect.isNone actual "No prev line in first line"
+
+        testCase "cannot get end of prev line when single line" <| fun _ ->
+          let text = SourceText.ofString "let foo = 4"
+          let line = 0
+          let actual = tryEndOfPrevLine text line
+          Expect.isNone actual "No prev line in first line"
+      ]
+      testList (nameof tryStartOfNextLine) [
+        // this would be WAY easier by just using `{ Line = current.Line + 1; Character = 0 }`...
+        testCase "can get start of next line when not border line" <| fun _ ->
+          let text = """let foo = 4
+let bar = 5
+let baz = 5
+let $0x = 5
+$0let y = 7
+let z = 4"""
+          let (text, (current, expected)) = text |> extractTwoCursors
+          let actual = tryStartOfNextLine text current.Line
+          Expect.equal actual (Some expected) "Incorrect pos"
+
+        testCase "can get start of next line when first line" <| fun _ ->
+          let text = """let $0foo = 4
+$0let bar = 5
+let baz = 5
+let x = 5
+let y = 7
+let z = 4"""
+          let (text, (current, expected)) = text |> extractTwoCursors
+          let actual = tryStartOfNextLine text current.Line
+          Expect.equal actual (Some expected) "Incorrect pos"
+
+        testCase "cannot get start of next line when last line" <| fun _ ->
+          let text = """let foo = 4
+let bar = 5
+let baz = 5
+let x = 5
+let y = 7
+let $0z$0 = 4"""
+          let (text, (current, _)) = text |> extractTwoCursors
+          let actual = tryStartOfNextLine text current.Line
+          Expect.isNone actual "No next line in last line"
+
+        testCase "cannot get start of next line when single line" <| fun _ ->
+          let text = SourceText.ofString "let foo = 4"
+          let line = 0
+          let actual = tryStartOfNextLine text line
+          Expect.isNone actual "No next line in first line"
+      ]
+      testList (nameof rangeToDeleteFullLine) [
+        testCase "can get all range for single line" <| fun _ ->
+          let text = "$0let foo = 4$0"
+          let (text, (start, fin)) = text |> extractTwoCursors
+          let expected = { Start = start; End = fin }
+
+          let line = fin.Line
+          let actual = text |> rangeToDeleteFullLine line
+          Expect.equal actual expected "Incorrect range"
+
+        testCase "can get line range with leading linebreak in not border line" <| fun _ ->
+          let text = """let foo = 4
+let bar = 5
+let baz = 5$0
+let x = 5$0
+let y = 7
+let z = 4"""
+          let (text, (start, fin)) = text |> extractTwoCursors
+          let expected = { Start = start; End = fin }
+
+          let line = fin.Line
+          let actual = text |> rangeToDeleteFullLine line
+          Expect.equal actual expected "Incorrect range"
+
+        testCase "can get line range with leading linebreak in last line" <| fun _ ->
+          let text = """let foo = 4
+let bar = 5
+let baz = 5
+let x = 5
+let y = 7$0
+let z = 4$0"""
+          let (text, (start, fin)) = text |> extractTwoCursors
+          let expected = { Start = start; End = fin }
+
+          let line = fin.Line
+          let actual = text |> rangeToDeleteFullLine line
+          Expect.equal actual expected "Incorrect range"
+
+        testCase "can get line range with trailing linebreak in first line" <| fun _ ->
+          let text = """$0let foo = 4
+$0let bar = 5
+let baz = 5
+let x = 5
+let y = 7
+let z = 4"""
+          let (text, (start, fin)) = text |> extractTwoCursors
+          let expected = { Start = start; End = fin }
+
+          let line = start.Line
+          let actual = text |> rangeToDeleteFullLine line
+          Expect.equal actual expected "Incorrect range"
+          
+        testCase "can get all range for single empty line" <| fun _ ->
+          let text = SourceText.ofString ""
+          let pos = { Line = 0; Character = 0 }
+          let expected = { Start = pos; End = pos }
+
+          let line = pos.Line
+          let actual = text |> rangeToDeleteFullLine line
+          Expect.equal actual expected "Incorrect range"
+      ]
+    ]
+
+  let tests = testList ($"{nameof(FsAutoComplete)}.{nameof FsAutoComplete.CodeFix}") [
+    navigationTests
+  ]
+
 let tests state = testList "CodeFix tests" [
+  CodeFixHelpers.tests
+
   addExplicitTypeToParameterTests state
   addMissingEqualsToTypeDefinitionTests state
   addMissingFunKeywordTests state
@@ -1449,6 +1727,7 @@ let tests state = testList "CodeFix tests" [
   removeRedundantQualifierTests state
   removeUnnecessaryReturnOrYieldTests state
   removeUnusedBindingTests state
+  removeUnusedOpensTests state
   replaceWithSuggestionTests state
   resolveNamespaceTests state
   unusedValueTests state

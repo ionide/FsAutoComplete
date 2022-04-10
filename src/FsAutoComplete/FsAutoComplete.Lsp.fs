@@ -843,7 +843,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
       codeFixes <-
-        [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) UnusedOpens.fix
+        [| Run.ifEnabled 
+             (fun _ -> config.UnusedOpensAnalyzer) 
+             (RemoveUnusedOpens.fix getFileLines)
            Run.ifEnabled
              (fun _ -> config.ResolveNamespaces)
              (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)

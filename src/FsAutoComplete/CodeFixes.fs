@@ -73,6 +73,78 @@ module Types =
         Command = None
         Data = None }
 
+module SourceText =
+  let inline private assertLineIndex lineIndex (sourceText: ISourceText) =
+    assert(0 <= lineIndex && lineIndex < sourceText.GetLineCount())
+  /// Note: this fails when `sourceText` is empty string (`""`) 
+  /// -> No lines
+  ///    Use `WithEmptyHandling.isFirstLine` to handle empty string
+  let isFirstLine lineIndex (sourceText: ISourceText) =
+    assertLineIndex lineIndex sourceText
+    lineIndex = 0
+  /// Note: this fails when `sourceText` is empty string (`""`) 
+  /// -> No lines
+  ///    Use `WithEmptyHandling.isLastLine` to handle empty string
+  let isLastLine lineIndex (sourceText: ISourceText) =
+    assertLineIndex lineIndex sourceText
+    lineIndex = sourceText.GetLineCount() - 1
+
+  /// SourceText treats empty string as no source:
+  /// ```fsharp
+  /// let text = SourceText.ofString ""
+  /// assert(text.ToString() = "")
+  /// assert(text.GetLastCharacterPosition() = (0, 0))  // Note: first line is `1`
+  /// assert(text.GetLineCount() = 0) // Note: `(SourceText.ofString "\n").GetLineCount()` is `2`
+  /// assert(text.GetLineString 0 )  // System.IndexOutOfRangeException: Index was outside the bounds of the array.
+  /// ```
+  /// -> Functions in here treat empty string as empty single line
+  /// 
+  /// Note: There's always at least empty single line 
+  ///       -> source MUST at least be empty (cannot not exist)
+  module WithEmptyHandling =
+    let getLineCount (sourceText: ISourceText) =
+      match sourceText.GetLineCount () with
+      | 0 -> 1
+      | c -> c
+      // or 
+      // max 1 (sourceText.GetLineCount())
+
+    let inline private assertLineIndex lineIndex sourceText =
+      assert(0 <= lineIndex && lineIndex < getLineCount sourceText)
+
+    let getLineString lineIndex (sourceText: ISourceText) =
+      assertLineIndex lineIndex sourceText
+      if lineIndex = 0 && sourceText.GetLineCount() = 0 then
+        ""
+      else
+        sourceText.GetLineString lineIndex
+
+    let isFirstLine lineIndex (sourceText: ISourceText) =
+      assertLineIndex lineIndex sourceText
+      // No need to check for inside `getLineCount`: there's always at least one line (might be empty)
+      lineIndex = 0
+
+    let isLastLine lineIndex (sourceText: ISourceText) =
+      assertLineIndex lineIndex sourceText
+      lineIndex = (getLineCount sourceText) - 1
+
+    /// Returns position after last character in specified line.  
+    /// Same as line length.
+    /// 
+    /// Example:
+    /// ```fsharp
+    /// let text = SourceText.ofString "let a = 2\nlet foo = 42\na + foo\n"
+    /// 
+    /// assert(afterLastCharacterPosition 0 text = 9)
+    /// assert(afterLastCharacterPosition 1 text = 12)
+    /// assert(afterLastCharacterPosition 2 text = 7)
+    /// assert(afterLastCharacterPosition 2 text = 0)
+    /// ```
+    let afterLastCharacterPosition lineIndex (sourceText: ISourceText) =
+      assertLineIndex lineIndex sourceText
+      let line = sourceText |> getLineString lineIndex
+      line.Length
+
 /// helpers for iterating along text lines
 module Navigation =
 
@@ -143,6 +215,51 @@ module Navigation =
 
   let walkForwardUntilCondition lines pos condition =
     walkForwardUntilConditionWithTerminal lines pos condition (fun _ -> false)
+
+  /// Tries to detect the last cursor position in line before `currentLine` (0-based).
+  /// 
+  /// Returns `None` iff there's no prev line -> `currentLine` is first line
+  let tryEndOfPrevLine (lines: ISourceText) currentLine =
+    if SourceText.WithEmptyHandling.isFirstLine currentLine lines then
+      None
+    else
+      let prevLine = currentLine - 1
+      { Line = prevLine; Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition prevLine }
+      |> Some
+  /// Tries to detect the first cursor position in line after `currentLine` (0-based).
+  /// 
+  /// Returns `None` iff there's no next line -> `currentLine` is last line
+  let tryStartOfNextLine (lines: ISourceText) currentLine =
+    if SourceText.WithEmptyHandling.isLastLine currentLine lines then
+      None
+    else
+      let nextLine = currentLine + 1
+      { Line = nextLine; Character = 0 }
+      |> Some
+
+  /// Gets the range to delete the complete line `lineIndex` (0-based).
+  /// Deleting the line includes a linebreak if possible
+  /// -> range starts either at end of previous line (-> includes leading linebreak)
+  ///    or start of next line (-> includes trailing linebreak)
+  /// 
+  /// Special case: there's just one line
+  /// -> delete text of (single) line
+  let rangeToDeleteFullLine lineIndex (lines: ISourceText) =
+    match tryEndOfPrevLine lines lineIndex with
+    | Some start ->
+      // delete leading linebreak
+      { Start = start; End = { Line = lineIndex; Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
+    | None ->
+      match tryStartOfNextLine lines lineIndex with
+      | Some fin ->
+        // delete trailing linebreak
+        { Start = { Line = lineIndex; Character = 0 }; End = fin }
+      | None ->
+        // single line
+        // -> just delete all text in line
+        { Start = { Line = lineIndex; Character = 0 }; End = { Line = lineIndex; Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
+
+
 
 module Run =
   open Types
