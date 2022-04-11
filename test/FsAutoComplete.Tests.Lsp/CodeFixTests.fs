@@ -1728,9 +1728,9 @@ let tests state = testList "CodeFix tests" [
   removeUnnecessaryReturnOrYieldTests state
   removeUnusedBindingTests state
   removeUnusedOpensTests state
+  renameUnusedValue state
   replaceWithSuggestionTests state
   resolveNamespaceTests state
-  renameUnusedValue state
   useMutationWhenValueIsMutableTests state
   useTripleQuotedInterpolationTests state
   wrapExpressionInParenthesesTests state
