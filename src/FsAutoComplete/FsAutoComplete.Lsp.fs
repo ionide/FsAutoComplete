@@ -263,14 +263,14 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     analyzers
     |> Async.Parallel
     |> Async.Ignore
-  
-  let parseFile 
-    (filePath: string<LocalPath>) 
-    (version: int) 
-    (content: NamedText) 
+
+  let parseFile
+    (filePath: string<LocalPath>)
+    (version: int)
+    (content: NamedText)
     = async {
       let tfmConfig = config.UseSdkScripts
-      do! 
+      do!
         commands.Parse filePath content version (Some tfmConfig)
         |> Async.Ignore
 
@@ -2692,8 +2692,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
     let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
     fn
-    |> x.fileHandler (fun fn tyRes lines ->
-      let hints = commands.InlayHints(lines, tyRes, fcsRange)
+    |> x.fileHandler (fun fn tyRes lines -> async {
+      let! hints = commands.InlayHints(lines, tyRes, fcsRange)
       let lspHints =
         hints
         |> Array.map (fun h -> {
@@ -2701,8 +2701,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           Pos = fcsPosToLsp h.Pos
           Kind = mapHintKind h.Kind
         })
-      AsyncLspResult.success lspHints
-    )
+      return success lspHints
+    })
 
   member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
     logger.info (

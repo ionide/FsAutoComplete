@@ -29,7 +29,9 @@ let tests state =
   let expectedHintsForFile: FsAutoComplete.Lsp.LSPInlayHint [] =
     [| "string", (3, 17), Lsp.InlayHintKind.Type
        "FileInfo", (5, 9), Lsp.InlayHintKind.Type
-       "fileName", (5, 21), Lsp.InlayHintKind.Parameter |]
+       "string", (15, 5), Lsp.InlayHintKind.Type
+       "fileName", (5, 21), Lsp.InlayHintKind.Parameter
+       "format", (15, 16), Lsp.InlayHintKind.Parameter |]
     |> Array.map (fun (text, (line, char), kind) ->
       { Text =
           match kind with

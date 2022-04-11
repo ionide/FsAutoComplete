@@ -50,11 +50,11 @@ let getFirstPositionAfterParen (str: string) startPos =
   | str when startPos > str.Length -> -1
   | str -> str.IndexOf('(') + 1
 
-let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Hint [] =
+let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> = async {
   let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
-
+  let! cancellationToken = Async.CancellationToken
   let symbolUses =
-    checkFileResults.GetAllUsesOfAllSymbolsInFile(System.Threading.CancellationToken.None)
+    checkFileResults.GetAllUsesOfAllSymbolsInFile(cancellationToken)
     |> Seq.filter (fun su -> Range.rangeContainsRange range su.Range)
     |> Seq.toList
 
@@ -99,18 +99,22 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Hint
         let parameters = func.CurriedParameterGroups |> Seq.concat
         let appliedArgRanges = appliedArgRanges |> Array.ofList
         let definitionArgs = parameters |> Array.ofSeq
+        // invariant - definitionArgs should be at least as long as applied args.
+        // if this is not the case (printfs?) we truncate to the lesser of the two
+        let minLength = min definitionArgs.Length appliedArgRanges.Length
+        if minLength = 0 then ()
+        else
+          for idx = 0 to minLength - 1 do
+            let appliedArgRange = appliedArgRanges.[idx]
+            let definitionArgName = definitionArgs.[idx].DisplayName
 
-        for idx = 0 to appliedArgRanges.Length - 1 do
-          let appliedArgRange = appliedArgRanges.[idx]
-          let definitionArgName = definitionArgs.[idx].DisplayName
+            if not (String.IsNullOrWhiteSpace(definitionArgName)) && definitionArgName <> "````" then
+              let hint =
+                { Text = definitionArgName + " ="
+                  Pos = appliedArgRange.Start
+                  Kind = Parameter }
 
-          if not (String.IsNullOrWhiteSpace(definitionArgName)) then
-            let hint =
-              { Text = definitionArgName + " ="
-                Pos = appliedArgRange.Start
-                Kind = Parameter }
-
-            parameterHints.Add(hint)
+              parameterHints.Add(hint)
 
     | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
       let endPosForMethod = symbolUse.Range.End
@@ -169,4 +173,5 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Hint
   let typeHints = typeHints.ToImmutableArray()
   let parameterHints = parameterHints.ToImmutableArray()
 
-  typeHints.AddRange(parameterHints).ToArray()
+  return typeHints.AddRange(parameterHints).ToArray()
+}

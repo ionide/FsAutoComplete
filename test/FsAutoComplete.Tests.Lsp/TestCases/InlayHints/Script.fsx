@@ -10,3 +10,7 @@ let tryFindFile p =
 // when method parameter name annotations are enabled, this will cause a break in our tests
 System.Environment.GetEnvironmentVariable "Blah"
 |> ignore
+
+// shows that sprintf-like functions with only one 'parameter' (in this case the format)
+// are don't throw anymore
+let s = sprintf "thing %s" "blah"
