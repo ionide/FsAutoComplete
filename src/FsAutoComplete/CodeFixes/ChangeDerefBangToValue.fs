@@ -9,28 +9,6 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text.Range
 open FSharp.UMX
 
-// let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText): CodeFix =
-//   fun codeActionParams ->
-//     asyncResult {
-//       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-//       let selectionRange = protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) codeActionParams.Range
-//       let! parseResults, line, lines = getParseResultsForFile fileName selectionRange.Start
-//       let! derefRange = parseResults.GetParseResults.TryRangeOfRefCellDereferenceContainingPos selectionRange.Start |> Result.ofOption (fun _ -> "No deref found at that pos")
-//       let! exprRange = parseResults.GetParseResults.TryRangeOfExpressionBeingDereferencedContainingPos selectionRange.Start |> Result.ofOption (fun _ -> "No expr found at that pos")
-//       let combinedRange = FSharp.Compiler.Text.Range.unionRanges derefRange exprRange
-//       let protocolRange = fcsRangeToLsp combinedRange
-//       let! badString = getLineText lines protocolRange
-//       let replacementString = badString.[1..] + ".Value"
-//       return [
-//         { Title = title
-//           File = codeActionParams.TextDocument
-//           SourceDiagnostic = None
-//           Kind = FixKind.Refactor
-//           Edits = [| { Range = protocolRange
-//                        NewText = replacementString } |] }
-//       ]
-//     }
-
 /// adopted from `dotnet/fsharp` -> `FSharp.Compiler.CodeAnalysis.FSharpParseFileResults.TryRangeOfExpressionBeingDereferencedContainingPos`
 let private tryGetRangeOfDeref input derefPos =
     SyntaxTraversal.Traverse(derefPos, input, { new SyntaxVisitorBase<_>() with 
