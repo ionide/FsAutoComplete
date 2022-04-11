@@ -1,10 +1,11 @@
-module FsAutoComplete.CodeFix.RedundantQualifier
+module FsAutoComplete.CodeFix.RemoveRedundantQualifier
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 
+let title = "Remove redundant qualifier"
 /// a codefix that removes unnecessary qualifiers from an identifier
 let fix =
   Run.ifDiagnosticByMessage
@@ -14,6 +15,6 @@ let fix =
                              [| { Range = diagnostic.Range
                                   NewText = "" } |]
                            File = codeActionParams.TextDocument
-                           Title = "Remove redundant qualifier"
+                           Title = title
                            SourceDiagnostic = Some diagnostic
                            Kind = FixKind.Refactor } ])

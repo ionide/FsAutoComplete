@@ -843,14 +843,16 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
       codeFixes <-
-        [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) UnusedOpens.fix
+        [| Run.ifEnabled 
+             (fun _ -> config.UnusedOpensAnalyzer) 
+             (RemoveUnusedOpens.fix getFileLines)
            Run.ifEnabled
              (fun _ -> config.ResolveNamespaces)
              (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
-           SuggestedIdentifier.fix
-           RedundantQualifier.fix
-           Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (UnusedValue.fix getRangeText)
-           NewWithDisposables.fix getRangeText
+           ReplaceWithSuggestion.fix
+           RemoveRedundantQualifier.fix
+           Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix getRangeText)
+           AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
            Run.ifEnabled
              (fun _ -> config.UnionCaseStubGeneration)
              (GenerateUnionCases.fix
@@ -872,23 +874,23 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                tryGetParseResultsForFile
                commands.GetAbstractClassStub
                getAbstractClassStubReplacements)
-           MissingEquals.fix getFileLines
-           NegationToSubtraction.fix getFileLines
-           DoubleEqualsToSingleEquals.fix getRangeText
-           ColonInFieldType.fix
-           ParenthesizeExpression.fix getRangeText
-           RefCellAccesToNot.fix tryGetParseResultsForFile
-           UseSafeCastInsteadOfUnsafe.fix getRangeText
+           AddMissingEqualsToTypeDefinition.fix getFileLines
+           ChangePrefixNegationToInfixSubtraction.fix getFileLines
+           ConvertDoubleEqualsToSingleEquals.fix getRangeText
+           ChangeEqualsInFieldTypeToColon.fix
+           WrapExpressionInParentheses.fix getRangeText
+           ChangeRefCellDerefToNot.fix tryGetParseResultsForFile
+           ChangeDowncastToUpcast.fix getRangeText
            MakeDeclarationMutable.fix tryGetParseResultsForFile tryGetProjectOptions
-           ChangeComparisonToMutableAssignment.fix tryGetParseResultsForFile
+           UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
            ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
            RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
-           ChangeCSharpLambdaToFSharp.fix tryGetParseResultsForFile getLineText
+           ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
            AddMissingFunKeyword.fix getFileLines getLineText
            MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
            AddMissingRecKeyword.fix getFileLines getLineText
            ConvertBangEqualsToInequality.fix getRangeText
-           ReplaceBangWithValueFunction.fix tryGetParseResultsForFile getLineText
+           ChangeDerefBangToValue.fix tryGetParseResultsForFile getLineText
            RemoveUnusedBinding.fix tryGetParseResultsForFile
            AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
            ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile

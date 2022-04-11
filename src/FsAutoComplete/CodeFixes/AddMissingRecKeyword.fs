@@ -8,6 +8,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.UMX
 
+let title symbolName = $"Make '{symbolName}' recursive"
 /// a codefix that adds the 'rec' modifier to a binding in a mutually-recursive loop
 let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
   Run.ifDiagnosticByCode
@@ -60,10 +61,10 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText): CodeFix =
                 let protocolRange =
                   fcsRangeToLsp (FSharp.Compiler.Text.Range.mkRange (UMX.untag fileName) fcsStartPos fcsEndPos)
 
-                let symbolName = getLineText lines protocolRange
+                let! symbolName = getLineText lines protocolRange
 
                 return
-                  [ { Title = $"Make '{symbolName}' recursive"
+                  [ { Title = title symbolName
                       File = codeActionParams.TextDocument
                       SourceDiagnostic = Some diagnostic
                       Edits =

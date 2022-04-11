@@ -4,9 +4,9 @@ open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
-open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.LspHelpers
 
+let title keyword = $"Remove '%s{keyword}'"
 /// a codefix that removes 'return' or 'yield' (or bang-variants) when the compiler says they're not necessary
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText): CodeFix =
   Run.ifDiagnosticByCode
@@ -29,13 +29,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
 
             let! title =
               if errorText.StartsWith "return!"
-              then Ok "Remove 'return!'"
+              then Ok (title "return!")
               elif errorText.StartsWith "yield!"
-              then Ok "Remove 'yield!'"
+              then Ok (title "yield!")
               elif errorText.StartsWith "return"
-              then Ok "Remove 'return'"
+              then Ok (title "return")
               elif errorText.StartsWith "yield"
-              then Ok "Remove 'yield'"
+              then Ok (title "yield")
               else Error "unknown start token for remove return or yield codefix"
 
             return

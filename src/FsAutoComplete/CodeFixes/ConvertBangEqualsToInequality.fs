@@ -6,6 +6,7 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Use <> for inequality check"
 let fix (getRangeText: GetRangeText): CodeFix =
   Run.ifDiagnosticByCode
     (Set.ofList ["43"])
@@ -14,7 +15,7 @@ let fix (getRangeText: GetRangeText): CodeFix =
         let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
         let! errorText = getRangeText fileName diag.Range
         do! Result.guard (fun () -> errorText = "!=") "Not an != equality usage"
-        return [{ Title = "Use <> for inequality check"
+        return [{ Title = title
                   File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diag
                   Kind = FixKind.Fix

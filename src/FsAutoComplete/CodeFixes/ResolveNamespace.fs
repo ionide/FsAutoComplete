@@ -78,7 +78,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getNamespaceSuggestion
 
     let edits =
       [| yield insertLine docLine lineStr
-         if text.GetLineString(docLine + 1).Trim() <> "" then yield insertLine (docLine + 1) ""
+         if text.GetLineCount() < docLine + 1 && text.GetLineString(docLine + 1).Trim() <> "" then yield insertLine (docLine + 1) ""
          if (ctx.Pos.Column = 0 || ctx.ScopeKind = ScopeKind.Namespace)
             && docLine > 0
             && not (text.GetLineString(docLine - 1).StartsWith "open") then

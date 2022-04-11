@@ -1,10 +1,11 @@
-module FsAutoComplete.CodeFix.DoubleEqualsToSingleEquals
+module FsAutoComplete.CodeFix.ConvertDoubleEqualsToSingleEquals
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Use '=' for equality check"
 /// a codefix that corrects == equality to = equality
 let fix (getRangeText: GetRangeText) : CodeFix =
   Run.ifDiagnosticByCode
@@ -16,7 +17,7 @@ let fix (getRangeText: GetRangeText) : CodeFix =
         match errorText with
         | "==" ->
             return
-              [ { Title = "Use '=' for equality check"
+              [ { Title = title
                   File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diagnostic
                   Edits =

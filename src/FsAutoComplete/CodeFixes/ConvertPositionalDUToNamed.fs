@@ -98,7 +98,7 @@ let private createEdit (astField: SynPat, duField: string) : TextEdit list =
     { NewText = suffix; Range = endRange } ]
 
 let private createWildCard endRange (duField: string) : TextEdit =
-  let wildcard = $"{duField} = _;"
+  let wildcard = $" {duField} = _;"
   let range = endRange
   { NewText = wildcard; Range = range }
 

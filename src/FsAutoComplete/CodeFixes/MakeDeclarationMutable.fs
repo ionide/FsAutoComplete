@@ -7,6 +7,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.UMX
 
+let title = "Make declaration 'mutable'"
 /// a codefix that makes a binding mutable when a user attempts to mutably set it
 let fix (getParseResultsForFile: GetParseResultsForFile)
         (getProjectOptionsForFile: GetProjectOptionsForFile)
@@ -34,7 +35,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile)
                   return
                     [ { File = codeActionParams.TextDocument
                         SourceDiagnostic = Some diagnostic
-                        Title = "Make declaration 'mutable'"
+                        Title = title
                         Edits =
                           [| { Range =
                                  { Start = lspRange.Start

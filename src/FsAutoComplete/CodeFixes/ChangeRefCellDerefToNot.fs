@@ -1,4 +1,4 @@
-module FsAutoComplete.CodeFix.RefCellAccesToNot
+module FsAutoComplete.CodeFix.ChangeRefCellDerefToNot
 
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
@@ -6,6 +6,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let title = "Use 'not' to negate expression" 
 /// a codefix that changes a ref cell deref (!) to a call to 'not'
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
   Run.ifDiagnosticByCode
@@ -22,7 +23,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         | Some derefRange ->
             return
               [ { SourceDiagnostic = Some diagnostic
-                  Title = "Use 'not' to negate expression"
+                  Title = title
                   File = codeActionParams.TextDocument
                   Edits =
                     [| { Range = fcsRangeToLsp derefRange
