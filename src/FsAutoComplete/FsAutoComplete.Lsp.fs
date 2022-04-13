@@ -843,61 +843,63 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
       codeFixes <-
-        [| Run.ifEnabled 
-             (fun _ -> config.UnusedOpensAnalyzer) 
-             (RemoveUnusedOpens.fix getFileLines)
-           Run.ifEnabled
-             (fun _ -> config.ResolveNamespaces)
-             (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
-           ReplaceWithSuggestion.fix
-           RemoveRedundantQualifier.fix
-           Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix getRangeText)
-           AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
-           Run.ifEnabled
-             (fun _ -> config.UnionCaseStubGeneration)
-             (GenerateUnionCases.fix
-               getFileLines
-               tryGetParseResultsForFile
-               commands.GetUnionPatternMatchCases
-               getUnionCaseStubReplacements)
-           ExternalSystemDiagnostics.linter
-           ExternalSystemDiagnostics.analyzers
-           Run.ifEnabled
-             (fun _ -> config.InterfaceStubGeneration)
-             (GenerateInterfaceStub.fix tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
-           Run.ifEnabled
-             (fun _ -> config.RecordStubGeneration)
-             (GenerateRecordStub.fix tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
-           Run.ifEnabled
-             (fun _ -> config.AbstractClassStubGeneration)
-             (GenerateAbstractClassStub.fix
-               tryGetParseResultsForFile
-               commands.GetAbstractClassStub
-               getAbstractClassStubReplacements)
-           AddMissingEqualsToTypeDefinition.fix getFileLines
-           ChangePrefixNegationToInfixSubtraction.fix getFileLines
-           ConvertDoubleEqualsToSingleEquals.fix getRangeText
-           ChangeEqualsInFieldTypeToColon.fix
-           WrapExpressionInParentheses.fix getRangeText
-           ChangeRefCellDerefToNot.fix tryGetParseResultsForFile
-           ChangeDowncastToUpcast.fix getRangeText
-           MakeDeclarationMutable.fix tryGetParseResultsForFile tryGetProjectOptions
-           UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
-           ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
-           RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
-           ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
-           AddMissingFunKeyword.fix getFileLines getLineText
-           MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
-           AddMissingRecKeyword.fix getFileLines getLineText
-           ConvertBangEqualsToInequality.fix getRangeText
-           ChangeDerefBangToValue.fix tryGetParseResultsForFile getLineText
-           RemoveUnusedBinding.fix tryGetParseResultsForFile
-           AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
-           ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
-           AddMissingInstanceMember.fix
-           AddExplicitTypeToParameter.fix tryGetParseResultsForFile
-           ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
-           UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText |]
+        [| 
+          Run.ifEnabled 
+            (fun _ -> config.UnusedOpensAnalyzer) 
+            (RemoveUnusedOpens.fix getFileLines)
+          Run.ifEnabled
+            (fun _ -> config.ResolveNamespaces)
+            (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
+          ReplaceWithSuggestion.fix
+          RemoveRedundantQualifier.fix
+          Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix getRangeText)
+          AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
+          Run.ifEnabled
+            (fun _ -> config.UnionCaseStubGeneration)
+            (GenerateUnionCases.fix
+              getFileLines
+              tryGetParseResultsForFile
+              commands.GetUnionPatternMatchCases
+              getUnionCaseStubReplacements)
+          ExternalSystemDiagnostics.linter
+          ExternalSystemDiagnostics.analyzers
+          Run.ifEnabled
+            (fun _ -> config.InterfaceStubGeneration)
+            (GenerateInterfaceStub.fix tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
+          Run.ifEnabled
+            (fun _ -> config.RecordStubGeneration)
+            (GenerateRecordStub.fix tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
+          Run.ifEnabled
+            (fun _ -> config.AbstractClassStubGeneration)
+            (GenerateAbstractClassStub.fix
+              tryGetParseResultsForFile
+              commands.GetAbstractClassStub
+              getAbstractClassStubReplacements)
+          AddMissingEqualsToTypeDefinition.fix getFileLines
+          ChangePrefixNegationToInfixSubtraction.fix getFileLines
+          ConvertDoubleEqualsToSingleEquals.fix getRangeText
+          ChangeEqualsInFieldTypeToColon.fix
+          WrapExpressionInParentheses.fix getRangeText
+          ChangeRefCellDerefToNot.fix tryGetParseResultsForFile
+          ChangeDowncastToUpcast.fix getRangeText
+          MakeDeclarationMutable.fix tryGetParseResultsForFile tryGetProjectOptions
+          UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
+          ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
+          RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
+          ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
+          AddMissingFunKeyword.fix getFileLines getLineText
+          MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
+          AddMissingRecKeyword.fix getFileLines getLineText
+          ConvertBangEqualsToInequality.fix getRangeText
+          ChangeDerefBangToValue.fix tryGetParseResultsForFile getLineText
+          RemoveUnusedBinding.fix tryGetParseResultsForFile
+          AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
+          ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
+          AddMissingInstanceMember.fix
+          AddExplicitTypeToParameter.fix tryGetParseResultsForFile
+          ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
+          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText 
+        |]
 
 
       match p.RootPath, c.AutomaticWorkspaceInit with
