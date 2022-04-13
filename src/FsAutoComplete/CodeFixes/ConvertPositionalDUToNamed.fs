@@ -55,6 +55,7 @@ type ParseAndCheckResults with
             | _ -> defaultTraverse binding
 
           // I shouldn't have to override my own VisitExpr, but the default traversal doesn't seem to be triggering the `VisitMatchClause` method I've defined below.
+          // TODO: reevaluate after https://github.com/dotnet/fsharp/pull/12837 merges
           member x.VisitExpr(path, traverse, defaultTraverse, expr) =
             match expr with
             | SynExpr.Match (expr = argExpr; clauses = clauses) ->
