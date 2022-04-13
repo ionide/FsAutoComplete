@@ -439,7 +439,7 @@ let private convertBangEqualsToInequalityTests state =
         """
   ])
 
-let private ConvertCSharpLambdaToFSharpLambdaTests state =
+let private convertCSharpLambdaToFSharpLambdaTests state =
   serverTestList (nameof ConvertCSharpLambdaToFSharpLambda) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertCSharpLambdaToFSharpLambda.title
     testCaseAsync "can convert csharp lambda in variable assignment with cursor on input" <|
@@ -1268,6 +1268,66 @@ let private removeUnusedOpensTests state =
         selectCodeFix
   ])
 
+let private renameUnusedValue state =
+  let config = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
+  serverTestList (nameof RenameUnusedValue) state config None (fun server -> [
+    let selectReplace = CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titleReplace
+    let selectPrefix = CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titlePrefix
+
+    testCaseAsync "can replace unused self-reference" <|
+      CodeFix.check server
+        """
+        type MyClass() =
+          member $0this.DoAThing() = ()
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        type MyClass() =
+          member _.DoAThing() = ()
+        """
+    testCaseAsync "can replace unused binding" <|
+      CodeFix.check server
+        """
+        let $0six = 6
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        let _ = 6
+        """
+    testCaseAsync "can prefix unused binding" <|
+      CodeFix.check server
+        """
+        let $0six = 6
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+        """
+        let _six = 6
+        """
+    testCaseAsync "can replace unused parameter" <|
+      CodeFix.check server
+        """
+        let add one two $0three = one + two
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        let add one two _ = one + two
+        """
+    testCaseAsync "can prefix unused parameter" <|
+      CodeFix.check server
+        """
+        let add one two $0three = one + two
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        (CodeFix.log >> selectPrefix)
+        """
+        let add one two _three = one + two
+        """
+  ])
+
 let private replaceWithSuggestionTests state =
   serverTestList (nameof ReplaceWithSuggestion) state defaultConfigDto None (fun server -> [
     let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
@@ -1381,66 +1441,6 @@ let private resolveNamespaceTests state =
     // Issues:
     // * Complex because of nesting modules (-> where to open)
     // * Different open locations of CodeFix and AutoOpen
-  ])
-
-let private renameUnusedValue state =
-  let config = { defaultConfigDto with UnusedDeclarationsAnalyzer = Some true }
-  serverTestList (nameof RenameUnusedValue) state config None (fun server -> [
-    let selectReplace = CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titleReplace
-    let selectPrefix = CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titlePrefix
-
-    testCaseAsync "can replace unused self-reference" <|
-      CodeFix.check server
-        """
-        type MyClass() =
-          member $0this.DoAThing() = ()
-        """
-        (Diagnostics.acceptAll)
-        selectReplace
-        """
-        type MyClass() =
-          member _.DoAThing() = ()
-        """
-    testCaseAsync "can replace unused binding" <|
-      CodeFix.check server
-        """
-        let $0six = 6
-        """
-        (Diagnostics.acceptAll)
-        selectReplace
-        """
-        let _ = 6
-        """
-    testCaseAsync "can prefix unused binding" <|
-      CodeFix.check server
-        """
-        let $0six = 6
-        """
-        (Diagnostics.acceptAll)
-        selectPrefix
-        """
-        let _six = 6
-        """
-    testCaseAsync "can replace unused parameter" <|
-      CodeFix.check server
-        """
-        let add one two $0three = one + two
-        """
-        (Diagnostics.acceptAll)
-        selectReplace
-        """
-        let add one two _ = one + two
-        """
-    testCaseAsync "can prefix unused parameter" <|
-      CodeFix.check server
-        """
-        let add one two $0three = one + two
-        """
-        (Diagnostics.log >> Diagnostics.acceptAll)
-        (CodeFix.log >> selectPrefix)
-        """
-        let add one two _three = one + two
-        """
   ])
 
 let private useMutationWhenValueIsMutableTests state =
@@ -1694,7 +1694,7 @@ let z = 4"""
       ]
     ]
 
-  let tests = testList ($"{nameof(FsAutoComplete)}.{nameof FsAutoComplete.CodeFix}") [
+  let tests = testList ($"{nameof FsAutoComplete}.{nameof FsAutoComplete.CodeFix}") [
     navigationTests
   ]
 
@@ -1715,7 +1715,7 @@ let tests state = testList "CodeFix tests" [
   changeRefCellDerefToNotTests state
   changeTypeOfNameToNameOfTests state
   convertBangEqualsToInequalityTests state
-  ConvertCSharpLambdaToFSharpLambdaTests state
+  convertCSharpLambdaToFSharpLambdaTests state
   convertDoubleEqualsToSingleEqualsTests state
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
