@@ -6,7 +6,7 @@
 
 * [New notification - `fsharp/testDetected`. This notification is fired per-file when tests are detected for the current file. The data in the payload can be used to run individual tests or groups of tests.](https://github.com/fsharp/FsAutoComplete/pull/893)
 * [New endpoint - `fsharp/inlayHints](https://github.com/fsharp/FsAutoComplete/pull/907). This provides support for type annotation and parameter name inlay hints.
-* [New codefix - convert erroing single-quoted interpolations to triple-quoted interpolations](https://github.com/fsharp/FsAutoComplete/pull/910)
+* [New codefix - convert erroring single-quoted interpolations to triple-quoted interpolations](https://github.com/fsharp/FsAutoComplete/pull/910)
 * [New command-line argument - `--state-directory`. Specified a folder to store workspace-specific FSAC data.](https://github.com/fsharp/FsAutoComplete/pull/913)
 
 
