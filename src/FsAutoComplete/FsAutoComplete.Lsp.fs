@@ -899,6 +899,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           AddExplicitTypeToParameter.fix tryGetParseResultsForFile
           ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
           UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText 
+          RenameParamToMatchSignature.fix tryGetParseResultsForFile
         |]
 
 
