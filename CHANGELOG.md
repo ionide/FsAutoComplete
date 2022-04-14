@@ -1,11 +1,14 @@
 # Changelog
 
-## Unreleased
+## [0.52.0] - 2020-04-14
 
 ### Added
 
 * [New notification - `fsharp/testDetected`. This notification is fired per-file when tests are detected for the current file. The data in the payload can be used to run individual tests or groups of tests.](https://github.com/fsharp/FsAutoComplete/pull/893)
 * [New endpoint - `fsharp/inlayHints](https://github.com/fsharp/FsAutoComplete/pull/907). This provides support for type annotation and parameter name inlay hints.
+* [New codefix - convert erroing single-quoted interpolations to triple-quoted interpolations](https://github.com/fsharp/FsAutoComplete/pull/910)
+* [New command-line argument - `--state-directory`. Specified a folder to store workspace-specific FSAC data.](https://github.com/fsharp/FsAutoComplete/pull/913)
+
 
 ### Changed
 
@@ -14,12 +17,13 @@
 * [Update to Ionide.ProjInfo 0.58.2 to get fixes around the project loader loop](https://github.com/fsharp/FsAutoComplete/pull/904), [project cache](https://github.com/ionide/proj-info/pull/139), and [legacy project support](https://github.com/ionide/proj-info/pull/131)
 * [Completions for types are much better now](https://github.com/fsharp/FsAutoComplete/pull/908) (thanks @tboby!)
 * [Completions triggers on the first typed character](https://github.com/fsharp/FsAutoComplete/pull/909) (thanks @tboby!)
+* [New CLI Parser with support for auto-completion and nicer help](https://github.com/fsharp/FsAutoComplete/pull/888)
 
 ### Fixed
 
 * [Record stub generation works again](https://github.com/fsharp/FsAutoComplete/pull/905)
 * The fsautocomplete.netcore.zip file that was previously added to the release announcement on GitHub is back again.
-
+* [Several corner cases around code fixes and many LSP server endpoints](https://github.com/fsharp/FsAutoComplete/pull/911) ([part 2](https://github.com/fsharp/FsAutoComplete/pull/915)) (Thanks @Booksbaum!)
 
 ## [0.51.0] - 2022-03-13
 
