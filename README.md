@@ -129,6 +129,7 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 
 ### Additional startup options
 
+* `--state-directory dir` - a workspace-specific directory for keeping language server states.
 * `--background-service-enabled` - passing this flag enables background service feature, increasing FSAC responsiveness by moving some of the operations (especially background type checking) to other process. It results in increased memory usage. Used by default in Ionide.
 * `--verbose` - passing this flag enables additional logging being printed out in `stderr`
 * `DOTNET_ROOT` - setting this environment variable will set the dotnet SDK root, which is used when finding references for FSX scripts.
@@ -141,7 +142,7 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 
 ### Settings
 
-* `FSharp.keywordsAutocomplete` - provides keywords in autocomplete list, recommended default value: `true`
+* `FSharp.KeywordsAutocomplete` - provides keywords in autocomplete list, recommended default value: `true`
 * `FSharp.ExternalAutocomplete` - provides autocomplete for symbols from not opened namespaces/modules, insert `open` on accept, recommended default value: `false`
 * `FSharp.Linter` - enables FSharpLint integration, provides additional warnings and code action fixes, recommended default value: `true`
 * `FSharp.UnionCaseStubGeneration` - enables code action to generate pattern matching cases, recommended default value: `true`
@@ -158,10 +159,10 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 * `FSharp.ResolveNamespaces` - enables resolve namespace quick fix (add `open` if symbol is from not yet opened module/namespace), recommended default value: `true`
 * `FSharp.EnableReferenceCodeLens` - enables reference count code lenses, recommended default value: `true` if `--background-service-enabled` is used by default, `false` otherwise
 * `FSharp.dotNetRoot` - sets the root path for finding dotnet SDK references. Primarily used for FSX Scripts. Default value: operating-system dependent. On windows, `C:\Program Files\dotnet`; on Unix, `/usr/local/share/dotnet`
-* `FSharp.fsiExtraParameters` - an array of additional runtime arguments that are passed to FSI. These are used when typechecking scripts to ensure that typechecking has the same context as your FSI instances.  An example would be to set the following parameters to enable Preview features (like opening static classes) for typechecking.
+* `FSharp.FSIExtraParameters` - an array of additional runtime arguments that are passed to FSI. These are used when typechecking scripts to ensure that typechecking has the same context as your FSI instances.  An example would be to set the following parameters to enable Preview features (like opening static classes) for typechecking.
 
     ```json
-        "FSharp.fsiExtraParameters": ["--langversion:preview"]
+        "FSharp.FSIExtraParameters": ["--langversion:preview"]
     ```
 
 ## Troubleshooting
