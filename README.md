@@ -18,7 +18,7 @@ Currently it is used by:
 It's based on:
 
 * [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
-* [Dotnet.ProjInfo](https://github.com/enricosada/dotnet-proj-info/) for project/solution management.
+* [Ionide.ProjInfo](https://github.com/ionide/proj-info) for project/solution management.
 * [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
 * [Fantomas](https://github.com/fsprojects/fantomas) for F# code formatting.
 
