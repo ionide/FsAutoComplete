@@ -12,8 +12,14 @@ open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
 open System.Text
 
-type HintKind = Parameter | Type
-type Hint = { Text: string; Pos: Position; Kind: HintKind }
+type HintKind =
+  | Parameter
+  | Type
+
+type Hint =
+  { Text: string
+    Pos: Position
+    Kind: HintKind }
 
 let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResults, identText: Range) =
   option {
@@ -44,134 +50,188 @@ let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResult
 let private isSignatureFile (f: string<LocalPath>) =
   System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
+type FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
+  // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
+  // so that they are considered logically the same as a 'typed' SynPat
+  member x.IsTypeAnnotationGivenAtPositionPatched pos =
+        let visitor: SyntaxVisitorBase<Range> =
+          { new SyntaxVisitorBase<_>() with
+                override _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
+                    match expr with
+                    | SynExpr.Typed (_expr, _typeExpr, range) when Position.posEq range.Start pos ->
+                        Some range
+                    | _ -> defaultTraverse expr
+
+                override _.VisitSimplePats(_path, pats) =
+                    match pats with
+                    | [] -> None
+                    | _ ->
+                        let exprFunc pat =
+                            match pat with
+                            | SynSimplePat.Typed (_pat, _targetExpr, range) when Position.posEq range.Start pos ->
+                                Some range
+                            | _ ->
+                                None
+
+                        pats |> List.tryPick exprFunc
+
+                override _.VisitPat(_path, defaultTraverse, pat) =
+                    match pat with
+                    | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos ->
+                        Some range
+                    | _ -> defaultTraverse pat
+
+                override _.VisitBinding(_path, defaultTraverse, binding) =
+                  match binding with
+                  | SynBinding(headPat = SynPat.Named (range = patRange); returnInfo = Some (SynBindingReturnInfo(typeName = SynType.LongIdent (idents)))) -> Some patRange
+                  | _ -> defaultTraverse binding
+
+              }
+        let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
+        result.IsSome
+
 let getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
   | str when startPos > str.Length -> -1
   | str -> str.IndexOf('(') + 1
 
-let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> = async {
-  let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
-  let! cancellationToken = Async.CancellationToken
-  let symbolUses =
-    checkFileResults.GetAllUsesOfAllSymbolsInFile(cancellationToken)
-    |> Seq.filter (fun su -> Range.rangeContainsRange range su.Range)
-    |> Seq.toList
+let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =
+  async {
+    let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
+    let! cancellationToken = Async.CancellationToken
 
-  let typeHints = ImmutableArray.CreateBuilder()
-  let parameterHints = ImmutableArray.CreateBuilder()
+    let symbolUses =
+      checkFileResults.GetAllUsesOfAllSymbolsInFile(cancellationToken)
+      |> Seq.filter (fun su -> Range.rangeContainsRange range su.Range)
+      |> Seq.toList
 
-  let isValidForTypeHint (funcOrValue: FSharpMemberOrFunctionOrValue) (symbolUse: FSharpSymbolUse) =
-    let isLambdaIfFunction =
-      funcOrValue.IsFunction
-      && parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
+    let typeHints = ImmutableArray.CreateBuilder()
+    let parameterHints = ImmutableArray.CreateBuilder()
 
-    (funcOrValue.IsValue || isLambdaIfFunction)
-    && not (parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.Start)
-    && symbolUse.IsFromDefinition
-    && not funcOrValue.IsMember
-    && not funcOrValue.IsMemberThisValue
-    && not funcOrValue.IsConstructorThisValue
-    && not (PrettyNaming.IsOperatorDisplayName funcOrValue.DisplayName)
+    let isValidForTypeHint (funcOrValue: FSharpMemberOrFunctionOrValue) (symbolUse: FSharpSymbolUse) =
+      let isLambdaIfFunction =
+        funcOrValue.IsFunction
+        && parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
 
-  for symbolUse in symbolUses do
-    match symbolUse.Symbol with
-    | :? FSharpMemberOrFunctionOrValue as funcOrValue when isValidForTypeHint funcOrValue symbolUse ->
-      let layout =
-        ": "
-        + funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext
+      let isTypedPat (r: Range)=
+        parseFileResults.IsTypeAnnotationGivenAtPositionPatched r.Start
 
-      let hint =
-        { Text = layout
-          Pos = symbolUse.Range.End
-          Kind = Type }
+      (funcOrValue.IsValue || isLambdaIfFunction)
+      && not (isTypedPat symbolUse.Range)
+      && symbolUse.IsFromDefinition
+      && not funcOrValue.IsMember
+      && not funcOrValue.IsMemberThisValue
+      && not funcOrValue.IsConstructorThisValue
+      && not (PrettyNaming.IsOperatorDisplayName funcOrValue.DisplayName)
 
-      typeHints.Add(hint)
 
-    | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
-      let appliedArgRangesOpt =
-        parseFileResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
 
-      match appliedArgRangesOpt with
-      | None -> ()
-      | Some [] -> ()
-      | Some appliedArgRanges ->
-        let parameters = func.CurriedParameterGroups |> Seq.concat
-        let appliedArgRanges = appliedArgRanges |> Array.ofList
-        let definitionArgs = parameters |> Array.ofSeq
-        // invariant - definitionArgs should be at least as long as applied args.
-        // if this is not the case (printfs?) we truncate to the lesser of the two
-        let minLength = min definitionArgs.Length appliedArgRanges.Length
-        if minLength = 0 then ()
-        else
-          for idx = 0 to minLength - 1 do
+    for symbolUse in symbolUses do
+      match symbolUse.Symbol with
+      | :? FSharpMemberOrFunctionOrValue as funcOrValue when
+        isValidForTypeHint funcOrValue symbolUse
+        ->
+        let layout =
+          ": "
+          + funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext
+
+        let hint =
+          { Text = layout
+            Pos = symbolUse.Range.End
+            Kind = Type }
+
+        typeHints.Add(hint)
+
+      | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
+        let appliedArgRangesOpt =
+          parseFileResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
+
+        match appliedArgRangesOpt with
+        | None -> ()
+        | Some [] -> ()
+        | Some appliedArgRanges ->
+          let parameters = func.CurriedParameterGroups |> Seq.concat
+          let appliedArgRanges = appliedArgRanges |> Array.ofList
+          let definitionArgs = parameters |> Array.ofSeq
+          // invariant - definitionArgs should be at least as long as applied args.
+          // if this is not the case (printfs?) we truncate to the lesser of the two
+          let minLength = min definitionArgs.Length appliedArgRanges.Length
+
+          if minLength = 0 then
+            ()
+          else
+            for idx = 0 to minLength - 1 do
+              let appliedArgRange = appliedArgRanges.[idx]
+              let definitionArgName = definitionArgs.[idx].DisplayName
+
+              if
+                not (String.IsNullOrWhiteSpace(definitionArgName))
+                && definitionArgName <> "````"
+              then
+                let hint =
+                  { Text = definitionArgName + " ="
+                    Pos = appliedArgRange.Start
+                    Kind = Parameter }
+
+                parameterHints.Add(hint)
+
+      | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
+        let endPosForMethod = symbolUse.Range.End
+        let line, _ = Position.toZ endPosForMethod
+
+        let afterParenPosInLine =
+          getFirstPositionAfterParen (text.Lines.[line].ToString()) (endPosForMethod.Column)
+
+        let tupledParamInfos =
+          parseFileResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)
+
+        let appliedArgRanges =
+          parseFileResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
+
+        match tupledParamInfos, appliedArgRanges with
+        | None, None -> ()
+
+        // Prefer looking at the "tupled" view if it exists, even if the other ranges exist.
+        // M(1, 2) can give results for both, but in that case we want the "tupled" view.
+        | Some tupledParamInfos, _ ->
+          let parameters =
+            methodOrConstructor.CurriedParameterGroups
+            |> Seq.concat
+            |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
+
+          for idx = 0 to parameters.Length - 1 do
+            // let paramLocationInfo = tupledParamInfos. .ArgumentLocations.[idx]
+            // let paramName = parameters.[idx].DisplayName
+            // if not paramLocationInfo.IsNamedArgument && not (String.IsNullOrWhiteSpace(paramName)) then
+            //     let hint = { Text = paramName + " ="; Pos = paramLocationInfo.ArgumentRange.Start; Kind = Parameter }
+            //     parameterHints.Add(hint)
+            ()
+
+        // This will only happen for curried methods defined in F#.
+        | _, Some appliedArgRanges ->
+          let parameters =
+            methodOrConstructor.CurriedParameterGroups
+            |> Seq.concat
+
+          let appliedArgRanges = appliedArgRanges |> Array.ofList
+          let definitionArgs = parameters |> Array.ofSeq
+
+          for idx = 0 to appliedArgRanges.Length - 1 do
             let appliedArgRange = appliedArgRanges.[idx]
             let definitionArgName = definitionArgs.[idx].DisplayName
 
-            if not (String.IsNullOrWhiteSpace(definitionArgName)) && definitionArgName <> "````" then
+            if not (String.IsNullOrWhiteSpace(definitionArgName)) then
               let hint =
                 { Text = definitionArgName + " ="
                   Pos = appliedArgRange.Start
                   Kind = Parameter }
 
               parameterHints.Add(hint)
+      | _ -> ()
 
-    | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
-      let endPosForMethod = symbolUse.Range.End
-      let line, _ = Position.toZ endPosForMethod
+    let typeHints = typeHints.ToImmutableArray()
+    let parameterHints = parameterHints.ToImmutableArray()
 
-      let afterParenPosInLine =
-        getFirstPositionAfterParen (text.Lines.[line].ToString()) (endPosForMethod.Column)
-
-      let tupledParamInfos =
-        parseFileResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)
-
-      let appliedArgRanges =
-        parseFileResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
-
-      match tupledParamInfos, appliedArgRanges with
-      | None, None -> ()
-
-      // Prefer looking at the "tupled" view if it exists, even if the other ranges exist.
-      // M(1, 2) can give results for both, but in that case we want the "tupled" view.
-      | Some tupledParamInfos, _ ->
-        let parameters =
-          methodOrConstructor.CurriedParameterGroups
-          |> Seq.concat
-          |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
-
-        for idx = 0 to parameters.Length - 1 do
-          // let paramLocationInfo = tupledParamInfos. .ArgumentLocations.[idx]
-          // let paramName = parameters.[idx].DisplayName
-          // if not paramLocationInfo.IsNamedArgument && not (String.IsNullOrWhiteSpace(paramName)) then
-          //     let hint = { Text = paramName + " ="; Pos = paramLocationInfo.ArgumentRange.Start; Kind = Parameter }
-          //     parameterHints.Add(hint)
-          ()
-
-      // This will only happen for curried methods defined in F#.
-      | _, Some appliedArgRanges ->
-        let parameters =
-          methodOrConstructor.CurriedParameterGroups
-          |> Seq.concat
-
-        let appliedArgRanges = appliedArgRanges |> Array.ofList
-        let definitionArgs = parameters |> Array.ofSeq
-
-        for idx = 0 to appliedArgRanges.Length - 1 do
-          let appliedArgRange = appliedArgRanges.[idx]
-          let definitionArgName = definitionArgs.[idx].DisplayName
-
-          if not (String.IsNullOrWhiteSpace(definitionArgName)) then
-            let hint =
-              { Text = definitionArgName + " ="
-                Pos = appliedArgRange.Start
-                Kind = Parameter }
-
-            parameterHints.Add(hint)
-    | _ -> ()
-
-  let typeHints = typeHints.ToImmutableArray()
-  let parameterHints = parameterHints.ToImmutableArray()
-
-  return typeHints.AddRange(parameterHints).ToArray()
-}
+    return typeHints.AddRange(parameterHints).ToArray()
+  }
