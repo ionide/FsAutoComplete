@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.52.1] - 2020-04-16
+
+### Changed
+
+* [Updated proj-info to get support for C#/VB projects, as well as .NET SDK workload support](https://github.com/fsharp/FsAutoComplete/pull/920)
+
 ## [0.52.0] - 2020-04-14
 
 ### Added
