@@ -14,3 +14,6 @@ System.Environment.GetEnvironmentVariable "Blah"
 // shows that sprintf-like functions with only one 'parameter' (in this case the format)
 // are don't throw anymore
 let s = sprintf "thing %s" "blah"
+
+// shows that explicit type bindings don't results in a type hint
+let s': string = ""
