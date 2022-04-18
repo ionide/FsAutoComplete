@@ -7,23 +7,33 @@ open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
 open Expecto
 open FsAutoComplete.Utils
+open System
 
 let tests state =
   let server =
     async {
       let testDir = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest")
-      let! (server, event) = serverInitialize testDir defaultConfigDto state
+      let dispDir = DisposableDirectory.From testDir
+      let! (server, event) = serverInitialize dispDir.DirectoryInfo.FullName defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
 
-      return (server, testDir, event)
+      return (server, dispDir.DirectoryInfo.FullName, event, dispDir :> IDisposable)
     }
 
-  ptestList
+  // this is dumb, but it normalizes drive cases on windows for testing.
+  let superNormalize path =
+    path
+    |> Path.FilePathToUri
+    |> Path.FileUriToLocalPath
+    |> Path.FilePathToUri
+
+  testList
     "Rename Tests"
     [ testCaseAsync
         "Rename from usage within project file"
         (async {
-          let! server, testDir, events = server
+          let! server, testDir, events, disposer = server
+          use _ = disposer
           let path = Path.Combine(testDir, "Program.fs")
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
           do! server.TextDocumentDidOpen tdop
@@ -74,7 +84,8 @@ let tests state =
       testCaseAsync
         "Rename from definition across project files"
         (async {
-          let! server, testDir, events = server
+          let! server, testDir, events, disposer = server
+          use _ = disposer
           let path = Path.Combine(testDir, "Program.fs")
           let pathTest = Path.Combine(testDir, "Test.fs")
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument pathTest }
@@ -133,7 +144,8 @@ let tests state =
       testCaseAsync
         "Rename from definition within script file"
         (async {
-          let! server, testDir, events = server
+          let! server, testDir, events, disposer = server
+          use _ = disposer
           let path = Path.Combine(testDir, "Script.fsx")
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
           do! server.TextDocumentDidOpen tdop
@@ -143,7 +155,7 @@ let tests state =
             |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
 
           let newName = "afterwards"
-          let sourceFile = { Uri = Path.FilePathToUri path }
+          let sourceFile = { Uri = superNormalize path }
 
           let p: RenameParams =
             { TextDocument = sourceFile
@@ -179,7 +191,8 @@ let tests state =
       testCaseAsync
         "Rename from usage within script file"
         (async {
-          let! server, testDir, events = server
+          let! server, testDir, events, disposer = server
+          use _ = disposer
           let path = Path.Combine(testDir, "Script.fsx")
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
           do! server.TextDocumentDidOpen tdop
@@ -187,9 +200,8 @@ let tests state =
           do!
             waitForParseResultsForFile "Script.fsx" events
             |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
-
           let newName = "afterwards"
-          let sourceFile = { Uri = Path.FilePathToUri path }
+          let sourceFile = { Uri = superNormalize path }
 
           let p: RenameParams =
             { TextDocument = sourceFile

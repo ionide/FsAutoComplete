@@ -26,10 +26,10 @@ module PositionExtensions =
   let inline (|Pos|) (p: FSharp.Compiler.Text.Position) =
     p.Line, p.Column
 
-[<Sealed>]
 /// A copy of the StringText type from F#.Compiler.Text, which is private.
 /// Adds a UOM-typed filename to make range manipulation easier, as well as
 /// safer traversals
+[<Sealed>]
 type NamedText(fileName: string<LocalPath>, str: string) =
 
   let getLines (str: string) =

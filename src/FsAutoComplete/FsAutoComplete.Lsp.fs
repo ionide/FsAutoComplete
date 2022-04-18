@@ -843,8 +843,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
       codeFixes <-
-        [| Run.ifEnabled 
-             (fun _ -> config.UnusedOpensAnalyzer) 
+        [| Run.ifEnabled
+             (fun _ -> config.UnusedOpensAnalyzer)
              (RemoveUnusedOpens.fix getFileLines)
            Run.ifEnabled
              (fun _ -> config.ResolveNamespaces)
@@ -1326,15 +1326,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 symbols
                 |> Array.map (fun sym ->
                   let range = fcsRangeToLsp sym.Range
-
-                  let range =
-                    { range with
-                        Start =
-                          { Line = range.Start.Line
-                            Character =
-                              range.End.Character
-                              - sym.Symbol.DisplayName.Length } }
-
                   { Range = range; NewText = p.NewName })
                 |> Array.distinct
 
@@ -1356,13 +1347,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 symbols
                 |> Array.map (fun sym ->
                   let range = symbolUseRangeToLsp sym
-
-                  let range =
-                    { range with
-                        Start =
-                          { Line = range.Start.Line
-                            Character = range.End.Character - sym.SymbolDisplayName.Length } }
-
                   { Range = range; NewText = p.NewName })
                 |> Array.distinct
 

@@ -36,8 +36,8 @@ type ScriptExtension = string
 type HashRLines = string seq
 type TFM = string
 
-[<DependencyManager>]
 /// the type _must_ take an optional output directory
+[<DependencyManager>]
 type DummyDependencyManager(outputDir: string option) =
 
     /// Name of the dependency manager

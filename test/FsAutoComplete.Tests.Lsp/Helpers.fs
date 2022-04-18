@@ -44,7 +44,6 @@ let rec private copyDirectory sourceDir destDir =
 type DisposableDirectory(directory: string) =
   static member Create() =
     let tempPath = IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n"))
-    printfn "Creating directory %s" tempPath
     IO.Directory.CreateDirectory tempPath |> ignore
     new DisposableDirectory(tempPath)
 
@@ -57,7 +56,6 @@ type DisposableDirectory(directory: string) =
 
   interface IDisposable with
     member x.Dispose() =
-      printfn "Deleting directory %s" x.DirectoryInfo.FullName
       IO.Directory.Delete(x.DirectoryInfo.FullName, true)
 
 type Async =

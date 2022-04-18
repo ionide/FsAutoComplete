@@ -179,8 +179,6 @@ module Lexer =
                 match k with
                 | Ident | GenericTypeParameter | StaticallyResolvedTypeParameter | Keyword -> true
                 | _ -> false)
-                /// Gets the option if Some x, otherwise try to get another value
-
             |> Option.orElseWith (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
             |> Option.map (fun token ->
                 { Kind = token.Kind
