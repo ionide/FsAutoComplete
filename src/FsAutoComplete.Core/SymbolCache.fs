@@ -172,7 +172,9 @@ let getSymbols symbolName =
         match PersistentCacheImpl.connection with
         | Some conn ->
             let! res = PersistentCacheImpl.loadSymbolUses conn.Value symbolName
-            return Some res
+            match res with
+            | [||] -> return None
+            | res -> return Some res
         | None -> return None
     }
 

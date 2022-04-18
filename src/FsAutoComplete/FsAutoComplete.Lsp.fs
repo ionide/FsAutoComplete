@@ -1317,9 +1317,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         match! commands.SymbolUseProject tyRes pos lineStr
                |> AsyncResult.ofCoreResponse
           with
-        | LocationResponse.Use (_, uses) ->
+        | LocationResponse.Use (symbol: FSharp.Compiler.CodeAnalysis.FSharpSymbolUse, uses) ->
           let documentChanges =
-            uses
+            Array.append [|symbol|] uses
             |> Array.groupBy (fun sym -> sym.FileName)
             |> Array.map (fun (fileName, symbols) ->
               let edits =
@@ -1338,15 +1338,18 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           return
             WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
             |> Some
-        | LocationResponse.UseRange uses ->
+        | LocationResponse.UseRange (symbolUse, uses) ->
           let documentChanges =
-            uses
+            let originalRange = {| FileName = symbolUse.FileName; Range = symbolUse.Range |}
+            let ranges = uses |> Array.map (fun u -> {| FileName = u.FileName; Range = u.Range |})
+
+            Array.append [| originalRange |] ranges
             |> Array.groupBy (fun sym -> sym.FileName)
             |> Array.map (fun (fileName, symbols) ->
               let edits =
                 symbols
                 |> Array.map (fun sym ->
-                  let range = symbolUseRangeToLsp sym
+                  let range = fcsRangeToLsp sym.Range
                   { Range = range; NewText = p.NewName })
                 |> Array.distinct
 
@@ -1432,7 +1435,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               else
                 not u.IsFromDefinition)
             |> Array.map (fun u -> u.Range)
-          | LocationResponse.UseRange uses ->
+          | LocationResponse.UseRange(symbolUse, uses) ->
             uses
             |> Array.filter (fun u ->
               if p.Context.IncludeDeclaration then
@@ -1480,7 +1483,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let ranges: FSharp.Compiler.Text.Range [] =
           match res with
           | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
-          | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
+          | LocationResponse.UseRange (symbolUse, uses) -> uses |> Array.map (fun u -> u.Range)
 
         let mappedRanges =
           ranges |> Array.map fcsRangeToLspLocation
@@ -1928,7 +1931,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     Arguments = Some args }
 
                 { p with Command = Some cmd } |> success
-              | CoreResponse.Res (LocationResponse.UseRange (uses)) ->
+              | CoreResponse.Res (LocationResponse.UseRange (symbolUse, uses)) ->
                 let formatted =
                   if uses.Length - 1 = 1 then
                     "1 Reference"

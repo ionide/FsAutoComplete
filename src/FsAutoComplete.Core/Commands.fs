@@ -24,7 +24,7 @@ open FSharp.Compiler.Tokenization
 [<RequireQualifiedAccess>]
 type LocationResponse<'a, 'b> =
   | Use of 'a
-  | UseRange of 'b
+  | UseRange of FSharpSymbolUse * 'b
 
 [<RequireQualifiedAccess>]
 type HelpText =
@@ -1086,7 +1086,7 @@ type Commands
             else
               let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
               return CoreResponse.Res(LocationResponse.Use(sym, symbols))
-          | Some res -> return CoreResponse.Res(LocationResponse.UseRange res)
+          | Some res -> return CoreResponse.Res(LocationResponse.UseRange(sym, res))
       | Error x -> return CoreResponse.ErrorRes x
     }
     |> x.AsCancellable tyRes.FileName
@@ -1118,7 +1118,7 @@ type Commands
               let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
               let symbols = filterSymbols symbols
               return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-          | Some res -> return CoreResponse.Res(LocationResponse.UseRange res)
+          | Some res -> return CoreResponse.Res(LocationResponse.UseRange(sym, res))
       | Error e -> return CoreResponse.ErrorRes e
     }
     |> x.AsCancellable tyRes.FileName
