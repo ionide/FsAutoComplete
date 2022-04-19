@@ -140,7 +140,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       if pos.Column = 0 then return! None
       else
         let lineIndex = pos.Column - 1
-        if lineText.Length < lineIndex
+        if lineText.Length <= lineIndex
         then
           return! None
         else
