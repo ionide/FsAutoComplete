@@ -1,15 +1,52 @@
 module FsAutoComplete.CodeFix.AddExplicitTypeToParameter
 
 open FsToolkit.ErrorHandling
-open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
-open FsAutoComplete.FCSPatches
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text.Range
+
+let private isPositionContainedInUntypedImplicitCtorParameter input pos =
+    let result =
+        SyntaxTraversal.Traverse(pos, input, { new SyntaxVisitorBase<_>() with 
+          member _.VisitModuleDecl(_, defaultTraverse, decl) =
+            match decl with
+            | SynModuleDecl.Types(typeDefns = typeDefns) ->
+                maybe {
+                  let! ctorArgs =
+                    typeDefns
+                    |> List.tryPick (
+                      function
+                      | SynTypeDefn(implicitConstructor=Some(SynMemberDefn.ImplicitCtor(ctorArgs = args))) when rangeContainsPos args.Range pos ->
+                          Some args
+                      | _ -> None
+                    )
+                  
+                  match ctorArgs with
+                  | SynSimplePats.SimplePats (pats=pats) ->
+                      let! pat =
+                        pats
+                        |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
+                      let rec tryGetUntypedIdent =
+                        function
+                        | SynSimplePat.Id (ident=ident) when rangeContainsPos ident.idRange pos ->
+                            Some ident
+                        | SynSimplePat.Attrib (pat=pat) when rangeContainsPos pat.Range pos ->
+                            tryGetUntypedIdent pat
+                        | SynSimplePat.Typed _ 
+                        | _ ->
+                            None
+                      return! tryGetUntypedIdent pat
+                  | _ -> return! None
+                }
+                |> Option.orElseWith (fun _ -> defaultTraverse decl)
+            | _ -> defaultTraverse decl
+        })
+    result.IsSome
 
 let title = "Add explicit type annotation"
 let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
@@ -31,12 +68,14 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
             funcOrValue.IsFunction &&
              parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
 
-        let IsPositionContainedInACurriedParameter = parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.End
-        let IsTypeAnnotationGivenAtPosition = parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.End
-
         (funcOrValue.IsValue || isLambdaIfFunction) &&
-        IsPositionContainedInACurriedParameter &&
-        not IsTypeAnnotationGivenAtPosition &&
+        (
+          (
+            parseFileResults.IsPositionContainedInACurriedParameter symbolUse.Range.Start &&
+            not (parseFileResults.IsTypeAnnotationGivenAtPosition symbolUse.Range.Start)
+          ) ||
+          (isPositionContainedInUntypedImplicitCtorParameter parseFileResults.ParseTree symbolUse.Range.Start)
+        ) &&
         not funcOrValue.IsMember &&
         not funcOrValue.IsMemberThisValue &&
         not funcOrValue.IsConstructorThisValue &&
@@ -50,15 +89,34 @@ let fix (getParseResultsForFile: GetParseResultsForFile): CodeFix =
         let protocolSymbolRange = fcsRangeToLsp fcsSymbolRange
         let! symbolText = sourceText.GetText fcsSymbolRange
 
-        let alreadyWrappedInParens =
-          let hasLeftParen = Navigation.walkBackUntilConditionWithTerminal sourceText protocolSymbolRange.Start (fun c -> c = '(') System.Char.IsWhiteSpace
-          let hasRightParen = Navigation.walkForwardUntilConditionWithTerminal sourceText protocolSymbolRange.End (fun c -> c = ')') System.Char.IsWhiteSpace
-          hasLeftParen.IsSome && hasRightParen.IsSome
+        let requiresParens =
+          if isPositionContainedInUntypedImplicitCtorParameter parseFileResults.ParseTree symbolUse.Range.Start then
+            // no patterns in primary ctor allowed -> `type A((a))` is invalid
+            false
+          else
+            // `(a, b, c)`
+            // -> between `,` and parens (there might be spaces between)
+            let left =
+              sourceText.WalkBackwards(fcsSymbolRange.Start, (fun _ -> false), ((<>) ' '))
+              |> Option.bind (sourceText.TryGetChar)
+            let right =
+              sourceText.NextPos fcsSymbolRange.End // end is on last char of identifier
+              |> Option.bind (fun pos -> sourceText.WalkForward(pos, (fun _ -> false), ((<>) ' ')))
+              |> Option.bind (sourceText.TryGetChar)
+            
+            match left, right with
+            | Some left, Some right ->
+                let isContained =
+                  (left = '(' || left = ',')
+                  &&
+                  (right = ',' || right = ')')
+                not isContained
+            | _, _ -> true
 
         let changedText, changedRange =
-          if alreadyWrappedInParens
-          then ": " + typeString, { Start = protocolSymbolRange.End; End = protocolSymbolRange.End }
-          else "(" + symbolText + ": " + typeString + ")", protocolSymbolRange
+          if requiresParens
+          then "(" + symbolText + ": " + typeString + ")", protocolSymbolRange
+          else ": " + typeString, { Start = protocolSymbolRange.End; End = protocolSymbolRange.End }
         return [ {
           Edits = [| { Range = changedRange; NewText = changedText } |]
           File = codeActionParams.TextDocument

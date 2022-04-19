@@ -42,7 +42,8 @@ let lspTests =
     [ for (name, workspaceLoaderFactory) in loaders do
         testList
           name
-          [ Templates.tests ()
+          [ 
+            Templates.tests ()
             let testRunDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString()) |> DirectoryInfo
             let state () =
               FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
