@@ -101,13 +101,11 @@ module private PersistentCacheImpl =
     }
 
     let initializeCache dir =
-        let connectionString = sprintf "Data Source=%s/.ionide/symbolCache.db" dir
-
         let dir = Path.Combine(dir, ".ionide")
         do if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
         let dbPath = Path.Combine(dir, "symbolCache.db")
         let dbExists = File.Exists dbPath
-        let conn = new SqliteConnection(connectionString)
+        let conn = new SqliteConnection($"Data Source={dbPath}")
 
         do if not dbExists then
             let fs = File.Create(dbPath)
