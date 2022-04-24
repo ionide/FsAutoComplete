@@ -761,3 +761,7 @@ type Debounce<'a>(timeout, fn) =
 
   /// Calls the function, after debouncing has been applied.
   member __.Bounce(arg) = mailbox.Post(arg)
+
+module Indentation =
+  let inline get (line: string) =
+    line.Length - line.AsSpan().Trim(' ').Length

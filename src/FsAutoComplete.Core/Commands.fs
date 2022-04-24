@@ -7,7 +7,6 @@ open Fantomas.Client.LSPFantomasService
 open FsAutoComplete.Logging
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open FsAutoComplete.RecordStubGenerator
-open FsAutoComplete.InterfaceStubGenerator
 open System.Threading
 open Utils
 open FSharp.Compiler.CodeAnalysis
@@ -1327,23 +1326,6 @@ type Commands
         else
           return CoreResponse.InfoRes "Record at position not found"
       | _ -> return CoreResponse.InfoRes "Record at position not found"
-    }
-    |> x.AsCancellable tyRes.FileName
-    |> AsyncResult.recoverCancellation
-
-  member x.GetInterfaceStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (lineStr: LineStr) =
-    async {
-      let doc = docForText lines tyRes
-      let! res = tryFindInterfaceExprInBufferAtPos codeGenServer pos doc
-
-      match res with
-      | None -> return CoreResponse.InfoRes "Interface at position not found"
-      | Some interfaceData ->
-        let! stubInfo = handleImplementInterface codeGenServer tyRes pos doc lines lineStr interfaceData
-
-        match stubInfo with
-        | Some (insertPosition, generatedCode) -> return CoreResponse.Res(generatedCode, insertPosition)
-        | None -> return CoreResponse.InfoRes "Interface at position not found"
     }
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
