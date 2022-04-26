@@ -77,7 +77,7 @@ let lspTests =
             analyzerTests state
             signatureTests state
             SignatureHelp.tests state
-            CodeFixTests.tests state
+            CodeFixTests.Tests.tests state
             Completion.tests state
             GoTo.tests state
             FindReferences.tests state
