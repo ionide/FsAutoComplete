@@ -820,6 +820,13 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commands.TryGetFileCheckerOptionsWithLines
         >> Result.map fst
 
+      let implementInterfaceConfig () : ImplementInterface.Config =
+        {
+          ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
+          MethodBody = config.InterfaceStubGenerationMethodBody
+          IndentationSize = config.IndentationSize
+        }
+
       let unionCaseStubReplacements () =
         Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
 
@@ -862,7 +869,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             (ImplementInterface.fix
                 tryGetParseResultsForFile
                 tryGetProjectOptions
-                (config.IndentationSize, config.InterfaceStubGenerationObjectIdentifier, config.InterfaceStubGenerationMethodBody)
+                implementInterfaceConfig
               )
           Run.ifEnabled
             (fun _ -> config.RecordStubGeneration)

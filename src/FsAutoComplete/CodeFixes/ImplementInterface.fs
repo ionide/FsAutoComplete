@@ -241,6 +241,12 @@ let private tryFindInsertionData
           }
           |> Some
 
+type Config = {
+  ObjectIdentifier: string
+  MethodBody: string
+  IndentationSize: int
+}
+
 let titleWithTypeAnnotation = "Implement interface"
 let titleWithoutTypeAnnotation = "Implement interface without type annotation"
 
@@ -248,7 +254,7 @@ let titleWithoutTypeAnnotation = "Implement interface without type annotation"
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
   (getProjectOptionsForFile: GetProjectOptionsForFile)
-  (indentationSize: int, objectIdentifier: string, methodBody: string)
+  (config: unit -> Config)
   : CodeFix =
   Run.ifDiagnosticByCode 
     (Set.ofList ["366"])
@@ -306,8 +312,10 @@ let fix
                 symbolUse.DisplayContext
                 interfaceData
 
+            let config = config ()
+
             let! insertionData =
-              tryFindInsertionData interfaceData tyRes.GetAST indentationSize
+              tryFindInsertionData interfaceData tyRes.GetAST config.IndentationSize
               |> Result.ofOption (fun _ -> "No insert location found")
 
             let appendWithEdit =
@@ -340,7 +348,7 @@ let fix
               let stub =
                 let stub =
                   InterfaceStubGenerator.FormatInterface
-                    insertionData.StartColumn indentationSize interfaceData.TypeParameters objectIdentifier methodBody
+                    insertionData.StartColumn config.IndentationSize interfaceData.TypeParameters config.ObjectIdentifier config.MethodBody
                     symbolUse.DisplayContext implementedMemberSignatures entity withTypeAnnotation
                 stub.TrimEnd(System.Environment.NewLine.ToCharArray())
               {
