@@ -202,7 +202,11 @@ let defaultConfigDto: FSharpConfigDto =
     GenerateBinlog = Some true
     AbstractClassStubGeneration = None
     AbstractClassStubGenerationMethodBody = None
-    AbstractClassStubGenerationObjectIdentifier = None }
+    AbstractClassStubGenerationObjectIdentifier = None
+    CodeLenses = Some {
+      Signature = Some {| Enabled = Some true |}
+      References = Some {| Enabled = Some true |}
+    } }
 
 let clientCaps: ClientCapabilities =
   let dynCaps: DynamicCapabilities = { DynamicRegistration = Some true }
