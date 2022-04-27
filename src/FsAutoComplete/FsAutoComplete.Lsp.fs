@@ -49,6 +49,7 @@ type InlayHintKind = Type | Parameter
 
 type LSPInlayHint = {
           Text : string
+          InsertText: string option
           Pos : Types.Position
           Kind : InlayHintKind
         }
@@ -844,9 +845,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
       codeFixes <-
-        [| 
-          Run.ifEnabled 
-            (fun _ -> config.UnusedOpensAnalyzer) 
+        [|
+          Run.ifEnabled
+            (fun _ -> config.UnusedOpensAnalyzer)
             (RemoveUnusedOpens.fix getFileLines)
           Run.ifEnabled
             (fun _ -> config.ResolveNamespaces)
@@ -2706,6 +2707,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         hints
         |> Array.map (fun h -> {
           Text = h.Text
+          InsertText = h.InsertText
           Pos = fcsPosToLsp h.Pos
           Kind = mapHintKind h.Kind
         })

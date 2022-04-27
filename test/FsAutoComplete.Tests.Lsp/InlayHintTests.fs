@@ -37,6 +37,12 @@ let tests state =
           match kind with
           | Lsp.InlayHintKind.Type -> ": " + text
           | Lsp.InlayHintKind.Parameter -> text + " ="
+        // this is for truncated text, which we do not currently hit in our tests
+        // TODO: add tests to cover this case
+        InsertText =
+          match kind with
+          | Lsp.InlayHintKind.Type -> Some (": " + text)
+          | Lsp.InlayHintKind.Parameter -> None
         Pos = { Line = line; Character = char }
         Kind = kind })
 
