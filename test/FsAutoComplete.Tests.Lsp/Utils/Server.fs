@@ -264,9 +264,13 @@ module Document =
       }
     }
     do! doc.Server.Server.TextDocumentDidOpen p
-    return!
-      doc
-      |> waitForLatestDiagnostics defaultTimeout
+    try
+      return!
+        doc
+        |> waitForLatestDiagnostics defaultTimeout
+    with
+      | :? TimeoutException ->
+        return failwith $"Timeout waiting for latest diagnostics for {doc.Uri}"
   }
 
   let close (doc: Document) = async {
