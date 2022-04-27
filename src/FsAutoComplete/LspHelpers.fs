@@ -523,9 +523,9 @@ type PlainNotification= { Content: string }
 
 /// Notification when a `TextDocument` is completely analyzed:
 /// F# Compiler checked file & all Analyzers (like `UnusedOpensAnalyzer`) are done.
-/// 
+///
 /// Used to signal all Diagnostics for this `TextDocument` are collected and sent.
-/// -> For tests to get all Diagnostics of `TextDocument` 
+/// -> For tests to get all Diagnostics of `TextDocument`
 type DocumentAnalyzedNotification = {
     TextDocument: VersionedTextDocumentIdentifier
 }
@@ -841,7 +841,7 @@ let encodeSemanticHighlightRanges (rangesAndHighlights: (struct(Ionide.LanguageS
 
   match rangesAndHighlights.Length with
   | 0 -> None
-  /// only 1 entry, so compute the line from the 0 position
+  // only 1 entry, so compute the line from the 0 position
   | 1 ->
     Some (
       computeLine fileStart rangesAndHighlights.[0]

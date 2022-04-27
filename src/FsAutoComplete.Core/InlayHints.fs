@@ -18,6 +18,7 @@ type HintKind =
 
 type Hint =
   { Text: string
+    InsertText: string option
     Pos: Position
     Kind: HintKind }
 
@@ -90,14 +91,60 @@ type FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
         let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
         result.IsSome
 
-let getFirstPositionAfterParen (str: string) startPos =
+let private getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
   | str when startPos > str.Length -> -1
   | str -> str.IndexOf('(') + 1
 
+let private maxHintLength = 30
+
+let truncated (s: string) =
+  if s.Length > maxHintLength then
+    s.Substring(0, maxHintLength) + "..."
+  else
+    s
+
+let private isNotWellKnownName =
+  let names = Set.ofList [
+    "mapping"
+    "format"
+    "value"
+    "x"
+  ]
+
+  fun (p: FSharpParameter) ->
+  match p.Name with
+  | None -> true
+  | Some n -> not (Set.contains n names)
+
+let inline hasName (p: FSharpParameter) =
+  not (String.IsNullOrEmpty p.DisplayName)
+  && p.DisplayName <> "````"
+
+let inline isMeaningfulName (p: FSharpParameter) =
+  p.DisplayName.Length > 2
+
+let inline doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
+  parameterName <> userArgumentText
+  && not (userArgumentText.StartsWith parameterName)
+
+/// </summary>
+/// We filter out parameters that generate lots of noise in hints.
+/// * parameter has a name
+/// * parameter is one of a set of 'known' names that clutter (like printfn formats)
+/// * parameter has length > 2
+/// * parameter does not match (or is an extension of) the user-entered text
+/// </summary>
+let shouldCreateHint (p: FSharpParameter) (matchingArgumentText: string) =
+  hasName p
+  && isNotWellKnownName p
+  && isMeaningfulName p
+  && doesNotMatchArgumentText p.DisplayName matchingArgumentText
+
+
 let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =
-  async {
+  asyncResult {
     let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
     let! cancellationToken = Async.CancellationToken
 
@@ -125,19 +172,18 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
       && not funcOrValue.IsConstructorThisValue
       && not (PrettyNaming.IsOperatorDisplayName funcOrValue.DisplayName)
 
-
-
     for symbolUse in symbolUses do
       match symbolUse.Symbol with
       | :? FSharpMemberOrFunctionOrValue as funcOrValue when
         isValidForTypeHint funcOrValue symbolUse
         ->
-        let layout =
-          ": "
-          + funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext
+
+        let layout = $": {truncated(funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext)}"
+        let insertText = $": {funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext}"
 
         let hint =
           { Text = layout
+            InsertText = Some insertText
             Pos = symbolUse.Range.End
             Kind = Type }
 
@@ -163,14 +209,16 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
           else
             for idx = 0 to minLength - 1 do
               let appliedArgRange = appliedArgRanges.[idx]
-              let definitionArgName = definitionArgs.[idx].DisplayName
+              let! appliedArgText = text[appliedArgRange]
+              let definitionArg = definitionArgs.[idx]
+              let definitionArgName = definitionArg.DisplayName
 
               if
-                not (String.IsNullOrWhiteSpace(definitionArgName))
-                && definitionArgName <> "````"
+                shouldCreateHint definitionArg appliedArgText
               then
                 let hint =
-                  { Text = definitionArgName + " ="
+                  { Text = $"{truncated definitionArgName} ="
+                    InsertText = None
                     Pos = appliedArgRange.Start
                     Kind = Parameter }
 
@@ -201,9 +249,11 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
             |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
 
           for idx = 0 to parameters.Length - 1 do
-            // let paramLocationInfo = tupledParamInfos. .ArgumentLocations.[idx]
-            // let paramName = parameters.[idx].DisplayName
-            // if not paramLocationInfo.IsNamedArgument && not (String.IsNullOrWhiteSpace(paramName)) then
+            // let paramLocationInfo = tupledParamInfos.ArgumentLocations.[idx]
+            let param = parameters.[idx]
+            let paramName = param.DisplayName
+
+            // if shouldCreateHint param && paramLocationInfo.IsNamedArgument then
             //     let hint = { Text = paramName + " ="; Pos = paramLocationInfo.ArgumentRange.Start; Kind = Parameter }
             //     parameterHints.Add(hint)
             ()
@@ -219,11 +269,13 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
 
           for idx = 0 to appliedArgRanges.Length - 1 do
             let appliedArgRange = appliedArgRanges.[idx]
-            let definitionArgName = definitionArgs.[idx].DisplayName
+            let! appliedArgText = text[appliedArgRange]
+            let definitionArg = definitionArgs.[idx]
 
-            if not (String.IsNullOrWhiteSpace(definitionArgName)) then
+            if shouldCreateHint definitionArg appliedArgText then
               let hint =
-                { Text = definitionArgName + " ="
+                { Text = $"{truncated definitionArg.DisplayName} ="
+                  InsertText = None
                   Pos = appliedArgRange.Start
                   Kind = Parameter }
 
@@ -235,3 +287,4 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
 
     return typeHints.AddRange(parameterHints).ToArray()
   }
+  |> AsyncResult.foldResult id (fun _ -> [||])
