@@ -142,6 +142,7 @@ let shouldCreateHint (p: FSharpParameter) (matchingArgumentText: string) =
   && isMeaningfulName p
   && doesNotMatchArgumentText p.DisplayName matchingArgumentText
 
+
 let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =
   asyncResult {
     let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
