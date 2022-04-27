@@ -99,7 +99,7 @@ let private getFirstPositionAfterParen (str: string) startPos =
 
 let private maxHintLength = 30
 
-let inline private truncated (s: string) =
+let truncated (s: string) =
   if s.Length > maxHintLength then
     s.Substring(0, maxHintLength) + "..."
   else

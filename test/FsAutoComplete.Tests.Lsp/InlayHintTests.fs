@@ -22,8 +22,8 @@ module InlayHints =
   let from (text, (line, char), kind) : LSPInlayHint =
     { Text =
         match kind with
-        | InlayHintKind.Type -> ": " + text
-        | InlayHintKind.Parameter -> text + " ="
+        | InlayHintKind.Type -> ": " + InlayHints.truncated text
+        | InlayHintKind.Parameter -> InlayHints.truncated text + " ="
       // this is for truncated text, which we do not currently hit in our tests
       // TODO: add tests to cover this case
       InsertText =
@@ -74,10 +74,7 @@ let tests state =
       <| InlayHints.check server """$0 System.Environment.GetEnvironmentVariable "Blah" |> ignore$0""" []
 
       testCaseAsync "doesn't show hint for well-known parameter names"
-      <| InlayHints.check
-           server
-           """$0sprintf "thing %s" "blah" |> ignore$0"""
-           []
+      <| InlayHints.check server """$0sprintf "thing %s" "blah" |> ignore$0""" []
 
       testCaseAsync "doesn't show hints for short parameter names"
       <| InlayHints.check
@@ -99,15 +96,24 @@ let tests state =
            []
 
       testCaseAsync "no type hint for an explicitly-typed binding"
+      <| InlayHints.check server """$0let s: string = "hi"$0""" []
+
+      testCaseAsync "no hint for a function with a short parameter name"
       <| InlayHints.check
            server
-           """$0let s: string = "hi"$0"""
-           []
-
-      testCaseAsync "no hint for a function with a short parameter name" <|
-        InlayHints.check server """
+           """
         // shows that no parameter name hint is shown for a function with a short parameter name
         let someFunction s = s
         let noHintForShortParameter = $0someFunction "hi"$0
-        """ []
-      ])
+        """
+           []
+
+      testCaseAsync "type hints are truncated to 30 characters"
+      <| InlayHints.check
+           server
+           """
+        $0let t = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))$0
+        """
+           [ "unit option option option option option option option option option option option option option option option",
+             (0, 5),
+             InlayHintKind.Type ] ])
