@@ -12,6 +12,7 @@ open Serilog.Filters
 
 module Parser =
   open System.Threading.Tasks
+
   [<Struct>]
   type Pos = { Line: int; Column: int }
 
@@ -87,7 +88,7 @@ module Parser =
     |> zero
 
   let stateLocationOption =
-    Option<DirectoryInfo>("--state-directory", getDefaultValue = Func<_> (fun () -> DirectoryInfo("C:\\Users\\chusk")),  description = "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location.")
+    Option<DirectoryInfo>("--state-directory", getDefaultValue = Func<_> (fun () -> DirectoryInfo System.Environment.CurrentDirectory), description = "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location.")
 
   let rootCommand =
     let rootCommand = RootCommand("An F# LSP server implementation")
