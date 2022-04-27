@@ -162,7 +162,7 @@ module Server =
     let! server = server
     assert(server.RootPath |> Option.isSome)
 
-    let fullPath = Path.Combine(server.RootPath.Value, path)
+    let fullPath = Path.Combine(server.RootPath.Value, path) |> Utils.normalizePath |> FSharp.UMX.UMX.untag
     let doc = server |> createDocument (Path.FilePathToUri fullPath)
     let! diags = doc |> Document.openWith initialText
 
