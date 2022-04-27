@@ -580,6 +580,7 @@ type FSharpConfigDto = {
     ExternalAutocomplete: bool option
     Linter: bool option
     LinterConfig: string option
+    IndentationSize: int option
     UnionCaseStubGeneration: bool option
     UnionCaseStubGenerationBody: string option
     RecordStubGeneration: bool option
@@ -620,6 +621,7 @@ type FSharpConfig = {
     ExternalAutocomplete: bool
     Linter: bool
     LinterConfig: string option
+    IndentationSize: int
     UnionCaseStubGeneration: bool
     UnionCaseStubGenerationBody: string
     RecordStubGeneration: bool
@@ -656,6 +658,7 @@ with
             ExternalAutocomplete = false
             Linter = false
             LinterConfig = None
+            IndentationSize = 4
             UnionCaseStubGeneration = false
             UnionCaseStubGenerationBody = """failwith "Not Implemented" """
             RecordStubGeneration = false
@@ -695,6 +698,7 @@ with
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
             Linter = defaultArg dto.Linter false
             LinterConfig = dto.LinterConfig
+            IndentationSize = defaultArg dto.IndentationSize 4
             UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration false
             UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody "failwith \"Not Implemented\""
             RecordStubGeneration = defaultArg dto.RecordStubGeneration false
@@ -742,6 +746,7 @@ with
             ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
             Linter = defaultArg dto.Linter x.Linter
             LinterConfig = dto.LinterConfig
+            IndentationSize = defaultArg dto.IndentationSize x.IndentationSize
             UnionCaseStubGeneration = defaultArg dto.UnionCaseStubGeneration x.UnionCaseStubGeneration
             UnionCaseStubGenerationBody = defaultArg dto.UnionCaseStubGenerationBody x.UnionCaseStubGenerationBody
             RecordStubGeneration = defaultArg dto.RecordStubGeneration x.RecordStubGeneration

@@ -176,6 +176,7 @@ let defaultConfigDto: FSharpConfigDto =
     ExternalAutocomplete = None
     Linter = None
     LinterConfig = None
+    IndentationSize = None
     UnionCaseStubGeneration = None
     UnionCaseStubGenerationBody = None
     RecordStubGeneration = None

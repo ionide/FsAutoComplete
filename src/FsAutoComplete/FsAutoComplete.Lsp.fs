@@ -820,11 +820,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         commands.TryGetFileCheckerOptionsWithLines
         >> Result.map fst
 
-      let interfaceStubReplacements () =
-        Map.ofList [ "$objectIdent", config.InterfaceStubGenerationObjectIdentifier
-                     "$methodBody", config.InterfaceStubGenerationMethodBody ]
-
-      let getInterfaceStubReplacements () = interfaceStubReplacements ()
+      let implementInterfaceConfig () : ImplementInterface.Config =
+        {
+          ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
+          MethodBody = config.InterfaceStubGenerationMethodBody
+          IndentationSize = config.IndentationSize
+        }
 
       let unionCaseStubReplacements () =
         Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
@@ -865,7 +866,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           ExternalSystemDiagnostics.analyzers
           Run.ifEnabled
             (fun _ -> config.InterfaceStubGeneration)
-            (GenerateInterfaceStub.fix tryGetParseResultsForFile commands.GetInterfaceStub getInterfaceStubReplacements)
+            (ImplementInterface.fix
+                tryGetParseResultsForFile
+                tryGetProjectOptions
+                implementInterfaceConfig
+              )
           Run.ifEnabled
             (fun _ -> config.RecordStubGeneration)
             (GenerateRecordStub.fix tryGetParseResultsForFile commands.GetRecordStub getRecordStubReplacements)
@@ -898,7 +903,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           AddMissingInstanceMember.fix
           AddExplicitTypeToParameter.fix tryGetParseResultsForFile
           ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
-          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText 
+          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
           RenameParamToMatchSignature.fix tryGetParseResultsForFile
         |]
 
