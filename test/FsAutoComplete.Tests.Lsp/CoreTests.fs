@@ -12,6 +12,15 @@ open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
 open FSharp.Control.Reactive
+open FsAutoComplete.Lsp
+open Utils.ServerTests
+open Utils.Server
+open Utils.TextEdit
+open Mono.Cecil.Cil
+open Utils
+open Utils.Utils
+open FsToolkit.ErrorHandling.Operator.AsyncResult
+open FSharpx.Control
 
 ///Test for initialization of the server
 let initTests state =
@@ -79,94 +88,38 @@ let initTests state =
       | Result.Error e -> failtest "Initialization failed"
     })
 
-///Tests for getting and resolving code(line) lenses with enabled reference code lenses
-let codeLensTest state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
 
-      let config =
-        { defaultConfigDto with
-            EnableReferenceCodeLens = Some true
-            GenerateBinlog = Some true }
+let codeLensTests state =
+  serverTestList "CodeLens" state defaultConfigDto None (fun server -> [
+    testCaseAsync "can show codelens for type annotation" (
+      asyncResult {
+        let text =
+          """
+          module X =
+            let func x = x + 1
+          """
+          |> Text.trimTripleQuotation
+        let! (doc, diags) = Server.createUntitledDocument text server
+        let p: CodeLensParams = {
+          TextDocument = doc.TextDocumentIdentifier
+        }
+        let! lenses = doc.Server.Server.TextDocumentCodeLens p |> AsyncResult.mapError string
+        let! resolved =
+          Option.toList lenses
+          |> Array.concat
+          |> List.ofArray
+          |> List.traverseAsyncResultA doc.Server.Server.CodeLensResolve
+          |> AsyncResult.mapError string
 
-      let! (server, events) = serverInitialize path config state
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      do!
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap id (fun e -> failtest "should have not had check errors")
-
-      return (server, path)
-    }
-    |> Async.Cache
-
-  testList
-    "Code Lens Tests"
-    [ testCaseAsync
-        "Get Code Lens"
-        (async {
-          let! (server, path) = server
-          let p: CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-          let! res = server.TextDocumentCodeLens p
-
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) -> Expect.equal res.Length 20 "Get Code Lens has all locations"
-        })
-      testCaseAsync
-        "Resolve Code Lens"
-        (async {
-          let! (server, path) = server
-          let p: CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-          let! res = server.TextDocumentCodeLens p
-
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some result) ->
-            let cl = result.[1]
-            let! res = server.CodeLensResolve cl
-            let cl = result.[11]
-            let! res2 = server.CodeLensResolve cl
-            let cl = result.[10]
-            let! res3 = server.CodeLensResolve cl
-
-            match res, res2 with //TODO: Match res3 when FCS is fixed
-            | Result.Ok cl, Result.Ok cl2 ->
-              //TODO
-              //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
-              Expect.equal cl2.Command.Value.Title "string -> unit" "Code Lens contains signature"
-            | e -> failtestf "Request failed: %A" e
-        })
-
-      testCaseAsync
-        "Resolve Code Lens 2"
-        (async {
-          let! (server, path) = server
-          let p: CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-          let! res = server.TextDocumentCodeLens p
-
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some result) ->
-            let cl = result.[3]
-            let! res = server.CodeLensResolve cl
-            let cl = result.[14]
-            let! res2 = server.CodeLensResolve cl
-
-            match res, res2 with
-            | Result.Ok cl, Result.Ok cl2 ->
-              //TODO
-              //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
-              Expect.equal cl2.Command.Value.Title "unit -> (int64 -> System.DateTime)" "Code Lens contains signature"
-
-            | e -> failtestf "Request failed: %A" e
-        }) ]
+        match resolved with
+        | [] -> failtest "should have had codelens"
+        | [typeLens; referencesLens] ->
+          Expect.equal typeLens.Command.Value.Title "int -> int" "first lens should be a type hint of int to int"
+          Expect.equal referencesLens.Command.Value.Title "0 References" "second lens should be a count of references"
+        | _ -> failtest "should have had two codelens"
+      } |> AsyncResult.foldResult id (fun e -> failtest $"{e}")
+    )
+  ])
 
 ///Tests for getting document symbols
 let documentSymbolTest state =

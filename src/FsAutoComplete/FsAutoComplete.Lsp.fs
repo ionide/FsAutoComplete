@@ -1780,7 +1780,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             |> Some
       }
 
-  override __.TextDocumentCodeLens(p) =
+  override __.TextDocumentCodeLens(p: CodeLensParams) =
     asyncResult {
       logger.info (
         Log.setMessage "TextDocumentCodeLens Request: {parms}"
