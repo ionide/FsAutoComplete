@@ -10,7 +10,6 @@ open FSharp.UMX
 open System.Linq
 open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
-open System.Text
 
 type HintKind =
   | Parameter
@@ -51,7 +50,7 @@ let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResult
 let private isSignatureFile (f: string<LocalPath>) =
   System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
-type FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
+type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
   // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
   // so that they are considered logically the same as a 'typed' SynPat
   member x.IsTypeAnnotationGivenAtPositionPatched pos =
@@ -105,29 +104,55 @@ let truncated (s: string) =
   else
     s
 
-let private isNotWellKnownName =
-  let names = Set.ofList [
-    "mapping"
-    "format"
-    "value"
-    "x"
-  ]
+let private createParamHint
+  (range: Range)
+  (paramName: string)
+  =
+  let format p = p + " ="
+  {
+    Text = format (truncated paramName)
+    InsertText = None
+    Pos = range.Start
+    Kind = Parameter
+  }
+let private createTypeHint
+  (range: Range)
+  (ty: FSharpType)
+  (displayContext: FSharpDisplayContext)
+  =
+  let ty = ty.Format displayContext
+  let format ty = ": " + ty
+  {
+    Text = format (truncated ty)
+    InsertText = Some (format ty)
+    Pos = range.End
+    Kind = Type
+  }
 
-  fun (p: FSharpParameter) ->
-  match p.Name with
-  | None -> true
-  | Some n -> not (Set.contains n names)
+module private ShouldCreate =
+  let private isNotWellKnownName =
+    let names = Set.ofList [
+      "mapping"
+      "format"
+      "value"
+      "x"
+    ]
 
-let inline hasName (p: FSharpParameter) =
-  not (String.IsNullOrEmpty p.DisplayName)
-  && p.DisplayName <> "````"
+    fun (p: FSharpParameter) ->
+    match p.Name with
+    | None -> true
+    | Some n -> not (Set.contains n names)
 
-let inline isMeaningfulName (p: FSharpParameter) =
-  p.DisplayName.Length > 2
+  let inline private hasName (p: FSharpParameter) =
+    not (String.IsNullOrEmpty p.DisplayName)
+    && p.DisplayName <> "````"
 
-let inline doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
-  parameterName <> userArgumentText
-  && not (userArgumentText.StartsWith parameterName)
+  let inline private isMeaningfulName (p: FSharpParameter) =
+    p.DisplayName.Length > 2
+
+  let inline private doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
+    parameterName <> userArgumentText
+    && not (userArgumentText.StartsWith parameterName)
 
 /// </summary>
 /// We filter out parameters that generate lots of noise in hints.
@@ -136,11 +161,15 @@ let inline doesNotMatchArgumentText (parameterName: string) (userArgumentText: s
 /// * parameter has length > 2
 /// * parameter does not match (or is an extension of) the user-entered text
 /// </summary>
-let shouldCreateHint (p: FSharpParameter) (matchingArgumentText: string) =
-  hasName p
-  && isNotWellKnownName p
-  && isMeaningfulName p
-  && doesNotMatchArgumentText p.DisplayName matchingArgumentText
+  let paramHint
+    (func: FSharpMemberOrFunctionOrValue)
+    (p: FSharpParameter)
+    (argumentText: string)
+    =
+    hasName p
+    && isNotWellKnownName p
+    && isMeaningfulName p
+    && doesNotMatchArgumentText p.DisplayName argumentText
 
 
 let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =
@@ -177,16 +206,7 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
       | :? FSharpMemberOrFunctionOrValue as funcOrValue when
         isValidForTypeHint funcOrValue symbolUse
         ->
-
-        let layout = $": {truncated(funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext)}"
-        let insertText = $": {funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext}"
-
-        let hint =
-          { Text = layout
-            InsertText = Some insertText
-            Pos = symbolUse.Range.End
-            Kind = Type }
-
+        let hint = createTypeHint symbolUse.Range funcOrValue.ReturnParameter.Type symbolUse.DisplayContext
         typeHints.Add(hint)
 
       | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
@@ -214,14 +234,9 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
               let definitionArgName = definitionArg.DisplayName
 
               if
-                shouldCreateHint definitionArg appliedArgText
+                ShouldCreate.paramHint func definitionArg appliedArgText
               then
-                let hint =
-                  { Text = $"{truncated definitionArgName} ="
-                    InsertText = None
-                    Pos = appliedArgRange.Start
-                    Kind = Parameter }
-
+                let hint = createParamHint appliedArgRange definitionArgName
                 parameterHints.Add(hint)
 
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
@@ -272,13 +287,8 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
             let! appliedArgText = text[appliedArgRange]
             let definitionArg = definitionArgs.[idx]
 
-            if shouldCreateHint definitionArg appliedArgText then
-              let hint =
-                { Text = $"{truncated definitionArg.DisplayName} ="
-                  InsertText = None
-                  Pos = appliedArgRange.Start
-                  Kind = Parameter }
-
+            if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
+              let hint = createParamHint appliedArgRange definitionArg.DisplayName
               parameterHints.Add(hint)
       | _ -> ()
 

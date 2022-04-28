@@ -19,7 +19,7 @@ module InlayHints =
   open Utils.TextEdit
   open FSharpx.Control
 
-  let from (text, (line, char), kind) : LSPInlayHint =
+  let private at (text, pos, kind) : LSPInlayHint =
     { Text =
         match kind with
         | InlayHintKind.Type -> ": " + InlayHints.truncated text
@@ -30,16 +30,18 @@ module InlayHints =
         match kind with
         | InlayHintKind.Type -> Some(": " + text)
         | InlayHintKind.Parameter -> None
-      Pos = { Line = line; Character = char }
+      Pos = pos
       Kind = kind }
+  let private from (text, (line, char), kind) = 
+    at (text, { Line=line; Character=char}, kind)
 
-  let check (server: Async<Server>) (documentText: string) (expectedHints: _ list) =
-    async {
-      let (range, text) =
-        documentText
-        |> Text.trimTripleQuotation
-        |> Cursor.assertExtractRange
 
+  let private check' 
+    (server: CachedServer)
+    (text: string)
+    (range: Range)
+    (expected: LSPInlayHint array)
+    = async {
       let! (doc, diags) = server |> Server.createUntitledDocument text
       use doc = doc // ensure doc gets closed (disposed) after test
 
@@ -48,13 +50,43 @@ module InlayHints =
       | diags -> failtest $"Should not have had check errors, but instead had %A{diags}"
 
       let! actual = Document.inlayHintsAt range doc
-      let expected = expectedHints |> List.map from |> Array.ofList
       Expect.equal actual expected "Expected the given set of hints"
     }
+  let check (server: CachedServer) (documentText: string) (expectedHints: _ list) =
+      let (range, text) =
+        documentText
+        |> Text.trimTripleQuotation
+        |> Cursor.assertExtractRange
+      let expected = expectedHints |> List.map from |> Array.ofList
+      check' server text range expected
+
+  let private extractCursorsInsideRange (text: string) =
+    let (text, poss) =
+      text
+      |> Text.trimTripleQuotation
+      |> Cursors.extract
+    let range =
+      { Start = poss |> List.head; End = poss |> List.last }
+    let poss =
+      let count = poss |> List.length
+      poss[1..(count-2)]
+
+    (text, range, poss)
+  
+  let checkRange (server: CachedServer) (documentText: string) (expectedHints: _ list) =
+    let (text, range, poss) = documentText |> extractCursorsInsideRange
+    let expected =
+      List.zip poss expectedHints
+      |> List.map (fun (pos, (name, kind)) -> at (name, pos, kind))
+      |> List.toArray
+    check' server text range expected
+
+let param (name: string) = (name, InlayHintKind.Parameter)
+let ty (name: string) = (name, InlayHintKind.Type)
 
 let tests state =
-  serverTestList (nameof Core.InlayHints) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "let-bound function parameter type hints"
+  serverTestList (nameof Core.InlayHints) state defaultConfigDto None (fun server -> [
+      testCaseAsync "let-bound function parameter type hints"
       <| InlayHints.check
            server
            """
