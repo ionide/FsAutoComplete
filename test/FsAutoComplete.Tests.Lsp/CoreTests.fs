@@ -12,6 +12,15 @@ open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
 open FSharp.Control.Reactive
+open FsAutoComplete.Lsp
+open Utils.ServerTests
+open Utils.Server
+open Utils.TextEdit
+open Mono.Cecil.Cil
+open Utils
+open Utils.Utils
+open FsToolkit.ErrorHandling.Operator.AsyncResult
+open FSharpx.Control
 
 ///Test for initialization of the server
 let initTests state =
@@ -78,95 +87,6 @@ let initTests state =
         Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
       | Result.Error e -> failtest "Initialization failed"
     })
-
-///Tests for getting and resolving code(line) lenses with enabled reference code lenses
-let codeLensTest state =
-  let server =
-    async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CodeLensTest")
-
-      let config =
-        { defaultConfigDto with
-            EnableReferenceCodeLens = Some true
-            GenerateBinlog = Some true }
-
-      let! (server, events) = serverInitialize path config state
-      let path = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
-
-      do!
-        waitForParseResultsForFile "Script.fsx" events
-        |> AsyncResult.bimap id (fun e -> failtest "should have not had check errors")
-
-      return (server, path)
-    }
-    |> Async.Cache
-
-  testList
-    "Code Lens Tests"
-    [ testCaseAsync
-        "Get Code Lens"
-        (async {
-          let! (server, path) = server
-          let p: CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-          let! res = server.TextDocumentCodeLens p
-
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) -> Expect.equal res.Length 20 "Get Code Lens has all locations"
-        })
-      testCaseAsync
-        "Resolve Code Lens"
-        (async {
-          let! (server, path) = server
-          let p: CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-          let! res = server.TextDocumentCodeLens p
-
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some result) ->
-            let cl = result.[1]
-            let! res = server.CodeLensResolve cl
-            let cl = result.[11]
-            let! res2 = server.CodeLensResolve cl
-            let cl = result.[10]
-            let! res3 = server.CodeLensResolve cl
-
-            match res, res2 with //TODO: Match res3 when FCS is fixed
-            | Result.Ok cl, Result.Ok cl2 ->
-              //TODO
-              //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
-              Expect.equal cl2.Command.Value.Title "string -> unit" "Code Lens contains signature"
-            | e -> failtestf "Request failed: %A" e
-        })
-
-      testCaseAsync
-        "Resolve Code Lens 2"
-        (async {
-          let! (server, path) = server
-          let p: CodeLensParams = { TextDocument = { Uri = Path.FilePathToUri path } }
-          let! res = server.TextDocumentCodeLens p
-
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some result) ->
-            let cl = result.[3]
-            let! res = server.CodeLensResolve cl
-            let cl = result.[14]
-            let! res2 = server.CodeLensResolve cl
-
-            match res, res2 with
-            | Result.Ok cl, Result.Ok cl2 ->
-              //TODO
-              //Expect.equal cl.Command.Value.Title "1 Reference" "Code Lens contains reference count"
-              Expect.equal cl2.Command.Value.Title "unit -> (int64 -> System.DateTime)" "Code Lens contains signature"
-
-            | e -> failtestf "Request failed: %A" e
-        }) ]
 
 ///Tests for getting document symbols
 let documentSymbolTest state =

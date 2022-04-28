@@ -1780,8 +1780,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             |> Some
       }
 
-  override __.TextDocumentCodeLens(p) =
-    async {
+  override __.TextDocumentCodeLens(p: CodeLensParams) =
+    asyncResult {
       logger.info (
         Log.setMessage "TextDocumentCodeLens Request: {parms}"
         >> Log.addContextDestructured "parms" p
@@ -1791,38 +1791,23 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         p.TextDocument.GetFilePath()
         |> Utils.normalizePath
 
-      let! res = commands.Declarations fn None (commands.TryGetFileVersion fn)
+      let! decls =
+        commands.Declarations fn None (commands.TryGetFileVersion fn)
+        |> AsyncResult.ofCoreResponse
+        |> AsyncResult.map (Array.map fst)
 
-      let res =
+      let res = [|
         if config.LineLens.Enabled <> "replaceCodeLens" then
-          match res with
-          | CoreResponse.InfoRes msg
-          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res (decls) ->
-            let res =
-              decls
-              |> Array.map (
-                fst
-                >> getCodeLensInformation p.TextDocument.Uri "signature"
-              )
-              |> Array.collect id
+            if config.CodeLenses.Signature.Enabled
+            then
+              yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
 
-            let res2 =
-              if config.EnableReferenceCodeLens then
-                decls
-                |> Array.map (
-                  fst
-                  >> getCodeLensInformation p.TextDocument.Uri "reference"
-                )
-                |> Array.collect id
-              else
-                [||]
+            // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
+            if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
+              yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference")
+      |]
 
-            [| yield! res2; yield! res |] |> Some |> success
-        else
-          [||] |> Some |> success
-
-      return res
+      return Some res
     }
 
   override __.CodeLensResolve(p) =
@@ -1870,7 +1855,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 let! r = Async.Catch(f arg pos tyRes lineStr data.[1] file)
 
                 match r with
-                | Choice1Of2 r -> return r
+                | Choice1Of2 (r: LspResult<CodeLens option>) ->
+                  match r with
+                  | Ok (Some r) -> return Ok r
+                  | _ -> return Ok Unchecked.defaultof<_>
                 | Choice2Of2 e ->
                   logger.error (
                     Log.setMessage "CodeLensResolve - Child operation failed for {file}"
@@ -1893,6 +1881,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               |> async.Return
       }
 
+    let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range []) =
+      Some [|
+        JToken.FromObject(Path.LocalPathToUri sourceFile)
+        JToken.FromObject(fcsPosToLsp triggerPos)
+        JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation)
+      |]
 
     handler
       (fun p pos tyRes lineStr typ file ->
@@ -1907,7 +1901,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                 >> Log.addContextDestructured "error" msg
               )
 
-              return { p with Command = None } |> success
+              return { p with Command = None } |> Some |> success
             | CoreResponse.Res (typ, parms, _) ->
               let formatted = SigantureData.formatSignature typ parms
 
@@ -1916,22 +1910,23 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                   Command = ""
                   Arguments = None }
 
-              return { p with Command = Some cmd } |> success
+              return { p with Command = Some cmd } |> Some |> success
           else
-            let! res = commands.SymbolUseProject tyRes pos lineStr
+            let! res =
+              commands.SymbolUseProject tyRes pos lineStr
+              |> AsyncResult.ofCoreResponse
 
             let res =
               match res with
-              | CoreResponse.InfoRes msg
-              | CoreResponse.ErrorRes msg ->
+              | Core.Result.Error msg ->
                 logger.error (
                   Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
                   >> Log.addContextDestructured "file" file
                   >> Log.addContextDestructured "error" msg
                 )
 
-                { p with Command = None } |> success
-              | CoreResponse.Res (LocationResponse.Use (sym, uses)) ->
+                success None
+              | Ok (LocationResponse.Use (sym, uses)) ->
                 let formatted =
                   if uses.Length = 1 then
                     "1 Reference"
@@ -1940,22 +1935,17 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
                 let locs =
                   uses
-                  |> Array.map (fun n -> fcsRangeToLspLocation n.Range)
-
-                let args =
-                  [| JToken.FromObject(Path.LocalPathToUri file)
-                     JToken.FromObject(fcsPosToLsp pos)
-                     JToken.FromObject locs |]
+                  |> Array.map (fun n -> n.Range)
 
                 let cmd =
                   { Title = formatted
                     Command = "fsharp.showReferences"
-                    Arguments = Some args }
+                    Arguments = writePayload (file, pos, locs) }
 
-                { p with Command = Some cmd } |> success
-              | CoreResponse.Res (LocationResponse.UseRange (uses)) ->
+                { p with Command = Some cmd } |> Some |> success
+              | Ok (LocationResponse.UseRange (uses)) ->
                 let formatted =
-                  if uses.Length - 1 = 1 then
+                  if uses.Length = 2 then
                     "1 Reference"
                   elif uses.Length = 0 then
                     "0 References"
@@ -1963,19 +1953,14 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     sprintf "%d References" (uses.Length - 1)
 
                 let locs =
-                  uses |> Array.map symbolUseRangeToLspLocation
-
-                let args =
-                  [| JToken.FromObject(Path.LocalPathToUri file)
-                     JToken.FromObject(fcsPosToLsp pos)
-                     JToken.FromObject locs |]
+                  uses |> Array.map (fun u -> u.Range)
 
                 let cmd =
                   { Title = formatted
                     Command = "fsharp.showReferences"
-                    Arguments = Some args }
+                    Arguments = writePayload (file, pos, locs) }
 
-                { p with Command = Some cmd } |> success
+                { p with Command = Some cmd } |> Some |> success
 
             return res
         })
