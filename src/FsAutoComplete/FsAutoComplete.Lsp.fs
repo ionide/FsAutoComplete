@@ -1881,6 +1881,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               |> async.Return
       }
 
+    let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range []) =
+      Some [|
+        JToken.FromObject(Path.LocalPathToUri sourceFile)
+        JToken.FromObject(fcsPosToLsp triggerPos)
+        JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation)
+      |]
 
     handler
       (fun p pos tyRes lineStr typ file ->
@@ -1929,17 +1935,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
                 let locs =
                   uses
-                  |> Array.map (fun n -> fcsRangeToLspLocation n.Range)
-
-                let args =
-                  [| JToken.FromObject(Path.LocalPathToUri file)
-                     JToken.FromObject(fcsPosToLsp pos)
-                     JToken.FromObject locs |]
+                  |> Array.map (fun n -> n.Range)
 
                 let cmd =
                   { Title = formatted
                     Command = "fsharp.showReferences"
-                    Arguments = Some args }
+                    Arguments = writePayload (file, pos, locs) }
 
                 { p with Command = Some cmd } |> Some |> success
               | Ok (LocationResponse.UseRange (uses)) ->
@@ -1952,17 +1953,12 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     sprintf "%d References" (uses.Length - 1)
 
                 let locs =
-                  uses |> Array.map symbolUseRangeToLspLocation
-
-                let args =
-                  [| JToken.FromObject(Path.LocalPathToUri file)
-                     JToken.FromObject(fcsPosToLsp pos)
-                     JToken.FromObject locs |]
+                  uses |> Array.map (fun u -> u.Range)
 
                 let cmd =
                   { Title = formatted
                     Command = "fsharp.showReferences"
-                    Arguments = Some args }
+                    Arguments = writePayload (file, pos, locs) }
 
                 { p with Command = Some cmd } |> Some |> success
 

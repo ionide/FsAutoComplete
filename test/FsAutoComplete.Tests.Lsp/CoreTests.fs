@@ -88,39 +88,6 @@ let initTests state =
       | Result.Error e -> failtest "Initialization failed"
     })
 
-
-let codeLensTests state =
-  serverTestList "CodeLens" state defaultConfigDto None (fun server -> [
-    testCaseAsync "can show codelens for type annotation" (
-      asyncResult {
-        let text =
-          """
-          module X =
-            let func x = x + 1
-          """
-          |> Text.trimTripleQuotation
-        let! (doc, diags) = Server.createUntitledDocument text server
-        let p: CodeLensParams = {
-          TextDocument = doc.TextDocumentIdentifier
-        }
-        let! lenses = doc.Server.Server.TextDocumentCodeLens p |> AsyncResult.mapError string
-        let! resolved =
-          Option.toList lenses
-          |> Array.concat
-          |> List.ofArray
-          |> List.traverseAsyncResultA doc.Server.Server.CodeLensResolve
-          |> AsyncResult.mapError string
-
-        match resolved with
-        | [] -> failtest "should have had codelens"
-        | [typeLens; referencesLens] ->
-          Expect.equal typeLens.Command.Value.Title "int -> int" "first lens should be a type hint of int to int"
-          Expect.equal referencesLens.Command.Value.Title "0 References" "second lens should be a count of references"
-        | _ -> failtest "should have had two codelens"
-      } |> AsyncResult.foldResult id (fun e -> failtest $"{e}")
-    )
-  ])
-
 ///Tests for getting document symbols
 let documentSymbolTest state =
   let server =

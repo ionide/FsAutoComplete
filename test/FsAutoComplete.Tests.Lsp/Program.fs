@@ -53,7 +53,7 @@ let lspTests =
             Utils.Tests.Server.tests state
             Utils.Tests.CursorbasedTests.tests state
 
-            codeLensTests state
+            CodeLens.tests state
             documentSymbolTest state
             Completion.autocompleteTest state
             Completion.autoOpenTests state
