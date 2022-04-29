@@ -1,4 +1,4 @@
-#FSharpLint.Core
+FSharpLint.Core
 CliWrap
 Dapper
 Destructurama.FSharp

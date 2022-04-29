@@ -28,7 +28,7 @@
     <Compile Include="UnusedDeclarationsAnalyzer.fs" />
     <Compile Include="Decompiler.fs" />
     <Compile Include="Sourcelink.fs" />
-    <!-- <Compile Include="FakeSupport.fs" /> -->
+    <Compile Include="FakeSupport.fs" />
     <Compile Include="InteractiveDirectives.fs" />
     <Compile Include="ParseAndCheckResults.fs" />
     <Compile Include="CompilerServiceInterface.fs" />
@@ -40,7 +40,7 @@
     <Compile Include="SymbolCache.fs" />
     <Compile Include="BackgroundServices.fs" />
     <Compile Include="Fsdn.fs" />
-    <!-- <Compile Include="Lint.fs" /> -->
+    <Compile Include="Lint.fs" />
     <Compile Include="SignatureHelp.fs" />
     <Compile Include="InlayHints.fs" />
     <Compile Include="Commands.fs" />

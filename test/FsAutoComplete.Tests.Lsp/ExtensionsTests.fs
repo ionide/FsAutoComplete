@@ -294,27 +294,28 @@ let formattingTests state =
         "tests"
         [ verifyFormatting "can replace entire content of file when formatting whole document" "endCharacter" ] ]
 
-// let fakeInteropTests toolsPath =
-//   let serverStart = lazy (
-//     let folderPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FakeInterop")
-//     let (server, events) = serverInitialize folderPath defaultConfigDto toolsPath
-//     let buildScript = "build.fsx"
-//     do waitForWorkspaceFinishedParsing events
-//     server, events, folderPath, buildScript
-//   )
-//   let serverTest f () = f serverStart.Value
+let fakeInteropTests state =
+  let server =
+    async {
+      let folderPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FakeInterop")
+      let! (server, events) = serverInitialize folderPath defaultConfigDto state
+      let buildScript = "build.fsx"
+      do! waitForWorkspaceFinishedParsing events
+      return server, events, folderPath, buildScript
+    } |> Async.Cache
 
-//   testList "fake integration" [
-//     testCase "can typecheck a fake script including uses of paket-delivered types" (serverTest (fun (server, events, rootPath, scriptName) ->
-//         server.TextDocumentDidOpen { TextDocument = loadDocument (Path.Combine(rootPath, scriptName)) } |> Async.Start
+  testList "fake integration" [
+    testCaseAsync "can typecheck a fake script including uses of paket-delivered types" (async {
+      let! (server, events, rootPath, buildScript) = server
+      do! server.TextDocumentDidOpen { TextDocument = loadDocument (Path.Combine(rootPath, buildScript)) }
 
-//         match waitForParseResultsForFile scriptName events with
-//         | Ok () ->
-//           () // all good, no parsing/checking errors
-//         | Core.Result.Error errors ->
-//           failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, scriptName)) errors
-//         ))
-//   ]
+      match! waitForParseResultsForFile buildScript events with
+      | Ok () ->
+        () // all good, no parsing/checking errors
+      | Core.Result.Error errors ->
+        failwithf "Errors while parsing script %s: %A" (Path.Combine(rootPath, buildScript)) errors
+    })
+  ]
 
 let analyzerTests state =
   let server =

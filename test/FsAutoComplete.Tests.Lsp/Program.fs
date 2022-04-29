@@ -72,10 +72,10 @@ let lspTests =
             // commented out because FSDN is down
             //fsdnTest state
             uriTests
-            //linterTests state
+            linterTests state
             formattingTests state
             // fake isn't updated to FCS 39, disabling tests until that's resolved
-            //fakeInteropTests toolsPath
+            fakeInteropTests state
             analyzerTests state
             signatureTests state
             SignatureHelp.tests state

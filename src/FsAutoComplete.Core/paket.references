@@ -4,11 +4,12 @@ Ionide.ProjInfo.FCS
 Ionide.ProjInfo.ProjectSystem
 FSharp.Analyzers.SDK
 Newtonsoft.Json
-#Fake.Runtime
+Fake.Runtime
 ICSharpCode.Decompiler
 Microsoft.SourceLink.GitHub
 Dapper
 Microsoft.Data.Sqlite
+FSharpLint.Core
 System.Configuration.ConfigurationManager
 FSharp.UMX
 FsToolkit.ErrorHandling
