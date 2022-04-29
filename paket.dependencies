@@ -51,6 +51,7 @@ nuget Dotnet.ReproducibleBuilds copy_local:true
 nuget Microsoft.NETFramework.ReferenceAssemblies
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
 nuget Expecto
+nuget Expecto.Diff
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger

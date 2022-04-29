@@ -36,6 +36,14 @@ let initTests state =
           RootUri = None
           InitializationOptions = Some(Server.serialize defaultConfigDto)
           Capabilities = Some clientCaps
+          ClientInfo = Some {
+            Name = "FSAC Tests"
+            Version = Some "0.0.0"
+          }
+          WorkspaceFolders = Some [| {
+            Uri = Path.FilePathToUri tempDir
+            Name = "Test Folder"
+          } |]
           trace = None }
 
       let! result = server.Initialize p

@@ -1,5 +1,6 @@
 module Utils.CursorbasedTests
 open Expecto
+open Expecto.Diff
 open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
 open Utils.Utils
@@ -8,7 +9,7 @@ open Utils.TextEdit
 open Ionide.ProjInfo.Logging
 
 /// Checks for CodeFixes, CodeActions
-/// 
+///
 /// Prefixes:
 /// * `check`: Check to use inside a `testCaseAsync`. Not a Test itself!
 /// * `test`: Returns Expecto Test. Usually combines multiple tests (like: test all positions).
@@ -18,8 +19,8 @@ module CodeFix =
   let private diagnosticsIn (range: Range) (diags: Diagnostic[]) =
     diags
     |> Array.filter (fun diag -> range |> Range.overlapsStrictly diag.Range)
-    
-  /// Note: Return should be just ONE `CodeAction` (for Applicable) or ZERO `CodeAction` (for Not Applicable).  
+
+  /// Note: Return should be just ONE `CodeAction` (for Applicable) or ZERO `CodeAction` (for Not Applicable).
   ///       But actual return type is an array of `CodeAction`s:
   ///       * Easier to successive filter CodeActions down with simple pipe and `Array.filter`
   ///       * Returning `CodeAction option` would mean different filters for `check` (exactly one fix) and `checkNotApplicable` (exactly zero fix).
@@ -44,11 +45,11 @@ module CodeFix =
       let! res = doc |> Document.codeActionAt diags cursorRange
       let allCodeActions =
         match res, expected with
-        | None, (Applicable | After _) -> 
+        | None, (Applicable | After _) ->
             // error here instead of later to return error noting it was `None` instead of empty CodeAction array
             Expect.isSome res "No CodeAction returned (`None`)"
             failwith "unreachable"
-        | None, NotApplicable -> 
+        | None, NotApplicable ->
             [||]
         | Some res, _ ->
             match res with
@@ -66,7 +67,7 @@ module CodeFix =
         | _ ->
           Expect.hasLength codeActions 1 "Should be exactly ONE applicable code action"
           codeActions |> Array.head
-      
+
       match expected with
       | NotApplicable ->
         // Expect.isEmpty codeActions "There should be no applicable code action" // doesn't show `actual` when not empty
@@ -81,7 +82,7 @@ module CodeFix =
           let codeAction = codeActions |> getCodeAction
 
           /// Error message is appended by selected `codeAction`
-          let inline failCodeFixTest (msg: string) = 
+          let inline failCodeFixTest (msg: string) =
             let msg =
               if System.String.IsNullOrWhiteSpace msg || System.Char.IsPunctuation(msg, msg.Length-1) then
                 msg
@@ -104,8 +105,8 @@ module CodeFix =
             beforeWithoutCursor
             |> TextEdits.apply edits
             |> Result.valueOr failCodeFixTest
-        
-          Expect.equal actual expected "Incorrect text after applying the chosen code action"
+
+          Expecto.Diff.equals actual expected "Incorrect text after applying the chosen code action"
     }
 
   let private checkFix
@@ -115,8 +116,8 @@ module CodeFix =
     (chooseFix: ChooseFix)
     (expected: ExpectedResult)
     = async {
-      let (range, text) = 
-        beforeWithCursor 
+      let (range, text) =
+        beforeWithCursor
         |> Text.trimTripleQuotation
         |> Cursor.assertExtractRange
       // load text file
@@ -127,7 +128,7 @@ module CodeFix =
     }
 
   /// Checks a CodeFix (CodeAction) for validity.
-  /// 
+  ///
   /// * Extracts cursor position (`$0`) or range (between two `$0`) from `beforeWithCursor`
   /// * Opens untitled Doc with source `beforeWithCursor` (with cursor removed)
   ///   * Note: untitled Document acts as Script file!
@@ -141,21 +142,21 @@ module CodeFix =
   /// * Selects CodeFix from returned CodeFixes with `chooseFix`
   ///   * Note: `chooseFix` should return a single CodeFix. No CodeFix or multiple CodeFixes count as Failure!
   ///     * Use `checkNotApplicable` when there shouldn't be a CodeFix
-  ///   * Note: Though `chooseFix` should return one CodeFix, the function actually returns an array of CodeFixes.  
+  ///   * Note: Though `chooseFix` should return one CodeFix, the function actually returns an array of CodeFixes.
   ///           Reasons:
   ///           * Easier to filter down CodeFixes (`CodeFix.ofKind "..." >> CodeFix.withTitle "..."`)
   ///           * Better error messages: Can differentiate between no CodeFixes and too many CodeFixes
   /// * Validates selected CodeFix:
   /// * Applies selected CodeFix to source (`beforeWithCursor` with cursor removed)
   /// * Compares result with `expected`
-  /// 
-  /// Note:  
+  ///
+  /// Note:
   /// `beforeWithCursor` as well as `expected` get trimmed with `Text.trimTripleQuotation`: Leading empty line and indentation gets removed.
-  /// 
-  /// Note:  
-  /// `beforeWithCursor` and `expected` MUST use `\n` for linebreaks -- using `\r` (either alone or as `\r\n`) results in test failure!  
-  /// Linebreaks from edits in selected CodeFix are all transformed to just `\n` 
-  /// -> CodeFix can use `\r` and `\r\n`  
+  ///
+  /// Note:
+  /// `beforeWithCursor` and `expected` MUST use `\n` for linebreaks -- using `\r` (either alone or as `\r\n`) results in test failure!
+  /// Linebreaks from edits in selected CodeFix are all transformed to just `\n`
+  /// -> CodeFix can use `\r` and `\r\n`
   /// If you want to validate Line Endings of CodeFix, add a validation step to your `chooseFix`
   let check
     server
@@ -208,12 +209,12 @@ module CodeFix =
   module private Test =
     /// One `testCaseAsync` for each cursorRange.
     /// All test cases use same document (`ServerTests.documentTestList`) with source `beforeWithoutCursor`.
-    /// 
-    /// Test names: 
+    ///
+    /// Test names:
     /// * `name` is name of outer test list.
     /// * Each test case: `Cursor {i} at {pos or range}`
-    /// 
-    /// Note: Sharing a common `Document` is just barely faster than using a new `Document` for each test (at least for simple source in `beforeWithoutCursor`). 
+    ///
+    /// Note: Sharing a common `Document` is just barely faster than using a new `Document` for each test (at least for simple source in `beforeWithoutCursor`).
     let checkFixAll
       (name: string)
       (server: CachedServer)
@@ -238,7 +239,7 @@ module CodeFix =
       ])
 
     /// One test for each Cursor.
-    /// 
+    ///
     /// Note: Tests single positions -> each `$0` gets checked.
     ///       -> Every test is for single-position range (`Start=End`)!
     let checkAllPositions
@@ -253,7 +254,7 @@ module CodeFix =
       let ranges = poss |> List.map (fun p -> { Start = p; End = p })
       checkFixAll name server beforeWithoutCursor ranges validateDiagnostics chooseFix expected
 
-  let testAllPositions 
+  let testAllPositions
     name
     server
     beforeWithCursors

@@ -30,9 +30,9 @@ type Document =
     Uri: DocumentUri
     mutable Version: int
   }
-  member doc.TextDocumentIdentifier =
+  member doc.TextDocumentIdentifier: TextDocumentIdentifier =
     { Uri = doc.Uri }
-  member doc.VersionedTextDocumentIdentifier =
+  member doc.VersionedTextDocumentIdentifier: VersionedTextDocumentIdentifier =
     { Uri = doc.Uri; Version = Some doc.Version }
 
   interface IDisposable with
@@ -70,6 +70,15 @@ module Server =
       RootUri = path |> Option.map (sprintf "file://%s")
       InitializationOptions = Some (Server.serialize config)
       Capabilities = Some clientCaps
+      ClientInfo = Some {
+          Name = "FSAC Tests"
+          Version = Some "0.0.0"
+        }
+      WorkspaceFolders = path |> Option.map (fun p ->[| {
+        Uri = Path.FilePathToUri p
+        Name = "Test Folder"
+      } |]
+      )
       trace = None
     }
     match! server.Initialize p with
@@ -244,7 +253,7 @@ module Document =
       |> Observable.timeoutSpan timeout
       |> Async.AwaitObservable
   }
-  let private defaultTimeout = TimeSpan.FromSeconds 5.0
+  let private defaultTimeout = TimeSpan.FromSeconds 10.0
 
   /// Note: Mutates passed `doc`
   let private incrVersion (doc: Document) =
