@@ -402,6 +402,14 @@ let serverInitialize path (config: FSharpConfigDto) state =
         RootUri = Some(sprintf "file://%s" path)
         InitializationOptions = Some(Server.serialize config)
         Capabilities = Some clientCaps
+        ClientInfo = Some {
+          Name = "FSAC Tests"
+          Version = Some "0.0.0"
+        }
+        WorkspaceFolders = Some [| {
+          Uri = Path.FilePathToUri path
+          Name = "Test Folder"
+        } |]
         trace = None }
 
     let! result = server.Initialize p

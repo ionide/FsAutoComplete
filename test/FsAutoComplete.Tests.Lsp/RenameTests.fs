@@ -143,7 +143,7 @@ let tests state =
             |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
 
           let newName = "afterwards"
-          let sourceFile = { Uri = Path.FilePathToUri path }
+          let sourceFile: TextDocumentIdentifier = { Uri = Path.FilePathToUri path }
 
           let p: RenameParams =
             { TextDocument = sourceFile
@@ -189,7 +189,7 @@ let tests state =
             |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
 
           let newName = "afterwards"
-          let sourceFile = { Uri = Path.FilePathToUri path }
+          let sourceFile: TextDocumentIdentifier = { Uri = Path.FilePathToUri path }
 
           let p: RenameParams =
             { TextDocument = sourceFile

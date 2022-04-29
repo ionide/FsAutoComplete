@@ -7,24 +7,24 @@ open Expecto
 open Ionide.LanguageServerProtocol.Types
 
 /// TestList which creates (in `initialize`) and caches (if `cacheValue`) a value, and runs cleanup after all tests were run (in `cleanup`)
-/// 
+///
 /// Note: TestCase for `cleanup` is called `cleanup`
-/// 
+///
 /// Note: no value is created when there are no `tests`, and neither gets `cleanup` executed
-/// 
+///
 /// Note: Result of `initialize` is only cached when `cacheValue` is `true`. But `cleanup` is called regardless.
-///       Use `false` when `initialize` returns an already cached value, otherwise `false`. 
+///       Use `false` when `initialize` returns an already cached value, otherwise `false`.
 ///       Then in here `Async.Cache` is used to cache value.
-let cleanableTestList 
-  runner 
-  (name: string) 
+let cleanableTestList
+  runner
+  (name: string)
   (initialize: Async<'a>)
   (cacheValue: bool)
   (cleanup: Async<'a> -> Async<unit>)
-  (tests: Async<'a> -> Test list) 
+  (tests: Async<'a> -> Test list)
   =
   let value =
-    if cacheValue then 
+    if cacheValue then
       initialize |> Async.Cache
     else
       initialize
@@ -33,7 +33,7 @@ let cleanableTestList
   testSequenced <| runner name [
     yield! tests
 
-    if not (tests |> List.isEmpty) then 
+    if not (tests |> List.isEmpty) then
       testCaseAsync "cleanup" (cleanup value)
   ]
 
@@ -56,7 +56,7 @@ let private serverTestList'
     name
     init
     false
-    cleanup 
+    cleanup
     tests
 
 /// ## Example
@@ -65,7 +65,7 @@ let private serverTestList'
 ///   testCaseAsync "can get diagnostics" <| async {
 ///     let! (doc, diags) = server |> Server.createUntitledDocument "let foo = bar"
 ///     use doc = doc // ensure doc gets closed (disposed) after test
-/// 
+///
 ///     Expect.exists diags (fun d -> d.Message = "The value or constructor 'bar' is not defined.") "Should have `bar not defined` error"
 ///   }
 /// ])
@@ -93,7 +93,7 @@ let private documentTestList'
     name
     init
     false
-    cleanup 
+    cleanup
     tests
 
 /// Note: Not intended for changing document: always same (initial) diags

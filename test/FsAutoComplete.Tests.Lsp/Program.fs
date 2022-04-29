@@ -16,6 +16,8 @@ open System.Threading
 open Serilog.Filters
 open System.IO
 
+Expect.defaultDiffPrinter <- Diff.colourisedDiff
+
 let testTimeout =
   Environment.GetEnvironmentVariable "TEST_TIMEOUT_MINUTES"
   |> Int32.TryParse

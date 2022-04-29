@@ -15,7 +15,7 @@ let private addMissingEqualsToTypeDefinitionTests state =
         """
         type Person $0{ Name : string; Age : int; City : string }
         """
-        (Diagnostics.expectCode "3360") 
+        (Diagnostics.expectCode "3360")
         selectCodeFix
         """
         type Person = { Name : string; Age : int; City : string }
@@ -25,7 +25,7 @@ let private addMissingEqualsToTypeDefinitionTests state =
         """
         type Name $0Name of string
         """
-        (Diagnostics.expectCode "3360") 
+        (Diagnostics.expectCode "3360")
         selectCodeFix
         """
         type Name = Name of string
@@ -225,7 +225,7 @@ let private changeDerefBangToValueTests state =
         """
   ])
 
-let private changeDowncastToUpcastTests state = 
+let private changeDowncastToUpcastTests state =
   serverTestList (nameof ChangeDowncastToUpcast) state defaultConfigDto None (fun server -> [
     let selectOperatorCodeFix = CodeFix.withTitle ChangeDowncastToUpcast.titleUpcastOperator
     let selectFunctionCodeFix = CodeFix.withTitle ChangeDowncastToUpcast.titleUpcastFunction
@@ -237,7 +237,7 @@ let private changeDowncastToUpcastTests state =
 
         let v: I = C() $0:?> I
         """
-        (Diagnostics.expectCode "3198") 
+        (Diagnostics.expectCode "3198")
         selectOperatorCodeFix
         """
         type I = interface end
@@ -253,7 +253,7 @@ let private changeDowncastToUpcastTests state =
 
         let v: I = $0downcast C()
         """
-        (Diagnostics.expectCode "3198") 
+        (Diagnostics.expectCode "3198")
         selectFunctionCodeFix
         """
         type I = interface end
@@ -264,7 +264,7 @@ let private changeDowncastToUpcastTests state =
     ()
   ])
 
-let private changeEqualsInFieldTypeToColonTests state = 
+let private changeEqualsInFieldTypeToColonTests state =
   serverTestList (nameof ChangeEqualsInFieldTypeToColon) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ChangeEqualsInFieldTypeToColon.title
     testCaseAsync "can change = to : in single line" <|
@@ -272,7 +272,7 @@ let private changeEqualsInFieldTypeToColonTests state =
         """
         type A = { Name : string; Key $0= int }
         """
-        (Diagnostics.expectCode "10") 
+        (Diagnostics.expectCode "10")
         selectCodeFix
         """
         type A = { Name : string; Key : int }
@@ -280,17 +280,17 @@ let private changeEqualsInFieldTypeToColonTests state =
     testCaseAsync "can change = to : in multi line" <|
       CodeFix.check server
         """
-        type A = { 
+        type A = {
           Name : string
-          Key $0= int 
+          Key $0= int
         }
         """
-        (Diagnostics.expectCode "10") 
+        (Diagnostics.expectCode "10")
         selectCodeFix
         """
-        type A = { 
+        type A = {
           Name : string
-          Key : int 
+          Key : int
         }
         """
   ])
@@ -313,7 +313,7 @@ let private changePrefixNegationToInfixSubtractionTests state =
         """
   ])
 
-let private changeRefCellDerefToNotTests state = 
+let private changeRefCellDerefToNotTests state =
   serverTestList (nameof ChangeRefCellDerefToNot) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ChangeRefCellDerefToNot.title
     testCaseAsync "can change simple deref to not" <|
@@ -322,7 +322,7 @@ let private changeRefCellDerefToNotTests state =
         let x = 1
         !$0x
         """
-        (Diagnostics.expectCode "1") 
+        (Diagnostics.expectCode "1")
         selectCodeFix
         """
         let x = 1
@@ -334,7 +334,7 @@ let private changeRefCellDerefToNotTests state =
         let x = 1
         !($0x)
         """
-        (Diagnostics.expectCode "1") 
+        (Diagnostics.expectCode "1")
         selectCodeFix
         """
         let x = 1
@@ -346,7 +346,7 @@ let private changeRefCellDerefToNotTests state =
         let x = 1
         !($0x = false)
         """
-        (Diagnostics.expectCode "1") 
+        (Diagnostics.expectCode "1")
         selectCodeFix
         """
         let x = 1
@@ -368,7 +368,7 @@ let private changeTypeOfNameToNameOfTests state =
         """
   ])
 
-let private convertBangEqualsToInequalityTests state = 
+let private convertBangEqualsToInequalityTests state =
   serverTestList (nameof ConvertBangEqualsToInequality) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertBangEqualsToInequality.title
     testCaseAsync "can change != to <>" <|
@@ -376,7 +376,7 @@ let private convertBangEqualsToInequalityTests state =
         """
         1 $0!= 2
         """
-        (Diagnostics.expectCode "43") 
+        (Diagnostics.expectCode "43")
         selectCodeFix
         """
         1 <> 2
@@ -471,7 +471,7 @@ let private convertCSharpLambdaToFSharpLambdaTests state =
         """
   ])
 
-let private convertDoubleEqualsToSingleEqualsTests state = 
+let private convertDoubleEqualsToSingleEqualsTests state =
   serverTestList (nameof ConvertDoubleEqualsToSingleEquals) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertDoubleEqualsToSingleEquals.title
     testCaseAsync "can replace == with =" <|
@@ -479,7 +479,7 @@ let private convertDoubleEqualsToSingleEqualsTests state =
         """
         1 $0== 1
         """
-        (Diagnostics.expectCode "43") 
+        (Diagnostics.expectCode "43")
         selectCodeFix
         """
         1 = 1
@@ -493,8 +493,8 @@ let private convertDoubleEqualsToSingleEqualsTests state =
         Diagnostics.acceptAll
         selectCodeFix
   ])
- 
-let private convertInvalidRecordToAnonRecordTests state = 
+
+let private convertInvalidRecordToAnonRecordTests state =
   serverTestList (nameof ConvertInvalidRecordToAnonRecord) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle ConvertInvalidRecordToAnonRecord.title
     testCaseAsync "can convert single-line record with single field" <|
@@ -502,7 +502,7 @@ let private convertInvalidRecordToAnonRecordTests state =
         """
         let v = { $0Name = "foo" }
         """
-        (Diagnostics.expectCode "39") 
+        (Diagnostics.expectCode "39")
         selectCodeFix
         """
         let v = {| Name = "foo" |}
@@ -512,7 +512,7 @@ let private convertInvalidRecordToAnonRecordTests state =
         """
         let v = { $0Name = "foo"; Value = 42 }
         """
-        (Diagnostics.expectCode "39") 
+        (Diagnostics.expectCode "39")
         selectCodeFix
         """
         let v = {| Name = "foo"; Value = 42 |}
@@ -525,7 +525,7 @@ let private convertInvalidRecordToAnonRecordTests state =
           Value = 42
         }
         """
-        (Diagnostics.expectCode "39") 
+        (Diagnostics.expectCode "39")
         selectCodeFix
         """
         let v = {|
@@ -539,14 +539,14 @@ let private convertInvalidRecordToAnonRecordTests state =
         type V = { Name: string; Value: int }
         let v = { $0Name = "foo"; Value = 42 }
         """
-        (Diagnostics.acceptAll) 
+        (Diagnostics.acceptAll)
         selectCodeFix
     testCaseAsync "doesn't trigger for anon record" <|
       CodeFix.checkNotApplicable server
         """
         let v = {| $0Name = "foo"; Value = 42 |}
         """
-        (Diagnostics.acceptAll) 
+        (Diagnostics.acceptAll)
         selectCodeFix
   ])
 
@@ -627,7 +627,7 @@ let private convertPositionalDUToNamedTests state =
         """
   ])
 
-let private generateAbstractClassStubTests state = 
+let private generateAbstractClassStubTests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
   serverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
     let selectCodeFix = CodeFix.withTitle GenerateAbstractClassStub.title
@@ -663,7 +663,7 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type $0Square(x,y, sideLength) =
           inherit Shape(x,y)
         """
@@ -680,13 +680,13 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type Square(x,y, sideLength) =
           inherit Shape(x,y)
 
-          override this.Area: float = 
+          override this.Area: float =
               failwith "Not Implemented"
-          override this.Name: string = 
+          override this.Name: string =
               failwith "Not Implemented"
         """
     ptestCaseAsync "can generate abstract class stub without trailing nl" <|
@@ -704,7 +704,7 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type $0Square(x,y, sideLength) =
           inherit Shape(x,y)"""
         (Diagnostics.expectCode "365")
@@ -720,13 +720,13 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type Square(x,y, sideLength) =
           inherit Shape(x,y)
 
-          override this.Area: float = 
+          override this.Area: float =
               failwith "Not Implemented"
-          override this.Name: string = 
+          override this.Name: string =
               failwith "Not Implemented"
         """
     ptestCaseAsync "inserts override in correct place" <|
@@ -743,7 +743,7 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type $0Square(x,y, sideLength) =
           inherit Shape(x,y)
         let a = 0
@@ -761,13 +761,13 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type Square(x,y, sideLength) =
           inherit Shape(x,y)
 
-          override this.Area: float = 
+          override this.Area: float =
               failwith "Not Implemented"
-          override this.Name: string = 
+          override this.Name: string =
               failwith "Not Implemented"
         let a = 0
         """
@@ -785,7 +785,7 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type $0Square(x,y, sideLength) =
           inherit Shape(x,y)
         """
@@ -802,21 +802,21 @@ let private generateAbstractClassStubTests state =
           member _.Move dx dy =
             x <- x + dx
             y <- y + dy
-          
+
         type Square(x,y, sideLength) =
           inherit Shape(x,y)
 
           override this.Name = "Circle"
 
-          override this.Area: float = 
+          override this.Area: float =
               failwith "Not Implemented"
         """
   ])
 
 let private generateRecordStubTests state =
-  let config = 
-    { defaultConfigDto with 
-        RecordStubGeneration = Some true 
+  let config =
+    { defaultConfigDto with
+        RecordStubGeneration = Some true
         RecordStubGenerationBody = Some "failwith \"---\""
     }
   serverTestList (nameof GenerateRecordStub) state config None (fun server -> [
@@ -838,9 +838,9 @@ let private generateRecordStubTests state =
   ])
 
 let private generateUnionCasesTests state =
-  let config = 
-    { defaultConfigDto with 
-        UnionCaseStubGeneration = Some true 
+  let config =
+    { defaultConfigDto with
+        UnionCaseStubGeneration = Some true
         UnionCaseStubGenerationBody = Some "failwith \"---\""
     }
   serverTestList (nameof GenerateUnionCases) state config None (fun server -> [
@@ -878,7 +878,7 @@ let private makeDeclarationMutableTests state =
         let x = 0
         x $0<- 1
         """
-        (Diagnostics.expectCode "27") 
+        (Diagnostics.expectCode "27")
         selectCodeFix
         """
         let mutable x = 0
@@ -892,7 +892,7 @@ let private makeDeclarationMutableTests state =
           x $0<- 1
           ()
         """
-        (Diagnostics.expectCode "27") 
+        (Diagnostics.expectCode "27")
         selectCodeFix
         """
         let mutable x = 0
@@ -909,7 +909,7 @@ let private makeDeclarationMutableTests state =
             counter $0<- counter + 1
           counter
         """
-        (Diagnostics.expectCode "27") 
+        (Diagnostics.expectCode "27")
         selectCodeFix
         """
         let count xs =
@@ -924,7 +924,7 @@ let private makeDeclarationMutableTests state =
         let mutable x = 0
         x $0<- 1
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
     testCaseAsync "doesn't trigger for immutable parameter" <|
       CodeFix.checkNotApplicable server
@@ -933,7 +933,7 @@ let private makeDeclarationMutableTests state =
           v $0<- 1
           v
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
     testCaseAsync "doesn't trigger for immutable member parameter" <|
       CodeFix.checkNotApplicable server
@@ -942,7 +942,7 @@ let private makeDeclarationMutableTests state =
           member _.M(v: int)
             v $0<- 1
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
   ])
 
@@ -978,7 +978,7 @@ let private removeRedundantQualifierTests state =
         open System
         let _ = $0System.String.IsNullOrWhiteSpace "foo"
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         """
         open System
@@ -989,7 +989,7 @@ let private removeRedundantQualifierTests state =
         """
         let _ = $0System.String.IsNullOrWhiteSpace "foo"
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
   ])
 
@@ -1086,16 +1086,14 @@ let private removeUnusedBindingTests state =
       CodeFix.check server
         """
         let container () =
-          let $0incr x = 2
-          ()
-        """
+          let $0incr x = 2 // dummy comment to keep spacing
+          ()"""
         validateDiags
         selectRemoveUnusedBinding
         """
         let container () =
-          
-          ()
-        """
+           // dummy comment to keep spacing
+          ()"""
   ])
 
 let private removeUnusedOpensTests state =
@@ -1107,7 +1105,7 @@ let private removeUnusedOpensTests state =
         """
         open $0System
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         ""
     testCaseAsync "removes just current unused open" <|
@@ -1117,7 +1115,7 @@ let private removeUnusedOpensTests state =
         open $0System
         open System.Text
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         """
         open System.Text
@@ -1128,7 +1126,7 @@ let private removeUnusedOpensTests state =
         open System
         open $0System.Text
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         """
         open System
@@ -1140,7 +1138,7 @@ let private removeUnusedOpensTests state =
 
         let _ = String.IsNullOrWhiteSpace ""
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
     testCaseAsync "can remove open in nested module" <|
       CodeFix.check server
@@ -1151,7 +1149,7 @@ let private removeUnusedOpensTests state =
             ()
           ()
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         """
         module A =
@@ -1170,7 +1168,7 @@ let private removeUnusedOpensTests state =
             ()
           ()
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         """
         open System
@@ -1192,7 +1190,7 @@ let private removeUnusedOpensTests state =
             ()
           ()
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
         """
         module A =
@@ -1208,7 +1206,7 @@ let private removeUnusedOpensTests state =
         open $0System
         let x = String.IsNullOrWhiteSpace ""
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
   ])
 
@@ -1280,18 +1278,18 @@ let private replaceWithSuggestionTests state =
         """
         let x = $0Min(2.0, 1.0)
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         (selectCodeFix "min")
         """
         let x = min(2.0, 1.0)
         """
-    testSequenced <| testList "can get multiple suggestions for flout" [
+    testList "can get multiple suggestions for flout" [
       testCaseAsync "can change flout to float" <|
         CodeFix.check server
           """
           let x = $0flout 2
           """
-          Diagnostics.acceptAll 
+          Diagnostics.acceptAll
           (selectCodeFix "float")
           """
           let x = float 2
@@ -1301,7 +1299,7 @@ let private replaceWithSuggestionTests state =
           """
           let x = $0flout 2
           """
-          Diagnostics.acceptAll 
+          Diagnostics.acceptAll
           (selectCodeFix "float32")
           """
           let x = float32 2
@@ -1312,7 +1310,7 @@ let private replaceWithSuggestionTests state =
         """
         let x: $0flout = 2.0
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         (selectCodeFix "float")
         """
         let x: float = 2.0
@@ -1322,7 +1320,7 @@ let private replaceWithSuggestionTests state =
         """
         open System.Text.$0RegularEcpressions
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         (selectCodeFix "RegularExpressions")
         """
         open System.Text.RegularExpressions
@@ -1333,7 +1331,7 @@ let private replaceWithSuggestionTests state =
         open System.Text.RegularExpressions
         let x = $0Regec()
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         (selectCodeFix "Regex")
         """
         open System.Text.RegularExpressions
@@ -1345,7 +1343,7 @@ let private replaceWithSuggestionTests state =
         let ``hello world`` = 2
         let x = ``$0hello word``
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         (selectCodeFix "``hello world``")
         """
         let ``hello world`` = 2
@@ -1357,7 +1355,7 @@ let private replaceWithSuggestionTests state =
         let ``hello world`` = 2
         let x = $0helloword
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         (selectCodeFix "``hello world``")
         """
         let ``hello world`` = 2
@@ -1368,14 +1366,14 @@ let private replaceWithSuggestionTests state =
 let private resolveNamespaceTests state =
   let config = { defaultConfigDto with ResolveNamespaces = Some true }
   serverTestList (nameof ResolveNamespace) state config None (fun server -> [
-    testCaseAsync "doesn't fail when target not in last line" <| 
+    testCaseAsync "doesn't fail when target not in last line" <|
       CodeFix.checkApplicable server
         """
         let x = $0Min(2.0, 1.0)
         """   // Note: new line at end!
         (Diagnostics.log >> Diagnostics.acceptAll)
         (CodeFix.log >> CodeFix.matching (fun ca -> ca.Title.StartsWith "open") >> Array.take 1)
-    testCaseAsync "doesn't fail when target in last line" <| 
+    testCaseAsync "doesn't fail when target in last line" <|
       CodeFix.checkApplicable server
         "let x = $0Min(2.0, 1.0)"   // Note: No new line at end!
         (Diagnostics.log >> Diagnostics.acceptAll)
@@ -1466,7 +1464,7 @@ let private wrapExpressionInParenthesesTests state =
         """
         printfn "%b" System.String.$0IsNullOrWhiteSpace("foo")
         """
-        (Diagnostics.expectCode "597") 
+        (Diagnostics.expectCode "597")
         selectCodeFix
         """
         printfn "%b" (System.String.IsNullOrWhiteSpace("foo"))
@@ -1476,7 +1474,7 @@ let private wrapExpressionInParenthesesTests state =
         """
         printfn "%b" (System.String.$0IsNullOrWhiteSpace("foo"))
         """
-        Diagnostics.acceptAll 
+        Diagnostics.acceptAll
         selectCodeFix
   ])
 

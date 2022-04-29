@@ -3,6 +3,7 @@ FSharp.Compiler.Service
 FSharp.Control.Reactive
 FSharpx.Async
 Expecto
+Expecto.Diff
 Microsoft.NET.Test.Sdk
 YoloDev.Expecto.TestSdk
 AltCover
