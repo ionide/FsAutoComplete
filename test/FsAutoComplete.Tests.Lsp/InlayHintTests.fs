@@ -362,6 +362,26 @@ let tests state =
           $0f ($0string alpha, $0beta.ToString(), $0gamma |> string)$0
           """
           [ param "alpha"; param "beta"; param "gamma" ]
+
+      testCaseAsync "hide: unary operator" <|
+        InlayHints.checkRange server
+          """
+          let (~+.) listWithNumbers = List.map ((+) 1) listWithNumbers
+          let data = [1..5]
+
+          $0+. data$0
+          """
+          []
+      testCaseAsync "hide: binary operator" <|
+        InlayHints.checkRange server
+          """
+          let (+.) listWithNumbers numberToAdd = List.map ((+) numberToAdd) listWithNumbers
+          let data = [1..5]
+
+          $0data +. 5$0
+          """
+          []
+
         
     ]
   ])

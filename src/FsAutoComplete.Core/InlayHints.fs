@@ -150,6 +150,9 @@ module private ShouldCreate =
   let inline private isMeaningfulName (p: FSharpParameter) =
     p.DisplayName.Length > 2
 
+  let inline private isOperator (func: FSharpMemberOrFunctionOrValue) =
+    func.CompiledName.StartsWith "op_"
+
   /// Doesn't consider lower/upper cases:
   /// * `areSame "foo" "FOO" = true`
   /// * `areSame "Foo" "Foo" = true`
@@ -220,7 +223,6 @@ module private ShouldCreate =
         valid <- false
     valid
 
-
   let private areSimilar (paramName: string) (argumentText: string) =
     // no pipe with span ...
     let paramName = removeTrailingTick (removeLeadingUnderscore (paramName.AsSpan()))
@@ -229,7 +231,7 @@ module private ShouldCreate =
       let argTextNoParens = trimParensAndSpace argumentText
       
       if isLongIdentifier argTextNoParens then
-        removeTrailingTick (removeLeadingUnderscore (extractLastIdentifier argTextNoParens))
+        removeTrailingTick (extractLastIdentifier argTextNoParens)
       else
         //todo: expression -> early out? or further processing? special processing?
         argumentText
@@ -251,13 +253,13 @@ module private ShouldCreate =
     parameterName <> userArgumentText
     && not (userArgumentText.StartsWith parameterName)
 
-/// </summary>
-/// We filter out parameters that generate lots of noise in hints.
-/// * parameter has a name
-/// * parameter is one of a set of 'known' names that clutter (like printfn formats)
-/// * parameter has length > 2
-/// * parameter does not match (or is an extension of) the user-entered text
-/// </summary>
+  /// </summary>
+  /// We filter out parameters that generate lots of noise in hints.
+  /// * parameter has a name
+  /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
+  /// * parameter has length > 2
+  /// * parameter does not match (or is an extension of) the user-entered text
+  /// </summary>
   let paramHint
     (func: FSharpMemberOrFunctionOrValue)
     (p: FSharpParameter)
@@ -266,6 +268,7 @@ module private ShouldCreate =
     hasName p
     && isNotWellKnownName p
     && isMeaningfulName p
+    && (not (isOperator func))
     // && doesNotMatchArgumentText p.DisplayName argumentText
     && (not (areSimilar p.DisplayName argumentText))
 
