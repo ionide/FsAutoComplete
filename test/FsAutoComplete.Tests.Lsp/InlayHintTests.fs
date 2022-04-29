@@ -52,13 +52,14 @@ module InlayHints =
       let! actual = Document.inlayHintsAt range doc
       Expect.equal actual expected "Expected the given set of hints"
     }
-  let check (server: CachedServer) (documentText: string) (expectedHints: _ list) =
+  let check (server: CachedServer) (documentText: string) (expectedHints: _ list) = async {
       let (range, text) =
         documentText
         |> Text.trimTripleQuotation
         |> Cursor.assertExtractRange
       let expected = expectedHints |> List.map from |> Array.ofList
-      check' server text range expected
+      do! check' server text range expected
+  }
 
   let private extractCursorsInsideRange (text: string) =
     let (text, poss) =
@@ -73,13 +74,15 @@ module InlayHints =
 
     (text, range, poss)
   
-  let checkRange (server: CachedServer) (documentText: string) (expectedHints: _ list) =
+  let checkRange (server: CachedServer) (documentText: string) (expectedHints: _ list) = async {
     let (text, range, poss) = documentText |> extractCursorsInsideRange
+    Expect.equal (poss |> List.length) (expectedHints |> List.length) $"Expected Hints & position cursors to match, but there were {expectedHints |> List.length} expected hints and {poss |> List.length} position cursors"
     let expected =
       List.zip poss expectedHints
       |> List.map (fun (pos, (name, kind)) -> at (name, pos, kind))
       |> List.toArray
-    check' server text range expected
+    do! check' server text range expected
+  }
 
 let param (name: string) = (name, InlayHintKind.Parameter)
 let ty (name: string) = (name, InlayHintKind.Type)
