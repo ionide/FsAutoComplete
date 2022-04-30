@@ -391,5 +391,87 @@ let tests state =
           $0validateRange data$0
           """
           []
+
+      testList "special names" [
+        testList "mapping" [
+          testCaseAsync "hide: for List" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.map id$0
+              """
+              []
+          testCaseAsync "hide: for Array" <|
+            InlayHints.checkRange server
+              """
+              $0[|1..3|] |> Array.map id$0
+              """
+              []
+          testCaseAsync "show: for custom function" <|
+            InlayHints.checkRange server
+              """
+              let doStuff mapping = ()
+              $0doStuff $042$0
+              """
+              [ param "mapping" ]
+        ]
+        testList "option" [
+          testCaseAsync "hide: for Option" <|
+            InlayHints.checkRange server
+              """
+              $0Option.count (Some 3)$0
+              """
+              []
+          testCaseAsync "show: for custom function" <|
+            InlayHints.checkRange server
+              """
+              let doStuff option = ()
+              $0doStuff $042$0
+              """
+              [ param "option" ]
+        ]
+        testList "voption" [
+          testCaseAsync "hide: for ValueOption" <|
+            InlayHints.checkRange server
+              """
+              $0ValueOption.count (ValueSome 3)$0
+              """
+              []
+          testCaseAsync "show: for custom function" <|
+            InlayHints.checkRange server
+              """
+              let doStuff voption = ()
+              $0doStuff $042$0
+              """
+              [ param "voption" ]
+        ]
+        testList "format" [
+          testCaseAsync "hide: in printfn" <|
+            InlayHints.checkRange server
+              """
+              $0printfn "foo"$0
+              """
+              []
+          testCaseAsync "hide: in sprintf" <|
+            InlayHints.checkRange server
+              """
+              $0sprintf "foo"$0
+              """
+              []
+          testCaseAsync "hide: in Core.Printf" <|
+            // "normal" printf is in `Microsoft.FSharp.Core.ExtraTopLevelOperators`
+            InlayHints.checkRange server
+              """
+              $0Microsoft.FSharp.Core.Printf.printfn "foo"$0
+              """
+              []
+          testCaseAsync "show: for custom function" <|
+            InlayHints.checkRange server
+              """
+              let doStuff format = ()
+              $0doStuff $042$0
+              """
+              [ param "format" ]
+        ]
+      ]
     ]
   ])

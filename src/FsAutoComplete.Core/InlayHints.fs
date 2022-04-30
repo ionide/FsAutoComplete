@@ -132,8 +132,6 @@ let private createTypeHint
 module private ShouldCreate =
   let private isNotWellKnownName =
     let names = Set.ofList [
-      "mapping"
-      "format"
       "value"
       "x"
     ]
@@ -142,6 +140,43 @@ module private ShouldCreate =
     match p.Name with
     | None -> true
     | Some n -> not (Set.contains n names)
+
+  let private isWellKnownParameterOrFunction 
+    (func: FSharpMemberOrFunctionOrValue)
+    (param: FSharpParameter)
+    =
+    let startsWith (v: string) (fullName: string) =
+      if fullName.StartsWith v then
+        Some ()
+      else
+        None
+    // doesn't differentiate between modules, types, namespaces 
+    // -> is just for documentation in code
+    let (|Module|_|) = startsWith
+    let (|Type|_|) = startsWith
+    let (|Namespace|_|) = startsWith
+
+    match func.FullName with
+    | Module "Microsoft.FSharp.Core.Option" ->
+        // don't show param named `option`, but other params for Option
+        match param.Name with
+        | Some "option" -> true
+        | _ -> false
+    | Module "Microsoft.FSharp.Core.ValueOption" ->
+        match param.Name with
+        | Some "voption" -> true
+        | _ -> false
+    | Module "Microsoft.FSharp.Core.ExtraTopLevelOperators" // only printf-members have `format`
+    | Module "Microsoft.FSharp.Core.Printf" ->
+        // don't show param named `format`
+        match param.Name with
+        | Some "format" -> true
+        | _ -> false
+    | Namespace "Microsoft.FSharp.Collections" ->
+        match param.Name with
+        | Some "mapping" -> true
+        | _ -> false
+    | _ -> false
 
   let inline private hasName (p: FSharpParameter) =
     not (String.IsNullOrEmpty p.DisplayName)
@@ -265,8 +300,9 @@ module private ShouldCreate =
   /// </summary>
   /// We filter out parameters that generate lots of noise in hints.
   /// * parameter has no name
-  /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
   /// * parameter has length > 2
+  /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
+  /// * param & function is "well known"/commonly used
   /// * parameter does match or is a pre/postfix of user-entered text
   /// * user-entered text does match or is a pre/postfix of parameter
   /// * parameter is postfix of function name
@@ -277,8 +313,9 @@ module private ShouldCreate =
     (argumentText: string)
     =
     hasName p
-    && isNotWellKnownName p
     && isMeaningfulName p
+    && isNotWellKnownName p
+    && (not (isWellKnownParameterOrFunction func p))
     && (not (isOperator func))
     && (not (areSimilar p.DisplayName argumentText))
     && (not (isParamNamePostfixOfFuncName func p.DisplayName))
