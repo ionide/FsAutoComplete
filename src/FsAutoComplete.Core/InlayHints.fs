@@ -264,10 +264,12 @@ module private ShouldCreate =
 
   /// </summary>
   /// We filter out parameters that generate lots of noise in hints.
-  /// * parameter has a name
+  /// * parameter has no name
   /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
   /// * parameter has length > 2
-  /// * parameter does not match (or is an extension of) the user-entered text
+  /// * parameter does match or is a pre/postfix of user-entered text
+  /// * user-entered text does match or is a pre/postfix of parameter
+  /// * parameter is postfix of function name
   /// </summary>
   let paramHint
     (func: FSharpMemberOrFunctionOrValue)
@@ -278,7 +280,6 @@ module private ShouldCreate =
     && isNotWellKnownName p
     && isMeaningfulName p
     && (not (isOperator func))
-    // && doesNotMatchArgumentText p.DisplayName argumentText
     && (not (areSimilar p.DisplayName argumentText))
     && (not (isParamNamePostfixOfFuncName func p.DisplayName))
 
