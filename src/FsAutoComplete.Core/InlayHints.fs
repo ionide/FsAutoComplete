@@ -150,6 +150,103 @@ module private ShouldCreate =
   let inline private isMeaningfulName (p: FSharpParameter) =
     p.DisplayName.Length > 2
 
+  /// Doesn't consider lower/upper cases:
+  /// * `areSame "foo" "FOO" = true`
+  /// * `areSame "Foo" "Foo" = true`
+  let inline private areSame (a: ReadOnlySpan<char>) (b: ReadOnlySpan<char>) =
+    a.Equals(b, StringComparison.OrdinalIgnoreCase)
+  /// Boundary checks:
+  /// * word boundary (-> upper case letter)
+  ///   `"foo" |> isPrefixOf "fooBar"`
+  /// Doesn't consider capitalization, except for word boundary after prefix:
+  /// * `foo` prefix of `fooBar`
+  /// * `foo` not prefix of `foobar`
+  let inline private isPrefixOf (root: ReadOnlySpan<char>) (check: ReadOnlySpan<char>) =
+    root.StartsWith(check, StringComparison.OrdinalIgnoreCase)
+    &&
+    (
+      // same
+      root.Length <= check.Length
+      ||
+      // rest must start with upper case -> new word
+      Char.IsUpper root[check.Length]
+    )
+  /// Boundary checks:
+  /// * word boundary (-> upper case letter)
+  ///   `"bar" |> isPostifxOf "fooBar"`
+  /// * `.` boundary (-> property access)
+  ///   `"bar" |> isPostifxOf "data.bar"`
+  /// 
+  /// Doesn't consider capitalization, except for word boundary at start of postfix:
+  /// * `bar` postfix of `fooBar`
+  /// * `bar` not postfix of `foobar`
+  let inline private isPostfixOf (root: ReadOnlySpan<char>) (check: ReadOnlySpan<char>) =
+    root.EndsWith(check, StringComparison.OrdinalIgnoreCase)
+    &&
+    (
+      root.Length <= check.Length
+      ||
+        // postfix must start with upper case -> word boundary
+        Char.IsUpper root[root.Length - check.Length]
+    )
+
+  let inline private removeLeadingUnderscore (name: ReadOnlySpan<char>) = 
+    name.TrimStart '_'
+  let inline private removeTrailingTick (name: ReadOnlySpan<char>) =
+    name.TrimEnd '\''
+  let inline private extractLastIdentifier (name: ReadOnlySpan<char>) =
+    // exclude backticks for now: might contain `.` -> difficult to split
+    if name.StartsWith "``" || name.EndsWith "``" then
+      name
+    else
+      match name.LastIndexOf '.' with
+      | -1 -> name
+      | i -> name.Slice(i+1)
+  /// Note: when in parens: might not be an identifier, but expression!
+  /// 
+  /// Note: might result in invalid expression (because no matching parens `string (2)` -> `string (2`)
+  let inline private trimParensAndSpace (name: ReadOnlySpan<char>) =
+    name.TrimStart("( ").TrimEnd(" )")
+
+  /// Note: including `.`
+  let inline private isLongIdentifier (name: ReadOnlySpan<char>) =
+    // name |> Seq.forall PrettyNaming.IsLongIdentifierPartCharacter
+    let mutable valid = true
+    let mutable i = 0
+    while valid && i < name.Length do
+      if PrettyNaming.IsLongIdentifierPartCharacter name[i] then
+        i <- i + 1
+      else
+        valid <- false
+    valid
+
+
+  let private areSimilar (paramName: string) (argumentText: string) =
+    // no pipe with span ...
+    let paramName = removeTrailingTick (removeLeadingUnderscore (paramName.AsSpan()))
+    let argumentName =
+      let argumentText = argumentText.AsSpan()
+      let argTextNoParens = trimParensAndSpace argumentText
+      
+      if isLongIdentifier argTextNoParens then
+        removeTrailingTick (removeLeadingUnderscore (extractLastIdentifier argTextNoParens))
+      else
+        //todo: expression -> early out? or further processing? special processing?
+        argumentText
+
+    //todo: all useful?
+
+    // // covered by each isPre/PostfixOf
+    // areSame paramName argumentName
+    // ||
+    isPrefixOf argumentName paramName
+    ||
+    isPostfixOf argumentName paramName
+    ||
+    isPrefixOf paramName argumentName
+    ||
+    isPostfixOf paramName argumentName
+
   let inline private doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
     parameterName <> userArgumentText
     && not (userArgumentText.StartsWith parameterName)
@@ -169,7 +266,8 @@ module private ShouldCreate =
     hasName p
     && isNotWellKnownName p
     && isMeaningfulName p
-    && doesNotMatchArgumentText p.DisplayName argumentText
+    // && doesNotMatchArgumentText p.DisplayName argumentText
+    && (not (areSimilar p.DisplayName argumentText))
 
 
 let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =

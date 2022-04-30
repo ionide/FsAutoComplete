@@ -89,13 +89,14 @@ let ty (name: string) = (name, InlayHintKind.Type)
 
 let tests state =
   serverTestList (nameof Core.InlayHints) state defaultConfigDto None (fun server -> [
+    testList "type hint" [
       testCaseAsync "let-bound function parameter type hints"
-      <| InlayHints.check
-           server
-           """
-    $0let tryFindFile p = p + "hi"$0
-    """
-           [ "string", (0, 17), InlayHintKind.Type ]
+        <| InlayHints.check
+            server
+            """
+      $0let tryFindFile p = p + "hi"$0
+      """
+            [ "string", (0, 17), InlayHintKind.Type ]
 
       testCaseAsync "value let binding type hint"
       <| InlayHints.check
@@ -104,6 +105,22 @@ let tests state =
       $0let f = "hi"$0
       """
            [ "string", (0, 5), InlayHintKind.Type ]
+
+      testCaseAsync "no type hint for an explicitly-typed binding"
+      <| InlayHints.check server """$0let s: string = "hi"$0""" []
+
+      testCaseAsync "type hints are truncated to 30 characters"
+      <| InlayHints.check
+           server
+           """
+        $0let t = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))$0
+        """
+           [ "unit option option option option option option option option option option option option option option option",
+             (0, 5),
+             InlayHintKind.Type ] 
+    ]
+
+    testList "parameter hint" [
 
       testCaseAsync "parameter names aren't yet implemented, will fail when we update FCS"
       <| InlayHints.check server """$0 System.Environment.GetEnvironmentVariable "Blah" |> ignore$0""" []
@@ -130,9 +147,6 @@ let tests state =
         """
            []
 
-      testCaseAsync "no type hint for an explicitly-typed binding"
-      <| InlayHints.check server """$0let s: string = "hi"$0""" []
-
       testCaseAsync "no hint for a function with a short parameter name"
       <| InlayHints.check
            server
@@ -143,12 +157,211 @@ let tests state =
         """
            []
 
-      testCaseAsync "type hints are truncated to 30 characters"
-      <| InlayHints.check
-           server
-           """
-        $0let t = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))$0
-        """
-           [ "unit option option option option option option option option option option option option option option option",
-             (0, 5),
-             InlayHintKind.Type ] ])
+      testCaseAsync "show: param & variable have different names" <|
+        InlayHints.checkRange server
+          """
+          let f beta = ()
+          let alpha = 42
+
+          $0f $0alpha$0
+          """
+          [ param "beta" ]
+
+      testCaseAsync "hide: param & variable have same name" <|
+        InlayHints.checkRange server
+          """
+          let f alpha = ()
+          let alpha = 42
+
+          $0f alpha$0
+          """
+          [  ]
+      testCaseAsync "hide: variable prefix of param" <|
+        InlayHints.checkRange server
+          """
+          let f specialNumber = ()
+          let special = 2
+
+          $0f special$0
+          """
+          [  ]
+      testCaseAsync "hide: variable postfix of param" <|
+        InlayHints.checkRange server
+          """
+          let f specialNumber = ()
+          let number = 2
+
+          $0f number$0
+          """
+          [  ]
+      //todo: or hide?
+      testCaseAsync "show: variable infix of param" <|
+        InlayHints.checkRange server
+          """
+          let f extraSpecialNumber = ()
+          let special = 2
+
+          $0f $0special$0
+          """
+          [ param "extraSpecialNumber" ]
+      //todo: or hide?
+      testCaseAsync "show: variable prefix of param, but no word boundary" <|
+        InlayHints.checkRange server
+          """
+          let f specialnumber = ()
+          let special = 2
+
+          $0f $0special$0
+          """
+          [ param "specialnumber" ]
+      //todo: or hide?
+      testCaseAsync "show: variable postfix of param, but no word boundary" <|
+        InlayHints.checkRange server
+          """
+          let f specialnumber = ()
+          let number = 2
+
+          $0f $0number$0
+          """
+          [ param "specialnumber" ]
+
+      testCaseAsync "hide: arg is prefix of param with leading _" <|
+        InlayHints.checkRange server
+          """
+          let f _specialNumber = ()
+          let special = 2
+
+          $0f special$0
+          """
+          []
+      testCaseAsync "hide: arg is postfix of param with trailing '" <|
+        InlayHints.checkRange server
+          """
+          let f specialNumber' = ()
+          let number = 2
+
+          $0f number$0
+          """
+          []
+      testCaseAsync "hide: arg is prefix of param with trailing ' in arg" <|
+        InlayHints.checkRange server
+          """
+          let f specialNumber = ()
+          let special' = 2
+
+          $0f special'$0
+          """
+          []
+
+      testCaseAsync "hide: param prefix of arg" <|
+        InlayHints.checkRange server
+          """
+          let f special = ()
+          let specialNumber = 2
+
+          $0f specialNumber$0
+          """
+          []
+      testCaseAsync "hide: param postfix of arg" <|
+        InlayHints.checkRange server
+          """
+          let f number = ()
+          let specialNumber = 2
+
+          $0f specialNumber$0
+          """
+          []
+
+      testCaseAsync "hide: arg is field access with same name as param (upper case start)" <|
+        InlayHints.checkRange server
+          """
+          type Data = {
+            Number: int
+          }
+          let f number = ()
+          let data: Data = { Number = 2 }
+
+          $0f data.Number$0
+          """
+          []
+      testCaseAsync "hide: arg is field access with same name as param (lower case start)" <|
+        InlayHints.checkRange server
+          """
+          type Data = {
+            number: int
+          }
+          let f number = ()
+          let data: Data = { number = 2 }
+
+          $0f data.number$0
+          """
+          []
+      testCaseAsync "hide: arg is field access prefix of param (upper case start)" <|
+        InlayHints.checkRange server
+          """
+          type Data = {
+            Special: int
+          }
+          let f specialNumber = ()
+          let data: Data = { Special = 2 }
+
+          $0f data.Special$0
+          """
+          []
+      testCaseAsync "hide: arg is field access, param is prefix of arg" <|
+        InlayHints.checkRange server
+          """
+          type Data = {
+            SpecialNumber: int
+          }
+          let f special = ()
+          let data: Data = { SpecialNumber = 2 }
+
+          $0f data.SpecialNumber$0
+          """
+          []
+
+      testCaseAsync "hide: arg in parens same as param" <|
+        InlayHints.checkRange server
+          """
+          let f alpha = ()
+          let alpha = 42
+
+          $0f (alpha)$0
+          """
+          [  ]
+      testCaseAsync "hide: arg in parens and spaces same as param" <|
+        InlayHints.checkRange server
+          """
+          let f alpha = ()
+          let alpha = 42
+
+          $0f ( alpha )$0
+          """
+          [  ]
+      //todo: or hide? based on: what is last? but then (`alpha <| 1`, `1 |> alpha 2`, etc?) -> too complex to detect
+      testCaseAsync "show: expr including param name in parens" <|
+        InlayHints.checkRange server
+          """
+          let f alpha = ()
+          let alpha x = x + 3
+
+          $0f $0(1 |> alpha)$0
+          """
+          [ param "alpha" ]
+          
+      //todo: inspect most left/right identifier? extract function name? look for left of `.`? use ast?
+      testCaseAsync "show: any expression" <|
+        InlayHints.checkRange server
+          """
+          let f (alpha, beta, gamma) = ()
+          let alpha = 1
+          let beta = 2
+          let gamma = 2
+
+          $0f ($0string alpha, $0beta.ToString(), $0gamma |> string)$0
+          """
+          [ param "alpha"; param "beta"; param "gamma" ]
+        
+    ]
+  ])
