@@ -253,6 +253,15 @@ module private ShouldCreate =
     parameterName <> userArgumentText
     && not (userArgumentText.StartsWith parameterName)
 
+  let private isParamNamePostfixOfFuncName
+    (func: FSharpMemberOrFunctionOrValue)
+    (paramName: string)
+    =
+    let funcName = func.DisplayName.AsSpan()
+    let paramName = removeLeadingUnderscore (paramName.AsSpan())
+
+    isPostfixOf funcName paramName
+
   /// </summary>
   /// We filter out parameters that generate lots of noise in hints.
   /// * parameter has a name
@@ -271,6 +280,7 @@ module private ShouldCreate =
     && (not (isOperator func))
     // && doesNotMatchArgumentText p.DisplayName argumentText
     && (not (areSimilar p.DisplayName argumentText))
+    && (not (isParamNamePostfixOfFuncName func p.DisplayName))
 
 
 let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =

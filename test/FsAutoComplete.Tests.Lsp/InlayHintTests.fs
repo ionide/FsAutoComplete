@@ -382,6 +382,14 @@ let tests state =
           """
           []
 
-        
+      testCaseAsync "hide: func name ends with param name" <|
+        InlayHints.checkRange server
+          """
+          let validateRange range = ()
+          let data = 42
+
+          $0validateRange data$0
+          """
+          []
     ]
   ])
