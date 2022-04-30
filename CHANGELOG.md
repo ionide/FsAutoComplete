@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.53.0] - 2020-04-29
+
+### Added
+
+* [New Codefix: rename parameter to match signature file](https://github.com/fsharp/FsAutoComplete/pull/917) (thanks @Booksbaum!)
+* [Config toggles for both kinds of code lenses](https://github.com/fsharp/FsAutoComplete/pull/931)
+
+### Changed
+
+* [Don't trigger inlay hints for typed bindings](https://github.com/fsharp/FsAutoComplete/pull/922)
+* [Updated to Ionide.LanguageServerProtocol 0.4.0](https://github.com/fsharp/FsAutoComplete/pull/933)
+* [Trigger fewer inlay hints for certain kinds of parameters](https://github.com/fsharp/FsAutoComplete/pull/932)
+
+### Fixed
+
+* Don't hardcode state file to my personal user directory
+* [Don't generate state file in an OS-specific way](https://github.com/fsharp/FsAutoComplete/pull/927)
+* [ImplementInterface code fix unification and improvements](https://github.com/fsharp/FsAutoComplete/pull/929) (thanks @Booksbaum!)
+* [More trigger locations and behavior fixes for the Add Explicit Type to Parameter CodeFix](https://github.com/fsharp/FsAutoComplete/pull/926) (thanks @Booksbaum!)
+
 ## [0.52.1] - 2020-04-16
 
 ### Changed
