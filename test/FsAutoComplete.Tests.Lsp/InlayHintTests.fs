@@ -179,96 +179,96 @@ let tests state =
       testCaseAsync "hide: variable prefix of param" <|
         InlayHints.checkRange server
           """
-          let f specialNumber = ()
-          let special = 2
+          let f rangeCoveringExpr = ()
+          let range = 2
 
-          $0f special$0
+          $0f range$0
           """
           [  ]
       testCaseAsync "hide: variable postfix of param" <|
         InlayHints.checkRange server
           """
-          let f specialNumber = ()
-          let number = 2
+          let f exactRange = ()
+          let range = 2
 
-          $0f number$0
+          $0f range$0
           """
           [  ]
       //todo: or hide?
       testCaseAsync "show: variable infix of param" <|
         InlayHints.checkRange server
           """
-          let f extraSpecialNumber = ()
-          let special = 2
+          let f exactRangeCoveringExpr = ()
+          let range = 2
 
-          $0f $0special$0
+          $0f $0range$0
           """
-          [ param "extraSpecialNumber" ]
+          [ param "exactRangeCoveringExpr" ]
       //todo: or hide?
       testCaseAsync "show: variable prefix of param, but no word boundary" <|
         InlayHints.checkRange server
           """
-          let f specialnumber = ()
-          let special = 2
+          let f rangecover = ()
+          let range = 2
 
-          $0f $0special$0
+          $0f $0range$0
           """
-          [ param "specialnumber" ]
+          [ param "rangecover" ]
       //todo: or hide?
       testCaseAsync "show: variable postfix of param, but no word boundary" <|
         InlayHints.checkRange server
           """
-          let f specialnumber = ()
-          let number = 2
+          let f exactrange = ()
+          let range = 2
 
-          $0f $0number$0
+          $0f $0range$0
           """
-          [ param "specialnumber" ]
+          [ param "exactrange" ]
 
       testCaseAsync "hide: arg is prefix of param with leading _" <|
         InlayHints.checkRange server
           """
-          let f _specialNumber = ()
-          let special = 2
+          let f _rangeCoveringExpr = ()
+          let range = 2
 
-          $0f special$0
+          $0f range$0
           """
           []
       testCaseAsync "hide: arg is postfix of param with trailing '" <|
         InlayHints.checkRange server
           """
-          let f specialNumber' = ()
-          let number = 2
+          let f exactRange' = ()
+          let range = 2
 
-          $0f number$0
+          $0f range$0
           """
           []
       testCaseAsync "hide: arg is prefix of param with trailing ' in arg" <|
         InlayHints.checkRange server
           """
-          let f specialNumber = ()
-          let special' = 2
+          let f rangeCoveringExpr = ()
+          let range' = 2
 
-          $0f special'$0
+          $0f range'$0
           """
           []
 
       testCaseAsync "hide: param prefix of arg" <|
         InlayHints.checkRange server
           """
-          let f special = ()
-          let specialNumber = 2
+          let f range = ()
+          let rangeCoveringExpr = 2
 
-          $0f specialNumber$0
+          $0f rangeCoveringExpr$0
           """
           []
       testCaseAsync "hide: param postfix of arg" <|
         InlayHints.checkRange server
           """
-          let f number = ()
-          let specialNumber = 2
+          let f range = ()
+          let exactRange = 2
 
-          $0f specialNumber$0
+          $0f exactRange$0
           """
           []
 
@@ -276,48 +276,48 @@ let tests state =
         InlayHints.checkRange server
           """
           type Data = {
-            Number: int
+            Range: int
           }
-          let f number = ()
-          let data: Data = { Number = 2 }
+          let f range = ()
+          let data: Data = { Range = 2 }
 
-          $0f data.Number$0
+          $0f data.Range$0
           """
           []
       testCaseAsync "hide: arg is field access with same name as param (lower case start)" <|
         InlayHints.checkRange server
           """
           type Data = {
-            number: int
+            range: int
           }
-          let f number = ()
-          let data: Data = { number = 2 }
+          let f range = ()
+          let data: Data = { range = 2 }
 
-          $0f data.number$0
+          $0f data.range$0
           """
           []
       testCaseAsync "hide: arg is field access prefix of param (upper case start)" <|
         InlayHints.checkRange server
           """
           type Data = {
-            Special: int
+            Range: int
           }
-          let f specialNumber = ()
-          let data: Data = { Special = 2 }
+          let f rangeCoveringExpr = ()
+          let data: Data = { Range = 2 }
 
-          $0f data.Special$0
+          $0f data.Range$0
           """
           []
       testCaseAsync "hide: arg is field access, param is prefix of arg" <|
         InlayHints.checkRange server
           """
           type Data = {
-            SpecialNumber: int
+            RangeCoveringExpr: int
           }
-          let f special = ()
-          let data: Data = { SpecialNumber = 2 }
+          let f range = ()
+          let data: Data = { RangeCoveringExpr = 2 }
 
-          $0f data.SpecialNumber$0
+          $0f data.RangeCoveringExpr$0
           """
           []
 
