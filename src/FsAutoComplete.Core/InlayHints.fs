@@ -141,21 +141,26 @@ module private ShouldCreate =
     | None -> true
     | Some n -> not (Set.contains n names)
 
+
+  [<return: Struct>]
+  let private (|StartsWith|_|) (v: string) (fullName: string) =
+    if fullName.StartsWith v then
+      ValueSome ()
+    else
+      ValueNone
+  // doesn't differentiate between modules, types, namespaces 
+  // -> is just for documentation in code
+  [<return: Struct>]
+  let private (|Module|_|) = (|StartsWith|_|)
+  [<return: Struct>]
+  let private (|Type|_|) = (|StartsWith|_|)
+  [<return: Struct>]
+  let private (|Namespace|_|) = (|StartsWith|_|)
+
   let private isWellKnownParameterOrFunction 
     (func: FSharpMemberOrFunctionOrValue)
     (param: FSharpParameter)
     =
-    let startsWith (v: string) (fullName: string) =
-      if fullName.StartsWith v then
-        Some ()
-      else
-        None
-    // doesn't differentiate between modules, types, namespaces 
-    // -> is just for documentation in code
-    let (|Module|_|) = startsWith
-    let (|Type|_|) = startsWith
-    let (|Namespace|_|) = startsWith
-
     match func.FullName with
     | Module "Microsoft.FSharp.Core.Option" ->
         // don't show param named `option`, but other params for Option
