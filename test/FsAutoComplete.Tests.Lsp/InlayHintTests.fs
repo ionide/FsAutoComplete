@@ -471,6 +471,24 @@ let tests state =
               $0Seq.tryLast [1..3]$0
               """
               []
+          testCaseAsync "hide: lists" <|
+            InlayHints.checkRange server
+              """
+              $0List.concat []$0
+              """
+              []
+          testCaseAsync "hide: arrays" <|
+            InlayHints.checkRange server
+              """
+              $0Array.concat [||]$0
+              """
+              []
+          testCaseAsync "hide: sources" <|
+            InlayHints.checkRange server
+              """
+              $0Seq.concat []$0
+              """
+              []
         ]
         testList "option" [
           testCaseAsync "hide: for Option" <|

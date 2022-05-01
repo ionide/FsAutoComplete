@@ -171,6 +171,9 @@ module private ShouldCreate =
     "list"
     "array"
     "source"
+    "lists"
+    "arrays"
+    "sources"
   ]
   let private isWellKnownParameterOrFunction 
     (func: FSharpMemberOrFunctionOrValue)
