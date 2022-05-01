@@ -157,6 +157,21 @@ module private ShouldCreate =
   [<return: Struct>]
   let private (|Namespace|_|) = (|StartsWith|_|)
 
+  let private commonCollectionParams = Set.ofList [
+    "mapping"
+    "projection"
+    "chooser"
+    "value"
+    "predicate"
+    "folder"
+    "state"
+    "initializer"
+    "action"
+
+    "list"
+    "array"
+    "source"
+  ]
   let private isWellKnownParameterOrFunction 
     (func: FSharpMemberOrFunctionOrValue)
     (param: FSharpParameter)
@@ -179,7 +194,8 @@ module private ShouldCreate =
         | _ -> false
     | Namespace "Microsoft.FSharp.Collections" ->
         match param.Name with
-        | Some "mapping" -> true
+        | Some name ->
+            commonCollectionParams |> Set.contains name
         | _ -> false
     | _ -> false
 

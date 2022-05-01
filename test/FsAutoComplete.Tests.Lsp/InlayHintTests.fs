@@ -414,6 +414,64 @@ let tests state =
               """
               [ param "mapping" ]
         ]
+        testList "in collections" [
+          testCaseAsync "hide: predicate" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.filter ((<) 2)$0
+              """
+              []
+          testCaseAsync "hide: chooser" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.tryPick Some$0
+              """
+              []
+          testCaseAsync "hide: value" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.contains 2$0
+              """
+              []
+          testCaseAsync "hide: projection" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.sumBy id$0
+              """
+              []
+          testCaseAsync "hide: action" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.iter (printfn "%i")$0
+              """
+              []
+          testCaseAsync "hide: folder & state" <|
+            InlayHints.checkRange server
+              """
+              $0[1..3] |> List.fold (+) 0$0
+              """
+              []
+
+
+          testCaseAsync "hide: list" <|
+            InlayHints.checkRange server
+              """
+              $0List.tryLast [1..3]$0
+              """
+              []
+          testCaseAsync "hide: array" <|
+            InlayHints.checkRange server
+              """
+              $0Array.tryLast [|1..3|]$0
+              """
+              []
+          testCaseAsync "hide: source" <|
+            InlayHints.checkRange server
+              """
+              $0Seq.tryLast [1..3]$0
+              """
+              []
+        ]
         testList "option" [
           testCaseAsync "hide: for Option" <|
             InlayHints.checkRange server
