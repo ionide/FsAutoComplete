@@ -194,7 +194,6 @@ let tests state =
           $0f range$0
           """
           [  ]
-      //todo: or hide?
       testCaseAsync "show: variable infix of param" <|
         InlayHints.checkRange server
           """
@@ -204,7 +203,6 @@ let tests state =
           $0f $0range$0
           """
           [ param "exactRangeCoveringExpr" ]
-      //todo: or hide?
       testCaseAsync "show: variable prefix of param, but no word boundary" <|
         InlayHints.checkRange server
           """
@@ -214,7 +212,6 @@ let tests state =
           $0f $0range$0
           """
           [ param "rangecover" ]
-      //todo: or hide?
       testCaseAsync "show: variable postfix of param, but no word boundary" <|
         InlayHints.checkRange server
           """
@@ -339,7 +336,6 @@ let tests state =
           $0f ( alpha )$0
           """
           [  ]
-      //todo: or hide? based on: what is last? but then (`alpha <| 1`, `1 |> alpha 2`, etc?) -> too complex to detect
       testCaseAsync "show: expr including param name in parens" <|
         InlayHints.checkRange server
           """
@@ -350,7 +346,10 @@ let tests state =
           """
           [ param "alpha" ]
           
-      //todo: inspect most left/right identifier? extract function name? look for left of `.`? use ast?
+      //ENHANCEMENT: detect some common expressions like:
+      // * receiving end of pipe: `1 |> alpha`, `alpha <| 1`, `1 |> toAlpha`
+      // * last function: `1.ToAlpha()`
+      // * often used convert functions: `string alpha`, `alpha.ToString()`
       testCaseAsync "show: any expression" <|
         InlayHints.checkRange server
           """

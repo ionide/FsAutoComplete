@@ -292,10 +292,7 @@ module private ShouldCreate =
       if isLongIdentifier argTextNoParens then
         removeTrailingTick (extractLastIdentifier argTextNoParens)
       else
-        //todo: expression -> early out? or further processing? special processing?
         argumentText
-
-    //todo: all useful?
 
     // // covered by each isPre/PostfixOf
     // areSame paramName argumentName
