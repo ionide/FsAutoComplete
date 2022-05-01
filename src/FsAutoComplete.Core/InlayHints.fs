@@ -10,7 +10,6 @@ open FSharp.UMX
 open System.Linq
 open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
-open System.Text
 
 type HintKind =
   | Parameter
@@ -51,7 +50,7 @@ let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResult
 let private isSignatureFile (f: string<LocalPath>) =
   System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
-type FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
+type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
   // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
   // so that they are considered logically the same as a 'typed' SynPat
   member x.IsTypeAnnotationGivenAtPositionPatched pos =
@@ -105,42 +104,242 @@ let truncated (s: string) =
   else
     s
 
-let private isNotWellKnownName =
-  let names = Set.ofList [
+let private createParamHint
+  (range: Range)
+  (paramName: string)
+  =
+  let format p = p + " ="
+  {
+    Text = format (truncated paramName)
+    InsertText = None
+    Pos = range.Start
+    Kind = Parameter
+  }
+let private createTypeHint
+  (range: Range)
+  (ty: FSharpType)
+  (displayContext: FSharpDisplayContext)
+  =
+  let ty = ty.Format displayContext
+  let format ty = ": " + ty
+  {
+    Text = format (truncated ty)
+    InsertText = Some (format ty)
+    Pos = range.End
+    Kind = Type
+  }
+
+module private ShouldCreate =
+  let private isNotWellKnownName =
+    let names = Set.ofList [
+      "value"
+      "x"
+    ]
+
+    fun (p: FSharpParameter) ->
+    match p.Name with
+    | None -> true
+    | Some n -> not (Set.contains n names)
+
+
+  [<return: Struct>]
+  let private (|StartsWith|_|) (v: string) (fullName: string) =
+    if fullName.StartsWith v then
+      ValueSome ()
+    else
+      ValueNone
+  // doesn't differentiate between modules, types, namespaces 
+  // -> is just for documentation in code
+  [<return: Struct>]
+  let private (|Module|_|) = (|StartsWith|_|)
+  [<return: Struct>]
+  let private (|Type|_|) = (|StartsWith|_|)
+  [<return: Struct>]
+  let private (|Namespace|_|) = (|StartsWith|_|)
+
+  let private commonCollectionParams = Set.ofList [
     "mapping"
-    "format"
+    "projection"
+    "chooser"
     "value"
-    "x"
+    "predicate"
+    "folder"
+    "state"
+    "initializer"
+    "action"
+
+    "list"
+    "array"
+    "source"
+    "lists"
+    "arrays"
+    "sources"
   ]
+  let private isWellKnownParameterOrFunction 
+    (func: FSharpMemberOrFunctionOrValue)
+    (param: FSharpParameter)
+    =
+    match func.FullName with
+    | Module "Microsoft.FSharp.Core.Option" ->
+        // don't show param named `option`, but other params for Option
+        match param.Name with
+        | Some "option" -> true
+        | _ -> false
+    | Module "Microsoft.FSharp.Core.ValueOption" ->
+        match param.Name with
+        | Some "voption" -> true
+        | _ -> false
+    | Module "Microsoft.FSharp.Core.ExtraTopLevelOperators" // only printf-members have `format`
+    | Module "Microsoft.FSharp.Core.Printf" ->
+        // don't show param named `format`
+        match param.Name with
+        | Some "format" -> true
+        | _ -> false
+    | Namespace "Microsoft.FSharp.Collections" ->
+        match param.Name with
+        | Some name ->
+            commonCollectionParams |> Set.contains name
+        | _ -> false
+    | _ -> false
 
-  fun (p: FSharpParameter) ->
-  match p.Name with
-  | None -> true
-  | Some n -> not (Set.contains n names)
+  let inline private hasName (p: FSharpParameter) =
+    not (String.IsNullOrEmpty p.DisplayName)
+    && p.DisplayName <> "````"
 
-let inline hasName (p: FSharpParameter) =
-  not (String.IsNullOrEmpty p.DisplayName)
-  && p.DisplayName <> "````"
+  let inline private isMeaningfulName (p: FSharpParameter) =
+    p.DisplayName.Length > 2
 
-let inline isMeaningfulName (p: FSharpParameter) =
-  p.DisplayName.Length > 2
+  let inline private isOperator (func: FSharpMemberOrFunctionOrValue) =
+    func.CompiledName.StartsWith "op_"
 
-let inline doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
-  parameterName <> userArgumentText
-  && not (userArgumentText.StartsWith parameterName)
+  /// Doesn't consider lower/upper cases:
+  /// * `areSame "foo" "FOO" = true`
+  /// * `areSame "Foo" "Foo" = true`
+  let inline private areSame (a: ReadOnlySpan<char>) (b: ReadOnlySpan<char>) =
+    a.Equals(b, StringComparison.OrdinalIgnoreCase)
+  /// Boundary checks:
+  /// * word boundary (-> upper case letter)
+  ///   `"foo" |> isPrefixOf "fooBar"`
+  /// Doesn't consider capitalization, except for word boundary after prefix:
+  /// * `foo` prefix of `fooBar`
+  /// * `foo` not prefix of `foobar`
+  let inline private isPrefixOf (root: ReadOnlySpan<char>) (check: ReadOnlySpan<char>) =
+    root.StartsWith(check, StringComparison.OrdinalIgnoreCase)
+    &&
+    (
+      // same
+      root.Length <= check.Length
+      ||
+      // rest must start with upper case -> new word
+      Char.IsUpper root[check.Length]
+    )
+  /// Boundary checks:
+  /// * word boundary (-> upper case letter)
+  ///   `"bar" |> isPostifxOf "fooBar"`
+  /// * `.` boundary (-> property access)
+  ///   `"bar" |> isPostifxOf "data.bar"`
+  /// 
+  /// Doesn't consider capitalization, except for word boundary at start of postfix:
+  /// * `bar` postfix of `fooBar`
+  /// * `bar` not postfix of `foobar`
+  let inline private isPostfixOf (root: ReadOnlySpan<char>) (check: ReadOnlySpan<char>) =
+    root.EndsWith(check, StringComparison.OrdinalIgnoreCase)
+    &&
+    (
+      root.Length <= check.Length
+      ||
+        // postfix must start with upper case -> word boundary
+        Char.IsUpper root[root.Length - check.Length]
+    )
 
-/// </summary>
-/// We filter out parameters that generate lots of noise in hints.
-/// * parameter has a name
-/// * parameter is one of a set of 'known' names that clutter (like printfn formats)
-/// * parameter has length > 2
-/// * parameter does not match (or is an extension of) the user-entered text
-/// </summary>
-let shouldCreateHint (p: FSharpParameter) (matchingArgumentText: string) =
-  hasName p
-  && isNotWellKnownName p
-  && isMeaningfulName p
-  && doesNotMatchArgumentText p.DisplayName matchingArgumentText
+  let inline private removeLeadingUnderscore (name: ReadOnlySpan<char>) = 
+    name.TrimStart '_'
+  let inline private removeTrailingTick (name: ReadOnlySpan<char>) =
+    name.TrimEnd '\''
+  let inline private extractLastIdentifier (name: ReadOnlySpan<char>) =
+    // exclude backticks for now: might contain `.` -> difficult to split
+    if name.StartsWith "``" || name.EndsWith "``" then
+      name
+    else
+      match name.LastIndexOf '.' with
+      | -1 -> name
+      | i -> name.Slice(i+1)
+  /// Note: when in parens: might not be an identifier, but expression!
+  /// 
+  /// Note: might result in invalid expression (because no matching parens `string (2)` -> `string (2`)
+  let inline private trimParensAndSpace (name: ReadOnlySpan<char>) =
+    name.TrimStart("( ").TrimEnd(" )")
+
+  /// Note: including `.`
+  let inline private isLongIdentifier (name: ReadOnlySpan<char>) =
+    // name |> Seq.forall PrettyNaming.IsLongIdentifierPartCharacter
+    let mutable valid = true
+    let mutable i = 0
+    while valid && i < name.Length do
+      if PrettyNaming.IsLongIdentifierPartCharacter name[i] then
+        i <- i + 1
+      else
+        valid <- false
+    valid
+
+  let private areSimilar (paramName: string) (argumentText: string) =
+    // no pipe with span ...
+    let paramName = removeTrailingTick (removeLeadingUnderscore (paramName.AsSpan()))
+    let argumentName =
+      let argumentText = argumentText.AsSpan()
+      let argTextNoParens = trimParensAndSpace argumentText
+      
+      if isLongIdentifier argTextNoParens then
+        removeTrailingTick (extractLastIdentifier argTextNoParens)
+      else
+        argumentText
+
+    // // covered by each isPre/PostfixOf
+    // areSame paramName argumentName
+    // ||
+    isPrefixOf argumentName paramName
+    ||
+    isPostfixOf argumentName paramName
+    ||
+    isPrefixOf paramName argumentName
+    ||
+    isPostfixOf paramName argumentName
+
+  let inline private doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
+    parameterName <> userArgumentText
+    && not (userArgumentText.StartsWith parameterName)
+
+  let private isParamNamePostfixOfFuncName
+    (func: FSharpMemberOrFunctionOrValue)
+    (paramName: string)
+    =
+    let funcName = func.DisplayName.AsSpan()
+    let paramName = removeLeadingUnderscore (paramName.AsSpan())
+
+    isPostfixOf funcName paramName
+
+  /// </summary>
+  /// We filter out parameters that generate lots of noise in hints.
+  /// * parameter has no name
+  /// * parameter has length > 2
+  /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
+  /// * param & function is "well known"/commonly used
+  /// * parameter does match or is a pre/postfix of user-entered text
+  /// * user-entered text does match or is a pre/postfix of parameter
+  /// * parameter is postfix of function name
+  /// </summary>
+  let paramHint
+    (func: FSharpMemberOrFunctionOrValue)
+    (p: FSharpParameter)
+    (argumentText: string)
+    =
+    hasName p
+    && isMeaningfulName p
+    && isNotWellKnownName p
+    && (not (isWellKnownParameterOrFunction func p))
+    && (not (isOperator func))
+    && (not (areSimilar p.DisplayName argumentText))
+    && (not (isParamNamePostfixOfFuncName func p.DisplayName))
 
 
 let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =
@@ -177,16 +376,7 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
       | :? FSharpMemberOrFunctionOrValue as funcOrValue when
         isValidForTypeHint funcOrValue symbolUse
         ->
-
-        let layout = $": {truncated(funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext)}"
-        let insertText = $": {funcOrValue.ReturnParameter.Type.Format symbolUse.DisplayContext}"
-
-        let hint =
-          { Text = layout
-            InsertText = Some insertText
-            Pos = symbolUse.Range.End
-            Kind = Type }
-
+        let hint = createTypeHint symbolUse.Range funcOrValue.ReturnParameter.Type symbolUse.DisplayContext
         typeHints.Add(hint)
 
       | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
@@ -214,14 +404,9 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
               let definitionArgName = definitionArg.DisplayName
 
               if
-                shouldCreateHint definitionArg appliedArgText
+                ShouldCreate.paramHint func definitionArg appliedArgText
               then
-                let hint =
-                  { Text = $"{truncated definitionArgName} ="
-                    InsertText = None
-                    Pos = appliedArgRange.Start
-                    Kind = Parameter }
-
+                let hint = createParamHint appliedArgRange definitionArgName
                 parameterHints.Add(hint)
 
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
@@ -272,13 +457,8 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
             let! appliedArgText = text[appliedArgRange]
             let definitionArg = definitionArgs.[idx]
 
-            if shouldCreateHint definitionArg appliedArgText then
-              let hint =
-                { Text = $"{truncated definitionArg.DisplayName} ="
-                  InsertText = None
-                  Pos = appliedArgRange.Start
-                  Kind = Parameter }
-
+            if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
+              let hint = createParamHint appliedArgRange definitionArg.DisplayName
               parameterHints.Add(hint)
       | _ -> ()
 
