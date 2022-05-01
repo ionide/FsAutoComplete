@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.53.0] - 2020-04-29
+## [0.53.1] - 2022-05-01
+
+### Changed
+
+* [Alter logic for showing inlay hints to show fewer hints on parameters](https://github.com/fsharp/FsAutoComplete/pull/9350) (thanks @Booksbaum!) 
+
+## [0.53.0] - 2022-04-29
 
 ### Added
 
