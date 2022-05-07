@@ -117,7 +117,7 @@ module Conversions =
     (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
     (topLevel: NavigationTopLevelDeclaration)
     (symbolFilter: SymbolInformation -> bool)
-    : SymbolInformation [] =
+    : SymbolInformation[] =
     let inner (container: string option) (decl: NavigationItem) : SymbolInformation option =
       // We should nearly always have a kind, if the client doesn't send weird capabilities,
       // if we don't why not assume module...
@@ -160,7 +160,7 @@ module Conversions =
       info.Name.StartsWith fieldName
       && info.ContainerName = Some containerName
 
-  let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens [] =
+  let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
       { Command = None
         Data =
@@ -188,9 +188,9 @@ module Conversions =
       ))
     |> Array.map map
 
-  let getLine (lines: string []) (pos: Lsp.Position) = lines.[pos.Line]
+  let getLine (lines: string[]) (pos: Lsp.Position) = lines.[pos.Line]
 
-  let getText (lines: string []) (r: Lsp.Range) =
+  let getText (lines: string[]) (r: Lsp.Range) =
     lines.[r.Start.Line]
       .Substring(r.Start.Character, r.End.Character - r.Start.Character)
 
@@ -198,9 +198,9 @@ module Conversions =
 module internal GlyphConversions =
   let internal glyphToKindGenerator<'kind when 'kind: equality>
     (clientCapabilities: ClientCapabilities option)
-    (setFromCapabilities: ClientCapabilities -> 'kind [] option)
-    (defaultSet: 'kind [])
-    (getUncached: FSharpGlyph -> 'kind [])
+    (setFromCapabilities: ClientCapabilities -> 'kind[] option)
+    (defaultSet: 'kind[])
+    (getUncached: FSharpGlyph -> 'kind[])
     =
 
     let completionItemSet =
@@ -209,7 +209,7 @@ module internal GlyphConversions =
 
     let completionItemSet = defaultArg completionItemSet defaultSet
 
-    let bestAvailable (possible: 'kind []) =
+    let bestAvailable (possible: 'kind[]) =
       possible
       |> Array.tryFind (fun x -> Array.contains x completionItemSet)
 
@@ -583,7 +583,7 @@ type ProjectParms =
 
 type WorkspaceLoadParms =
   { /// Project files to load
-    TextDocuments: TextDocumentIdentifier [] }
+    TextDocuments: TextDocumentIdentifier[] }
 
 type WorkspacePeekRequest =
   { Directory: string
@@ -624,13 +624,12 @@ type FSharpPipelineHintRequest = { FileName: string }
 
 type CodeLensConfigDto =
   { Signature: {| Enabled: bool option |} option
-    References: {| Enabled: bool option |} option
-  }
+    References: {| Enabled: bool option |} option }
 
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
-    ExcludeProjectDirectories: string [] option
+    ExcludeProjectDirectories: string[] option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     Linter: bool option
@@ -649,20 +648,19 @@ type FSharpConfigDto =
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
-    AnalyzersPath: string [] option
+    AnalyzersPath: string[] option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
-    FSIExtraParameters: string [] option
-    FSICompilerToolLocations: string [] option
+    FSIExtraParameters: string[] option
+    FSICompilerToolLocations: string[] option
     TooltipMode: string option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
-    CodeLenses: CodeLensConfigDto option
-   }
+    CodeLenses: CodeLensConfigDto option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto }
 
@@ -676,7 +674,7 @@ type CodeLensConfig =
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
-    ExcludeProjectDirectories: string []
+    ExcludeProjectDirectories: string[]
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     Linter: bool
@@ -698,13 +696,13 @@ type FSharpConfig =
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
-    AnalyzersPath: string []
+    AnalyzersPath: string[]
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
-    FSIExtraParameters: string []
-    FSICompilerToolLocations: string []
+    FSIExtraParameters: string[]
+    FSICompilerToolLocations: string[]
     TooltipMode: string
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig }
@@ -793,9 +791,16 @@ type FSharpConfig =
         match dto.CodeLenses with
         | None -> CodeLensConfig.Default
         | Some clDto ->
-          { Signature = {| Enabled = clDto.Signature |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true |}
-            References = {| Enabled = clDto.References |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true |} }
-    }
+          { Signature =
+              {| Enabled =
+                  clDto.Signature
+                  |> Option.bind (fun c -> c.Enabled)
+                  |> Option.defaultValue true |}
+            References =
+              {| Enabled =
+                  clDto.References
+                  |> Option.bind (fun c -> c.Enabled)
+                  |> Option.defaultValue true |} } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -852,8 +857,16 @@ type FSharpConfig =
         match dto.CodeLenses with
         | None -> x.CodeLenses
         | Some clDto ->
-          { Signature = {| Enabled = clDto.Signature |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue x.CodeLenses.Signature.Enabled |}
-            References = {| Enabled = clDto.References |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue x.CodeLenses.Signature.Enabled |} } }
+          { Signature =
+              {| Enabled =
+                  clDto.Signature
+                  |> Option.bind (fun c -> c.Enabled)
+                  |> Option.defaultValue x.CodeLenses.Signature.Enabled |}
+            References =
+              {| Enabled =
+                  clDto.References
+                  |> Option.bind (fun c -> c.Enabled)
+                  |> Option.defaultValue x.CodeLenses.Signature.Enabled |} } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with
@@ -903,7 +916,7 @@ let encodeSemanticHighlightRanges
   let computeLine
     (prev: Ionide.LanguageServerProtocol.Types.Range)
     ((range, ty, mods): struct (Ionide.LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list))
-    : uint32 [] =
+    : uint32[] =
     let lineDelta =
       if prev.Start.Line = range.Start.Line then
         0u

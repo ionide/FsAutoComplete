@@ -75,7 +75,8 @@ module private Format =
     { TagName: string
       Formatter: TagInfo -> string option }
 
-  let private extractTextFromQuote (quotedText: string) = quotedText.Substring(1, quotedText.Length - 2)
+  let private extractTextFromQuote (quotedText: string) =
+    quotedText.Substring(1, quotedText.Length - 2)
 
 
   let extractMemberText (text: string) =
@@ -504,9 +505,11 @@ module private Format =
           None
       | _ -> None
 
-    let tryGetDescription (text: string) = tryGetInnerTextOnNonVoidElement text "description"
+    let tryGetDescription (text: string) =
+      tryGetInnerTextOnNonVoidElement text "description"
 
-    let tryGetTerm (text: string) = tryGetInnerTextOnNonVoidElement text "term"
+    let tryGetTerm (text: string) =
+      tryGetInnerTextOnNonVoidElement text "term"
 
     let rec extractItemList (res: ItemList list) (text: string) =
       match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
@@ -738,7 +741,8 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     doc.DocumentElement.GetElementsByTagName "example"
     |> Seq.cast<XmlNode>
 
-  let readNamedContentAsKvPair (key, content) = KeyValuePair(key, readContentForTooltip content)
+  let readNamedContentAsKvPair (key, content) =
+    KeyValuePair(key, readContentForTooltip content)
 
   let summary = readContentForTooltip rawSummary
 
@@ -854,7 +858,8 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<
   | _, None -> acc
   | indentationSize, Some acc' -> readXmlDoc reader indentationSize acc'
 
-let private xmlDocCache = Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
+let private xmlDocCache =
+  Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
 
 let private getXmlDoc dllFile =
   let xmlFile = Path.ChangeExtension(dllFile, ".xml")
@@ -892,7 +897,11 @@ let private getXmlDoc dllFile =
         let cnt =
           if actualXmlFile.Contains "netstandard.xml" then
             let cnt = Regex.Replace(cnt, """(<p .*?>)+(.*)(<\/?p>)*""", "$2")
-            cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
+
+            cnt
+              .Replace("<p>", "")
+              .Replace("</p>", "")
+              .Replace("<br>", "")
           else
             cnt
 
@@ -1042,7 +1051,7 @@ let formatTaggedText (t: TaggedText) : string =
 
 let formatTaggedTexts = Array.map formatTaggedText >> String.concat ""
 
-let formatGenericParameters (typeMappings: TaggedText [] list) =
+let formatGenericParameters (typeMappings: TaggedText[] list) =
   typeMappings
   |> List.map (fun typeMap -> $"* {formatTaggedTexts typeMap}")
   |> String.concat nl
@@ -1101,7 +1110,7 @@ let formatTipEnhanced
 
 let formatDocumentation
   (ToolTipText tips)
-  ((signature, (constructors, fields, functions, interfaces, attrs, ts)): string * (string [] * string [] * string [] * string [] * string [] * string []))
+  ((signature, (constructors, fields, functions, interfaces, attrs, ts)): string * (string[] * string[] * string[] * string[] * string[] * string[]))
   (footer: string)
   (cn: string)
   =
@@ -1131,7 +1140,7 @@ let formatDocumentation
 let formatDocumentationFromXmlSig
   (xmlSig: string)
   (assembly: string)
-  ((signature, (constructors, fields, functions, interfaces, attrs, ts)): string * (string [] * string [] * string [] * string [] * string [] * string []))
+  ((signature, (constructors, fields, functions, interfaces, attrs, ts)): string * (string[] * string[] * string[] * string[] * string[] * string[]))
   (footer: string)
   (cn: string)
   =
@@ -1140,16 +1149,19 @@ let formatDocumentationFromXmlSig
   [ [ (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn) ] ]
 
 /// use this when you want the raw text strings, for example in fsharp/signature calls
-let unformattedTexts (t: TaggedText []) = t |> Array.map (fun t -> t.Text) |> String.concat ""
+let unformattedTexts (t: TaggedText[]) =
+  t
+  |> Array.map (fun t -> t.Text)
+  |> String.concat ""
 
 let extractSignature (ToolTipText tips) =
-  let getSignature (t: TaggedText []) =
+  let getSignature (t: TaggedText[]) =
     let str = unformattedTexts t
     let nlpos = str.IndexOfAny([| '\r'; '\n' |])
 
     let firstLine =
       if nlpos > 0 then
-        str.[0..nlpos - 1]
+        str.[0 .. nlpos - 1]
       else
         str
 
@@ -1157,7 +1169,7 @@ let extractSignature (ToolTipText tips) =
       let index = firstLine.LastIndexOf("=", StringComparison.Ordinal)
 
       if index > 0 then
-        firstLine.[0..index - 1]
+        firstLine.[0 .. index - 1]
       else
         firstLine
     else

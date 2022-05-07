@@ -61,43 +61,69 @@ module Debug =
 
       override __.OnEventSourceCreated newSource =
         if newSource.Name = "FSharpCompiler" then
-          base.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
+          ``base``.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
           source <- newSource
+
       override __.OnEventWritten eventArgs =
 
         let message =
           match eventArgs.EventId with
           | 0 -> Log.setMessage (string eventArgs.Payload.[0])
-          | 1 -> Log.setMessage "In {function}" >> logFunctionName eventArgs.Payload.[0]
-          | 2 -> Log.setMessage "{function}: {message}" >> logFunctionName eventArgs.Payload.[1] >> Log.addContextDestructured "message" eventArgs.Payload.[0]
+          | 1 ->
+            Log.setMessage "In {function}"
+            >> logFunctionName eventArgs.Payload.[0]
+          | 2 ->
+            Log.setMessage "{function}: {message}"
+            >> logFunctionName eventArgs.Payload.[1]
+            >> Log.addContextDestructured "message" eventArgs.Payload.[0]
           | 3 ->
-             inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
-             Log.setMessage "Started {function}" >> logFunctionName eventArgs.Payload.[0]
+            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow)
+            |> ignore
+
+            Log.setMessage "Started {function}"
+            >> logFunctionName eventArgs.Payload.[0]
           | 4 ->
             match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
-              Log.setMessage "Finished {function} in {seconds}" >> logFunctionName eventArgs.Payload.[0] >> Log.addContextDestructured "seconds" delta.TotalSeconds
-            | false, _ -> 
-              Log.setMessage "Finished {function}" >> logFunctionName eventArgs.Payload.[0]
+
+              Log.setMessage "Finished {function} in {seconds}"
+              >> logFunctionName eventArgs.Payload.[0]
+              >> Log.addContextDestructured "seconds" delta.TotalSeconds
+            | false, _ ->
+              Log.setMessage "Finished {function}"
+              >> logFunctionName eventArgs.Payload.[0]
           | 5 ->
-            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
-            Log.setMessage "Started {function}: {message}" >> logFunctionName eventArgs.Payload.[1] >> Log.addContextDestructured "message" eventArgs.Payload.[0]
+            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow)
+            |> ignore
+
+            Log.setMessage "Started {function}: {message}"
+            >> logFunctionName eventArgs.Payload.[1]
+            >> Log.addContextDestructured "message" eventArgs.Payload.[0]
           | 6 ->
             match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
               let delta = DateTimeOffset.UtcNow - startTime
+
               Log.setMessage "Finished {function}: {message} ({seconds} seconds)"
               >> logFunctionName eventArgs.Payload.[1]
               >> Log.addContextDestructured "seconds" delta.TotalSeconds
               >> Log.addContextDestructured "message" (eventArgs.Payload.[0])
-            | false, _ -> 
-              Log.setMessage "Finished {function}: {message}" >> logFunctionName eventArgs.Payload.[1] >> Log.addContextDestructured "message" eventArgs.Payload.[0]
+            | false, _ ->
+              Log.setMessage "Finished {function}: {message}"
+              >> logFunctionName eventArgs.Payload.[1]
+              >> Log.addContextDestructured "message" eventArgs.Payload.[0]
           | other ->
-            Log.setMessage "Unknown event {name}({id}) with payload {payload}" >> Log.addContext "id" other >> Log.addContextDestructured "name" eventArgs.EventName >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
+            Log.setMessage "Unknown event {name}({id}) with payload {payload}"
+            >> Log.addContext "id" other
+            >> Log.addContextDestructured "name" eventArgs.EventName
+            >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
 
         (eventLevelToLogLevel eventArgs.Level) message
 
       interface System.IDisposable with
-        member __.Dispose () =
-          if isNull source then () else base.DisableEvents(source)
+        member __.Dispose() =
+          if isNull source then
+            ()
+          else
+            ``base``.DisableEvents(source)

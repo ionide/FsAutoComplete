@@ -54,41 +54,38 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
   // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
   // so that they are considered logically the same as a 'typed' SynPat
   member x.IsTypeAnnotationGivenAtPositionPatched pos =
-        let visitor: SyntaxVisitorBase<Range> =
-          { new SyntaxVisitorBase<_>() with
-                override _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
-                    match expr with
-                    | SynExpr.Typed (_expr, _typeExpr, range) when Position.posEq range.Start pos ->
-                        Some range
-                    | _ -> defaultTraverse expr
+    let visitor: SyntaxVisitorBase<Range> =
+      { new SyntaxVisitorBase<_>() with
+          override _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
+            match expr with
+            | SynExpr.Typed (_expr, _typeExpr, range) when Position.posEq range.Start pos -> Some range
+            | _ -> defaultTraverse expr
 
-                override _.VisitSimplePats(_path, pats) =
-                    match pats with
-                    | [] -> None
-                    | _ ->
-                        let exprFunc pat =
-                            match pat with
-                            | SynSimplePat.Typed (_pat, _targetExpr, range) when Position.posEq range.Start pos ->
-                                Some range
-                            | _ ->
-                                None
+          override _.VisitSimplePats(_path, pats) =
+            match pats with
+            | [] -> None
+            | _ ->
+              let exprFunc pat =
+                match pat with
+                | SynSimplePat.Typed (_pat, _targetExpr, range) when Position.posEq range.Start pos -> Some range
+                | _ -> None
 
-                        pats |> List.tryPick exprFunc
+              pats |> List.tryPick exprFunc
 
-                override _.VisitPat(_path, defaultTraverse, pat) =
-                    match pat with
-                    | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos ->
-                        Some range
-                    | _ -> defaultTraverse pat
+          override _.VisitPat(_path, defaultTraverse, pat) =
+            match pat with
+            | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
+            | _ -> defaultTraverse pat
 
-                override _.VisitBinding(_path, defaultTraverse, binding) =
-                  match binding with
-                  | SynBinding(headPat = SynPat.Named (range = patRange); returnInfo = Some (SynBindingReturnInfo(typeName = SynType.LongIdent (idents)))) -> Some patRange
-                  | _ -> defaultTraverse binding
+          override _.VisitBinding(_path, defaultTraverse, binding) =
+            match binding with
+            | SynBinding (headPat = SynPat.Named (range = patRange)
+                          returnInfo = Some (SynBindingReturnInfo(typeName = SynType.LongIdent (idents)))) ->
+              Some patRange
+            | _ -> defaultTraverse binding }
 
-              }
-        let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
-        result.IsSome
+    let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
+    result.IsSome
 
 let private getFirstPositionAfterParen (str: string) startPos =
   match str with
@@ -104,119 +101,105 @@ let truncated (s: string) =
   else
     s
 
-let private createParamHint
-  (range: Range)
-  (paramName: string)
-  =
+let private createParamHint (range: Range) (paramName: string) =
   let format p = p + " ="
-  {
-    Text = format (truncated paramName)
+
+  { Text = format (truncated paramName)
     InsertText = None
     Pos = range.Start
-    Kind = Parameter
-  }
-let private createTypeHint
-  (range: Range)
-  (ty: FSharpType)
-  (displayContext: FSharpDisplayContext)
-  =
+    Kind = Parameter }
+
+let private createTypeHint (range: Range) (ty: FSharpType) (displayContext: FSharpDisplayContext) =
   let ty = ty.Format displayContext
   let format ty = ": " + ty
-  {
-    Text = format (truncated ty)
-    InsertText = Some (format ty)
+
+  { Text = format (truncated ty)
+    InsertText = Some(format ty)
     Pos = range.End
-    Kind = Type
-  }
+    Kind = Type }
 
 module private ShouldCreate =
   let private isNotWellKnownName =
-    let names = Set.ofList [
-      "value"
-      "x"
-    ]
+    let names = Set.ofList [ "value"; "x" ]
 
     fun (p: FSharpParameter) ->
-    match p.Name with
-    | None -> true
-    | Some n -> not (Set.contains n names)
+      match p.Name with
+      | None -> true
+      | Some n -> not (Set.contains n names)
 
 
   [<return: Struct>]
   let private (|StartsWith|_|) (v: string) (fullName: string) =
     if fullName.StartsWith v then
-      ValueSome ()
+      ValueSome()
     else
       ValueNone
-  // doesn't differentiate between modules, types, namespaces 
+  // doesn't differentiate between modules, types, namespaces
   // -> is just for documentation in code
   [<return: Struct>]
   let private (|Module|_|) = (|StartsWith|_|)
+
   [<return: Struct>]
   let private (|Type|_|) = (|StartsWith|_|)
+
   [<return: Struct>]
   let private (|Namespace|_|) = (|StartsWith|_|)
 
-  let private commonCollectionParams = Set.ofList [
-    "mapping"
-    "projection"
-    "chooser"
-    "value"
-    "predicate"
-    "folder"
-    "state"
-    "initializer"
-    "action"
+  let private commonCollectionParams =
+    Set.ofList [ "mapping"
+                 "projection"
+                 "chooser"
+                 "value"
+                 "predicate"
+                 "folder"
+                 "state"
+                 "initializer"
+                 "action"
 
-    "list"
-    "array"
-    "source"
-    "lists"
-    "arrays"
-    "sources"
-  ]
-  let private isWellKnownParameterOrFunction 
-    (func: FSharpMemberOrFunctionOrValue)
-    (param: FSharpParameter)
-    =
+                 "list"
+                 "array"
+                 "source"
+                 "lists"
+                 "arrays"
+                 "sources" ]
+
+  let private isWellKnownParameterOrFunction (func: FSharpMemberOrFunctionOrValue) (param: FSharpParameter) =
     match func.FullName with
     | Module "Microsoft.FSharp.Core.Option" ->
-        // don't show param named `option`, but other params for Option
-        match param.Name with
-        | Some "option" -> true
-        | _ -> false
+      // don't show param named `option`, but other params for Option
+      match param.Name with
+      | Some "option" -> true
+      | _ -> false
     | Module "Microsoft.FSharp.Core.ValueOption" ->
-        match param.Name with
-        | Some "voption" -> true
-        | _ -> false
+      match param.Name with
+      | Some "voption" -> true
+      | _ -> false
     | Module "Microsoft.FSharp.Core.ExtraTopLevelOperators" // only printf-members have `format`
     | Module "Microsoft.FSharp.Core.Printf" ->
-        // don't show param named `format`
-        match param.Name with
-        | Some "format" -> true
-        | _ -> false
+      // don't show param named `format`
+      match param.Name with
+      | Some "format" -> true
+      | _ -> false
     | Namespace "Microsoft.FSharp.Collections" ->
-        match param.Name with
-        | Some name ->
-            commonCollectionParams |> Set.contains name
-        | _ -> false
+      match param.Name with
+      | Some name -> commonCollectionParams |> Set.contains name
+      | _ -> false
     | _ -> false
 
   let inline private hasName (p: FSharpParameter) =
     not (String.IsNullOrEmpty p.DisplayName)
     && p.DisplayName <> "````"
 
-  let inline private isMeaningfulName (p: FSharpParameter) =
-    p.DisplayName.Length > 2
+  let inline private isMeaningfulName (p: FSharpParameter) = p.DisplayName.Length > 2
 
-  let inline private isOperator (func: FSharpMemberOrFunctionOrValue) =
-    func.CompiledName.StartsWith "op_"
+  let inline private isOperator (func: FSharpMemberOrFunctionOrValue) = func.CompiledName.StartsWith "op_"
 
   /// Doesn't consider lower/upper cases:
   /// * `areSame "foo" "FOO" = true`
   /// * `areSame "Foo" "Foo" = true`
   let inline private areSame (a: ReadOnlySpan<char>) (b: ReadOnlySpan<char>) =
     a.Equals(b, StringComparison.OrdinalIgnoreCase)
+
   /// Boundary checks:
   /// * word boundary (-> upper case letter)
   ///   `"foo" |> isPrefixOf "fooBar"`
@@ -225,37 +208,32 @@ module private ShouldCreate =
   /// * `foo` not prefix of `foobar`
   let inline private isPrefixOf (root: ReadOnlySpan<char>) (check: ReadOnlySpan<char>) =
     root.StartsWith(check, StringComparison.OrdinalIgnoreCase)
-    &&
-    (
-      // same
-      root.Length <= check.Length
-      ||
-      // rest must start with upper case -> new word
-      Char.IsUpper root[check.Length]
-    )
+    && (
+    // same
+    root.Length <= check.Length
+    ||
+    // rest must start with upper case -> new word
+    Char.IsUpper root[check.Length])
+
   /// Boundary checks:
   /// * word boundary (-> upper case letter)
   ///   `"bar" |> isPostifxOf "fooBar"`
   /// * `.` boundary (-> property access)
   ///   `"bar" |> isPostifxOf "data.bar"`
-  /// 
+  ///
   /// Doesn't consider capitalization, except for word boundary at start of postfix:
   /// * `bar` postfix of `fooBar`
   /// * `bar` not postfix of `foobar`
   let inline private isPostfixOf (root: ReadOnlySpan<char>) (check: ReadOnlySpan<char>) =
     root.EndsWith(check, StringComparison.OrdinalIgnoreCase)
-    &&
-    (
-      root.Length <= check.Length
-      ||
+    && (root.Length <= check.Length
+        ||
         // postfix must start with upper case -> word boundary
-        Char.IsUpper root[root.Length - check.Length]
-    )
+        Char.IsUpper root[root.Length - check.Length])
 
-  let inline private removeLeadingUnderscore (name: ReadOnlySpan<char>) = 
-    name.TrimStart '_'
-  let inline private removeTrailingTick (name: ReadOnlySpan<char>) =
-    name.TrimEnd '\''
+  let inline private removeLeadingUnderscore (name: ReadOnlySpan<char>) = name.TrimStart '_'
+  let inline private removeTrailingTick (name: ReadOnlySpan<char>) = name.TrimEnd '\''
+
   let inline private extractLastIdentifier (name: ReadOnlySpan<char>) =
     // exclude backticks for now: might contain `.` -> difficult to split
     if name.StartsWith "``" || name.EndsWith "``" then
@@ -263,32 +241,35 @@ module private ShouldCreate =
     else
       match name.LastIndexOf '.' with
       | -1 -> name
-      | i -> name.Slice(i+1)
+      | i -> name.Slice(i + 1)
+
   /// Note: when in parens: might not be an identifier, but expression!
-  /// 
+  ///
   /// Note: might result in invalid expression (because no matching parens `string (2)` -> `string (2`)
-  let inline private trimParensAndSpace (name: ReadOnlySpan<char>) =
-    name.TrimStart("( ").TrimEnd(" )")
+  let inline private trimParensAndSpace (name: ReadOnlySpan<char>) = name.TrimStart("( ").TrimEnd(" )")
 
   /// Note: including `.`
   let inline private isLongIdentifier (name: ReadOnlySpan<char>) =
     // name |> Seq.forall PrettyNaming.IsLongIdentifierPartCharacter
     let mutable valid = true
     let mutable i = 0
+
     while valid && i < name.Length do
       if PrettyNaming.IsLongIdentifierPartCharacter name[i] then
         i <- i + 1
       else
         valid <- false
+
     valid
 
   let private areSimilar (paramName: string) (argumentText: string) =
     // no pipe with span ...
     let paramName = removeTrailingTick (removeLeadingUnderscore (paramName.AsSpan()))
+
     let argumentName =
       let argumentText = argumentText.AsSpan()
       let argTextNoParens = trimParensAndSpace argumentText
-      
+
       if isLongIdentifier argTextNoParens then
         removeTrailingTick (extractLastIdentifier argTextNoParens)
       else
@@ -298,21 +279,15 @@ module private ShouldCreate =
     // areSame paramName argumentName
     // ||
     isPrefixOf argumentName paramName
-    ||
-    isPostfixOf argumentName paramName
-    ||
-    isPrefixOf paramName argumentName
-    ||
-    isPostfixOf paramName argumentName
+    || isPostfixOf argumentName paramName
+    || isPrefixOf paramName argumentName
+    || isPostfixOf paramName argumentName
 
   let inline private doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
     parameterName <> userArgumentText
     && not (userArgumentText.StartsWith parameterName)
 
-  let private isParamNamePostfixOfFuncName
-    (func: FSharpMemberOrFunctionOrValue)
-    (paramName: string)
-    =
+  let private isParamNamePostfixOfFuncName (func: FSharpMemberOrFunctionOrValue) (paramName: string) =
     let funcName = func.DisplayName.AsSpan()
     let paramName = removeLeadingUnderscore (paramName.AsSpan())
 
@@ -328,11 +303,7 @@ module private ShouldCreate =
   /// * user-entered text does match or is a pre/postfix of parameter
   /// * parameter is postfix of function name
   /// </summary>
-  let paramHint
-    (func: FSharpMemberOrFunctionOrValue)
-    (p: FSharpParameter)
-    (argumentText: string)
-    =
+  let paramHint (func: FSharpMemberOrFunctionOrValue) (p: FSharpParameter) (argumentText: string) =
     hasName p
     && isMeaningfulName p
     && isNotWellKnownName p
@@ -342,7 +313,7 @@ module private ShouldCreate =
     && (not (isParamNamePostfixOfFuncName func p.DisplayName))
 
 
-let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint []> =
+let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint[]> =
   asyncResult {
     let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
     let! cancellationToken = Async.CancellationToken
@@ -360,7 +331,7 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
         funcOrValue.IsFunction
         && parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
 
-      let isTypedPat (r: Range)=
+      let isTypedPat (r: Range) =
         parseFileResults.IsTypeAnnotationGivenAtPositionPatched r.Start
 
       (funcOrValue.IsValue || isLambdaIfFunction)
@@ -373,10 +344,10 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
 
     for symbolUse in symbolUses do
       match symbolUse.Symbol with
-      | :? FSharpMemberOrFunctionOrValue as funcOrValue when
-        isValidForTypeHint funcOrValue symbolUse
-        ->
-        let hint = createTypeHint symbolUse.Range funcOrValue.ReturnParameter.Type symbolUse.DisplayContext
+      | :? FSharpMemberOrFunctionOrValue as funcOrValue when isValidForTypeHint funcOrValue symbolUse ->
+        let hint =
+          createTypeHint symbolUse.Range funcOrValue.ReturnParameter.Type symbolUse.DisplayContext
+
         typeHints.Add(hint)
 
       | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
@@ -403,9 +374,7 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
               let definitionArg = definitionArgs.[idx]
               let definitionArgName = definitionArg.DisplayName
 
-              if
-                ShouldCreate.paramHint func definitionArg appliedArgText
-              then
+              if ShouldCreate.paramHint func definitionArg appliedArgText then
                 let hint = createParamHint appliedArgRange definitionArgName
                 parameterHints.Add(hint)
 

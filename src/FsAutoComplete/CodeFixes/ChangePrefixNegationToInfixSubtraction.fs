@@ -8,6 +8,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
 let title = "Use subtraction instead of negation"
+
 /// a codefix that corrects -<something> to - <something> when negation is not intended
 let fix (getFileLines: GetFileLines) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3" ]) (fun diagnostic codeActionParams ->
@@ -17,10 +18,17 @@ let fix (getFileLines: GetFileLines) : CodeFix =
         |> Utils.normalizePath
 
       let! lines = getFileLines fileName
-      let! walkPos = inc lines diagnostic.Range.End |> Result.ofOption (fun _ -> "No walk pos")
+
+      let! walkPos =
+        inc lines diagnostic.Range.End
+        |> Result.ofOption (fun _ -> "No walk pos")
+
       match walkForwardUntilCondition lines walkPos (fun ch -> ch = '-') with
       | Some dash ->
-        let! oneBack = dec lines dash |> Result.ofOption (fun _ -> "No one back")
+        let! oneBack =
+          dec lines dash
+          |> Result.ofOption (fun _ -> "No one back")
+
         return
           [ { SourceDiagnostic = Some diagnostic
               Title = title

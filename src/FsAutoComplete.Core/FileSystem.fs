@@ -15,63 +15,69 @@ open FSharp.Compiler.IO
 module PositionExtensions =
   type FSharp.Compiler.Text.Position with
     member x.LinesToBeginning() =
-      if x.Line <= 0 then Seq.empty
-      else seq {
-        for i = x.Line - 1 downto 0 do
-          yield Position.mkPos i 0
-      }
+      if x.Line <= 0 then
+        Seq.empty
+      else
+        seq {
+          for i = x.Line - 1 downto 0 do
+            yield Position.mkPos i 0
+        }
+
     member x.IncLine() = Position.mkPos (x.Line + 1) x.Column
     member x.DecLine() = Position.mkPos (x.Line - 1) x.Column
 
-  let inline (|Pos|) (p: FSharp.Compiler.Text.Position) =
-    p.Line, p.Column
+  let inline (|Pos|) (p: FSharp.Compiler.Text.Position) = p.Line, p.Column
 
-[<Sealed>]
 /// A copy of the StringText type from F#.Compiler.Text, which is private.
 /// Adds a UOM-typed filename to make range manipulation easier, as well as
 /// safer traversals
+[<Sealed>]
 type NamedText(fileName: string<LocalPath>, str: string) =
 
   let getLines (str: string) =
-        use reader = new StringReader(str)
-        [|
-        let mutable line = reader.ReadLine()
-        while not (isNull line) do
-            yield line
-            line <- reader.ReadLine()
-        if str.EndsWith("\n", StringComparison.Ordinal) then
-            // last trailing space not returned
-            // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
-            yield String.Empty
-        |]
+    use reader = new StringReader(str)
+
+    [| let mutable line = reader.ReadLine()
+
+       while not (isNull line) do
+         yield line
+         line <- reader.ReadLine()
+
+       if str.EndsWith("\n", StringComparison.Ordinal) then
+         // last trailing space not returned
+         // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
+         yield String.Empty |]
 
   let getLines =
-      // This requires allocating and getting all the lines.
-      // However, likely whoever is calling it is using a different implementation of ISourceText
-      // So, it's ok that we do this for now.
-      lazy getLines str
+    // This requires allocating and getting all the lines.
+    // However, likely whoever is calling it is using a different implementation of ISourceText
+    // So, it's ok that we do this for now.
+    lazy getLines str
 
-  let lastCharPos = lazy (
-    let lines = getLines.Value
-    if lines.Length > 0 then
-        (lines.Length, lines.[lines.Length - 1].Length)
-    else
-        (0, 0)
-  )
+  let lastCharPos =
+    lazy
+      (let lines = getLines.Value
 
-  let safeLastCharPos = lazy (
-    let (endLine, endChar) = lastCharPos.Value
-    Position.mkPos endLine endChar
-  )
+       if lines.Length > 0 then
+         (lines.Length, lines.[lines.Length - 1].Length)
+       else
+         (0, 0))
+
+  let safeLastCharPos =
+    lazy
+      (let (endLine, endChar) = lastCharPos.Value
+       Position.mkPos endLine endChar)
 
   member _.String = str
 
   override _.GetHashCode() = str.GetHashCode()
+
   override _.Equals(obj: obj) =
-      match obj with
-      | :? NamedText as other -> other.String.Equals(str)
-      | :? string as other -> other.Equals(str)
-      | _ -> false
+    match obj with
+    | :? NamedText as other -> other.String.Equals(str)
+    | :? string as other -> other.Equals(str)
+    | _ -> false
+
   override _.ToString() = str
 
   /// The local absolute path of the file whose contents this NamedText represents
@@ -118,30 +124,37 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
       Ok(builder.ToString())
 
-  member private x.GetLineUnsafe (pos: FSharp.Compiler.Text.Position) =
+  member private x.GetLineUnsafe(pos: FSharp.Compiler.Text.Position) =
     (x :> ISourceText).GetLineString(pos.Line - 1)
 
   /// Provides safe access to a line of the file via FCS-provided Position
-  member x.GetLine(pos: FSharp.Compiler.Text.Position): string option =
-    if pos.Line > getLines.Value.Length then None else Some (x.GetLineUnsafe pos)
+  member x.GetLine(pos: FSharp.Compiler.Text.Position) : string option =
+    if pos.Line > getLines.Value.Length then
+      None
+    else
+      Some(x.GetLineUnsafe pos)
 
   member x.GetLineLength(pos: FSharp.Compiler.Text.Position) =
-    if pos.Line > getLines.Value.Length then None else Some (x.GetLineUnsafe pos).Length
+    if pos.Line > getLines.Value.Length then
+      None
+    else
+      Some (x.GetLineUnsafe pos).Length
 
-  member x.GetCharUnsafe(pos: FSharp.Compiler.Text.Position): char =
-    x.GetLine(pos).Value[pos.Column - 1]
+  member x.GetCharUnsafe(pos: FSharp.Compiler.Text.Position) : char = x.GetLine(pos).Value[pos.Column - 1]
 
   /// <summary>Provides safe access to a character of the file via FCS-provided Position.
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
-  member x.TryGetChar(pos: FSharp.Compiler.Text.Position): char option =
+  member x.TryGetChar(pos: FSharp.Compiler.Text.Position) : char option =
     option {
       do! Option.guard (Range.rangeContainsPos (x.TotalRange) pos)
       let lineText = x.GetLineUnsafe(pos)
-      if pos.Column = 0 then return! None
+
+      if pos.Column = 0 then
+        return! None
       else
         let lineIndex = pos.Column - 1
-        if lineText.Length <= lineIndex
-        then
+
+        if lineText.Length <= lineIndex then
           return! None
         else
           return lineText[lineIndex]
@@ -149,18 +162,17 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   member x.NextLine(pos: FSharp.Compiler.Text.Position) =
     if pos.Line < getLines.Value.Length then
-      Position.mkPos (pos.Line + 1) 0
-      |> Some
+      Position.mkPos (pos.Line + 1) 0 |> Some
     else
       None
 
   /// Provides safe incrementing of a position in the file via FCS-provided Position
-  member x.NextPos(pos: FSharp.Compiler.Text.Position): FSharp.Compiler.Text.Position option =
+  member x.NextPos(pos: FSharp.Compiler.Text.Position) : FSharp.Compiler.Text.Position option =
     option {
       let! currentLine = x.GetLine pos
+
       if pos.Column - 1 = currentLine.Length then
-        if getLines.Value.Length > pos.Line
-        then
+        if getLines.Value.Length > pos.Line then
           // advance to the beginning of the next line
           return Position.mkPos (pos.Line + 1) 0
         else
@@ -171,68 +183,75 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   /// Provides safe incrementing of positions in a file while returning the character at the new position.
   /// Intended use is for traversal loops.
-  member x.TryGetNextChar(pos: FSharp.Compiler.Text.Position): (FSharp.Compiler.Text.Position * char) option =
+  member x.TryGetNextChar(pos: FSharp.Compiler.Text.Position) : (FSharp.Compiler.Text.Position * char) option =
     option {
       let! np = x.NextPos pos
       return np, x.GetCharUnsafe np
     }
 
   /// Provides safe decrementing of a position in the file via FCS-provided Position
-  member x.PrevPos(pos: FSharp.Compiler.Text.Position): FSharp.Compiler.Text.Position option =
+  member x.PrevPos(pos: FSharp.Compiler.Text.Position) : FSharp.Compiler.Text.Position option =
     option {
-      if pos.Column <> 0
-      then
+      if pos.Column <> 0 then
         return Position.mkPos pos.Line (pos.Column - 1)
+      else if pos.Line = 0 then
+        return! None
+      else if getLines.Value.Length > pos.Line - 2 then
+        let prevLine = (x :> ISourceText).GetLineString(pos.Line - 2)
+        // retreat to the end of the previous line
+        return Position.mkPos (pos.Line - 1) (prevLine.Length - 1)
       else
-        if pos.Line = 0
-        then
-          return! None
-        else
-          if getLines.Value.Length > pos.Line - 2
-          then
-            let prevLine = (x :> ISourceText).GetLineString (pos.Line - 2)
-            // retreat to the end of the previous line
-            return Position.mkPos (pos.Line - 1) (prevLine.Length - 1)
-          else
-            return! None
+        return! None
     }
 
   /// Provides safe decrementing of positions in a file while returning the character at the new position.
   /// Intended use is for traversal loops.
-  member x.TryGetPrevChar(pos: FSharp.Compiler.Text.Position): (FSharp.Compiler.Text.Position * char) option =
+  member x.TryGetPrevChar(pos: FSharp.Compiler.Text.Position) : (FSharp.Compiler.Text.Position * char) option =
     option {
       let! np = x.PrevPos pos
       return np, x.GetCharUnsafe np
     }
 
   /// Safe access to the contents of a file by Range
-  member x.Item with get (m: FSharp.Compiler.Text.Range) = x.GetText(m)
-  /// Safe access to the char in a file by Position
-  member x.Item with get (pos: FSharp.Compiler.Text.Position) = x.TryGetChar(pos)
+  member x.Item
+    with get (m: FSharp.Compiler.Text.Range) = x.GetText(m)
 
-  member private x.Walk(start: FSharp.Compiler.Text.Position, (posChange: FSharp.Compiler.Text.Position -> FSharp.Compiler.Text.Position option), terminal, condition) =
+  /// Safe access to the char in a file by Position
+  member x.Item
+    with get (pos: FSharp.Compiler.Text.Position) = x.TryGetChar(pos)
+
+  member private x.Walk
+    (
+      start: FSharp.Compiler.Text.Position,
+      (posChange: FSharp.Compiler.Text.Position -> FSharp.Compiler.Text.Position option),
+      terminal,
+      condition
+    ) =
     /// if the condition is never met, return None
 
     let firstPos = Position.pos0
     let finalPos = x.LastFilePosition
 
-    let rec loop (pos: FSharp.Compiler.Text.Position): FSharp.Compiler.Text.Position option = option {
-      let! charAt = x[pos]
-      do! Option.guard (firstPos <> pos && finalPos <> pos)
-      do! Option.guard (not (terminal charAt))
+    let rec loop (pos: FSharp.Compiler.Text.Position) : FSharp.Compiler.Text.Position option =
+      option {
+        let! charAt = x[pos]
+        do! Option.guard (firstPos <> pos && finalPos <> pos)
+        do! Option.guard (not (terminal charAt))
 
-      if condition charAt
-      then
-        return pos
-      else
-        let! nextPos = posChange pos
-        return! loop nextPos
-    }
+        if condition charAt then
+          return pos
+        else
+          let! nextPos = posChange pos
+          return! loop nextPos
+      }
 
     loop start
 
-  member x.WalkForward(start, terminal, condition) = x.Walk(start, x.NextPos, terminal, condition)
-  member x.WalkBackwards(start, terminal, condition) = x.Walk(start, x.PrevPos, terminal, condition)
+  member x.WalkForward(start, terminal, condition) =
+    x.Walk(start, x.NextPos, terminal, condition)
+
+  member x.WalkBackwards(start, terminal, condition) =
+    x.Walk(start, x.PrevPos, terminal, condition)
 
 
   /// Provides line-by-line access to the underlying text.
@@ -242,40 +261,41 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   interface ISourceText with
 
-      member _.Item with get index = str.[index]
+    member _.Item
+      with get index = str.[index]
 
-      member _.GetLastCharacterPosition() = lastCharPos.Value
+    member _.GetLastCharacterPosition() = lastCharPos.Value
 
-      member _.GetLineString(lineIndex) =
-          getLines.Value.[lineIndex]
+    member _.GetLineString(lineIndex) = getLines.Value.[lineIndex]
 
-      member _.GetLineCount() = getLines.Value.Length
+    member _.GetLineCount() = getLines.Value.Length
 
-      member _.GetSubTextString(start, length) =
-          str.Substring(start, length)
+    member _.GetSubTextString(start, length) = str.Substring(start, length)
 
-      member _.SubTextEquals(target, startIndex) =
-          if startIndex < 0 || startIndex >= str.Length then
-              invalidArg "startIndex" "Out of range."
+    member _.SubTextEquals(target, startIndex) =
+      if startIndex < 0 || startIndex >= str.Length then
+        invalidArg "startIndex" "Out of range."
 
-          if String.IsNullOrEmpty(target) then
-              invalidArg "target" "Is null or empty."
+      if String.IsNullOrEmpty(target) then
+        invalidArg "target" "Is null or empty."
 
-          let lastIndex = startIndex + target.Length
-          if lastIndex <= startIndex || lastIndex >= str.Length then
-              invalidArg "target" "Too big."
+      let lastIndex = startIndex + target.Length
 
-          str.IndexOf(target, startIndex, target.Length) <> -1
+      if lastIndex <= startIndex || lastIndex >= str.Length then
+        invalidArg "target" "Too big."
 
-      member _.Length = str.Length
+      str.IndexOf(target, startIndex, target.Length)
+      <> -1
 
-      member this.ContentEquals(sourceText) =
-          match sourceText with
-          | :? NamedText as sourceText when sourceText = this || sourceText.String = str -> true
-          | _ -> false
+    member _.Length = str.Length
 
-      member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
-          str.CopyTo(sourceIndex, destination, destinationIndex, count)
+    member this.ContentEquals(sourceText) =
+      match sourceText with
+      | :? NamedText as sourceText when sourceText = this || sourceText.String = str -> true
+      | _ -> false
+
+    member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
+      str.CopyTo(sourceIndex, destination, destinationIndex, count)
 
 type VolatileFile =
   { Touched: DateTime
@@ -287,9 +307,10 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
 
   let getContent (filename: string<LocalPath>) =
     fsLogger.debug (
-        Log.setMessage "Getting content of `{path}`"
-        >> Log.addContext "path" filename
-      )
+      Log.setMessage "Getting content of `{path}`"
+      >> Log.addContext "path" filename
+    )
+
     filename
     |> tryFindFile
     |> Option.map (fun file ->
@@ -330,8 +351,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
       r
 
     member _.GetFullPathShim(f: string) =
-      let expanded =
-        Path.FilePathToUri f |> Path.FileUriToLocalPath
+      let expanded = Path.FilePathToUri f |> Path.FileUriToLocalPath
 
       fsLogger.debug (
         Log.setMessage "{path} expanded to {expanded}"
