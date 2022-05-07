@@ -24,6 +24,10 @@ let buildReleaseDir = "src" </> project </>  "bin" </> "Release"
 let pkgsDir = "bin" </> "pkgs"
 let releaseArchiveNetCore = pkgsDir </> "fsautocomplete.netcore.zip"
 
+// Files to format
+let sourceFiles =
+    !! "src/**/*.fs" ++ "src/**/*.fsi" ++ "build.fsx"
+    -- "src/**/obj/**/*.fs"
 
 Target.initEnvironment ()
 
@@ -109,6 +113,37 @@ Target.create "ReplaceFsLibLogNamespaces" <| fun _ ->
     |> Shell.regexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8
   )
 
+Target.create "Format" (fun _ ->
+    let result =
+        sourceFiles
+        |> Seq.map (sprintf "\"%s\"")
+        |> String.concat " "
+        |> DotNet.exec id "fantomas"
+
+    if not result.OK then
+        printfn "Errors while formatting all files: %A" result.Messages)
+
+Target.create "CheckFormat" (fun _ ->
+    let result =
+        sourceFiles
+        |> Seq.map (sprintf "\"%s\"")
+        |> String.concat " "
+        |> sprintf "%s --check"
+        |> DotNet.exec id "fantomas"
+
+    if result.ExitCode = 0 then
+        Trace.log "No files need formatting"
+    elif result.ExitCode = 99 then
+        failwith "Some files need formatting, run `dotnet fake build -t Format` to format them"
+    else
+        Trace.logf "Errors while formatting: %A" result.Errors
+        failwith "Unknown errors while formatting")
+
+Target.create "EnsureRepoConfig" (fun _ ->
+    // Configure custom git hooks
+    // * Currently only used to ensure that code is formatted before pushing
+    Git.CommandHelper.gitCommand "" "config core.hooksPath .githooks")
+
 Target.create "NoOp" ignore
 Target.create "Test" ignore
 Target.create "All" ignore
@@ -174,7 +209,8 @@ Target.create "Promote" ignore
   ==> "ReplaceFsLibLogNamespaces"
   ==> "Build"
 
-"Build"
+"CheckFormat"
+  ==> "Build"
   ==> "LspTest"
   ==> "Coverage"
   ==> "Test"
