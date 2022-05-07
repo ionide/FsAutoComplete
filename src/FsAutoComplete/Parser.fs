@@ -57,7 +57,7 @@ module Parser =
     |> one
 
   let logFilterOption =
-    Option<string []>(
+    Option<string[]>(
       [| "--filter"; "--log-filter" |],
       "Filter logs by category. The category can be seen in the logs inside []. For example: [Compiler]."
     )
@@ -68,7 +68,8 @@ module Parser =
 
   let waitForDebuggerOption =
     Option<bool>(
-      [|"--wait-for-debugger"; "--attachdebugger"|],
+      [| "--wait-for-debugger"
+         "--attachdebugger" |],
       "Stop execution on startup until an external debugger to attach to this process"
     )
     |> zero
@@ -88,7 +89,12 @@ module Parser =
     |> zero
 
   let stateLocationOption =
-    Option<DirectoryInfo>("--state-directory", getDefaultValue = Func<_> (fun () -> DirectoryInfo System.Environment.CurrentDirectory), description = "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location.")
+    Option<DirectoryInfo>(
+      "--state-directory",
+      getDefaultValue = Func<_>(fun () -> DirectoryInfo System.Environment.CurrentDirectory),
+      description =
+        "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location."
+    )
 
   let rootCommand =
     let rootCommand = RootCommand("An F# LSP server implementation")
@@ -104,17 +110,27 @@ module Parser =
     rootCommand.AddOption stateLocationOption
 
     rootCommand.SetHandler(
-      Func<_,_,_,Task>(fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
+      Func<_, _, _, Task> (fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
         let workspaceLoaderFactory =
-          if projectGraphEnabled then Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
-          else Ionide.ProjInfo.WorkspaceLoader.Create
+          if projectGraphEnabled then
+            Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
+          else
+            Ionide.ProjInfo.WorkspaceLoader.Create
 
-        let toolsPath = Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) None
+        let toolsPath =
+          Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) None
+
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-        let result = Lsp.start backgroundServiceEnabled toolsPath stateDirectory workspaceLoaderFactory
 
-        Task.FromResult result
-      ), backgroundServiceOption, projectGraphOption, stateLocationOption)
+        let result =
+          Lsp.start backgroundServiceEnabled toolsPath stateDirectory workspaceLoaderFactory
+
+        Task.FromResult result),
+      backgroundServiceOption,
+      projectGraphOption,
+      stateLocationOption
+    )
+
     rootCommand
 
   let waitForDebugger =
@@ -131,8 +147,7 @@ module Parser =
       let attachDebugger = ctx.ParseResult.HasOption attachOption
 
       if attachDebugger then
-        Diagnostics.Debugger.Launch()
-        |> ignore<bool>
+        Diagnostics.Debugger.Launch() |> ignore<bool>
 
       next.Invoke(ctx))
 

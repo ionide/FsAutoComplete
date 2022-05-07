@@ -109,10 +109,13 @@ let private toPosSeq (range: FSharp.Compiler.Text.Range, text: NamedText) =
     match text.NextPos currentPos with
     | None -> None
     | Some nextPos ->
-      if FSharp.Compiler.Text.Range.rangeContainsPos range nextPos then Some (currentPos, nextPos) else None
-  )
+      if FSharp.Compiler.Text.Range.rangeContainsPos range nextPos then
+        Some(currentPos, nextPos)
+      else
+        None)
 
 let title = "Convert to named patterns"
+
 let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
   fun codeActionParams ->
     asyncResult {
@@ -142,34 +145,37 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         |> List.map (fun f -> f.Name)
 
       let notInsidePatterns =
-        let ranges =
-          duFields
-          |> List.map (fun f -> f.Range)
+        let ranges = duFields |> List.map (fun f -> f.Range)
 
         fun (pos: FSharp.Compiler.Text.Position) ->
           ranges
-          |> List.forall (fun r -> not(FSharp.Compiler.Text.Range.rangeContainsPos r pos))
+          |> List.forall (fun r -> not (FSharp.Compiler.Text.Range.rangeContainsPos r pos))
 
 
       let commasBetweenFields =
-          toPosSeq (parenRange, sourceText)
-          |> Seq.filter notInsidePatterns
-          |> Seq.filter (fun pos ->
-            sourceText.GetCharUnsafe pos = ','
-          )
+        toPosSeq (parenRange, sourceText)
+        |> Seq.filter notInsidePatterns
+        |> Seq.filter (fun pos -> sourceText.GetCharUnsafe pos = ',')
 
       let removeCommaEdits =
         commasBetweenFields
         |> Seq.map (fun pos ->
-          let startPos = fcsPosToLsp (FSharp.Compiler.Text.Position.mkPos pos.Line (pos.Column - 1))
+          let startPos =
+            fcsPosToLsp (FSharp.Compiler.Text.Position.mkPos pos.Line (pos.Column - 1))
+
           let endPos = fcsPosToLsp pos
-          { NewText = ""; Range = { Start = startPos; End = endPos } }
-        )
+
+          { NewText = ""
+            Range = { Start = startPos; End = endPos } })
         |> Seq.toArray
 
       let! patternEdits =
         match (duFields, allFieldNames) with
-        | MatchedFields pairs -> pairs |> List.collect createEdit |> List.toArray |> Ok
+        | MatchedFields pairs ->
+          pairs
+          |> List.collect createEdit
+          |> List.toArray
+          |> Ok
 
         | UnmatchedFields (pairs, leftover) ->
           result {
@@ -190,7 +196,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
       match patternEdits with
       | [||] -> return []
       | patternEdits ->
-        let allEdits = Array.append patternEdits removeCommaEdits |> Array.sortBy (fun e -> e.Range)
+        let allEdits =
+          Array.append patternEdits removeCommaEdits
+          |> Array.sortBy (fun e -> e.Range)
+
         return
           [ { Edits = allEdits
               File = codeActionParams.TextDocument

@@ -45,7 +45,9 @@ type FormatDocumentResponse =
   | Error of string
 
 /// Represents a desired change to a given file
-type DocumentEdit = { InsertPosition: pos; InsertText: string }
+type DocumentEdit =
+  { InsertPosition: pos
+    InsertText: string }
 
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
@@ -72,17 +74,17 @@ module AsyncResult =
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
-  | ParseError of errors: FSharpDiagnostic [] * file: string<LocalPath>
+  | ParseError of errors: FSharpDiagnostic[] * file: string<LocalPath>
   | Workspace of ProjectSystem.ProjectResponse
-  | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message [] * file: string<LocalPath>
-  | UnusedOpens of file: string<LocalPath> * opens: Range []
+  | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath>
+  | UnusedOpens of file: string<LocalPath> * opens: Range[]
   // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
-  | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool) []
-  | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange []
+  | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
+  | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[]
   | Canceled of errorMessage: string
   | Diagnostics of Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams
   | FileParsed of string<LocalPath>
-  | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range> []
+  | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
 type Commands
   (
@@ -94,8 +96,7 @@ type Commands
   ) =
   let fileParsed = Event<FSharpParseFileResults>()
 
-  let fileChecked =
-    Event<ParseAndCheckResults * string<LocalPath> * int>()
+  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
 
   let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
@@ -112,14 +113,13 @@ type Commands
   let fileStateSet = Event<unit>()
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
-  let checkerLogger =
-    LogProvider.getLoggerByName "CheckerEvents"
+  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
 
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
   // given an enveloping range and the sub-ranges it overlaps, split out the enveloping range into a
   // set of range segments that are non-overlapping with the children
-  let segmentRanges (parentRange: Range) (childRanges: Range []) : Range [] =
+  let segmentRanges (parentRange: Range) (childRanges: Range[]) : Range[] =
     let firstSegment =
       Range.mkRange parentRange.FileName parentRange.Start childRanges.[0].Start
 
@@ -241,8 +241,7 @@ type Commands
   do
     disposables.Add
     <| fileParsed.Publish.Subscribe (fun parseRes ->
-      let decls =
-        parseRes.GetNavigationItems().Declarations
+      let decls = parseRes.GetNavigationItems().Declarations
       // string<LocalPath> is a compiler-approved path, and since this structure comes from the compiler it's safe
       state.NavigationDeclarations.[UMX.tag parseRes.FileName] <- decls)
 
@@ -288,11 +287,9 @@ type Commands
           NotificationEvent.FileParsed file
           |> notify.Trigger
 
-          let checkErrors =
-            parseAndCheck.GetParseResults.Diagnostics
+          let checkErrors = parseAndCheck.GetParseResults.Diagnostics
 
-          let parseErrors =
-            parseAndCheck.GetCheckResults.Diagnostics
+          let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
 
           let errors =
             Array.append checkErrors parseErrors
@@ -367,26 +364,44 @@ type Commands
       }
       |> Async.Start)
 
-    do disposables.Add <| fileParsed.Publish.Subscribe (fun parseResults ->
-      commandsLogger.info (Log.setMessage "Test Detection of {file} started" >> Log.addContextDestructured "file" parseResults.FileName)
-      let fn = UMX.tag parseResults.FileName
-      match state.GetProjectOptions fn with
-      | None ->
-        commandsLogger.info (Log.setMessage "Test Detection of {file} - no project file" >> Log.addContextDestructured "file" parseResults.FileName)
-      | Some proj ->
-        let res =
-          if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
-            TestAdapter.getExpectoTests parseResults.ParseTree
-          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
-            TestAdapter.getNUnitTest parseResults.ParseTree
-          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
-            TestAdapter.getXUnitTest parseResults.ParseTree
-          else
-            []
-        commandsLogger.info (Log.setMessage "Test Detection of {file} - {res}" >> Log.addContextDestructured "file" parseResults.FileName >> Log.addContextDestructured "res" res)
-        NotificationEvent.TestDetected (fn, res |> List.toArray)
-        |> notify.Trigger
-    )
+    do
+      disposables.Add
+      <| fileParsed.Publish.Subscribe (fun parseResults ->
+        commandsLogger.info (
+          Log.setMessage "Test Detection of {file} started"
+          >> Log.addContextDestructured "file" parseResults.FileName
+        )
+
+        let fn = UMX.tag parseResults.FileName
+
+        match state.GetProjectOptions fn with
+        | None ->
+          commandsLogger.info (
+            Log.setMessage "Test Detection of {file} - no project file"
+            >> Log.addContextDestructured "file" parseResults.FileName
+          )
+        | Some proj ->
+          let res =
+            if proj.OtherOptions
+               |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+              TestAdapter.getExpectoTests parseResults.ParseTree
+            elif proj.OtherOptions
+                 |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+              TestAdapter.getNUnitTest parseResults.ParseTree
+            elif proj.OtherOptions
+                 |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+              TestAdapter.getXUnitTest parseResults.ParseTree
+            else
+              []
+
+          commandsLogger.info (
+            Log.setMessage "Test Detection of {file} - {res}"
+            >> Log.addContextDestructured "file" parseResults.FileName
+            >> Log.addContextDestructured "res" res
+          )
+
+          NotificationEvent.TestDetected(fn, res |> List.toArray)
+          |> notify.Trigger)
 
   let parseFilesInTheBackground files =
     async {
@@ -455,9 +470,7 @@ type Commands
       GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
 
   let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
-    let getLine (p: Position) =
-        getLine p
-        |> Option.defaultValue ""
+    let getLine (p: Position) = getLine p |> Option.defaultValue ""
 
     let idents = decl.FullName.Split '.'
 
@@ -465,7 +478,7 @@ type Commands
     |> Option.bind (fun n ->
       state.CurrentAST
       |> Option.map (fun ast ->
-        ParsedInput.FindNearestPointToInsertOpenDeclaration(pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
+        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
       |> Option.map (fun ic ->
         //TODO: unite with `CodeFix/ResolveNamespace`
         //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
@@ -497,8 +510,8 @@ type Commands
         // adjust column
         let pos =
           match pos with
-          | Pos(0, c) -> pos
-          | Pos(l, 0) ->
+          | Pos (0, c) -> pos
+          | Pos (l, 0) ->
             let prev = getLine (pos.DecLine())
             let indentation = detectIndentation prev
 
@@ -507,7 +520,7 @@ type Commands
               Position.mkPos l indentation
             else
               pos
-          | Pos(_, c) -> pos
+          | Pos (_, c) -> pos
 
         { Namespace = n
           Position = pos
@@ -531,8 +544,7 @@ type Commands
     }
     |> Async.Start
 
-  let fantomasService: FantomasService =
-    new LSPFantomasService() :> FantomasService
+  let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
   do disposables.Add fantomasService
 
@@ -542,8 +554,7 @@ type Commands
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
         let controller = state.ProjectController
-        let opts =
-          controller.GetProjectOptionsForFsproj p.ProjectFileName
+        let opts = controller.GetProjectOptionsForFsproj p.ProjectFileName
 
         if not isFromCache then
           opts
@@ -552,7 +563,9 @@ type Commands
               Log.setMessage "Sending project {project} update"
               >> Log.addContextDestructured "project" p.ProjectFileName
             )
+
             backgroundService.UpdateProject(p.ProjectFileName, opts))
+
           p.ProjectItems
           |> List.choose (function
             | ProjectViewerItem.Compile (p, _) -> Some(Utils.normalizePath p))
@@ -568,10 +581,8 @@ type Commands
   //Initialize background service when the workspace is ready.
   do
     disposables.Add
-    <| state.ProjectController.WorkspaceReady.Subscribe(fun _ ->
-      commandsLogger.info (
-        Log.setMessage "Workspace ready - sending init request to background service"
-      )
+    <| state.ProjectController.WorkspaceReady.Subscribe (fun _ ->
+      commandsLogger.info (Log.setMessage "Workspace ready - sending init request to background service")
       backgroundService.InitWorkspace(state.WorkspaceStateDirectory.FullName))
 
 
@@ -674,8 +685,7 @@ type Commands
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
 
-        let newFilePath =
-          Path.Combine(dir, virtPathDir, newFileName)
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
 
         (File.Open(newFilePath, FileMode.OpenOrCreate))
           .Close()
@@ -693,8 +703,7 @@ type Commands
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
 
-        let newFilePath =
-          Path.Combine(dir, virtPathDir, newFileName)
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
 
         (File.Open(newFilePath, FileMode.OpenOrCreate))
           .Close()
@@ -794,8 +803,7 @@ type Commands
               do state.SetLastCheckedVersion fileName version
               do fileChecked.Trigger(parseAndCheck, fileName, version)
 
-              let errors =
-                Array.append results.Diagnostics parseResult.Diagnostics
+              let errors = Array.append results.Diagnostics parseResult.Diagnostics
 
               CoreResponse.Res(errors, fileName)
         }
@@ -869,8 +877,7 @@ type Commands
         | ResultOrString.Ok text ->
           let files = Array.singleton (UMX.untag file)
 
-          let parseOptions =
-            { FSharpParsingOptions.Default with SourceFiles = files }
+          let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files }
 
           let! decls = checker.GetDeclarations(file, text, parseOptions, version)
           let decls = decls |> Array.map (fun a -> a, file)
@@ -878,15 +885,13 @@ type Commands
       | ResultOrString.Error _, Some text ->
         let files = Array.singleton (UMX.untag file)
 
-        let parseOptions =
-          { FSharpParsingOptions.Default with SourceFiles = files }
+        let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files }
 
         let! decls = checker.GetDeclarations(file, text, parseOptions, version)
         let decls = decls |> Array.map (fun a -> a, file)
         return CoreResponse.Res decls
       | ResultOrString.Ok (checkOptions, text), _ ->
-        let parseOptions =
-          Utils.projectOptionsToParseOptions checkOptions
+        let parseOptions = Utils.projectOptionsToParseOptions checkOptions
 
         let! decls = checker.GetDeclarations(file, text, parseOptions, version)
 
@@ -1029,43 +1034,59 @@ type Commands
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
   /// for a given member, use its signature information to generate placeholder XML documentation strings.
-    /// calculates the required indent and gives the position to insert the text.
-    member x.GenerateXmlDocumentation (tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
-      asyncResult {
-        let trimmed = lineStr.TrimStart(' ')
-        let indentLength = lineStr.Length - trimmed.Length
-        let indentString = String.replicate indentLength " "
-        let! (_, memberParameters, genericParameters) = x.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
-        let summarySection = "/// <summary></summary>"
-        let parameterSection (name, _type) = $"/// <param name=\"%s{name}\"></param>"
-        let genericArg name = $"/// <typeparam name=\"'%s{name}\"></typeparam>"
-        let returnsSection = "/// <returns></returns>"
-        let formattedXmlDoc =
-          seq {
-              yield summarySection
-              match memberParameters with
-              | [] -> ()
-              | parameters ->
-                yield!
-                  parameters
-                  |> List.concat
-                  |> List.mapi (fun _index parameter -> parameterSection parameter)
-              match genericParameters with
-              | [] -> ()
-              | generics ->
-                yield!
-                  generics
-                  |> List.mapi (fun _index generic -> genericArg generic)
-              yield returnsSection
-           }
-           |> Seq.map (fun s -> indentString + s)
-           |> String.concat Environment.NewLine
-           |> fun s -> s + Environment.NewLine // need a newline at the very end
+  /// calculates the required indent and gives the position to insert the text.
+  member x.GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
+    asyncResult {
+      let trimmed = lineStr.TrimStart(' ')
+      let indentLength = lineStr.Length - trimmed.Length
+      let indentString = String.replicate indentLength " "
 
-        // always insert at the start of the line, because we've prepended the indent to the start of the summary section
-        let insertPosition = Position.mkPos triggerPosition.Line 0
-        return { InsertPosition = insertPosition; InsertText = formattedXmlDoc }
-      }
+      let! (_, memberParameters, genericParameters) =
+        x.SignatureData tyRes triggerPosition lineStr
+        |> Result.ofCoreResponse
+
+      let summarySection = "/// <summary></summary>"
+
+      let parameterSection (name, _type) =
+        $"/// <param name=\"%s{name}\"></param>"
+
+      let genericArg name =
+        $"/// <typeparam name=\"'%s{name}\"></typeparam>"
+
+      let returnsSection = "/// <returns></returns>"
+
+      let formattedXmlDoc =
+        seq {
+          yield summarySection
+
+          match memberParameters with
+          | [] -> ()
+          | parameters ->
+            yield!
+              parameters
+              |> List.concat
+              |> List.mapi (fun _index parameter -> parameterSection parameter)
+
+          match genericParameters with
+          | [] -> ()
+          | generics ->
+            yield!
+              generics
+              |> List.mapi (fun _index generic -> genericArg generic)
+
+          yield returnsSection
+        }
+        |> Seq.map (fun s -> indentString + s)
+        |> String.concat Environment.NewLine
+        |> fun s -> s + Environment.NewLine // need a newline at the very end
+
+      // always insert at the start of the line, because we've prepended the indent to the start of the summary section
+      let insertPosition = Position.mkPos triggerPosition.Line 0
+
+      return
+        { InsertPosition = insertPosition
+          InsertText = formattedXmlDoc }
+    }
 
   member x.SymbolUseProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     async {
@@ -1182,8 +1203,7 @@ type Commands
         | None -> return CoreResponse.InfoRes "EntityKind not found"
         | Some entityKind ->
 
-          let symbol =
-            Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
 
           match symbol with
           | None -> return CoreResponse.InfoRes "Symbol at position not found"
@@ -1217,8 +1237,7 @@ type Commands
               |> List.collect (fun e ->
                 [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
                   if isAttribute then
-                    let lastIdent =
-                      e.CleanedIdents.[e.CleanedIdents.Length - 1]
+                    let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
 
                     if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
                        && lastIdent.EndsWith "Attribute" then
@@ -1238,8 +1257,7 @@ type Commands
 
             let word = sym.Text
 
-            let candidates =
-              entities |> Seq.collect createEntity |> Seq.toList
+            let candidates = entities |> Seq.collect createEntity |> Seq.toList
 
             let openNamespace =
               candidates
@@ -1297,8 +1315,7 @@ type Commands
       | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
 
         if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
-          let result =
-            formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
+          let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
 
           return CoreResponse.Res(result, insertionPos.InsertionPos)
         else
@@ -1316,8 +1333,7 @@ type Commands
       | None -> return CoreResponse.InfoRes "Record at position not found"
       | Some (recordEpr, (Some recordDefinition), insertionPos) ->
         if shouldGenerateRecordStub recordEpr recordDefinition then
-          let result =
-            formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
+          let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
 
           let pos =
             Position.mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
@@ -1355,8 +1371,7 @@ type Commands
 
   member x.WorkspacePeek (dir: string) (deep: int) (excludedDirs: string list) =
     async {
-      let d =
-        state.ProjectController.PeekWorkspace(dir, deep, excludedDirs)
+      let d = state.ProjectController.PeekWorkspace(dir, deep, excludedDirs)
 
       return CoreResponse.Res d
     }
@@ -1391,14 +1406,12 @@ type Commands
 
       let! (opts, source) = state.TryGetFileCheckerOptionsWithSource file
 
-      let tyResOpt =
-        checker.TryGetRecentCheckResultsForFile(file, opts, source)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
       match tyResOpt with
       | None -> ()
       | Some tyRes ->
-        let allUses =
-          tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
+        let allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
 
         let unused =
           UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
@@ -1412,13 +1425,14 @@ type Commands
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      let tyResOpt =
-        checker.TryGetRecentCheckResultsForFile(file, opts, source)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
       match tyResOpt with
       | None -> ()
       | Some tyRes ->
-        let getSourceLine lineNo = (source :> ISourceText).GetLineString(lineNo - 1)
+        let getSourceLine lineNo =
+          (source :> ISourceText).GetLineString(lineNo - 1)
+
         let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
         let simplified = Array.ofSeq simplified
         notify.Trigger(NotificationEvent.SimplifyNames(file, simplified))
@@ -1434,7 +1448,9 @@ type Commands
       match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
       | None -> return ()
       | Some tyRes ->
-        let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
+        let! unused =
+          UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
+
         notify.Trigger(NotificationEvent.UnusedOpens(file, (unused |> List.toArray)))
 
     }
@@ -1552,8 +1568,7 @@ type Commands
     asyncOption {
       let! res = x.TryGetRecentTypeCheckResultsForFile file
 
-      let r =
-        res.GetCheckResults.GetSemanticClassification(range)
+      let r = res.GetCheckResults.GetSemanticClassification(range)
 
       let filteredRanges = scrubRanges r
       return CoreResponse.Res filteredRanges
@@ -1582,8 +1597,8 @@ type Commands
   //     return CoreResponse.Res html
   //   }
 
-  member _.InlayHints (text, tyRes: ParseAndCheckResults, range) =
-    FsAutoComplete.Core.InlayHints.provideHints(text, tyRes, range)
+  member _.InlayHints(text, tyRes: ParseAndCheckResults, range) =
+    FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range)
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
     result {
@@ -1593,9 +1608,7 @@ type Commands
         option {
           let! lineStr = contents.GetLine pos
 
-          let! tip =
-            tyRes.TryGetToolTip pos lineStr
-            |> Option.ofResult
+          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
 
           return TipFormatter.extractGenericParameters tip
         }
@@ -1620,8 +1633,7 @@ type Commands
         | _ -> None
 
       let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
-        let isCommentOrWhitespace =
-          areTokensCommentOrWhitespace currentTokens
+        let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
 
         let isPipe = getStartingPipe currentTokens
 

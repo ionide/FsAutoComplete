@@ -96,7 +96,9 @@ type ParseAndCheckResults
           )
 
       /// these are all None because you can't easily get the source file from the external symbol information here.
-      let tryGetSourceRangeForSymbol (sym: FindDeclExternalSymbol) : (string<NormalizedRepoPathSegment> * Position) option =
+      let tryGetSourceRangeForSymbol
+        (sym: FindDeclExternalSymbol)
+        : (string<NormalizedRepoPathSegment> * Position) option =
         match sym with
         | FindDeclExternalSymbol.Type name -> None
         | FindDeclExternalSymbol.Constructor (typeName, args) -> None
@@ -117,7 +119,9 @@ type ParseAndCheckResults
           )
         | Some (col, identIsland) ->
           let identIsland = Array.toList identIsland
-          let symbolUse = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+
+          let symbolUse =
+            checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
           match symbolUse with
           | None ->
@@ -126,8 +130,7 @@ type ParseAndCheckResults
             )
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
-            | Some fullFilePath ->
-              Ok(UMX.tag<LocalPath> fullFilePath, getFileName rangeInNonexistentFile)
+            | Some fullFilePath -> Ok(UMX.tag<LocalPath> fullFilePath, getFileName rangeInNonexistentFile)
             | None ->
               ResultOrString.Error(
                 sprintf
@@ -217,7 +220,9 @@ type ParseAndCheckResults
       | None -> return Error "Cannot find ident at this location"
       | Some (col, identIsland) ->
         let identIsland = Array.toList identIsland
-        let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+
+        let symbol =
+          checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
         match symbol with
         | None -> return Error "Cannot find symbol at this location"
@@ -318,10 +323,7 @@ type ParseAndCheckResults
         checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
-      | ToolTipText (elems) when
-        elems
-        |> List.forall ((=) ToolTipElement.None)
-        ->
+      | ToolTipText (elems) when elems |> List.forall ((=) ToolTipElement.None) ->
         match identIsland with
         | [ ident ] ->
           match KeywordList.keywordTooltips.TryGetValue ident with
@@ -343,12 +345,12 @@ type ParseAndCheckResults
         let tip =
           checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
-        let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+        let symbol =
+          checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
         match tip with
         | ToolTipText (elems) when
-          elems
-          |> List.forall ((=) ToolTipElement.None)
+          elems |> List.forall ((=) ToolTipElement.None)
           && symbol.IsNone
           ->
           match identIsland with
@@ -377,14 +379,15 @@ type ParseAndCheckResults
     | Some (col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
-      let tip = checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+      let tip =
+        checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
-      let symbol = checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+      let symbol =
+        checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
       match tip with
       | ToolTipText (elems) when
-        elems
-        |> List.forall ((=) ToolTipElement.None)
+        elems |> List.forall ((=) ToolTipElement.None)
         && symbol.IsNone
         ->
         match identIsland with
@@ -475,14 +478,7 @@ type ParseAndCheckResults
       match DocumentationFormatter.getTooltipDetailsFromSymbol symbol with
       | None -> Error "No tooltip information"
       | Some (signature, footer, cn) ->
-        Ok(
-          symbol.XmlDocSig,
-          symbol.Assembly.FileName |> Option.defaultValue "",
-          symbol.XmlDoc,
-          signature,
-          footer,
-          cn
-        )
+        Ok(symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc, signature, footer, cn)
 
   member __.TryGetSymbolUse (pos: Position) (lineStr: LineStr) : FSharpSymbolUse option =
     match Lexer.findLongIdents (pos.Column, lineStr) with
@@ -506,7 +502,9 @@ type ParseAndCheckResults
     | Some (colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
-      let symboluse = checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+
+      let symboluse =
+        checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
       match symboluse with
       | None -> ResultOrString.Error "No symbol information found"
@@ -562,13 +560,13 @@ type ParseAndCheckResults
   member x.TryGetCompletions (pos: Position) (lineStr: LineStr) filter (getAllSymbols: unit -> AssemblySymbol list) =
     async {
       let completionContext = Completion.atPos (pos, x.GetParseResults.ParseTree)
+
       match completionContext with
       | Completion.Context.StringLiteral -> return None
       | Completion.Context.Unknown
       | Completion.Context.SynType ->
         try
-          let longName =
-            QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
+          let longName = QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
 
           let residue = longName.PartialIdent
 
@@ -581,11 +579,13 @@ type ParseAndCheckResults
             getAllSymbols ()
             |> List.filter (fun entity ->
               // Attempt to filter to types when we know we're in a type and FCS uses all symbols
-              (completionContext <> Completion.Context.SynType || entity.Kind LookupType.Fuzzy = EntityKind.Type)
+              (completionContext <> Completion.Context.SynType
+               || entity.Kind LookupType.Fuzzy = EntityKind.Type)
               && entity.FullName.Contains "."
               && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
 
-          let token = Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.ForCompletion [||]
+          let token =
+            Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.ForCompletion [||]
 
           logger.info (
             Log.setMessage "TryGetCompletions - token: {token}"
@@ -605,6 +605,7 @@ type ParseAndCheckResults
 
             let results =
               checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
+
             let getKindPriority =
               function
               | CompletionItemKind.CustomOperation -> -1
@@ -680,9 +681,7 @@ type ParseAndCheckResults
     try
       let res =
         [ yield!
-            AssemblyContent.GetAssemblySignatureContent
-              AssemblyContentType.Full
-              checkResults.PartialAssemblySignature
+            AssemblyContent.GetAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
           let ctx = checkResults.ProjectContext
 
           let assembliesByFileName =
@@ -692,7 +691,11 @@ type ParseAndCheckResults
           // get Content.Entities from it.
 
           for fileName, signatures in assembliesByFileName do
-            let contentType = if publicOnly then AssemblyContentType.Public else AssemblyContentType.Full
+            let contentType =
+              if publicOnly then
+                AssemblyContentType.Public
+              else
+                AssemblyContentType.Full
 
             let content =
               AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
@@ -703,7 +706,8 @@ type ParseAndCheckResults
     with
     | _ -> []
 
-  member __.GetAllSymbolUsesInFile() = checkResults.GetAllUsesOfAllSymbolsInFile()
+  member __.GetAllSymbolUsesInFile() =
+    checkResults.GetAllUsesOfAllSymbolsInFile()
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
 

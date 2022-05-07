@@ -190,7 +190,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       visitExpr parent body
     | SynExpr.Record (_, _, fields, _) ->
       fields
-      |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
+      |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr)
       |> List.iter (visitExpr parent)
     | SynExpr.MatchLambda (_, _, clauses, _, _) -> visitMatches parent clauses
     | SynExpr.ObjExpr (bindings = bindings) -> visitBindindgs parent bindings
@@ -249,7 +249,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
   let getName =
     function
     | SynPat.Named (ident = name) -> name.idText
-    | SynPat.LongIdent (longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> fun n -> n.idText
+    | SynPat.LongIdent(longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> (fun n -> n.idText)
     | _ -> ""
 
   let rec visitMember (parent: TestAdapterEntry<range>) =
@@ -388,7 +388,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
   let getName =
     function
     | SynPat.Named (ident = name) -> name.idText
-    | SynPat.LongIdent (longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> fun n -> n.idText
+    | SynPat.LongIdent(longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> (fun n -> n.idText)
     | _ -> ""
 
   let rec visitMember (parent: TestAdapterEntry<range>) =

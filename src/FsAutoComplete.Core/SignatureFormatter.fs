@@ -37,7 +37,8 @@ module SignatureFormatter =
                  "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
                  "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" ]
 
-  let private isMeasureType (t: FSharpEntity) = Set.contains t.FullName measureTypeNames
+  let private isMeasureType (t: FSharpEntity) =
+    Set.contains t.FullName measureTypeNames
 
   let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
     let context = context.WithPrefixGenericParameters()
@@ -128,13 +129,18 @@ module SignatureFormatter =
                 yield asGenericParamName param
 
               yield " -> "
-              yield ((formatFSharpType displayContext c.MemberReturnType).TrimStart())
+
+              yield
+                ((formatFSharpType displayContext c.MemberReturnType)
+                  .TrimStart())
         }
         |> String.concat ""
 
-      let typeConstraint (tc: FSharpType) = sprintf ":> %s" (formatFSharpType displayContext tc)
+      let typeConstraint (tc: FSharpType) =
+        sprintf ":> %s" (formatFSharpType displayContext tc)
 
-      let enumConstraint (ec: FSharpType) = sprintf "enum<%s>" (formatFSharpType displayContext ec)
+      let enumConstraint (ec: FSharpType) =
+        sprintf "enum<%s>" (formatFSharpType displayContext ec)
 
       let delegateConstraint (tc: FSharpGenericParameterDelegateConstraint) =
         sprintf
@@ -262,7 +268,8 @@ module SignatureFormatter =
 
     let retTypeConstraint =
       if func.ReturnParameter.Type.IsGenericParameter then
-        let formattedParam = formatGenericParameter false displayContext func.ReturnParameter.Type.GenericParameter
+        let formattedParam =
+          formatGenericParameter false displayContext func.ReturnParameter.Type.GenericParameter
 
         if String.IsNullOrWhiteSpace formattedParam then
           formattedParam
@@ -271,7 +278,7 @@ module SignatureFormatter =
       else
         ""
 
-    let safeParameterName (p: FSharpParameter) = 
+    let safeParameterName (p: FSharpParameter) =
       match Option.defaultValue p.DisplayNameCore p.Name with
       | "" -> ""
       | name -> FSharpKeywords.AddBackticksToIdentifierIfNeeded name
@@ -356,7 +363,8 @@ module SignatureFormatter =
               " "
 
           let paramConstraint =
-            let formattedParam = formatGenericParameter false displayContext p.Type.GenericParameter
+            let formattedParam =
+              formatGenericParameter false displayContext p.Type.GenericParameter
 
             if String.IsNullOrWhiteSpace formattedParam then
               formattedParam
@@ -561,7 +569,8 @@ module SignatureFormatter =
     let constraints =
       match v.FullTypeSafe with
       | Some fulltype when fulltype.IsGenericParameter ->
-        let formattedParam = formatGenericParameter false displayContext fulltype.GenericParameter
+        let formattedParam =
+          formatGenericParameter false displayContext fulltype.GenericParameter
 
         if String.IsNullOrWhiteSpace formattedParam then
           None
@@ -764,7 +773,8 @@ module SignatureFormatter =
       typeDisplay + typeTip ()
 
   let footerForType (entity: FSharpSymbolUse) =
-    let formatFooter (fullName, assyName) = $"Full name: %s{fullName}{nl}Assembly: %s{assyName}"
+    let formatFooter (fullName, assyName) =
+      $"Full name: %s{fullName}{nl}Assembly: %s{assyName}"
 
     let valFooterData =
       try

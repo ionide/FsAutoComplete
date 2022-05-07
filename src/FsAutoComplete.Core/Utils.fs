@@ -58,8 +58,7 @@ module ProcessHelper =
 
       let! token = Async.CancellationToken
 
-      let _registered =
-        token.Register(fun _ -> tcs.SetCanceled())
+      let _registered = token.Register(fun _ -> tcs.SetCanceled())
 
       let! _ = tcs.Task |> Async.AwaitTask
       ()
@@ -74,12 +73,15 @@ type ProjectFilePath = string
 type SourceFilePath = string
 type FilePath = string
 type LineStr = string
+
 /// OS-local, normalized path
 [<Measure>]
 type LocalPath
+
 /// An HTTP url
 [<Measure>]
 type Url
+
 /// OS-Sensitive path segment from some repository root
 [<Measure>]
 type RepoPathSegment
@@ -193,7 +195,7 @@ module Async =
   [<RequireQualifiedAccess>]
   module Array =
     /// Async implementation of Array.map.
-    let map (mapping: 'T -> Async<'U>) (array: 'T []) : Async<'U []> =
+    let map (mapping: 'T -> Async<'U>) (array: 'T[]) : Async<'U[]> =
       let len = Array.length array
       let result = Array.zeroCreate len
 
@@ -358,7 +360,7 @@ module Array =
   /// Optimized arrays equality. ~100x faster than `array1 = array2` on strings.
   /// ~2x faster for floats
   /// ~0.8x slower for ints
-  let inline areEqual (xs: 'T []) (ys: 'T []) =
+  let inline areEqual (xs: 'T[]) (ys: 'T[]) =
     match xs, ys with
     | null, null -> true
     | [||], [||] -> true
@@ -381,14 +383,13 @@ module Array =
 
 
   /// Fold over the array passing the index and element at that index to a folding function
-  let foldi (folder: 'State -> int -> 'T -> 'State) (state: 'State) (array: 'T []) =
+  let foldi (folder: 'State -> int -> 'T -> 'State) (state: 'State) (array: 'T[]) =
     checkNonNull "array" array
 
     if array.Length = 0 then
       state
     else
-      let folder =
-        OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt folder
+      let folder = OptimizedClosures.FSharpFunc<_, _, _, _>.Adapt folder
 
       let mutable state: 'State = state
       let len = array.Length
@@ -400,9 +401,9 @@ module Array =
 
   /// Returns all heads of a given array.
   /// For [|1;2;3|] it returns [|[|1; 2; 3|]; [|1; 2|]; [|1|]|]
-  let heads (array: 'T []) =
+  let heads (array: 'T[]) =
     checkNonNull "array" array
-    let res = Array.zeroCreate<'T []> array.Length
+    let res = Array.zeroCreate<'T[]> array.Length
 
     for i = array.Length - 1 downto 0 do
       res.[i] <- array.[0..i]
@@ -411,7 +412,7 @@ module Array =
 
   /// check if subArray is found in the wholeArray starting
   /// at the provided index
-  let inline isSubArray (subArray: 'T []) (wholeArray: 'T []) index =
+  let inline isSubArray (subArray: 'T[]) (wholeArray: 'T[]) index =
     if isNull subArray || isNull wholeArray then
       false
     elif subArray.Length = 0 then
@@ -432,14 +433,14 @@ module Array =
       loop 0 index
 
   /// Returns true if one array has another as its subset from index 0.
-  let startsWith (prefix: _ []) (whole: _ []) = isSubArray prefix whole 0
+  let startsWith (prefix: _[]) (whole: _[]) = isSubArray prefix whole 0
 
   /// Returns true if one array has trailing elements equal to another's.
-  let endsWith (suffix: _ []) (whole: _ []) =
+  let endsWith (suffix: _[]) (whole: _[]) =
     isSubArray suffix whole (whole.Length - suffix.Length)
 
   /// Returns a new array with an element replaced with a given value.
-  let replace index value (array: _ []) =
+  let replace index value (array: _[]) =
     checkNonNull "array" array
 
     if index >= array.Length then
@@ -450,7 +451,7 @@ module Array =
     res
 
   /// pass an array byref to reverse it in place
-  let revInPlace (array: 'T []) =
+  let revInPlace (array: 'T[]) =
     checkNonNull "array" array
 
     if areEqual array [||] then
@@ -458,20 +459,20 @@ module Array =
     else
       let arrlen, revlen = array.Length - 1, array.Length / 2 - 1
 
-      for idx in 0 .. revlen do
+      for idx in 0..revlen do
         let t1 = array.[idx]
         let t2 = array.[arrlen - idx]
         array.[idx] <- t2
         array.[arrlen - idx] <- t1
 
-  let splitAt (n: int) (xs: 'a []) : 'a [] * 'a [] =
+  let splitAt (n: int) (xs: 'a[]) : 'a[] * 'a[] =
     match xs with
     | [||]
     | [| _ |] -> xs, [||]
     | _ when n >= xs.Length || n < 0 -> xs, [||]
-    | _ -> xs.[0..n - 1], xs.[n..]
+    | _ -> xs.[0 .. n - 1], xs.[n..]
 
-  let partitionResults (xs: _ []) =
+  let partitionResults (xs: _[]) =
     let oks = ResizeArray(xs.Length)
     let errors = ResizeArray(xs.Length)
 
@@ -557,7 +558,7 @@ module String =
   let splitAtChar (splitter: char) (s: string) =
     match s.IndexOf splitter with
     | -1 -> NoMatch
-    | n -> Split(s.[0..n - 1], s.Substring(n + 1))
+    | n -> Split(s.[0 .. n - 1], s.Substring(n + 1))
 
 type ConcurrentDictionary<'key, 'value> with
   member x.TryFind key =
@@ -585,8 +586,7 @@ type Path with
   static member FilePathToUri(filePath: string) : string =
     let filePath, finished =
       if filePath.Contains "Untitled-" then
-        let rg =
-          System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
+        let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
 
         if rg.Success then
           rg.Groups.[1].Value, true
@@ -596,8 +596,7 @@ type Path with
         filePath, false
 
     if not finished then
-      let uri =
-        System.Text.StringBuilder(filePath.Length)
+      let uri = System.Text.StringBuilder(filePath.Length)
 
       for c in filePath do
         if (c >= 'a' && c <= 'z')
@@ -717,8 +716,7 @@ module Version =
 
     match assemblies with
     | [| x |] ->
-      let assembly =
-        x :?> AssemblyInformationalVersionAttribute
+      let assembly = x :?> AssemblyInformationalVersionAttribute
 
       assembly.InformationalVersion
     | _ -> ""

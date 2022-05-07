@@ -4,5 +4,5 @@ open System.CommandLine.Parsing
 
 [<EntryPoint>]
 let entry args =
-    let results = Parser.parser.Invoke args
-    results
+  let results = Parser.parser.Invoke args
+  results
