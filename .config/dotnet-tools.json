@@ -26,12 +26,6 @@
         "reportgenerator"
       ]
     },
-    "fantomas-tool": {
-      "version": "4.7.1",
-      "commands": [
-        "fantomas"
-      ]
-    },
     "fantomas": {
       "version": "5.0.0-alpha-005",
       "commands": [
