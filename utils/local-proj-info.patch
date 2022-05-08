@@ -48,12 +48,11 @@ index a215b87..bb7d3a7 100644
 +++ b/src/FsAutoComplete/FsAutoComplete.fsproj
 @@ -33,6 +33,8 @@
      <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
-     <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
      <ProjectReference Include="..\LanguageServerProtocol\LanguageServerProtocol.fsproj" />
 +    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo\Ionide.ProjInfo.fsproj" />
 +    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
    </ItemGroup>
- 
+
    <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
 diff --git a/src/FsAutoComplete/paket.references b/src/FsAutoComplete/paket.references
 index fc07883..04299f7 100644
@@ -68,6 +67,6 @@ index fc07883..04299f7 100644
  Microsoft.Data.Sqlite
  Microsoft.NETFramework.ReferenceAssemblies
  Microsoft.SourceLink.GitHub
--- 
+--
 2.33.1.windows.1
 

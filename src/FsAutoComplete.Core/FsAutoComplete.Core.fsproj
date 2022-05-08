@@ -38,7 +38,6 @@
     <Compile Include="RecordStubGenerator.fs" />
     <Compile Include="AbstractClassStubGenerator.fs" />
     <Compile Include="SymbolCache.fs" />
-    <Compile Include="BackgroundServices.fs" />
     <Compile Include="Fsdn.fs" />
     <!-- <Compile Include="Lint.fs" /> -->
     <Compile Include="SignatureHelp.fs" />

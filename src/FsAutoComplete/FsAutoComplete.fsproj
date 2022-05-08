@@ -32,7 +32,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
-    <ProjectReference Include="..\FsAutoComplete.BackgroundServices\FsAutoComplete.BackgroundServices.fsproj" />
   </ItemGroup>
 
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
@@ -51,16 +50,6 @@
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
     <ItemGroup>
       <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="CopyBackgroundServiceJsonToOutputDir"
-          AfterTargets="ComputeFilesToPublish">
-    <ItemGroup>
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\net6.0\fsautocomplete.backgroundservices.deps.json"
-                             RelativePath="fsautocomplete.backgroundservices.deps.json" />
-      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../FsAutoComplete.BackgroundServices\bin\$(Configuration)\net6.0\fsautocomplete.backgroundservices.runtimeconfig.json"
-                             RelativePath="fsautocomplete.backgroundservices.runtimeconfig.json" />
     </ItemGroup>
   </Target>
 
