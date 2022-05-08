@@ -17,6 +17,7 @@
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="\" />
     <None Include="logo.png" Pack="true" PackagePath="\" />
+    <Compile Include="LSP.Preview.fs" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="LspHelpers.fs" />
