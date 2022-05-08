@@ -59,34 +59,50 @@ module Cursor =
     tryExtractIndex
     >> Option.defaultWith (fun _ -> failtest "No cursor")
 
+  /// Extracts first cursor marked with any of `markers`. Remaining cursors aren't touched
+  let tryExtractPositionMarkedWithAnyOf (markers: string[]) (text: string) =
+    let tryFindAnyCursorInLine (line: string) =
+      let markersInLine =
+        markers
+        |> Array.choose (fun marker ->
+            match line.IndexOf marker with
+            | -1 -> None
+            | column -> Some (marker, column)
+        )
+      match markersInLine with
+      | [||] -> None
+      | _ ->
+          let (marker, column) = markersInLine |> Array.minBy snd
+          let line = line.Substring(0, column) + line.Substring(column + marker.Length)
+          Some (marker, column, line)
+    // Note: Input `lines` gets mutated to remove cursor
+    let tryFindAnyCursor (lines: string[]) =
+      lines
+      |> Seq.mapi (fun i l -> (i,l))
+      |> Seq.tryPick (fun (i,line) -> 
+          tryFindAnyCursorInLine line 
+          |> Option.map (fun (marker, c, line) -> (marker, pos i c, line))
+         )
+      |> function
+          | None -> None
+          | Some (marker, p,line) -> 
+              lines.[p.Line] <- line
+              Some ((marker, p), lines)
+    
+    let lines = text |> Text.lines
+    match tryFindAnyCursor lines with
+    | None -> None
+    | Some ((marker, p), lines) ->
+        let text = lines |> String.concat "\n"
+        Some ((marker, p), text)
+
   /// Returns Position of first `$0` (`Cursor.Marker`) and the updated input text without the cursor marker.  
   /// Only the first `$0` is processed.
   /// 
   /// Note: Cursor Position is BETWEEN characters and might be outside of text range (cursor AFTER last character)
-  let tryExtractPosition (text: string) =
-    let tryFindCursorInLine (line: string) =
-      match line.IndexOf Marker with
-      | -1 -> None
-      | column ->
-          let line = line.Substring(0, column) + line.Substring(column + Marker.Length)
-          Some (column, line)
-    // Note: Input `lines` gets mutated to remove cursor
-    let tryFindCursor (lines: string[]) =
-      lines
-      |> Seq.mapi (fun i l -> (i,l))
-      |> Seq.tryPick (fun (i,line) -> tryFindCursorInLine line |> Option.map (fun (c, line) -> (pos i c, line)))
-      |> function
-          | None -> None
-          | Some (p,line) -> 
-              lines.[p.Line] <- line
-              Some (p, lines)
-    
-    let lines = text |> Text.lines
-    match tryFindCursor lines with
-    | None -> None
-    | Some (p, lines) ->
-        let text = lines |> String.concat "\n"
-        Some (p, text)
+  let tryExtractPosition =
+    tryExtractPositionMarkedWithAnyOf [| Marker |]
+    >> Option.map (fun ((_, pos), line) -> (pos, line))
   /// `tryExtractPosition`, but fails when there's no cursor
   let assertExtractPosition =
     tryExtractPosition
@@ -169,6 +185,27 @@ module Cursors =
     let poss = tps |> List.map fst
     (text, poss)
     
+
+  /// Like `extract`, but instead of just extracting Cursors marked with `Cursor.Marker` (`$0`),
+  /// this here extract all specified markers.
+  let extractWith (markers: string[]) (text: string) =
+    let rec collect poss text =
+      match Cursor.tryExtractPositionMarkedWithAnyOf markers text with
+      | None -> (text,poss)
+      | Some ((marker, pos), text) ->
+          let poss = (marker, pos) :: poss
+          collect poss text
+    let (text, cursors) = collect [] text
+    (text, cursors |> List.rev)
+  /// Like `extractWith`, but additional groups cursor positions by marker
+  let extractGroupedWith (markers: string[]) (text: string) =
+    let (text, cursors) = extractWith markers text
+    let cursors =
+      cursors
+      |> List.groupBy fst
+      |> List.map (fun (marker, poss) -> (marker, poss |> List.map snd))
+      |> Map.ofList
+    (text, cursors)
 
 
 module Text =

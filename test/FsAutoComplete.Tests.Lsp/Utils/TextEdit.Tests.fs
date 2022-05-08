@@ -203,6 +203,18 @@ printfn "Result=%i" b
       ]
     ]
   ]
+
+  let private tryExtractPositionMarkedWithAnyOfTests = testList (nameof Cursor.tryExtractPositionMarkedWithAnyOf) [
+    testCase "exact first of many cursors" <| fun _ ->
+      let text = "let $Avalue$B = $C42"
+      let actual = 
+        text
+        |> Cursor.tryExtractPositionMarkedWithAnyOf [|"$B"; "$C"; "$A"|]
+      let expected = Some (("$A", pos 0 4), "let value$B = $C42")
+
+      actual
+      |> Expect.equal "should be correct marker" expected
+  ]
   
   let private tryExtractPositionTests = testList (nameof Cursor.tryExtractPosition) [
     testList "no cursor" [
@@ -945,6 +957,7 @@ $0printfn "$0Result=%i" b$0
 
   let tests = testList (nameof Cursor) [
     tryExtractIndexTests
+    tryExtractPositionMarkedWithAnyOfTests
     tryExtractPositionTests
     tryExtractRangeTests
     beforeIndexTests
@@ -1053,8 +1066,41 @@ printfn "Result=%i" b$0
       |> Cursors.iter
       |> Expect.equal "should have returned all strings with single cursor" expected
   ]
+
+  let private extractWithTests = testList (nameof Cursors.extractWith) [
+    testCase "can extract all cursors" <| fun _ ->
+      let text = !- """
+        let $Ff a b = a + b
+        let $Vvalue = 42
+        let $0res = $Ff $Vvalue 3
+        ()
+        """
+      let actual =
+        text
+        |> Cursors.extractWith [|"$F"; "$V"; "$0" |]
+
+      let expectedText = !- """
+        let f a b = a + b
+        let value = 42
+        let res = f value 3
+        ()
+        """
+      let expectedPoss = [
+        ("$F", pos 0 4)
+        ("$V", pos 1 4)
+        ("$0", pos 2 4)
+        ("$F", pos 2 10)
+        ("$V", pos 2 12)
+      ]
+      let expected = (expectedText, expectedPoss)
+
+      actual
+      |> Expect.equal "markers should match" expected 
+  ]
+  
   let tests = testList (nameof Cursors) [
     iterTests
+    extractWithTests
   ]
 
 
