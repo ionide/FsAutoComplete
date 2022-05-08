@@ -44,16 +44,9 @@ module Conversions =
       End = fcsPosToLsp pos }
 
 
-  let symbolUseRangeToLsp (range: SymbolCache.SymbolUseRange) : Lsp.Range = fcsRangeToLsp range.Range
-
   let fcsRangeToLspLocation (range: FcsRange) : Lsp.Location =
     let fileUri = Path.FilePathToUri range.FileName
     let lspRange = fcsRangeToLsp range
-    { Uri = fileUri; Range = lspRange }
-
-  let symbolUseRangeToLspLocation (range: SymbolCache.SymbolUseRange) : Lsp.Location =
-    let fileUri = Path.FilePathToUri range.FileName
-    let lspRange = symbolUseRangeToLsp range
     { Uri = fileUri; Range = lspRange }
 
   let findDeclToLspLocation (decl: FsAutoComplete.FindDeclarationResult) : Lsp.Location =

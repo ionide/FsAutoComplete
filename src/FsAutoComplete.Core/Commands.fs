@@ -1040,6 +1040,7 @@ type Commands
           InsertText = formattedXmlDoc }
     }
 
+
   member x.SymbolUseProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     async {
       match tyRes.TryGetSymbolUseAndUsages pos lineStr with
