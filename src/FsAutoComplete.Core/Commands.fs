@@ -21,9 +21,7 @@ open FSharp.UMX
 open FSharp.Compiler.Tokenization
 
 [<RequireQualifiedAccess>]
-type LocationResponse<'a, 'b> =
-  | Use of 'a
-  | UseRange of 'b
+type LocationResponse<'a> = | Use of 'a
 
 [<RequireQualifiedAccess>]
 type HelpText =
@@ -90,7 +88,6 @@ type Commands
   (
     checker: FSharpCompilerServiceChecker,
     state: State,
-    backgroundService: BackgroundServices.BackgroundService,
     hasAnalyzers: bool,
     rootPath: string option
   ) =
@@ -230,12 +227,6 @@ type Commands
   do
     disposables.Add
     <| state.ProjectController.Notifications.Subscribe(NotificationEvent.Workspace >> notify.Trigger)
-
-  do
-    disposables.Add
-    <| backgroundService.MessageReceived.Subscribe(fun n ->
-      match n with
-      | BackgroundServices.Diagnostics d -> notify.Trigger(NotificationEvent.Diagnostics d))
 
   //Fill declarations cache so we're able to return workspace symbols correctly
   do
@@ -422,19 +413,10 @@ type Commands
             | None when File.Exists(UMX.untag file) ->
               let ctn = File.ReadAllText(UMX.untag file)
               let text = NamedText(file, ctn)
-
               state.Files.[file] <-
                 { Touched = DateTime.Now
                   Lines = text
                   Version = None }
-
-              let payload =
-                if Utils.isAScript (UMX.untag file) then
-                  BackgroundServices.ScriptFile(UMX.untag file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
-                else
-                  BackgroundServices.SourceFile(UMX.untag file)
-
-              backgroundService.UpdateFile(payload, ctn, 0)
               Some text
             | None -> None
 
@@ -553,19 +535,7 @@ type Commands
     <| state.ProjectController.Notifications.Subscribe(fun ev ->
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
-        let controller = state.ProjectController
-        let opts = controller.GetProjectOptionsForFsproj p.ProjectFileName
-
         if not isFromCache then
-          opts
-          |> Option.iter (fun opts ->
-            commandsLogger.info (
-              Log.setMessage "Sending project {project} update"
-              >> Log.addContextDestructured "project" p.ProjectFileName
-            )
-
-            backgroundService.UpdateProject(p.ProjectFileName, opts))
-
           p.ProjectItems
           |> List.choose (function
             | ProjectViewerItem.Compile (p, _) -> Some(Utils.normalizePath p))
@@ -578,14 +548,6 @@ type Commands
           )
       | _ -> ())
 
-  //Initialize background service when the workspace is ready.
-  do
-    disposables.Add
-    <| state.ProjectController.WorkspaceReady.Subscribe(fun _ ->
-      commandsLogger.info (Log.setMessage "Workspace ready - sending init request to background service")
-      backgroundService.InitWorkspace(state.WorkspaceStateDirectory.FullName))
-
-
   member __.Notify = notify.Publish
 
   member __.FileChecked = fileChecked.Publish
@@ -597,18 +559,8 @@ type Commands
 
   member __.LastCheckResult = lastCheckResult
 
-  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version, tfmIfScript) =
+  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version) =
     state.AddFileText(file, lines, version)
-
-    let payload =
-      let untagged = UMX.untag file
-
-      if Utils.isAScript untagged then
-        BackgroundServices.ScriptFile(untagged, tfmIfScript)
-      else
-        BackgroundServices.SourceFile untagged
-
-    backgroundService.UpdateFile(payload, lines.ToString(), defaultArg version 0)
 
   member private x.MapResultAsync
     (
@@ -1097,16 +1049,13 @@ type Commands
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, usages))
         else
-          match! backgroundService.GetSymbols fsym.FullName with
-          | None ->
-            if fsym.IsInternalToProject then
-              let opts = state.GetProjectOptions' tyRes.FileName
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-              return CoreResponse.Res(LocationResponse.Use(sym, symbols))
-            else
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-              return CoreResponse.Res(LocationResponse.Use(sym, symbols))
-          | Some res -> return CoreResponse.Res(LocationResponse.UseRange res)
+          if fsym.IsInternalToProject then
+            let opts = state.GetProjectOptions' tyRes.FileName
+            let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+            return CoreResponse.Res(LocationResponse.Use(sym, symbols))
+          else
+            let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
+            return CoreResponse.Res(LocationResponse.Use(sym, symbols))
       | Error x -> return CoreResponse.ErrorRes x
     }
     |> x.AsCancellable tyRes.FileName
@@ -1128,17 +1077,14 @@ type Commands
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else
-          match! backgroundService.GetImplementation fsym.FullName with
-          | None ->
-            if fsym.IsInternalToProject then
-              let opts = state.GetProjectOptions' tyRes.FileName
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-              return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-            else
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-              let symbols = filterSymbols symbols
-              return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-          | Some res -> return CoreResponse.Res(LocationResponse.UseRange res)
+          if fsym.IsInternalToProject then
+            let opts = state.GetProjectOptions' tyRes.FileName
+            let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+            return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
+          else
+            let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
+            let symbols = filterSymbols symbols
+            return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
     }
     |> x.AsCancellable tyRes.FileName

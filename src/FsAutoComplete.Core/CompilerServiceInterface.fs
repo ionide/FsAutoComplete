@@ -12,11 +12,11 @@ open FSharp.Compiler.Symbols
 
 type Version = int
 
-type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
+type FSharpCompilerServiceChecker(hasAnalyzers) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = not backgroundServiceEnabled,
+      keepAllBackgroundResolutions = true,
       keepAssemblyContents = hasAnalyzers,
       suggestNamesForErrors = true,
       enablePartialTypeChecking = not hasAnalyzers,
@@ -27,10 +27,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
 
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
   let safeFileCheckedEvent =
-    if not backgroundServiceEnabled then
-      checker.FileChecked
-    else
-      (new Event<_>()).Publish
+    checker.FileChecked
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows

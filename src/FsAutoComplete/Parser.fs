@@ -110,7 +110,7 @@ module Parser =
     rootCommand.AddOption stateLocationOption
 
     rootCommand.SetHandler(
-      Func<_, _, _, Task>(fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
+      Func<_, _, Task>(fun projectGraphEnabled stateDirectory ->
         let workspaceLoaderFactory =
           if projectGraphEnabled then
             Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
@@ -123,10 +123,9 @@ module Parser =
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
         let result =
-          Lsp.start backgroundServiceEnabled toolsPath stateDirectory workspaceLoaderFactory
+          Lsp.start toolsPath stateDirectory workspaceLoaderFactory
 
         Task.FromResult result),
-      backgroundServiceOption,
       projectGraphOption,
       stateLocationOption
     )

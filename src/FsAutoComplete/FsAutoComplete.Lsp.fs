@@ -222,25 +222,18 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
       for (_, cts) in agents.Values do
         cts.Cancel()
 
-type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FSharpLspClient) =
+type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   inherit LspServer()
 
   let logger = LogProvider.getLoggerByName "LSP"
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
-  let backgroundService: BackgroundServices.BackgroundService =
-    if backgroundServiceEnabled then
-      BackgroundServices.ActualBackgroundService() :> _
-    else
-      BackgroundServices.MockBackgroundService() :> _
-
   let mutable rootPath: string option = None
 
   let mutable commands =
     new Commands(
-      FSharpCompilerServiceChecker(backgroundServiceEnabled, false),
+      FSharpCompilerServiceChecker(false),
       state,
-      backgroundService,
       false,
       rootPath
     )
@@ -588,9 +581,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       let newCommands =
         new Commands(
-          FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzersNow),
+          FSharpCompilerServiceChecker(hasAnalyzersNow),
           state,
-          backgroundService,
           hasAnalyzersNow,
           rootPath
         )
@@ -781,7 +773,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
       rootPath <- actualRootPath
       commands.SetWorkspaceRoot actualRootPath
-      backgroundService.Start()
 
       let c =
         p.InitializationOptions
@@ -1028,7 +1019,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         >> Log.addContextDestructured "parms" filePath
       )
 
-      commands.SetFileContent(filePath, content, Some doc.Version, config.ScriptTFM)
+      commands.SetFileContent(filePath, content, Some doc.Version)
 
       do! parseFile filePath doc.Version content
     }
@@ -1050,7 +1041,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         if contentChange.Range.IsNone
            && contentChange.RangeLength.IsNone then
           let content = NamedText(filePath, contentChange.Text)
-          commands.SetFileContent(filePath, content, Some version, config.ScriptTFM)
+          commands.SetFileContent(filePath, content, Some version)
         else
           ()
       | _ -> ()
@@ -1355,34 +1346,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           return
             WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
             |> Some
-        | LocationResponse.UseRange uses ->
-          let documentChanges =
-            uses
-            |> Array.groupBy (fun sym -> sym.FileName)
-            |> Array.map (fun (fileName, symbols) ->
-              let edits =
-                symbols
-                |> Array.map (fun sym ->
-                  let range = symbolUseRangeToLsp sym
-
-                  let range =
-                    { range with
-                        Start =
-                          { Line = range.Start.Line
-                            Character = range.End.Character - sym.SymbolDisplayName.Length } }
-
-                  { Range = range; NewText = p.NewName })
-                |> Array.distinct
-
-              { TextDocument =
-                  { Uri = Path.FilePathToUri fileName
-                    Version = commands.TryGetFileVersion(UMX.tag fileName) // from compiler, is safe
-                  }
-                Edits = edits })
-
-          return
-            WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
-            |> Some
       })
 
   override x.TextDocumentDefinition(p) =
@@ -1456,14 +1419,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
               else
                 not u.IsFromDefinition)
             |> Array.map (fun u -> u.Range)
-          | LocationResponse.UseRange uses ->
-            uses
-            |> Array.filter (fun u ->
-              if p.Context.IncludeDeclaration then
-                true
-              else
-                not u.IsFromDefinition)
-            |> Array.map (fun u -> u.Range)
 
         return ranges |> Array.map fcsRangeToLspLocation |> Some
       })
@@ -1504,7 +1459,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
         let ranges: FSharp.Compiler.Text.Range[] =
           match res with
           | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
-          | LocationResponse.UseRange uses -> uses |> Array.map (fun u -> u.Range)
 
         let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
 
@@ -1941,24 +1895,6 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
                     Arguments = writePayload (file, pos, locs) }
 
                 { p with Command = Some cmd } |> Some |> success
-              | Ok (LocationResponse.UseRange (uses)) ->
-                let formatted =
-                  if uses.Length = 2 then
-                    "1 Reference"
-                  elif uses.Length = 0 then
-                    "0 References"
-                  else
-                    sprintf "%d References" (uses.Length - 1)
-
-                let locs = uses |> Array.map (fun u -> u.Range)
-
-                let cmd =
-                  { Title = formatted
-                    Command = "fsharp.showReferences"
-                    Arguments = writePayload (file, pos, locs) }
-
-                { p with Command = Some cmd } |> Some |> success
-
             return res
         })
       p
@@ -2718,7 +2654,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
   override x.Dispose() = x.Shutdown() |> Async.Start
 
-let startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
+let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   use input = Console.OpenStandardInput()
   use output = Console.OpenStandardOutput()
 
@@ -2760,14 +2696,14 @@ let startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoader
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
   Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    new FSharpLspServer(backgroundServiceEnabled, state, lspClient))
+    new FSharpLspServer(state, lspClient))
 
-let start backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory =
+let start toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
 
   try
     let result =
-      startCore backgroundServiceEnabled toolsPath stateStorageDir workspaceLoaderFactory
+      startCore toolsPath stateStorageDir workspaceLoaderFactory
 
     logger.info (
       Log.setMessage "Start - Ending LSP mode with {reason}"
