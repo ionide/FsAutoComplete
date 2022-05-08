@@ -27,6 +27,7 @@ open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
 open FSharp.UMX
+open StreamJsonRpc
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -1312,41 +1313,29 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
-      asyncResult {
-        match! commands.SymbolUseProject tyRes pos lineStr
-               |> AsyncResult.ofCoreResponse
-          with
-        | LocationResponse.Use (_, uses) ->
+        asyncResult {
+          let! documentsAndRanges = commands.RenameSymbol(pos, tyRes, lineStr, lines) |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
           let documentChanges =
-            uses
-            |> Array.groupBy (fun sym -> sym.FileName)
-            |> Array.map (fun (fileName, symbols) ->
-              let edits =
-                symbols
-                |> Array.map (fun sym ->
-                  let range = fcsRangeToLsp sym.Range
+            documentsAndRanges
+            |> Seq.map (fun (namedText, symbols) ->
+                let edits =
+                  symbols
+                  |> Seq.map (fun sym ->
+                    let range = fcsRangeToLsp sym
+                    { Range = range; NewText = p.NewName })
+                  |> Array.ofSeq
 
-                  let range =
-                    { range with
-                        Start =
-                          { Line = range.Start.Line
-                            Character =
-                              range.End.Character
-                              - sym.Symbol.DisplayName.Length } }
-
-                  { Range = range; NewText = p.NewName })
-                |> Array.distinct
-
-              { TextDocument =
-                  { Uri = Path.FilePathToUri fileName
-                    Version = commands.TryGetFileVersion(UMX.tag fileName) // from compiler, is safe
-                  }
-                Edits = edits })
+                { TextDocument =
+                    { Uri = Path.FilePathToUri (UMX.untag namedText.FileName)
+                      Version = commands.TryGetFileVersion namedText.FileName
+                    }
+                  Edits = edits })
+            |> Array.ofSeq
 
           return
             WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
             |> Some
-      })
+        })
 
   override x.TextDocumentDefinition(p) =
     logger.info (
@@ -1405,20 +1394,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
       asyncResult {
-        let! res =
-          commands.SymbolUseProject tyRes pos lineStr
-          |> AsyncResult.ofCoreResponse
-
+        let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes) |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
         let ranges: FSharp.Compiler.Text.Range[] =
-          match res with
-          | LocationResponse.Use (_, uses) ->
-            uses
-            |> Array.filter (fun u ->
-              if p.Context.IncludeDeclaration then
-                true
-              else
-                not u.IsFromDefinition)
-            |> Array.map (fun u -> u.Range)
+          res.Values
+          |> Seq.concat
+          |> Seq.toArray
 
         return ranges |> Array.map fcsRangeToLspLocation |> Some
       })
@@ -1793,7 +1773,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             { p with Command = None }
             |> success
             |> async.Return
-          | ResultOrString.Ok (options, _, lineStr) ->
+          | ResultOrString.Ok (options, lines, lineStr) ->
             try
               async {
                 let! tyRes = commands.TryGetRecentTypeCheckResultsForFile(file)
@@ -1807,7 +1787,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     >> Log.addContextDestructured "file" file
                   )
 
-                  let! r = Async.Catch(f arg pos tyRes lineStr data.[1] file)
+                  let! r = Async.Catch(f arg pos tyRes lines lineStr data.[1] file)
 
                   match r with
                   | Choice1Of2 (r: LspResult<CodeLens option>) ->
@@ -1843,9 +1823,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
            JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation) |]
 
     handler
-      (fun p pos tyRes lineStr typ file ->
+      (fun p pos tyRes lines lineStr typ file ->
         async {
-          if typ = "signature" then
+          if typ = "signature"
+          then
             match commands.SignatureData tyRes pos lineStr with
             | CoreResponse.InfoRes msg
             | CoreResponse.ErrorRes msg ->
@@ -1866,9 +1847,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
               return { p with Command = Some cmd } |> Some |> success
           else
-            let! res =
-              commands.SymbolUseProject tyRes pos lineStr
-              |> AsyncResult.ofCoreResponse
+            let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes);
 
             let res =
               match res with
@@ -1879,20 +1858,19 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   >> Log.addContextDestructured "error" msg
                 )
 
-                success None
-              | Ok (LocationResponse.Use (sym, uses)) ->
+                success (Some { p with Command = Some { Title = ""; Command = ""; Arguments = None } })
+              | Ok uses ->
+                let allUses = uses.Values |> Seq.concat |> Array.ofSeq
                 let formatted =
-                  if uses.Length = 1 then
+                  if allUses.Length = 1 then
                     "1 Reference"
                   else
-                    sprintf "%d References" uses.Length
-
-                let locs = uses |> Array.map (fun n -> n.Range)
+                    sprintf "%d References" allUses.Length
 
                 let cmd =
                   { Title = formatted
                     Command = "fsharp.showReferences"
-                    Arguments = writePayload (file, pos, locs) }
+                    Arguments = writePayload (file, pos, allUses) }
 
                 { p with Command = Some cmd } |> Some |> success
             return res

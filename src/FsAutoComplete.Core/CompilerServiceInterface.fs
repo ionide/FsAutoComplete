@@ -23,8 +23,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       enableBackgroundItemKeyStoreAndSemanticClassification = true
     )
 
-  do checker.BeforeBackgroundFileCheck.Add ignore
-
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
   let safeFileCheckedEvent =
     checker.FileChecked
@@ -95,10 +93,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       | arg -> Array.append args [| arg |], files)
 
   let clearProjectReferences (opts: FSharpProjectOptions) =
-    if disableInMemoryProjectReferences then
-      { opts with ReferencedProjects = [||] }
-    else
-      opts
+    opts
 
   let filterBadRuntimeRefs =
     let badRefs =
@@ -384,6 +379,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
             return res |> Array.concat
           }
     }
+
+  member _.FindReferencesForSymbolInFile(file, project, symbol) =
+    checker.FindBackgroundReferencesInFile(file, project, symbol, canInvalidateProject = false, userOpName="find references")
 
   member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
     async {
