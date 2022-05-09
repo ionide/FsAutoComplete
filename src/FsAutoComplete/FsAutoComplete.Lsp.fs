@@ -1860,17 +1860,16 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 )
               | Ok uses ->
                 let allUses = uses.Values |> Seq.concat |> Array.ofSeq
-
-                let formatted =
-                  if allUses.Length = 1 then
-                    "1 Reference"
-                  else
-                    sprintf "%d References" allUses.Length
-
+                // allUses includes the declaration, so we need to reduce it by one to get the number of 'external' references
                 let cmd =
-                  { Title = formatted
-                    Command = "fsharp.showReferences"
-                    Arguments = writePayload (file, pos, allUses) }
+                  if allUses.Length = 1 then
+                    { Title = "0 References"
+                      Command = ""
+                      Arguments = None }
+                  else
+                    { Title = $"%d{allUses.Length} References"
+                      Command = "fsharp.showReferences"
+                      Arguments = writePayload (file, pos, allUses) }
 
                 { p with Command = Some cmd } |> Some |> success
 
