@@ -24,7 +24,7 @@ open FSharp.Compiler.Symbols
 open System.Collections.Immutable
 
 [<RequireQualifiedAccess>]
-type LocationResponse<'a> = | Use of 'a
+type LocationResponse<'a> = Use of 'a
 
 [<RequireQualifiedAccess>]
 type HelpText =
@@ -87,13 +87,7 @@ type NotificationEvent =
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
-type Commands
-  (
-    checker: FSharpCompilerServiceChecker,
-    state: State,
-    hasAnalyzers: bool,
-    rootPath: string option
-  ) =
+type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
   let fileParsed = Event<FSharpParseFileResults>()
 
   let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
@@ -415,10 +409,12 @@ type Commands
             | None when File.Exists(UMX.untag file) ->
               let ctn = File.ReadAllText(UMX.untag file)
               let text = NamedText(file, ctn)
+
               state.Files.[file] <-
                 { Touched = DateTime.Now
                   Lines = text
                   Version = None }
+
               Some text
             | None -> None
 
@@ -557,8 +553,7 @@ type Commands
 
   member __.LastCheckResult = lastCheckResult
 
-  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version) =
-    state.AddFileText(file, lines, version)
+  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version) = state.AddFileText(file, lines, version)
 
   member private x.MapResultAsync
     (
@@ -1038,84 +1033,106 @@ type Commands
           InsertText = formattedXmlDoc }
     }
 
-  member x.SymbolUseWorkspace (pos, lineStr, text, tyRes: ParseAndCheckResults) =
+  member x.SymbolUseWorkspace(pos, lineStr, text, tyRes: ParseAndCheckResults) =
     asyncResult {
 
-      let findReferencesInFile (file, symbol: FSharpSymbol, project: FSharpProjectOptions, onFound: range -> Async<unit>) =
+      let findReferencesInFile
+        (
+          file,
+          symbol: FSharpSymbol,
+          project: FSharpProjectOptions,
+          onFound: range -> Async<unit>
+        ) =
         asyncResult {
           let! (references: Range seq) = checker.FindReferencesForSymbolInFile(file, project, symbol)
+
           for reference in references do
             do! onFound reference
         }
 
       let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
         projects
-        |> List.traverseAsyncResultM (fun p -> asyncResult {
+        |> List.traverseAsyncResultM (fun p ->
+          asyncResult {
             for file in p.SourceFiles do
-              do! findReferencesInFile(file, symbol, p, onFound)
-        })
+              do! findReferencesInFile (file, symbol, p, onFound)
+          })
 
       let toDict (symbolUseRanges: range seq) =
         let dict = new System.Collections.Generic.Dictionary<string, range seq>()
+
         symbolUseRanges
-          |> Seq.collect (fun symbolUse ->
-              let file = symbolUse.FileName
-              // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
-              // then we'd need to map the files to some kind of document identfier and dedupe by that
-              // before issueing the renames. We don't, so this becomes very simple
-              [ file, symbolUse ]
-          )
-          |> Seq.groupBy fst
-          |> Seq.iter (fun (key, items) ->
-              let itemsSeq = items |> Seq.map snd
-              dict[key] <- itemsSeq
-              ()
-          )
+        |> Seq.collect (fun symbolUse ->
+          let file = symbolUse.FileName
+          // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
+          // then we'd need to map the files to some kind of document identfier and dedupe by that
+          // before issueing the renames. We don't, so this becomes very simple
+          [ file, symbolUse ])
+        |> Seq.groupBy fst
+        |> Seq.iter (fun (key, items) ->
+          let itemsSeq = items |> Seq.map snd
+          dict[key] <- itemsSeq
+          ())
+
         dict
 
-      let! symUse = tyRes.TryGetSymbolUse pos lineStr |> Result.ofOption (fun _ -> "No result found")
+      let! symUse =
+        tyRes.TryGetSymbolUse pos lineStr
+        |> Result.ofOption (fun _ -> "No result found")
+
       let symbol = symUse.Symbol
-      let! declLoc = SymbolLocation.getDeclarationLocation (symUse, text, state) |> Result.ofOption (fun _ -> "No declaration location found")
+
+      let! declLoc =
+        SymbolLocation.getDeclarationLocation (symUse, text, state)
+        |> Result.ofOption (fun _ -> "No declaration location found")
+
       match declLoc with
       | SymbolDeclarationLocation.CurrentDocument ->
-          let! ct = Async.CancellationToken
-          let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-          return toDict (symbolUses |> Seq.map (fun symbolUse -> symbolUse.Range))
+        let! ct = Async.CancellationToken
+        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+
+        return
+          toDict (
+            symbolUses
+            |> Seq.map (fun symbolUse -> symbolUse.Range)
+          )
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
-          let symbolUseRanges = ImmutableArray.CreateBuilder()
+        let symbolUseRanges = ImmutableArray.CreateBuilder()
 
-          let projects =
-              if isInternalToProject then projects
-              else
-                  [ for project in projects do
-                      yield project
-                      yield! project.ReferencedProjects
-                             |> Array.choose (fun p -> p.OutputFile |> state.ProjectController.GetProjectOptionsForFsproj)
-                  ]
-                  |> List.distinctBy (fun x -> x.ProjectFileName)
+        let projects =
+          if isInternalToProject then
+            projects
+          else
+            [ for project in projects do
+                yield project
 
-          let onFound =
-              fun symbolUseRange ->
-                  async { symbolUseRanges.Add symbolUseRange }
+                yield!
+                  project.ReferencedProjects
+                  |> Array.choose (fun p ->
+                    p.OutputFile
+                    |> state.ProjectController.GetProjectOptionsForFsproj) ]
+            |> List.distinctBy (fun x -> x.ProjectFileName)
 
-          let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
+        let onFound = fun symbolUseRange -> async { symbolUseRanges.Add symbolUseRange }
 
-          // Distinct these down because each TFM will produce a new 'project'.
-          // Unless guarded by a #if define, symbols with the same range will be added N times
-          let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
-          return toDict symbolUseRanges
-        }
+        let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
 
-  member x.RenameSymbol (pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
+        // Distinct these down because each TFM will produce a new 'project'.
+        // Unless guarded by a #if define, symbols with the same range will be added N times
+        let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
+        return toDict symbolUseRanges
+    }
+
+  member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
       let! symbolUsesByDocument = x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
+
       let locations =
         symbolUsesByDocument
-        |> Seq.choose (fun (KeyValue(filePath, symbolUses)) ->
-            match state.TryGetFileSource (UMX.tag filePath) with
-            | Error _ -> None
-            | Ok text -> Some (text, symbolUses)
-        )
+        |> Seq.choose (fun (KeyValue (filePath, symbolUses)) ->
+          match state.TryGetFileSource(UMX.tag filePath) with
+          | Error _ -> None
+          | Ok text -> Some(text, symbolUses))
 
       return locations
     }
@@ -1135,15 +1152,14 @@ type Commands
 
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
+        else if fsym.IsInternalToProject then
+          let opts = state.GetProjectOptions' tyRes.FileName
+          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
-          if fsym.IsInternalToProject then
-            let opts = state.GetProjectOptions' tyRes.FileName
-            let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-            return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-          else
-            let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-            let symbols = filterSymbols symbols
-            return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
+          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
+          let symbols = filterSymbols symbols
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
     }
     |> x.AsCancellable tyRes.FileName

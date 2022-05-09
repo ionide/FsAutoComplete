@@ -232,12 +232,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(
-      FSharpCompilerServiceChecker(false),
-      state,
-      false,
-      rootPath
-    )
+    new Commands(FSharpCompilerServiceChecker(false), state, false, rootPath)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -581,12 +576,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let oldDisposables = commandDisposables
 
       let newCommands =
-        new Commands(
-          FSharpCompilerServiceChecker(hasAnalyzersNow),
-          state,
-          hasAnalyzersNow,
-          rootPath
-        )
+        new Commands(FSharpCompilerServiceChecker(hasAnalyzersNow), state, hasAnalyzersNow, rootPath)
 
       commands <- newCommands
       commandDisposables <- ResizeArray()
@@ -1313,29 +1303,31 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
-        asyncResult {
-          let! documentsAndRanges = commands.RenameSymbol(pos, tyRes, lineStr, lines) |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
-          let documentChanges =
-            documentsAndRanges
-            |> Seq.map (fun (namedText, symbols) ->
-                let edits =
-                  symbols
-                  |> Seq.map (fun sym ->
-                    let range = fcsRangeToLsp sym
-                    { Range = range; NewText = p.NewName })
-                  |> Array.ofSeq
+      asyncResult {
+        let! documentsAndRanges =
+          commands.RenameSymbol(pos, tyRes, lineStr, lines)
+          |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-                { TextDocument =
-                    { Uri = Path.FilePathToUri (UMX.untag namedText.FileName)
-                      Version = commands.TryGetFileVersion namedText.FileName
-                    }
-                  Edits = edits })
-            |> Array.ofSeq
+        let documentChanges =
+          documentsAndRanges
+          |> Seq.map (fun (namedText, symbols) ->
+            let edits =
+              symbols
+              |> Seq.map (fun sym ->
+                let range = fcsRangeToLsp sym
+                { Range = range; NewText = p.NewName })
+              |> Array.ofSeq
 
-          return
-            WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
-            |> Some
-        })
+            { TextDocument =
+                { Uri = Path.FilePathToUri(UMX.untag namedText.FileName)
+                  Version = commands.TryGetFileVersion namedText.FileName }
+              Edits = edits })
+          |> Array.ofSeq
+
+        return
+          WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
+          |> Some
+      })
 
   override x.TextDocumentDefinition(p) =
     logger.info (
@@ -1394,11 +1386,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
       asyncResult {
-        let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes) |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
-        let ranges: FSharp.Compiler.Text.Range[] =
-          res.Values
-          |> Seq.concat
-          |> Seq.toArray
+        let! res =
+          commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
+          |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+
+        let ranges: FSharp.Compiler.Text.Range[] = res.Values |> Seq.concat |> Seq.toArray
 
         return ranges |> Array.map fcsRangeToLspLocation |> Some
       })
@@ -1825,8 +1817,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     handler
       (fun p pos tyRes lines lineStr typ file ->
         async {
-          if typ = "signature"
-          then
+          if typ = "signature" then
             match commands.SignatureData tyRes pos lineStr with
             | CoreResponse.InfoRes msg
             | CoreResponse.ErrorRes msg ->
@@ -1847,7 +1838,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
               return { p with Command = Some cmd } |> Some |> success
           else
-            let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes);
+            let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
 
             let res =
               match res with
@@ -1858,9 +1849,18 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   >> Log.addContextDestructured "error" msg
                 )
 
-                success (Some { p with Command = Some { Title = ""; Command = ""; Arguments = None } })
+                success (
+                  Some
+                    { p with
+                        Command =
+                          Some
+                            { Title = ""
+                              Command = ""
+                              Arguments = None } }
+                )
               | Ok uses ->
                 let allUses = uses.Values |> Seq.concat |> Array.ofSeq
+
                 let formatted =
                   if allUses.Length = 1 then
                     "1 Reference"
@@ -1873,6 +1873,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     Arguments = writePayload (file, pos, allUses) }
 
                 { p with Command = Some cmd } |> Some |> success
+
             return res
         })
       p
@@ -2680,8 +2681,7 @@ let start toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
 
   try
-    let result =
-      startCore toolsPath stateStorageDir workspaceLoaderFactory
+    let result = startCore toolsPath stateStorageDir workspaceLoaderFactory
 
     logger.info (
       Log.setMessage "Start - Ending LSP mode with {reason}"

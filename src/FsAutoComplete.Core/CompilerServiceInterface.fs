@@ -24,8 +24,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     )
 
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
-  let safeFileCheckedEvent =
-    checker.FileChecked
+  let safeFileCheckedEvent = checker.FileChecked
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
@@ -92,8 +91,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       | StartsWith "--load:" file -> args, Array.append files [| file |]
       | arg -> Array.append args [| arg |], files)
 
-  let clearProjectReferences (opts: FSharpProjectOptions) =
-    opts
+  let clearProjectReferences (opts: FSharpProjectOptions) = opts
 
   let filterBadRuntimeRefs =
     let badRefs =
@@ -381,7 +379,13 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
-    checker.FindBackgroundReferencesInFile(file, project, symbol, canInvalidateProject = false, userOpName="find references")
+    checker.FindBackgroundReferencesInFile(
+      file,
+      project,
+      symbol,
+      canInvalidateProject = false,
+      userOpName = "find references"
+    )
 
   member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
     async {

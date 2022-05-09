@@ -31,8 +31,7 @@ let sourceFiles =
 
 Target.initEnvironment ()
 
-let fsacAssemblies =
-  "FsAutoComplete|FsAutoComplete.Core|LanguageServerProtocol"
+let fsacAssemblies = "FsAutoComplete|FsAutoComplete.Core|LanguageServerProtocol"
 
 let packAsToolProp = "PackAsTool", "true"
 

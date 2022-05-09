@@ -166,7 +166,7 @@ let createServer (state: unit -> State) =
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(false, innerState, client)
+  let server = new FSharpLspServer(innerState, client)
   server, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =

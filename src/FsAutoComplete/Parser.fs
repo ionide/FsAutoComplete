@@ -122,8 +122,7 @@ module Parser =
 
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
-        let result =
-          Lsp.start toolsPath stateDirectory workspaceLoaderFactory
+        let result = Lsp.start toolsPath stateDirectory workspaceLoaderFactory
 
         Task.FromResult result),
       projectGraphOption,
