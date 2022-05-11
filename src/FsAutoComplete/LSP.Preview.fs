@@ -82,7 +82,7 @@ type InlayHintLabel =
   | String of string
   | Parts of InlayHintLabelPart[]
 /// Inlay hint information.
-type InlayHint = {
+type InlayHint<'Data> = {
   /// The position of this hint.
   Position: Position
   /// The label of this hint. A human readable string or an array of
@@ -120,7 +120,17 @@ type InlayHint = {
   /// to visually align/separate an inlay hint.
   PaddingRight: bool option
 
-  //TODO: `Data` is missing
+  /// A data entry field that is preserved on a inlay hint between
+  /// a `textDocument/inlayHint` and a `inlayHint/resolve` request.
+  /// 
+  /// Note: In LSP specs: of type `LSPAny`:
+  /// ```typescript
+  /// export type LSPAny = LSPObject | LSPArray | string | integer | uinteger | decimal | boolean | null;
+  /// export type LSPObject = { [key: string]: LSPAny };
+  /// export type LSPArray = LSPAny[];
+  /// ```
+  /// -> `'Data` must adhere to specs
+  Data: 'Data option
 }
 
 /// Client workspace capabilities specific to inlay hints.
