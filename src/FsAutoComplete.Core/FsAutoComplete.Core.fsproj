@@ -8,6 +8,7 @@
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Workaround/ServiceParseTreeWalk.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="TestAdapter.fs" />
