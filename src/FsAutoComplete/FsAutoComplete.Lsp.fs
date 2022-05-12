@@ -2653,7 +2653,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         hints
         |> Array.map (fun h -> {
           Text = h.Text
-          InsertText = None
+          InsertText = 
+            match h.Insertions with
+            | None -> None
+            | Some inserts ->
+                inserts
+                |> Seq.filter (fun i -> i.Pos = h.Pos && i.Text <> ")" && i.Text <> "(")
+                |> Seq.map (fun i -> i.Text)
+                |> String.concat ""
+                |> Some
           Pos = fcsPosToLsp h.Pos
           Kind = mapHintKind h.Kind
         })

@@ -794,7 +794,7 @@ let private tryCreateTypeHint
         Pos = data.InsertAt
         Kind = Type
         // TODO: or use tyForAnno?
-        Text = ": " + ty
+        Text = ": " + (truncated ty)
         //TODO: delay for resolve?
         Insertions = Some <| data.CreateEdits tyForAnno
         //TODO: implement? delay for resolve?
