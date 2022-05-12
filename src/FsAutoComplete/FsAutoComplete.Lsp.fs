@@ -5,6 +5,7 @@ open System.IO
 open System.Threading
 open System.Diagnostics
 open FsAutoComplete
+open FsAutoComplete.Core
 open FsAutoComplete.LspHelpers
 open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
@@ -55,6 +56,11 @@ type LSPInlayHint =
     InsertText: string option
     Pos: Types.Position
     Kind: InlayHintKind }
+
+type InlayHintData = {
+  TextDocument: TextDocumentIdentifier
+  Range: Types.Range
+}
 
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
@@ -2640,21 +2646,133 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     )
 
     p.TextDocument
-    |> x.fileHandler (fun fn tyRes lines ->
-      async {
-        let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
-        let! hints = commands.InlayHints(lines, tyRes, fcsRange)
+    |> x.fileHandler (fun fn tyRes lines -> async {
+      let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+      let! hints = commands.InlayHints(lines, tyRes, fcsRange)
+      let lspHints =
+        hints
+        |> Array.map (fun h -> {
+          Text = h.Text
+          InsertText = None
+          Pos = fcsPosToLsp h.Pos
+          Kind = mapHintKind h.Kind
+        })
+      return success lspHints
+    })
 
-        let lspHints =
-          hints
-          |> Array.map (fun h ->
-            { Text = h.Text
-              InsertText = h.InsertText
-              Pos = fcsPosToLsp h.Pos
-              Kind = mapHintKind h.Kind })
+  override x.TextDocumentInlayHint (p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
+    logger.info (
+      Log.setMessage "TextDocumentInlayHint Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
 
-        return success lspHints
-      })
+    p.TextDocument
+    |> x.fileHandler (fun fn tyRes lines -> async {
+      let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+      let! hints = commands.InlayHints (lines, tyRes, fcsRange)
+      let hints: InlayHint[] =
+        hints
+        |> Array.map (fun h -> {
+            Position = fcsPosToLsp h.Pos
+            Label = InlayHintLabel.String h.Text
+            Kind = 
+              match h.Kind with
+              | InlayHints.HintKind.Type -> Types.InlayHintKind.Type
+              | InlayHints.HintKind.Parameter -> Types.InlayHintKind.Parameter
+              |> Some
+            //TODO: lazy -> resolve?
+            TextEdits = 
+              match h.Insertions with
+              | None -> None
+                // Note: Including no insertions via empty array:
+                //       Difference:
+                //       * `None` -> no `TextEdits` element specified -> can be `resolve`d
+                //       * `Some [||]` -> `TextEdits` gets serialized -> no `resolve`
+                //TODO: always emit `Some [||]` (instead of `None`) for `Parameter` -> prevent `resolve`
+              | Some insertions ->
+                  insertions
+                  |> Array.map (fun insertion -> {
+                      Range = fcsPosToProtocolRange insertion.Pos
+                      NewText = insertion.Text
+                  })
+                  |> Some
+            //TODO: lazy -> resolve?
+            Tooltip = h.Tooltip |> Option.map (InlayHintTooltip.String)
+            PaddingLeft = 
+              match h.Kind with
+              | InlayHints.HintKind.Type -> Some true
+              | _ -> None
+            PaddingRight =
+              match h.Kind with
+              | InlayHints.HintKind.Parameter -> Some true
+              | _ -> None
+            Data =
+              {
+                TextDocument = p.TextDocument
+                Range = fcsRangeToLsp h.IdentRange
+              }
+              |> serialize
+              |> Some
+        })
+
+      return success (Some hints)
+    })
+  /// Note: Requires `InlayHintData` in `InlayHint.Data` element.  
+  ///       Required to relate `InlayHint` to a document and position inside
+  ///
+  /// Note: Currently only resolves `Tooltip` and `TextEdits`
+  ///
+  /// Note: Resolving `Tooltip` is currently not implement -> above *Note* is a lie...
+  override x.InlayHintResolve (p: InlayHint): AsyncLspResult<InlayHint> =
+    logger.info (
+      Log.setMessage "InlayHintResolve Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    
+    match p.Data with
+    | None -> Async.singleton <| invalidParams "InlayHint doesn't specify contain `Data`"
+    | _ when p.Tooltip |> Option.isSome && p.TextEdits |> Option.isSome ->
+        // nothing to resolve
+        Async.singleton <| success p
+    | Some data ->
+        let data: InlayHintData = deserialize data
+        let range = data.Range
+        data.TextDocument
+        |> x.fileHandler (fun fn tyRes lines -> asyncResult {
+          // update Tooltip
+          let! p =
+            match p.Tooltip with
+            | Some _ -> Ok p
+            | None -> 
+                //TODO: implement
+                Ok p
+          // update TextEdits
+          let! p =
+            match p.Kind, p.TextEdits with
+            | Some (Types.InlayHintKind.Parameter), _ -> Ok p
+            | _, Some _ -> Ok p
+            | _, None ->
+                maybe {
+                  let! (symbolUse, mfv, explTy) =
+                    InlayHints.tryGetDetailedExplicitTypeInfo
+                      InlayHints.isPotentialTargetForTypeAnnotation
+                      (lines, tyRes)
+                      (protocolPosToPos range.Start)
+                  let! (_, edits) = explTy.TryGetTypeAndEdits (mfv.FullType, symbolUse.DisplayContext)
+                  let p =
+                    { p with
+                        TextEdits =
+                          edits 
+                          |> AddExplicitTypeToParameter.toLspEdits
+                          |> Some
+                    }
+                  return p
+                }
+                |> Option.defaultValue p
+                |> Ok
+
+          return p
+        })
 
   member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
     logger.info (
@@ -2708,6 +2826,9 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
     |> Map.add "fsproj/addFileBelow" (serverRequestHandling (fun s p -> s.FsProjAddFileBelow(p)))
     |> Map.add "fsproj/addFile" (serverRequestHandling (fun s p -> s.FsProjAddFile(p)))
     |> Map.add "fsharp/inlayHints" (serverRequestHandling (fun s p -> s.FSharpInlayHints(p)))
+    //TODO: Move to Ionide.LanguageServerProtocol with LSP 3.17
+    |> Map.add "textDocument/inlayHint" (serverRequestHandling (fun s p -> s.TextDocumentInlayHint(p)))
+    |> Map.add "inlayHint/resolve" (serverRequestHandling (fun s p -> s.InlayHintResolve(p)))
 
   let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
 

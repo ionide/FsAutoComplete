@@ -363,5 +363,105 @@ let tests state =
             ) =
             member _.F(b) = a + b
           """
+
+      testCaseAsync "emit type for optional parameter without option" <|
+        CodeFix.check server
+          """
+          type A =
+            static member F(?$0a) = a |> Option.map ((+) 1)
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          type A =
+            static member F(?a: int) = a |> Option.map ((+) 1)
+          """
+      testCaseAsync "adds parens to optional parameter" <|
+        CodeFix.check server
+          """
+          type A =
+            static member F?$0a = a |> Option.map ((+) 1)
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          type A =
+            static member F(?a: int) = a |> Option.map ((+) 1)
+          """
+      testCaseAsync "adds parens to ident in match case" <|
+        CodeFix.check server
+          """
+          match 4 with
+          | $0value -> ()
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          match 4 with
+          | (value: int) -> ()
+          """
+
+      testCaseAsync "doesn't add parens to let" <|
+        CodeFix.check server
+          """
+          let $0value = 42
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          let value: int = 42
+          """
+      testCaseAsync "adds parens to let!" <|
+        CodeFix.check server
+          """
+          async {
+            let! $0value = async { return 4 }
+            ()
+          } |> ignore
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          async {
+            let! (value: int) = async { return 4 }
+            ()
+          } |> ignore
+          """
+      testCaseAsync "doesn't add parens to use" <|
+        CodeFix.check server
+          """
+          open System
+          let d = { new IDisposable with
+              member _.Dispose () = ()
+          }
+          let _ =
+              use $0value = d
+              ()
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          open System
+          let d = { new IDisposable with
+              member _.Dispose () = ()
+          }
+          let _ =
+              use value: IDisposable = d
+              ()
+          """
+      testCaseAsync "doesn't trigger for use!" <|
+        CodeFix.checkNotApplicable server
+          """
+          open System
+          let d = { new IDisposable with
+              member _.Dispose () = ()
+          }
+          async {
+              use! $0value = async { return d }
+              ()
+          } |> ignore
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
     ]
   ])
