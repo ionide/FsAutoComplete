@@ -1377,4 +1377,38 @@ let explicitTypeInfoTests =
             """
             (ExplicitType.Exists)
     ]
+
+    testList "trigger location" [
+      testList "let f p = p + 2" [
+        testCaseAsync "trigger for p binding" <|
+          testExplicitType
+            """
+            let f $($0p$I$) = p + 2
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Required fromCursors; SpecialRules = [] })
+        testCaseAsync "doesn't trigger for f binding" <|
+          // ENHANCEMENT: handle
+          testExplicitType'
+            """
+            let $0f p = p + 2
+            """
+            None
+        testCaseAsync "doesn't trigger for p usage" <|
+          testExplicitType'
+            """
+            let f p = $0p + 2
+            """
+            None
+      ]
+      testCaseAsync "nested let" <|
+        testExplicitType
+          """
+          let f a b =
+            let res =
+              let $($0t$I$) = a + b
+              t + a
+            res + 3
+          """
+          (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+    ]
   ]
