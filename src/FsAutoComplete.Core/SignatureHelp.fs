@@ -38,8 +38,8 @@ let private getSignatureHelpForFunctionApplication
 
     let! possibleApplicationSymbolEnd =
       maybe {
-        if tyRes.GetParseResults.IsPosContainedInApplicationPatched endOfPreviousIdentPos then
-          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingAppliedPatched endOfPreviousIdentPos
+        if tyRes.GetParseResults.IsPosContainedInApplication endOfPreviousIdentPos then
+          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingApplied endOfPreviousIdentPos
           return funcRange.End
         else
           return endOfPreviousIdentPos

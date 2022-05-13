@@ -6,6 +6,24 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text
+
+type FSharpParseFileResults with
+
+  /// Attempts to find the range of the string interpolation that contains a given position.
+  member scope.TryRangeOfStringInterpolationContainingPos pos =
+    SyntaxTraversal.Traverse(
+      pos,
+      scope.ParseTree,
+      { new SyntaxVisitorBase<_>() with
+          member _.VisitExpr(_, _, defaultTraverse, expr) =
+            match expr with
+            | SynExpr.InterpolatedString (range = range) when Range.rangeContainsPos range pos -> Some range
+            | _ -> defaultTraverse expr }
+    )
+
 
 let title = "Use triple-quoted string interpolation"
 

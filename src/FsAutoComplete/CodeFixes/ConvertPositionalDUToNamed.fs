@@ -22,9 +22,7 @@ open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
-open FsAutoComplete.FCSPatches
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Syntax.SyntaxTraversal
 
