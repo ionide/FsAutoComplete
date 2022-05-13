@@ -57,10 +57,9 @@ type LSPInlayHint =
     Pos: Types.Position
     Kind: InlayHintKind }
 
-type InlayHintData = {
-  TextDocument: TextDocumentIdentifier
-  Range: Types.Range
-}
+type InlayHintData =
+  { TextDocument: TextDocumentIdentifier
+    Range: Types.Range }
 
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
@@ -2646,138 +2645,148 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     )
 
     p.TextDocument
-    |> x.fileHandler (fun fn tyRes lines -> async {
-      let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
-      let! hints = commands.InlayHints(lines, tyRes, fcsRange)
-      let lspHints =
-        hints
-        |> Array.map (fun h -> {
-          Text = h.Text
-          InsertText = 
-            match h.Insertions with
-            | None -> None
-            | Some inserts ->
-                inserts
-                |> Seq.filter (fun i -> i.Pos = h.Pos && i.Text <> ")" && i.Text <> "(")
-                |> Seq.map (fun i -> i.Text)
-                |> String.concat ""
-                |> Some
-          Pos = fcsPosToLsp h.Pos
-          Kind = mapHintKind h.Kind
-        })
-      return success lspHints
-    })
+    |> x.fileHandler (fun fn tyRes lines ->
+      async {
+        let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+        let! hints = commands.InlayHints(lines, tyRes, fcsRange)
 
-  override x.TextDocumentInlayHint (p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
+        let lspHints =
+          hints
+          |> Array.map (fun h ->
+            { Text = h.Text
+              InsertText =
+                match h.Insertions with
+                | None -> None
+                | Some inserts ->
+                  inserts
+                  |> Seq.filter (fun i -> i.Pos = h.Pos && i.Text <> ")" && i.Text <> "(")
+                  |> Seq.map (fun i -> i.Text)
+                  |> String.concat ""
+                  |> Some
+              Pos = fcsPosToLsp h.Pos
+              Kind = mapHintKind h.Kind })
+
+        return success lspHints
+      })
+
+  override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
     logger.info (
       Log.setMessage "TextDocumentInlayHint Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
 
     p.TextDocument
-    |> x.fileHandler (fun fn tyRes lines -> async {
-      let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
-      let! hints = commands.InlayHints (lines, tyRes, fcsRange)
-      let hints: InlayHint[] =
-        hints
-        |> Array.map (fun h -> {
-            Position = fcsPosToLsp h.Pos
-            Label = InlayHintLabel.String h.Text
-            Kind = 
-              match h.Kind with
-              | InlayHints.HintKind.Type -> Types.InlayHintKind.Type
-              | InlayHints.HintKind.Parameter -> Types.InlayHintKind.Parameter
-              |> Some
-            //TODO: lazy -> resolve?
-            TextEdits = 
-              match h.Insertions with
-              | None -> None
+    |> x.fileHandler (fun fn tyRes lines ->
+      async {
+        let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+        let! hints = commands.InlayHints(lines, tyRes, fcsRange)
+
+        let hints: InlayHint[] =
+          hints
+          |> Array.map (fun h ->
+            { Position = fcsPosToLsp h.Pos
+              Label = InlayHintLabel.String h.Text
+              Kind =
+                match h.Kind with
+                | InlayHints.HintKind.Type -> Types.InlayHintKind.Type
+                | InlayHints.HintKind.Parameter -> Types.InlayHintKind.Parameter
+                |> Some
+              //TODO: lazy -> resolve?
+              TextEdits =
+                match h.Insertions with
+                | None -> None
                 // Note: Including no insertions via empty array:
                 //       Difference:
                 //       * `None` -> no `TextEdits` element specified -> can be `resolve`d
                 //       * `Some [||]` -> `TextEdits` gets serialized -> no `resolve`
                 //TODO: always emit `Some [||]` (instead of `None`) for `Parameter` -> prevent `resolve`
-              | Some insertions ->
+                | Some insertions ->
                   insertions
-                  |> Array.map (fun insertion -> {
-                      Range = fcsPosToProtocolRange insertion.Pos
-                      NewText = insertion.Text
-                  })
+                  |> Array.map (fun insertion ->
+                    { Range = fcsPosToProtocolRange insertion.Pos
+                      NewText = insertion.Text })
                   |> Some
-            //TODO: lazy -> resolve?
-            Tooltip = h.Tooltip |> Option.map (InlayHintTooltip.String)
-            PaddingLeft = 
-              match h.Kind with
-              | InlayHints.HintKind.Type -> Some true
-              | _ -> None
-            PaddingRight =
-              match h.Kind with
-              | InlayHints.HintKind.Parameter -> Some true
-              | _ -> None
-            Data =
-              {
-                TextDocument = p.TextDocument
-                Range = fcsRangeToLsp h.IdentRange
-              }
-              |> serialize
-              |> Some
-        })
+              //TODO: lazy -> resolve?
+              Tooltip = h.Tooltip |> Option.map (InlayHintTooltip.String)
+              PaddingLeft =
+                match h.Kind with
+                | InlayHints.HintKind.Type -> Some true
+                | _ -> None
+              PaddingRight =
+                match h.Kind with
+                | InlayHints.HintKind.Parameter -> Some true
+                | _ -> None
+              Data =
+                { TextDocument = p.TextDocument
+                  Range = fcsRangeToLsp h.IdentRange }
+                |> serialize
+                |> Some })
 
-      return success (Some hints)
-    })
-  /// Note: Requires `InlayHintData` in `InlayHint.Data` element.  
+        return success (Some hints)
+      })
+
+  /// Note: Requires `InlayHintData` in `InlayHint.Data` element.
   ///       Required to relate `InlayHint` to a document and position inside
   ///
   /// Note: Currently only resolves `Tooltip` and `TextEdits`
   ///
   /// Note: Resolving `Tooltip` is currently not implement -> above *Note* is a lie...
-  override x.InlayHintResolve (p: InlayHint): AsyncLspResult<InlayHint> =
+  override x.InlayHintResolve(p: InlayHint) : AsyncLspResult<InlayHint> =
     logger.info (
       Log.setMessage "InlayHintResolve Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    
+
     match p.Data with
-    | None -> Async.singleton <| invalidParams "InlayHint doesn't specify contain `Data`"
-    | _ when p.Tooltip |> Option.isSome && p.TextEdits |> Option.isSome ->
-        // nothing to resolve
-        Async.singleton <| success p
+    | None ->
+      Async.singleton
+      <| invalidParams "InlayHint doesn't specify contain `Data`"
+    | _ when
+      p.Tooltip |> Option.isSome
+      && p.TextEdits |> Option.isSome
+      ->
+      // nothing to resolve
+      Async.singleton <| success p
     | Some data ->
-        let data: InlayHintData = deserialize data
-        let range = data.Range
-        data.TextDocument
-        |> x.fileHandler (fun fn tyRes lines -> asyncResult {
+      let data: InlayHintData = deserialize data
+      let range = data.Range
+
+      data.TextDocument
+      |> x.fileHandler (fun fn tyRes lines ->
+        asyncResult {
           // update Tooltip
           let! p =
             match p.Tooltip with
             | Some _ -> Ok p
-            | None -> 
-                //TODO: implement
-                Ok p
+            | None ->
+              //TODO: implement
+              Ok p
           // update TextEdits
           let! p =
             match p.Kind, p.TextEdits with
             | Some (Types.InlayHintKind.Parameter), _ -> Ok p
             | _, Some _ -> Ok p
             | _, None ->
-                maybe {
-                  let! (symbolUse, mfv, explTy) =
-                    InlayHints.tryGetDetailedExplicitTypeInfo
-                      (InlayHints.isPotentialTargetForTypeAnnotation false)
-                      (lines, tyRes)
-                      (protocolPosToPos range.Start)
-                  let! (_, edits) = explTy.TryGetTypeAndEdits (mfv.FullType, symbolUse.DisplayContext)
-                  let p =
-                    { p with
-                        TextEdits =
-                          edits 
-                          |> AddExplicitTypeAnnotation.toLspEdits
-                          |> Some
-                    }
-                  return p
-                }
-                |> Option.defaultValue p
-                |> Ok
+              maybe {
+                let! (symbolUse, mfv, explTy) =
+                  InlayHints.tryGetDetailedExplicitTypeInfo
+                    (InlayHints.isPotentialTargetForTypeAnnotation false)
+                    (lines, tyRes)
+                    (protocolPosToPos range.Start)
+
+                let! (_, edits) = explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext)
+
+                let p =
+                  { p with
+                      TextEdits =
+                        edits
+                        |> AddExplicitTypeAnnotation.toLspEdits
+                        |> Some }
+
+                return p
+              }
+              |> Option.defaultValue p
+              |> Ok
 
           return p
         })
