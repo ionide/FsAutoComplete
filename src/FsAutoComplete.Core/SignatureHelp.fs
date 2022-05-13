@@ -16,13 +16,15 @@ type SignatureHelpKind =
   | FunctionApplication
 
 type SignatureHelpInfo =
-  { /// all potential overloads of the member at the position where signaturehelp was invoked
+  {
+    /// all potential overloads of the member at the position where signaturehelp was invoked
     Methods: MethodGroupItem[]
     /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
     ActiveOverload: int option
     /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
     ActiveParameter: int option
-    SigHelpKind: SignatureHelpKind }
+    SigHelpKind: SignatureHelpKind
+  }
 
 let private getSignatureHelpForFunctionApplication
   (

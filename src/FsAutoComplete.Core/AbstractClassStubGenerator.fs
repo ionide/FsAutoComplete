@@ -44,6 +44,7 @@ let private walkTypeDefn (SynTypeDefn (info, repr, members, implicitCtor, range,
 
 
 
+
       (
        // filter out implicit/explicit constructors and inherit statements, as all members _must_ come after these
        function

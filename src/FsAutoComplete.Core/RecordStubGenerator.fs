@@ -113,11 +113,13 @@ type RecordStubsInsertionParams =
 
 [<NoComparison>]
 type private Context =
-  { Writer: ColumnIndentedTextWriter
+  {
+    Writer: ColumnIndentedTextWriter
     /// A single-line skeleton for each field
     FieldDefaultValue: string
     RecordTypeName: string
-    RequireQualifiedAccess: bool }
+    RequireQualifiedAccess: bool
+  }
 
 let private formatField (ctxt: Context) prependNewLine prependExtraSpace (field: FSharpField) =
   let writer = ctxt.Writer

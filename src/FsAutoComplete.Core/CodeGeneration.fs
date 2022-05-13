@@ -172,7 +172,8 @@ module CodeGenerationUtils =
 
   [<NoComparison>]
   type Context =
-    { Writer: ColumnIndentedTextWriter
+    {
+      Writer: ColumnIndentedTextWriter
       /// Map generic types to specific instances for specialized interface implementation
       TypeInstantations: Map<string, string>
       /// Data for interface instantiation
@@ -184,7 +185,8 @@ module CodeGenerationUtils =
       /// A list of lines represents skeleton of each member
       MethodBody: string[]
       /// Context in order to display types in the short form
-      DisplayContext: FSharpDisplayContext }
+      DisplayContext: FSharpDisplayContext
+    }
 
   // Adapt from MetadataFormat module in FSharp.Formatting
 

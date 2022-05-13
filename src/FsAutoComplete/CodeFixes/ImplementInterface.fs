@@ -110,7 +110,8 @@ let private tryFindInterfaceStartAndWith (pos: Position) (ast: ParsedInput) =
   )
 
 type private InsertionData =
-  { /// Indentation of new members
+  {
+    /// Indentation of new members
     StartColumn: int
     /// Insert position of new members
     InsertAt: Position
@@ -120,7 +121,7 @@ type private InsertionData =
   // Handled elsewhere:
   //  Detected via diagnostics.Range.End & lookup in source
   // InsertClosingBracket: bool
-   }
+  }
 
 let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInput) (indentationSize: int) =
 

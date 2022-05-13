@@ -98,10 +98,7 @@ Target.create "LocalRelease" (fun _ ->
           MSBuildParams = { MSBuild.CliArguments.Create() with Properties = [ packAsToolProp ] } })
     "src/FsAutoComplete")
 
-Target.create "Clean" (fun _ ->
-  Shell.cleanDirs [ buildDir
-                    buildReleaseDir
-                    pkgsDir ])
+Target.create "Clean" (fun _ -> Shell.cleanDirs [ buildDir; buildReleaseDir; pkgsDir ])
 
 Target.create "Restore" (fun _ -> DotNet.restore id "")
 

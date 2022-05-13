@@ -16,15 +16,17 @@ module KeywordList =
       let lines = kv.Value.Replace("\r\n", "\n").Split('\n')
 
       let allLines =
-        Array.concat [| [| "<summary>" |]
-                        lines
-                        [| "</summary>" |] |]
+        Array.concat
+          [| [| "<summary>" |]
+             lines
+             [| "</summary>" |] |]
 
       let tip =
-        ToolTipText [ ToolTipElement.Single(
-                        [| TaggedText.tagText kv.Key |],
-                        FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
-                      ) ]
+        ToolTipText
+          [ ToolTipElement.Single(
+              [| TaggedText.tagText kv.Key |],
+              FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
+            ) ]
 
       kv.Key, tip)
     |> dict

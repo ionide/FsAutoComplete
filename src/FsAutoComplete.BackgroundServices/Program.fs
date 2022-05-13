@@ -385,7 +385,7 @@ type BackgroundServiceServer(state: State, client: FsacClient) =
       |> Seq.toList
 
   let reactor =
-    MailboxProcessor.Start (fun agent ->
+    MailboxProcessor.Start(fun agent ->
       let rec recieveLast last =
         async {
           let! msg = agent.TryReceive(5)

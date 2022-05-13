@@ -442,8 +442,9 @@ module SyntaxTreeOps =
 
       | SynExpr.ObjExpr (bindings = bindings; extraImpls = extraImpls) ->
         walkBinds bindings
-        || walkBinds [ for (SynInterfaceImpl (bindings = bindings)) in extraImpls do
-                         yield! bindings ]
+        || walkBinds
+             [ for (SynInterfaceImpl (bindings = bindings)) in extraImpls do
+                 yield! bindings ]
 
       | SynExpr.ForEach (enumExpr = e1; bodyExpr = e2)
       | SynExpr.While (whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
@@ -479,8 +480,9 @@ module SyntaxTreeOps =
 
       | SynExpr.LetOrUseBang (rhs = e1; body = e2; andBangs = es) ->
         walkExpr e1
-        || walkExprs [ for (SynExprAndBang (body = e)) in es do
-                         yield e ]
+        || walkExprs
+             [ for (SynExprAndBang (body = e)) in es do
+                 yield e ]
         || walkExpr e2
 
       | SynExpr.InterpolatedString (parts, _, _m) ->

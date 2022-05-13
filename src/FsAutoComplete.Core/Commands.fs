@@ -233,21 +233,21 @@ type Commands
 
   do
     disposables.Add
-    <| backgroundService.MessageReceived.Subscribe (fun n ->
+    <| backgroundService.MessageReceived.Subscribe(fun n ->
       match n with
       | BackgroundServices.Diagnostics d -> notify.Trigger(NotificationEvent.Diagnostics d))
 
   //Fill declarations cache so we're able to return workspace symbols correctly
   do
     disposables.Add
-    <| fileParsed.Publish.Subscribe (fun parseRes ->
+    <| fileParsed.Publish.Subscribe(fun parseRes ->
       let decls = parseRes.GetNavigationItems().Declarations
       // string<LocalPath> is a compiler-approved path, and since this structure comes from the compiler it's safe
       state.NavigationDeclarations.[UMX.tag parseRes.FileName] <- decls)
 
   do
     disposables.Add
-    <| checker.ScriptTypecheckRequirementsChanged.Subscribe (fun () ->
+    <| checker.ScriptTypecheckRequirementsChanged.Subscribe(fun () ->
       checkerLogger.info (Log.setMessage "Script typecheck dependencies changed, purging expired script options")
       let count = state.ScriptProjectOptions.Count
       state.ScriptProjectOptions.Clear()
@@ -260,7 +260,7 @@ type Commands
   // NB: if there's a background service checker configured then this will never actually fire
   do
     disposables.Add
-    <| checker.FileChecked.Subscribe (fun (n, _) ->
+    <| checker.FileChecked.Subscribe(fun (n, _) ->
       checkerLogger.info (
         Log.setMessage "{file} checked"
         >> Log.addContextDestructured "file" n
@@ -281,7 +281,7 @@ type Commands
   //Triggered by `FSharpChecker.FileChecked` if background service is disabled; and by `Parse` command
   do
     disposables.Add
-    <| fileChecked.Publish.Subscribe (fun (parseAndCheck, file, _) ->
+    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
       async {
         try
           NotificationEvent.FileParsed file
@@ -306,7 +306,7 @@ type Commands
 
   do
     disposables.Add
-    <| fileChecked.Publish.Subscribe (fun (parseAndCheck, file, _) ->
+    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
       async {
         if hasAnalyzers then
           try
@@ -366,7 +366,7 @@ type Commands
 
     do
       disposables.Add
-      <| fileParsed.Publish.Subscribe (fun parseResults ->
+      <| fileParsed.Publish.Subscribe(fun parseResults ->
         commandsLogger.info (
           Log.setMessage "Test Detection of {file} started"
           >> Log.addContextDestructured "file" parseResults.FileName
@@ -550,7 +550,7 @@ type Commands
 
   do
     disposables.Add
-    <| state.ProjectController.Notifications.Subscribe (fun ev ->
+    <| state.ProjectController.Notifications.Subscribe(fun ev ->
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
         let controller = state.ProjectController
@@ -581,7 +581,7 @@ type Commands
   //Initialize background service when the workspace is ready.
   do
     disposables.Add
-    <| state.ProjectController.WorkspaceReady.Subscribe (fun _ ->
+    <| state.ProjectController.WorkspaceReady.Subscribe(fun _ ->
       commandsLogger.info (Log.setMessage "Workspace ready - sending init request to background service")
       backgroundService.InitWorkspace(state.WorkspaceStateDirectory.FullName))
 

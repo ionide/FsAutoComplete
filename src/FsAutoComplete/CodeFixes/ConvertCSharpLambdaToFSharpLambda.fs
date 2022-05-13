@@ -51,8 +51,9 @@ let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
 
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode
-    (Set.ofList [ "39" // undefined value
-                  "43" ]) // operator not defined
+    (Set.ofList
+      [ "39" // undefined value
+        "43" ]) // operator not defined
     (fun diagnostic codeActionParams ->
       asyncResult {
         let fileName =

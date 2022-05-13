@@ -34,10 +34,12 @@ module FcsPos = FSharp.Compiler.Text.Position
 type FcsPos = FSharp.Compiler.Text.Position
 
 type OptionallyVersionedTextDocumentPositionParams =
-  { /// The text document.
+  {
+    /// The text document.
     TextDocument: VersionedTextDocumentIdentifier
     /// The position inside the text document.
-    Position: Ionide.LanguageServerProtocol.Types.Position }
+    Position: Ionide.LanguageServerProtocol.Types.Position
+  }
   interface ITextDocumentPositionParams with
     member this.TextDocument = { Uri = this.TextDocument.Uri }
     member this.Position = this.Position
@@ -182,7 +184,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
         cTok
       )
 
-    mailbox.Error.Add (fun exn ->
+    mailbox.Error.Add(fun exn ->
       logger.error (
         Log.setMessage "Error while sending diagnostics: {message}"
         >> Log.addExn exn
@@ -624,10 +626,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
          && (fi.Name = "dotnet" || fi.Name = "dotnet.exe") then
         commands.SetDotnetSDKRoot fi
 
-    commands.SetFSIAdditionalArguments [| yield!
-                                            config.FSICompilerToolLocations
-                                            |> Array.map toCompilerToolArgument
-                                          yield! config.FSIExtraParameters |]
+    commands.SetFSIAdditionalArguments
+      [| yield!
+           config.FSICompilerToolLocations
+           |> Array.map toCompilerToolArgument
+         yield! config.FSIExtraParameters |]
 
     commands.SetLinterConfigRelativePath config.LinterConfig
     // TODO(CH): make the destination part of config, so that non-FSAC editors don't have the '.ionide' path
@@ -839,8 +842,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       let getRecordStubReplacements () = recordStubReplacements ()
 
       let abstractClassStubReplacements () =
-        Map.ofList [ "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
-                     "$methodBody", config.AbstractClassStubGenerationMethodBody ]
+        Map.ofList
+          [ "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
+            "$methodBody", config.AbstractClassStubGenerationMethodBody ]
 
       let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
@@ -1177,8 +1181,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
               let insertPos = { (fcsPos |> fcsPosToLsp) with Character = 0 }
 
-              Some [| { TextEdit.NewText = text
-                        TextEdit.Range = { Start = insertPos; End = insertPos } } |],
+              Some
+                [| { TextEdit.NewText = text
+                     TextEdit.Range = { Start = insertPos; End = insertPos } } |],
               $"{ci.Label} (open {ns})"
 
           let d = Documentation.Markup(markdown comment)
@@ -1296,9 +1301,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
 
           let response =
             { Contents =
-                MarkedStrings [| yield! sigContent
-                                 yield commentContent
-                                 yield! footerContent |]
+                MarkedStrings
+                  [| yield! sigContent
+                     yield commentContent
+                     yield! footerContent |]
               Range = None }
 
           async.Return(success (Some response))
@@ -1873,9 +1879,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       }
 
     let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
-      Some [| JToken.FromObject(Path.LocalPathToUri sourceFile)
-              JToken.FromObject(fcsPosToLsp triggerPos)
-              JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation) |]
+      Some
+        [| JToken.FromObject(Path.LocalPathToUri sourceFile)
+           JToken.FromObject(fcsPosToLsp triggerPos)
+           JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation) |]
 
     handler
       (fun p pos tyRes lineStr typ file ->
@@ -2135,10 +2142,11 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
           { Label = Some "Generate Xml Documentation"
             Edit =
               { DocumentChanges =
-                  Some [| { TextDocument = p.TextDocument
-                            Edits =
-                              [| { Range = fcsPosToProtocolRange insertPos
-                                   NewText = text } |] } |]
+                  Some
+                    [| { TextDocument = p.TextDocument
+                         Edits =
+                           [| { Range = fcsPosToProtocolRange insertPos
+                                NewText = text } |] } |]
                 Changes = None } }
 
         let! response = lspClient.WorkspaceApplyEdit edit

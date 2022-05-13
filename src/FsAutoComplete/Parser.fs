@@ -110,7 +110,7 @@ module Parser =
     rootCommand.AddOption stateLocationOption
 
     rootCommand.SetHandler(
-      Func<_, _, _, Task> (fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
+      Func<_, _, _, Task>(fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
         let workspaceLoaderFactory =
           if projectGraphEnabled then
             Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
@@ -134,7 +134,7 @@ module Parser =
     rootCommand
 
   let waitForDebugger =
-    Invocation.InvocationMiddleware (fun ctx next ->
+    Invocation.InvocationMiddleware(fun ctx next ->
       let waitForDebugger = ctx.ParseResult.HasOption waitForDebuggerOption
 
       if waitForDebugger then
@@ -143,7 +143,7 @@ module Parser =
       next.Invoke(ctx))
 
   let immediateAttach =
-    Invocation.InvocationMiddleware (fun ctx next ->
+    Invocation.InvocationMiddleware(fun ctx next ->
       let attachDebugger = ctx.ParseResult.HasOption attachOption
 
       if attachDebugger then
@@ -152,7 +152,7 @@ module Parser =
       next.Invoke(ctx))
 
   let configureLogging =
-    Invocation.InvocationMiddleware (fun ctx next ->
+    Invocation.InvocationMiddleware(fun ctx next ->
       let isCategory (category: string) (e: LogEvent) =
         match e.Properties.TryGetValue "SourceContext" with
         | true, loggerName ->
@@ -226,7 +226,7 @@ module Parser =
         let logFile = args.GetValueForOption logFileOption
 
         try
-          logConf.WriteTo.Async (fun c ->
+          logConf.WriteTo.Async(fun c ->
             c.File(path = logFile, levelSwitch = verbositySwitch)
             |> ignore)
           |> ignore
@@ -250,7 +250,7 @@ module Parser =
       next.Invoke(ctx))
 
   let serilogFlush =
-    Invocation.InvocationMiddleware (fun ctx next ->
+    Invocation.InvocationMiddleware(fun ctx next ->
       task {
         do! next.Invoke ctx
         Serilog.Log.CloseAndFlush()

@@ -12,5 +12,6 @@
     "FSharp.trace.server": "verbose",
     "yaml.schemas": {
       "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*"
-    }
+    },
+    "editor.inlayHints.enabled": "offUnlessPressed"
 }

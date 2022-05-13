@@ -163,11 +163,7 @@ module Conversions =
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
       { Command = None
-        Data =
-          Some(
-            Newtonsoft.Json.Linq.JToken.FromObject [| uri
-                                                      typ |]
-          )
+        Data = Some(Newtonsoft.Json.Linq.JToken.FromObject [| uri; typ |])
         Range = fcsRangeToLsp decl.Range }
 
     topLevel.Nested
@@ -578,12 +574,16 @@ type TestDetectedNotification =
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
 type ProjectParms =
-  { /// Project file to compile
-    Project: TextDocumentIdentifier }
+  {
+    /// Project file to compile
+    Project: TextDocumentIdentifier
+  }
 
 type WorkspaceLoadParms =
-  { /// Project files to load
-    TextDocuments: TextDocumentIdentifier[] }
+  {
+    /// Project files to load
+    TextDocuments: TextDocumentIdentifier[]
+  }
 
 type WorkspacePeekRequest =
   { Directory: string

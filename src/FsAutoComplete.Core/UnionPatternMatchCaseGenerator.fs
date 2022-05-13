@@ -11,11 +11,13 @@ open FSharp.Compiler.Symbols
 
 [<NoEquality; NoComparison>]
 type PatternMatchExpr =
-  { /// Range of 'match x with' or 'function'
+  {
+    /// Range of 'match x with' or 'function'
     MatchWithOrFunctionRange: Range
     /// The whole pattern match expression
     Expr: SynExpr
-    Clauses: SynMatchClause list }
+    Clauses: SynMatchClause list
+  }
 
 [<NoComparison>]
 type UnionMatchCasesInsertionParams =
@@ -24,11 +26,13 @@ type UnionMatchCasesInsertionParams =
 
 [<NoComparison>]
 type private Context =
-  { Writer: ColumnIndentedTextWriter
+  {
+    Writer: ColumnIndentedTextWriter
     /// A single-line skeleton for each case
     CaseDefaultValue: string
     UnionTypeName: string
-    Qualifier: string option }
+    Qualifier: string option
+  }
 
 let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause (pat, _, _, _, _, _)) =
   let rec patIsCandidate (pat: SynPat) =

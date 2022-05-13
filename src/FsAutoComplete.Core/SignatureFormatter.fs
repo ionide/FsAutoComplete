@@ -33,9 +33,10 @@ module SignatureFormatter =
       false
 
   let private measureTypeNames =
-    Set.ofList [ "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
-                 "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
-                 "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" ]
+    Set.ofList
+      [ "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+        "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
+        "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" ]
 
   let private isMeasureType (t: FSharpEntity) =
     Set.contains t.FullName measureTypeNames

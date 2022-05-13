@@ -146,22 +146,23 @@ module private ShouldCreate =
   let private (|Namespace|_|) = (|StartsWith|_|)
 
   let private commonCollectionParams =
-    Set.ofList [ "mapping"
-                 "projection"
-                 "chooser"
-                 "value"
-                 "predicate"
-                 "folder"
-                 "state"
-                 "initializer"
-                 "action"
+    Set.ofList
+      [ "mapping"
+        "projection"
+        "chooser"
+        "value"
+        "predicate"
+        "folder"
+        "state"
+        "initializer"
+        "action"
 
-                 "list"
-                 "array"
-                 "source"
-                 "lists"
-                 "arrays"
-                 "sources" ]
+        "list"
+        "array"
+        "source"
+        "lists"
+        "arrays"
+        "sources" ]
 
   let private isWellKnownParameterOrFunction (func: FSharpMemberOrFunctionOrValue) (param: FSharpParameter) =
     match func.FullName with

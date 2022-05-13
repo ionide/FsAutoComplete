@@ -10,12 +10,13 @@ let title = "Use ':' for type in field declaration"
 let fix: CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "10" ]) (fun diagnostic codeActionParams ->
     if diagnostic.Message = "Unexpected symbol '=' in field declaration. Expected ':' or other token." then
-      AsyncResult.retn [ { File = codeActionParams.TextDocument
-                           Title = title
-                           SourceDiagnostic = Some diagnostic
-                           Edits =
-                             [| { Range = diagnostic.Range
-                                  NewText = ":" } |]
-                           Kind = FixKind.Fix } ]
+      AsyncResult.retn
+        [ { File = codeActionParams.TextDocument
+            Title = title
+            SourceDiagnostic = Some diagnostic
+            Edits =
+              [| { Range = diagnostic.Range
+                   NewText = ":" } |]
+            Kind = FixKind.Fix } ]
     else
       AsyncResult.retn [])

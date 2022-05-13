@@ -184,7 +184,7 @@ module Async =
     }
 
   let StartCatchCancellation (work, cancellationToken) =
-    Async.FromContinuations (fun (cont, econt, _) ->
+    Async.FromContinuations(fun (cont, econt, _) ->
       // When the child is cancelled, report OperationCancelled
       // as an ordinary exception to "error continuation" rather
       // than using "cancellation continuation"

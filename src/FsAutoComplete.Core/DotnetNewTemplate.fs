@@ -98,8 +98,9 @@ module DotnetNewTemplate =
           [ { ParameterName = "--framework"
               ShortName = "-f"
               ParameterType =
-                TemplateParameterType.Choice [ "net6.0     - Target .net 6"
-                                               "netstandard2.0    - Target netstandard2.0" ]
+                TemplateParameterType.Choice
+                  [ "net6.0     - Target .net 6"
+                    "netstandard2.0    - Target netstandard2.0" ]
               ParameterDescription = "The target framework for the project."
               DefaultValue = "netstandard2.0" }
 

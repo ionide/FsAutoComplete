@@ -13,11 +13,12 @@ let private mapExternalDiagnostic diagnosticType =
     | Some fixes ->
       match fixes with
       | :? list<TextEdit> as fixes ->
-        AsyncResult.retn [ { SourceDiagnostic = Some diagnostic
-                             File = codeActionParams.TextDocument
-                             Title = $"Fix issue"
-                             Edits = fixes |> List.toArray
-                             Kind = FixKind.Fix } ]
+        AsyncResult.retn
+          [ { SourceDiagnostic = Some diagnostic
+              File = codeActionParams.TextDocument
+              Title = $"Fix issue"
+              Edits = fixes |> List.toArray
+              Kind = FixKind.Fix } ]
 
       | _ -> AsyncResult.retn [])
 

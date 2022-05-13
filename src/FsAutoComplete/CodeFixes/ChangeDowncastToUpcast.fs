@@ -27,19 +27,21 @@ let fix (getRangeText: GetRangeText) : CodeFix =
       | true, true -> AsyncResult.retn []
       | false, false -> AsyncResult.retn []
       | true, false ->
-        AsyncResult.retn [ { File = codeActionParams.TextDocument
-                             SourceDiagnostic = Some diagnostic
-                             Title = titleUpcastOperator
-                             Edits =
-                               [| { Range = diagnostic.Range
-                                    NewText = expressionText.Replace(":?>", ":>") } |]
-                             Kind = FixKind.Refactor } ]
+        AsyncResult.retn
+          [ { File = codeActionParams.TextDocument
+              SourceDiagnostic = Some diagnostic
+              Title = titleUpcastOperator
+              Edits =
+                [| { Range = diagnostic.Range
+                     NewText = expressionText.Replace(":?>", ":>") } |]
+              Kind = FixKind.Refactor } ]
       | false, true ->
-        AsyncResult.retn [ { File = codeActionParams.TextDocument
-                             SourceDiagnostic = Some diagnostic
-                             Title = titleUpcastFunction
-                             Edits =
-                               [| { Range = diagnostic.Range
-                                    NewText = expressionText.Replace("downcast", "upcast") } |]
-                             Kind = FixKind.Refactor } ]
+        AsyncResult.retn
+          [ { File = codeActionParams.TextDocument
+              SourceDiagnostic = Some diagnostic
+              Title = titleUpcastFunction
+              Edits =
+                [| { Range = diagnostic.Range
+                     NewText = expressionText.Replace("downcast", "upcast") } |]
+              Kind = FixKind.Refactor } ]
     | Error _ -> AsyncResult.retn [])
