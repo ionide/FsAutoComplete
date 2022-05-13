@@ -893,7 +893,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
            AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
            ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
            AddMissingInstanceMember.fix
-           AddExplicitTypeToParameter.fix tryGetParseResultsForFile
+           AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
            ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
            UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
            RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
@@ -2771,7 +2771,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     { p with
                         TextEdits =
                           edits 
-                          |> AddExplicitTypeToParameter.toLspEdits
+                          |> AddExplicitTypeAnnotation.toLspEdits
                           |> Some
                     }
                   return p

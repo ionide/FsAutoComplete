@@ -1481,7 +1481,7 @@ let private wrapExpressionInParenthesesTests state =
 let tests state = testList "CodeFix tests" [
   HelpersTests.tests
 
-  AddExplicitTypeToParameterTests.tests state
+  AddExplicitTypeAnnotationTests.tests state
   addMissingEqualsToTypeDefinitionTests state
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state

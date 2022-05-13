@@ -1,4 +1,4 @@
-module private FsAutoComplete.Tests.CodeFixTests.AddExplicitTypeToParameterTests
+module private FsAutoComplete.Tests.CodeFixTests.AddExplicitTypeAnnotationTests
 
 open Expecto
 open Helpers
@@ -7,8 +7,8 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 
 let tests state =
-  serverTestList (nameof AddExplicitTypeToParameter) state defaultConfigDto None (fun server -> [
-    let selectCodeFix = CodeFix.withTitle AddExplicitTypeToParameter.title
+  serverTestList (nameof AddExplicitTypeAnnotation) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle AddExplicitTypeAnnotation.title
     testCaseAsync "can suggest explicit parameter for record-typed function parameters" <|
       CodeFix.check server
         """

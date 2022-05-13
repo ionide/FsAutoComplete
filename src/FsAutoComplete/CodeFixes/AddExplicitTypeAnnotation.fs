@@ -1,4 +1,4 @@
-module FsAutoComplete.CodeFix.AddExplicitTypeToParameter
+module FsAutoComplete.CodeFix.AddExplicitTypeAnnotation
 
 open System
 open FsToolkit.ErrorHandling
