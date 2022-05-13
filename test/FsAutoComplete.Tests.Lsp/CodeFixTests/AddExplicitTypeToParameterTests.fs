@@ -178,6 +178,53 @@ let tests state =
           new(a: int, b) = A(a+b)
           member _.F() = a + 1
         """
+    testCaseAsync "can add type to function parameter" <|
+      CodeFix.check server
+        """
+        let map $0f v = f (v+1) + 1
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let map (f: int -> int) v = f (v+1) + 1
+        """
+    testCaseAsync "can add type to function member parameter" <|
+      CodeFix.check server
+        """
+        type A(a) =
+          member _.F(b, $0f) = f (a+b) + 1
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        type A(a) =
+          member _.F(b, f: int -> int) = f (a+b) + 1
+        """
+    testCaseAsync "can add type to function value" <|
+      CodeFix.check server
+        """
+        let $0f = fun a b -> a + b
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let f: int -> int -> int = fun a b -> a + b
+        """
+    testCaseAsync "doesn't trigger for function value with existing type annotation" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0f: int -> int -> int = fun a b -> a + b
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+    testCaseAsync "doesn't trigger for function parameter with existing type annotation" <|
+      CodeFix.checkNotApplicable server
+        """
+        let map ($0f: int -> int) v = f (v+1) + 1
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+
     testList "parens" [
       testCaseAsync "single param without parens -> add parens" <|
         CodeFix.check server

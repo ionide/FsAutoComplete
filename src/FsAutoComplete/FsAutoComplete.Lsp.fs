@@ -2763,7 +2763,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 maybe {
                   let! (symbolUse, mfv, explTy) =
                     InlayHints.tryGetDetailedExplicitTypeInfo
-                      InlayHints.isPotentialTargetForTypeAnnotation
+                      (InlayHints.isPotentialTargetForTypeAnnotation false)
                       (lines, tyRes)
                       (protocolPosToPos range.Start)
                   let! (_, edits) = explTy.TryGetTypeAndEdits (mfv.FullType, symbolUse.DisplayContext)

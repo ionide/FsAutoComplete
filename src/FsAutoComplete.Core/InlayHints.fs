@@ -434,7 +434,7 @@ let rec private isDirectlyTyped (identStart: Position) (path: SyntaxVisitorPath)
       isDirectlyTyped identStart path
   | SyntaxNode.SynPat (SynPat.Attrib (pat=pat)) :: path when rangeContainsPos pat.Range identStart ->
       isDirectlyTyped identStart path
-  | SyntaxNode.SynBinding (SynBinding (headPat=headPat; returnInfo=Some(SynBindingReturnInfo(typeName=SynType.LongIdent(_))))) :: _ when rangeContainsPos headPat.Range identStart ->
+  | SyntaxNode.SynBinding (SynBinding (headPat=headPat; returnInfo=Some(SynBindingReturnInfo _))) :: _ when rangeContainsPos headPat.Range identStart ->
       true
   | SyntaxNode.SynExpr (SynExpr.Paren _) :: path ->
       isDirectlyTyped identStart path
@@ -751,8 +751,16 @@ let tryGetExplicitTypeInfo
 /// * is already typed (-> done by getting `ExplicitType`)
 /// * Filters like excluding functions (vs. lambda functions)
 /// * `mfv.IsFromDefinition`
-let isPotentialTargetForTypeAnnotation (symbolUse: FSharpSymbolUse, mfv: FSharpMemberOrFunctionOrValue) =
-  mfv.IsValue
+/// 
+/// `allowFunctionValues`: `let f = fun a b -> a + b`  
+/// -> enabled: `f` is target  
+/// Note: NOT actual functions with direct parameters:
+/// `let f a b = a + b` -> `f` isn't target  
+/// Note: can be parameters too:
+/// `let map f v = f v` -> `f` is target
+let isPotentialTargetForTypeAnnotation (allowFunctionValues: bool) (symbolUse: FSharpSymbolUse, mfv: FSharpMemberOrFunctionOrValue) =
+  //ENHANCEMENT: extract settings
+  (mfv.IsValue || (allowFunctionValues && mfv.IsFunction))
   &&
   not (
     mfv.IsMember
@@ -822,7 +830,7 @@ let provideHints
         when
           symbolUse.IsFromDefinition
           &&
-          isPotentialTargetForTypeAnnotation (symbolUse, mfv)
+          isPotentialTargetForTypeAnnotation false (symbolUse, mfv)
         ->
         tryGetExplicitTypeInfo (text, parseAndCheck.GetAST) symbolUse.Range.Start
         |> Option.bind (fun explTy -> tryCreateTypeHint explTy mfv.FullType symbolUse.DisplayContext)

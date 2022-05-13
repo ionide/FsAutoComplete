@@ -96,7 +96,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsStartPos
       let res =
         InlayHints.tryGetDetailedExplicitTypeInfo 
-          InlayHints.isPotentialTargetForTypeAnnotation
+          (InlayHints.isPotentialTargetForTypeAnnotation true)
           (sourceText, parseAndCheck)
           fcsStartPos
       match res with
