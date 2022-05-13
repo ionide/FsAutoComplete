@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.53.2] - 2022-05-13
+
+### Added
+* [Update Fantomas.Client to use new fantomas alpha if present](https://github.com/fsharp/FsAutoComplete/pull/938) (thanks @nojaf!)
+
 ## [0.53.1] - 2022-05-01
 
 ### Changed
