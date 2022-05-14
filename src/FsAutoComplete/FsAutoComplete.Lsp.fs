@@ -1386,11 +1386,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
       asyncResult {
-        let! res =
+        let! declarations, useages =
           commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
           |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-        let ranges: FSharp.Compiler.Text.Range[] = res.Values |> Seq.concat |> Seq.toArray
+        let ranges: FSharp.Compiler.Text.Range[] =
+          useages.Values |> Seq.concat |> Seq.toArray
 
         return ranges |> Array.map fcsRangeToLspLocation |> Some
       })
@@ -1858,11 +1859,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                               Command = ""
                               Arguments = None } }
                 )
-              | Ok uses ->
+              | Ok (declarations, uses) ->
                 let allUses = uses.Values |> Seq.concat |> Array.ofSeq
+
                 // allUses includes the declaration, so we need to reduce it by one to get the number of 'external' references
                 let cmd =
-                  if allUses.Length = 1 then
+                  if allUses.Length = 0 then
                     { Title = "0 References"
                       Command = ""
                       Arguments = None }

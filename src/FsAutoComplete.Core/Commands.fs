@@ -22,6 +22,7 @@ open FSharp.Compiler.Tokenization
 open SymbolLocation
 open FSharp.Compiler.Symbols
 open System.Collections.Immutable
+open System.Collections.Generic
 
 [<RequireQualifiedAccess>]
 type LocationResponse<'a> = Use of 'a
@@ -1058,19 +1059,25 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               do! findReferencesInFile (file, symbol, p, onFound)
           })
 
-      let toDict (symbolUseRanges: range seq) =
-        let dict = new System.Collections.Generic.Dictionary<string, range seq>()
+      let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
+
+      let splitByDeclaration (uses: FSharpSymbolUse[]) =
+        uses
+        |> Array.partition (fun u -> u.IsFromDefinition)
+
+      let toDict (symbolUseRanges: range[]) =
+        let dict = new System.Collections.Generic.Dictionary<string, range[]>()
 
         symbolUseRanges
-        |> Seq.collect (fun symbolUse ->
+        |> Array.collect (fun symbolUse ->
           let file = symbolUse.FileName
           // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
           // then we'd need to map the files to some kind of document identfier and dedupe by that
           // before issueing the renames. We don't, so this becomes very simple
-          [ file, symbolUse ])
-        |> Seq.groupBy fst
-        |> Seq.iter (fun (key, items) ->
-          let itemsSeq = items |> Seq.map snd
+          [| file, symbolUse |])
+        |> Array.groupBy fst
+        |> Array.iter (fun (key, items) ->
+          let itemsSeq = items |> Array.map snd
           dict[key] <- itemsSeq
           ())
 
@@ -1090,12 +1097,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       | SymbolDeclarationLocation.CurrentDocument ->
         let! ct = Async.CancellationToken
         let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+        let declarations, usages = splitByDeclaration symbolUses
 
-        return
-          toDict (
-            symbolUses
-            |> Seq.map (fun symbolUse -> symbolUse.Range)
-          )
+        let declarationRanges, usageRanges =
+          toDict (ranges declarations), toDict (ranges usages)
+
+        return declarationRanges, usageRanges
+
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
         let symbolUseRanges = ImmutableArray.CreateBuilder()
 
@@ -1120,21 +1128,33 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         // Distinct these down because each TFM will produce a new 'project'.
         // Unless guarded by a #if define, symbols with the same range will be added N times
         let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
-        return toDict symbolUseRanges
+
+        return Dictionary<_, _> [], toDict symbolUseRanges
     }
 
   member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
-      let! symbolUsesByDocument = x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
+      let! (declarationsByDocument, symbolUsesByDocument) = x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
+      let totalSetOfRanges = Dictionary<NamedText, _>()
 
-      let locations =
-        symbolUsesByDocument
-        |> Seq.choose (fun (KeyValue (filePath, symbolUses)) ->
-          match state.TryGetFileSource(UMX.tag filePath) with
-          | Error _ -> None
-          | Ok text -> Some(text, symbolUses))
+      for (KeyValue (filePath, declUsages)) in declarationsByDocument do
+        let! text = state.TryGetFileSource(UMX.tag filePath)
 
-      return locations
+        match totalSetOfRanges.TryGetValue(text) with
+        | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
+        | false, _ -> totalSetOfRanges[text] <- declUsages
+
+      for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
+        let! text = state.TryGetFileSource(UMX.tag filePath)
+
+        match totalSetOfRanges.TryGetValue(text) with
+        | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+        | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+      return
+        totalSetOfRanges
+        |> Seq.map (fun (KeyValue (k, v)) -> k, v)
+        |> Array.ofSeq
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
