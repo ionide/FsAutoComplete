@@ -13,6 +13,5 @@
     "yaml.schemas": {
       "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*"
     },
-    "editor.inlayHints.enabled": "offUnlessPressed",
-    // "FSharp.fsac.netCoreDllPath": "D:\\Code\\FsAutoComplete\\src\\FsAutoComplete\\bin\\Debug\\net6.0\\fsautocomplete.dll"
+    "editor.inlayHints.enabled": "offUnlessPressed"
 }
