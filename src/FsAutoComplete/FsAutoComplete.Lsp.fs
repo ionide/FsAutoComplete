@@ -2738,18 +2738,17 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     )
 
     match p.Data with
-    | None ->
-      Async.singleton
-      <| invalidParams "InlayHint doesn't specify contain `Data`"
     | _ when
       p.Tooltip |> Option.isSome
       && p.TextEdits |> Option.isSome
       ->
       // nothing to resolve
       Async.singleton <| success p
+    | None ->
+      Async.singleton
+      <| invalidParams "InlayHint doesn't contain `Data`"
     | Some data ->
       let data: InlayHintData = deserialize data
-      let range = data.Range
 
       data.TextDocument
       |> x.fileHandler (fun fn tyRes lines ->
@@ -2772,7 +2771,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   InlayHints.tryGetDetailedExplicitTypeInfo
                     (InlayHints.isPotentialTargetForTypeAnnotation false)
                     (lines, tyRes)
-                    (protocolPosToPos range.Start)
+                    (protocolPosToPos data.Range.Start)
 
                 let! (_, edits) = explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext)
 
