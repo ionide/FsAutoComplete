@@ -57,9 +57,8 @@ let getDeclarationLocation
         let projectsThatDependOnContainingProjects =
           state.ProjectController.GetDependentProjectsOfProjects projectsThatContainFile
 
-
         match projectsThatDependOnContainingProjects with
-        | [] -> None
+        | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
         | projects ->
           Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
     | None -> None

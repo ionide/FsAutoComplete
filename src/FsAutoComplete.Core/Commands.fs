@@ -694,20 +694,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     |> List.iter (fun cts -> cts.Cancel())
 
   member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>) =
-    async {
-      match state.TryGetFileCheckerOptionsWithLines file with
-      | Ok (opts, text) ->
-        match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
-        | None ->
-          let version =
-            state.TryGetFileVersion file
-            |> Option.defaultValue 0
+    match state.TryGetFileCheckerOptionsWithLines file with
+    | Ok (opts, text) -> x.TryGetRecentTypeCheckResultsForFile(file, opts, text)
+    | _ -> async.Return None
 
-          match! checker.ParseAndCheckFileInProject(file, version, text, opts) with
-          | Ok r -> return Some r
-          | Error _ -> return None
-        | Some r -> return Some r
-      | _ -> return None
+  member x.TryGetRecentTypeCheckResultsForFile(file, opts, text) =
+    async {
+      match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
+      | None ->
+        let version =
+          state.TryGetFileVersion file
+          |> Option.defaultValue 0
+
+        match! checker.ParseAndCheckFileInProject(file, version, text, opts) with
+        | Ok r -> return Some r
+        | Error _ -> return None
+      | Some r -> return Some r
     }
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
@@ -1102,7 +1104,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         let declarationRanges, usageRanges =
           toDict (ranges declarations), toDict (ranges usages)
 
-        return declarationRanges, usageRanges
+        return Choice1Of2(declarationRanges, usageRanges)
 
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
         let symbolUseRanges = ImmutableArray.CreateBuilder()
@@ -1129,32 +1131,47 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         // Unless guarded by a #if define, symbols with the same range will be added N times
         let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
 
-        return Dictionary<_, _> [], toDict symbolUseRanges
+        return Choice2Of2(toDict symbolUseRanges)
     }
 
   member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
-      let! (declarationsByDocument, symbolUsesByDocument) = x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
-      let totalSetOfRanges = Dictionary<NamedText, _>()
+      match! x.SymbolUseWorkspace(pos, lineStr, text, tyRes) with
+      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
 
-      for (KeyValue (filePath, declUsages)) in declarationsByDocument do
-        let! text = state.TryGetFileSource(UMX.tag filePath)
+        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
+          let! text = state.TryGetFileSource(UMX.tag filePath)
 
-        match totalSetOfRanges.TryGetValue(text) with
-        | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
-        | false, _ -> totalSetOfRanges[text] <- declUsages
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
+          | false, _ -> totalSetOfRanges[text] <- declUsages
 
-      for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
-        let! text = state.TryGetFileSource(UMX.tag filePath)
+        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
+          let! text = state.TryGetFileSource(UMX.tag filePath)
 
-        match totalSetOfRanges.TryGetValue(text) with
-        | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-        | false, _ -> totalSetOfRanges[text] <- symbolUses
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
 
-      return
-        totalSetOfRanges
-        |> Seq.map (fun (KeyValue (k, v)) -> k, v)
-        |> Array.ofSeq
+        return
+          totalSetOfRanges
+          |> Seq.map (fun (KeyValue (k, v)) -> k, v)
+          |> Array.ofSeq
+      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
+          let! text = state.TryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return
+          totalSetOfRanges
+          |> Seq.map (fun (KeyValue (k, v)) -> k, v)
+          |> Array.ofSeq
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =

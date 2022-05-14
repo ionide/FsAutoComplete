@@ -653,7 +653,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         return! AsyncLspResult.internalError s
       | ResultOrString.Ok (options, lines, lineStr) ->
         try
-          let! tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file)
+          let! tyResOpt = commands.TryGetRecentTypeCheckResultsForFile(file, options, lines)
 
           match tyResOpt with
           | None ->
@@ -1386,14 +1386,23 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
       asyncResult {
-        let! declarations, useages =
+        let! usages =
           commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
           |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-        let ranges: FSharp.Compiler.Text.Range[] =
-          useages.Values |> Seq.concat |> Seq.toArray
-
-        return ranges |> Array.map fcsRangeToLspLocation |> Some
+        match usages with
+        | Choice1Of2 (decls, usages) ->
+          return
+            Seq.append decls.Values usages.Values
+            |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
+            |> Seq.toArray
+            |> Some
+        | Choice2Of2 combinedRanges ->
+          return
+            combinedRanges.Values
+            |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
+            |> Seq.toArray
+            |> Some
       })
 
   override x.TextDocumentDocumentHighlight(p) =
@@ -1859,21 +1868,40 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                               Command = ""
                               Arguments = None } }
                 )
-              | Ok (declarations, uses) ->
-                let allUses = uses.Values |> Seq.concat |> Array.ofSeq
+              | Ok res ->
+                match res with
+                | Choice1Of2 (_, uses) ->
+                  let allUses = uses.Values |> Array.concat
 
-                // allUses includes the declaration, so we need to reduce it by one to get the number of 'external' references
-                let cmd =
-                  if allUses.Length = 0 then
-                    { Title = "0 References"
-                      Command = ""
-                      Arguments = None }
-                  else
-                    { Title = $"%d{allUses.Length} References"
-                      Command = "fsharp.showReferences"
-                      Arguments = writePayload (file, pos, allUses) }
+                  let cmd =
+                    if allUses.Length = 0 then
+                      { Title = "0 References"
+                        Command = ""
+                        Arguments = None }
+                    else
+                      { Title = $"%d{allUses.Length} References"
+                        Command = "fsharp.showReferences"
+                        Arguments = writePayload (file, pos, allUses) }
 
-                { p with Command = Some cmd } |> Some |> success
+                  { p with Command = Some cmd } |> Some |> success
+                | Choice2Of2 mixedUsages ->
+                  // mixedUsages will contain the declaration, so we need to do a bit of work here
+                  let allUses = mixedUsages.Values |> Array.concat
+
+                  let cmd =
+                    if allUses.Length = 1 then
+                      // 1 reference means that it's only the declaration, so it's actually 0 references
+                      { Title = "0 References"
+                        Command = ""
+                        Arguments = None }
+                    else
+                      // multiple references means that the declaration _and_ the references are all present.
+                      // this is kind of a pain, so for now at least, we just return all of them
+                      { Title = $"%d{allUses.Length - 1} References"
+                        Command = "fsharp.showReferences"
+                        Arguments = writePayload (file, pos, allUses) }
+
+                  { p with Command = Some cmd } |> Some |> success
 
             return res
         })
