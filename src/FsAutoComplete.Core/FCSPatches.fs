@@ -338,18 +338,6 @@ type FSharpParseFileResults with
             | _ -> defaultTraverse expr }
     )
 
-  /// Attempts to find the range of the string interpolation that contains a given position.
-  member scope.TryRangeOfStringInterpolationContainingPos pos =
-    SyntaxTraversal.Traverse(
-      pos,
-      scope.ParseTree,
-      { new SyntaxVisitorBase<_>() with
-          member _.VisitExpr(_, _, defaultTraverse, expr) =
-            match expr with
-            | SynExpr.InterpolatedString (range = range) when Range.rangeContainsPos range pos -> Some range
-            | _ -> defaultTraverse expr }
-    )
-
 module SyntaxTreeOps =
   open FSharp.Compiler.Syntax
 
@@ -673,21 +661,14 @@ module SyntaxTraversal =
         match m with
         | SynModuleDecl.ModuleAbbrev (_ident, _longIdent, _range) -> Array.empty
         | SynModuleDecl.NestedModule (decls = synModuleDecls) ->
-          synModuleDecls
-          |> List.toArray
-          |> Array.collect (traverseSynModuleDecl path)
+          synModuleDecls |> List.toArray |> Array.collect (traverseSynModuleDecl path)
         | SynModuleDecl.Let (isRecursive, synBindingList, range) ->
           match walker.VisitLetOrUse(path, isRecursive, traverseSynBinding path, synBindingList, range) with
-          | [||] ->
-            synBindingList
-            |> List.toArray
-            |> Array.collect (traverseSynBinding path)
+          | [||] -> synBindingList |> List.toArray |> Array.collect (traverseSynBinding path)
           | nodes -> nodes
         | SynModuleDecl.Expr (synExpr, _range) -> traverseSynExpr path synExpr
         | SynModuleDecl.Types (synTypeDefnList, _range) ->
-          synTypeDefnList
-          |> List.toArray
-          |> Array.collect (traverseSynTypeDefn path)
+          synTypeDefnList |> List.toArray |> Array.collect (traverseSynTypeDefn path)
         | SynModuleDecl.Exception (_synExceptionDefn, _range) -> Array.empty
         | SynModuleDecl.Open (_target, _range) -> Array.empty
         | SynModuleDecl.Attributes (_synAttributes, _range) -> Array.empty
@@ -713,9 +694,7 @@ module SyntaxTraversal =
       | [||] ->
         let path = SyntaxNode.SynModuleOrNamespace mors :: origPath
 
-        synModuleDecls
-        |> List.toArray
-        |> Array.collect (traverseSynModuleDecl path)
+        synModuleDecls |> List.toArray |> Array.collect (traverseSynModuleDecl path)
       | nodes -> nodes
 
     and traverseSynExpr origPath (expr: SynExpr) =
@@ -740,14 +719,10 @@ module SyntaxTraversal =
                | SynInterpolatedStringPart.FillExpr (fillExpr, _) -> yield! traverseSynExpr fillExpr |]
 
         | SynExpr.Typed (synExpr, synType, _range) ->
-          [| yield! traverseSynExpr synExpr
-             yield! traverseSynType synType |]
+          [| yield! traverseSynExpr synExpr; yield! traverseSynType synType |]
 
         | SynExpr.Tuple (_, synExprList, _, _range)
-        | SynExpr.ArrayOrList (_, synExprList, _range) ->
-          synExprList
-          |> List.toArray
-          |> Array.collect traverseSynExpr
+        | SynExpr.ArrayOrList (_, synExprList, _range) -> synExprList |> List.toArray |> Array.collect traverseSynExpr
 
         | SynExpr.AnonRecd (_isStruct, copyOpt, synExprList, _range) ->
           [| match copyOpt with
@@ -799,8 +774,7 @@ module SyntaxTraversal =
                  yield! traverseSynBinding path b |]
 
         | SynExpr.While (_sequencePointInfoForWhileLoop, whileExpr, doExpr, _range) ->
-          [| yield! traverseSynExpr whileExpr
-             yield! traverseSynExpr doExpr |]
+          [| yield! traverseSynExpr whileExpr; yield! traverseSynExpr doExpr |]
 
         | SynExpr.For (identBody = identBody; toBody = toBody; doBody = doBody) ->
           [| yield! traverseSynExpr identBody
@@ -845,10 +819,7 @@ module SyntaxTraversal =
 
         | SynExpr.Match (expr = expr; clauses = clauses) ->
           [| yield! traverseSynExpr expr
-             yield!
-               clauses
-               |> List.toArray
-               |> Array.collect (traverseSynMatchClause path) |]
+             yield! clauses |> List.toArray |> Array.collect (traverseSynMatchClause path) |]
 
         | SynExpr.Do (synExpr, _range) -> traverseSynExpr synExpr
 
@@ -858,42 +829,32 @@ module SyntaxTraversal =
 
         | SynExpr.App (_exprAtomicFlag, isInfix, synExpr, synExpr2, _range) ->
           if isInfix then
-            [| yield! traverseSynExpr synExpr2
-               yield! traverseSynExpr synExpr |] // reverse the args
+            [| yield! traverseSynExpr synExpr2; yield! traverseSynExpr synExpr |] // reverse the args
           else
-            [| yield! traverseSynExpr synExpr
-               yield! traverseSynExpr synExpr2 |]
+            [| yield! traverseSynExpr synExpr; yield! traverseSynExpr synExpr2 |]
 
         | SynExpr.TypeApp (synExpr, _, _synTypeList, _commas, _, _, _range) -> traverseSynExpr synExpr
 
         | SynExpr.LetOrUse (isRecursive, _, synBindingList, synExpr, range, _) ->
           match walker.VisitLetOrUse(path, isRecursive, traverseSynBinding path, synBindingList, range) with
           | [||] ->
-            [| yield!
-                 synBindingList
-                 |> List.toArray
-                 |> Array.collect (traverseSynBinding path)
+            [| yield! synBindingList |> List.toArray |> Array.collect (traverseSynBinding path)
                yield! traverseSynExpr synExpr |]
           | nodes -> nodes
 
         | SynExpr.TryWith (tryExpr = tryExpr; withCases = withCases) ->
           [| yield! traverseSynExpr tryExpr
-             yield!
-               withCases
-               |> List.toArray
-               |> Array.collect (traverseSynMatchClause path) |]
+             yield! withCases |> List.toArray |> Array.collect (traverseSynMatchClause path) |]
 
         | SynExpr.TryFinally (tryExpr = tryExpr; finallyExpr = finallyExpr) ->
-          [| yield! traverseSynExpr tryExpr
-             yield! traverseSynExpr finallyExpr |]
+          [| yield! traverseSynExpr tryExpr; yield! traverseSynExpr finallyExpr |]
 
         | SynExpr.Lazy (synExpr, _range) -> traverseSynExpr synExpr
 
         | SynExpr.SequentialOrImplicitYield (_sequencePointInfoForSequential, synExpr, synExpr2, _, _range)
 
         | SynExpr.Sequential (_sequencePointInfoForSequential, _, synExpr, synExpr2, _range) ->
-          [| yield! traverseSynExpr synExpr
-             yield! traverseSynExpr synExpr2 |]
+          [| yield! traverseSynExpr synExpr; yield! traverseSynExpr synExpr2 |]
 
         | SynExpr.IfThenElse (ifExpr, thenExpr, elseExpr, _sequencePointInfoForBinding, _isRecovery, _range, _range2) ->
           [| yield! traverseSynExpr ifExpr
@@ -913,8 +874,7 @@ module SyntaxTraversal =
         | SynExpr.Set (targetExpr, assignmentExpr, _)
 
         | SynExpr.DotSet (targetExpr, _, assignmentExpr, _) ->
-          [| yield! traverseSynExpr targetExpr
-             yield! traverseSynExpr assignmentExpr |]
+          [| yield! traverseSynExpr targetExpr; yield! traverseSynExpr assignmentExpr |]
 
         | SynExpr.IndexRange (leftExpr, _, rightExpr, _, _, _) ->
           [| match leftExpr with
@@ -927,8 +887,7 @@ module SyntaxTraversal =
         | SynExpr.IndexFromEnd (e, _) -> traverseSynExpr e
 
         | SynExpr.DotIndexedGet (objExpr, indexArgs, _range, _range2) ->
-          [| yield! traverseSynExpr objExpr
-             yield! traverseSynExpr indexArgs |]
+          [| yield! traverseSynExpr objExpr; yield! traverseSynExpr indexArgs |]
 
         | SynExpr.DotIndexedSet (objExpr, indexArgs, valueExpr, _, _range, _range2) ->
           [| yield! traverseSynExpr objExpr
@@ -936,12 +895,10 @@ module SyntaxTraversal =
              yield! traverseSynExpr valueExpr |]
 
         | SynExpr.JoinIn (synExpr1, _range, synExpr2, _range2) ->
-          [| yield! traverseSynExpr synExpr1
-             yield! traverseSynExpr synExpr2 |]
+          [| yield! traverseSynExpr synExpr1; yield! traverseSynExpr synExpr2 |]
 
         | SynExpr.NamedIndexedPropertySet (_longIdent, synExpr, synExpr2, _range) ->
-          [| yield! traverseSynExpr synExpr
-             yield! traverseSynExpr synExpr2 |]
+          [| yield! traverseSynExpr synExpr; yield! traverseSynExpr synExpr2 |]
 
         | SynExpr.DotNamedIndexedPropertySet (synExpr, _longIdent, synExpr2, synExpr3, _range) ->
           [| yield! traverseSynExpr synExpr
@@ -953,8 +910,7 @@ module SyntaxTraversal =
         | SynExpr.Upcast (synExpr, synType, _range)
 
         | SynExpr.Downcast (synExpr, synType, _range) ->
-          [| yield! traverseSynExpr synExpr
-             yield! traverseSynType synType |]
+          [| yield! traverseSynExpr synExpr; yield! traverseSynType synType |]
 
         | SynExpr.InferredUpcast (synExpr, _range) -> traverseSynExpr synExpr
 
@@ -983,10 +939,7 @@ module SyntaxTraversal =
 
         | SynExpr.MatchBang (expr = expr; clauses = clauses) ->
           [| yield! traverseSynExpr expr
-             yield!
-               clauses
-               |> List.toArray
-               |> Array.collect (traverseSynMatchClause path) |]
+             yield! clauses |> List.toArray |> Array.collect (traverseSynMatchClause path) |]
 
         | SynExpr.DoBang (synExpr, _range) -> traverseSynExpr synExpr
 
@@ -1014,30 +967,20 @@ module SyntaxTraversal =
 
         match p with
         | SynPat.Paren (p, _) -> traversePat path p
-        | SynPat.Or (lhsPat = lhsPat; rhsPat = rhsPat) ->
-          [| lhsPat; rhsPat |]
-          |> Array.collect (traversePat path)
+        | SynPat.Or (lhsPat = lhsPat; rhsPat = rhsPat) -> [| lhsPat; rhsPat |] |> Array.collect (traversePat path)
         | SynPat.Ands (ps, _)
         | SynPat.Tuple (_, ps, _)
-        | SynPat.ArrayOrList (_, ps, _) ->
-          ps
-          |> List.toArray
-          |> Array.collect (traversePat path)
+        | SynPat.ArrayOrList (_, ps, _) -> ps |> List.toArray |> Array.collect (traversePat path)
         | SynPat.Attrib (p, _, _) -> traversePat path p
         | SynPat.LongIdent (argPats = argPats) ->
           match argPats with
-          | SynArgPats.Pats ps ->
-            ps
-            |> List.toArray
-            |> Array.collect (traversePat path)
+          | SynArgPats.Pats ps -> ps |> List.toArray |> Array.collect (traversePat path)
           | SynArgPats.NamePatPairs (ps, _) ->
             ps
             |> List.map (fun (_, _, pat) -> pat)
             |> List.toArray
             |> Array.collect (traversePat path)
-        | SynPat.Typed (p, ty, _) ->
-          [| yield! traversePat path p
-             yield! traverseSynType path ty |]
+        | SynPat.Typed (p, ty, _) -> [| yield! traversePat path p; yield! traverseSynType path ty |]
         | _ -> [||]
 
       walker.VisitPat(origPath, defaultTraverse, pat)
@@ -1049,24 +992,15 @@ module SyntaxTraversal =
         match ty with
         | SynType.App (typeName, _, typeArgs, _, _, _, _)
         | SynType.LongIdentApp (typeName, _, _, typeArgs, _, _, _) ->
-          [| yield typeName; yield! typeArgs |]
-          |> Array.collect (traverseSynType path)
-        | SynType.Fun (ty1, ty2, _) ->
-          [| ty1; ty2 |]
-          |> Array.collect (traverseSynType path)
+          [| yield typeName; yield! typeArgs |] |> Array.collect (traverseSynType path)
+        | SynType.Fun (ty1, ty2, _) -> [| ty1; ty2 |] |> Array.collect (traverseSynType path)
         | SynType.MeasurePower (ty, _, _)
         | SynType.HashConstraint (ty, _)
         | SynType.WithGlobalConstraints (ty, _, _)
         | SynType.Array (_, ty, _) -> traverseSynType path ty
         | SynType.StaticConstantNamed (ty1, ty2, _)
-        | SynType.MeasureDivide (ty1, ty2, _) ->
-          [| ty1; ty2 |]
-          |> Array.collect (traverseSynType path)
-        | SynType.Tuple (_, tys, _) ->
-          tys
-          |> List.map snd
-          |> List.toArray
-          |> Array.collect (traverseSynType path)
+        | SynType.MeasureDivide (ty1, ty2, _) -> [| ty1; ty2 |] |> Array.collect (traverseSynType path)
+        | SynType.Tuple (_, tys, _) -> tys |> List.map snd |> List.toArray |> Array.collect (traverseSynType path)
         | SynType.StaticConstantExpr (expr, _) -> traverseSynExpr [] expr
         | SynType.Anon _ -> [||]
         | _ -> [||]
@@ -1092,9 +1026,7 @@ module SyntaxTraversal =
                                                                                      propertyKeyword = Some (info2)
                                                                                      extraId = Some getset2))) as mem2 ] -> // can happen if one is a getter and one is a setter
           // ensure same long id
-          assert
-            ((lid1.Lid, lid2.Lid)
-             ||> List.forall2 (fun x y -> x.idText = y.idText))
+          assert ((lid1.Lid, lid2.Lid) ||> List.forall2 (fun x y -> x.idText = y.idText))
           // ensure one is getter, other is setter
           assert
             ((getset1.idText = "set" && getset2.idText = "get")
@@ -1175,10 +1107,7 @@ module SyntaxTraversal =
       | SynMemberDefn.AutoProperty (synExpr = synExpr) -> traverseSynExpr path synExpr
       | SynMemberDefn.LetBindings (synBindingList, isRecursive, _, range) ->
         match walker.VisitLetOrUse(path, isRecursive, traverseSynBinding path, synBindingList, range) with
-        | [||] ->
-          synBindingList
-          |> List.toArray
-          |> Array.collect (traverseSynBinding path)
+        | [||] -> synBindingList |> List.toArray |> Array.collect (traverseSynBinding path)
         | nodes -> nodes
       | SynMemberDefn.AbstractSlot (_synValSig, _memberFlags, _range) -> [||]
       | SynMemberDefn.Interface (interfaceType = interfaceType; members = members) ->
@@ -1215,22 +1144,47 @@ module SyntaxTraversal =
 
         match b with
         | SynBinding (headPat = headPat; expr = expr) ->
-          [| yield! traversePat path headPat
-             yield! traverseSynExpr path expr |]
+          [| yield! traversePat path headPat; yield! traverseSynExpr path expr |]
 
       walker.VisitBinding(origPath, defaultTraverse, b)
 
     match parseTree with
     | ParsedInput.ImplFile (ParsedImplFileInput (modules = l)) ->
-      l
-      |> List.toArray
-      |> Array.collect (traverseSynModuleOrNamespace [])
+      l |> List.toArray |> Array.collect (traverseSynModuleOrNamespace [])
     | ParsedInput.SigFile _sigFile -> [||]
 
 [<AutoOpen>]
 module ParsedInputExtensions =
   open SyntaxTraversal
   open FSharp.Compiler.EditorServices
+  open FSharp.Compiler.Symbols
+
+  [<return: Struct>]
+  let (|LID|_|) (matchTexts: string list) (lidParts: LongIdent) =
+    Seq.zip matchTexts lidParts
+    |> Seq.forall (fun (matchText, lid) -> matchText = lid.idText)
+    |> function
+      | true -> ValueSome()
+      | false -> ValueNone
+
+  [<return: Struct>]
+  let (|StringSyntaxAttribute|_|) =
+    (|LID|_|) [ "System"; "Diagnostics"; "CodeAnalysis"; "StringSyntaxAttribute" ]
+
+  [<return: Struct>]
+  let rec (|HasStringSyntaxAttributeL|_|) (attrs: SynAttribute list) =
+    match attrs with
+    | [] -> ValueNone
+    | x :: xs ->
+      match x with
+      | { TypeName = LongIdentWithDots (StringSyntaxAttribute, _) } -> ValueSome()
+      | _ -> (|HasStringSyntaxAttributeL|_|) xs
+
+  [<return: Struct>]
+  let rec (|HasStringSyntaxAttribute|_|) (attrs: FSharp.Compiler.Syntax.SynAttributes) =
+    match attrs with
+    | [] -> ValueNone
+    | x :: xs -> (|HasStringSyntaxAttribute|_|) xs
 
 
   let private semanticClassificationWalker =
@@ -1243,5 +1197,37 @@ module ParsedInputExtensions =
           | _ -> defaultTraverse synExpr }
 
   type FSharp.Compiler.Syntax.ParsedInput with
+
     member parseTree.GetSemanticClassification(_: range option) : SemanticClassificationItem[] =
       SyntaxTraversal.Walk(parseTree, semanticClassificationWalker)
+
+  let walk (c: FSharpImplementationFileContents) : SemanticClassificationItem[] =
+    let rec walkDeclaration (d: FSharpImplementationFileDeclaration) =
+      match d with
+      | FSharpImplementationFileDeclaration.Entity (e, declarations) ->
+        [| yield! walkEntity e
+           for decl in declarations do
+             yield! walkDeclaration decl |]
+      | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (mfv, curriedArgList, body) ->
+        [| yield! walkMemberOrFunctionOrValue mfv
+           for curriedArgs in curriedArgList do
+             for arg in curriedArgs do
+               yield! walkMemberOrFunctionOrValue arg
+           yield! walkExpr body |]
+      | FSharpImplementationFileDeclaration.InitAction action -> walkExpr action
+
+    and walkEntity (e: FSharpEntity) = [||]
+    and walkExpr (e: FSharpExpr) = [||]
+    and walkMemberOrFunctionOrValue (mfv: FSharpMemberOrFunctionOrValue) = [||]
+
+    [| for decl in c.Declarations do
+         yield! walkDeclaration decl
+
+       |]
+
+
+  type FSharp.Compiler.CodeAnalysis.FSharpCheckFileResults with
+
+    member x.GetSemanticClassificationsForReal(?range) =
+      [| yield! x.GetSemanticClassification(range)
+         yield! x.ImplementationFile |> Option.toArray |> Array.collect walk |]
