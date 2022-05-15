@@ -10,7 +10,7 @@ open Utils.ServerTests
 open FsAutoComplete.Core
 open FsAutoComplete.Lsp
 
-module InlayHints =
+module private InlayHints =
   open Utils.Server
   open Utils.Tests
   open Utils.Utils
@@ -46,7 +46,7 @@ module InlayHints =
       | [||] -> ()
       | diags -> failtest $"Should not have had check errors, but instead had %A{diags}"
 
-      let! actual = Document.inlayHintsAt range doc
+      let! actual = Document.fsharpInlayHintsAt range doc
       Expect.equal actual expected "Expected the given set of hints"
     }
   let check (server: CachedServer) (documentText: string) (expectedHints: _ list) = async {
@@ -81,10 +81,10 @@ module InlayHints =
     do! check' server text range expected
   }
 
-let param (name: string) = (name, InlayHintKind.Parameter)
-let ty (name: string) = (name, InlayHintKind.Type)
+let private param (name: string) = (name, InlayHintKind.Parameter)
+let private ty (name: string) = (name, InlayHintKind.Type)
 
-let tests state =
+let private fsharpInlayHintsTests state =
   serverTestList (nameof Core.InlayHints) state defaultConfigDto None (fun server -> [
     testList "type hint" [
       testCaseAsync "let-bound function parameter type hints"
@@ -547,6 +547,246 @@ let tests state =
       ]
     ]
   ])
+
+module private LspInlayHints =
+  open Utils.Server
+  open Utils.Tests
+  open Utils.Utils
+  open Utils.TextEdit
+  open Ionide.LanguageServerProtocol.Types
+
+  let checkInRange
+    (server: CachedServer)
+    (text: string)
+    (range: Range)
+    (validateInlayHints: Document -> string -> InlayHint[] -> Async<unit>)
+    = async {
+      let! (doc, diags) = server |> Server.createUntitledDocument text
+      use doc = doc
+      // Expect.isEmpty diags "Should not have had check errors"
+      Expect.hasLength diags 0 "Should not have had check errors"
+
+      let! hints = doc |> Document.inlayHintsAt range
+      do! validateInlayHints doc text hints
+    }
+
+  let private validateHint
+    (doc: Document)
+    (expectedBase: InlayHint)
+    (textAfterEdits: string option)
+    (text: string)
+    (actual: InlayHint)
+    = async {
+      // Edits are checked by applying -> only check Edits None or Some
+      let mkDummyEdits o = o |> Option.bind (fun _ -> Some [||])
+      let ignoreData (hint: InlayHint) = { hint with Data = None }
+
+      let actualWithoutEdits = { actual with TextEdits = mkDummyEdits actual.TextEdits } |> ignoreData
+      let expectedWithoutExpected = { expectedBase with TextEdits = mkDummyEdits textAfterEdits }
+
+      Expect.equal actualWithoutEdits expectedWithoutExpected "Hint doesn't match expectations (Note: `TextEdits` are handled separately. Here just `None` or `Some`)"
+
+      match actual.TextEdits, textAfterEdits with
+      | Some edits, Some textAfterEdits ->
+          let appliedText =
+            text
+            |> TextEdits.applyWithErrorCheck (edits |> List.ofArray)
+            |> Flip.Expect.wantOk "TextEdits are erroneous"
+          Expect.equal appliedText textAfterEdits "Text after applying TextEdits does not match expected"
+      | _ -> ()
+
+      //TODO: handle capabilities
+      //TODO: en/disable?
+      let toResolve = 
+        { actual with
+            Tooltip = None
+            TextEdits = None
+        }
+      let! resolved = doc |> Document.resolveInlayHint toResolve
+      Expect.equal resolved actual "`textDocument/inlayHint` and `inlayHint/resolve` should result in same InlayHint"
+
+      //todo: compare with AddExplicitType?
+    }
+
+  let rangeMarker = "$|"
+
+  let checkAllInMarkedRange
+    (server: CachedServer)
+    (textWithCursors: string)
+    (expected: (InlayHint * (string option)) list)
+    = async {
+      let (text, cursors) =
+        textWithCursors
+        |> Text.trimTripleQuotation
+        |> Cursors.extractGroupedWith [| rangeMarker; Cursor.Marker |]
+      let range =
+        let poss = 
+          cursors 
+          |> Map.tryFind rangeMarker
+          |> Flip.Expect.wantSome "There should be range markers"
+        Expect.hasLength poss 2 "There should be two range markers"
+        { Start = poss[0]; End = poss[1] }
+      let cursors =
+        cursors
+        |> Map.tryFind Cursor.Marker
+        |> Flip.Expect.wantSome "There should be range markers"
+      Expect.hasLength cursors (expected.Length) $"Number of Cursors & expected hints don't match ({cursors.Length} cursors, {expected.Length} expected hints)"
+      let expected =
+        List.zip expected cursors
+        |> List.map (fun ((hint, textAfterEdits), cursor) ->
+            let hint = { hint with Position = cursor}
+            (hint, textAfterEdits)
+        )
+
+      let validateHints doc (text: string) (hints: InlayHint[]) = async {
+        Expect.hasLength hints expected.Length "Number of actual hints and expected hints don't match"
+
+        for (actual, (expected, textAfterEdits)) in Seq.zip hints expected do
+          do! validateHint doc expected textAfterEdits text actual
+      }
+
+      do! checkInRange server text range validateHints
+    }
+
+  let private fromCursor: Position = { Line = -1; Character = -1 }
+
+  let private mkBasicHint
+    (kind: InlayHintKind)
+    (pos: Position)
+    (label: string)
+    : InlayHint
+    =
+    {
+      Kind = Some kind
+      Position = pos
+      Label = InlayHintLabel.String label
+      TextEdits = None
+      Tooltip = None
+      PaddingLeft = match kind with | InlayHintKind.Type -> Some true | _ -> None
+      PaddingRight = match kind with | InlayHintKind.Parameter -> Some true | _ -> None
+      Data = None
+    }
+  let paramHint
+    (paramName: string)
+    =
+    let label = $"{paramName} ="
+    let hint = mkBasicHint InlayHintKind.Parameter fromCursor label
+    (hint, None)
+  let typeHint
+    (typeName: string)
+    (expectedAfterEdits: string)
+    =
+    let label = $": {typeName}"
+    let hint = mkBasicHint InlayHintKind.Type fromCursor label
+    let expectedAfterEdits =
+      expectedAfterEdits
+      |> Text.trimTripleQuotation
+    (hint, Some expectedAfterEdits)
+
+open LspInlayHints
+let private paramHintTests state =
+  serverTestList "param hints" state defaultConfigDto None (fun server -> [
+    testCaseAsync "can show param hint" <|
+      checkAllInMarkedRange server
+        """
+        let f beta = ()
+        $|f $042$|
+        """
+        [
+          paramHint "beta"
+        ]
+  ])
+let private typeHintTests state =
+  serverTestList "type hints" state defaultConfigDto None (fun server -> [
+    testCaseAsync "can show type hint" <|
+      checkAllInMarkedRange server
+        """
+        $|let f beta$0 = beta + 1$|
+        """
+        [
+          typeHint "int"
+            """
+            let f (beta: int) = beta + 1
+            """
+        ]
+  ])
+let private mixedHintTests state =
+  serverTestList "inlay hints" state defaultConfigDto None (fun server -> [
+    testCaseAsync "can show all hints" <|
+      checkAllInMarkedRange server
+        """
+        $|open System
+        let f alpha$0 beta$0 = 
+          let beta$0 = Int32.Parse beta
+          let value$0 = alpha + beta + 2
+          value * 2
+        let res$0 = f $042 $0"13" + f $01 $0"2"$|
+        """
+        [
+          typeHint "int"
+            """
+            open System
+            let f (alpha: int) beta = 
+              let beta = Int32.Parse beta
+              let value = alpha + beta + 2
+              value * 2
+            let res = f 42 "13" + f 1 "2"
+            """
+          typeHint "string"
+            """
+            open System
+            let f alpha (beta: string) = 
+              let beta = Int32.Parse beta
+              let value = alpha + beta + 2
+              value * 2
+            let res = f 42 "13" + f 1 "2"
+            """
+          typeHint "int"
+            """
+            open System
+            let f alpha beta = 
+              let beta: int = Int32.Parse beta
+              let value = alpha + beta + 2
+              value * 2
+            let res = f 42 "13" + f 1 "2"
+            """
+          typeHint "int"
+            """
+            open System
+            let f alpha beta = 
+              let beta = Int32.Parse beta
+              let value: int = alpha + beta + 2
+              value * 2
+            let res = f 42 "13" + f 1 "2"
+            """
+          typeHint "int"
+            """
+            open System
+            let f alpha beta = 
+              let beta = Int32.Parse beta
+              let value = alpha + beta + 2
+              value * 2
+            let res: int = f 42 "13" + f 1 "2"
+            """
+          paramHint "alpha"
+          paramHint "beta"
+          paramHint "alpha"
+          paramHint "beta"
+        ]
+  ])
+let private inlayHintTests state =
+  testList "LSP InlayHints" [
+    paramHintTests state
+    typeHintTests state
+    mixedHintTests state
+  ]
+
+let tests state = 
+  testList (nameof InlayHint) [
+    fsharpInlayHintsTests state
+    inlayHintTests state
+  ]
+
 
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text

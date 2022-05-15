@@ -359,12 +359,24 @@ module Document =
       return res |> assertOk
     }
 
-  let inlayHintsAt range (doc: Document) =
-    async {
-      let ps: FSharpInlayHintsRequest =
-        { Range = range
-          TextDocument = doc.TextDocumentIdentifier }
-
-      let! res = doc.Server.Server.FSharpInlayHints(ps)
-      return res |> assertOk
+  let fsharpInlayHintsAt range (doc: Document) = async {
+    let ps: FSharpInlayHintsRequest = {
+      Range =  range
+      TextDocument = doc.TextDocumentIdentifier
     }
+    let! res = doc.Server.Server.FSharpInlayHints(ps)
+    return res |> assertOk
+  }
+
+  let inlayHintsAt range (doc: Document) = async {
+    let ps: InlayHintParams = {
+      Range = range
+      TextDocument = doc.TextDocumentIdentifier
+    }
+    let! res = doc.Server.Server.TextDocumentInlayHint ps
+    return res |> assertOk
+  }
+  let resolveInlayHint inlayHint (doc: Document) = async {
+    let! res = doc.Server.Server.InlayHintResolve inlayHint
+    return res |> assertOk
+  }

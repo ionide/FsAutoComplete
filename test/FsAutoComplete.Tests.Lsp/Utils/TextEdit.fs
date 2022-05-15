@@ -381,6 +381,14 @@ module TextEdits =
     let edits = edits |> sortByRange |> List.rev
     List.fold (fun text edit -> text |> Result.bind (TextEdit.apply edit)) (Ok text) edits
 
+  /// `tryFindError` before `apply`
+  let applyWithErrorCheck edits text =
+    match tryFindError edits with
+    | Some error -> Error error
+    | None ->
+        text
+        |> apply edits
+
 module WorkspaceEdit =
   /// Extract `TextEdit[]` from either `DocumentChanges` or `Changes`.
   /// All edits MUST be for passed `textDocument`.
