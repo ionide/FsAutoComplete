@@ -289,6 +289,10 @@ module Document =
     do! doc.Server.Server.TextDocumentDidClose p
   }
 
+  ///<summary>
+  /// Fire a <code>textDocument/didChange</code> request for the specified document with the given text
+  /// as the entire new text of the document, then wait for diagnostics for the document.
+  /// </summary>
   let changeTextTo (text: string) (doc: Document) = async {
     let p: DidChangeTextDocumentParams = {
         TextDocument = doc |> incrVersionedTextDocumentIdentifier

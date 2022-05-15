@@ -20,7 +20,6 @@ let tests state =
   // -> use existing files, but load with text specified in tests
   let path = Path.Combine(__SOURCE_DIRECTORY__, @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
   let (fsiFile, fsFile) = ("Code.fsi", "Code.fs")
-  let (fsiPath, fsPath) = (Path.Combine(path, fsiFile), Path.Combine(path, fsFile))
 
   serverTestList (nameof RenameParamToMatchSignature) state defaultConfigDto (Some path) (fun server -> [
     let checkWithFsi
@@ -30,7 +29,7 @@ let tests state =
       fsSourceExpected
       = async {
         let fsiSource = fsiSource |> Text.trimTripleQuotation
-        let (cursor, fsSource) = 
+        let (cursor, fsSource) =
           fsSourceWithCursor
           |> Text.trimTripleQuotation
           |> Cursor.assertExtractRange
@@ -40,7 +39,7 @@ let tests state =
         let! (fsDoc, diags) = server |> Server.openDocumentWithText fsFile fsSource
         use fsDoc = fsDoc
 
-        do! 
+        do!
           checkFixAt
             (fsDoc, diags)
             (fsSource, cursor)
@@ -113,7 +112,7 @@ let tests state =
         """
         module Code
 
-        let f x $0v y = 
+        let f x $0v y =
           let a = v + 1
           let b = v * v
           let v = a + b
@@ -123,7 +122,7 @@ let tests state =
         """
         module Code
 
-        let f x value y = 
+        let f x value y =
           let a = value + 1
           let b = value * value
           let v = a + b

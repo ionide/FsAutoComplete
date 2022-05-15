@@ -230,6 +230,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   do
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun parseRes ->
+      //TODO: this seems like a large amount of items to keep in-memory like this.
+      // Is there a better structure?
       let decls = parseRes.GetNavigationItems().Declarations
       // string<LocalPath> is a compiler-approved path, and since this structure comes from the compiler it's safe
       state.NavigationDeclarations.[UMX.tag parseRes.FileName] <- decls)
