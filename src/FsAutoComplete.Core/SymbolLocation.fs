@@ -28,25 +28,28 @@ let getDeclarationLocation
 
     match declarationLocation with
     | Some loc ->
-      let filePath = Path.GetFullPathSafe loc.FileName
-      let isScript = isAScript filePath
-      let filePath = UMX.tag filePath
+      let filePath =
+        Path.FilePathToUri(Path.GetFullPathSafe loc.FileName)
+        |> Path.FileUriToLocalPath
 
-      if isScript && filePath = currentDocument.FileName then
+      let isScript = isAScript filePath
+      let taggedFilePath = UMX.tag filePath
+      let normalizedFilePath = Path.GetFullPathSafe filePath
+
+      if isScript
+         && taggedFilePath = currentDocument.FileName then
         Some SymbolDeclarationLocation.CurrentDocument
       elif isScript then
         // The standalone script might include other files via '#load'
         // These files appear in project options and the standalone file
         // should be treated as an individual project
-        state.GetProjectOptions(filePath)
+        state.GetProjectOptions(taggedFilePath)
         |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
       else
         let projectsThatContainFile =
           state.ProjectController.ProjectOptions
           |> Seq.choose (fun (_, p) ->
-            if
-              p.SourceFiles
-              |> Array.contains (UMX.untag filePath)
+            if p.SourceFiles |> Array.contains normalizedFilePath //
             then
               Some p
             else
