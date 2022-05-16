@@ -709,6 +709,37 @@ let private typeHintTests state =
             let f (beta: int) = beta + 1
             """
         ]
+    testCaseAsync "can show type for generic actual type" <|
+      checkAllInMarkedRange server
+        """
+        open System.Collections.Generic
+        $|let list$0 = List<int>()$|
+        list.Add 2
+        """
+        [
+          typeHint "List<int>"
+            """
+            open System.Collections.Generic
+            let list: List<int> = List<int>()
+            list.Add 2
+            """
+        ]
+    ptestCaseAsync "can show type hint for nested inside generic actual type" <|
+      checkAllInMarkedRange server
+        """
+        open System.Collections.Immutable
+        $|let arr$0 = ImmutableArray.CreateBuilder()$|
+        arr.Add 2
+        """
+        [
+          //Currently: `ImmutableArray`1.Builder<int>`
+          typeHint "ImmutableArray<int>.Builder"
+            """
+            open System.Collections.Immutable
+            let arr: ImmutableArray<int>.Builder = ImmutableArray.CreateBuilder()
+            arr.Add 2
+            """
+        ]
   ])
 let private mixedHintTests state =
   serverTestList "inlay hints" state defaultConfigDto None (fun server -> [
