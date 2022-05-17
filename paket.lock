@@ -123,6 +123,7 @@ NUGET
       Ionide.ProjInfo.Sln (>= 0.59.1) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net6.0))
       Newtonsoft.Json (>= 13.0.1) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net6.0))
     Ionide.ProjInfo.Sln (0.59.1)
+    JUnitXml.TestLogger (3.0.110)
     McMaster.NETCore.Plugins (1.4) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net5.0))
       Microsoft.DotNet.PlatformAbstractions (>= 3.1.6) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp2.1))
       Microsoft.Extensions.DependencyModel (>= 5.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp2.1))

@@ -23,3 +23,4 @@ Serilog.Sinks.Console
 Serilog.Sinks.File
 System.CommandLine
 System.Configuration.ConfigurationManager
+JUnitXml.TestLogger

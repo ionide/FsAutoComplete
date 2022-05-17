@@ -44,18 +44,19 @@ nuget FsToolkit.ErrorHandling
 nuget FSharpx.Async
 nuget CliWrap
 nuget System.CommandLine prerelease
+nuget Ionide.LanguageServerProtocol
+
+nuget Dotnet.ReproducibleBuilds copy_local:true
+nuget Ionide.KeepAChangelog.Tasks copy_local: true
 
 nuget Microsoft.NET.Test.Sdk
-nuget Dotnet.ReproducibleBuilds copy_local:true
-
 nuget Microsoft.NETFramework.ReferenceAssemblies
-nuget Ionide.KeepAChangelog.Tasks copy_local: true
 nuget Expecto
 nuget Expecto.Diff
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
-nuget Ionide.LanguageServerProtocol
+nuget JUnitXml.TestLogger
 
 group Build
   source https://api.nuget.org/v3/index.json

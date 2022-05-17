@@ -3,14 +3,13 @@ name: Build
 on: [push, pull_request]
 
 jobs:
-  build:
+  build-and-test:
     env:
       TEST_TIMEOUT_MINUTES: 20
     timeout-minutes: 20 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
         os: [windows-2019, macos-10.15, ubuntu-20.04]
-        dotnet: [6.0.200]
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -21,24 +20,47 @@ jobs:
       uses: al-cheb/configure-pagefile-action@v1.2
       if: ${{ matrix.os == 'windows-2019' }}
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v2
       with:
-        dotnet-version: ${{ matrix.dotnet }}
+        global-json-file: global.json
     - name: Restore tools
       run: dotnet tool restore
     - name: Run Build
       run: dotnet fake build -t Build
 
     - name: Run and report tests
-      uses: zyborg/dotnet-tests-report@v1
-      with:
-        project_path: test/FsAutoComplete.Tests.Lsp
-        no_restore: true # we just did the build/restore above
-        msbuild_configuration: Release # we do the tests against the release build
-        github_token: ${{ secrets.FSAC_CHECKS_TOKEN }}
-        set_check_status_from_test_outcome: true
-        fail_build_on_failed_tests: true
-        extra_test_parameters: "--no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager"
-        skip_check_run: true # something's wrong with the PAT used above, so github checks won't be added
+      run: dotnet test --no-restore -c Release --no-build --logger GitHubActions --logger:"junit;LogFilePath=test-result.xml" /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager"
+      working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         TEST_TIMEOUT_MINUTES: 10
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: Test Results (.NET ${{ matrix.os }})
+        path: test-result.xml"
+
+  publish-test-results:
+    name: "Publish Test Results"
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+
+      # only needed unless run with comment_mode: off
+      pull-requests: write
+    if: always()
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        with:
+          files: "artifacts/**/*.xml"
+          pull_request_build: commit
+          report_individual_runs: true

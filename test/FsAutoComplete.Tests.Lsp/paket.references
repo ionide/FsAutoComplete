@@ -8,6 +8,7 @@ Microsoft.NET.Test.Sdk
 YoloDev.Expecto.TestSdk
 AltCover
 GitHubActionsTestLogger
+JUnitXml.TestLogger
 CliWrap
 
 Microsoft.Build copy_local:false
