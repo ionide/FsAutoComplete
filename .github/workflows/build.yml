@@ -29,7 +29,7 @@ jobs:
       run: dotnet fake build -t Build
 
     - name: Run and report tests
-      run: dotnet test --no-restore -c Release --no-build --logger GitHubActions --logger:"junit;LogFilePath=test-result.xml" /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager"
+      run: dotnet test --no-restore -c Release --no-build --logger GitHubActions --logger:"junit;LogFilePath=test-result.xml;MethodFormat=full" /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|Dapper|FSharp.DependencyManager"
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         TEST_TIMEOUT_MINUTES: 10
@@ -39,7 +39,9 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Test Results (.NET ${{ matrix.os }})
-        path: test-result.xml"
+        path: test/FsAutoComplete.Tests.Lsp/test-result.xml
+        if-no-files-found: fail
+
 
   publish-test-results:
     name: "Publish Test Results"
