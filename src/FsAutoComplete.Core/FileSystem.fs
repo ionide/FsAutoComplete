@@ -130,7 +130,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   /// Provides safe access to a line of the file via FCS-provided Position
   member x.GetLine(pos: FSharp.Compiler.Text.Position) : string option =
-    if pos.Line > getLines.Value.Length then
+    if pos.Line < 1 || pos.Line > getLines.Value.Length then
       None
     else
       Some(x.GetLineUnsafe pos)
