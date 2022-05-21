@@ -14,12 +14,13 @@ open FSharp.Compiler.IO
 [<AutoOpen>]
 module PositionExtensions =
   type FSharp.Compiler.Text.Position with
+    /// Excluding current line
     member x.LinesToBeginning() =
-      if x.Line <= 0 then
+      if x.Line <= 1 then
         Seq.empty
       else
         seq {
-          for i = x.Line - 1 downto 0 do
+          for i = x.Line - 1 downto 1 do
             yield Position.mkPos i 0
         }
 
@@ -129,7 +130,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   /// Provides safe access to a line of the file via FCS-provided Position
   member x.GetLine(pos: FSharp.Compiler.Text.Position) : string option =
-    if pos.Line > getLines.Value.Length then
+    if pos.Line < 1 || pos.Line > getLines.Value.Length then
       None
     else
       Some(x.GetLineUnsafe pos)

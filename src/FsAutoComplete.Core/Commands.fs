@@ -510,7 +510,7 @@ type Commands
         // adjust column
         let pos =
           match pos with
-          | Pos (0, c) -> pos
+          | Pos (1, c) -> pos
           | Pos (l, 0) ->
             let prev = getLine (pos.DecLine())
             let indentation = detectIndentation prev
