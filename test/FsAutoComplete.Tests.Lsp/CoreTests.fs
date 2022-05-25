@@ -121,14 +121,15 @@ let documentSymbolTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
-
+          | Result.Ok (Some (U2.First res)) ->
             Expect.equal res.Length 15 "Document Symbol has all symbols"
 
             Expect.exists
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
+          | Result.Ok (Some (U2.Second res)) ->
+              raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =

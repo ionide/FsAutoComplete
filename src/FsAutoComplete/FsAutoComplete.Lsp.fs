@@ -11,7 +11,7 @@ open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
 open Ionide.LanguageServerProtocol
-open Ionide.LanguageServerProtocol.LspResult
+open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
 open LspHelpers
@@ -1534,6 +1534,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
             fst
             >> fun top -> getSymbolInformations p.TextDocument.Uri glyphToSymbolKind top (fun s -> true)
           )
+          |> U2.First
           |> Some
           |> success
 
