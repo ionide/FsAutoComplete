@@ -226,12 +226,16 @@ let clientCaps: ClientCapabilities =
     let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
 
+    let inlayHintCaps: InlayHintWorkspaceClientCapabilities =
+      { RefreshSupport = Some false }
+
     { ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some dynCaps
       DidChangeWatchedFiles = Some dynCaps
       Symbol = Some symbolCaps
-      SemanticTokens = Some semanticTokenCaps }
+      SemanticTokens = Some semanticTokenCaps
+      InlayHint = Some inlayHintCaps }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: SynchronizationCapabilities =
@@ -330,8 +334,6 @@ let clientCaps: ClientCapabilities =
 
   { Workspace = Some workspaceCaps
     TextDocument = Some textCaps
-    //TODO: wrong place (-> should be inside Workspace) and is option
-    InlayHint = { RefreshSupport = Some false }
     Experimental = None }
 
 open Expecto.Logging
