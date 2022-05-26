@@ -99,9 +99,8 @@ NUGET
       System.Collections.Immutable (>= 5.0)
       System.Reflection.Metadata (>= 5.0)
     Ionide.KeepAChangelog.Tasks (0.1.8) - copy_local: true
-    Ionide.LanguageServerProtocol (0.4)
-      FSharp.Core (>= 6.0.1)
-      Microsoft.NETFramework.ReferenceAssemblies (>= 1.0.2)
+    Ionide.LanguageServerProtocol (0.4.2)
+      FSharp.Core (>= 6.0)
       Newtonsoft.Json (>= 13.0.1)
       StreamJsonRpc (>= 2.10.44)
     Ionide.ProjInfo (0.59.1)

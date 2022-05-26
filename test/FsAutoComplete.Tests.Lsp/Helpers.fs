@@ -226,12 +226,16 @@ let clientCaps: ClientCapabilities =
     let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
 
+    let inlayHintCaps: InlayHintWorkspaceClientCapabilities =
+      { RefreshSupport = Some false }
+
     { ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some dynCaps
       DidChangeWatchedFiles = Some dynCaps
       Symbol = Some symbolCaps
-      SemanticTokens = Some semanticTokenCaps }
+      SemanticTokens = Some semanticTokenCaps
+      InlayHint = Some inlayHintCaps }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: SynchronizationCapabilities =
@@ -274,7 +278,8 @@ let clientCaps: ClientCapabilities =
       let skCaps: SymbolKindCapabilities = { ValueSet = None }
 
       { DynamicRegistration = Some true
-        SymbolKind = Some skCaps }
+        SymbolKind = Some skCaps
+        HierarchicalDocumentSymbolSupport = Some false }
 
     let foldingRangeCaps: FoldingRangeCapabilities =
       { DynamicRegistration = Some true
@@ -301,6 +306,10 @@ let clientCaps: ClientCapabilities =
         ResolveSupport = None
         HonorsChangeAnnotations = None }
 
+    let inlayHintCaps: InlayHintClientCapabilities =
+      { DynamicRegistration = Some true
+        ResolveSupport = None }
+
     { Synchronization = Some syncCaps
       PublishDiagnostics = diagCaps
       Completion = Some compCaps
@@ -319,7 +328,8 @@ let clientCaps: ClientCapabilities =
       Rename = Some dynCaps
       FoldingRange = Some foldingRangeCaps
       SelectionRange = Some dynCaps
-      SemanticTokens = Some semanticTokensCaps }
+      SemanticTokens = Some semanticTokensCaps
+      InlayHint = Some inlayHintCaps }
 
 
   { Workspace = Some workspaceCaps
