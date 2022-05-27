@@ -767,38 +767,38 @@ module Indentation =
 
 
 type FSharpSymbol with
-    member x.XDoc =
-        match x with
-        | :? FSharpEntity as e -> e.XmlDoc
-        | :? FSharpUnionCase as u -> u.XmlDoc
-        | :? FSharpField as f -> f.XmlDoc
-        | :? FSharpActivePatternCase as c -> c.XmlDoc
-        | :? FSharpGenericParameter as g -> g.XmlDoc
-        | :? FSharpMemberOrFunctionOrValue as m -> m.XmlDoc
-        | :? FSharpStaticParameter
-        | :? FSharpParameter -> FSharpXmlDoc.None
-        | _ -> failwith $"cannot fetch xmldoc for unknown FSharpSymbol subtype {x.GetType().FullName}"
+  member x.XDoc =
+    match x with
+    | :? FSharpEntity as e -> e.XmlDoc
+    | :? FSharpUnionCase as u -> u.XmlDoc
+    | :? FSharpField as f -> f.XmlDoc
+    | :? FSharpActivePatternCase as c -> c.XmlDoc
+    | :? FSharpGenericParameter as g -> g.XmlDoc
+    | :? FSharpMemberOrFunctionOrValue as m -> m.XmlDoc
+    | :? FSharpStaticParameter
+    | :? FSharpParameter -> FSharpXmlDoc.None
+    | _ -> failwith $"cannot fetch xmldoc for unknown FSharpSymbol subtype {x.GetType().FullName}"
 
-    member x.XSig =
-        match x with
-        | :? FSharpEntity as e -> e.XmlDocSig
-        | :? FSharpUnionCase as u -> u.XmlDocSig
-        | :? FSharpField as f -> f.XmlDocSig
-        | :? FSharpActivePatternCase as c -> c.XmlDocSig
-        | :? FSharpMemberOrFunctionOrValue as m -> m.XmlDocSig
-        | :? FSharpGenericParameter
-        | :? FSharpStaticParameter
-        | :? FSharpParameter -> ""
-        | _ -> failwith $"cannot fetch XmlDocSig for unknown FSharpSymbol subtype {x.GetType().FullName}"
+  member x.XSig =
+    match x with
+    | :? FSharpEntity as e -> e.XmlDocSig
+    | :? FSharpUnionCase as u -> u.XmlDocSig
+    | :? FSharpField as f -> f.XmlDocSig
+    | :? FSharpActivePatternCase as c -> c.XmlDocSig
+    | :? FSharpMemberOrFunctionOrValue as m -> m.XmlDocSig
+    | :? FSharpGenericParameter
+    | :? FSharpStaticParameter
+    | :? FSharpParameter -> ""
+    | _ -> failwith $"cannot fetch XmlDocSig for unknown FSharpSymbol subtype {x.GetType().FullName}"
 
-    member x.DefinitionRange =
-      match x with
-        | :? FSharpEntity as e -> e.DeclarationLocation
-        | :? FSharpUnionCase as u -> u.DeclarationLocation
-        | :? FSharpField as f -> f.DeclarationLocation
-        | :? FSharpActivePatternCase as c -> c.DeclarationLocation
-        | :? FSharpGenericParameter as g -> g.DeclarationLocation
-        | :? FSharpMemberOrFunctionOrValue as m -> m.DeclarationLocation
-        | :? FSharpStaticParameter as s -> s.DeclarationLocation
-        | :? FSharpParameter as p -> p.DeclarationLocation
-        | _ -> failwith $"cannot fetch DefinitionRange for unknown FSharpSymbol subtype {x.GetType().FullName}"
+  member x.DefinitionRange =
+    match x with
+    | :? FSharpEntity as e -> e.DeclarationLocation
+    | :? FSharpUnionCase as u -> u.DeclarationLocation
+    | :? FSharpField as f -> f.DeclarationLocation
+    | :? FSharpActivePatternCase as c -> c.DeclarationLocation
+    | :? FSharpGenericParameter as g -> g.DeclarationLocation
+    | :? FSharpMemberOrFunctionOrValue as m -> m.DeclarationLocation
+    | :? FSharpStaticParameter as s -> s.DeclarationLocation
+    | :? FSharpParameter as p -> p.DeclarationLocation
+    | _ -> failwith $"cannot fetch DefinitionRange for unknown FSharpSymbol subtype {x.GetType().FullName}"

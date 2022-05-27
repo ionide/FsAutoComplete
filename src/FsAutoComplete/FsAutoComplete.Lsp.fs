@@ -2010,18 +2010,20 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       Log.setMessage "FSharpSignature Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
+
     async {
-    return! p
-      |> x.positionHandler (fun p pos tyRes lineStr lines -> async {
-        match commands.Typesig tyRes pos lineStr with
-        | CoreResponse.InfoRes msg
-        | CoreResponse.ErrorRes msg -> return LspResult.internalError msg
-        | CoreResponse.Res tip ->
-          return
-            { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
-            |> success
-        }
-      )
+      return!
+        p
+        |> x.positionHandler (fun p pos tyRes lineStr lines ->
+          async {
+            match commands.Typesig tyRes pos lineStr with
+            | CoreResponse.InfoRes msg
+            | CoreResponse.ErrorRes msg -> return LspResult.internalError msg
+            | CoreResponse.Res tip ->
+              return
+                { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
+                |> success
+          })
     }
 
   member x.FSharpSignatureData(p: TextDocumentPositionParams) =

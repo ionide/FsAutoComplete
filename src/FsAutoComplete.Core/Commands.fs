@@ -1115,15 +1115,20 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         // symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
         // do some splicing to find just the range we need to replace.
         let symbolRange = symbol.DefinitionRange
+
         let symbolFile =
-              if System.Char.IsUpper(symbolRange.FileName[0]) then
-                UMX.tag (
-                  string (System.Char.ToLowerInvariant symbolRange.FileName[0])
-                  + (symbolRange.FileName.Substring(1))
-                )
-              else
-                UMX.tag symbolRange.FileName
-        let symbolFileText = state.TryGetFileSource(symbolFile) |> Result.fold id (fun e -> failwith "blah blah")
+          if System.Char.IsUpper(symbolRange.FileName[0]) then
+            UMX.tag (
+              string (System.Char.ToLowerInvariant symbolRange.FileName[0])
+              + (symbolRange.FileName.Substring(1))
+            )
+          else
+            UMX.tag symbolRange.FileName
+
+        let symbolFileText =
+          state.TryGetFileSource(symbolFile)
+          |> Result.fold id (fun e -> failwith "blah blah")
+
         let symbolText =
           symbolFileText[symbol.DefinitionRange]
           |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
@@ -1155,26 +1160,33 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 UMX.tag symbolUseRange.FileName
 
             let targetText = state.TryGetFileSource(normalizedPath)
+
             match targetText with
             | Error e -> ()
             | Ok sourceText ->
-              let sourceSpan = sourceText[symbolUseRange] |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
-              if sourceSpan = symbolText
-              then
+              let sourceSpan =
+                sourceText[symbolUseRange]
+                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
+
+              if sourceSpan = symbolText then
                 symbolUseRanges.Add symbolUseRange
               else
                 // try to find the overlapping part and just return that
                 match sourceSpan.IndexOf(symbolText) with
                 | -1 -> ()
                 | n ->
-                  if sourceSpan.Length >= n + symbolText.Length
-                  then
-                    let startPos = Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n)
-                    let endPos = Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n + symbolText.Length)
+                  if sourceSpan.Length >= n + symbolText.Length then
+                    let startPos =
+                      Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n)
+
+                    let endPos =
+                      Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n + symbolText.Length)
+
                     let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
                     symbolUseRanges.Add actualUseRange
                   else
                     ()
+
                 ()
 
           }
