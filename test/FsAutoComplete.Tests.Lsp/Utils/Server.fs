@@ -155,7 +155,6 @@ module Server =
             |> Path.LocalPathToUri
          )
     let! diags = doc |> Document.openWith (File.ReadAllText fullPath)
-
     return (doc, diags)
   }
 
