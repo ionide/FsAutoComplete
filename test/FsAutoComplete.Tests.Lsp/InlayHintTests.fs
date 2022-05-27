@@ -10,7 +10,7 @@ open Utils.ServerTests
 open FsAutoComplete.Core
 open FsAutoComplete.Lsp
 
-module private InlayHints =
+module private FSharpInlayHints =
   open Utils.Server
   open Utils.Tests
   open Utils.Utils
@@ -81,472 +81,34 @@ module private InlayHints =
     do! check' server text range expected
   }
 
-let private param (name: string) = (name, InlayHintKind.Parameter)
-let private ty (name: string) = (name, InlayHintKind.Type)
+  let private param (name: string) = (name, InlayHintKind.Parameter)
+  let private ty (name: string) = (name, InlayHintKind.Type)
 
-let private fsharpInlayHintsTests state =
-  serverTestList (nameof Core.InlayHints) state defaultConfigDto None (fun server -> [
-    testList "type hint" [
-      testCaseAsync "let-bound function parameter type hints"
-        <| InlayHints.check
-            server
+  let tests state =
+    serverTestList "F# Inlay Hints" state defaultConfigDto None (fun server -> [
+      testList "type hint" [
+        testCaseAsync "can show type hint" <|
+          checkRange server
             """
-      $0let tryFindFile p = p + "hi"$0
-      """
-            [ "string", (0, 17), InlayHintKind.Type ]
-
-      testCaseAsync "value let binding type hint"
-      <| InlayHints.check
-           server
-           """
-      $0let f = "hi"$0
-      """
-           [ "string", (0, 5), InlayHintKind.Type ]
-
-      testCaseAsync "no type hint for an explicitly-typed binding"
-      <| InlayHints.check server """$0let s: string = "hi"$0""" []
-
-      testCaseAsync "type hints are truncated to 30 characters"
-      <| InlayHints.check
-           server
-           """
-        $0let t = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))$0
-        """
-           [ "unit option option option option option option option option option option option option option option option",
-             (0, 5),
-             InlayHintKind.Type ] 
-    ]
-
-    testList "parameter hint" [
-
-      testCaseAsync "parameter names aren't yet implemented, will fail when we update FCS"
-      <| InlayHints.check server """$0 System.Environment.GetEnvironmentVariable "Blah" |> ignore$0""" []
-
-      testCaseAsync "doesn't show hint for well-known parameter names"
-      <| InlayHints.check server """$0sprintf "thing %s" "blah" |> ignore$0""" []
-
-      testCaseAsync "doesn't show hints for short parameter names"
-      <| InlayHints.check
-           server
-           """
-        let someFunction s = s
-        let noHintForShortParameter = $0someFunction "hi"$0
-        """
-           []
-
-      testCaseAsync "doesn't show hints for parameter names that match user text"
-      <| InlayHints.check
-           server
-           """
-        let anotherFunction (kind: string) = ()
-        let kind = "hi"
-        $0anotherFunction kind$0
-        """
-           []
-
-      testCaseAsync "no hint for a function with a short parameter name"
-      <| InlayHints.check
-           server
-           """
-        // shows that no parameter name hint is shown for a function with a short parameter name
-        let someFunction s = s
-        let noHintForShortParameter = $0someFunction "hi"$0
-        """
-           []
-
-      testCaseAsync "show: param & variable have different names" <|
-        InlayHints.checkRange server
-          """
-          let f beta = ()
-          let alpha = 42
-
-          $0f $0alpha$0
-          """
-          [ param "beta" ]
-
-      testCaseAsync "hide: param & variable have same name" <|
-        InlayHints.checkRange server
-          """
-          let f alpha = ()
-          let alpha = 42
-
-          $0f alpha$0
-          """
-          [  ]
-      testCaseAsync "hide: variable prefix of param" <|
-        InlayHints.checkRange server
-          """
-          let f rangeCoveringExpr = ()
-          let range = 2
-
-          $0f range$0
-          """
-          [  ]
-      testCaseAsync "hide: variable postfix of param" <|
-        InlayHints.checkRange server
-          """
-          let f exactRange = ()
-          let range = 2
-
-          $0f range$0
-          """
-          [  ]
-      testCaseAsync "show: variable infix of param" <|
-        InlayHints.checkRange server
-          """
-          let f exactRangeCoveringExpr = ()
-          let range = 2
-
-          $0f $0range$0
-          """
-          [ param "exactRangeCoveringExpr" ]
-      testCaseAsync "show: variable prefix of param, but no word boundary" <|
-        InlayHints.checkRange server
-          """
-          let f rangecover = ()
-          let range = 2
-
-          $0f $0range$0
-          """
-          [ param "rangecover" ]
-      testCaseAsync "show: variable postfix of param, but no word boundary" <|
-        InlayHints.checkRange server
-          """
-          let f exactrange = ()
-          let range = 2
-
-          $0f $0range$0
-          """
-          [ param "exactrange" ]
-
-      testCaseAsync "hide: arg is prefix of param with leading _" <|
-        InlayHints.checkRange server
-          """
-          let f _rangeCoveringExpr = ()
-          let range = 2
-
-          $0f range$0
-          """
-          []
-      testCaseAsync "hide: arg is postfix of param with trailing '" <|
-        InlayHints.checkRange server
-          """
-          let f exactRange' = ()
-          let range = 2
-
-          $0f range$0
-          """
-          []
-      testCaseAsync "hide: arg is prefix of param with trailing ' in arg" <|
-        InlayHints.checkRange server
-          """
-          let f rangeCoveringExpr = ()
-          let range' = 2
-
-          $0f range'$0
-          """
-          []
-
-      testCaseAsync "hide: param prefix of arg" <|
-        InlayHints.checkRange server
-          """
-          let f range = ()
-          let rangeCoveringExpr = 2
-
-          $0f rangeCoveringExpr$0
-          """
-          []
-      testCaseAsync "hide: param postfix of arg" <|
-        InlayHints.checkRange server
-          """
-          let f range = ()
-          let exactRange = 2
-
-          $0f exactRange$0
-          """
-          []
-
-      testCaseAsync "hide: arg is field access with same name as param (upper case start)" <|
-        InlayHints.checkRange server
-          """
-          type Data = {
-            Range: int
-          }
-          let f range = ()
-          let data: Data = { Range = 2 }
-
-          $0f data.Range$0
-          """
-          []
-      testCaseAsync "hide: arg is field access with same name as param (lower case start)" <|
-        InlayHints.checkRange server
-          """
-          type Data = {
-            range: int
-          }
-          let f range = ()
-          let data: Data = { range = 2 }
-
-          $0f data.range$0
-          """
-          []
-      testCaseAsync "hide: arg is field access prefix of param (upper case start)" <|
-        InlayHints.checkRange server
-          """
-          type Data = {
-            Range: int
-          }
-          let f rangeCoveringExpr = ()
-          let data: Data = { Range = 2 }
-
-          $0f data.Range$0
-          """
-          []
-      testCaseAsync "hide: arg is field access, param is prefix of arg" <|
-        InlayHints.checkRange server
-          """
-          type Data = {
-            RangeCoveringExpr: int
-          }
-          let f range = ()
-          let data: Data = { RangeCoveringExpr = 2 }
-
-          $0f data.RangeCoveringExpr$0
-          """
-          []
-
-      testCaseAsync "hide: arg in parens same as param" <|
-        InlayHints.checkRange server
-          """
-          let f alpha = ()
-          let alpha = 42
-
-          $0f (alpha)$0
-          """
-          [  ]
-      testCaseAsync "hide: arg in parens and spaces same as param" <|
-        InlayHints.checkRange server
-          """
-          let f alpha = ()
-          let alpha = 42
-
-          $0f ( alpha )$0
-          """
-          [  ]
-      testCaseAsync "show: expr including param name in parens" <|
-        InlayHints.checkRange server
-          """
-          let f alpha = ()
-          let alpha x = x + 3
-
-          $0f $0(1 |> alpha)$0
-          """
-          [ param "alpha" ]
-          
-      //ENHANCEMENT: detect some common expressions like:
-      // * receiving end of pipe: `1 |> alpha`, `alpha <| 1`, `1 |> toAlpha`
-      // * last function: `1.ToAlpha()`
-      // * often used convert functions: `string alpha`, `alpha.ToString()`
-      testCaseAsync "show: any expression" <|
-        InlayHints.checkRange server
-          """
-          let f (alpha, beta, gamma) = ()
-          let alpha = 1
-          let beta = 2
-          let gamma = 2
-
-          $0f ($0string alpha, $0beta.ToString(), $0gamma |> string)$0
-          """
-          [ param "alpha"; param "beta"; param "gamma" ]
-
-      testCaseAsync "hide: unary operator" <|
-        InlayHints.checkRange server
-          """
-          let (~+.) listWithNumbers = List.map ((+) 1) listWithNumbers
-          let data = [1..5]
-
-          $0+. data$0
-          """
-          []
-      testCaseAsync "hide: binary operator" <|
-        InlayHints.checkRange server
-          """
-          let (+.) listWithNumbers numberToAdd = List.map ((+) numberToAdd) listWithNumbers
-          let data = [1..5]
-
-          $0data +. 5$0
-          """
-          []
-
-      testCaseAsync "hide: func name ends with param name" <|
-        InlayHints.checkRange server
-          """
-          let validateRange range = ()
-          let data = 42
-
-          $0validateRange data$0
-          """
-          []
-
-      testList "special names" [
-        testList "mapping" [
-          testCaseAsync "hide: for List" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.map id$0
-              """
-              []
-          testCaseAsync "hide: for Array" <|
-            InlayHints.checkRange server
-              """
-              $0[|1..3|] |> Array.map id$0
-              """
-              []
-          testCaseAsync "show: for custom function" <|
-            InlayHints.checkRange server
-              """
-              let doStuff mapping = ()
-              $0doStuff $042$0
-              """
-              [ param "mapping" ]
-        ]
-        testList "in collections" [
-          testCaseAsync "hide: predicate" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.filter ((<) 2)$0
-              """
-              []
-          testCaseAsync "hide: chooser" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.tryPick Some$0
-              """
-              []
-          testCaseAsync "hide: value" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.contains 2$0
-              """
-              []
-          testCaseAsync "hide: projection" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.sumBy id$0
-              """
-              []
-          testCaseAsync "hide: action" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.iter (printfn "%i")$0
-              """
-              []
-          testCaseAsync "hide: folder & state" <|
-            InlayHints.checkRange server
-              """
-              $0[1..3] |> List.fold (+) 0$0
-              """
-              []
-
-
-          testCaseAsync "hide: list" <|
-            InlayHints.checkRange server
-              """
-              $0List.tryLast [1..3]$0
-              """
-              []
-          testCaseAsync "hide: array" <|
-            InlayHints.checkRange server
-              """
-              $0Array.tryLast [|1..3|]$0
-              """
-              []
-          testCaseAsync "hide: source" <|
-            InlayHints.checkRange server
-              """
-              $0Seq.tryLast [1..3]$0
-              """
-              []
-          testCaseAsync "hide: lists" <|
-            InlayHints.checkRange server
-              """
-              $0List.concat []$0
-              """
-              []
-          testCaseAsync "hide: arrays" <|
-            InlayHints.checkRange server
-              """
-              $0Array.concat [||]$0
-              """
-              []
-          testCaseAsync "hide: sources" <|
-            InlayHints.checkRange server
-              """
-              $0Seq.concat []$0
-              """
-              []
-        ]
-        testList "option" [
-          testCaseAsync "hide: for Option" <|
-            InlayHints.checkRange server
-              """
-              $0Option.count (Some 3)$0
-              """
-              []
-          testCaseAsync "show: for custom function" <|
-            InlayHints.checkRange server
-              """
-              let doStuff option = ()
-              $0doStuff $042$0
-              """
-              [ param "option" ]
-        ]
-        testList "voption" [
-          testCaseAsync "hide: for ValueOption" <|
-            InlayHints.checkRange server
-              """
-              $0ValueOption.count (ValueSome 3)$0
-              """
-              []
-          testCaseAsync "show: for custom function" <|
-            InlayHints.checkRange server
-              """
-              let doStuff voption = ()
-              $0doStuff $042$0
-              """
-              [ param "voption" ]
-        ]
-        testList "format" [
-          testCaseAsync "hide: in printfn" <|
-            InlayHints.checkRange server
-              """
-              $0printfn "foo"$0
-              """
-              []
-          testCaseAsync "hide: in sprintf" <|
-            InlayHints.checkRange server
-              """
-              $0sprintf "foo"$0
-              """
-              []
-          testCaseAsync "hide: in Core.Printf" <|
-            // "normal" printf is in `Microsoft.FSharp.Core.ExtraTopLevelOperators`
-            InlayHints.checkRange server
-              """
-              $0Microsoft.FSharp.Core.Printf.printfn "foo"$0
-              """
-              []
-          testCaseAsync "show: for custom function" <|
-            InlayHints.checkRange server
-              """
-              let doStuff format = ()
-              $0doStuff $042$0
-              """
-              [ param "format" ]
-        ]
+            $0let f beta$0 = beta + 1$0
+            """
+            [
+              ty "int"
+            ]
       ]
-    ]
-  ])
+
+      testList "parameter hint" [
+        testCaseAsync "can show param hint" <|
+          checkRange server
+            """
+            let f beta = ()
+            $0f $042$0
+            """
+            [
+              param "beta"
+            ]
+      ]
+    ])
 
 module private LspInlayHints =
   open Utils.Server
@@ -563,10 +125,12 @@ module private LspInlayHints =
     = async {
       let! (doc, diags) = server |> Server.createUntitledDocument text
       use doc = doc
-      // Expect.isEmpty diags "Should not have had check errors"
       Expect.hasLength diags 0 "Should not have had check errors"
 
-      let! hints = doc |> Document.inlayHintsAt range
+      let! hints = 
+        doc 
+        |> Document.inlayHintsAt range
+      let hints = hints |> Option.defaultValue [||]
       do! validateInlayHints doc text hints
     }
 
@@ -595,17 +159,14 @@ module private LspInlayHints =
           Expect.equal appliedText textAfterEdits "Text after applying TextEdits does not match expected"
       | _ -> ()
 
-      //TODO: handle capabilities
+      //TODO: handle capabilities?
       //TODO: en/disable?
       let toResolve = 
         { actual with
-            Tooltip = None
             TextEdits = None
         }
       let! resolved = doc |> Document.resolveInlayHint toResolve
       Expect.equal resolved actual "`textDocument/inlayHint` and `inlayHint/resolve` should result in same InlayHint"
-
-      //todo: compare with AddExplicitType?
     }
 
   let rangeMarker = "$|"
@@ -629,7 +190,7 @@ module private LspInlayHints =
       let cursors =
         cursors
         |> Map.tryFind Cursor.Marker
-        |> Flip.Expect.wantSome "There should be range markers"
+        |> Option.defaultValue []
       Expect.hasLength cursors (expected.Length) $"Number of Cursors & expected hints don't match ({cursors.Length} cursors, {expected.Length} expected hints)"
       let expected =
         List.zip expected cursors
@@ -682,10 +243,42 @@ module private LspInlayHints =
       expectedAfterEdits
       |> Text.trimTripleQuotation
     (hint, Some expectedAfterEdits)
+  let truncated (hint: InlayHint, edits) =
+    let label = 
+      match hint.Label with
+      | InlayHintLabel.String label -> label
+      | _ -> failtestf "invalid label: %A" hint.Label
+    let (name, kind) = 
+      match hint.Kind with
+      | Some InlayHintKind.Parameter -> 
+          let name = label.Substring(0, label.Length-2)
+          name, InlayHintKind.Parameter
+      | Some InlayHintKind.Type -> 
+          let name = label.Substring(2)
+          name, InlayHintKind.Type
+      | _ -> failtestf "invalid kind: %A" hint.Kind
+    let truncatedName = InlayHints.truncated name
+    Expect.notEqual truncatedName name "Truncated name should be different from untruncated one"
+    let hint =
+      { hint with
+          Label = 
+            match kind with
+            | InlayHintKind.Parameter ->
+                truncatedName + " ="
+            | InlayHintKind.Type ->
+                ": " + truncatedName
+            | _ -> failwith "unreachable"
+            |> InlayHintLabel.String
+          Tooltip = 
+            InlayHintTooltip.String name
+            |> Some
+      }
+    (hint, edits)
 
 open LspInlayHints
 let private paramHintTests state =
   serverTestList "param hints" state defaultConfigDto None (fun server -> [
+    //todo: with ````
     testCaseAsync "can show param hint" <|
       checkAllInMarkedRange server
         """
@@ -694,6 +287,499 @@ let private paramHintTests state =
         """
         [
           paramHint "beta"
+        ]
+    testCaseAsync "can show all param hints" <|
+      checkAllInMarkedRange server
+        """
+        let f alpha beta = ()
+        $|f $042 $013
+        f $01 $02$|
+        """
+        [
+          paramHint "alpha"; paramHint "beta"
+          paramHint "alpha"; paramHint "beta"
+        ]
+    testCaseAsync "can get tooltip for truncated hint" <|
+      checkAllInMarkedRange server
+        """
+        let f averylongnamenotjustlongbutextremelylongandjusttobesureevenlonger = ()
+        $|f $042$|
+        """
+        [
+          truncated <| paramHint "averylongnamenotjustlongbutextremelylongandjusttobesureevenlonger"
+        ]
+
+    testCaseAsync "doesn't show hint for well-known parameter name" <|
+      checkAllInMarkedRange server
+        """
+        $|sprintf "thing %s" "blah" |> ignore$|
+        """
+        []
+    testCaseAsync "doesn't show hints for short parameter names" <|
+      checkAllInMarkedRange server
+        """
+        let someFunction s = s
+        let noHintForShortParameter = $|someFunction "hi"$|
+        """
+        []
+    testCaseAsync "doesn't show hints for parameter names that match user text" <|
+      checkAllInMarkedRange server
+        """
+        let anotherFunction (kind: string) = ()
+        let kind = "hi"
+        $|anotherFunction kind$|
+        """
+        []
+
+    testCaseAsync "show: param & variable have different names" <|
+      checkAllInMarkedRange server
+        """
+        let f beta = ()
+        let alpha = 42
+
+        $|f $0alpha$|
+        """
+        [ paramHint "beta" ]
+
+    testCaseAsync "hide: param & variable have same name" <|
+      checkAllInMarkedRange server
+        """
+        let f alpha = ()
+        let alpha = 42
+
+        $|f alpha$|
+        """
+        [  ]
+    testCaseAsync "hide: variable prefix of param" <|
+      checkAllInMarkedRange server
+        """
+        let f rangeCoveringExpr = ()
+        let range = 2
+
+        $|f range$|
+        """
+        [  ]
+    testCaseAsync "hide: variable postfix of param" <|
+      checkAllInMarkedRange server
+        """
+        let f exactRange = ()
+        let range = 2
+
+        $|f range$|
+        """
+        [  ]
+    testCaseAsync "show: variable infix of param" <|
+      checkAllInMarkedRange server
+        """
+        let f exactRangeCoveringExpr = ()
+        let range = 2
+
+        $|f $0range$|
+        """
+        [ paramHint "exactRangeCoveringExpr" ]
+    testCaseAsync "show: variable prefix of param, but no word boundary" <|
+      checkAllInMarkedRange server
+        """
+        let f rangecover = ()
+        let range = 2
+
+        $|f $0range$|
+        """
+        [ paramHint "rangecover" ]
+    testCaseAsync "show: variable postfix of param, but no word boundary" <|
+      checkAllInMarkedRange server
+        """
+        let f exactrange = ()
+        let range = 2
+
+        $|f $0range$|
+        """
+        [ paramHint "exactrange" ]
+
+    testCaseAsync "hide: arg is prefix of param with leading _" <|
+      checkAllInMarkedRange server
+        """
+        let f _rangeCoveringExpr = ()
+        let range = 2
+
+        $|f range$|
+        """
+        []
+    testCaseAsync "hide: arg is postfix of param with trailing '" <|
+      checkAllInMarkedRange server
+        """
+        let f exactRange' = ()
+        let range = 2
+
+        $|f range$|
+        """
+        []
+    testCaseAsync "hide: arg is prefix of param with trailing ' in arg" <|
+      checkAllInMarkedRange server
+        """
+        let f rangeCoveringExpr = ()
+        let range' = 2
+
+        $|f range'$|
+        """
+        []
+
+    testCaseAsync "hide: param prefix of arg" <|
+      checkAllInMarkedRange server
+        """
+        let f range = ()
+        let rangeCoveringExpr = 2
+
+        $|f rangeCoveringExpr$|
+        """
+        []
+    testCaseAsync "hide: param postfix of arg" <|
+      checkAllInMarkedRange server
+        """
+        let f range = ()
+        let exactRange = 2
+
+        $|f exactRange$|
+        """
+        []
+
+    testCaseAsync "hide: arg is field access with same name as param (upper case start)" <|
+      checkAllInMarkedRange server
+        """
+        type Data = {
+          Range: int
+        }
+        let f range = ()
+        let data: Data = { Range = 2 }
+
+        $|f data.Range$|
+        """
+        []
+    testCaseAsync "hide: arg is field access with same name as param (lower case start)" <|
+      checkAllInMarkedRange server
+        """
+        type Data = {
+          range: int
+        }
+        let f range = ()
+        let data: Data = { range = 2 }
+
+        $|f data.range$|
+        """
+        []
+    testCaseAsync "hide: arg is field access prefix of param (upper case start)" <|
+      checkAllInMarkedRange server
+        """
+        type Data = {
+          Range: int
+        }
+        let f rangeCoveringExpr = ()
+        let data: Data = { Range = 2 }
+
+        $|f data.Range$|
+        """
+        []
+    testCaseAsync "hide: arg is field access, param is prefix of arg" <|
+      checkAllInMarkedRange server
+        """
+        type Data = {
+          RangeCoveringExpr: int
+        }
+        let f range = ()
+        let data: Data = { RangeCoveringExpr = 2 }
+
+        $|f data.RangeCoveringExpr$|
+        """
+        []
+
+    testCaseAsync "hide: arg in parens same as param" <|
+      checkAllInMarkedRange server
+        """
+        let f alpha = ()
+        let alpha = 42
+
+        $|f (alpha)$|
+        """
+        [  ]
+    testCaseAsync "hide: arg in parens and spaces same as param" <|
+      checkAllInMarkedRange server
+        """
+        let f alpha = ()
+        let alpha = 42
+
+        $|f ( alpha )$|
+        """
+        [  ]
+    testCaseAsync "show: expr including param name in parens" <|
+      checkAllInMarkedRange server
+        """
+        let f alpha = ()
+        let alpha x = x + 3
+
+        $|f $0(1 |> alpha)$|
+        """
+        [ paramHint "alpha" ]
+          
+    //ENHANCEMENT: detect some common expressions like:
+    // * receiving end of pipe: `1 |> alpha`, `alpha <| 1`, `1 |> toAlpha`
+    // * last function: `1.ToAlpha()`
+    // * often used convert functions: `string alpha`, `alpha.ToString()`
+    testCaseAsync "show: any expression" <|
+      checkAllInMarkedRange server
+        """
+        let f (alpha, beta, gamma) = ()
+        let alpha = 1
+        let beta = 2
+        let gamma = 2
+
+        $|f ($0string alpha, $0beta.ToString(), $0gamma |> string)$|
+        """
+        [ paramHint "alpha"; paramHint "beta"; paramHint "gamma" ]
+
+    testCaseAsync "hide: unary operator" <|
+      checkAllInMarkedRange server
+        """
+        let (~+.) listWithNumbers = List.map ((+) 1) listWithNumbers
+        let data = [1..5]
+
+        $|+. data$|
+        """
+        []
+    testCaseAsync "hide: binary operator" <|
+      checkAllInMarkedRange server
+        """
+        let (+.) listWithNumbers numberToAdd = List.map ((+) numberToAdd) listWithNumbers
+        let data = [1..5]
+
+        $|data +. 5$|
+        """
+        []
+
+    testCaseAsync "hide: func name ends with param name" <|
+      checkAllInMarkedRange server
+        """
+        let validateRange range = ()
+        let data = 42
+
+        $|validateRange data$|
+        """
+        []
+
+    testList "special names" [
+      testList "mapping" [
+        testCaseAsync "hide: for List" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.map id$|
+            """
+            []
+        testCaseAsync "hide: for Array" <|
+          checkAllInMarkedRange server
+            """
+            $|[|1..3|] |> Array.map id$|
+            """
+            []
+        testCaseAsync "show: for custom function" <|
+          checkAllInMarkedRange server
+            """
+            let doStuff mapping = ()
+            $|doStuff $042$|
+            """
+            [ paramHint "mapping" ]
+      ]
+      testList "in collections" [
+        testCaseAsync "hide: predicate" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.filter ((<) 2)$|
+            """
+            []
+        testCaseAsync "hide: chooser" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.tryPick Some$|
+            """
+            []
+        testCaseAsync "hide: value" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.contains 2$|
+            """
+            []
+        testCaseAsync "hide: projection" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.sumBy id$|
+            """
+            []
+        testCaseAsync "hide: action" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.iter (printfn "%i")$|
+            """
+            []
+        testCaseAsync "hide: folder & state" <|
+          checkAllInMarkedRange server
+            """
+            $|[1..3] |> List.fold (+) 0$|
+            """
+            []
+
+
+        testCaseAsync "hide: list" <|
+          checkAllInMarkedRange server
+            """
+            $|List.tryLast [1..3]$|
+            """
+            []
+        testCaseAsync "hide: array" <|
+          checkAllInMarkedRange server
+            """
+            $|Array.tryLast [|1..3|]$|
+            """
+            []
+        testCaseAsync "hide: source" <|
+          checkAllInMarkedRange server
+            """
+            $|Seq.tryLast [1..3]$|
+            """
+            []
+        testCaseAsync "hide: lists" <|
+          checkAllInMarkedRange server
+            """
+            $|List.concat []$|
+            """
+            []
+        testCaseAsync "hide: arrays" <|
+          checkAllInMarkedRange server
+            """
+            $|Array.concat [||]$|
+            """
+            []
+        testCaseAsync "hide: sources" <|
+          checkAllInMarkedRange server
+            """
+            $|Seq.concat []$|
+            """
+            []
+      ]
+      testList "option" [
+        testCaseAsync "hide: for Option" <|
+          checkAllInMarkedRange server
+            """
+            $|Option.count (Some 3)$|
+            """
+            []
+        testCaseAsync "show: for custom function" <|
+          checkAllInMarkedRange server
+            """
+            let doStuff option = ()
+            $|doStuff $042$|
+            """
+            [ paramHint "option" ]
+      ]
+      testList "voption" [
+        testCaseAsync "hide: for ValueOption" <|
+          checkAllInMarkedRange server
+            """
+            $|ValueOption.count (ValueSome 3)$|
+            """
+            []
+        testCaseAsync "show: for custom function" <|
+          checkAllInMarkedRange server
+            """
+            let doStuff voption = ()
+            $|doStuff $042$|
+            """
+            [ paramHint "voption" ]
+      ]
+      testList "format" [
+        testCaseAsync "hide: in printfn" <|
+          checkAllInMarkedRange server
+            """
+            $|printfn "foo"$|
+            """
+            []
+        testCaseAsync "hide: in sprintf" <|
+          checkAllInMarkedRange server
+            """
+            $|sprintf "foo"$|
+            """
+            []
+        testCaseAsync "hide: in Core.Printf" <|
+          // "normal" printf is in `Microsoft.FSharp.Core.ExtraTopLevelOperators`
+          checkAllInMarkedRange server
+            """
+            $|Microsoft.FSharp.Core.Printf.printfn "foo"$|
+            """
+            []
+        testCaseAsync "show: for custom function" <|
+          checkAllInMarkedRange server
+            """
+            let doStuff format = ()
+            $|doStuff $042$|
+            """
+            [ paramHint "format" ]
+      ]
+    ]
+
+    ptestList "ionide/ionide-vscode-fsharp#1714" [
+      testCaseAsync "can show param hint for tuple param without individual names" <|
+        checkAllInMarkedRange server
+          """
+          let f tupleParam = ()
+          $|f $0(1,2)$|
+          """
+          [
+            paramHint "tupleParam"
+          ]
+      testCaseAsync "can show param hint for tuple-var param without individual names" <|
+        checkAllInMarkedRange server
+          """
+          let f tupleParam = ()
+          let myTuple = (1,2)
+          $|f $0myTuple$|
+          """
+          [
+            paramHint "tupleParam"
+          ]
+      testCaseAsync "can show param hints for tuple param with individual names" <|
+        checkAllInMarkedRange server
+          """
+          let f (alpha, beta) = ()
+          $|f ($01, $02)$|
+          """
+          [
+            paramHint "alpha"
+            paramHint "beta"
+          ]
+      testCaseAsync "can show param hint for tuple-var param with individual names" <|
+        checkAllInMarkedRange server
+          """
+          let f (alpha, beta) = ()
+          let myTuple = (1,2)
+          $|f $0myTuple$|
+          """
+          [
+            paramHint "(alpha,beta)"  //TODO: ?
+          ]
+    ]
+    ptestCaseAsync "doesn't show param for func with args pipe in" <|
+      // currently: shows param hint ... in front of `f`
+      checkAllInMarkedRange server
+        """
+        let f tupleParam = ()
+        $|f <| 2$|
+        """
+        []
+    ptestCaseAsync "can show param for method" <|
+      checkAllInMarkedRange server
+        """
+        $|System.Environment.GetEnvironmentVariable "Blah"
+        |> ignore$|
+        """
+        [
+          paramHint "variable"
         ]
   ])
 let private typeHintTests state =
@@ -709,6 +795,74 @@ let private typeHintTests state =
             let f (beta: int) = beta + 1
             """
         ]
+    testCaseAsync "can show all type hints" <|
+      checkAllInMarkedRange server
+        """
+        let fromString (v: string) = int v
+        let fromFloat (v: float) = int v
+        $|let f alpha$0 beta$0 gamma$0 $|= (fromFloat alpha) + beta + (fromString gamma) + 1
+        """
+        [
+          typeHint "float"
+            """
+            let fromString (v: string) = int v
+            let fromFloat (v: float) = int v
+            let f (alpha: float) beta gamma = (fromFloat alpha) + beta + (fromString gamma) + 1
+            """
+          typeHint "int"
+            """
+            let fromString (v: string) = int v
+            let fromFloat (v: float) = int v
+            let f alpha (beta: int) gamma = (fromFloat alpha) + beta + (fromString gamma) + 1
+            """
+          typeHint "string"
+            """
+            let fromString (v: string) = int v
+            let fromFloat (v: float) = int v
+            let f alpha beta (gamma: string) = (fromFloat alpha) + beta + (fromString gamma) + 1
+            """
+        ]
+    testCaseAsync "let-bound function parameter type hints" <|
+      checkAllInMarkedRange server
+        """
+        $|let tryFindFile p$0 = p + "hi"$|
+        """
+        [
+          typeHint "string"
+            """
+            let tryFindFile (p: string) = p + "hi"
+            """
+        ]
+    testCaseAsync "value let binding type hint" <|
+      checkAllInMarkedRange server
+        """
+        $|let s$0 = "hi"$|
+        """
+        [
+          typeHint "string"
+            """
+            let s: string = "hi"
+            """
+        ]
+    testCaseAsync "no type hint for an explicitly-typed binding" <|
+      checkAllInMarkedRange server
+        """
+        $|let s: string = "hi"$|
+        """
+        []
+    testCaseAsync "long type hint gets truncated" <|
+      checkAllInMarkedRange server
+        """
+        $|let t$0 = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))$|
+        """
+        [
+          truncated <| typeHint "unit option option option option option option option option option option option option option option option"
+            """
+            let t: unit option option option option option option option option option option option option option option option = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))
+            """
+        ]
+    
+
     testCaseAsync "can show type for generic actual type" <|
       checkAllInMarkedRange server
         """
@@ -814,7 +968,7 @@ let private inlayHintTests state =
 
 let tests state = 
   testList (nameof InlayHint) [
-    fsharpInlayHintsTests state
+    FSharpInlayHints.tests state
     inlayHintTests state
   ]
 

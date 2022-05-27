@@ -97,6 +97,7 @@ let tests = testList "FSAC" [
     Utils.Tests.Utils.tests
     Utils.Tests.TextEdit.tests
   ]
+  InlayHintTests.explicitTypeInfoTests
 
   lspTests
 ]

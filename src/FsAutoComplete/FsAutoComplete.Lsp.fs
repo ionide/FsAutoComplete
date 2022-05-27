@@ -2725,12 +2725,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         return success (Some hints)
       })
 
+  //TODO: remove?
   /// Note: Requires `InlayHintData` in `InlayHint.Data` element.
   ///       Required to relate `InlayHint` to a document and position inside
   ///
-  /// Note: Currently only resolves `Tooltip` and `TextEdits`
-  ///
-  /// Note: Resolving `Tooltip` is currently not implement -> above *Note* is a lie...
+  /// Note: Currently only resolves `TextEdits`
   override x.InlayHintResolve(p: InlayHint) : AsyncLspResult<InlayHint> =
     logger.info (
       Log.setMessage "InlayHintResolve Request: {parms}"
@@ -2738,10 +2737,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     )
 
     match p.Data with
-    | _ when
-      p.Tooltip |> Option.isSome
-      && p.TextEdits |> Option.isSome
-      ->
+    | _ when p.TextEdits |> Option.isSome ->
       // nothing to resolve
       Async.singleton <| success p
     | None ->
@@ -2753,13 +2749,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       data.TextDocument
       |> x.fileHandler (fun fn tyRes lines ->
         asyncResult {
-          // update Tooltip
-          let! p =
-            match p.Tooltip with
-            | Some _ -> Ok p
-            | None ->
-              //TODO: implement
-              Ok p
           // update TextEdits
           let! p =
             match p.Kind, p.TextEdits with

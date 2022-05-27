@@ -25,7 +25,7 @@ type Hint =
     Pos: Position
     Text: string
     Insertions: HintInsertion[] option
-    //TODO: allow xml doc
+    //ENHANCEMENT: allow xml doc
     Tooltip: string option }
 
 let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResults, identText: Range) =
@@ -102,21 +102,28 @@ let private getFirstPositionAfterParen (str: string) startPos =
 
 let private maxHintLength = 30
 
-let truncated (s: string) =
-  if s.Length > maxHintLength then
-    s.Substring(0, maxHintLength) + "..."
+let inline private shouldTruncate (s: string) = s.Length > maxHintLength
+
+let inline private tryTruncate (s: string) =
+  if shouldTruncate s then
+    s.Substring(0, maxHintLength) + "..." |> Some
   else
-    s
+    None
+
+let truncated (s: string) = tryTruncate s |> Option.defaultValue s
 
 let private createParamHint (identRange: Range) (paramName: string) =
-  let format p = p + " ="
+  let (truncated, tooltip) =
+    match tryTruncate paramName with
+    | None -> (paramName, None)
+    | Some truncated -> (truncated, Some paramName)
 
   { IdentRange = identRange
     Pos = identRange.Start
     Kind = Parameter
-    Text = format (truncated paramName)
+    Text = truncated + " ="
     Insertions = None
-    Tooltip = None }
+    Tooltip = tooltip }
 
 module private ShouldCreate =
   let private isNotWellKnownName =
@@ -793,15 +800,18 @@ let private tryCreateTypeHint (explicitType: ExplicitType) (ty: FSharpType) (dis
   | ExplicitType.Missing data ->
     let (ty, tyForAnno) = data.FormatType(ty, displayContext)
 
+    let (truncated, tooltip) =
+      match tryTruncate ty with
+      | None -> (ty, None)
+      | Some truncated -> (truncated, Some ty)
+
     { IdentRange = data.Ident
       Pos = data.InsertAt
       Kind = Type
       // TODO: or use tyForAnno?
-      Text = ": " + (truncated ty)
-      //TODO: delay for resolve?
+      Text = ": " + truncated
       Insertions = Some <| data.CreateEdits tyForAnno
-      //TODO: implement? delay for resolve?
-      Tooltip = None }
+      Tooltip = tooltip }
     |> Some
   | _ -> None
 
