@@ -28,13 +28,16 @@ let getDeclarationLocation
 
     match declarationLocation with
     | Some loc ->
-      let filePath =
-        Path.FilePathToUri(Path.GetFullPathSafe loc.FileName)
-        |> Path.FileUriToLocalPath
+      let isScript = isAScript loc.FileName
+      // sometimes the source file locations start with a capital, despite all of our efforts.
+      let normalizedPath =
+        if System.Char.IsUpper(loc.FileName[0]) then
+          string (System.Char.ToLowerInvariant loc.FileName[0])
+          + (loc.FileName.Substring(1))
+        else
+          loc.FileName
 
-      let isScript = isAScript filePath
-      let taggedFilePath = UMX.tag filePath
-      let normalizedFilePath = Path.GetFullPathSafe filePath
+      let taggedFilePath = UMX.tag normalizedPath
 
       if isScript
          && taggedFilePath = currentDocument.FileName then
@@ -49,8 +52,7 @@ let getDeclarationLocation
         let projectsThatContainFile =
           state.ProjectController.ProjectOptions
           |> Seq.choose (fun (_, p) ->
-            if p.SourceFiles |> Array.contains normalizedFilePath //
-            then
+            if p.SourceFiles |> Array.contains normalizedPath then
               Some p
             else
               None)
