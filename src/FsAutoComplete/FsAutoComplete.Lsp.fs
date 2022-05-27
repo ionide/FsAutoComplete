@@ -996,7 +996,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                       { Legend =
                           createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
                         Range = Some(U2.First true)
-                        Full = Some(U2.First true) } } }
+                        Full = Some(U2.First true) }
+                  InlayHintProvider = Some { ResolveProvider = Some false } } }
         |> success
     }
 
