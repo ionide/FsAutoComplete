@@ -1038,7 +1038,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           InsertText = formattedXmlDoc }
     }
 
-  member x.SymbolUseWorkspace(pos, lineStr, text, tyRes: ParseAndCheckResults) =
+  member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
     asyncResult {
 
       let findReferencesInFile
@@ -1111,6 +1111,23 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
         let symbolUseRanges = ImmutableArray.CreateBuilder()
 
+        // the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
+        // symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
+        // do some splicing to find just the range we need to replace.
+        let symbolRange = symbol.DefinitionRange
+        let symbolFile =
+              if System.Char.IsUpper(symbolRange.FileName[0]) then
+                UMX.tag (
+                  string (System.Char.ToLowerInvariant symbolRange.FileName[0])
+                  + (symbolRange.FileName.Substring(1))
+                )
+              else
+                UMX.tag symbolRange.FileName
+        let symbolFileText = state.TryGetFileSource(symbolFile) |> Result.fold id (fun e -> failwith "blah blah")
+        let symbolText =
+          symbolFileText[symbol.DefinitionRange]
+          |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
+
         let projects =
           if isInternalToProject then
             projects
@@ -1125,7 +1142,42 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                     |> state.ProjectController.GetProjectOptionsForFsproj) ]
             |> List.distinctBy (fun x -> x.ProjectFileName)
 
-        let onFound = fun symbolUseRange -> async { symbolUseRanges.Add symbolUseRange }
+        let onFound (symbolUseRange: range) =
+          async {
+            // sometimes the source file locations start with a capital, despite all of our efforts.
+            let normalizedPath =
+              if System.Char.IsUpper(symbolUseRange.FileName[0]) then
+                UMX.tag (
+                  string (System.Char.ToLowerInvariant symbolUseRange.FileName[0])
+                  + (symbolUseRange.FileName.Substring(1))
+                )
+              else
+                UMX.tag symbolUseRange.FileName
+
+            let targetText = state.TryGetFileSource(normalizedPath)
+            match targetText with
+            | Error e -> ()
+            | Ok sourceText ->
+              let sourceSpan = sourceText[symbolUseRange] |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
+              if sourceSpan = symbolText
+              then
+                symbolUseRanges.Add symbolUseRange
+              else
+                // try to find the overlapping part and just return that
+                match sourceSpan.IndexOf(symbolText) with
+                | -1 -> ()
+                | n ->
+                  if sourceSpan.Length >= n + symbolText.Length
+                  then
+                    let startPos = Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n)
+                    let endPos = Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n + symbolText.Length)
+                    let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
+                    symbolUseRanges.Add actualUseRange
+                  else
+                    ()
+                ()
+
+          }
 
         let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
 
