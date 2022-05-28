@@ -84,7 +84,6 @@ type NotificationEvent =
   | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
   | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[]
   | Canceled of errorMessage: string
-  | Diagnostics of Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
@@ -100,7 +99,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   let mutable workspaceRoot: string option = rootPath
   let mutable linterConfigFileRelativePath: string option = None
   // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
-  let mutable lastVersionChecked = -1
   let mutable lastCheckResult: ParseAndCheckResults option = None
 
   let notify = Event<NotificationEvent>()
@@ -551,9 +549,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
-  member __.LastVersionChecked = lastVersionChecked
-
-
   member __.LastCheckResult = lastCheckResult
 
   member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version) = state.AddFileText(file, lines, version)
@@ -722,55 +717,77 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.TryGetFileVersion = state.TryGetFileVersion
 
-  member x.Parse file (text: NamedText) version (isSdkScript: bool option) =
-    let tmf =
-      isSdkScript
-      |> Option.map (fun n ->
-        if n then
-          FSIRefs.NetCore
-        else
-          FSIRefs.NetFx)
-      |> Option.defaultValue FSIRefs.NetFx
+  member x.CheckFileAndAllDependentFilesInAllProjects
+    (
+      file: string<LocalPath>,
+      version,
+      content,
+      tfmConfig,
+      isFirstOpen
+    ) : Async<Result<unit, string>> =
+    asyncResult {
+      let! opts =
+        state.GetProjectOptions(file)
+        |> Result.ofOption (fun _ -> $"Unable to find project options for file: {file}")
 
-    do x.CancelQueue file
+      // parse dependent files, if necessary
+      if isFirstOpen then
+        do! opts.SourceFilesThatThisFileDependsOn(file)
+          |> Array.toList
+          |> List.traverseAsyncResultM (UMX.tag >> x.SimpleCheckFile)
+          |> AsyncResult.map ignore<unit list>
 
+      // parse this file
+      do! x.CheckFile(file, version, content, tfmConfig)
+
+      // then parse all files that depend on it in this project,
+
+      do!
+        opts.SourceFilesThatDependOnFile(file)
+        |> Array.toList
+        |> List.traverseAsyncResultM (UMX.tag >> x.SimpleCheckFile)
+        |> AsyncResult.map ignore<unit list>
+
+      // then parse all files in dependent projects
+      do!
+        state.ProjectController.GetDependentProjectsOfProjects([ opts ])
+        |> List.traverseAsyncResultM x.CheckProject
+        |> AsyncResult.map ignore<unit list>
+
+    }
+
+  /// easy helper that looks up a file and all required checking information then checks it.
+  /// intended use is from the other, more complex Parse members, because the filePath is untagged
+  member private x.SimpleCheckFile(filePath: string<LocalPath>) : Async<Result<unit, string>> =
+    asyncResult {
+      let! text = state.TryGetFileSource filePath
+
+      let version =
+        state.TryGetFileVersion filePath
+        |> Option.defaultValue 0
+
+      do! x.CheckFile(filePath, text, version, Some true)
+    }
+
+  member private _.CheckCore(fileName: string<LocalPath>, version, text, options) : Async<Result<unit, string>> =
+    asyncResult {
+      let! parseAndCheck = checker.ParseAndCheckFileInProject(fileName, version, text, options)
+      let parseResult = parseAndCheck.GetParseResults
+      do fileParsed.Trigger parseResult
+      do lastCheckResult <- Some parseAndCheck
+      do state.SetLastCheckedVersion fileName version
+      do fileChecked.Trigger(parseAndCheck, fileName, version)
+    }
+
+  member x.CheckProject(p: FSharpProjectOptions) : Async<Result<unit, string>> =
+    p.SourceFiles
+    |> Array.toList
+    |> List.traverseAsyncResultM (UMX.tag >> x.SimpleCheckFile)
+    |> AsyncResult.map ignore<unit list>
+
+  member private x.CheckFile(file, text: NamedText, version, isSdkScript: bool option) : Async<Result<unit, string>> =
     async {
-      let colorizations = state.ColorizationOutput
-
-      let parse' (fileName: string<LocalPath>) text options =
-        async {
-          let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
-
-          return
-            match result with
-            | ResultOrString.Error e -> CoreResponse.ErrorRes e
-            | ResultOrString.Ok (parseAndCheck) ->
-              let parseResult = parseAndCheck.GetParseResults
-              let results = parseAndCheck.GetCheckResults
-              do fileParsed.Trigger parseResult
-              do lastVersionChecked <- version
-              do lastCheckResult <- Some parseAndCheck
-              do state.SetLastCheckedVersion fileName version
-              do fileChecked.Trigger(parseAndCheck, fileName, version)
-
-              let errors = Array.append results.Diagnostics parseResult.Diagnostics
-
-              CoreResponse.Res(errors, fileName)
-        }
-
-      let normalizeOptions (opts: FSharpProjectOptions) =
-        { opts with
-            SourceFiles =
-              opts.SourceFiles
-              |> Array.filter FscArguments.isCompileFile
-              |> Array.map (Path.GetFullPath)
-            OtherOptions =
-              opts.OtherOptions
-              |> Array.map (fun n ->
-                if FscArguments.isCompileFile (n) then
-                  Path.GetFullPath n
-                else
-                  n) }
+      do x.CancelQueue file
 
       if Utils.isAScript (UMX.untag file) then
         commandsLogger.info (
@@ -787,12 +804,21 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           |> Array.toList
           |> fun n -> n.GetHashCode()
 
-        let! checkOptions =
+        let! projectOptions =
           match state.ScriptProjectOptions.TryFind file with
           | Some (h, opts) when h = hash -> async.Return opts
           | _ ->
             async {
-              let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+              let tfm =
+                isSdkScript
+                |> Option.map (fun n ->
+                  if n then
+                    FSIRefs.NetCore
+                  else
+                    FSIRefs.NetFx)
+                |> Option.defaultValue FSIRefs.NetFx
+
+              let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tfm)
 
               state.ScriptProjectOptions.AddOrUpdate(file, (hash, checkOptions), (fun _ _ -> (hash, checkOptions)))
               |> ignore
@@ -800,23 +826,32 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               return checkOptions
             }
 
-        scriptFileProjectOptions.Trigger checkOptions
-        state.AddFileTextAndCheckerOptions(file, text, normalizeOptions checkOptions, Some version)
+        let projectOptions =
+          { projectOptions with
+              SourceFiles =
+                projectOptions.SourceFiles
+                |> Array.filter FscArguments.isCompileFile
+                |> Array.map (Path.GetFullPath)
+              OtherOptions =
+                projectOptions.OtherOptions
+                |> Array.map (fun n ->
+                  if FscArguments.isCompileFile (n) then
+                    Path.GetFullPath n
+                  else
+                    n) }
+
+        scriptFileProjectOptions.Trigger projectOptions
+        state.AddFileTextAndCheckerOptions(file, text, projectOptions, Some version)
         fileStateSet.Trigger()
-        return! parse' file text checkOptions
+        return! x.CheckCore(file, version, text, projectOptions)
       else
         match state.RefreshCheckerOptions(file, text) with
         | Some c ->
           state.SetFileVersion file version
           fileStateSet.Trigger()
-          return! parse' file text c
-        | None -> return CoreResponse.InfoRes "`.fs` file not in project file"
-
-
+          return! x.CheckCore(file, version, text, c)
+        | None -> return Error $"{file} is not in any known project"
     }
-    |> x.AsCancellable file
-    |> AsyncResult.recoverCancellation
-
 
   member x.Declarations (file: string<LocalPath>) lines version =
     async {

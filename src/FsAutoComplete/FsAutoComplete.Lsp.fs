@@ -243,7 +243,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable sigHelpKind = None
   let mutable binaryLogConfig = Ionide.ProjInfo.BinaryLogGeneration.Off
 
-  let analyzeFile (filePath) =
+  let analyzeFile (filePath, version) =
     let analyzers =
       [
         // if config.Linter then
@@ -255,29 +255,30 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         if config.SimplifyNameAnalyzer then
           commands.CheckSimplifiedNames filePath ]
 
-    analyzers |> Async.Parallel |> Async.Ignore
-
-  let parseFile (filePath: string<LocalPath>) (version: int) (content: NamedText) =
     async {
-      let tfmConfig = config.UseSdkScripts
+      do!
+        analyzers
+        |> Async.Parallel
+        |> Async.Ignore<unit[]>
 
       do!
-        commands.Parse filePath content version (Some tfmConfig)
-        |> Async.Ignore
-
-      async {
-        do! analyzeFile filePath
-
-        do!
-          lspClient.NotifyDocumentAnalyzed
-            { TextDocument =
-                { Uri = filePath |> Path.LocalPathToUri
-                  Version = Some version } }
-      }
-      |> Async.Start
+        lspClient.NotifyDocumentAnalyzed
+          { TextDocument =
+              { Uri = filePath |> Path.LocalPathToUri
+                Version = Some version } }
     }
 
-  let parseChangedFile (p: DidChangeTextDocumentParams) =
+  let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
+    asyncResult {
+      let tfmConfig = config.UseSdkScripts
+
+      do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, content, version, Some tfmConfig, isFirstOpen)
+        |> Async.Ignore
+
+      analyzeFile (filePath, version) |> Async.Start
+    }
+
+  let checkChangedFile (p: DidChangeTextDocumentParams) =
 
     async {
       let doc = p.TextDocument
@@ -295,7 +296,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             >> Log.addContextDestructured "file" filePath
           )
 
-          do! parseFile filePath version content
+          do!
+            checkFile (filePath, version, content, false)
+            |> AsyncResult.foldResult id (fun e ->
+              logger.info (
+                Log.setMessage "Error while parsing {file} - {message}"
+                >> Log.addContextDestructured "message" e
+                >> Log.addContextDestructured "file" filePath
+              ))
 
         else
           logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
@@ -307,8 +315,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     }
     |> Async.Start
 
-  let parseFileDebuncer = Debounce(500, parseChangedFile)
-
+  let checkFileDebouncer = Debounce(250, checkChangedFile)
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (
@@ -458,10 +465,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         let ntf: PlainNotification = { Content = msg }
 
         lspClient.NotifyCancelledRequest ntf
-        |> Async.Start
-      | NotificationEvent.Diagnostics (p) ->
-        p
-        |> lspClient.TextDocumentPublishDiagnostics
         |> Async.Start
       | NotificationEvent.AnalyzerMessage (messages, file) ->
         let uri = Path.LocalPathToUri file
@@ -1003,7 +1006,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
       let content = NamedText(filePath, doc.Text)
-      let tfmConfig = config.UseSdkScripts
 
       logger.info (
         Log.setMessage "TextDocumentDidOpen Request: {parms}"
@@ -1012,7 +1014,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       commands.SetFileContent(filePath, content, Some doc.Version)
 
-      do! parseFile filePath doc.Version content
+      do!
+        checkFile (filePath, doc.Version, content, true)
+        |> AsyncResult.foldResult id (fun e ->
+          logger.info (
+            Log.setMessage "Error while parsing {file} - {message}"
+            >> Log.addContextDestructured "message" e
+            >> Log.addContextDestructured "file" filePath
+          ))
     }
 
   override __.TextDocumentDidChange(p) =
@@ -1037,7 +1046,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           ()
       | _ -> ()
 
-      parseFileDebuncer.Bounce p
+      checkFileDebouncer.Bounce p
     }
 
   //TODO: Investigate if this should be done at all

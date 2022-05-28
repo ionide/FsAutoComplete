@@ -75,6 +75,21 @@ module ProjInfoExtensions =
       |> Array.find (fun o -> o.StartsWith("-o:"))
       |> fun s -> s[3..]
 
+    member x.SourceFilesThatThisFileDependsOn(file:string<LocalPath>) =
+      let untagged = UMX.untag file
+      match Array.tryFindIndex ((=) untagged) x.SourceFiles with
+      | None -> [||]
+      | Some 0 -> [||] // at the start, so no possible dependents
+      | Some index -> x.SourceFiles[0..index]
+
+
+    member x.SourceFilesThatDependOnFile(file: string<LocalPath>) =
+      let untagged = UMX.untag file
+      match Array.tryFindIndex ((=) untagged) x.SourceFiles with
+      | None -> [||]
+      | Some index when index < x.SourceFiles.Length -> x.SourceFiles[index+1..]
+      | Some index -> [||] // at the end, so return empty list
+
   type ProjectController with
     /// returns all projects that depend on this one, transitively
     member x.GetDependentProjectsOfProjects(ps: FSharpProjectOptions list) : list<FSharpProjectOptions> =
@@ -107,6 +122,19 @@ module ProjInfoExtensions =
           currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
 
       Seq.toList allDependents
+
+    /// crawls the project set and returns projects that contain a given file
+    member x.ProjectsThatContainFile(file: string<LocalPath>) =
+      let untagged = UMX.untag file
+
+      x.ProjectOptions
+      |> Seq.choose (fun (_, p) ->
+        if p.SourceFiles |> Array.contains untagged then
+          Some p
+        else
+          None)
+      |> Seq.distinct
+      |> Seq.toList
 
 type DeclName = string
 
