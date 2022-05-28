@@ -49,7 +49,9 @@ let getDeclarationLocation
         state.GetProjectOptions(taggedFilePath)
         |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
       else
-        let projectsThatContainFile = state.ProjectController.ProjectsThatContainFile(taggedFilePath)
+        let projectsThatContainFile =
+          state.ProjectController.ProjectsThatContainFile(taggedFilePath)
+
         let projectsThatDependOnContainingProjects =
           state.ProjectController.GetDependentProjectsOfProjects projectsThatContainFile
 

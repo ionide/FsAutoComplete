@@ -75,8 +75,9 @@ module ProjInfoExtensions =
       |> Array.find (fun o -> o.StartsWith("-o:"))
       |> fun s -> s[3..]
 
-    member x.SourceFilesThatThisFileDependsOn(file:string<LocalPath>) =
+    member x.SourceFilesThatThisFileDependsOn(file: string<LocalPath>) =
       let untagged = UMX.untag file
+
       match Array.tryFindIndex ((=) untagged) x.SourceFiles with
       | None -> [||]
       | Some 0 -> [||] // at the start, so no possible dependents
@@ -85,9 +86,10 @@ module ProjInfoExtensions =
 
     member x.SourceFilesThatDependOnFile(file: string<LocalPath>) =
       let untagged = UMX.untag file
+
       match Array.tryFindIndex ((=) untagged) x.SourceFiles with
       | None -> [||]
-      | Some index when index < x.SourceFiles.Length -> x.SourceFiles[index+1..]
+      | Some index when index < x.SourceFiles.Length -> x.SourceFiles[index + 1 ..]
       | Some index -> [||] // at the end, so return empty list
 
   type ProjectController with

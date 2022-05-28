@@ -724,68 +724,74 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       content,
       tfmConfig,
       isFirstOpen
-    ) : Async<Result<unit, string>> =
-    asyncResult {
-      let! opts =
-        state.GetProjectOptions(file)
-        |> Result.ofOption (fun _ -> $"Unable to find project options for file: {file}")
+    ) : Async<unit> =
+    async {
+      match state.GetProjectOptions(file) with
+      | None -> ()
+      | Some opts ->
 
-      // parse dependent files, if necessary
-      if isFirstOpen then
-        do! opts.SourceFilesThatThisFileDependsOn(file)
-          |> Array.toList
-          |> List.traverseAsyncResultM (UMX.tag >> x.SimpleCheckFile)
-          |> AsyncResult.map ignore<unit list>
+        // parse dependent files, if necessary
+        if isFirstOpen then
+          do!
+            opts.SourceFilesThatThisFileDependsOn(file)
+            |> Array.map (UMX.tag >> x.SimpleCheckFile)
+            |> Async.Sequential
+            |> Async.map ignore<unit[]>
 
-      // parse this file
-      do! x.CheckFile(file, version, content, tfmConfig)
+        // parse this file
+        do! x.CheckFile(file, version, content, tfmConfig)
 
-      // then parse all files that depend on it in this project,
+        // then parse all files that depend on it in this project,
 
-      do!
-        opts.SourceFilesThatDependOnFile(file)
-        |> Array.toList
-        |> List.traverseAsyncResultM (UMX.tag >> x.SimpleCheckFile)
-        |> AsyncResult.map ignore<unit list>
+        do!
+          opts.SourceFilesThatDependOnFile(file)
+          |> Array.map (UMX.tag >> x.SimpleCheckFile)
+          |> Async.Sequential
+          |> Async.map ignore<unit[]>
 
-      // then parse all files in dependent projects
-      do!
-        state.ProjectController.GetDependentProjectsOfProjects([ opts ])
-        |> List.traverseAsyncResultM x.CheckProject
-        |> AsyncResult.map ignore<unit list>
+        // then parse all files in dependent projects
+        do!
+          state.ProjectController.GetDependentProjectsOfProjects([ opts ])
+          |> List.map x.CheckProject
+          |> Async.Sequential
+          |> Async.map ignore<unit[]>
 
     }
 
   /// easy helper that looks up a file and all required checking information then checks it.
   /// intended use is from the other, more complex Parse members, because the filePath is untagged
-  member private x.SimpleCheckFile(filePath: string<LocalPath>) : Async<Result<unit, string>> =
-    asyncResult {
-      let! text = state.TryGetFileSource filePath
+  member private x.SimpleCheckFile(filePath: string<LocalPath>) : Async<unit> =
+    async {
+      match state.TryGetFileSource filePath with
+      | Ok text ->
 
-      let version =
-        state.TryGetFileVersion filePath
-        |> Option.defaultValue 0
+        let version =
+          state.TryGetFileVersion filePath
+          |> Option.defaultValue 0
 
-      do! x.CheckFile(filePath, text, version, Some true)
+        do! x.CheckFile(filePath, text, version, Some true)
+      | Error err -> ()
     }
 
-  member private _.CheckCore(fileName: string<LocalPath>, version, text, options) : Async<Result<unit, string>> =
-    asyncResult {
-      let! parseAndCheck = checker.ParseAndCheckFileInProject(fileName, version, text, options)
-      let parseResult = parseAndCheck.GetParseResults
-      do fileParsed.Trigger parseResult
-      do lastCheckResult <- Some parseAndCheck
-      do state.SetLastCheckedVersion fileName version
-      do fileChecked.Trigger(parseAndCheck, fileName, version)
+  member private _.CheckCore(fileName: string<LocalPath>, version, text, options) : Async<unit> =
+    async {
+      match! checker.ParseAndCheckFileInProject(fileName, version, text, options) with
+      | Ok parseAndCheck ->
+        let parseResult = parseAndCheck.GetParseResults
+        do fileParsed.Trigger parseResult
+        do lastCheckResult <- Some parseAndCheck
+        do state.SetLastCheckedVersion fileName version
+        do fileChecked.Trigger(parseAndCheck, fileName, version)
+      | Error e -> ()
     }
 
-  member x.CheckProject(p: FSharpProjectOptions) : Async<Result<unit, string>> =
+  member x.CheckProject(p: FSharpProjectOptions) : Async<unit> =
     p.SourceFiles
-    |> Array.toList
-    |> List.traverseAsyncResultM (UMX.tag >> x.SimpleCheckFile)
-    |> AsyncResult.map ignore<unit list>
+    |> Array.map (UMX.tag >> x.SimpleCheckFile)
+    |> Async.Sequential
+    |> Async.map ignore<unit[]>
 
-  member private x.CheckFile(file, text: NamedText, version, isSdkScript: bool option) : Async<Result<unit, string>> =
+  member private x.CheckFile(file, text: NamedText, version, isSdkScript: bool option) : Async<unit> =
     async {
       do x.CancelQueue file
 
@@ -850,7 +856,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           state.SetFileVersion file version
           fileStateSet.Trigger()
           return! x.CheckCore(file, version, text, c)
-        | None -> return Error $"{file} is not in any known project"
+        | None -> ()
     }
 
   member x.Declarations (file: string<LocalPath>) lines version =

@@ -332,6 +332,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       | ex -> return ResultOrString.Error(ex.ToString())
     }
 
+  member _.CheckProject(opts) = checker.ParseAndCheckProject(opts)
+
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 

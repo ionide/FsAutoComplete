@@ -273,7 +273,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let tfmConfig = config.UseSdkScripts
 
       do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, content, version, Some tfmConfig, isFirstOpen)
-        |> Async.Ignore
 
       analyzeFile (filePath, version) |> Async.Start
     }
