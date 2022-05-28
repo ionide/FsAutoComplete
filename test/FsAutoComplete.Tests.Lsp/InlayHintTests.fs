@@ -879,6 +879,7 @@ let private typeHintTests state =
             """
         ]
     ptestCaseAsync "can show type hint for nested inside generic actual type" <|
+      // see dotnet/fsharp#13202
       checkAllInMarkedRange server
         """
         open System.Collections.Immutable
