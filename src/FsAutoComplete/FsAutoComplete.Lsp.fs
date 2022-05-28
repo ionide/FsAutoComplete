@@ -337,7 +337,8 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     try
       match n with
       | NotificationEvent.FileParsed fn ->
-        ({ Content = UMX.untag fn }: PlainNotification)
+        let uri = Path.LocalPathToUri fn
+        ({ Content = UMX.untag uri }: PlainNotification)
         |> lspClient.NotifyFileParsed
         |> Async.Start
       | NotificationEvent.Workspace ws ->
