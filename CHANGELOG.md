@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.54.0] - 2022-05-29
+
+### Fixed
+
+* [IndexOutOfBounds exceptions that took down the process](https://github.com/fsharp/FsAutoComplete/pull/938) (thanks @BooksBaum!)
+
+### Changed
+
+* [Update Ionide.LanguageServerProtocol to get new types and fixes](https://github.com/fsharp/FsAutoComplete/pull/948) (thanks @BooksBaum!)
+* [Enable several features to be used with untitled/unsaved files](https://github.com/fsharp/FsAutoComplete/pull/949) (thanks @BooksBaum!)
+  * Shift+F1 help, Info Panel, Pipeline Hints, and Line Lens all work now for unsaved/untitled loose files
+  * This required an API change to the `fsharp/fileParsed` notification - it now returns a URI instead of a string
+  * This required an API change to the `fsharp/pipelineHint` request - is is now `{ TextDocument: TextDocumentIdentifier }`
+
 ## [0.53.2] - 2022-05-13
 
 ### Added
@@ -9,7 +23,7 @@
 
 ### Changed
 
-* [Alter logic for showing inlay hints to show fewer hints on parameters](https://github.com/fsharp/FsAutoComplete/pull/9350) (thanks @Booksbaum!) 
+* [Alter logic for showing inlay hints to show fewer hints on parameters](https://github.com/fsharp/FsAutoComplete/pull/9350) (thanks @Booksbaum!)
 
 ## [0.53.0] - 2022-04-29
 
