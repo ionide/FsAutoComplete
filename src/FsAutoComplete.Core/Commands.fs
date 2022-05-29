@@ -1215,17 +1215,27 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let onFound (symbolUseRange: range) =
           async {
-            // sometimes the source file locations start with a capital, despite all of our efforts.
-            let normalizedPath =
+            // the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
+            // symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
+            // do some splicing to find just the range we need to replace.
+            // TODO: figure out where the caps are coming from in the compilation, maybe something wrong in the
+            let symbolFile, symbolRange =
               if System.Char.IsUpper(symbolUseRange.FileName[0]) then
-                UMX.tag (
-                  string (System.Char.ToLowerInvariant symbolUseRange.FileName[0])
-                  + (symbolUseRange.FileName.Substring(1))
-                )
-              else
-                UMX.tag symbolUseRange.FileName
+                // we've got a case where the compiler is reading things from the file system that we'd rather it not -
+                // if we're adjusting the range's filename, we need to construct a whole new range or else indexing won't work
+                //
+                let fileName =
+                  UMX.tag (
+                    string (System.Char.ToLowerInvariant symbolRange.FileName[0])
+                    + (symbolRange.FileName.Substring(1))
+                  )
 
-            let targetText = state.TryGetFileSource(normalizedPath)
+                let newRange = Range.mkRange fileName symbolRange.Start symbolRange.End
+                UMX.tag fileName, newRange
+              else
+                UMX.tag symbolRange.FileName, symbolRange
+
+            let targetText = state.TryGetFileSource(symbolFile)
 
             match targetText with
             | Error e -> ()
@@ -1234,10 +1244,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 sourceText[symbolUseRange]
                 |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
 
+              // There are two kinds of ranges we get back:
+              // * ranges that exactly match the short name of the symbol
+              // * ranges that are longer than the short name of the symbol,
+              //   typically because we're talking about some kind of fully-qualified usage
+              // For the latter, we need to adjust the reported range to just be the portion
+              // of the fully-qualfied text that is the symbol name.
               if sourceSpan = symbolText then
                 symbolUseRanges.Add symbolUseRange
               else
-                // try to find the overlapping part and just return that
                 match sourceSpan.IndexOf(symbolText) with
                 | -1 -> ()
                 | n ->
@@ -1250,11 +1265,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
                     let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
                     symbolUseRanges.Add actualUseRange
-                  else
-                    ()
-
-                ()
-
           }
 
         let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
