@@ -69,6 +69,9 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       (let (endLine, endChar) = lastCharPos.Value
        Position.mkPos endLine endChar)
 
+  let totalRange =
+    lazy (Range.mkRange (UMX.untag fileName) Position.pos0 safeLastCharPos.Value)
+
   member _.String = str
 
   override _.GetHashCode() = str.GetHashCode()
@@ -93,8 +96,8 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   /// Cached representation of the entire contents of the file, for inclusion checks
 
-  member x.TotalRange =
-    Range.mkRange (UMX.untag fileName) Position.pos0 x.LastFilePosition
+  member x.TotalRange = totalRange.Value
+
 
   /// Provides safe access to a substring of the file via FCS-provided Range
   member x.GetText(m: FSharp.Compiler.Text.Range) : Result<string, string> =
@@ -214,11 +217,11 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     }
 
   /// Safe access to the contents of a file by Range
-  member x.Item
+  member inline x.Item
     with get (m: FSharp.Compiler.Text.Range) = x.GetText(m)
 
   /// Safe access to the char in a file by Position
-  member x.Item
+  member inline x.Item
     with get (pos: FSharp.Compiler.Text.Position) = x.TryGetChar(pos)
 
   member private x.Walk

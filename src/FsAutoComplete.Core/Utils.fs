@@ -767,7 +767,7 @@ module Indentation =
 
 
 type FSharpSymbol with
-  member x.XDoc =
+  member inline x.XDoc =
     match x with
     | :? FSharpEntity as e -> e.XmlDoc
     | :? FSharpUnionCase as u -> u.XmlDoc
@@ -779,7 +779,7 @@ type FSharpSymbol with
     | :? FSharpParameter -> FSharpXmlDoc.None
     | _ -> failwith $"cannot fetch xmldoc for unknown FSharpSymbol subtype {x.GetType().FullName}"
 
-  member x.XSig =
+  member inline x.XSig =
     match x with
     | :? FSharpEntity as e -> e.XmlDocSig
     | :? FSharpUnionCase as u -> u.XmlDocSig
@@ -791,7 +791,7 @@ type FSharpSymbol with
     | :? FSharpParameter -> ""
     | _ -> failwith $"cannot fetch XmlDocSig for unknown FSharpSymbol subtype {x.GetType().FullName}"
 
-  member x.DefinitionRange =
+  member inline x.DefinitionRange =
     match x with
     | :? FSharpEntity as e -> e.DeclarationLocation
     | :? FSharpUnionCase as u -> u.DeclarationLocation

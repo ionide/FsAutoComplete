@@ -1172,23 +1172,31 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         // the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
         // symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
         // do some splicing to find just the range we need to replace.
-        let symbolRange = symbol.DefinitionRange
+        // TODO: figure out where the caps are coming from in the compilation, maybe something wrong in the
+        let symbolFile, symbolRange =
+          let symbolRange = symbol.DefinitionRange
 
-        let symbolFile =
           if System.Char.IsUpper(symbolRange.FileName[0]) then
-            UMX.tag (
-              string (System.Char.ToLowerInvariant symbolRange.FileName[0])
-              + (symbolRange.FileName.Substring(1))
-            )
+            // we've got a case where the compiler is reading things from the file system that we'd rather it not -
+            // if we're adjusting the range's filename, we need to construct a whole new range or else indexing won't work
+            //
+            let fileName =
+              UMX.tag (
+                string (System.Char.ToLowerInvariant symbolRange.FileName[0])
+                + (symbolRange.FileName.Substring(1))
+              )
+
+            let newRange = Range.mkRange fileName symbolRange.Start symbolRange.End
+            UMX.tag fileName, newRange
           else
-            UMX.tag symbolRange.FileName
+            UMX.tag symbolRange.FileName, symbolRange
 
         let symbolFileText =
           state.TryGetFileSource(symbolFile)
           |> Result.fold id (fun e -> failwith "blah blah")
 
         let symbolText =
-          symbolFileText[symbol.DefinitionRange]
+          symbolFileText[symbolRange]
           |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
 
         let projects =
