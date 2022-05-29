@@ -31,6 +31,7 @@ let tests state =
               { TextDocument = doc.TextDocumentIdentifier
                 Position = { Line = 7; Character = 12 }
                 NewName = "y" }
+
             let! server = server
             let! res = server.Server.TextDocumentRename p
 
@@ -80,6 +81,7 @@ let tests state =
               { TextDocument = testDoc.TextDocumentIdentifier
                 Position = { Line = 2; Character = 4 }
                 NewName = "y" }
+
             let! server = server
             let! res = server.Server.TextDocumentRename p
 
@@ -292,6 +294,60 @@ let tests state =
                                       End = { Line = 6; Character = 33 } }
                           && r.NewText = "sup"))
                    "Rename contains changes in LibB"
+               | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
+             })
+           testCaseAsync
+             "Rename where there are fully-qualified usages"
+             (async {
+               let! (server, rootDir, events) = server
+               let declarationFile = Path.Combine(rootDir, "LibA", "Library.fs")
+               let usageFile = Path.Combine(rootDir, "LibB", "Library.fs")
+
+               // open and parse the usage file
+               let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument usageFile }
+               do! server.TextDocumentDidOpen tdop
+
+               do!
+                 waitForParseResultsForFile (Path.GetFileName usageFile) events
+                 |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
+
+               // now, request renames
+               let renameHelloUsageInUsageFile: RenameParams =
+                 { TextDocument = { Uri = normalizePathCasing usageFile }
+                   Position = { Line = 9; Character = 37 } // in the 'yell' part of 'A.Say.yell'
+                   NewName = "sup" }
+
+               let! res = server.TextDocumentRename(renameHelloUsageInUsageFile)
+
+               match res with
+               | Result.Error e -> failtest $"Expected to get renames, but got error: {e.Message}"
+               | Result.Ok None -> failtest $"Expected to get renames, but got none"
+               | Result.Ok (Some { DocumentChanges = Some edits }) ->
+                 Expect.equal edits.Length 2 "Rename has the correct expected edits"
+
+                 Expect.exists
+                   edits
+                   (fun n ->
+                     n.TextDocument.Uri.Contains "LibA"
+                     && n.TextDocument.Uri.Contains "Library.fs"
+                     && n.Edits
+                        |> Seq.exists (fun r ->
+                          r.Range = { Start = { Line = 6; Character = 8 }
+                                      End = { Line = 6; Character = 12 } }
+                          && r.NewText = "sup"))
+                   $"Rename contains changes in LibA in the list %A{edits}"
+
+                 Expect.exists
+                   edits
+                   (fun n ->
+                     n.TextDocument.Uri.Contains "LibB"
+                     && n.TextDocument.Uri.Contains "Library.fs"
+                     && n.Edits
+                        |> Seq.exists (fun r ->
+                          r.Range = { Start = { Line = 9; Character = 37 }
+                                      End = { Line = 9; Character = 41 } }
+                          && r.NewText = "sup"))
+                   $"Rename contains changes in LibB in the list %A{edits}"
                | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
              }) ]
 

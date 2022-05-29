@@ -2,4 +2,7 @@
 
 module Say =
     let hello name =
-        printfn "Hello %s" name
+        sprintf "Hello %s" name
+
+    let yell name =
+        sprintf "HELLO %s" name
