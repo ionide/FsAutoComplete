@@ -270,9 +270,13 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
     asyncResult {
-      let tfmConfig = config.UseSdkScripts
+      let tfmConfig =
+        config.UseSdkScripts
+        |> function
+          | true -> FSIRefs.TFM.NetCore
+          | false -> FSIRefs.TFM.NetFx
 
-      do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, content, version, Some tfmConfig, isFirstOpen)
+      do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, version, content, tfmConfig, isFirstOpen)
 
       analyzeFile (filePath, version) |> Async.Start
     }

@@ -23,6 +23,7 @@ open SymbolLocation
 open FSharp.Compiler.Symbols
 open System.Collections.Immutable
 open System.Collections.Generic
+open Ionide.ProjInfo.ProjectSystem
 
 [<RequireQualifiedAccess>]
 type LocationResponse<'a> = Use of 'a
@@ -717,6 +718,71 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.TryGetFileVersion = state.TryGetFileVersion
 
+  /// Gets the current project options for the given file.
+  /// If the file is a script, determines if the file content is changed enough to warrant new project options,
+  /// and if so registers them.
+  member x.EnsureProjectOptionsForFile(file: string<LocalPath>, text: NamedText, version, fsiRefs) =
+    async {
+      match state.GetProjectOptions(file) with
+      | Some opts ->
+        match state.RefreshCheckerOptions(file, text) with
+        | Some c ->
+          state.SetFileVersion file version
+          fileStateSet.Trigger()
+          return Some opts
+        | None -> return None
+      | None when Utils.isAScript (UMX.untag file) -> // scripts won't have project options in the 'core' project options collection
+        let hash =
+          text.Lines
+          |> Array.filter (fun n ->
+            n.StartsWith "#r"
+            || n.StartsWith "#load"
+            || n.StartsWith "#I")
+          |> Array.toList
+          |> fun n -> n.GetHashCode()
+
+        let! projectOptions =
+          match state.ScriptProjectOptions.TryFind file with
+          | Some (h, opts) when h = hash -> async.Return opts
+          | _ ->
+            async {
+              let! projectOptions = checker.GetProjectOptionsFromScript(file, text, fsiRefs)
+
+              let projectOptions =
+                { projectOptions with
+                    SourceFiles =
+                      projectOptions.SourceFiles
+                      |> Array.filter FscArguments.isCompileFile
+                      |> Array.map (Path.GetFullPath)
+                    OtherOptions =
+                      projectOptions.OtherOptions
+                      |> Array.map (fun n ->
+                        if FscArguments.isCompileFile (n) then
+                          Path.GetFullPath n
+                        else
+                          n) }
+
+              state.ScriptProjectOptions.AddOrUpdate(file, (hash, projectOptions), (fun _ _ -> (hash, projectOptions)))
+              |> ignore
+
+              return projectOptions
+            }
+
+        scriptFileProjectOptions.Trigger projectOptions
+        state.AddFileTextAndCheckerOptions(file, text, projectOptions, Some version)
+        fileStateSet.Trigger()
+        return Some projectOptions
+      | None ->
+        // this is a loose .fs file without a project?
+        return None
+    }
+
+  /// Does everything required to check a file:
+  /// * ensure we have project options for the file available
+  /// * check any unchecked files in the project that this file depends on
+  /// * check the file
+  /// * check the other files in the project that depend on this file
+  /// * check projects that are downstream of the project containing this file
   member x.CheckFileAndAllDependentFilesInAllProjects
     (
       file: string<LocalPath>,
@@ -726,7 +792,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       isFirstOpen
     ) : Async<unit> =
     async {
-      match state.GetProjectOptions(file) with
+      match! x.EnsureProjectOptionsForFile(file, content, version, tfmConfig) with
       | None -> ()
       | Some opts ->
 
@@ -734,18 +800,24 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         if isFirstOpen then
           do!
             opts.SourceFilesThatThisFileDependsOn(file)
-            |> Array.map (UMX.tag >> x.SimpleCheckFile)
+            |> Array.map (
+              UMX.tag
+              >> (fun f -> x.SimpleCheckFile(f, tfmConfig))
+            )
             |> Async.Sequential
             |> Async.map ignore<unit[]>
 
         // parse this file
-        do! x.CheckFile(file, version, content, tfmConfig)
+        do! x.CheckFile(file, content, version, opts)
 
         // then parse all files that depend on it in this project,
 
         do!
           opts.SourceFilesThatDependOnFile(file)
-          |> Array.map (UMX.tag >> x.SimpleCheckFile)
+          |> Array.map (
+            UMX.tag
+            >> (fun f -> x.SimpleCheckFile(f, tfmConfig))
+          )
           |> Async.Sequential
           |> Async.map ignore<unit[]>
 
@@ -760,7 +832,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   /// easy helper that looks up a file and all required checking information then checks it.
   /// intended use is from the other, more complex Parse members, because the filePath is untagged
-  member private x.SimpleCheckFile(filePath: string<LocalPath>) : Async<unit> =
+  member private x.SimpleCheckFile(filePath: string<LocalPath>, tfmIfScript) : Async<unit> =
     async {
       match state.TryGetFileSource filePath with
       | Ok text ->
@@ -769,7 +841,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           state.TryGetFileVersion filePath
           |> Option.defaultValue 0
 
-        do! x.CheckFile(filePath, text, version, Some true)
+        let! options = x.EnsureProjectOptionsForFile(filePath, text, version, tfmIfScript)
+
+        match options with
+        | Some options -> do! x.CheckFile(filePath, text, version, options)
+        | None -> ()
       | Error err -> ()
     }
 
@@ -787,76 +863,17 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.CheckProject(p: FSharpProjectOptions) : Async<unit> =
     p.SourceFiles
-    |> Array.map (UMX.tag >> x.SimpleCheckFile)
+    |> Array.map (
+      UMX.tag
+      >> (fun f -> x.SimpleCheckFile(f, FSIRefs.TFM.NetCore))
+    )
     |> Async.Sequential
     |> Async.map ignore<unit[]>
 
-  member private x.CheckFile(file, text: NamedText, version, isSdkScript: bool option) : Async<unit> =
+  member private x.CheckFile(file, text: NamedText, version: int, projectOptions: FSharpProjectOptions) : Async<unit> =
     async {
       do x.CancelQueue file
-
-      if Utils.isAScript (UMX.untag file) then
-        commandsLogger.info (
-          Log.setMessage "Checking script file '{file}'"
-          >> Log.addContextDestructured "file" file
-        )
-
-        let hash =
-          text.Lines
-          |> Array.filter (fun n ->
-            n.StartsWith "#r"
-            || n.StartsWith "#load"
-            || n.StartsWith "#I")
-          |> Array.toList
-          |> fun n -> n.GetHashCode()
-
-        let! projectOptions =
-          match state.ScriptProjectOptions.TryFind file with
-          | Some (h, opts) when h = hash -> async.Return opts
-          | _ ->
-            async {
-              let tfm =
-                isSdkScript
-                |> Option.map (fun n ->
-                  if n then
-                    FSIRefs.NetCore
-                  else
-                    FSIRefs.NetFx)
-                |> Option.defaultValue FSIRefs.NetFx
-
-              let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tfm)
-
-              state.ScriptProjectOptions.AddOrUpdate(file, (hash, checkOptions), (fun _ _ -> (hash, checkOptions)))
-              |> ignore
-
-              return checkOptions
-            }
-
-        let projectOptions =
-          { projectOptions with
-              SourceFiles =
-                projectOptions.SourceFiles
-                |> Array.filter FscArguments.isCompileFile
-                |> Array.map (Path.GetFullPath)
-              OtherOptions =
-                projectOptions.OtherOptions
-                |> Array.map (fun n ->
-                  if FscArguments.isCompileFile (n) then
-                    Path.GetFullPath n
-                  else
-                    n) }
-
-        scriptFileProjectOptions.Trigger projectOptions
-        state.AddFileTextAndCheckerOptions(file, text, projectOptions, Some version)
-        fileStateSet.Trigger()
-        return! x.CheckCore(file, version, text, projectOptions)
-      else
-        match state.RefreshCheckerOptions(file, text) with
-        | Some c ->
-          state.SetFileVersion file version
-          fileStateSet.Trigger()
-          return! x.CheckCore(file, version, text, c)
-        | None -> ()
+      return! x.CheckCore(file, version, text, projectOptions)
     }
 
   member x.Declarations (file: string<LocalPath>) lines version =
