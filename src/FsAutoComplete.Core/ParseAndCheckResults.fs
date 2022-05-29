@@ -374,7 +374,7 @@ type ParseAndCheckResults
               Ok(Some(tip, signature, footer, typeDoc))
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> Error "Cannot find ident"
     | Some (col, identIsland) ->
       let identIsland = Array.toList identIsland
@@ -546,7 +546,7 @@ type ParseAndCheckResults
         | _ -> ResultOrString.Error "Not a member, function or value"
 
   member __.TryGetF1Help (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some (colu, identIsland) ->
 

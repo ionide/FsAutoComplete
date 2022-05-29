@@ -337,7 +337,9 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
     try
       match n with
       | NotificationEvent.FileParsed fn ->
-        ({ Content = UMX.untag fn }: PlainNotification)
+        let uri = Path.LocalPathToUri fn
+
+        ({ Content = UMX.untag uri }: PlainNotification)
         |> lspClient.NotifyFileParsed
         |> Async.Start
       | NotificationEvent.Workspace ws ->
@@ -705,9 +707,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   ///Helper function for handling file requests using **recent** type check results
   member x.fileHandler<'a>
     (f: string<LocalPath> -> ParseAndCheckResults -> NamedText -> AsyncLspResult<'a>)
-    (file: string<LocalPath>)
+    (arg: TextDocumentIdentifier)
     : AsyncLspResult<'a> =
     async {
+      let file = arg.GetFilePath() |> Utils.normalizePath
 
       // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
       match commands.TryGetFileCheckerOptionsWithLines(file) with
@@ -2656,7 +2659,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
   // member __.FSharpLiterate (p: FSharpLiterateRequest) = async {
   //   logger.info (Log.setMessage "FSharpLiterate Request: {parms}" >> Log.addContextDestructured "parms" p )
 
-  //   let fn = p.FileName |> Utils.normalizePath
+  //   let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
   //   let! res = commands.FSharpLiterate fn
   //   let res =
   //     match res with
@@ -2680,15 +2683,10 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       >> Log.addContextDestructured "parms" p
     )
 
-    let fn =
-      p.TextDocument.GetFilePath()
-      |> Utils.normalizePath
-
-    let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
-
-    fn
+    p.TextDocument
     |> x.fileHandler (fun fn tyRes lines ->
       async {
+        let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
         let! hints = commands.InlayHints(lines, tyRes, fcsRange)
 
         let lspHints =
@@ -2708,9 +2706,7 @@ type FSharpLspServer(backgroundServiceEnabled: bool, state: State, lspClient: FS
       >> Log.addContextDestructured "parms" p
     )
 
-    let fn = p.FileName |> Utils.normalizePath
-
-    fn
+    p.TextDocument
     |> x.fileHandler (fun fn tyRes lines ->
       match commands.PipelineHints tyRes with
       | CoreResponse.InfoRes msg

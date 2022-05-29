@@ -594,7 +594,8 @@ type DocumentationForSymbolReuqest = { XmlSig: string; Assembly: string }
 
 // type FakeTargetsRequest = { FileName : string; FakeContext : FakeSupport.FakeContext; }
 
-type HighlightingRequest = { FileName: string }
+type HighlightingRequest =
+  { TextDocument: TextDocumentIdentifier }
 
 type LineLensConfig = { Enabled: string; Prefix: string }
 
@@ -618,9 +619,11 @@ type DotnetFile2Request =
     FileVirtualPath: string
     NewFile: string }
 
-type FSharpLiterateRequest = { FileName: string }
+type FSharpLiterateRequest =
+  { TextDocument: TextDocumentIdentifier }
 
-type FSharpPipelineHintRequest = { FileName: string }
+type FSharpPipelineHintRequest =
+  { TextDocument: TextDocumentIdentifier }
 
 type CodeLensConfigDto =
   { Signature: {| Enabled: bool option |} option
