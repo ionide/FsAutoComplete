@@ -178,5 +178,4 @@ let scriptProjectOptionsCacheTests state =
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
               do! Async.Sleep(TimeSpan.FromSeconds 3.)
               Expect.hasLength allOpts 1 "should only have one event"
-              Expect.equal allOpts.[0] allOpts.[1] "Project opts should be eqaul"
             }) ] ]
