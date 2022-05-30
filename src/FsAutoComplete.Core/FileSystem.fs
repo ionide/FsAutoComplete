@@ -26,8 +26,37 @@ module PositionExtensions =
 
     member x.IncLine() = Position.mkPos (x.Line + 1) x.Column
     member x.DecLine() = Position.mkPos (x.Line - 1) x.Column
+    member x.IncColumn() = Position.mkPos x.Line (x.Column + 1)
+    member x.IncColumn n = Position.mkPos x.Line (x.Column + n)
+
 
   let inline (|Pos|) (p: FSharp.Compiler.Text.Position) = p.Line, p.Column
+
+[<AutoOpen>]
+module RangeExtensions =
+  type FSharp.Compiler.Text.Range with
+    member x.WithFileName(fileName: string) = Range.mkRange fileName x.Start x.End
+
+    /// the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
+    /// symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
+    /// do some splicing to find just the range we need to replace.
+    /// TODO: figure out where the caps are coming from in the compilation, maybe something wrong in the
+    member x.NormalizeDriveLetterCasing() =
+      if System.Char.IsUpper(x.FileName[0]) then
+        // we've got a case where the compiler is reading things from the file system that we'd rather it not -
+        // if we're adjusting the range's filename, we need to construct a whole new range or else indexing won't work
+        let fileName =
+          string (System.Char.ToLowerInvariant x.FileName[0])
+          + (x.FileName.Substring(1))
+
+        let newRange = Range.mkRange fileName x.Start x.End
+        newRange
+      else
+        x
+
+    /// utility method to get the tagged filename for use in our state storage
+    /// TODO: should we enforce this/use the Path members for normalization?
+    member x.TaggedFileName: string<LocalPath> = UMX.tag x.FileName
 
 /// A copy of the StringText type from F#.Compiler.Text, which is private.
 /// Adds a UOM-typed filename to make range manipulation easier, as well as

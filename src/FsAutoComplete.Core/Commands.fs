@@ -1168,28 +1168,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
         let symbolUseRanges = ImmutableArray.CreateBuilder()
-
-        // the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
-        // symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
-        // do some splicing to find just the range we need to replace.
-        // TODO: figure out where the caps are coming from in the compilation, maybe something wrong in the
-        let symbolFile, symbolRange =
-          let symbolRange = symbol.DefinitionRange
-
-          if System.Char.IsUpper(symbolRange.FileName[0]) then
-            // we've got a case where the compiler is reading things from the file system that we'd rather it not -
-            // if we're adjusting the range's filename, we need to construct a whole new range or else indexing won't work
-            //
-            let fileName =
-              UMX.tag (
-                string (System.Char.ToLowerInvariant symbolRange.FileName[0])
-                + (symbolRange.FileName.Substring(1))
-              )
-
-            let newRange = Range.mkRange fileName symbolRange.Start symbolRange.End
-            UMX.tag fileName, newRange
-          else
-            UMX.tag symbolRange.FileName, symbolRange
+        let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
+        let symbolFile = symbolRange.TaggedFileName
 
         let symbolFileText =
           state.TryGetFileSource(symbolFile)
@@ -1215,26 +1195,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let onFound (symbolUseRange: range) =
           async {
-            // the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
-            // symbol use is in each of the ranges we plan to rename, and if we're looking at a range that is _longer_ than our rename range,
-            // do some splicing to find just the range we need to replace.
-            // TODO: figure out where the caps are coming from in the compilation, maybe something wrong in the
-            let symbolFile, symbolRange =
-              if System.Char.IsUpper(symbolUseRange.FileName[0]) then
-                // we've got a case where the compiler is reading things from the file system that we'd rather it not -
-                // if we're adjusting the range's filename, we need to construct a whole new range or else indexing won't work
-                //
-                let fileName =
-                  UMX.tag (
-                    string (System.Char.ToLowerInvariant symbolRange.FileName[0])
-                    + (symbolRange.FileName.Substring(1))
-                  )
-
-                let newRange = Range.mkRange fileName symbolRange.Start symbolRange.End
-                UMX.tag fileName, newRange
-              else
-                UMX.tag symbolRange.FileName, symbolRange
-
+            let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
+            let symbolFile = symbolUseRange.TaggedFileName
             let targetText = state.TryGetFileSource(symbolFile)
 
             match targetText with
@@ -1257,11 +1219,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 | -1 -> ()
                 | n ->
                   if sourceSpan.Length >= n + symbolText.Length then
-                    let startPos =
-                      Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n)
-
-                    let endPos =
-                      Position.mkPos symbolUseRange.StartLine (symbolUseRange.StartColumn + n + symbolText.Length)
+                    let startPos = symbolUseRange.Start.IncColumn n
+                    let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
 
                     let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
                     symbolUseRanges.Add actualUseRange
@@ -1534,11 +1493,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       | Some (recordEpr, (Some recordDefinition), insertionPos) ->
         if shouldGenerateRecordStub recordEpr recordDefinition then
           let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
-
-          let pos =
-            Position.mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
-
-          return CoreResponse.Res(result, pos)
+          return CoreResponse.Res(result, insertionPos.InsertionPos)
         else
           return CoreResponse.InfoRes "Record at position not found"
       | _ -> return CoreResponse.InfoRes "Record at position not found"
