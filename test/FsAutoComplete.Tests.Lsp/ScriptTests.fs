@@ -170,14 +170,13 @@ let scriptProjectOptionsCacheTests state =
     [ testList
         "tests"
         [ testCaseAsync
-            "reopening the script file should return same project options for file"
+            "reopening an unchanged script file should return same project options for file"
             (async {
               let! server, events, workingDir, testFilePath, allOpts = server
-
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
               do! Async.Sleep(TimeSpan.FromSeconds 3.)
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
               do! Async.Sleep(TimeSpan.FromSeconds 3.)
-              Expect.hasLength allOpts 2 "should only have two events"
+              Expect.hasLength allOpts 1 "should only have one event"
               Expect.equal allOpts.[0] allOpts.[1] "Project opts should be eqaul"
             }) ] ]

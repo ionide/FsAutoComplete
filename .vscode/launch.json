@@ -8,7 +8,6 @@
       "name": ".NET Core mode lsp (debug)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build_debug_netcore",
       "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net6.0/fsautocomplete.dll",
       "args": [
         "--mode",
@@ -23,7 +22,6 @@
       "name": "LSP tests",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build_lsp_tests",
       "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net6.0/FsAutoComplete.Tests.Lsp.dll",
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
@@ -43,7 +41,7 @@
       "args": [
         "--debug",
         "--filter",
-        "lsp.Ionide WorkspaceLoader.Completion.AutoOpen.with root module with comments and new line before open.completion"
+        "FSAC.lsp.Ionide WorkspaceLoader.ScriptProjectOptionsCache.tests.reopening the script file should return same project options for file"
       ]
     },
     {
