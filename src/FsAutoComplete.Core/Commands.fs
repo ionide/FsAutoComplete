@@ -210,8 +210,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       SDK.Client.runAnalyzersSafely ctx
       |> List.collect extractResultsFromAnalyzer
       |> List.toArray
-    with
-    | ex ->
+    with ex ->
       Loggers.analyzers.error (
         Log.setMessage "Error while processing analyzers for {file}: {message}"
         >> Log.addContextDestructured "message" ex.Message
@@ -262,8 +261,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
             fileChecked.Trigger(res, res.FileName, -1) // filename comes from compiler, safe to just tag here
           | _ -> ()
-        with
-        | _ -> ()
+        with _ ->
+          ()
       }
       |> Async.Start)
 
@@ -288,8 +287,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           (errors, file)
           |> NotificationEvent.ParseError
           |> notify.Trigger
-        with
-        | _ -> ()
+        with _ ->
+          ()
       }
       |> Async.Start)
 
@@ -343,8 +342,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               )
 
               ()
-          with
-          | ex ->
+          with ex ->
             Loggers.analyzers.error (
               Log.setMessage "Run failed for {file}"
               >> Log.addContextDestructured "file" file
@@ -429,8 +427,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               fileParsed.Trigger parseRes
             }
             |> Async.Start
-        with
-        | ex ->
+        with ex ->
           commandsLogger.error (
             Log.setMessage "Failed to parse file '{file}'"
             >> Log.addContextDestructured "file" file
@@ -637,8 +634,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
         return CoreResponse.Res()
-      with
-      | ex -> return CoreResponse.ErrorRes ex.Message
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
     }
 
   member _.FsProjAddFileBelow (fsprojPath: string) (fileVirtPath: string) (newFileName: string) =
@@ -655,8 +652,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
         return CoreResponse.Res()
-      with
-      | ex -> return CoreResponse.ErrorRes ex.Message
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
     }
 
   member _.FsProjAddFile (fsprojPath: string) (fileVirtPath: string) =
@@ -670,8 +667,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         FsProjEditor.addFile fsprojPath fileVirtPath
         return CoreResponse.Res()
-      with
-      | ex -> return CoreResponse.ErrorRes ex.Message
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
     }
 
   member inline private x.AsCancellable (filename: string<LocalPath>) (action: Async<'t>) =
@@ -1705,8 +1702,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           )
 
           return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-      with
-      | ex ->
+      with ex ->
         fantomasLogger.warn (
           Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
           >> Log.addContextDestructured "message" ex.Message

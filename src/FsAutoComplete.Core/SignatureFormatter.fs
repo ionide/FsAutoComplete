@@ -88,8 +88,8 @@ module SignatureFormatter =
         FSharpKeywords.AddBackticksToIdentifierIfNeeded typ.TypeDefinition.DisplayName
       else
         typ.Format context
-    with
-    | _ -> typ.Format context
+    with _ ->
+      typ.Format context
 
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
@@ -264,8 +264,8 @@ module SignatureFormatter =
       //This try block will be removed when FCS updates
       try
         formatFSharpType displayContext func.ReturnParameter.Type
-      with
-      | _ex -> "Unknown"
+      with _ex ->
+        "Unknown"
 
     let retTypeConstraint =
       if func.ReturnParameter.Type.IsGenericParameter then
@@ -311,8 +311,8 @@ module SignatureFormatter =
           $"({formatted})"
         else
           formatted
-      with
-      | :? InvalidOperationException -> p.DisplayName
+      with :? InvalidOperationException ->
+        p.DisplayName
 
     match argInfos with
     | [] ->
@@ -473,16 +473,15 @@ module SignatureFormatter =
           |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
         else
           formatFSharpType displayContext func.ReturnParameter.Type
-      with
-      | _ex ->
+      with _ex ->
         try
           if func.FullType.GenericArguments.Count > 0 then
             let lastArg = func.FullType.GenericArguments |> Seq.last
             formatFSharpType displayContext lastArg
           else
             "Unknown"
-        with
-        | _ -> "Unknown"
+        with _ ->
+          "Unknown"
 
     let formatName (parameter: FSharpParameter) =
       parameter.Name
@@ -519,8 +518,8 @@ module SignatureFormatter =
               $"({formatted})"
             else
               formatted
-          with
-          | :? InvalidOperationException -> p.DisplayName
+          with :? InvalidOperationException ->
+            p.DisplayName
 
         let allParams =
           many
@@ -611,8 +610,8 @@ module SignatureFormatter =
       |> Option.bind (fun n ->
         try
           Some(n.Split([| ':' |], 2).[1])
-        with
-        | _ -> None)
+        with _ ->
+          None)
       |> Option.defaultValue ""
 
     sprintf "active pattern %s: %s" apc.Name findVal
@@ -790,8 +789,8 @@ module SignatureFormatter =
 
         | SymbolUse.UnionCase uc -> Some(uc.FullName, uc.Assembly.SimpleName)
         | _ -> None
-      with
-      | _ -> None
+      with _ ->
+        None
 
     valFooterData
     |> Option.map formatFooter
@@ -804,8 +803,8 @@ module SignatureFormatter =
       try
         let signature = getEntitySignature symbol.DisplayContext fse
         Some(signature, footerForType symbol)
-      with
-      | _ -> None
+      with _ ->
+        None
 
     | SymbolUse.Constructor func ->
       match func.EnclosingEntitySafe with

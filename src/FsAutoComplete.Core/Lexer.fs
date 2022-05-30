@@ -280,8 +280,7 @@ module Lexer =
 
     try
       getSymbolFromTokens tokens line col lineStr lookupKind
-    with
-    | _ ->
+    with _ ->
       //LoggingService.LogInfo (sprintf "Getting lex symbols failed with %O" e)
       None
 

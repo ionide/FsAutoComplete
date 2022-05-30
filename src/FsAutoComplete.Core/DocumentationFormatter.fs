@@ -56,8 +56,8 @@ module DocumentationFormatter =
           resolvedType.TypeDefinition.XmlDocSig
         else
           "-"
-      with
-      | _ -> "-"
+      with _ ->
+        "-"
 
     let assemblyName =
       try
@@ -67,8 +67,8 @@ module DocumentationFormatter =
           "-"
         else
           resolvedType.TypeDefinition.Assembly.SimpleName
-      with
-      | _ -> "-"
+      with _ ->
+        "-"
 
     if typ.IsTupleType || typ.IsStructTupleType then
       // tuples are made of individual type names for the elements separated by asterisks
@@ -218,8 +218,8 @@ module DocumentationFormatter =
   let formatParameter displayContext (p: FSharpParameter) =
     try
       p.Type |> format displayContext
-    with
-    | :? InvalidOperationException -> p.DisplayName, p.DisplayName.Length
+    with :? InvalidOperationException ->
+      p.DisplayName, p.DisplayName.Length
 
   let getUnioncaseSignature displayContext (unionCase: FSharpUnionCase) =
     if unionCase.Fields.Count > 0 then
@@ -316,8 +316,8 @@ module DocumentationFormatter =
         func.ReturnParameter.Type
         |> format displayContext
         |> fst
-      with
-      | _ex -> "Unknown"
+      with _ex ->
+        "Unknown"
 
     let retTypeConstraint =
       if func.ReturnParameter.Type.IsGenericParameter then
@@ -519,16 +519,15 @@ module DocumentationFormatter =
           func.ReturnParameter.Type
           |> format displayContext
           |> fst
-      with
-      | _ex ->
+      with _ex ->
         try
           if func.FullType.GenericArguments.Count > 0 then
             let lastArg = func.FullType.GenericArguments |> Seq.last
             lastArg |> format displayContext |> fst
           else
             "Unknown"
-        with
-        | _ -> "Unknown"
+        with _ ->
+          "Unknown"
 
     let formatName (parameter: FSharpParameter) =
       parameter.Name
@@ -641,8 +640,8 @@ module DocumentationFormatter =
       |> Option.bind (fun n ->
         try
           Some(n.Split([| ':' |], 2).[1])
-        with
-        | _ -> None)
+        with _ ->
+          None)
       |> Option.defaultValue ""
 
     sprintf "active pattern %s: %s" apc.Name findVal
@@ -887,8 +886,8 @@ module DocumentationFormatter =
 
       | SymbolUse.UnionCase uc -> sprintf "Full name: %s\nAssembly: %s" uc.SafeFullName uc.Assembly.SimpleName
       | _ -> ""
-    with
-    | _ -> ""
+    with _ ->
+      ""
 
   let footerForType' (entity: FSharpSymbol) =
     try
@@ -903,20 +902,20 @@ module DocumentationFormatter =
 
       | UnionCase uc -> sprintf "Full name: %s\nAssembly: %s" uc.SafeFullName uc.Assembly.SimpleName
       | _ -> ""
-    with
-    | _ -> ""
+    with _ ->
+      ""
 
   let compiledNameType (entity: FSharpSymbolUse) =
     try
       entity.Symbol.XmlDocSig
-    with
-    | _ -> ""
+    with _ ->
+      ""
 
   let compiledNameType' (entity: FSharpSymbol) =
     try
       entity.XmlDocSig
-    with
-    | _ -> ""
+    with _ ->
+      ""
 
   /// Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
   let getTooltipDetailsFromSymbolUse (symbol: FSharpSymbolUse) =
@@ -933,15 +932,15 @@ module DocumentationFormatter =
           let signature = getEntitySignature symbol.DisplayContext ent
           Some(signature, footerForType' parent, cn)
         | _ -> None
-      with
-      | _ -> None
+      with _ ->
+        None
 
     | SymbolUse.Entity (fse, _) ->
       try
         let signature = getEntitySignature symbol.DisplayContext fse
         Some(signature, footerForType symbol, cn)
-      with
-      | _ -> None
+      with _ ->
+        None
 
     | SymbolUse.Constructor func ->
       match func.EnclosingEntitySafe with
@@ -1021,8 +1020,8 @@ module DocumentationFormatter =
       try
         let signature = getEntitySignature lastDisplayContext fse
         Some(signature, footerForType' symbol, cn)
-      with
-      | _ -> None
+      with _ ->
+        None
 
     | Constructor func ->
       match func.EnclosingEntitySafe with

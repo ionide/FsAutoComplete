@@ -70,7 +70,7 @@ module UnusedDeclarationsAnalyzer =
           | :? FSharpMemberOrFunctionOrValue as func when func.IsMemberThisValue -> Some(range, true)
           | :? FSharpMemberOrFunctionOrValue as func when func.IsValue -> Some(range, false)
           | _ -> None
-        with
-        | _ -> None)
+        with _ ->
+          None)
 
     unusedRanges

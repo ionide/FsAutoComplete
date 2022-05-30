@@ -8,6 +8,9 @@ open Utils.Tests
 open Utils.Server
 open Utils.Server.Document
 open System
+open FSharp.Control.Reactive
+open System.Reactive.Linq
+open FSharpx.Control
 
 let tests state =
   let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", "SameProject")
@@ -22,10 +25,12 @@ let tests state =
       Expect.isEmpty aDiags $"There should be no diagnostics in {aFile}"
       Expect.isEmpty bDiags $"There should be no diagnostics in {bFile}"
 
-      // start listening for new diagnostics for B
-      let! diagnosticsForBWaiter = waitForLatestDiagnostics (TimeSpan.FromSeconds 10.) bDoc |> Async.StartChild
+      let bDiagsStream = bDoc.CompilerDiagnostics
       // make a change to A (that is clearly incorrect)
-      let! aDiags = Document.changeTextTo "farts" aDoc
+      let! startAChange = Document.changeTextTo "farts" aDoc |> Async.StartChild
+      // start listening for new diagnostics for B
+      let! diagnosticsForBWaiter = bDiagsStream |> Observable.timeoutSpan (TimeSpan.FromSeconds 100.) |> Async.AwaitObservable |> Async.StartChild
+      let! aDiags = startAChange
       Expect.isNonEmpty aDiags $"Should have had some compilation errors for {aFile} after erroneous changes"
       // observe that compilation errors are reported for B
       let! bDiags = diagnosticsForBWaiter
@@ -40,12 +45,13 @@ let tests state =
       use bDoc = bDoc
       Expect.isEmpty aDiags $"There should be no diagnostics in {aFile}"
       Expect.isEmpty bDiags $"There should be no diagnostics in {bFile}"
-
+      let bDiagsStream = bDoc.CompilerDiagnostics
       for i in 0..10 do
-        // start listening for new diagnostics for B
-        let! diagnosticsForBWaiter = waitForLatestDiagnostics (TimeSpan.FromSeconds 10.) bDoc |> Async.StartChild
         // make a change to A (that is clearly incorrect)
-        let! aDiags = Document.changeTextTo "farts" aDoc
+        let! startAChange = Document.changeTextTo "farts" aDoc |> Async.StartChild
+        // start listening for new diagnostics for B
+        let! diagnosticsForBWaiter = bDiagsStream |> Observable.skip (1 + i) |> Observable.timeoutSpan (TimeSpan.FromSeconds 100.) |> Async.AwaitObservable |> Async.StartChild
+        let! aDiags = startAChange
         Expect.isNonEmpty aDiags $"Should have had some compilation errors for {aFile} after erroneous change #%d{i}"
         // observe that compilation errors are reported for B
         let! bDiags = diagnosticsForBWaiter

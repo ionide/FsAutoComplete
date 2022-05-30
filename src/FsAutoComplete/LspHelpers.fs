@@ -877,8 +877,15 @@ type FSharpConfig =
 ///   * iterate the enum values
 ///   * get the enum name
 ///   * lowercase the first char because of .net naming conventions
-let createTokenLegend<'types, 'modifiers when 'types: enum<int> and 'types: (new: unit -> 'types) and 'types: struct and 'types :> Enum and 'modifiers: enum<int> and 'modifiers: (new:
-  unit -> 'modifiers) and 'modifiers: struct and 'modifiers :> Enum> : SemanticTokensLegend =
+let createTokenLegend<'types, 'modifiers
+  when 'types: enum<int>
+  and 'types: (new: unit -> 'types)
+  and 'types: struct
+  and 'types :> Enum
+  and 'modifiers: enum<int>
+  and 'modifiers: (new: unit -> 'modifiers)
+  and 'modifiers: struct
+  and 'modifiers :> Enum> : SemanticTokensLegend =
   let tokenTypes =
     Enum.GetNames<'types>()
     |> Array.map String.lowerCaseFirstChar

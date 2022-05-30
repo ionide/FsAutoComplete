@@ -530,6 +530,18 @@ let fileDiagnostics (file: string) =
   >> Observable.map snd
   >> Observable.map (fun d -> d.Diagnostics)
 
+let fileDiagnosticsForUri (uri: string) =
+  logger.Information("waiting for events on file {file}", uri)
+
+  getDiagnosticsEvents
+  >> Observable.choose (fun n ->
+    if n.Uri = uri
+    then
+      Some n.Diagnostics
+    else
+      None
+  )
+
 let diagnosticsFromSource (desiredSource: String) =
   Observable.choose (fun (diags: Diagnostic []) ->
     match diags

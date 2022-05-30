@@ -523,8 +523,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           Tests = tests |> Array.map map }
         |> lspClient.NotifyTestDetected
         |> Async.Start
-    with
-    | ex ->
+    with ex ->
       logger.error (
         Log.setMessage "Exception while handling command event {evt}: {ex}"
         >> Log.addContextDestructured "evt" n
@@ -682,8 +681,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
               )
 
               return LspResult.internalError e.Message
-        with
-        | e ->
+        with e ->
           logger.error (
             Log.setMessage "PositionHandler - Operation failed for file {file}"
             >> Log.addContextDestructured "file" file
@@ -736,8 +734,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
               )
 
               return LspResult.internalError e.Message
-        with
-        | e ->
+        with e ->
           logger.error (
             Log.setMessage "FileHandler - Operation failed for file {file}"
             >> Log.addContextDestructured "file" file
@@ -1679,8 +1676,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 | Choice2Of2 e -> return []
 
             }
-          with
-          | e -> async.Return []
+          with e ->
+            async.Return []
     }
 
   override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
@@ -1817,8 +1814,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
                     return { p with Command = None } |> success
               }
-            with
-            | e ->
+            with e ->
               logger.error (
                 Log.setMessage "CodeLensResolve - Operation failed on {file}"
                 >> Log.addContextDestructured "file" file
@@ -2075,8 +2071,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   | Choice1Of2 r -> return r
                   | Choice2Of2 e -> return LspResult.internalError e.Message
               }
-            with
-            | e -> AsyncLspResult.internalError e.Message
+            with e ->
+              AsyncLspResult.internalError e.Message
       }
 
     p
@@ -2561,8 +2557,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         // since the analyzer state handling code is in `updateConfig`, re-trigger it here
         updateConfig config
         return LspResult.success ()
-      with
-      | ex ->
+      with ex ->
         Loggers.analyzers.error (Log.setMessage "Loading failed" >> Log.addExn ex)
         return LspResult.success ()
     }
@@ -2735,8 +2730,7 @@ let start toolsPath stateStorageDir workspaceLoaderFactory =
     )
 
     int result
-  with
-  | ex ->
+  with ex ->
     logger.error (
       Log.setMessage "Start - LSP mode crashed"
       >> Log.addExn ex

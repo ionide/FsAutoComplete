@@ -228,8 +228,7 @@ module Parser =
             c.File(path = logFile, levelSwitch = verbositySwitch)
             |> ignore)
           |> ignore
-        with
-        | e ->
+        with e ->
           eprintfn "Bad log file: %s" e.Message
           exit 1
 

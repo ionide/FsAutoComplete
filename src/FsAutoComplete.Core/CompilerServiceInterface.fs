@@ -328,8 +328,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
           )
 
           return Ok(ParseAndCheckResults(p, c, entityCache))
-      with
-      | ex -> return ResultOrString.Error(ex.ToString())
+      with ex ->
+        return ResultOrString.Error(ex.ToString())
     }
 
   member _.CheckProject(opts) = checker.ParseAndCheckProject(opts)

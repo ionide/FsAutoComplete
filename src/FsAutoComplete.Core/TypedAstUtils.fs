@@ -142,8 +142,8 @@ module TypedAstExtensionHelpers =
           )
         else
           Some name
-      with
-      | _ -> None
+      with _ ->
+        None
 
     member x.UnAnnotate() =
       let rec realEntity (s: FSharpEntity) =
@@ -225,15 +225,15 @@ module TypedAstExtensionHelpers =
     member x.EnclosingEntitySafe =
       try
         x.DeclaringEntity
-      with
-      | :? InvalidOperationException -> None
+      with :? InvalidOperationException ->
+        None
 
   type FSharpAssemblySignature with
     member x.TryGetEntities() =
       try
         x.Entities :> _ seq
-      with
-      | _ -> Seq.empty
+      with _ ->
+        Seq.empty
 
   type FSharpSymbol with
 

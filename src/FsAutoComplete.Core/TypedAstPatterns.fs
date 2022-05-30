@@ -356,8 +356,8 @@ module SymbolPatterns =
           match entity.BaseType with
           | Some (TypeWithDefinition def) -> Some def
           | _ -> None
-        with
-        | _ -> None
+        with _ ->
+          None
 
       let rec isAttributeType (ty: FSharpEntity option) =
         match ty with

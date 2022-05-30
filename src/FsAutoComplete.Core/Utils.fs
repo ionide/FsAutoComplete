@@ -137,8 +137,8 @@ module Option =
   let inline attempt (f: unit -> 'T) =
     try
       Some <| f ()
-    with
-    | _ -> None
+    with _ ->
+      None
 
   /// ensure the condition is true before continuing
   let inline guard (b) = if b then Some() else None
@@ -571,14 +571,14 @@ type Path with
   static member GetFullPathSafe(path: string) =
     try
       Path.GetFullPath path
-    with
-    | _ -> path
+    with _ ->
+      path
 
   static member GetFileNameSafe(path: string) =
     try
       Path.GetFileName path
-    with
-    | _ -> path
+    with _ ->
+      path
 
   static member LocalPathToUri(filePath: string<LocalPath>) = Path.FilePathToUri(UMX.untag filePath)
 
