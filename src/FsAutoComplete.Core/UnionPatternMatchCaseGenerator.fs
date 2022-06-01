@@ -80,7 +80,9 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
     else
       None
 
-  let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
+  let rec walkImplFileInput
+    (ParsedImplFileInput (_name, _isScript, _fileName, _scopedPragmas, _hashDirectives, moduleOrNamespaceList, _))
+    =
     List.tryPick walkSynModuleOrNamespace moduleOrNamespaceList
 
   and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, _, _, range)) =
@@ -96,7 +98,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynModuleDecl.NamespaceFragment (fragment) -> walkSynModuleOrNamespace fragment
       | SynModuleDecl.NestedModule (decls = modules) -> List.tryPick walkSynModuleDecl modules
       | SynModuleDecl.Types (typeDefs, _range) -> List.tryPick walkSynTypeDefn typeDefs
-      | SynModuleDecl.Expr (expr, _) -> walkExpr expr
+      | SynModuleDecl.DoExpr (_, expr, _) -> walkExpr expr
       | SynModuleDecl.Attributes _
       | SynModuleDecl.HashDirective _
       | SynModuleDecl.Open _ -> None)

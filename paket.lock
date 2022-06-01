@@ -36,8 +36,8 @@ NUGET
       FSharp.Compiler.Service (>= 41.0.1) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net5.0))
       FSharp.Core (>= 6.0.1) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net5.0))
       McMaster.NETCore.Plugins (>= 1.4) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net5.0))
-    FSharp.Compiler.Service (41.0.4)
-      FSharp.Core (6.0.4)
+    FSharp.Compiler.Service (41.0.3)
+      FSharp.Core (6.0.3)
       Microsoft.Build.Framework (>= 17.0)
       Microsoft.Build.Tasks.Core (>= 17.0)
       Microsoft.Build.Utilities.Core (>= 17.0)
@@ -69,9 +69,9 @@ NUGET
     FSharp.Control.Reactive (5.0.2) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net6.0))
       FSharp.Core (>= 4.7.2)
       System.Reactive (>= 5.0)
-    FSharp.Core (6.0.4) - content: none
-    FSharp.Formatting (14.0.1)
-      FSharp.Compiler.Service (>= 40.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netstandard2.1))
+    FSharp.Core (6.0.3) - content: none
+    FSharp.Formatting (15.0)
+      FSharp.Compiler.Service (41.0.3) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netstandard2.1))
     FSharp.UMX (1.1)
       FSharp.Core (>= 4.3.4)
     FSharpLint.Core (0.21.2)

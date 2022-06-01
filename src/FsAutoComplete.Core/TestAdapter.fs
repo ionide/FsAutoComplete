@@ -220,7 +220,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
@@ -364,7 +364,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
@@ -505,7 +505,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
