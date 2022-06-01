@@ -15,8 +15,9 @@ type Version = int
 type FSharpCompilerServiceChecker(hasAnalyzers) =
   let checker =
     FSharpChecker.Create(
-      projectCacheSize = 200,
+      projectCacheSize = 20,
       keepAllBackgroundResolutions = true,
+      keepAllBackgroundSymbolUses = true,
       keepAssemblyContents = hasAnalyzers,
       suggestNamesForErrors = true,
       enablePartialTypeChecking = not hasAnalyzers,
