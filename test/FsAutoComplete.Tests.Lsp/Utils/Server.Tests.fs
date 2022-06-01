@@ -275,7 +275,9 @@ let tests state = testList (nameof(Server)) [
     ])
 
     testSequenced <| testList "contesting" [
-      serverTestList "dir with project and no analyzers" state noAnalyzersConfig (inTestCases "Project") (fun server -> [
+      let projectDir = inTestCases "Project"
+      dotnetRestore projectDir.Value |> Async.RunSynchronously
+      serverTestList "dir with project and no analyzers" state noAnalyzersConfig projectDir (fun server -> [
         testCaseAsync "can load file in project" (async {
           let! (doc, diags) = server |> Server.openDocument "Other.fs"
           use doc = doc
@@ -304,7 +306,7 @@ let tests state = testList (nameof(Server)) [
           Expect.equal diag.Range.Start.Line 4 "Error should be in line 5"
         })
       ])
-      serverTestList "dir with project and all analyzers" state allAnalyzersConfig (inTestCases "Project") (fun server -> [
+      serverTestList "dir with project and all analyzers" state allAnalyzersConfig projectDir (fun server -> [
         testCaseAsync "can load file in project" (async {
           let! (doc, diags) = server |> Server.openDocument "Other.fs"
           use doc = doc
