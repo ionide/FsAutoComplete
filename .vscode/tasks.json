@@ -3,25 +3,18 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        {
-            "taskName": "build_debug_netcore",
-            "type": "shell",
-            "command": "dotnet build src/FsAutoComplete -f net6.0",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ]
-        },
-        {
-            "taskName": "build_lsp_tests",
-            "type": "shell",
-            "command": "dotnet build test/FsAutoComplete.Tests.Lsp",
-            "problemMatcher": [
-                "$msCompile"
-            ]
-        }
+      {
+        "label": "format codebase",
+        "command": "dotnet",
+        "args": [
+          "fake",
+          "build",
+          "-t",
+          "Format"
+        ],
+        "detail": "Format all source code using Fantomas",
+        "type": "shell",
+        "problemMatcher": []
+      }
     ]
 }

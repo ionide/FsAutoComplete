@@ -166,7 +166,7 @@ let createServer (state: unit -> State) =
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(false, innerState, client)
+  let server = new FSharpLspServer(innerState, client)
   server, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
@@ -529,6 +529,18 @@ let fileDiagnostics (file: string) =
   >> matchFiles (Set.ofList [ file ])
   >> Observable.map snd
   >> Observable.map (fun d -> d.Diagnostics)
+
+let fileDiagnosticsForUri (uri: string) =
+  logger.Information("waiting for events on file {file}", uri)
+
+  getDiagnosticsEvents
+  >> Observable.choose (fun n ->
+    if n.Uri = uri
+    then
+      Some n.Diagnostics
+    else
+      None
+  )
 
 let diagnosticsFromSource (desiredSource: String) =
   Observable.choose (fun (diags: Diagnostic []) ->

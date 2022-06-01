@@ -12,25 +12,19 @@ open FSharp.Compiler.Symbols
 
 type Version = int
 
-type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
+type FSharpCompilerServiceChecker(hasAnalyzers) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = not backgroundServiceEnabled,
+      keepAllBackgroundResolutions = true,
       keepAssemblyContents = hasAnalyzers,
       suggestNamesForErrors = true,
       enablePartialTypeChecking = not hasAnalyzers,
       enableBackgroundItemKeyStoreAndSemanticClassification = true
     )
 
-  do checker.BeforeBackgroundFileCheck.Add ignore
-
   // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
-  let safeFileCheckedEvent =
-    if not backgroundServiceEnabled then
-      checker.FileChecked
-    else
-      (new Event<_>()).Publish
+  let safeFileCheckedEvent = checker.FileChecked
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
@@ -97,11 +91,7 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
       | StartsWith "--load:" file -> args, Array.append files [| file |]
       | arg -> Array.append args [| arg |], files)
 
-  let clearProjectReferences (opts: FSharpProjectOptions) =
-    if disableInMemoryProjectReferences then
-      { opts with ReferencedProjects = [||] }
-    else
-      opts
+  let clearProjectReferences (opts: FSharpProjectOptions) = opts
 
   let filterBadRuntimeRefs =
     let badRefs =
@@ -338,9 +328,11 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
           )
 
           return Ok(ParseAndCheckResults(p, c, entityCache))
-      with
-      | ex -> return ResultOrString.Error(ex.ToString())
+      with ex ->
+        return ResultOrString.Error(ex.ToString())
     }
+
+  member _.CheckProject(opts) = checker.ParseAndCheckProject(opts)
 
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
@@ -387,6 +379,15 @@ type FSharpCompilerServiceChecker(backgroundServiceEnabled, hasAnalyzers) =
             return res |> Array.concat
           }
     }
+
+  member _.FindReferencesForSymbolInFile(file, project, symbol) =
+    checker.FindBackgroundReferencesInFile(
+      file,
+      project,
+      symbol,
+      canInvalidateProject = false,
+      userOpName = "find references"
+    )
 
   member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
     async {

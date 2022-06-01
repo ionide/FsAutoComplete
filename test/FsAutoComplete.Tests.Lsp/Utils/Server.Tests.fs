@@ -16,7 +16,7 @@ open FSharpx.Control
 let tests state = testList (nameof(Server)) [
   testList "no root path" [
     testList "can get diagnostics" [
-      let config = 
+      let config =
         { defaultConfigDto with
             UnusedOpensAnalyzer = Some false
             UnusedDeclarationsAnalyzer = Some false
@@ -172,7 +172,7 @@ let tests state = testList (nameof(Server)) [
         })
       ])
     ]
-  
+
     testList "untitled document" [
       serverTestList "untitled counter in server for createUntitledDocument" state defaultConfigDto None (fun server -> [
         testCaseAsync "creating document increases untitled counter" (async {
@@ -221,7 +221,7 @@ let tests state = testList (nameof(Server)) [
   ]
 
   testList "with root path" [
-    let inTestCases name = 
+    let inTestCases name =
       System.IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "TestCases", "ServerTests", name)
       |> Some
 
@@ -273,65 +273,69 @@ let tests state = testList (nameof(Server)) [
         Expect.exists diags (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 0) "Should be unused value"
       })
     ])
-    serverTestList "dir with project and no analyzers" state noAnalyzersConfig (inTestCases "Project") (fun server -> [
-      testCaseAsync "can load file in project" (async {
-        let! (doc, diags) = server |> Server.openDocument "Other.fs"
-        use doc = doc
 
-        Expect.hasLength diags 1 "Should be one diagnostics"
-        let diag = diags |> Array.head
-        Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
-        Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
-      })
-      testCaseAsync "can load file in project again" (async {
-        let! (doc, diags) = server |> Server.openDocument "Other.fs"
-        use doc = doc
+    testSequenced <| testList "contesting" [
+      let projectDir = inTestCases "Project"
+      dotnetRestore projectDir.Value |> Async.RunSynchronously
+      serverTestList "dir with project and no analyzers" state noAnalyzersConfig projectDir (fun server -> [
+        testCaseAsync "can load file in project" (async {
+          let! (doc, diags) = server |> Server.openDocument "Other.fs"
+          use doc = doc
 
-        Expect.hasLength diags 1 "Should be one diagnostics"
-        let diag = diags |> Array.head
-        Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
-        Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
-      })
-      testCaseAsync "can load other file in project" (async {
-        let! (doc, diags) = server |> Server.openDocument "Program.fs"
-        use doc = doc
+          Expect.hasLength diags 1 "Should be one diagnostics"
+          let diag = diags |> Array.head
+          Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
+          Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+        })
+        testCaseAsync "can load file in project again" (async {
+          let! (doc, diags) = server |> Server.openDocument "Other.fs"
+          use doc = doc
 
-        Expect.hasLength diags 1 "Should be one diagnostics"
-        let diag = diags |> Array.head
-        Expect.stringContains diag.Message "The value or constructor 'programBar' is not defined." "Should be not defined error"
-        Expect.equal diag.Range.Start.Line 4 "Error should be in line 5"
-      })
-    ])
-    serverTestList "dir with project and all analyzers" state allAnalyzersConfig (inTestCases "Project") (fun server -> [
-      testCaseAsync "can load file in project" (async {
-        let! (doc, diags) = server |> Server.openDocument "Other.fs"
-        use doc = doc
+          Expect.hasLength diags 1 "Should be one diagnostics"
+          let diag = diags |> Array.head
+          Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
+          Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+        })
+        testCaseAsync "can load other file in project" (async {
+          let! (doc, diags) = server |> Server.openDocument "Program.fs"
+          use doc = doc
 
-        Expect.hasLength diags 1 "Should be one diagnostics"
-        let diag = diags |> Array.head
-        Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
-        Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
-      })
-      testCaseAsync "can load file in project again" (async {
-        let! (doc, diags) = server |> Server.openDocument "Other.fs"
-        use doc = doc
+          Expect.hasLength diags 1 "Should be one diagnostics"
+          let diag = diags |> Array.head
+          Expect.stringContains diag.Message "The value or constructor 'programBar' is not defined." "Should be not defined error"
+          Expect.equal diag.Range.Start.Line 4 "Error should be in line 5"
+        })
+      ])
+      serverTestList "dir with project and all analyzers" state allAnalyzersConfig projectDir (fun server -> [
+        testCaseAsync "can load file in project" (async {
+          let! (doc, diags) = server |> Server.openDocument "Other.fs"
+          use doc = doc
 
-        Expect.hasLength diags 1 "Should be one diagnostics"
-        let diag = diags |> Array.head
-        Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
-        Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
-      })
-      testCaseAsync "can load other file in project" (async {
-        let! (doc, diags) = server |> Server.openDocument "Program.fs"
-        use doc = doc
+          Expect.hasLength diags 1 "Should be one diagnostics"
+          let diag = diags |> Array.head
+          Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
+          Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+        })
+        testCaseAsync "can load file in project again" (async {
+          let! (doc, diags) = server |> Server.openDocument "Other.fs"
+          use doc = doc
 
-        Expect.exists diags (fun diag -> diag.Message.Contains "The value or constructor 'programBar' is not defined." && diag.Range.Start.Line = 4) "Should be not defined error"
-        // `argv`
-        Expect.exists diags (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 11) "Should be unused value"
-        Expect.exists diags (fun diag -> diag.Message.Contains "Unused open statement" && diag.Range.Start.Line = 2) "Should be unused open"
-      })
-    ])
+          Expect.hasLength diags 1 "Should be one diagnostics"
+          let diag = diags |> Array.head
+          Expect.stringContains diag.Message "The value or constructor 'otherBar' is not defined." "Should be not defined error"
+          Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+        })
+        testCaseAsync "can load other file in project" (async {
+          let! (doc, diags) = server |> Server.openDocument "Program.fs"
+          use doc = doc
 
+          Expect.exists diags (fun diag -> diag.Message.Contains "The value or constructor 'programBar' is not defined." && diag.Range.Start.Line = 4) "Should be not defined error"
+          // `argv`
+          Expect.exists diags (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 11) "Should be unused value"
+          Expect.exists diags (fun diag -> diag.Message.Contains "Unused open statement" && diag.Range.Start.Line = 2) "Should be unused open"
+        })
+      ])
+    ]
   ]
 
   testList "Waiting for diagnostics" [
@@ -343,9 +347,9 @@ let tests state = testList (nameof(Server)) [
       }
     serverTestList "waitForLatestDiagnostics" state allAnalyzersConfig None (fun server -> [
       // `Document.waitForLatestDiagnostics` is crucial for success of tests: Must wait for newest, current Diagnostics, but ignore diags from previous parses.
-      // Issues: 
+      // Issues:
       // * must ignore old events
-      // * multiple `publishDiagnostics` for each parse 
+      // * multiple `publishDiagnostics` for each parse
 
       // Test in here: a script with a lot of Analyzer Diagnostics:
       //  Analyzers are checked after F# Compiler Checking is done (-> already one `publishDiagnostics`)
@@ -386,7 +390,7 @@ let tests state = testList (nameof(Server)) [
             for j in 1..nUnusedOpensPerRepeat do
               let o = Array.get nss ((j-1) % nss.Length)
               $"open {o}"
-              
+
             for j in 1..nUnusedDeclsPerRepeat do
               $"let {identifier}Rep{i}Val{j} = 0"
 
@@ -425,11 +429,11 @@ let tests state = testList (nameof(Server)) [
         let! (doc, diags) = server |> Server.createUntitledDocument source
         use doc = doc
 
-        let checkDiags repeats loop diags = 
+        let checkDiags repeats loop diags =
           let expected = calcExpected repeats
           let groups =
             diags
-            |> Array.map (fun d -> 
+            |> Array.map (fun d ->
                 // simplify `The value or constructor 'value' is not defined.` error (contains names and recommendations)
                 if d.Code = Some "39" then
                   "The value or constructor is not defined"

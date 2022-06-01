@@ -1,4 +1,4 @@
-module TestAdapter
+module FsAutoComplete.TestAdapter
 
 
 open FSharp.Compiler.Text

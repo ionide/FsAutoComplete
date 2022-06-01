@@ -20,8 +20,7 @@ module ProcessWatcher =
     try
       let hostProcess = Process.GetProcessById(pid)
       watch hostProcess (fun _ -> quit ())
-    with
-    | e ->
+    with e ->
       logger.error (
         Log.setMessage "Host process {pid} not found"
         >> Log.addContextDestructured "pid" pid

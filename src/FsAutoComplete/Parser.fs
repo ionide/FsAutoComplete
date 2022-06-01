@@ -110,7 +110,7 @@ module Parser =
     rootCommand.AddOption stateLocationOption
 
     rootCommand.SetHandler(
-      Func<_, _, _, Task>(fun backgroundServiceEnabled projectGraphEnabled stateDirectory ->
+      Func<_, _, Task>(fun projectGraphEnabled stateDirectory ->
         let workspaceLoaderFactory =
           if projectGraphEnabled then
             Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
@@ -122,11 +122,9 @@ module Parser =
 
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
-        let result =
-          Lsp.start backgroundServiceEnabled toolsPath stateDirectory workspaceLoaderFactory
+        let result = Lsp.start toolsPath stateDirectory workspaceLoaderFactory
 
         Task.FromResult result),
-      backgroundServiceOption,
       projectGraphOption,
       stateLocationOption
     )
@@ -230,8 +228,7 @@ module Parser =
             c.File(path = logFile, levelSwitch = verbositySwitch)
             |> ignore)
           |> ignore
-        with
-        | e ->
+        with e ->
           eprintfn "Bad log file: %s" e.Message
           exit 1
 

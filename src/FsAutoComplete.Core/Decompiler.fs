@@ -206,8 +206,8 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
       Ok
         { File = tempFile
           Position = FSharp.Compiler.Text.Position.pos0 }
-  with
-  | e -> Result.Error(Exception(externalSym, assemblyPath, e))
+  with e ->
+    Result.Error(Exception(externalSym, assemblyPath, e))
 
 type FindExternalDeclarationError =
   | ReferenceNotFound of assembly: string

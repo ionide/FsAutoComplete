@@ -6,11 +6,11 @@ open Helpers
 open Ionide.LanguageServerProtocol.Types
 open Utils.Server
 open Utils.ServerTests
-open Utils.ServerTests
 open Utils.TextEdit
 open Utils.Utils
 open Utils.CursorbasedTests
 open Utils.Tests.TextEdit
+open Newtonsoft.Json.Linq
 
 module private CodeLens =
   let assertNoDiagnostics (ds: Diagnostic []) =
@@ -45,7 +45,7 @@ module private CodeLens =
         resolved
         |> List.filter (fun lens -> Range.overlapsStrictly textRange lens.Range)
 
-      checkLenses lensesForRange
+      checkLenses (doc, lensesForRange)
     }
     |> AsyncResult.foldResult id (fun e -> failtest $"{e}")
 
@@ -58,7 +58,7 @@ let tests state =
             """
             module X =
               $0let func x = x + 1$0
-            """ (fun lenses ->
+            """ (fun (doc, lenses) ->
                 Expect.hasLength lenses 2 "should have a type lens and a reference lens"
                 let typeLens = lenses[0]
                 Expect.equal typeLens.Command.Value.Title "int -> int" "first lens should be a type hint of int to int"
@@ -67,18 +67,43 @@ let tests state =
             )
 
       testCaseAsync
-        "can show codelens for reference count" <|
+        "can show codelens for 0 reference count" <|
           CodeLens.check server
             """
             module X =
               $0let func x = x + 1$0
-            """ (fun lenses ->
+            """ (fun (doc, lenses) ->
                 Expect.hasLength lenses 2 "should have a type lens and a reference lens"
                 let referenceLens = lenses[1]
-                Expect.equal referenceLens.Command.Value.Title "0 References" "second lens should show the references"
-                Expect.isSome referenceLens.Command.Value.Arguments "Reference lenses should carry data"
-                Expect.equal referenceLens.Command.Value.Command "fsharp.showReferences" "Reference lens should call command"
+                let emptyCommand = Some { Title = "0 References"; Arguments = None; Command = "" }
+                Expect.equal referenceLens.Command emptyCommand "There should be no command or args for zero references"
+            )
+      testCaseAsync
+        "can show codelens for multi reference count" <|
+          CodeLens.check server
+            """
+            module X =
+              $0let func x = x + 1$0
 
+              let doThing () = func 1
+            """ (fun (doc, lenses) ->
+                Expect.hasLength lenses 2 "should have a type lens and a reference lens"
+                let referenceLens = lenses[1]
+                Expect.isSome referenceLens.Command "There should be a command for multiple references"
+                let referenceCommand = referenceLens.Command.Value
+                Expect.equal referenceCommand.Title "1 References" "There should be a title for multiple references"
+                Expect.equal referenceCommand.Command "fsharp.showReferences" "There should be a command for multiple references"
+                Expect.isSome referenceCommand.Arguments "There should be arguments for multiple references"
+                let args = referenceCommand.Arguments.Value
+                Expect.equal args.Length 3 "There should be 2 args"
+                let filePath, triggerPos, referenceRanges =
+                  args[0].Value<string>(),
+                  (args[1] :?> JObject).ToObject<Ionide.LanguageServerProtocol.Types.Position>(),
+                  (args[2] :?> JArray) |> Seq.map (fun t -> (t:?>JObject).ToObject<Ionide.LanguageServerProtocol.Types.Location>()) |> Array.ofSeq
+                Expect.equal filePath doc.Uri "File path should be the doc we're checking"
+                Expect.equal triggerPos { Line = 1; Character = 8 } "Position should be 0:0"
+                Expect.hasLength referenceRanges 1 "There should be 1 reference range for the `func` function"
+                Expect.equal referenceRanges[0] { Uri = doc.Uri; Range = { Start = { Line = 3; Character = 19 }; End = { Line = 3; Character = 23 } } } "Reference range should be 0:0"
             )
     ]
     )

@@ -101,8 +101,7 @@ let private tryGetSourcesForDll (dllPath: string<LocalPath>) =
       |> Option.orElseWith readFromPDB
     else
       readFromPDB ()
-  with
-  | e ->
+  with e ->
     logger.error (
       Log.setMessage "Reading metadata information for DLL {dllPath} failed"
       >> Log.addContextDestructured "dllPath" dllPath

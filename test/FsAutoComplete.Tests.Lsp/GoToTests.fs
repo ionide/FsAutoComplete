@@ -549,7 +549,7 @@ let private scriptGotoTests state =
 let private untitledGotoTests state =
   serverTestList "Untitled GoTo Tests" state defaultConfigDto None (fun server -> [
     testCaseAsync "can go to variable declaration" <| async {
-      let (usagePos, declRange, text) = 
+      let (usagePos, declRange, text) =
         """
         let $0x$0 = 1
         let _ = ()
@@ -558,13 +558,14 @@ let private untitledGotoTests state =
         |> Text.trimTripleQuotation
         |> Cursor.assertExtractRange
         |> fun (decl, text) ->
-            let (pos, text) = 
-              text 
+            let (pos, text) =
+              text
               |> Cursor.assertExtractPosition
             (pos, decl, text)
       let! (doc, diags) = server |> Server.createUntitledDocument text
+
       use doc = doc
-    
+
       let p : TextDocumentPositionParams = {
         TextDocument = doc.TextDocumentIdentifier
         Position = usagePos
@@ -579,7 +580,7 @@ let private untitledGotoTests state =
         Expect.equal r.Range declRange "should point to the range of variable declaration"
     }
     testCaseAsync "can go to function declaration" <| async {
-      let (usagePos, declRange, text) = 
+      let (usagePos, declRange, text) =
         """
         let $0myFun$0 a b = a + b
         let _ = ()
@@ -588,13 +589,13 @@ let private untitledGotoTests state =
         |> Text.trimTripleQuotation
         |> Cursor.assertExtractRange
         |> fun (decl, text) ->
-            let (pos, text) = 
-              text 
+            let (pos, text) =
+              text
               |> Cursor.assertExtractPosition
             (pos, decl, text)
       let! (doc, diags) = server |> Server.createUntitledDocument text
       use doc = doc
-    
+
       let p : TextDocumentPositionParams = {
         TextDocument = doc.TextDocumentIdentifier
         Position = usagePos
@@ -614,8 +615,8 @@ let tests state =
   testSequenced
   <| testList
       "Go to definition tests"
-      [ 
+      [
         gotoTest state
-        scriptGotoTests state 
+        scriptGotoTests state
         untitledGotoTests state
        ]

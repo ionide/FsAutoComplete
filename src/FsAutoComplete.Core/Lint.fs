@@ -57,8 +57,7 @@ let lintWithConfiguration (lintConfig: ConfigurationParam) ctok ast (sourceCode:
     | LintResult.Success warnings ->
       let splitWarnings = warnings |> List.map enrichLintWarning
       Ok splitWarnings
-  with
-  | e ->
+  with e ->
     logger.error (
       Log.setMessage "Fatal error in linter: {message}"
       >> Log.addContextDestructured "message" e.Message

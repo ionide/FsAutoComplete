@@ -25,8 +25,8 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       try
         let! line = text.GetLine(Position.mkPos i 0)
         return Lexer.tokenizeLine [||] line
-      with
-      | _ -> return! None
+      with _ ->
+        return! None
     }
 
   member x.GetSymbolAtPosition(fileName, pos: Position) =
@@ -35,8 +35,8 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
     | ResultOrString.Ok (opts, lines, line) ->
       try
         Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-      with
-      | _ -> None
+      with _ ->
+        None
 
   member x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
     asyncMaybe {
@@ -60,8 +60,8 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       try
         checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
         |> Option.map (fun n -> n.GetParseResults)
-      with
-      | _ -> None
+      with _ ->
+        None
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming
@@ -645,8 +645,8 @@ module CodeGenerationUtils =
     && (try
           m.ImplementedAbstractSignatures <> null
           && m.ImplementedAbstractSignatures.Count = 0
-        with
-        | _ -> true) // exceptions here trying to acces the member means we're safe
+        with _ ->
+          true) // exceptions here trying to acces the member means we're safe
     // this member is not an override
     && not m.IsOverrideOrExplicitInterfaceImplementation
 

@@ -850,8 +850,8 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<
         acc
         |> Map.add key (XmlDocMember(doc, indentationSize, xli.LinePosition - 3))
         |> Some
-      with
-      | ex -> indentationSize, Some acc
+      with ex ->
+        indentationSize, Some acc
     | _ -> indentationSize, Some acc
 
   match acc' with
@@ -913,8 +913,8 @@ let private getXmlDoc dllFile =
         |> ignore
 
         Some xmlDoc
-      with
-      | ex -> None // TODO: Remove the empty map from cache to try again in the next request?
+      with ex ->
+        None // TODO: Remove the empty map from cache to try again in the next request?
 
 [<RequireQualifiedAccess>]
 type FormatCommentStyle =
@@ -961,8 +961,7 @@ let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: s
       | FormatCommentStyle.FullEnhanced -> xmlDoc.ToFullEnhancedString()
       | FormatCommentStyle.Documentation -> xmlDoc.ToDocumentationString()
 
-    with
-    | ex ->
+    with ex ->
       logger.warn (
         Log.setMessage "TipFormatter - Error while parsing the doc comment"
         >> Log.addExn ex

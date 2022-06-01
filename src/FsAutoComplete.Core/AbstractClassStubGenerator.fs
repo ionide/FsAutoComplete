@@ -38,22 +38,13 @@ let private walkTypeDefn (SynTypeDefn (info, repr, members, implicitCtor, range,
 
   let otherMembers =
     allMembers
-    |> List.filter
-
-
-
-
-
-
-
-      (
-       // filter out implicit/explicit constructors and inherit statements, as all members _must_ come after these
-       function
-       | SynMemberDefn.ImplicitCtor _
-       | SynMemberDefn.ImplicitInherit _ -> false
-       | SynMemberDefn.Member (SynBinding(valData = SynValData (Some ({ MemberKind = SynMemberKind.Constructor }), _, _)),
-                               _) -> false
-       | _ -> true)
+    // filter out implicit/explicit constructors and inherit statements, as all members _must_ come after these
+    |> List.filter (function
+      | SynMemberDefn.ImplicitCtor _
+      | SynMemberDefn.ImplicitInherit _ -> false
+      | SynMemberDefn.Member (SynBinding(valData = SynValData (Some ({ MemberKind = SynMemberKind.Constructor }), _, _)),
+                              _) -> false
+      | _ -> true)
 
   match inheritMember with
   | Some inheritMember ->

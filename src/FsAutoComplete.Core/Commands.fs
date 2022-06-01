@@ -19,11 +19,14 @@ open FsToolkit.ErrorHandling
 open FSharp.Analyzers
 open FSharp.UMX
 open FSharp.Compiler.Tokenization
+open SymbolLocation
+open FSharp.Compiler.Symbols
+open System.Collections.Immutable
+open System.Collections.Generic
+open Ionide.ProjInfo.ProjectSystem
 
 [<RequireQualifiedAccess>]
-type LocationResponse<'a, 'b> =
-  | Use of 'a
-  | UseRange of 'b
+type LocationResponse<'a> = Use of 'a
 
 [<RequireQualifiedAccess>]
 type HelpText =
@@ -82,18 +85,10 @@ type NotificationEvent =
   | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
   | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[]
   | Canceled of errorMessage: string
-  | Diagnostics of Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
-type Commands
-  (
-    checker: FSharpCompilerServiceChecker,
-    state: State,
-    backgroundService: BackgroundServices.BackgroundService,
-    hasAnalyzers: bool,
-    rootPath: string option
-  ) =
+type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
   let fileParsed = Event<FSharpParseFileResults>()
 
   let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
@@ -105,7 +100,6 @@ type Commands
   let mutable workspaceRoot: string option = rootPath
   let mutable linterConfigFileRelativePath: string option = None
   // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
-  let mutable lastVersionChecked = -1
   let mutable lastCheckResult: ParseAndCheckResults option = None
 
   let notify = Event<NotificationEvent>()
@@ -216,8 +210,7 @@ type Commands
       SDK.Client.runAnalyzersSafely ctx
       |> List.collect extractResultsFromAnalyzer
       |> List.toArray
-    with
-    | ex ->
+    with ex ->
       Loggers.analyzers.error (
         Log.setMessage "Error while processing analyzers for {file}: {message}"
         >> Log.addContextDestructured "message" ex.Message
@@ -231,16 +224,12 @@ type Commands
     disposables.Add
     <| state.ProjectController.Notifications.Subscribe(NotificationEvent.Workspace >> notify.Trigger)
 
-  do
-    disposables.Add
-    <| backgroundService.MessageReceived.Subscribe(fun n ->
-      match n with
-      | BackgroundServices.Diagnostics d -> notify.Trigger(NotificationEvent.Diagnostics d))
-
   //Fill declarations cache so we're able to return workspace symbols correctly
   do
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun parseRes ->
+      //TODO: this seems like a large amount of items to keep in-memory like this.
+      // Is there a better structure?
       let decls = parseRes.GetNavigationItems().Declarations
       // string<LocalPath> is a compiler-approved path, and since this structure comes from the compiler it's safe
       state.NavigationDeclarations.[UMX.tag parseRes.FileName] <- decls)
@@ -257,7 +246,6 @@ type Commands
         >> Log.addContextDestructured "optionCount" count
       ))
 
-  // NB: if there's a background service checker configured then this will never actually fire
   do
     disposables.Add
     <| checker.FileChecked.Subscribe(fun (n, _) ->
@@ -273,12 +261,12 @@ type Commands
             let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
             fileChecked.Trigger(res, res.FileName, -1) // filename comes from compiler, safe to just tag here
           | _ -> ()
-        with
-        | _ -> ()
+        with _ ->
+          ()
       }
       |> Async.Start)
 
-  //Triggered by `FSharpChecker.FileChecked` if background service is disabled; and by `Parse` command
+  //Triggered by `FSharpChecker.FileChecked` if background service is disabled
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
@@ -299,8 +287,8 @@ type Commands
           (errors, file)
           |> NotificationEvent.ParseError
           |> notify.Trigger
-        with
-        | _ -> ()
+        with _ ->
+          ()
       }
       |> Async.Start)
 
@@ -354,8 +342,7 @@ type Commands
               )
 
               ()
-          with
-          | ex ->
+          with ex ->
             Loggers.analyzers.error (
               Log.setMessage "Run failed for {file}"
               >> Log.addContextDestructured "file" file
@@ -428,13 +415,6 @@ type Commands
                   Lines = text
                   Version = None }
 
-              let payload =
-                if Utils.isAScript (UMX.untag file) then
-                  BackgroundServices.ScriptFile(UMX.untag file, Ionide.ProjInfo.ProjectSystem.FSIRefs.TFM.NetCore)
-                else
-                  BackgroundServices.SourceFile(UMX.untag file)
-
-              backgroundService.UpdateFile(payload, ctn, 0)
               Some text
             | None -> None
 
@@ -447,12 +427,7 @@ type Commands
               fileParsed.Trigger parseRes
             }
             |> Async.Start
-        with
-        | :? System.Threading.ThreadAbortException as ex ->
-          // on mono, if background parsing is aborted a ThreadAbortException
-          // is raised, which can be ignored
-          ()
-        | ex ->
+        with ex ->
           commandsLogger.error (
             Log.setMessage "Failed to parse file '{file}'"
             >> Log.addContextDestructured "file" file
@@ -553,19 +528,7 @@ type Commands
     <| state.ProjectController.Notifications.Subscribe(fun ev ->
       match ev with
       | ProjectResponse.Project (p, isFromCache) ->
-        let controller = state.ProjectController
-        let opts = controller.GetProjectOptionsForFsproj p.ProjectFileName
-
         if not isFromCache then
-          opts
-          |> Option.iter (fun opts ->
-            commandsLogger.info (
-              Log.setMessage "Sending project {project} update"
-              >> Log.addContextDestructured "project" p.ProjectFileName
-            )
-
-            backgroundService.UpdateProject(p.ProjectFileName, opts))
-
           p.ProjectItems
           |> List.choose (function
             | ProjectViewerItem.Compile (p, _) -> Some(Utils.normalizePath p))
@@ -578,37 +541,15 @@ type Commands
           )
       | _ -> ())
 
-  //Initialize background service when the workspace is ready.
-  do
-    disposables.Add
-    <| state.ProjectController.WorkspaceReady.Subscribe(fun _ ->
-      commandsLogger.info (Log.setMessage "Workspace ready - sending init request to background service")
-      backgroundService.InitWorkspace(state.WorkspaceStateDirectory.FullName))
-
-
   member __.Notify = notify.Publish
 
   member __.FileChecked = fileChecked.Publish
 
   member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
-  member __.LastVersionChecked = lastVersionChecked
-
-
   member __.LastCheckResult = lastCheckResult
 
-  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version, tfmIfScript) =
-    state.AddFileText(file, lines, version)
-
-    let payload =
-      let untagged = UMX.untag file
-
-      if Utils.isAScript untagged then
-        BackgroundServices.ScriptFile(untagged, tfmIfScript)
-      else
-        BackgroundServices.SourceFile untagged
-
-    backgroundService.UpdateFile(payload, lines.ToString(), defaultArg version 0)
+  member __.SetFileContent(file: string<LocalPath>, lines: NamedText, version) = state.AddFileText(file, lines, version)
 
   member private x.MapResultAsync
     (
@@ -693,8 +634,8 @@ type Commands
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
         return CoreResponse.Res()
-      with
-      | ex -> return CoreResponse.ErrorRes ex.Message
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
     }
 
   member _.FsProjAddFileBelow (fsprojPath: string) (fileVirtPath: string) (newFileName: string) =
@@ -711,8 +652,8 @@ type Commands
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
         return CoreResponse.Res()
-      with
-      | ex -> return CoreResponse.ErrorRes ex.Message
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
     }
 
   member _.FsProjAddFile (fsprojPath: string) (fileVirtPath: string) =
@@ -726,8 +667,8 @@ type Commands
 
         FsProjEditor.addFile fsprojPath fileVirtPath
         return CoreResponse.Res()
-      with
-      | ex -> return CoreResponse.ErrorRes ex.Message
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
     }
 
   member inline private x.AsCancellable (filename: string<LocalPath>) (action: Async<'t>) =
@@ -748,20 +689,22 @@ type Commands
     |> List.iter (fun cts -> cts.Cancel())
 
   member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>) =
-    async {
-      match state.TryGetFileCheckerOptionsWithLines file with
-      | Ok (opts, text) ->
-        match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
-        | None ->
-          let version =
-            state.TryGetFileVersion file
-            |> Option.defaultValue 0
+    match state.TryGetFileCheckerOptionsWithLines file with
+    | Ok (opts, text) -> x.TryGetRecentTypeCheckResultsForFile(file, opts, text)
+    | _ -> async.Return None
 
-          match! checker.ParseAndCheckFileInProject(file, version, text, opts) with
-          | Ok r -> return Some r
-          | Error _ -> return None
-        | Some r -> return Some r
-      | _ -> return None
+  member x.TryGetRecentTypeCheckResultsForFile(file, opts, text) =
+    async {
+      match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
+      | None ->
+        let version =
+          state.TryGetFileVersion file
+          |> Option.defaultValue 0
+
+        match! checker.ParseAndCheckFileInProject(file, version, text, opts) with
+        | Ok r -> return Some r
+        | Error _ -> return None
+      | Some r -> return Some r
     }
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
@@ -772,62 +715,20 @@ type Commands
 
   member x.TryGetFileVersion = state.TryGetFileVersion
 
-  member x.Parse file (text: NamedText) version (isSdkScript: bool option) =
-    let tmf =
-      isSdkScript
-      |> Option.map (fun n ->
-        if n then
-          FSIRefs.NetCore
-        else
-          FSIRefs.NetFx)
-      |> Option.defaultValue FSIRefs.NetFx
-
-    do x.CancelQueue file
-
+  /// Gets the current project options for the given file.
+  /// If the file is a script, determines if the file content is changed enough to warrant new project options,
+  /// and if so registers them.
+  member x.EnsureProjectOptionsForFile(file: string<LocalPath>, text: NamedText, version, fsiRefs) =
     async {
-      let colorizations = state.ColorizationOutput
-
-      let parse' (fileName: string<LocalPath>) text options =
-        async {
-          let! result = checker.ParseAndCheckFileInProject(fileName, version, text, options)
-
-          return
-            match result with
-            | ResultOrString.Error e -> CoreResponse.ErrorRes e
-            | ResultOrString.Ok (parseAndCheck) ->
-              let parseResult = parseAndCheck.GetParseResults
-              let results = parseAndCheck.GetCheckResults
-              do fileParsed.Trigger parseResult
-              do lastVersionChecked <- version
-              do lastCheckResult <- Some parseAndCheck
-              do state.SetLastCheckedVersion fileName version
-              do fileChecked.Trigger(parseAndCheck, fileName, version)
-
-              let errors = Array.append results.Diagnostics parseResult.Diagnostics
-
-              CoreResponse.Res(errors, fileName)
-        }
-
-      let normalizeOptions (opts: FSharpProjectOptions) =
-        { opts with
-            SourceFiles =
-              opts.SourceFiles
-              |> Array.filter FscArguments.isCompileFile
-              |> Array.map (Path.GetFullPath)
-            OtherOptions =
-              opts.OtherOptions
-              |> Array.map (fun n ->
-                if FscArguments.isCompileFile (n) then
-                  Path.GetFullPath n
-                else
-                  n) }
-
-      if Utils.isAScript (UMX.untag file) then
-        commandsLogger.info (
-          Log.setMessage "Checking script file '{file}'"
-          >> Log.addContextDestructured "file" file
-        )
-
+      match state.GetProjectOptions(file) with
+      | Some opts ->
+        match state.RefreshCheckerOptions(file, text) with
+        | Some c ->
+          state.SetFileVersion file version
+          fileStateSet.Trigger()
+          return Some opts
+        | None -> return None
+      | None when Utils.isAScript (UMX.untag file) -> // scripts won't have project options in the 'core' project options collection
         let hash =
           text.Lines
           |> Array.filter (fun n ->
@@ -837,36 +738,140 @@ type Commands
           |> Array.toList
           |> fun n -> n.GetHashCode()
 
-        let! checkOptions =
+        let! projectOptions =
           match state.ScriptProjectOptions.TryFind file with
           | Some (h, opts) when h = hash -> async.Return opts
           | _ ->
             async {
-              let! checkOptions = checker.GetProjectOptionsFromScript(file, text, tmf)
+              let! projectOptions = checker.GetProjectOptionsFromScript(file, text, fsiRefs)
 
-              state.ScriptProjectOptions.AddOrUpdate(file, (hash, checkOptions), (fun _ _ -> (hash, checkOptions)))
+              let projectOptions =
+                { projectOptions with
+                    SourceFiles =
+                      projectOptions.SourceFiles
+                      |> Array.filter FscArguments.isCompileFile
+                      |> Array.map (Path.GetFullPath)
+                    OtherOptions =
+                      projectOptions.OtherOptions
+                      |> Array.map (fun n ->
+                        if FscArguments.isCompileFile (n) then
+                          Path.GetFullPath n
+                        else
+                          n) }
+
+              state.ScriptProjectOptions.AddOrUpdate(file, (hash, projectOptions), (fun _ _ -> (hash, projectOptions)))
               |> ignore
 
-              return checkOptions
+              return projectOptions
             }
 
-        scriptFileProjectOptions.Trigger checkOptions
-        state.AddFileTextAndCheckerOptions(file, text, normalizeOptions checkOptions, Some version)
+        scriptFileProjectOptions.Trigger projectOptions
+        state.AddFileTextAndCheckerOptions(file, text, projectOptions, Some version)
         fileStateSet.Trigger()
-        return! parse' file text checkOptions
-      else
-        match state.RefreshCheckerOptions(file, text) with
-        | Some c ->
-          state.SetFileVersion file version
-          fileStateSet.Trigger()
-          return! parse' file text c
-        | None -> return CoreResponse.InfoRes "`.fs` file not in project file"
+        return Some projectOptions
+      | None ->
+        // this is a loose .fs file without a project?
+        return None
+    }
 
+  /// Does everything required to check a file:
+  /// * ensure we have project options for the file available
+  /// * check any unchecked files in the project that this file depends on
+  /// * check the file
+  /// * check the other files in the project that depend on this file
+  /// * check projects that are downstream of the project containing this file
+  member x.CheckFileAndAllDependentFilesInAllProjects
+    (
+      file: string<LocalPath>,
+      version,
+      content,
+      tfmConfig,
+      isFirstOpen
+    ) : Async<unit> =
+    async {
+      match! x.EnsureProjectOptionsForFile(file, content, version, tfmConfig) with
+      | None -> ()
+      | Some opts ->
+
+        // parse dependent files, if necessary
+        if isFirstOpen then
+          do!
+            opts.SourceFilesThatThisFileDependsOn(file)
+            |> Array.map (
+              UMX.tag
+              >> (fun f -> x.SimpleCheckFile(f, tfmConfig))
+            )
+            |> Async.Sequential
+            |> Async.map ignore<unit[]>
+
+        // parse this file
+        do! x.CheckFile(file, content, version, opts)
+
+        // then parse all files that depend on it in this project,
+
+        do!
+          opts.SourceFilesThatDependOnFile(file)
+          |> Array.map (
+            UMX.tag
+            >> (fun f -> x.SimpleCheckFile(f, tfmConfig))
+          )
+          |> Async.Sequential
+          |> Async.map ignore<unit[]>
+
+        // then parse all files in dependent projects
+        do!
+          state.ProjectController.GetDependentProjectsOfProjects([ opts ])
+          |> List.map x.CheckProject
+          |> Async.Sequential
+          |> Async.map ignore<unit[]>
 
     }
-    |> x.AsCancellable file
-    |> AsyncResult.recoverCancellation
 
+  /// easy helper that looks up a file and all required checking information then checks it.
+  /// intended use is from the other, more complex Parse members, because the filePath is untagged
+  member private x.SimpleCheckFile(filePath: string<LocalPath>, tfmIfScript) : Async<unit> =
+    async {
+      match state.TryGetFileSource filePath with
+      | Ok text ->
+
+        let version =
+          state.TryGetFileVersion filePath
+          |> Option.defaultValue 0
+
+        let! options = x.EnsureProjectOptionsForFile(filePath, text, version, tfmIfScript)
+
+        match options with
+        | Some options -> do! x.CheckFile(filePath, text, version, options)
+        | None -> ()
+      | Error err -> ()
+    }
+
+  member private _.CheckCore(fileName: string<LocalPath>, version, text, options) : Async<unit> =
+    async {
+      match! checker.ParseAndCheckFileInProject(fileName, version, text, options) with
+      | Ok parseAndCheck ->
+        let parseResult = parseAndCheck.GetParseResults
+        do fileParsed.Trigger parseResult
+        do lastCheckResult <- Some parseAndCheck
+        do state.SetLastCheckedVersion fileName version
+        do fileChecked.Trigger(parseAndCheck, fileName, version)
+      | Error e -> ()
+    }
+
+  member x.CheckProject(p: FSharpProjectOptions) : Async<unit> =
+    p.SourceFiles
+    |> Array.map (
+      UMX.tag
+      >> (fun f -> x.SimpleCheckFile(f, FSIRefs.TFM.NetCore))
+    )
+    |> Async.Sequential
+    |> Async.map ignore<unit[]>
+
+  member private x.CheckFile(file, text: NamedText, version: int, projectOptions: FSharpProjectOptions) : Async<unit> =
+    async {
+      do x.CancelQueue file
+      return! x.CheckCore(file, version, text, projectOptions)
+    }
 
   member x.Declarations (file: string<LocalPath>) lines version =
     async {
@@ -1088,29 +1093,184 @@ type Commands
           InsertText = formattedXmlDoc }
     }
 
-  member x.SymbolUseProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    async {
-      match tyRes.TryGetSymbolUseAndUsages pos lineStr with
-      | Ok (sym, usages) ->
-        let fsym = sym.Symbol
+  member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
+    asyncResult {
 
-        if fsym.IsPrivateToFile then
-          return CoreResponse.Res(LocationResponse.Use(sym, usages))
-        else
-          match! backgroundService.GetSymbols fsym.FullName with
-          | None ->
-            if fsym.IsInternalToProject then
-              let opts = state.GetProjectOptions' tyRes.FileName
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-              return CoreResponse.Res(LocationResponse.Use(sym, symbols))
-            else
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-              return CoreResponse.Res(LocationResponse.Use(sym, symbols))
-          | Some res -> return CoreResponse.Res(LocationResponse.UseRange res)
-      | Error x -> return CoreResponse.ErrorRes x
+      let findReferencesInFile
+        (
+          file,
+          symbol: FSharpSymbol,
+          project: FSharpProjectOptions,
+          onFound: range -> Async<unit>
+        ) =
+        asyncResult {
+          let! (references: Range seq) = checker.FindReferencesForSymbolInFile(file, project, symbol)
+
+          for reference in references do
+            do! onFound reference
+        }
+
+      let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
+        projects
+        |> List.traverseAsyncResultM (fun p ->
+          asyncResult {
+            for file in p.SourceFiles do
+              do! findReferencesInFile (file, symbol, p, onFound)
+          })
+
+      let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
+
+      let splitByDeclaration (uses: FSharpSymbolUse[]) =
+        uses
+        |> Array.partition (fun u -> u.IsFromDefinition)
+
+      let toDict (symbolUseRanges: range[]) =
+        let dict = new System.Collections.Generic.Dictionary<string, range[]>()
+
+        symbolUseRanges
+        |> Array.collect (fun symbolUse ->
+          let file = symbolUse.FileName
+          // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
+          // then we'd need to map the files to some kind of document identfier and dedupe by that
+          // before issueing the renames. We don't, so this becomes very simple
+          [| file, symbolUse |])
+        |> Array.groupBy fst
+        |> Array.iter (fun (key, items) ->
+          let itemsSeq = items |> Array.map snd
+          dict[key] <- itemsSeq
+          ())
+
+        dict
+
+      let! symUse =
+        tyRes.TryGetSymbolUse pos lineStr
+        |> Result.ofOption (fun _ -> "No result found")
+
+      let symbol = symUse.Symbol
+
+      let! declLoc =
+        SymbolLocation.getDeclarationLocation (symUse, text, state)
+        |> Result.ofOption (fun _ -> "No declaration location found")
+
+      match declLoc with
+      | SymbolDeclarationLocation.CurrentDocument ->
+        let! ct = Async.CancellationToken
+        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+        let declarations, usages = splitByDeclaration symbolUses
+
+        let declarationRanges, usageRanges =
+          toDict (ranges declarations), toDict (ranges usages)
+
+        return Choice1Of2(declarationRanges, usageRanges)
+
+      | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
+        let symbolUseRanges = ImmutableArray.CreateBuilder()
+        let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
+        let symbolFile = symbolRange.TaggedFileName
+
+        let symbolFileText =
+          state.TryGetFileSource(symbolFile)
+          |> Result.fold id (fun e -> failwith "blah blah")
+
+        let symbolText =
+          symbolFileText[symbolRange]
+          |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
+
+        let projects =
+          if isInternalToProject then
+            projects
+          else
+            [ for project in projects do
+                yield project
+
+                yield!
+                  project.ReferencedProjects
+                  |> Array.choose (fun p ->
+                    p.OutputFile
+                    |> state.ProjectController.GetProjectOptionsForFsproj) ]
+            |> List.distinctBy (fun x -> x.ProjectFileName)
+
+        let onFound (symbolUseRange: range) =
+          async {
+            let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
+            let symbolFile = symbolUseRange.TaggedFileName
+            let targetText = state.TryGetFileSource(symbolFile)
+
+            match targetText with
+            | Error e -> ()
+            | Ok sourceText ->
+              let sourceSpan =
+                sourceText[symbolUseRange]
+                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
+
+              // There are two kinds of ranges we get back:
+              // * ranges that exactly match the short name of the symbol
+              // * ranges that are longer than the short name of the symbol,
+              //   typically because we're talking about some kind of fully-qualified usage
+              // For the latter, we need to adjust the reported range to just be the portion
+              // of the fully-qualfied text that is the symbol name.
+              if sourceSpan = symbolText then
+                symbolUseRanges.Add symbolUseRange
+              else
+                match sourceSpan.IndexOf(symbolText) with
+                | -1 -> ()
+                | n ->
+                  if sourceSpan.Length >= n + symbolText.Length then
+                    let startPos = symbolUseRange.Start.IncColumn n
+                    let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
+
+                    let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
+                    symbolUseRanges.Add actualUseRange
+          }
+
+        let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
+
+        // Distinct these down because each TFM will produce a new 'project'.
+        // Unless guarded by a #if define, symbols with the same range will be added N times
+        let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
+
+        return Choice2Of2(toDict symbolUseRanges)
     }
-    |> x.AsCancellable tyRes.FileName
-    |> AsyncResult.recoverCancellation
+
+  member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
+    asyncResult {
+      match! x.SymbolUseWorkspace(pos, lineStr, text, tyRes) with
+      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
+          let! text = state.TryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
+          | false, _ -> totalSetOfRanges[text] <- declUsages
+
+        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
+          let! text = state.TryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return
+          totalSetOfRanges
+          |> Seq.map (fun (KeyValue (k, v)) -> k, v)
+          |> Array.ofSeq
+      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
+          let! text = state.TryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return
+          totalSetOfRanges
+          |> Seq.map (fun (KeyValue (k, v)) -> k, v)
+          |> Array.ofSeq
+    }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     let filterSymbols symbols =
@@ -1127,18 +1287,14 @@ type Commands
 
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
+        else if fsym.IsInternalToProject then
+          let opts = state.GetProjectOptions' tyRes.FileName
+          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
-          match! backgroundService.GetImplementation fsym.FullName with
-          | None ->
-            if fsym.IsInternalToProject then
-              let opts = state.GetProjectOptions' tyRes.FileName
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-              return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-            else
-              let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-              let symbols = filterSymbols symbols
-              return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-          | Some res -> return CoreResponse.Res(LocationResponse.UseRange res)
+          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
+          let symbols = filterSymbols symbols
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
     }
     |> x.AsCancellable tyRes.FileName
@@ -1334,11 +1490,7 @@ type Commands
       | Some (recordEpr, (Some recordDefinition), insertionPos) ->
         if shouldGenerateRecordStub recordEpr recordDefinition then
           let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
-
-          let pos =
-            Position.mkPos insertionPos.InsertionPos.Line insertionPos.InsertionPos.Column
-
-          return CoreResponse.Res(result, pos)
+          return CoreResponse.Res(result, insertionPos.InsertionPos)
         else
           return CoreResponse.InfoRes "Record at position not found"
       | _ -> return CoreResponse.InfoRes "Record at position not found"
@@ -1550,8 +1702,7 @@ type Commands
           )
 
           return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-      with
-      | ex ->
+      with ex ->
         fantomasLogger.warn (
           Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
           >> Log.addContextDestructured "message" ex.Message

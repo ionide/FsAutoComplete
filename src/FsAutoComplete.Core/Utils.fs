@@ -8,6 +8,7 @@ open System.Collections.Concurrent
 open System
 open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
+open FSharp.Compiler.Symbols
 
 module Map =
   /// Combine two maps of identical types by starting with the first map and overlaying the second one.
@@ -136,8 +137,8 @@ module Option =
   let inline attempt (f: unit -> 'T) =
     try
       Some <| f ()
-    with
-    | _ -> None
+    with _ ->
+      None
 
   /// ensure the condition is true before continuing
   let inline guard (b) = if b then Some() else None
@@ -570,14 +571,14 @@ type Path with
   static member GetFullPathSafe(path: string) =
     try
       Path.GetFullPath path
-    with
-    | _ -> path
+    with _ ->
+      path
 
   static member GetFileNameSafe(path: string) =
     try
       Path.GetFileName path
-    with
-    | _ -> path
+    with _ ->
+      path
 
   static member LocalPathToUri(filePath: string<LocalPath>) = Path.FilePathToUri(UMX.untag filePath)
 
@@ -763,3 +764,41 @@ type Debounce<'a>(timeout, fn) =
 module Indentation =
   let inline get (line: string) =
     line.Length - line.AsSpan().Trim(' ').Length
+
+
+type FSharpSymbol with
+  member inline x.XDoc =
+    match x with
+    | :? FSharpEntity as e -> e.XmlDoc
+    | :? FSharpUnionCase as u -> u.XmlDoc
+    | :? FSharpField as f -> f.XmlDoc
+    | :? FSharpActivePatternCase as c -> c.XmlDoc
+    | :? FSharpGenericParameter as g -> g.XmlDoc
+    | :? FSharpMemberOrFunctionOrValue as m -> m.XmlDoc
+    | :? FSharpStaticParameter
+    | :? FSharpParameter -> FSharpXmlDoc.None
+    | _ -> failwith $"cannot fetch xmldoc for unknown FSharpSymbol subtype {x.GetType().FullName}"
+
+  member inline x.XSig =
+    match x with
+    | :? FSharpEntity as e -> e.XmlDocSig
+    | :? FSharpUnionCase as u -> u.XmlDocSig
+    | :? FSharpField as f -> f.XmlDocSig
+    | :? FSharpActivePatternCase as c -> c.XmlDocSig
+    | :? FSharpMemberOrFunctionOrValue as m -> m.XmlDocSig
+    | :? FSharpGenericParameter
+    | :? FSharpStaticParameter
+    | :? FSharpParameter -> ""
+    | _ -> failwith $"cannot fetch XmlDocSig for unknown FSharpSymbol subtype {x.GetType().FullName}"
+
+  member inline x.DefinitionRange =
+    match x with
+    | :? FSharpEntity as e -> e.DeclarationLocation
+    | :? FSharpUnionCase as u -> u.DeclarationLocation
+    | :? FSharpField as f -> f.DeclarationLocation
+    | :? FSharpActivePatternCase as c -> c.DeclarationLocation
+    | :? FSharpGenericParameter as g -> g.DeclarationLocation
+    | :? FSharpMemberOrFunctionOrValue as m -> m.DeclarationLocation
+    | :? FSharpStaticParameter as s -> s.DeclarationLocation
+    | :? FSharpParameter as p -> p.DeclarationLocation
+    | _ -> failwith $"cannot fetch DefinitionRange for unknown FSharpSymbol subtype {x.GetType().FullName}"

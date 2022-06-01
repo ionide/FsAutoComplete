@@ -44,16 +44,9 @@ module Conversions =
       End = fcsPosToLsp pos }
 
 
-  let symbolUseRangeToLsp (range: SymbolCache.SymbolUseRange) : Lsp.Range = fcsRangeToLsp range.Range
-
   let fcsRangeToLspLocation (range: FcsRange) : Lsp.Location =
     let fileUri = Path.FilePathToUri range.FileName
     let lspRange = fcsRangeToLsp range
-    { Uri = fileUri; Range = lspRange }
-
-  let symbolUseRangeToLspLocation (range: SymbolCache.SymbolUseRange) : Lsp.Location =
-    let fileUri = Path.FilePathToUri range.FileName
-    let lspRange = symbolUseRangeToLsp range
     { Uri = fileUri; Range = lspRange }
 
   let findDeclToLspLocation (decl: FsAutoComplete.FindDeclarationResult) : Lsp.Location =
@@ -884,8 +877,15 @@ type FSharpConfig =
 ///   * iterate the enum values
 ///   * get the enum name
 ///   * lowercase the first char because of .net naming conventions
-let createTokenLegend<'types, 'modifiers when 'types: enum<int> and 'types: (new: unit -> 'types) and 'types: struct and 'types :> Enum and 'modifiers: enum<int> and 'modifiers: (new:
-  unit -> 'modifiers) and 'modifiers: struct and 'modifiers :> Enum> : SemanticTokensLegend =
+let createTokenLegend<'types, 'modifiers
+  when 'types: enum<int>
+  and 'types: (new: unit -> 'types)
+  and 'types: struct
+  and 'types :> Enum
+  and 'modifiers: enum<int>
+  and 'modifiers: (new: unit -> 'modifiers)
+  and 'modifiers: struct
+  and 'modifiers :> Enum> : SemanticTokensLegend =
   let tokenTypes =
     Enum.GetNames<'types>()
     |> Array.map String.lowerCaseFirstChar
