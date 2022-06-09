@@ -82,7 +82,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Position, I
   let addIdent (ident: Ident) =
     identsByEndPos.[ident.idRange.End] <- [| ident.idText |]
 
-  let rec walkImplFileInput (ParsedImplFileInput (_, _, _, _, _, moduleOrNamespaceList, _)) =
+  let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
     List.iter walkSynModuleOrNamespace moduleOrNamespaceList
 
   and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, AllAttrs attrs, _, _)) =
@@ -439,7 +439,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Position, I
       walkComponentInfo false info
       List.iter walkSynModuleDecl modules
     | SynModuleDecl.Let (_, bindings, _) -> List.iter walkBinding bindings
-    | SynModuleDecl.DoExpr (_, expr, _) -> walkExpr expr
+    | SynModuleDecl.Expr (expr = expr) -> walkExpr expr
     | SynModuleDecl.Types (types, _) -> List.iter walkTypeDefn types
     | SynModuleDecl.Attributes(attributes = AllAttrs attrs) -> List.iter walkAttribute attrs
     | _ -> ()
@@ -456,7 +456,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
 
   let isInside (ran: Range) = Range.rangeContainsRange ran r
 
-  let rec walkImplFileInput (ParsedImplFileInput (_, _, _, _, _, moduleOrNamespaceList, _)) =
+  let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
     List.iter walkSynModuleOrNamespace moduleOrNamespaceList
 
   and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, AllAttrs attrs, _, _)) =
@@ -639,7 +639,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
     | SynExpr.NamedIndexedPropertySet (ident, e1, e2, _) -> List.iter walkExpr [ e1; e2 ]
     | SynExpr.DotNamedIndexedPropertySet (e1, ident, e2, e3, _) -> List.iter walkExpr [ e1; e2; e3 ]
     | SynExpr.JoinIn (e1, _, e2, _) -> List.iter walkExpr [ e1; e2 ]
-    | SynExpr.LetOrUseBang (_, _, _, pat, _, e1, ands, e2, _) ->
+    | SynExpr.LetOrUseBang (_, _, _, pat, e1, ands, e2, _, _) ->
       walkPat pat
       walkExpr e1
 
@@ -791,7 +791,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
       walkComponentInfo false info
       List.iter walkSynModuleDecl modules
     | SynModuleDecl.Let (_, bindings, _) -> List.iter walkBinding bindings
-    | SynModuleDecl.DoExpr (_, expr, _) -> walkExpr expr
+    | SynModuleDecl.Expr (expr = expr) -> walkExpr expr
     | SynModuleDecl.Types (types, _) -> List.iter walkTypeDefn types
     | SynModuleDecl.Attributes(attributes = AllAttrs attrs) -> List.iter walkAttribute attrs
     | _ -> ()
@@ -816,7 +816,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
 
 
 
-  let rec walkImplFileInput (ParsedImplFileInput (_, _, _, _, _, moduleOrNamespaceList, _)) =
+  let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
     List.iter walkSynModuleOrNamespace moduleOrNamespaceList
 
   and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, AllAttrs attrs, _, r)) =
@@ -1358,7 +1358,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynModuleDecl.Let (_, bindings, r) ->
       addIfInside r
       List.iter walkBinding bindings
-    | SynModuleDecl.DoExpr (_, expr, r) ->
+    | SynModuleDecl.Expr (expr, r) ->
       addIfInside r
       walkExpr expr
     | SynModuleDecl.Types (types, r) ->
@@ -1512,7 +1512,7 @@ let getQuotationRanges ast =
     decls
     |> List.iter (function
       | SynModuleDecl.Let (_, bindings, _) -> visitBindindgs bindings
-      | SynModuleDecl.DoExpr (_, expr, _) -> visitExpr expr
+      | SynModuleDecl.Expr (expr = expr) -> visitExpr expr
       | SynModuleDecl.Types (types, _) -> List.iter visitType types
       | SynModuleDecl.NestedModule (decls = decls) -> visitDeclarations decls
       | _ -> ())
@@ -1523,7 +1523,7 @@ let getQuotationRanges ast =
 
   ast
   |> Option.iter (function
-    | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces modules
+    | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces modules
     | _ -> ())
 
   quotationRanges
@@ -1629,7 +1629,7 @@ let internal getStringLiterals ast : Range list =
     for declaration in decls do
       match declaration with
       | SynModuleDecl.Let (_, bindings, _) -> visitBindindgs bindings
-      | SynModuleDecl.DoExpr (_, expr, _) -> visitExpr expr
+      | SynModuleDecl.Expr (expr = expr) -> visitExpr expr
       | SynModuleDecl.Types (types, _) ->
         for ty in types do
           visitTypeDefn ty
@@ -1641,7 +1641,7 @@ let internal getStringLiterals ast : Range list =
 
   ast
   |> Option.iter (function
-    | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) -> visitModulesAndNamespaces modules
+    | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces modules
     | _ -> ())
 
   List.ofSeq result
@@ -1650,7 +1650,7 @@ let internal getStringLiterals ast : Range list =
 let getModuleOrNamespacePath (pos: Position) (ast: ParsedInput) =
   let idents =
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput (_, _, _, _, _, modules, _)) ->
+    | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
       let rec walkModuleOrNamespace idents (decls, moduleRange) =
         decls
         |> List.fold
@@ -1676,7 +1676,7 @@ let getModuleOrNamespacePath (pos: Position) (ast: ParsedInput) =
              else
                acc)
            []
-    | ParsedInput.SigFile (ParsedSigFileInput (_, _, _, _, modules)) ->
+    | ParsedInput.SigFile (ParsedSigFileInput (modules = modules)) ->
       let rec walkModuleOrNamespaceSig idents (decls, moduleRange) =
         decls
         |> List.fold
@@ -1811,7 +1811,7 @@ module HashDirectiveInfo =
              | _ -> () |]
 
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput (fn, _, _, _, _, modules, _)) -> parseDirectives modules fn
+    | ParsedInput.ImplFile (ParsedImplFileInput (fileName = fn; modules = modules)) -> parseDirectives modules fn
     | _ -> [||]
 
   /// returns the Some (complete file name of a resolved #load directive at position) or None
@@ -1843,7 +1843,7 @@ module Printf =
         appStack.Value <- [ appWithArg ]
       | _ -> appStack.Value <- appWithArg :: appStack.Value
 
-    let rec walkImplFileInput (ParsedImplFileInput (_, _, _, _, _, moduleOrNamespaceList, _)) =
+    let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
       List.iter walkSynModuleOrNamespace moduleOrNamespaceList
 
     and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, _, _, _)) = List.iter walkSynModuleDecl decls
@@ -2126,7 +2126,7 @@ module Printf =
       | SynModuleDecl.NamespaceFragment fragment -> walkSynModuleOrNamespace fragment
       | SynModuleDecl.NestedModule (decls = modules) -> List.iter walkSynModuleDecl modules
       | SynModuleDecl.Let (_, bindings, _) -> List.iter walkBinding bindings
-      | SynModuleDecl.DoExpr (_, expr, _) -> walkExpr expr
+      | SynModuleDecl.Expr (expr = expr) -> walkExpr expr
       | SynModuleDecl.Types (types, _) -> List.iter walkTypeDefn types
       | _ -> ()
 
