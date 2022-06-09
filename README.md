@@ -130,7 +130,6 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 ### Additional startup options
 
 * `--state-directory dir` - a workspace-specific directory for keeping language server states.
-* `--background-service-enabled` - passing this flag enables background service feature, increasing FSAC responsiveness by moving some of the operations (especially background type checking) to other process. It results in increased memory usage. Used by default in Ionide.
 * `--verbose` - passing this flag enables additional logging being printed out in `stderr`
 * `DOTNET_ROOT` - setting this environment variable will set the dotnet SDK root, which is used when finding references for FSX scripts.
 
@@ -177,8 +176,6 @@ The maintainers of this repository are:
 
 * [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
 * [Chester Husk](http://github.com/baronfel)
-
-The primary maintainer for this repository is [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak))
 
 Previous maintainers:
 

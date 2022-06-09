@@ -74,13 +74,6 @@ module Parser =
     )
     |> zero
 
-  let backgroundServiceOption =
-    Option<bool>(
-      "--background-service-enabled",
-      "Enable running typechecking services in a background process. Enables various performance optimizations."
-    )
-    |> zero
-
   let projectGraphOption =
     Option<bool>(
       "--project-graph-enabled",
@@ -104,7 +97,6 @@ module Parser =
     rootCommand.AddOption logFileOption
     rootCommand.AddOption logFilterOption
     rootCommand.AddOption waitForDebuggerOption
-    rootCommand.AddOption backgroundServiceOption
     rootCommand.AddOption projectGraphOption
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
