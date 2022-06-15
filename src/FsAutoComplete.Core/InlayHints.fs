@@ -13,6 +13,45 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text.Range
 open FsAutoComplete.Core.Workaround.ServiceParseTreeWalk
 
+/// `traversePat`from `SyntaxTraversal.Traverse`
+///
+/// Reason for extra function:
+/// * can be used to traverse when traversal isn't available via `defaultTraverse` (for example: in `VisitExpr`, and want traverse a `SynPat`)
+/// * visits `SynPat.Record(fieldPats)`
+///
+/// Note: doesn't visit `SynPat.Typed(targetType)`: requires traversal into `SynType` (`SynPat.Typed(pat)` gets visited!)
+let rec private traversePat (visitor: SyntaxVisitorBase<_>) origPath pat =
+  let defaultTraverse = defaultTraversePat visitor origPath
+  visitor.VisitPat(origPath, defaultTraverse, pat)
+and private defaultTraversePat visitor origPath pat =
+  let path = SyntaxNode.SynPat pat :: origPath
+
+  match pat with
+  | SynPat.Paren (p, _) -> traversePat visitor path p
+  | SynPat.As (p1, p2, _)
+  | SynPat.Or (p1, p2, _, _) ->
+    [ p1; p2 ]
+    |> List.tryPick (traversePat visitor path)
+  | SynPat.Ands (ps, _)
+  | SynPat.Tuple (_, ps, _)
+  | SynPat.ArrayOrList (_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
+  | SynPat.Attrib (p, _, _) -> traversePat visitor path p
+  | SynPat.LongIdent (argPats = args) ->
+    match args with
+    | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat visitor path)
+    | SynArgPats.NamePatPairs (ps, _) ->
+      ps
+      |> List.map (fun (_, _, pat) -> pat)
+      |> List.tryPick (traversePat visitor path)
+  | SynPat.Typed (p, _ty, _) -> 
+      traversePat visitor path p
+      // no access to `traverseSynType` -> no traversing into `ty`
+  | SynPat.Record (fieldPats = fieldPats) ->
+    fieldPats
+    |> List.map (fun (_, _, pat) -> pat)
+    |> List.tryPick (traversePat visitor path)
+  | _ -> None
+
 type HintKind =
   | Parameter
   | Type
@@ -79,10 +118,10 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
 
               pats |> List.tryPick exprFunc
 
-          override _.VisitPat(_path, defaultTraverse, pat) =
+          override visitor.VisitPat(path, defaultTraverse, pat) =
             match pat with
             | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
-            | _ -> defaultTraverse pat
+            | _ -> defaultTraversePat visitor path pat
 
           override _.VisitBinding(_path, defaultTraverse, binding) =
             match binding with
@@ -550,45 +589,6 @@ let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: Synt
     getParsenForPatternWithIdent patternRange identStart path
   | _ -> failwith "Pattern must be Named or OptionalVal!"
 
-/// `traversePat`from `SyntaxTraversal.Traverse`
-///
-/// Reason for extra function:
-/// * can be used to traverse when traversal isn't available via `defaultTraverse` (for example: in `VisitExpr`, and want traverse a `SynPat`)
-/// * visits `SynPat.As(lhsPat, rhsPat)` & `SynPat.Record(fieldPats)`
-///
-/// Note: doesn't visit `SynPat.Typed(targetType)`: requires traversal into `SynType` (`SynPat.Typed(pat)` gets visited!)
-let rec private traversePat (visitor: SyntaxVisitorBase<_>) origPath pat =
-  let defaultTraverse p =
-    let path = SyntaxNode.SynPat p :: origPath
-
-    match p with
-    | SynPat.Paren (p, _) -> traversePat visitor path p
-    | SynPat.Or (p1, p2, _, _) ->
-      [ p1; p2 ]
-      |> List.tryPick (traversePat visitor path)
-    | SynPat.Ands (ps, _)
-    | SynPat.Tuple (_, ps, _)
-    | SynPat.ArrayOrList (_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
-    | SynPat.Attrib (p, _, _) -> traversePat visitor path p
-    | SynPat.LongIdent (argPats = args) ->
-      match args with
-      | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat visitor path)
-      | SynArgPats.NamePatPairs (ps, _) ->
-        ps
-        |> List.map (fun (_, _, pat) -> pat)
-        |> List.tryPick (traversePat visitor path)
-    | SynPat.Typed (p, _, _) -> traversePat visitor path p
-    | SynPat.As (lhsPat = lhs; rhsPat = rhs) ->
-      [ lhs; rhs ]
-      |> List.tryPick (traversePat visitor path)
-    | SynPat.Record (fieldPats = fieldPats) ->
-      fieldPats
-      |> List.map (fun (_, _, pat) -> pat)
-      |> List.tryPick (traversePat visitor path)
-    | _ -> None
-
-  visitor.VisitPat(origPath, defaultTraverse, pat)
-
 let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) : ExplicitType option =
   SyntaxTraversal.Traverse(
     pos,
@@ -628,7 +628,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
               None
           | _ -> defaultTraverse expr
 
-        member _.VisitPat(path, defaultTraverse, pat) =
+        member visitor.VisitPat(path, defaultTraverse, pat) =
           let invalidPositionForTypeAnnotation (pos: Position) (path: SyntaxNode list) =
             match path with
             | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = true)) :: _ ->
@@ -684,7 +684,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
                 //              `?v: int`, NOT `?v: int option`
                 }
               |> Some
-          | _ -> defaultTraverse pat //todo: custom traverse? -> doesn't require FCS to handle `SynPat.Record`
+          | _ -> defaultTraversePat visitor path pat
 
         member _.VisitSimplePats(path, pats) =
           // SynSimplePats at:

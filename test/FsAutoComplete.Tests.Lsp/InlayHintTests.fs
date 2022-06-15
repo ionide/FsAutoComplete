@@ -1487,7 +1487,6 @@ let explicitTypeInfoTests =
             | _ -> ()
             """
             (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [RemoveOptionFromType] })
-
       ]
     ]
     testList "let function" [
@@ -1622,7 +1621,7 @@ let explicitTypeInfoTests =
           | _ -> ()
           """
           (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Required fromCursors; SpecialRules = [] })
-      testCaseAsync " Choice1Of2 value | Choice2Of2 value ->" <|
+      testCaseAsync "Choice1Of2 value | Choice2Of2 value ->" <|
         testExplicitType
           """
           match Choice1Of2 3 with
