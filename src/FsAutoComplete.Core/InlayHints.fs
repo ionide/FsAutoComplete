@@ -396,7 +396,6 @@ type MissingExplicitType with
   ///   -> to use as type annotation
   /// </returns>
   member x.FormatType(ty: FSharpType, displayContext: FSharpDisplayContext) : TypeName * TypeNameForAnnotation =
-    //TODO: Format vs FormatWithConstraints?
     let typeName = ty.Format displayContext
 
     let anno =
@@ -407,7 +406,6 @@ type MissingExplicitType with
         if typeName.EndsWith " option" then
           typeName.Substring(0, typeName.Length - " option".Length)
         else
-          // TODO: always just trailing `option`? or can be `Option<int>`? -- maybe even with Namespace?
           typeName
       else
         typeName
@@ -450,7 +448,6 @@ type ExplicitType =
   | Invalid
   | Exists
   | Missing of MissingExplicitType
-  //TODO: remove
   | Debug of string
 
 type ExplicitType with
@@ -467,7 +464,7 @@ type ExplicitType with
 /// * Parentheses: `(v): int`
 /// * Attributes: `([<Attr>]v): int`
 let rec private isDirectlyTyped (identStart: Position) (path: SyntaxVisitorPath) =
-  //TODO: handle SynExpr.Typed? -> not at binding, but usage
+  //ENHANCEMENT: handle SynExpr.Typed? -> not at binding, but usage
   match path with
   | [] -> false
   | SyntaxNode.SynPat (SynPat.Typed (pat = pat)) :: _ when rangeContainsPos pat.Range identStart -> true
@@ -636,7 +633,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
               true
             | _ -> false
 
-          //TODO: differentiate between directly typed and parently typed?
+          //ENHANCEMENT: differentiate between directly typed and parently typed?
           //        (maybe even further ancestorly typed?)
           // ```fsharp
           // let (a: int,b) = (1,2)
@@ -646,7 +643,8 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           // ```
           // currently: only directly typed is typed
           match pat with
-          // no simple way out: Range for `SynPat.LongIdent` doesn't cover full pats (just ident)...
+          // no simple way out: Range for `SynPat.LongIdent` doesn't cover full pats (just ident)
+          // see dotnet/fsharp#13115
           // | _ when not (rangeContainsPos pat.Range pos) -> None
           | SynPat.Named (ident = ident) when
             rangeContainsPos ident.idRange pos
@@ -691,7 +689,6 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           // * Primary ctor:
           //    * SynMemberDefn.ImplicitCtor.ctorArgs
           //    * SynTypeDefnSimpleRepr.General.implicitCtorSynPats
-          //      //TODO: when? example?
           // * Lambda: SynExpr.Lambda.args
           //   * issue: might or might not be actual identifier
           //      * `let f1 = fun v -> v + 1`
@@ -808,7 +805,7 @@ let private tryCreateTypeHint (explicitType: ExplicitType) (ty: FSharpType) (dis
     { IdentRange = data.Ident
       Pos = data.InsertAt
       Kind = Type
-      // TODO: or use tyForAnno?
+      // TODO: or use tyForAnno?: `?value: int`, but type is `int option`
       Text = ": " + truncated
       Insertions = Some <| data.CreateEdits tyForAnno
       Tooltip = tooltip }

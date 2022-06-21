@@ -22,7 +22,6 @@ module private FSharpInlayHints =
         | InlayHintKind.Type -> ": " + InlayHints.truncated text
         | InlayHintKind.Parameter -> InlayHints.truncated text + " ="
       // this is for truncated text, which we do not currently hit in our tests
-      // TODO: add tests to cover this case
       InsertText =
         match kind with
         | InlayHintKind.Type -> Some(": " + text)
@@ -158,16 +157,6 @@ module private LspInlayHints =
             |> Flip.Expect.wantOk "TextEdits are erroneous"
           Expect.equal appliedText textAfterEdits "Text after applying TextEdits does not match expected"
       | _ -> ()
-
-      //TODO: handle or remove resolve
-      // //TODO: handle capabilities?
-      // //TODO: en/disable?
-      // let toResolve = 
-      //   { actual with
-      //       TextEdits = None
-      //   }
-      // let! resolved = doc |> Document.resolveInlayHint toResolve
-      // Expect.equal resolved actual "`textDocument/inlayHint` and `inlayHint/resolve` should result in same InlayHint"
     }
 
   let rangeMarker = "$|"
@@ -279,7 +268,6 @@ module private LspInlayHints =
 open LspInlayHints
 let private paramHintTests state =
   serverTestList "param hints" state defaultConfigDto None (fun server -> [
-    //todo: with ````
     testCaseAsync "can show param hint" <|
       checkAllInMarkedRange server
         """
@@ -776,11 +764,22 @@ let private paramHintTests state =
     ptestCaseAsync "can show param for method" <|
       checkAllInMarkedRange server
         """
-        $|System.Environment.GetEnvironmentVariable "Blah"
+        $|System.Environment.GetEnvironmentVariable $0"Blah"
         |> ignore$|
         """
         [
           paramHint "variable"
+        ]
+
+    testCaseAsync "can show param for name in backticks" <|
+      checkAllInMarkedRange server
+        """
+        let f ``foo bar`` = ``foo bar`` + 1
+        $|f $042$|
+        |> ignore
+        """
+        [
+          paramHint "``foo bar``"
         ]
   ])
 let private typeHintTests state =
@@ -1165,7 +1164,6 @@ module InlayHintAndExplicitType =
       validateCodeFix
 
 open InlayHintAndExplicitType
-//TODO: pending: no valid annotation location ... but InlayHint should be displayed (but currently isn't)
 /// Test Inlay Type Hints & Add Explicit Type Code Fix:
 /// * At most locations Type Hint & Code Fix should be valid at same location and contain same TextEdit -> checked together
 /// * Checked by applying TextEdits
@@ -1599,7 +1597,7 @@ let explicitTypeInfoTests =
             let ($0value: int),_ = (1,2)
             """
             (ExplicitType.Exists)
-        //TODO: Distinguish between direct and parently/ancestorly typed?
+        //ENHANCEMENT: Distinguish between direct and parently/ancestorly typed?
         testCaseAsync "let (value,_): int*int = (1,2)" <|
           testExplicitType
             """
@@ -1999,12 +1997,6 @@ let explicitTypeInfoTests =
     ]
     testList "SimplePats" [
       // primary ctor args & lambda args
-      // * primary ctor: no parens allowed
-      // * lambda args: absolutely fucked up -- in fact so fucked up I use the f-word to describe how fucked up it is...
-      //   TODO: remove `fuck`s
-      //     TODO: replace with something stronger?
-      //   -> special handling for `SynExpr.Lambda` and then `parsedData |> fst` (-> `SynPat` instead of `SynSimplePat`)
-
       testList "primary ctor" [
         testCaseAsync "T(a)" <|
           testExplicitType
