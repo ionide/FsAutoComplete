@@ -159,14 +159,15 @@ module private LspInlayHints =
           Expect.equal appliedText textAfterEdits "Text after applying TextEdits does not match expected"
       | _ -> ()
 
-      //TODO: handle capabilities?
-      //TODO: en/disable?
-      let toResolve = 
-        { actual with
-            TextEdits = None
-        }
-      let! resolved = doc |> Document.resolveInlayHint toResolve
-      Expect.equal resolved actual "`textDocument/inlayHint` and `inlayHint/resolve` should result in same InlayHint"
+      //TODO: handle or remove resolve
+      // //TODO: handle capabilities?
+      // //TODO: en/disable?
+      // let toResolve = 
+      //   { actual with
+      //       TextEdits = None
+      //   }
+      // let! resolved = doc |> Document.resolveInlayHint toResolve
+      // Expect.equal resolved actual "`textDocument/inlayHint` and `inlayHint/resolve` should result in same InlayHint"
     }
 
   let rangeMarker = "$|"
@@ -967,10 +968,267 @@ let private inlayHintTests state =
     mixedHintTests state
   ]
 
+module InlayHintAndExplicitType =
+  open Utils.Server
+  open Utils.Tests
+  open Utils.Utils
+  open Utils.TextEdit
+
+  let tryGetInlayHintAt pos doc = async {
+    let allRange = { Start = { Line = 0; Character = 0 }; End = { Line = 1234; Character = 1234 }}
+    let! hints = 
+      doc
+      |> Document.inlayHintsAt allRange
+      |> Async.map (Option.defaultValue [||])
+    return hints
+    |> Array.tryFind (fun h -> h.Position = pos)
+  }
+  let tryGetCodeFixAt pos doc = async {
+    let range = { Start = pos; End = pos}
+    let! codeFixes =
+      doc
+      |> Document.codeActionAt [||] range
+    return
+      match codeFixes with
+      | None -> None
+      | Some (TextDocumentCodeActionResult.Commands _) -> None
+      | Some (TextDocumentCodeActionResult.CodeActions codeActions) ->
+          codeActions
+          |> Array.tryFind (fun ca -> ca.Title = CodeFix.AddExplicitTypeAnnotation.title)
+  }
+  let private checkInlayHintAndCodeFix
+    (server: CachedServer)
+    (textWithCursor: string)
+    (validateInlayHint: (Document * string * Position) -> InlayHint option -> Async<unit>)
+    (validateCodeFix: (Document * string * Position) -> CodeAction option -> Async<unit>)
+    = async {
+      // Cursors:
+      // * $0: normal cursor
+      // * $I: optional insert inlay hint here
+      //  * when not specified: location of $0
+      let text = textWithCursor |> Text.trimTripleQuotation
+      let (cursor, text) = Cursor.assertExtractPosition text
+      let (hintPos, text) =
+        Cursor.tryExtractPositionMarkedWithAnyOf [|"$I"|] text
+        |> Option.map (fun ((_,pos), text) -> (pos,text))
+        |> Option.defaultValue (cursor, text)
+
+      let! (doc, diags) = server |> Server.createUntitledDocument text
+      use doc = doc
+      Expect.hasLength diags 0 "Document should not have had errors"
+
+      let! hint = doc |> tryGetInlayHintAt hintPos
+      let! codeFix = doc |> tryGetCodeFixAt cursor
+
+      do! validateInlayHint (doc, text, hintPos) hint
+      do! validateCodeFix (doc, text, cursor) codeFix
+    }
+
+  type Expected =
+      /// Edit for InlayHint as well as AddExplicitType CodeFix
+    | Edit of textAfterEdits: string
+      /// Edit for AddExplicitType CodeFix,
+      /// but no InlayHint
+    | JustCodeFix of textAfterEdits: string
+      /// Just display of InlayHint, but no Edits or CodeFix
+      /// 
+      /// Label must not contain leading `:` (& following space)
+    | JustInlayHint of label: string
+      /// Neither InlayHint nor CodeFix
+    | Nothing
+
+  let check
+    (recheckAfterAppliedTextEdits: bool)
+    (server: CachedServer)
+    (textWithCursor: string)
+    (expected: Expected)
+    =
+    //TODO: Add tests
+    //TODO: Extract into `Cursor`
+    let calcCursorPositionAfterTextEdits (pos: Position) (edits: TextEdit list) =
+      edits
+      |> List.filter (fun edit -> edit.Range.Start < pos)
+      |> List.fold (fun pos edit -> 
+          // remove deleted range from pos
+          let pos =
+            let (s,e) = (edit.Range.Start, edit.Range.End)
+            if s = e then
+              // just insert
+              pos
+            elif edit.Range |> Range.containsLoosely pos then
+              // fall to start of delete
+              edit.Range.Start
+            else
+              // everything to delete is before cursor
+              let deltaLine = e.Line - s.Line
+              let deltaChar = 
+                if e.Line < pos.Line then
+                  0
+                elif deltaLine = 0 then
+                  // edit is on single line
+                  e.Character - s.Character
+                else
+                  // edit over multiple lines
+                  e.Character
+              { Line = pos.Line - deltaLine; Character = pos.Line - deltaChar }
+          // add new text to pos
+          let pos =
+            if String.IsNullOrEmpty edit.NewText then
+              pos
+            else
+              let lines = edit.NewText |> Text.removeCarriageReturn |> Text.lines
+              let deltaLine = lines.Length - 1
+              let deltaChar =
+                if edit.Range.Start.Line = pos.Line then
+                  let lastLine = lines |> Array.last
+                  lastLine.Length
+                else
+                  0
+              { Line = pos.Line + deltaLine; Character = pos.Line + deltaChar }
+          pos
+      ) pos
+      
+    let rec validateInlayHint (doc, text, pos) (inlayHint: InlayHint option) = async {
+      match expected with
+      | JustCodeFix _
+      | Nothing -> Expect.isNone inlayHint "There should be no Inlay Hint"
+      | JustInlayHint label ->
+          let inlayHint = Expect.wantSome inlayHint "There should be a Inlay Hint"
+          let actual =
+            match inlayHint.Label with
+            | InlayHintLabel.String lbl -> lbl
+            | InlayHintLabel.Parts parts ->
+                parts
+                |> Array.map (fun part -> part.Value)
+                |> String.concat ""
+          let actual = 
+            let actual = actual.TrimStart()
+            if actual.StartsWith ':' then
+              actual.Substring(1).TrimStart()
+            else
+              actual
+          Expect.equal actual label "Inlay Hint Label is incorrect"
+
+          let textEdits = inlayHint.TextEdits |> Option.defaultValue [||]
+          Expect.isEmpty textEdits "There should be no text edits"
+      | Edit textAfterEdits ->
+          let inlayHint = Expect.wantSome inlayHint "There should be a Inlay Hint"
+          let textEdits =
+            Expect.wantSome inlayHint.TextEdits "There should be TextEdits"
+            |> List.ofArray
+          let actual =
+            text
+            |> TextEdits.apply textEdits
+            |> Flip.Expect.wantOk "TextEdits should succeed"
+          let expected = textAfterEdits |> Text.trimTripleQuotation
+          Expect.equal actual expected "Text after TextEdits is incorrect"
+
+          if recheckAfterAppliedTextEdits then
+            let! (doc, _) = Server.createUntitledDocument actual (doc.Server |> Async.singleton)
+            use doc = doc
+            let! inlayHint = doc |> tryGetInlayHintAt pos
+            Expect.isNone inlayHint "There shouldn't be a inlay hint after inserting inlay hint text edit"
+            let! codeFix = doc |> tryGetCodeFixAt pos
+            Expect.isNone codeFix "There shouldn't be a code fix after inserting code fix text edit"
+    }
+    let validateCodeFix (doc: Document, text, pos) (codeFix: CodeAction option) = async {
+      match expected with
+      | JustInlayHint _
+      | Nothing ->
+          Expect.isNone codeFix "There should be no Code Fix"
+      | JustCodeFix textAfterEdits
+      | Edit textAfterEdits ->
+          let codeFix = Expect.wantSome codeFix "There should be a Code Fix"
+          let edits =
+            Expect.wantSome codeFix.Edit "There should be TextEdits"
+            |> WorkspaceEdit.tryExtractTextEditsInSingleFile (doc.VersionedTextDocumentIdentifier)
+            |> Flip.Expect.wantOk "WorkspaceEdit should be valid"
+          let actual =
+            text
+            |> TextEdits.apply edits
+            |> Flip.Expect.wantOk "TextEdits should succeed"
+          let expected = textAfterEdits |> Text.trimTripleQuotation
+          Expect.equal actual expected "Text after TextEdits is incorrect"
+
+          if recheckAfterAppliedTextEdits then
+            let! (doc, _) = Server.createUntitledDocument actual (doc.Server |> Async.singleton)
+            use doc = doc
+            let! inlayHint = doc |> tryGetInlayHintAt pos
+            Expect.isNone inlayHint "There shouldn't be a inlay hint after inserting inlay hint text edit"
+            let! codeFix = doc |> tryGetCodeFixAt pos
+            Expect.isNone codeFix "There shouldn't be a code fix after inserting code fix text edit"
+    }
+
+    checkInlayHintAndCodeFix server
+      textWithCursor
+      validateInlayHint
+      validateCodeFix
+
+open InlayHintAndExplicitType
+//TODO: pending: no valid annotation location ... but InlayHint should be displayed (but currently isn't)
+/// Test Inlay Type Hints & Add Explicit Type Code Fix:
+/// * At most locations Type Hint & Code Fix should be valid at same location and contain same TextEdit -> checked together
+/// * Checked by applying TextEdits
+/// * Additional test: After applying TextEdit (-> add type annotation), neither Type Hint nor Code Fix are available any more
+/// 
+/// vs. `explicitTypeInfoTests`:
+/// * `explicitTypeInfoTests`: 
+///   * Does Type Annotation exists
+///   * Is Type Annotation valid
+///   * Are parens required
+///   * Where to parens go
+///   * low-level -> doesn't use LSP Server, but instead calls `tryGetExplicitTypeInfo` directly
+/// * `inlayTypeHintAndAddExplicitTypeTests`
+///   * Is (and should) Inlay Type Hint be displayed here
+///   * Does "Add Explicit Type" Code Fix get triggered
+///   * Produce both correct Text Edits
+///   * Are both not triggered any more after Text Edit
+///   * high-level: LSP Server with `textDocument/inlayHint` & `textDocument/codeAction` commands
+/// 
+/// vs. `typeHintTests`:
+/// * `typeHintTests`:
+///   * Tests all properties of InlayHint like label, location
+///   * Checks all InlayHint in a certain range (including their absent)
+/// * `inlayTypeHintAndAddExplicitTypeTests`
+///   * InlayHint at single location
+///   * Tests just TextEdits
+///   * Additional checks "Add Explicit Type" Code Fix
+/// 
+/// 
+/// ->
+/// * `explicitTypeInfoTests`: test type annotation
+/// * `inlayTypeHintAndAddExplicitTypeTests`: test type annotation edit and Inlay Hint existence (vs. "Add Explicit Type")
+///   * Tests when inlay hints should not be displayed should go here
+/// * `typeHintTests`: test data in InlayHint (like label)
+let private inlayTypeHintAndAddExplicitTypeTests state =
+  let check = check true
+  let checkAll server pre post = check server pre (Edit post)
+  serverTestList "LSP InlayHint (type) & AddExplicitType" state defaultConfigDto None (fun server -> [
+    testCaseAsync "can add type annotation" <|
+      checkAll server
+        """
+        let value$0 = 42
+        """
+        """
+        let value: int = 42
+        """
+    testCaseAsync "neither Type Hint nor Code Fix when type annotation already exists" <|
+      check server
+        """
+        let value$0: int = 42
+        """
+        Nothing
+
+    testList "hide type hint" [
+      //ENHANCEMENT: add cases when Inlay Type Hint should not trigger (like `let str = "..."`?)
+    ]
+  ])
+
 let tests state = 
   testList (nameof InlayHint) [
     FSharpInlayHints.tests state
     inlayHintTests state
+    inlayTypeHintAndAddExplicitTypeTests state
   ]
 
 

@@ -485,7 +485,7 @@ let rec private isDirectlyTyped (identStart: Position) (path: SyntaxVisitorPath)
 /// Note: FULL range of pattern -> everything in parens
 ///   For `SynPat.Named`: Neither `range` nor `ident.idRange` span complete range: Neither includes Accessibility:
 ///   `let private (a: int)` is not valid, must include private: `let (private a: int)`
-let rec private getParsenForPatternWithIdent (patternRange: Range) (identStart: Position) (path: SyntaxVisitorPath) =
+let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: Position) (path: SyntaxVisitorPath) =
   match path with
   | SyntaxNode.SynPat (SynPat.Paren _) :: _ ->
     // (x)
@@ -582,11 +582,11 @@ let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: Synt
     // `let private (a: int)` is not valid, must include private: `let (private a: int)`
     let patternRange = rangeOfNamedPat text pat
     let identStart = ident.idRange.Start
-    getParsenForPatternWithIdent patternRange identStart path
+    getParensForPatternWithIdent patternRange identStart path
   | SynPat.OptionalVal (ident = ident) ->
     let patternRange = pat.Range
     let identStart = ident.idRange.Start
-    getParsenForPatternWithIdent patternRange identStart path
+    getParensForPatternWithIdent patternRange identStart path
   | _ -> failwith "Pattern must be Named or OptionalVal!"
 
 let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) : ExplicitType option =
