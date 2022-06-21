@@ -2692,22 +2692,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 | InlayHints.HintKind.Type -> Types.InlayHintKind.Type
                 | InlayHints.HintKind.Parameter -> Types.InlayHintKind.Parameter
                 |> Some
-              //TODO: lazy -> resolve?
               TextEdits =
                 match h.Insertions with
                 | None -> None
-                // Note: Including no insertions via empty array:
-                //       Difference:
-                //       * `None` -> no `TextEdits` element specified -> can be `resolve`d
-                //       * `Some [||]` -> `TextEdits` gets serialized -> no `resolve`
-                //TODO: always emit `Some [||]` (instead of `None`) for `Parameter` -> prevent `resolve`
                 | Some insertions ->
                   insertions
                   |> Array.map (fun insertion ->
                     { Range = fcsPosToProtocolRange insertion.Pos
                       NewText = insertion.Text })
                   |> Some
-              //TODO: lazy -> resolve?
               Tooltip = h.Tooltip |> Option.map (InlayHintTooltip.String)
               PaddingLeft =
                 match h.Kind with
@@ -2717,68 +2710,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 match h.Kind with
                 | InlayHints.HintKind.Parameter -> Some true
                 | _ -> None
-              Data =
-                { TextDocument = p.TextDocument
-                  Range = fcsRangeToLsp h.IdentRange }
-                |> serialize
-                |> Some })
+              Data = None } )
 
         return success (Some hints)
       })
-
-  //TODO: remove?
-  /// Note: Requires `InlayHintData` in `InlayHint.Data` element.
-  ///       Required to relate `InlayHint` to a document and position inside
-  ///
-  /// Note: Currently only resolves `TextEdits`
-  override x.InlayHintResolve(p: InlayHint) : AsyncLspResult<InlayHint> =
-    logger.info (
-      Log.setMessage "InlayHintResolve Request: {parms}"
-      >> Log.addContextDestructured "parms" p
-    )
-
-    match p.Data with
-    | _ when p.TextEdits |> Option.isSome ->
-      // nothing to resolve
-      Async.singleton <| success p
-    | None ->
-      Async.singleton
-      <| invalidParams "InlayHint doesn't contain `Data`"
-    | Some data ->
-      let data: InlayHintData = deserialize data
-
-      data.TextDocument
-      |> x.fileHandler (fun fn tyRes lines ->
-        asyncResult {
-          // update TextEdits
-          let! p =
-            match p.Kind, p.TextEdits with
-            | Some (Types.InlayHintKind.Parameter), _ -> Ok p
-            | _, Some _ -> Ok p
-            | _, None ->
-              maybe {
-                let! (symbolUse, mfv, explTy) =
-                  InlayHints.tryGetDetailedExplicitTypeInfo
-                    (InlayHints.isPotentialTargetForTypeAnnotation false)
-                    (lines, tyRes)
-                    (protocolPosToPos data.Range.Start)
-
-                let! (_, edits) = explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext)
-
-                let p =
-                  { p with
-                      TextEdits =
-                        edits
-                        |> AddExplicitTypeAnnotation.toLspEdits
-                        |> Some }
-
-                return p
-              }
-              |> Option.defaultValue p
-              |> Ok
-
-          return p
-        })
 
   member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
     logger.info (
