@@ -1884,20 +1884,98 @@ let explicitTypeInfoTests =
           | Choice1Of2 value | Choice2Of2 $($0value$I$) -> ()
           """
           (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Required fromCursors; SpecialRules = [] })
-      testCaseAsync "| _ as value ->" <|
-        testExplicitType
-          """
-          match 4 with
-          | _ as $($0value$I$) -> ()
-          """
-          (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Required fromCursors; SpecialRules = [] })
-      testCaseAsync "| value as _ ->" <|
-        testExplicitType
-          """
-          match 4 with
-          | $($0value$I$) as _ -> ()
-          """
-          (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+      testList "as" [
+        // strange `as`:
+        // * `let _ as value: int = ...` -> ok
+        // * `| _ as value: int -> ...` -> error
+        // * `static member F (_ as value: int) = ...` -> ok
+        //
+        // * `let value: int as _ = ...` -> error
+        // * `| value: int as _ -> ...` -> ok
+        // * `static member F (value: int as _) = ...` -> ok
+
+        // -> 
+        // trailing type anno:
+        // * in `let`: trailing type anno part of `let` binding, NOT pattern -> ok
+        // * similar when with parens: `(pat: type)` with `pat=_ as _`
+        // * in `case`: just pattern -> no trailing type annotation part of case definition
+        // 
+        // type anno in first binding position: don't know
+        // Probably eager type annotation matching of let binding? -> `as` is now in pos of parameter
+        // Other Patterns require parens too: 
+        // * `let Some value = Some 42` -> function named `Some` with argument `value: 'a` returning `Some 42`
+        // * `let (Some value) = Some 42` -> destructure of `Some 42` to `value: int = 42`
+
+        testCaseAsync "let _ as value =" <|
+          testExplicitType
+            """
+            let _ as $($0value$I$) = 42
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+        testCaseAsync "| _ as value ->" <|
+          testExplicitType
+            """
+            match 4 with
+            | _ as $($0value$I$) -> ()
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Required fromCursors; SpecialRules = [] })
+        testCaseAsync "static member F (_ as value) =" <|
+          testExplicitType
+            """
+            type A =
+              static member F (_ as $($0value$I$)) = value + 1
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+
+        testCaseAsync "let value as _ =" <|
+          testExplicitType
+            """
+            let $($0value$I$) as _ = 42
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Required fromCursors; SpecialRules = [] })
+        testCaseAsync "| value as _ ->" <|
+          testExplicitType
+            """
+            match 4 with
+            | $($0value$I$) as _ -> ()
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+        testCaseAsync "static member F (value as _) =" <|
+          testExplicitType
+            """
+            type A =
+              static member F ($($0value$I$) as _) = value + 1
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+
+        testCaseAsync "let (_ as value) =" <|
+          testExplicitType
+            """
+            let (_ as $($0value$I$)) = 42
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+        testCaseAsync "| (_ as value) ->" <|
+          testExplicitType
+            """
+            match 4 with
+            | (_ as $($0value$I$)) -> ()
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+
+        testCaseAsync "let (value as _) =" <|
+          testExplicitType
+            """
+            let ($($0value$I$) as _) = 42
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+        testCaseAsync "| (value as _) ->" <|
+          testExplicitType
+            """
+            match 4 with
+            | ($($0value$I$) as _) -> ()
+            """
+            (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
+      ]
       testCaseAsync "| (_, value) ->" <|
         testExplicitType
           """
