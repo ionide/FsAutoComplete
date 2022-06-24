@@ -156,6 +156,96 @@ module Cursor =
     tryIndexOf pos
     >> Result.valueOr (failtestf "Invalid position: %s")
 
+  /// Calculates cursors position after all edits are applied.
+  /// 
+  /// When cursor inside a changed area:
+  /// * deleted: cursor moves to start of deletion:
+  ///   ```fsharp
+  ///   let foo = 42 $|+ $013 $|+ 123
+  ///   ```
+  ///   -> delete inside `$|`
+  ///   ```fsharp
+  ///   let foo = 42 $0+ 123
+  ///   ```
+  /// * inserted: cursor stays at start of insert
+  ///   ```fsharp
+  ///   let foo = 42 $0+ 123
+  ///   ```
+  ///   -> insert at cursor pos
+  ///   ```fsharp
+  ///   let foo = 42 $0+ 13 + 123
+  ///   ```
+  /// * changes: cursors moved to start of replacement
+  ///   ```fsharp
+  ///   let foo = 42 $|+ $013 $|+ 123
+  ///   ```
+  ///   -> replace inside `$|`
+  ///   ```fsharp
+  ///   let foo = 42 $0- 7 + 123
+  ///   ```
+  ///   -> like deletion
+  ///   * Implementation detail:  
+  ///     Replacement is considered: First delete (-> move cursor to front), then insert (-> cursor stays)
+  ///
+  /// Note: `edits` must be sorted by range!
+  let afterEdits (edits: TextEdit list) (pos: Position) =
+    edits
+    |> List.filter (fun edit -> edit.Range.Start < pos)
+    |> List.rev
+    |> List.fold (fun pos edit ->
+      // remove deleted range from pos
+      let pos =
+        if Range.isPosition edit.Range then
+          // just insert
+          pos
+        elif edit.Range |> Range.containsLoosely pos then
+          // pos inside edit -> fall to start of delete
+          edit.Range.Start
+        else
+          // everything to delete is before cursor
+          let (s,e) = edit.Range.Start, edit.Range.End
+          // always <= 0 (nothing gets inserted here)
+          let deltaLine = s.Line - e.Line
+          let deltaChar =
+            if e.Line < pos.Line then
+              // doesn't touch line of pos
+              0
+            else
+              - e.Character + s.Character
+          { Line = pos.Line + deltaLine; Character = pos.Character + deltaChar }
+        
+      // add new text to pos
+      let pos =
+        if System.String.IsNullOrEmpty edit.NewText then
+          // just delete
+          pos
+        elif pos <= edit.Range.Start then
+          // insert is after pos -> doesn't change cursor
+          // happens when cursor inside replacement -> cursor move to front of deletion
+          pos
+        else
+          let lines =
+            edit.NewText
+            |> Text.removeCarriageReturn
+            |> Text.lines
+          let deltaLine = lines.Length - 1
+          let deltaChar =
+            if edit.Range.Start.Line = pos.Line then
+              let lastLine = lines |> Array.last
+              if lines.Length = 1 then
+                // doesn't introduce new line
+                lastLine.Length
+              else
+                // inserts new line
+                - edit.Range.Start.Character + lastLine.Length
+            else
+              // doesn't touch line of pos
+              0
+          { Line = pos.Line + deltaLine; Character = pos.Character + deltaChar }
+
+      pos
+    ) pos
+
 module Cursors =
   /// For each cursor (`$0`) in text: return text with just that one cursor
   /// 
