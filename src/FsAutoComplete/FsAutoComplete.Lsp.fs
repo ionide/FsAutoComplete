@@ -2767,9 +2767,6 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
     |> Map.add "fsproj/addFileBelow" (serverRequestHandling (fun s p -> s.FsProjAddFileBelow(p)))
     |> Map.add "fsproj/addFile" (serverRequestHandling (fun s p -> s.FsProjAddFile(p)))
     |> Map.add "fsharp/inlayHints" (serverRequestHandling (fun s p -> s.FSharpInlayHints(p)))
-    //TODO: Move to Ionide.LanguageServerProtocol with LSP 3.17
-    |> Map.add "textDocument/inlayHint" (serverRequestHandling (fun s p -> s.TextDocumentInlayHint(p)))
-    |> Map.add "inlayHint/resolve" (serverRequestHandling (fun s p -> s.InlayHintResolve(p)))
 
   let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
 
