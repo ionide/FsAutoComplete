@@ -1042,50 +1042,15 @@ module InlayHintAndExplicitType =
     (textWithCursor: string)
     (expected: Expected)
     =
-    //TODO: Add tests
-    //TODO: Extract into `Cursor`
-    let calcCursorPositionAfterTextEdits (pos: Position) (edits: TextEdit list) =
-      edits
-      |> List.filter (fun edit -> edit.Range.Start < pos)
-      |> List.fold (fun pos edit -> 
-          // remove deleted range from pos
-          let pos =
-            let (s,e) = (edit.Range.Start, edit.Range.End)
-            if s = e then
-              // just insert
-              pos
-            elif edit.Range |> Range.containsLoosely pos then
-              // fall to start of delete
-              edit.Range.Start
-            else
-              // everything to delete is before cursor
-              let deltaLine = e.Line - s.Line
-              let deltaChar = 
-                if e.Line < pos.Line then
-                  0
-                elif deltaLine = 0 then
-                  // edit is on single line
-                  e.Character - s.Character
-                else
-                  // edit over multiple lines
-                  e.Character
-              { Line = pos.Line - deltaLine; Character = pos.Line - deltaChar }
-          // add new text to pos
-          let pos =
-            if String.IsNullOrEmpty edit.NewText then
-              pos
-            else
-              let lines = edit.NewText |> Text.removeCarriageReturn |> Text.lines
-              let deltaLine = lines.Length - 1
-              let deltaChar =
-                if edit.Range.Start.Line = pos.Line then
-                  let lastLine = lines |> Array.last
-                  lastLine.Length
-                else
-                  0
-              { Line = pos.Line + deltaLine; Character = pos.Line + deltaChar }
-          pos
-      ) pos
+    let recheckAfterAppliedEdits (doc: Document) (cursorBeforeEdits: Position) (edits: TextEdit list) (textAfterEdits: string) = async {
+      let! (doc, _) = Server.createUntitledDocument textAfterEdits (doc.Server |> Async.singleton)
+      use doc = doc
+      let pos = cursorBeforeEdits |> Cursor.afterEdits edits
+      let! inlayHint = doc |> tryGetInlayHintAt pos
+      Expect.isNone inlayHint "There shouldn't be a inlay hint after inserting inlay hint text edit"
+      let! codeFix = doc |> tryGetCodeFixAt pos
+      Expect.isNone codeFix "There shouldn't be a code fix after inserting code fix text edit"
+    }
       
     let rec validateInlayHint (doc, text, pos) (inlayHint: InlayHint option) = async {
       match expected with
@@ -1108,27 +1073,22 @@ module InlayHintAndExplicitType =
               actual
           Expect.equal actual label "Inlay Hint Label is incorrect"
 
-          let textEdits = inlayHint.TextEdits |> Option.defaultValue [||]
-          Expect.isEmpty textEdits "There should be no text edits"
+          let edits = inlayHint.TextEdits |> Option.defaultValue [||]
+          Expect.isEmpty edits "There should be no text edits"
       | Edit textAfterEdits ->
           let inlayHint = Expect.wantSome inlayHint "There should be a Inlay Hint"
-          let textEdits =
+          let edits =
             Expect.wantSome inlayHint.TextEdits "There should be TextEdits"
             |> List.ofArray
           let actual =
             text
-            |> TextEdits.apply textEdits
+            |> TextEdits.apply edits
             |> Flip.Expect.wantOk "TextEdits should succeed"
           let expected = textAfterEdits |> Text.trimTripleQuotation
           Expect.equal actual expected "Text after TextEdits is incorrect"
 
           if recheckAfterAppliedTextEdits then
-            let! (doc, _) = Server.createUntitledDocument actual (doc.Server |> Async.singleton)
-            use doc = doc
-            let! inlayHint = doc |> tryGetInlayHintAt pos
-            Expect.isNone inlayHint "There shouldn't be a inlay hint after inserting inlay hint text edit"
-            let! codeFix = doc |> tryGetCodeFixAt pos
-            Expect.isNone codeFix "There shouldn't be a code fix after inserting code fix text edit"
+            do! recheckAfterAppliedEdits doc pos edits actual
     }
     let validateCodeFix (doc: Document, text, pos) (codeFix: CodeAction option) = async {
       match expected with
@@ -1150,12 +1110,7 @@ module InlayHintAndExplicitType =
           Expect.equal actual expected "Text after TextEdits is incorrect"
 
           if recheckAfterAppliedTextEdits then
-            let! (doc, _) = Server.createUntitledDocument actual (doc.Server |> Async.singleton)
-            use doc = doc
-            let! inlayHint = doc |> tryGetInlayHintAt pos
-            Expect.isNone inlayHint "There shouldn't be a inlay hint after inserting inlay hint text edit"
-            let! codeFix = doc |> tryGetCodeFixAt pos
-            Expect.isNone codeFix "There shouldn't be a code fix after inserting code fix text edit"
+            do! recheckAfterAppliedEdits doc pos edits actual
     }
 
     checkInlayHintAndCodeFix server
