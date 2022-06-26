@@ -2710,7 +2710,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 match h.Kind with
                 | InlayHints.HintKind.Parameter -> Some true
                 | _ -> None
-              Data = None } )
+              Data = None })
 
         return success (Some hints)
       })

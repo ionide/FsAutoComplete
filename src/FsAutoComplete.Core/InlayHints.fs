@@ -23,6 +23,7 @@ open FsAutoComplete.Core.Workaround.ServiceParseTreeWalk
 let rec private traversePat (visitor: SyntaxVisitorBase<_>) origPath pat =
   let defaultTraverse = defaultTraversePat visitor origPath
   visitor.VisitPat(origPath, defaultTraverse, pat)
+
 and private defaultTraversePat visitor origPath pat =
   let path = SyntaxNode.SynPat pat :: origPath
 
@@ -43,9 +44,8 @@ and private defaultTraversePat visitor origPath pat =
       ps
       |> List.map (fun (_, _, pat) -> pat)
       |> List.tryPick (traversePat visitor path)
-  | SynPat.Typed (p, _ty, _) -> 
-      traversePat visitor path p
-      // no access to `traverseSynType` -> no traversing into `ty`
+  | SynPat.Typed (p, _ty, _) -> traversePat visitor path p
+  // no access to `traverseSynType` -> no traversing into `ty`
   | SynPat.Record (fieldPats = fieldPats) ->
     fieldPats
     |> List.map (fun (_, _, pat) -> pat)
@@ -502,28 +502,25 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
   | SyntaxNode.SynPat (SynPat.ArrayOrList _) :: _ ->
     // [x;y;z]
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.As _) :: SyntaxNode.SynPat (SynPat.Paren _) :: _ ->
-      Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _
-      when
-        rangeContainsPos pat.Range identStart
-        && rangeContainsPos headPat.Range identStart
-      ->
-      // let _ as value =
-      // ->
-      // let _ as value: int =
-      // (new `: int` belongs to let binding, NOT as pattern)
-      Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.As (lhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _
-      when
-        rangeContainsPos pat.Range identStart
-        && rangeContainsPos headPat.Range identStart
-      ->
-      // let value as _ =
-      // ->
-      // let (value: int) as _ =
-      // (`: int` belongs to as pattern, but let bindings tries to parse type annotation eagerly -> without parens let binding finished after `: int` -> as not pattern)
-      Parens.Required patternRange
+  | SyntaxNode.SynPat (SynPat.As _) :: SyntaxNode.SynPat (SynPat.Paren _) :: _ -> Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when
+    rangeContainsPos pat.Range identStart
+    && rangeContainsPos headPat.Range identStart
+    ->
+    // let _ as value =
+    // ->
+    // let _ as value: int =
+    // (new `: int` belongs to let binding, NOT as pattern)
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.As (lhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when
+    rangeContainsPos pat.Range identStart
+    && rangeContainsPos headPat.Range identStart
+    ->
+    // let value as _ =
+    // ->
+    // let (value: int) as _ =
+    // (`: int` belongs to as pattern, but let bindings tries to parse type annotation eagerly -> without parens let binding finished after `: int` -> as not pattern)
+    Parens.Required patternRange
   | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
     // _ as (value: int)
     Parens.Required patternRange
