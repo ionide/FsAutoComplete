@@ -1173,6 +1173,17 @@ let private inlayTypeHintAndAddExplicitTypeTests state =
         Nothing
 
     testList "hide type hint" [
+      testCaseAsync "CodeFix for func variable, but no type hint" <|
+        check server
+          """
+          let f$0 = fun a -> a + 1
+          """
+          (JustCodeFix
+            """
+            let f: int -> int = fun a -> a + 1
+            """
+          )
+
       //ENHANCEMENT: add cases when Inlay Type Hint should not trigger (like `let str = "..."`?)
     ]
   ])
