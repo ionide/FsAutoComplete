@@ -57,10 +57,6 @@ type LSPInlayHint =
     Pos: Types.Position
     Kind: InlayHintKind }
 
-type InlayHintData =
-  { TextDocument: TextDocumentIdentifier
-    Range: Types.Range }
-
 module Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
