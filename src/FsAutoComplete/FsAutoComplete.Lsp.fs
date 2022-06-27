@@ -1719,7 +1719,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         | actions ->
           return
             actions
-            |> List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value >> U2.Second)
+            |> List.map (
+              CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value
+              >> U2.Second
+            )
             |> List.toArray
             |> Some
       }
