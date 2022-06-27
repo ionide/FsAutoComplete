@@ -5,6 +5,7 @@ open System.IO
 open System.Threading
 open System.Diagnostics
 open FsAutoComplete
+open FsAutoComplete.Core
 open FsAutoComplete.LspHelpers
 open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
@@ -887,7 +888,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
            AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
            ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
            AddMissingInstanceMember.fix
-           AddExplicitTypeToParameter.fix tryGetParseResultsForFile
+           AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
            ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
            UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
            RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
@@ -991,7 +992,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                       { Legend =
                           createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
                         Range = Some(U2.First true)
-                        Full = Some(U2.First true) } } }
+                        Full = Some(U2.First true) }
+                  InlayHintProvider = Some { ResolveProvider = Some false } } }
         |> success
     }
 
@@ -2649,11 +2651,64 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           hints
           |> Array.map (fun h ->
             { Text = h.Text
-              InsertText = h.InsertText
+              InsertText =
+                match h.Insertions with
+                | None -> None
+                | Some inserts ->
+                  inserts
+                  |> Seq.filter (fun i -> i.Pos = h.Pos && i.Text <> ")" && i.Text <> "(")
+                  |> Seq.map (fun i -> i.Text)
+                  |> String.concat ""
+                  |> Some
               Pos = fcsPosToLsp h.Pos
               Kind = mapHintKind h.Kind })
 
         return success lspHints
+      })
+
+  override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
+    logger.info (
+      Log.setMessage "TextDocumentInlayHint Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+
+    p.TextDocument
+    |> x.fileHandler (fun fn tyRes lines ->
+      async {
+        let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+        let! hints = commands.InlayHints(lines, tyRes, fcsRange)
+
+        let hints: InlayHint[] =
+          hints
+          |> Array.map (fun h ->
+            { Position = fcsPosToLsp h.Pos
+              Label = InlayHintLabel.String h.Text
+              Kind =
+                match h.Kind with
+                | InlayHints.HintKind.Type -> Types.InlayHintKind.Type
+                | InlayHints.HintKind.Parameter -> Types.InlayHintKind.Parameter
+                |> Some
+              TextEdits =
+                match h.Insertions with
+                | None -> None
+                | Some insertions ->
+                  insertions
+                  |> Array.map (fun insertion ->
+                    { Range = fcsPosToProtocolRange insertion.Pos
+                      NewText = insertion.Text })
+                  |> Some
+              Tooltip = h.Tooltip |> Option.map (InlayHintTooltip.String)
+              PaddingLeft =
+                match h.Kind with
+                | InlayHints.HintKind.Type -> Some true
+                | _ -> None
+              PaddingRight =
+                match h.Kind with
+                | InlayHints.HintKind.Parameter -> Some true
+                | _ -> None
+              Data = None })
+
+        return success (Some hints)
       })
 
   member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =

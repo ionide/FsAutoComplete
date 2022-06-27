@@ -59,34 +59,50 @@ module Cursor =
     tryExtractIndex
     >> Option.defaultWith (fun _ -> failtest "No cursor")
 
+  /// Extracts first cursor marked with any of `markers`. Remaining cursors aren't touched
+  let tryExtractPositionMarkedWithAnyOf (markers: string[]) (text: string) =
+    let tryFindAnyCursorInLine (line: string) =
+      let markersInLine =
+        markers
+        |> Array.choose (fun marker ->
+            match line.IndexOf marker with
+            | -1 -> None
+            | column -> Some (marker, column)
+        )
+      match markersInLine with
+      | [||] -> None
+      | _ ->
+          let (marker, column) = markersInLine |> Array.minBy snd
+          let line = line.Substring(0, column) + line.Substring(column + marker.Length)
+          Some (marker, column, line)
+    // Note: Input `lines` gets mutated to remove cursor
+    let tryFindAnyCursor (lines: string[]) =
+      lines
+      |> Seq.mapi (fun i l -> (i,l))
+      |> Seq.tryPick (fun (i,line) -> 
+          tryFindAnyCursorInLine line 
+          |> Option.map (fun (marker, c, line) -> (marker, pos i c, line))
+         )
+      |> function
+          | None -> None
+          | Some (marker, p,line) -> 
+              lines.[p.Line] <- line
+              Some ((marker, p), lines)
+    
+    let lines = text |> Text.lines
+    match tryFindAnyCursor lines with
+    | None -> None
+    | Some ((marker, p), lines) ->
+        let text = lines |> String.concat "\n"
+        Some ((marker, p), text)
+
   /// Returns Position of first `$0` (`Cursor.Marker`) and the updated input text without the cursor marker.  
   /// Only the first `$0` is processed.
   /// 
   /// Note: Cursor Position is BETWEEN characters and might be outside of text range (cursor AFTER last character)
-  let tryExtractPosition (text: string) =
-    let tryFindCursorInLine (line: string) =
-      match line.IndexOf Marker with
-      | -1 -> None
-      | column ->
-          let line = line.Substring(0, column) + line.Substring(column + Marker.Length)
-          Some (column, line)
-    // Note: Input `lines` gets mutated to remove cursor
-    let tryFindCursor (lines: string[]) =
-      lines
-      |> Seq.mapi (fun i l -> (i,l))
-      |> Seq.tryPick (fun (i,line) -> tryFindCursorInLine line |> Option.map (fun (c, line) -> (pos i c, line)))
-      |> function
-          | None -> None
-          | Some (p,line) -> 
-              lines.[p.Line] <- line
-              Some (p, lines)
-    
-    let lines = text |> Text.lines
-    match tryFindCursor lines with
-    | None -> None
-    | Some (p, lines) ->
-        let text = lines |> String.concat "\n"
-        Some (p, text)
+  let tryExtractPosition =
+    tryExtractPositionMarkedWithAnyOf [| Marker |]
+    >> Option.map (fun ((_, pos), line) -> (pos, line))
   /// `tryExtractPosition`, but fails when there's no cursor
   let assertExtractPosition =
     tryExtractPosition
@@ -140,6 +156,96 @@ module Cursor =
     tryIndexOf pos
     >> Result.valueOr (failtestf "Invalid position: %s")
 
+  /// Calculates cursors position after all edits are applied.
+  /// 
+  /// When cursor inside a changed area:
+  /// * deleted: cursor moves to start of deletion:
+  ///   ```fsharp
+  ///   let foo = 42 $|+ $013 $|+ 123
+  ///   ```
+  ///   -> delete inside `$|`
+  ///   ```fsharp
+  ///   let foo = 42 $0+ 123
+  ///   ```
+  /// * inserted: cursor stays at start of insert
+  ///   ```fsharp
+  ///   let foo = 42 $0+ 123
+  ///   ```
+  ///   -> insert at cursor pos
+  ///   ```fsharp
+  ///   let foo = 42 $0+ 13 + 123
+  ///   ```
+  /// * changes: cursors moved to start of replacement
+  ///   ```fsharp
+  ///   let foo = 42 $|+ $013 $|+ 123
+  ///   ```
+  ///   -> replace inside `$|`
+  ///   ```fsharp
+  ///   let foo = 42 $0- 7 + 123
+  ///   ```
+  ///   -> like deletion
+  ///   * Implementation detail:  
+  ///     Replacement is considered: First delete (-> move cursor to front), then insert (-> cursor stays)
+  ///
+  /// Note: `edits` must be sorted by range!
+  let afterEdits (edits: TextEdit list) (pos: Position) =
+    edits
+    |> List.filter (fun edit -> edit.Range.Start < pos)
+    |> List.rev
+    |> List.fold (fun pos edit ->
+      // remove deleted range from pos
+      let pos =
+        if Range.isPosition edit.Range then
+          // just insert
+          pos
+        elif edit.Range |> Range.containsLoosely pos then
+          // pos inside edit -> fall to start of delete
+          edit.Range.Start
+        else
+          // everything to delete is before cursor
+          let (s,e) = edit.Range.Start, edit.Range.End
+          // always <= 0 (nothing gets inserted here)
+          let deltaLine = s.Line - e.Line
+          let deltaChar =
+            if e.Line < pos.Line then
+              // doesn't touch line of pos
+              0
+            else
+              - e.Character + s.Character
+          { Line = pos.Line + deltaLine; Character = pos.Character + deltaChar }
+        
+      // add new text to pos
+      let pos =
+        if System.String.IsNullOrEmpty edit.NewText then
+          // just delete
+          pos
+        elif pos <= edit.Range.Start then
+          // insert is after pos -> doesn't change cursor
+          // happens when cursor inside replacement -> cursor move to front of deletion
+          pos
+        else
+          let lines =
+            edit.NewText
+            |> Text.removeCarriageReturn
+            |> Text.lines
+          let deltaLine = lines.Length - 1
+          let deltaChar =
+            if edit.Range.Start.Line = pos.Line then
+              let lastLine = lines |> Array.last
+              if lines.Length = 1 then
+                // doesn't introduce new line
+                lastLine.Length
+              else
+                // inserts new line
+                - edit.Range.Start.Character + lastLine.Length
+            else
+              // doesn't touch line of pos
+              0
+          { Line = pos.Line + deltaLine; Character = pos.Character + deltaChar }
+
+      pos
+    ) pos
+
 module Cursors =
   /// For each cursor (`$0`) in text: return text with just that one cursor
   /// 
@@ -169,6 +275,27 @@ module Cursors =
     let poss = tps |> List.map fst
     (text, poss)
     
+
+  /// Like `extract`, but instead of just extracting Cursors marked with `Cursor.Marker` (`$0`),
+  /// this here extract all specified markers.
+  let extractWith (markers: string[]) (text: string) =
+    let rec collect poss text =
+      match Cursor.tryExtractPositionMarkedWithAnyOf markers text with
+      | None -> (text,poss)
+      | Some ((marker, pos), text) ->
+          let poss = (marker, pos) :: poss
+          collect poss text
+    let (text, cursors) = collect [] text
+    (text, cursors |> List.rev)
+  /// Like `extractWith`, but additional groups cursor positions by marker
+  let extractGroupedWith (markers: string[]) (text: string) =
+    let (text, cursors) = extractWith markers text
+    let cursors =
+      cursors
+      |> List.groupBy fst
+      |> List.map (fun (marker, poss) -> (marker, poss |> List.map snd))
+      |> Map.ofList
+    (text, cursors)
 
 
 module Text =
@@ -343,6 +470,14 @@ module TextEdits =
   let apply edits text =
     let edits = edits |> sortByRange |> List.rev
     List.fold (fun text edit -> text |> Result.bind (TextEdit.apply edit)) (Ok text) edits
+
+  /// `tryFindError` before `apply`
+  let applyWithErrorCheck edits text =
+    match tryFindError edits with
+    | Some error -> Error error
+    | None ->
+        text
+        |> apply edits
 
 module WorkspaceEdit =
   /// Extract `TextEdit[]` from either `DocumentChanges` or `Changes`.

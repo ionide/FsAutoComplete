@@ -1,4 +1,4 @@
-module private FsAutoComplete.Tests.CodeFixTests.AddExplicitTypeToParameterTests
+module private FsAutoComplete.Tests.CodeFixTests.AddExplicitTypeAnnotationTests
 
 open Expecto
 open Helpers
@@ -7,8 +7,8 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 
 let tests state =
-  serverTestList (nameof AddExplicitTypeToParameter) state defaultConfigDto None (fun server -> [
-    let selectCodeFix = CodeFix.withTitle AddExplicitTypeToParameter.title
+  serverTestList (nameof AddExplicitTypeAnnotation) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle AddExplicitTypeAnnotation.title
     testCaseAsync "can suggest explicit parameter for record-typed function parameters" <|
       CodeFix.check server
         """
@@ -178,6 +178,53 @@ let tests state =
           new(a: int, b) = A(a+b)
           member _.F() = a + 1
         """
+    testCaseAsync "can add type to function parameter" <|
+      CodeFix.check server
+        """
+        let map $0f v = f (v+1) + 1
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let map (f: int -> int) v = f (v+1) + 1
+        """
+    testCaseAsync "can add type to function member parameter" <|
+      CodeFix.check server
+        """
+        type A(a) =
+          member _.F(b, $0f) = f (a+b) + 1
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        type A(a) =
+          member _.F(b, f: int -> int) = f (a+b) + 1
+        """
+    testCaseAsync "can add type to function value" <|
+      CodeFix.check server
+        """
+        let $0f = fun a b -> a + b
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let f: int -> int -> int = fun a b -> a + b
+        """
+    testCaseAsync "doesn't trigger for function value with existing type annotation" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0f: int -> int -> int = fun a b -> a + b
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+    testCaseAsync "doesn't trigger for function parameter with existing type annotation" <|
+      CodeFix.checkNotApplicable server
+        """
+        let map ($0f: int -> int) v = f (v+1) + 1
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+
     testList "parens" [
       testCaseAsync "single param without parens -> add parens" <|
         CodeFix.check server
@@ -363,5 +410,105 @@ let tests state =
             ) =
             member _.F(b) = a + b
           """
+
+      testCaseAsync "emit type for optional parameter without option" <|
+        CodeFix.check server
+          """
+          type A =
+            static member F(?$0a) = a |> Option.map ((+) 1)
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          type A =
+            static member F(?a: int) = a |> Option.map ((+) 1)
+          """
+      testCaseAsync "adds parens to optional parameter" <|
+        CodeFix.check server
+          """
+          type A =
+            static member F?$0a = a |> Option.map ((+) 1)
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          type A =
+            static member F(?a: int) = a |> Option.map ((+) 1)
+          """
+      testCaseAsync "adds parens to ident in match case" <|
+        CodeFix.check server
+          """
+          match 4 with
+          | $0value -> ()
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          match 4 with
+          | (value: int) -> ()
+          """
+
+      testCaseAsync "doesn't add parens to let" <|
+        CodeFix.check server
+          """
+          let $0value = 42
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          let value: int = 42
+          """
+      testCaseAsync "adds parens to let!" <|
+        CodeFix.check server
+          """
+          async {
+            let! $0value = async { return 4 }
+            ()
+          } |> ignore
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          async {
+            let! (value: int) = async { return 4 }
+            ()
+          } |> ignore
+          """
+      testCaseAsync "doesn't add parens to use" <|
+        CodeFix.check server
+          """
+          open System
+          let d = { new IDisposable with
+              member _.Dispose () = ()
+          }
+          let _ =
+              use $0value = d
+              ()
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          open System
+          let d = { new IDisposable with
+              member _.Dispose () = ()
+          }
+          let _ =
+              use value: IDisposable = d
+              ()
+          """
+      testCaseAsync "doesn't trigger for use!" <|
+        CodeFix.checkNotApplicable server
+          """
+          open System
+          let d = { new IDisposable with
+              member _.Dispose () = ()
+          }
+          async {
+              use! $0value = async { return d }
+              ()
+          } |> ignore
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
     ]
   ])

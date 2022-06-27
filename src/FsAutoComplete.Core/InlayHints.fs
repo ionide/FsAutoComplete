@@ -10,16 +10,62 @@ open FSharp.UMX
 open System.Linq
 open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Text.Range
+open FsAutoComplete.Core.Workaround.ServiceParseTreeWalk
+
+/// `traversePat`from `SyntaxTraversal.Traverse`
+///
+/// Reason for extra function:
+/// * can be used to traverse when traversal isn't available via `defaultTraverse` (for example: in `VisitExpr`, and want traverse a `SynPat`)
+/// * visits `SynPat.Record(fieldPats)`
+///
+/// Note: doesn't visit `SynPat.Typed(targetType)`: requires traversal into `SynType` (`SynPat.Typed(pat)` gets visited!)
+let rec private traversePat (visitor: SyntaxVisitorBase<_>) origPath pat =
+  let defaultTraverse = defaultTraversePat visitor origPath
+  visitor.VisitPat(origPath, defaultTraverse, pat)
+
+and private defaultTraversePat visitor origPath pat =
+  let path = SyntaxNode.SynPat pat :: origPath
+
+  match pat with
+  | SynPat.Paren (p, _) -> traversePat visitor path p
+  | SynPat.As (p1, p2, _)
+  | SynPat.Or (p1, p2, _, _) ->
+    [ p1; p2 ]
+    |> List.tryPick (traversePat visitor path)
+  | SynPat.Ands (ps, _)
+  | SynPat.Tuple (_, ps, _)
+  | SynPat.ArrayOrList (_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
+  | SynPat.Attrib (p, _, _) -> traversePat visitor path p
+  | SynPat.LongIdent (argPats = args) ->
+    match args with
+    | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat visitor path)
+    | SynArgPats.NamePatPairs (ps, _) ->
+      ps
+      |> List.map (fun (_, _, pat) -> pat)
+      |> List.tryPick (traversePat visitor path)
+  | SynPat.Typed (p, _ty, _) -> traversePat visitor path p
+  // no access to `traverseSynType` -> no traversing into `ty`
+  | SynPat.Record (fieldPats = fieldPats) ->
+    fieldPats
+    |> List.map (fun (_, _, pat) -> pat)
+    |> List.tryPick (traversePat visitor path)
+  | _ -> None
 
 type HintKind =
   | Parameter
   | Type
 
+type HintInsertion = { Pos: Position; Text: string }
+
 type Hint =
-  { Text: string
-    InsertText: string option
+  { IdentRange: Range
+    Kind: HintKind
     Pos: Position
-    Kind: HintKind }
+    Text: string
+    Insertions: HintInsertion[] option
+    //ENHANCEMENT: allow xml doc
+    Tooltip: string option }
 
 let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResults, identText: Range) =
   option {
@@ -72,10 +118,10 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
 
               pats |> List.tryPick exprFunc
 
-          override _.VisitPat(_path, defaultTraverse, pat) =
+          override visitor.VisitPat(path, defaultTraverse, pat) =
             match pat with
             | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
-            | _ -> defaultTraverse pat
+            | _ -> defaultTraversePat visitor path pat
 
           override _.VisitBinding(_path, defaultTraverse, binding) =
             match binding with
@@ -95,28 +141,28 @@ let private getFirstPositionAfterParen (str: string) startPos =
 
 let private maxHintLength = 30
 
-let truncated (s: string) =
-  if s.Length > maxHintLength then
-    s.Substring(0, maxHintLength) + "..."
+let inline private shouldTruncate (s: string) = s.Length > maxHintLength
+
+let inline private tryTruncate (s: string) =
+  if shouldTruncate s then
+    s.Substring(0, maxHintLength) + "..." |> Some
   else
-    s
+    None
 
-let private createParamHint (range: Range) (paramName: string) =
-  let format p = p + " ="
+let truncated (s: string) = tryTruncate s |> Option.defaultValue s
 
-  { Text = format (truncated paramName)
-    InsertText = None
-    Pos = range.Start
-    Kind = Parameter }
+let private createParamHint (identRange: Range) (paramName: string) =
+  let (truncated, tooltip) =
+    match tryTruncate paramName with
+    | None -> (paramName, None)
+    | Some truncated -> (truncated, Some paramName)
 
-let private createTypeHint (range: Range) (ty: FSharpType) (displayContext: FSharpDisplayContext) =
-  let ty = ty.Format displayContext
-  let format ty = ": " + ty
-
-  { Text = format (truncated ty)
-    InsertText = Some(format ty)
-    Pos = range.End
-    Kind = Type }
+  { IdentRange = identRange
+    Pos = identRange.Start
+    Kind = Parameter
+    Text = truncated + " ="
+    Insertions = None
+    Tooltip = tooltip }
 
 module private ShouldCreate =
   let private isNotWellKnownName =
@@ -314,46 +360,501 @@ module private ShouldCreate =
     && (not (isParamNamePostfixOfFuncName func p.DisplayName))
 
 
-let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Async<Hint[]> =
+type TypeName = string
+type TypeNameForAnnotation = TypeName
+
+type SpecialRule =
+  /// For Optional: `?v` -> `?v: int`, NOT `v: int option`
+  /// And parens must include optional, not just `v`
+  | RemoveOptionFromType
+
+type SpecialRules = SpecialRule list
+
+[<RequireQualifiedAccess>]
+type Parens =
+  | Forbidden
+  /// Technically `Optional` too: Usually additional parens are ok
+  ///
+  /// Note: `additionalParens` are inside of existing parens:
+  /// `(|ident|)`
+  /// * `()`: existing parens
+  /// * `||`: additional parens location
+  | Exist of additionalParens: Range
+  | Optional of Range
+  | Required of Range
+
+type MissingExplicitType =
+  { Ident: Range
+    InsertAt: Position
+    Parens: Parens
+    SpecialRules: SpecialRules }
+
+type MissingExplicitType with
+  /// <returns>
+  /// * type name
+  /// * type name formatted with `SpecialRules`
+  ///   -> to use as type annotation
+  /// </returns>
+  member x.FormatType(ty: FSharpType, displayContext: FSharpDisplayContext) : TypeName * TypeNameForAnnotation =
+    let typeName = ty.Format displayContext
+
+    let anno =
+      if x.SpecialRules
+         |> List.contains RemoveOptionFromType then
+        // Optional parameter:
+        // `static member F(?a) =` -> `: int`, NOT `: int option`
+        if typeName.EndsWith " option" then
+          typeName.Substring(0, typeName.Length - " option".Length)
+        else
+          typeName
+      else
+        typeName
+
+    (typeName, anno)
+
+  member x.CreateEdits(typeForAnnotation) =
+    [| match x.Parens with
+       | Parens.Required range -> { Pos = range.Start; Text = "(" }
+       | _ -> ()
+
+       { Pos = x.InsertAt; Text = ": " }
+       { Pos = x.InsertAt
+         Text = typeForAnnotation }
+
+       match x.Parens with
+       | Parens.Required range -> { Pos = range.End; Text = ")" }
+       | _ -> () |]
+
+  member x.TypeAndEdits(ty: FSharpType, displayContext: FSharpDisplayContext) =
+    let (ty, tyForAnntotation) = x.FormatType(ty, displayContext)
+    let edits = x.CreateEdits(tyForAnntotation)
+    (ty, edits)
+
+  /// Note: No validation of `mfv`!
+  member x.TypeAndEdits(mfv: FSharpMemberOrFunctionOrValue, displayContext: FSharpDisplayContext) =
+    x.TypeAndEdits(mfv.FullType, displayContext)
+
+
+/// Note: Missing considers only directly typed, not parently (or ancestorly) typed:
+/// ```fsharp
+/// let (value: int, _) = (1,2)
+/// //   ^^^^^ directly typed -> Exists
+/// let (value,_): int*int = (1,2)
+/// //             ^^^ parently typed -> Missing
+/// ```
+[<RequireQualifiedAccess>]
+type ExplicitType =
+  /// in for loop (only indent allowed -- nothing else (neither type nor parens))
+  | Invalid
+  | Exists
+  | Missing of MissingExplicitType
+  | Debug of string
+
+type ExplicitType with
+  member x.TryGetTypeAndEdits(ty: FSharpType, displayContext: FSharpDisplayContext) =
+    match x with
+    | ExplicitType.Missing data -> data.TypeAndEdits(ty, displayContext) |> Some
+    | _ -> None
+
+/// Type Annotation must be directly for identifier, not somewhere up the line:
+/// `v: int` -> directly typed
+/// `(v,_): int*int` -> parently typed
+///
+/// Still considered directly typed:
+/// * Parentheses: `(v): int`
+/// * Attributes: `([<Attr>]v): int`
+let rec private isDirectlyTyped (identStart: Position) (path: SyntaxVisitorPath) =
+  //ENHANCEMENT: handle SynExpr.Typed? -> not at binding, but usage
+  match path with
+  | [] -> false
+  | SyntaxNode.SynPat (SynPat.Typed (pat = pat)) :: _ when rangeContainsPos pat.Range identStart -> true
+  | SyntaxNode.SynPat (SynPat.Paren _) :: path -> isDirectlyTyped identStart path
+  | SyntaxNode.SynPat (SynPat.Attrib (pat = pat)) :: path when rangeContainsPos pat.Range identStart ->
+    isDirectlyTyped identStart path
+  | SyntaxNode.SynBinding (SynBinding (headPat = headPat; returnInfo = Some (SynBindingReturnInfo _))) :: _ when
+    rangeContainsPos headPat.Range identStart
+    ->
+    true
+  | SyntaxNode.SynExpr (SynExpr.Paren _) :: path -> isDirectlyTyped identStart path
+  | SyntaxNode.SynExpr (SynExpr.Typed (expr = expr)) :: _ when rangeContainsPos expr.Range identStart -> true
+  | _ -> false
+
+/// Note: FULL range of pattern -> everything in parens
+///   For `SynPat.Named`: Neither `range` nor `ident.idRange` span complete range: Neither includes Accessibility:
+///   `let private (a: int)` is not valid, must include private: `let (private a: int)`
+let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: Position) (path: SyntaxVisitorPath) =
+  match path with
+  | SyntaxNode.SynPat (SynPat.Paren _) :: _ ->
+    // (x)
+    Parens.Exist patternRange
+  | SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when rangeContainsPos headPat.Range identStart ->
+    // let x =
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.Tuple(isStruct = true)) :: _ ->
+    // struct (x,y)
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.Tuple _) :: SyntaxNode.SynPat (SynPat.Paren _) :: _ ->
+    // (x,y)
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.Tuple _) :: _ ->
+    // x,y
+    Parens.Required patternRange
+  | SyntaxNode.SynPat (SynPat.ArrayOrList _) :: _ ->
+    // [x;y;z]
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.As _) :: SyntaxNode.SynPat (SynPat.Paren _) :: _ -> Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when
+    rangeContainsPos pat.Range identStart
+    && rangeContainsPos headPat.Range identStart
+    ->
+    // let _ as value =
+    // ->
+    // let _ as value: int =
+    // (new `: int` belongs to let binding, NOT as pattern)
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.As (lhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when
+    rangeContainsPos pat.Range identStart
+    && rangeContainsPos headPat.Range identStart
+    ->
+    // let value as _ =
+    // ->
+    // let (value: int) as _ =
+    // (`: int` belongs to as pattern, but let bindings tries to parse type annotation eagerly -> without parens let binding finished after `: int` -> as not pattern)
+    Parens.Required patternRange
+  | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
+    // _ as (value: int)
+    Parens.Required patternRange
+  | SyntaxNode.SynPat (SynPat.As (lhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
+    // value: int as _
+    // ^^^^^^^^^^ unlike rhs this here doesn't require parens...
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.Record _) :: _ ->
+    // { Value=value }
+    Parens.Optional patternRange
+  | SyntaxNode.SynPat (SynPat.LongIdent(argPats = SynArgPats.NamePatPairs (range = range))) :: _ when
+    rangeContainsPos range identStart
+    ->
+    // U (Value=value)
+    //   ^           ^
+    //   must exist to be valid
+    Parens.Optional patternRange
+  | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = true)) :: _ ->
+    // use! x =
+    // Note: Type is forbidden too...
+    Parens.Forbidden
+  | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = false)) :: _ ->
+    // let! x =
+    Parens.Required patternRange
+  | SyntaxNode.SynExpr (SynExpr.ForEach _) :: _ ->
+    // for i in [1..4] do
+    Parens.Optional patternRange
+  | []
+  | _ -> Parens.Required patternRange
+
+/// Gets range of `SynPat.Named`
+///
+/// Issue with range of `SynPat.Named`:
+/// `pat.range` only covers ident (-> `= ident.idRange`),
+/// not `accessibility`.
+///
+/// Note: doesn't handle when accessibility is on prev line
+let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
+  match pat with
+  | SynPat.Named(accessibility = None) -> pat.Range
+  | SynPat.Named (ident = ident; accessibility = Some (access)) ->
+    maybe {
+      let start = ident.idRange.Start
+      let! line = text.GetLine start
+
+      let access = access.ToString().ToLowerInvariant().AsSpan()
+      // word before ident must be access
+      let pre = line.AsSpan(0, start.Column)
+
+      match pre.LastIndexOf(access) with
+      | -1 -> return! None
+      | c ->
+        // must be directly before ident
+        let word = pre.Slice(c).TrimEnd()
+
+        if word.Length = access.Length then
+          let start = Position.mkPos start.Line c
+
+          let range =
+            let range = ident.idRange
+            Range.mkRange range.FileName start range.End
+
+          return range
+        else
+          return! None
+    }
+    |> Option.defaultValue pat.Range
+  | _ -> failwith "Pattern must be Named!"
+
+/// Note: (deliberately) fails when `pat` is neither `Named` nor `OptionalVal`
+let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: SyntaxVisitorPath) =
+  match pat with
+  | SynPat.Named (ident = ident) ->
+    // neither `range`, not `pat.Range` includes `accessibility`...
+    // `let private (a: int)` is not valid, must include private: `let (private a: int)`
+    let patternRange = rangeOfNamedPat text pat
+    let identStart = ident.idRange.Start
+    getParensForPatternWithIdent patternRange identStart path
+  | SynPat.OptionalVal (ident = ident) ->
+    let patternRange = pat.Range
+    let identStart = ident.idRange.Start
+    getParensForPatternWithIdent patternRange identStart path
+  | _ -> failwith "Pattern must be Named or OptionalVal!"
+
+let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) : ExplicitType option =
+  SyntaxTraversal.Traverse(
+    pos,
+    ast,
+    { new SyntaxVisitorBase<_>() with
+        member x.VisitExpr(path, traverseSynExpr, defaultTraverse, expr) =
+          match expr with
+          // special case:
+          // for loop:
+          // for i = 1 to 3 do
+          //     ^ -> just Ident (neither SynPat nor SynSimplePat)
+          //     -> no type allowed (not even parens)...
+          | SynExpr.For (ident = ident) when rangeContainsPos ident.idRange pos -> ExplicitType.Invalid |> Some
+          | SynExpr.Lambda(parsedData = Some (args, body)) ->
+            // original visitor walks down `SynExpr.Lambda(args; body)`
+            // Issue:
+            //  `args` are `SynSimplePats` -> no complex pattern
+            //  When pattern: is in body. In `args` then generated Identifier:
+            //  * `let f1 = fun v -> v + 1`
+            //    -> `v` is in `args` (-> SynSimplePat)
+            //  * `let f2 = fun (Value v) -> v + 1`
+            //    -> compiler generated `_arg1` in `args`,
+            //    and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
+            // -> unify by looking into `parsedData` (-> args & body):
+            //    -> `parsedData |> fst` contains `args` as `SynPat`
+            //TODO: always correct?
+            let arg =
+              args
+              |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
+
+            if arg |> Option.isSome then
+              let pat = arg.Value
+              traversePat x (SyntaxNode.SynExpr(expr) :: path) pat
+            elif rangeContainsPos body.Range pos then
+              traverseSynExpr body
+            else
+              None
+          | _ -> defaultTraverse expr
+
+        member visitor.VisitPat(path, defaultTraverse, pat) =
+          let invalidPositionForTypeAnnotation (pos: Position) (path: SyntaxNode list) =
+            match path with
+            | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = true)) :: _ ->
+              // use! value =
+              true
+            | _ -> false
+
+          //ENHANCEMENT: differentiate between directly typed and parently typed?
+          //        (maybe even further ancestorly typed?)
+          // ```fsharp
+          // let (a: int,b) = (1,2)
+          // //      ^^^ directly typed
+          // let (a,b): int*int = (1,2)
+          // //         ^^^ parently typed
+          // ```
+          // currently: only directly typed is typed
+          match pat with
+          // no simple way out: Range for `SynPat.LongIdent` doesn't cover full pats (just ident)
+          // see dotnet/fsharp#13115
+          // | _ when not (rangeContainsPos pat.Range pos) -> None
+          | SynPat.Named (ident = ident) when
+            rangeContainsPos ident.idRange pos
+            && invalidPositionForTypeAnnotation pos path
+            ->
+            ExplicitType.Invalid |> Some
+          | SynPat.Named (ident = ident; isThisVal = false) when rangeContainsPos ident.idRange pos ->
+            let typed = isDirectlyTyped ident.idRange.Start path
+
+            if typed then
+              ExplicitType.Exists |> Some
+            else
+              let parens = getParensForIdentPat text pat path
+
+              ExplicitType.Missing
+                { Ident = ident.idRange
+                  InsertAt = ident.idRange.End
+                  Parens = parens
+                  SpecialRules = [] }
+              |> Some
+          | SynPat.OptionalVal (ident = ident) when rangeContainsPos ident.idRange pos ->
+            let typed = isDirectlyTyped ident.idRange.Start path
+
+            if typed then
+              ExplicitType.Exists |> Some
+            else
+              let parens = getParensForIdentPat text pat path
+
+              ExplicitType.Missing
+                { Ident = ident.idRange
+                  InsertAt = ident.idRange.End
+                  Parens = parens
+                  SpecialRules = [ RemoveOptionFromType ]
+                //              ^^^^^^^^^^^^^^^^^^^^
+                //              `?v: int`, NOT `?v: int option`
+                }
+              |> Some
+          | _ -> defaultTraversePat visitor path pat
+
+        member _.VisitSimplePats(path, pats) =
+          // SynSimplePats at:
+          // * Primary ctor:
+          //    * SynMemberDefn.ImplicitCtor.ctorArgs
+          //    * SynTypeDefnSimpleRepr.General.implicitCtorSynPats
+          // * Lambda: SynExpr.Lambda.args
+          //   * issue: might or might not be actual identifier
+          //      * `let f1 = fun v -> v + 1`
+          //         -> `v` is in `args` (-> SynSimplePat)
+          //      * `let f2 = fun (Value v) -> v + 1`
+          //        -> compiler generated `_arg1` in `args`,
+          //           and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
+          maybe {
+            let! pat =
+              pats
+              |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
+
+            let rec tryGetIdent pat =
+              match pat with
+              | SynSimplePat.Id (ident = ident) when rangeContainsPos ident.idRange pos -> Some pat
+              | SynSimplePat.Attrib (pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
+              | SynSimplePat.Typed (pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
+              | _ -> None
+
+            let! ident = tryGetIdent pat
+
+            match ident with
+            | SynSimplePat.Id(isCompilerGenerated = false) ->
+              let rec isTyped =
+                function
+                | SynSimplePat.Typed _ -> true
+                | SynSimplePat.Id _ -> false
+                | SynSimplePat.Attrib (pat = pat) -> isTyped pat
+
+              let typed = isTyped pat
+
+              if typed then
+                return ExplicitType.Exists
+              else
+                let isCtor =
+                  path
+                  |> List.tryHead
+                  |> Option.map (function
+                    // normal ctor in type: `type A(v) = ...`
+                    | SyntaxNode.SynMemberDefn (SynMemberDefn.ImplicitCtor _) -> true
+                    //TODO: when? example?
+                    | SyntaxNode.SynTypeDefn (SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some (ctorPats))))) when
+                      rangeContainsPos ctorPats.Range pos
+                      ->
+                      true
+                    | _ -> false)
+                  |> Option.defaultValue false
+
+                if isCtor then
+                  return
+                    ExplicitType.Missing
+                      { Ident = ident.Range
+                        InsertAt = ident.Range.End
+                        Parens = Parens.Forbidden
+                        SpecialRules = [] }
+                else
+                  // lambda
+                  return! None
+            | _ -> return! None
+          } }
+  )
+
+/// Note: No exhausting check. Doesn't check for:
+/// * is already typed (-> done by getting `ExplicitType`)
+/// * Filters like excluding functions (vs. lambda functions)
+/// * `mfv.IsFromDefinition`
+///
+/// `allowFunctionValues`: `let f = fun a b -> a + b`
+/// -> enabled: `f` is target
+/// Note: NOT actual functions with direct parameters:
+/// `let f a b = a + b` -> `f` isn't target
+/// Note: can be parameters too:
+/// `let map f v = f v` -> `f` is target
+let isPotentialTargetForTypeAnnotation
+  (allowFunctionValues: bool)
+  (symbolUse: FSharpSymbolUse, mfv: FSharpMemberOrFunctionOrValue)
+  =
+  //ENHANCEMENT: extract settings
+  (mfv.IsValue
+   || (allowFunctionValues && mfv.IsFunction))
+  && not (
+    mfv.IsMember
+    || mfv.IsMemberThisValue
+    || mfv.IsConstructorThisValue
+    || PrettyNaming.IsOperatorDisplayName mfv.DisplayName
+  )
+
+let tryGetDetailedExplicitTypeInfo
+  (isValidTarget: FSharpSymbolUse * FSharpMemberOrFunctionOrValue -> bool)
+  (text: NamedText, parseAndCheck: ParseAndCheckResults)
+  (pos: Position)
+  =
+  maybe {
+    let! line = text.GetLine pos
+    let! symbolUse = parseAndCheck.TryGetSymbolUse pos line
+
+    match symbolUse.Symbol with
+    | :? FSharpMemberOrFunctionOrValue as mfv when isValidTarget (symbolUse, mfv) ->
+      let! explTy = tryGetExplicitTypeInfo (text, parseAndCheck.GetAST) pos
+      return (symbolUse, mfv, explTy)
+    | _ -> return! None
+  }
+
+let private tryCreateTypeHint (explicitType: ExplicitType) (ty: FSharpType) (displayContext: FSharpDisplayContext) =
+  match explicitType with
+  | ExplicitType.Missing data ->
+    let (ty, tyForAnno) = data.FormatType(ty, displayContext)
+
+    let (truncated, tooltip) =
+      match tryTruncate ty with
+      | None -> (ty, None)
+      | Some truncated -> (truncated, Some ty)
+
+    { IdentRange = data.Ident
+      Pos = data.InsertAt
+      Kind = Type
+      // TODO: or use tyForAnno?: `?value: int`, but type is `int option`
+      Text = ": " + truncated
+      Insertions = Some <| data.CreateEdits tyForAnno
+      Tooltip = tooltip }
+    |> Some
+  | _ -> None
+
+let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: Range) : Async<Hint[]> =
   asyncResult {
-    let parseFileResults, checkFileResults = p.GetParseResults, p.GetCheckResults
     let! cancellationToken = Async.CancellationToken
 
     let symbolUses =
-      checkFileResults.GetAllUsesOfAllSymbolsInFile(cancellationToken)
-      |> Seq.filter (fun su -> Range.rangeContainsRange range su.Range)
-      |> Seq.toList
+      parseAndCheck.GetCheckResults.GetAllUsesOfAllSymbolsInFile(cancellationToken)
+      |> Seq.filter (fun su -> rangeContainsRange range su.Range)
 
     let typeHints = ImmutableArray.CreateBuilder()
     let parameterHints = ImmutableArray.CreateBuilder()
 
-    let isValidForTypeHint (funcOrValue: FSharpMemberOrFunctionOrValue) (symbolUse: FSharpSymbolUse) =
-      let isLambdaIfFunction =
-        funcOrValue.IsFunction
-        && parseFileResults.IsBindingALambdaAtPosition symbolUse.Range.Start
-
-      let isTypedPat (r: Range) =
-        parseFileResults.IsTypeAnnotationGivenAtPositionPatched r.Start
-
-      (funcOrValue.IsValue || isLambdaIfFunction)
-      && not (isTypedPat symbolUse.Range)
-      && symbolUse.IsFromDefinition
-      && not funcOrValue.IsMember
-      && not funcOrValue.IsMemberThisValue
-      && not funcOrValue.IsConstructorThisValue
-      && not (PrettyNaming.IsOperatorDisplayName funcOrValue.DisplayName)
-
     for symbolUse in symbolUses do
       match symbolUse.Symbol with
-      | :? FSharpMemberOrFunctionOrValue as funcOrValue when isValidForTypeHint funcOrValue symbolUse ->
-        let hint =
-          createTypeHint symbolUse.Range funcOrValue.ReturnParameter.Type symbolUse.DisplayContext
-
-        typeHints.Add(hint)
+      | :? FSharpMemberOrFunctionOrValue as mfv when
+        symbolUse.IsFromDefinition
+        && isPotentialTargetForTypeAnnotation false (symbolUse, mfv)
+        ->
+        tryGetExplicitTypeInfo (text, parseAndCheck.GetAST) symbolUse.Range.Start
+        |> Option.bind (fun explTy -> tryCreateTypeHint explTy mfv.FullType symbolUse.DisplayContext)
+        |> Option.iter typeHints.Add
 
       | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
         let appliedArgRangesOpt =
-          parseFileResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
+          parseAndCheck.GetParseResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
 
         match appliedArgRangesOpt with
         | None -> ()
@@ -378,7 +879,6 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
               if ShouldCreate.paramHint func definitionArg appliedArgText then
                 let hint = createParamHint appliedArgRange definitionArgName
                 parameterHints.Add(hint)
-
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
@@ -387,10 +887,10 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
           getFirstPositionAfterParen (text.Lines.[line].ToString()) (endPosForMethod.Column)
 
         let tupledParamInfos =
-          parseFileResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)
+          parseAndCheck.GetParseResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)
 
         let appliedArgRanges =
-          parseFileResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
+          parseAndCheck.GetParseResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
 
         match tupledParamInfos, appliedArgRanges with
         | None, None -> ()
@@ -430,6 +930,7 @@ let provideHints (text: NamedText, p: ParseAndCheckResults, range: Range) : Asyn
             if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
               let hint = createParamHint appliedArgRange definitionArg.DisplayName
               parameterHints.Add(hint)
+
       | _ -> ()
 
     let typeHints = typeHints.ToImmutableArray()

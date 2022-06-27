@@ -41,7 +41,7 @@ module private CodeFix =
       CodeFix.checkNotApplicable
         server
         """
-        let a$0 = 42
+        l$0et a = 42
         a + 42
         """
         ignore

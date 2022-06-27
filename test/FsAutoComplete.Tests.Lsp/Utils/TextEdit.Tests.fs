@@ -9,6 +9,8 @@ open Utils.Utils
 
 let private logger = Expecto.Logging.Log.create (sprintf "%s.%s" (nameof Utils.Tests) (nameof Utils.TextEdit))
 let inline private pos line column: Position = { Line = line; Character = column }
+let inline private range start fin = { Start = start; End = fin}
+let inline private posRange pos = range pos pos
 let inline private (!-) text = Text.trimTripleQuotation text
 
 module private Cursor =
@@ -202,6 +204,18 @@ printfn "Result=%i" b
           text |> assertTextIs expected
       ]
     ]
+  ]
+
+  let private tryExtractPositionMarkedWithAnyOfTests = testList (nameof Cursor.tryExtractPositionMarkedWithAnyOf) [
+    testCase "exact first of many cursors" <| fun _ ->
+      let text = "let $Avalue$B = $C42"
+      let actual = 
+        text
+        |> Cursor.tryExtractPositionMarkedWithAnyOf [|"$B"; "$C"; "$A"|]
+      let expected = Some (("$A", pos 0 4), "let value$B = $C42")
+
+      actual
+      |> Expect.equal "should be correct marker" expected
   ]
   
   let private tryExtractPositionTests = testList (nameof Cursor.tryExtractPosition) [
@@ -943,13 +957,366 @@ $0printfn "$0Result=%i" b$0
     ]
   ]
 
+  let afterEditsTests = testList (nameof Cursor.afterEdits) [
+    testCase "doesn't move cursor when insert after cursor in different line" <| fun _ ->
+      let cursor = pos 1 2
+      let edits = [
+        {
+          Range = posRange (pos 2 5)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+    testCase "doesn't move cursor when remove after cursor in different line" <| fun _ ->
+      let cursor = pos 1 2
+      let edits = [
+        {
+          Range = range (pos 2 5) (pos 3 4)
+          NewText = ""
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+    testCase "doesn't move cursor when replace after cursor in different line" <| fun _ ->
+      let cursor = pos 1 2
+      let edits = [
+        {
+          Range = range (pos 2 5) (pos 3 4)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+
+    testCase "doesn't move cursor when insert before cursor in different line and just inside line" <| fun _ ->
+      let cursor = pos 2 2
+      let edits = [
+        {
+          Range = posRange (pos 1 5)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+    testCase "doesn't move cursor when remove before cursor in different line and just inside line" <| fun _ ->
+      let cursor = pos 2 2
+      let edits = [
+        {
+          Range = range (pos 1 5) (pos 1 7)
+          NewText = ""
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+    testCase "doesn't move cursor when replace before cursor in different line and just inside line" <| fun _ ->
+      let cursor = pos 2 2
+      let edits = [
+        {
+          Range = range (pos 1 5) (pos 1 7)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+
+    testCase "moves cursor down a line when inserting new line before cursor in different line" <| fun _ ->
+      let cursor = pos 2 2
+      let edits = [
+        {
+          Range = posRange (pos 1 5)
+          NewText = "foo\nbar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move down a line" { cursor with Line = cursor.Line + 1 }
+    testCase "moves cursor up a line when removing line before cursor in different line" <| fun _ ->
+      let cursor = pos 3 2
+      let edits = [
+        {
+          Range = range (pos 1 5) (pos 2 4)
+          NewText = ""
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move up a line" { cursor with Line = cursor.Line - 1 }
+
+    testCase "moves cursor up a line when removing a line and inserting inside line before cursor in different line" <| fun _ ->
+      let cursor = pos 3 2
+      let edits = [
+        {
+          Range = range (pos 1 5) (pos 2 4)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move up a line" { cursor with Line = cursor.Line - 1 }
+    testCase "doesn't move cursor when removing a line and inserting a line before cursor in different line" <| fun _ ->
+      let cursor = pos 3 2
+      let edits = [
+        {
+          Range = range (pos 1 5) (pos 2 4)
+          NewText = "foo\nbar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should not move" cursor
+    testCase "moves cursor down when removing a line and inserting two lines before cursor in different line" <| fun _ ->
+      let cursor = pos 3 2
+      let edits = [
+        {
+          Range = range (pos 1 5) (pos 2 4)
+          NewText = "foo\nbar\nbaz"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move down a line" { cursor with Line = cursor.Line + 1 }
+
+    testCase "moves cursor back when inserting inside same line in front of cursor" <| fun _ ->
+      let cursor = pos 3 2
+      let edits = [
+        {
+          Range = posRange (pos 3 1)
+          NewText = "foo"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move back" { cursor with Character = cursor.Character + 3 }
+    testCase "moves cursor forward when deleting inside same line in front of cursor" <| fun _ ->
+      let cursor = pos 3 7
+      let edits = [
+        {
+          Range = range (pos 3 2) (pos 3 5)
+          NewText = ""
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move forward" { cursor with Character = 4 }
+
+    testCase "moves cursor forward and up when deleting inside and pre same line in front of cursor" <| fun _ ->
+      let cursor = pos 3 7
+      let edits = [
+        {
+          Range = range (pos 2 2) (pos 3 5)
+          NewText = ""
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move forward and up" (pos 2 4) 
+
+    
+    testCase "moves cursor to front of delete when cursor inside" <| fun _ ->
+      let cursor = pos 3 7
+      let edits = [
+        {
+          Range = range (pos 2 2) (pos 3 10)
+          NewText = ""
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move to start of delete" (pos 2 2) 
+
+    testCase "cursor stays when insert at cursor position" <| fun _ ->
+      let cursor = pos 2 5
+      let edits = [
+        {
+          Range = posRange (pos 2 5)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move to start of delete" cursor 
+
+    testCase "cursor moves to front when replacement with cursor inside" <| fun _ ->
+      let cursor = pos 3 7
+      let edits = [
+        {
+          Range = range (pos 2 3) (pos 5 2)
+          NewText = "foo bar"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move to start of delete" { Line = 2; Character = 3 } 
+
+    testList "multiple edits" [
+      let data = lazy (
+        let textWithCursors =
+          """
+          let $1foo$1 = 42
+          let $2bar = "baz"
+
+          let $2f a $3b =
+            (a +$3 b) * 2$4
+          let$4 inline$5 $6in$0cr$6 v = v + 1
+          let inline decr v = v - 1
+
+          let $7res$7 = f (incr 4) (decr 3)
+          """
+          // match res with
+          // | _ when res < 0 -> failwith "negative"
+          // | 0 -> None
+          // | i -> Some i
+          // """
+          |> Text.trimTripleQuotation
+        let edits = [
+          // doesn't change cursor
+          {| 
+            Marker = "$1"
+            NewText = "barbaz" 
+          |}
+          // - 2 lines + 1 line
+          {| 
+            Marker = "$2"
+            NewText = "baz = 42\nlet "
+          |}
+          // -1 line + 2 lines
+          {| 
+            Marker = "$3"
+            NewText = "c\n  b =\n  (a+c-"
+          |}
+          // -1 line - 3 chars
+          {| 
+            Marker = "$4"
+            NewText = ""
+          |}
+          // +3 line -all chars + couple new chars
+          {| 
+            Marker = "$5"
+            NewText = " static\n\n\n  mutable"
+          |}
+          // move to front of edit chars
+          {| 
+            Marker = "$6"
+            NewText = "incrementNumber"
+          |}
+          // doesn't change cursor
+          {| 
+            Marker = "$7"
+            NewText = "foo bar\nbaz\nlorem ipsum"
+          |}
+        ]
+        let markers = 
+          edits
+          |> List.map (fun e -> e.Marker)
+          |> List.append ["$0"]
+          |> List.toArray
+
+        let (text, cursors) =
+          textWithCursors
+          |> Cursors.extractGroupedWith markers
+        let cursor = cursors["$0"] |> List.head
+
+        let edits =
+          edits
+          |> List.map (fun e ->
+            let range =
+              match cursors[e.Marker] with
+              | [s;e] -> range s e
+              | [pos] -> posRange pos
+              | cs -> failwith $"invalid number of cursors `{e.Marker}`. Expected 1 or 2, but was {cs.Length}"
+            {
+              Range = range
+              NewText = e.NewText
+            }
+          )
+          |> TextEdits.sortByRange
+
+        {|
+          Text = text
+          Cursor = cursor
+          Edits = edits
+        |}
+      )
+
+      testCase "cursor moves according to multiple edits" <| fun _ ->
+        let data = data.Value
+        let (text, cursor, edits) = data.Text, data.Cursor, data.Edits
+
+        let textAfterEdits =
+          text
+          |> TextEdits.apply edits
+          |> Expect.wantOk "Edits should be valid"
+        // cursor should be at start of `incrementNumber`
+        let expected =
+          textAfterEdits
+          |> Text.lines
+          |> Seq.indexed
+          |> Seq.choose (fun (l, line) ->
+              match line.IndexOf "incrementNumber" with
+              | -1 -> None
+              | c -> Some (pos l c)
+          )
+          |> Seq.exactlyOne
+
+        cursor 
+        |> Cursor.afterEdits edits
+        |> Expect.equal "Cursor should move according to edits" expected 
+
+      testCase "moving cursor for all edits together is same as moving cursor for each edit" <| fun _ ->
+        let data = data.Value
+        let (cursor, edits) = data.Cursor, data.Edits
+
+        let individually =
+          edits
+          |> List.rev
+          |> List.fold (fun cursor edit  ->
+              cursor |> Cursor.afterEdits [edit]
+          ) cursor
+        let together =
+          cursor
+          |> Cursor.afterEdits edits
+
+        Expecto.Expect.equal together individually "Moving cursor for all edits together should be same as moving cursor for each edit"
+    ]
+
+    testCase "Can add type annotation with parens while cursor stays at end of identifier" <| fun _ ->
+      // `let foo$0 = 42`
+      let cursor = pos 0 7
+      let edits = [
+        {
+          Range = posRange (pos 0 4)
+          NewText = "("
+        }
+        {
+          Range = posRange (pos 0 7)
+          NewText = ": int"
+        }
+        {
+          Range = posRange (pos 0 7)
+          NewText = ")"
+        }
+      ]
+      cursor
+      |> Cursor.afterEdits edits
+      |> Expect.equal "Cursor should move to end of identifier" { cursor with Character = cursor.Character + 1 } 
+  ]
+
   let tests = testList (nameof Cursor) [
     tryExtractIndexTests
+    tryExtractPositionMarkedWithAnyOfTests
     tryExtractPositionTests
     tryExtractRangeTests
     beforeIndexTests
     tryIndexOfTests
     identityTests
+    afterEditsTests
   ]
 
 module private Cursors =
@@ -1053,14 +1420,46 @@ printfn "Result=%i" b$0
       |> Cursors.iter
       |> Expect.equal "should have returned all strings with single cursor" expected
   ]
+
+  let private extractWithTests = testList (nameof Cursors.extractWith) [
+    testCase "can extract all cursors" <| fun _ ->
+      let text = !- """
+        let $Ff a b = a + b
+        let $Vvalue = 42
+        let $0res = $Ff $Vvalue 3
+        ()
+        """
+      let actual =
+        text
+        |> Cursors.extractWith [|"$F"; "$V"; "$0" |]
+
+      let expectedText = !- """
+        let f a b = a + b
+        let value = 42
+        let res = f value 3
+        ()
+        """
+      let expectedPoss = [
+        ("$F", pos 0 4)
+        ("$V", pos 1 4)
+        ("$0", pos 2 4)
+        ("$F", pos 2 10)
+        ("$V", pos 2 12)
+      ]
+      let expected = (expectedText, expectedPoss)
+
+      actual
+      |> Expect.equal "markers should match" expected 
+  ]
+  
   let tests = testList (nameof Cursors) [
     iterTests
+    extractWithTests
   ]
 
 
 module private Text =
   open Expecto.Flip
-  let inline private range start fin = { Start = start; End = fin}
 
   let private removeTests = testList (nameof Text.remove) [
     testList "start=end should remove nothing" [
