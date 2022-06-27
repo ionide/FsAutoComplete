@@ -7,19 +7,13 @@ on:
 
 jobs:
   release:
-    strategy:
-      matrix:
-        dotnet: [6.0.200]
-
     runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
 
       - name: Setup .NET Core
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: ${{ matrix.dotnet }}
+        uses: actions/setup-dotnet@v2
 
       - name: Restore tools
         run: dotnet tool restore
