@@ -495,7 +495,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   |> List.map (fun fix ->
                     { Range = fcsRangeToLsp fix.FromRange
                       NewText = fix.ToText })
-                  |> box
+                  |> Ionide.LanguageServerProtocol.Server.serialize
                   |> Some
 
               { Range = range
@@ -991,7 +991,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     Some
                       { Legend =
                           createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
-                        Range = Some(U2.First true)
+                        Range = Some true
                         Full = Some(U2.First true) }
                   InlayHintProvider = Some { ResolveProvider = Some false } } }
         |> success
@@ -1719,9 +1719,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         | actions ->
           return
             actions
-            |> List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value)
+            |> List.map (CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value >> U2.Second)
             |> List.toArray
-            |> TextDocumentCodeActionResult.CodeActions
             |> Some
       }
 

@@ -51,10 +51,10 @@ module CodeFix =
             failwith "unreachable"
         | None, NotApplicable ->
             [||]
-        | Some res, _ ->
-            match res with
-            | TextDocumentCodeActionResult.Commands cs -> failtestf "Expected CodeActions, but got commands: %A" cs
-            | TextDocumentCodeActionResult.CodeActions cas -> cas
+        | Some (Helpers.CodeActions actions), _ -> actions
+        | Some _, _ -> failwith "Expected some code actions from the server"
+
+
 
       // select code action to use
       let codeActions = chooseFix allCodeActions

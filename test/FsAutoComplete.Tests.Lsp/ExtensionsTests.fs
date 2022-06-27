@@ -222,7 +222,7 @@ let linterTests state =
     |> Array.map (fun (diag, text) ->
       { diag with
           CodeDescription = urlFor diag.Code
-          Data = Some(box [ { Range = diag.Range; NewText = text } ]) })
+          Data = Some(Ionide.LanguageServerProtocol.Server.serialize [ { Range = diag.Range; NewText = text } ]) })
 
   testList
     "Linter Test"
@@ -278,7 +278,7 @@ let formattingTests state =
           match!
             server.TextDocumentFormatting
               { TextDocument = { Uri = Path.FilePathToUri sourceFile }
-                Options = FormattingOptions(TabSize = 4, InsertSpaces = true) }
+                Options = {TabSize = 4; InsertSpaces = true; TrimTrailingWhitespace = None; InsertFinalNewline = None; TrimFinalNewlines = None; AdditionalData = System.Collections.Generic.Dictionary<_,_>() } }
             with
           | Ok (Some [| edit |]) ->
             let normalized = { edit with NewText = normalizeLineEndings edit.NewText }

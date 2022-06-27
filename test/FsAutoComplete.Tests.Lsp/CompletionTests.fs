@@ -147,7 +147,7 @@ let tests state =
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
-        
+
       testCaseAsync "completion before first character of expression" (async {
         let! server, path = server
         let completionParams : CompletionParams =
@@ -423,7 +423,7 @@ let autoOpenTests state =
       match! server.TextDocumentCodeAction p with
       | Error e -> return failtestf "Quick fix Request failed: %A" e
       | Ok None -> return failtest "Quick fix Request none"
-      | Ok (Some (TextDocumentCodeActionResult.CodeActions (ContainsOpenAction quickfix))) ->
+      | Ok (Some (CodeActions (ContainsOpenAction quickfix))) ->
         let ns = quickfix.Title.Substring("open ".Length)
 
         let edit =
