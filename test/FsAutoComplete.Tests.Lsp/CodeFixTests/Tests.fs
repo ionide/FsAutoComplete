@@ -1273,12 +1273,18 @@ let private renameUnusedValue state =
 let private replaceWithSuggestionTests state =
   serverTestList (nameof ReplaceWithSuggestion) state defaultConfigDto None (fun server -> [
     let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
+    let validateDiags (diags: Diagnostic[]) =
+      Diagnostics.expectCode "39" diags
+      Expect.exists 
+        diags 
+        (fun (d: Diagnostic) -> d.Message.Contains "Maybe you want one of the following:")
+        "Diagnostic with code 39 should suggest name"
     testCaseAsync "can change Min to min" <|
       CodeFix.check server
         """
         let x = $0Min(2.0, 1.0)
         """
-        Diagnostics.acceptAll
+        validateDiags
         (selectCodeFix "min")
         """
         let x = min(2.0, 1.0)
@@ -1289,7 +1295,7 @@ let private replaceWithSuggestionTests state =
           """
           let x = $0flout 2
           """
-          Diagnostics.acceptAll
+          validateDiags
           (selectCodeFix "float")
           """
           let x = float 2
@@ -1299,7 +1305,7 @@ let private replaceWithSuggestionTests state =
           """
           let x = $0flout 2
           """
-          Diagnostics.acceptAll
+          validateDiags
           (selectCodeFix "float32")
           """
           let x = float32 2
@@ -1310,7 +1316,7 @@ let private replaceWithSuggestionTests state =
         """
         let x: $0flout = 2.0
         """
-        Diagnostics.acceptAll
+        validateDiags
         (selectCodeFix "float")
         """
         let x: float = 2.0
@@ -1320,7 +1326,7 @@ let private replaceWithSuggestionTests state =
         """
         open System.Text.$0RegularEcpressions
         """
-        Diagnostics.acceptAll
+        validateDiags
         (selectCodeFix "RegularExpressions")
         """
         open System.Text.RegularExpressions
@@ -1331,7 +1337,7 @@ let private replaceWithSuggestionTests state =
         open System.Text.RegularExpressions
         let x = $0Regec()
         """
-        Diagnostics.acceptAll
+        validateDiags
         (selectCodeFix "Regex")
         """
         open System.Text.RegularExpressions
@@ -1343,7 +1349,7 @@ let private replaceWithSuggestionTests state =
         let ``hello world`` = 2
         let x = ``$0hello word``
         """
-        Diagnostics.acceptAll
+        validateDiags
         (selectCodeFix "``hello world``")
         """
         let ``hello world`` = 2
@@ -1355,7 +1361,7 @@ let private replaceWithSuggestionTests state =
         let ``hello world`` = 2
         let x = $0helloword
         """
-        Diagnostics.acceptAll
+        validateDiags
         (selectCodeFix "``hello world``")
         """
         let ``hello world`` = 2
