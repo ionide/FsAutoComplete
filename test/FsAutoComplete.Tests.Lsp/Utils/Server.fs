@@ -281,7 +281,7 @@ module Document =
           |> analyzedStream
           |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
           // wait for late diagnostics
-          |> Observable.delay 5
+          |> Observable.delay 25
         )
         |> Observable.last
         |> Observable.timeoutSpan timeout
