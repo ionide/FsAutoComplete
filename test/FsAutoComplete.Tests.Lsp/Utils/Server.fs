@@ -230,6 +230,25 @@ module Document =
     |> Observable.filter (fun n -> n.TextDocument.Uri = doc.Uri)
 
 
+  /// in ms
+  let private waitForLateDiagnosticsDelay =
+    let envVar = "FSAC_WaitForLateDiagnosticsDelay"
+    System.Environment.GetEnvironmentVariable envVar
+    |> Option.ofObj
+    |> Option.map (fun d ->
+      match System.Int32.TryParse d with
+      | (true, d) -> d
+      | (false, _) ->
+          failwith $"Environment Variable '%s{envVar}' exists, but is not a correct int number ('%s{d}')"
+    )
+    |> Option.orElseWith (fun _ -> 
+        // set in Github Actions: https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables
+        match System.Environment.GetEnvironmentVariable "CI" with
+        | null -> None
+        | _ -> Some 25
+    )
+    |> Option.defaultValue 7  // testing locally
+
   /// Waits (if necessary) and gets latest diagnostics.
   ///
   /// To detect newest diags:
@@ -281,7 +300,7 @@ module Document =
           |> analyzedStream
           |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
           // wait for late diagnostics
-          |> Observable.delay 5
+          |> Observable.delay waitForLateDiagnosticsDelay
         )
         |> Observable.last
         |> Observable.timeoutSpan timeout

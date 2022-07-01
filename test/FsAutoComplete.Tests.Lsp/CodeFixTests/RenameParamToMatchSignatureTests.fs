@@ -53,78 +53,78 @@ let tests state =
         """
         module Code
 
-        val f: value: int -> int
+        val f: value1: int -> int
         """
         """
         module Code
 
-        let f $0v = v + 1
+        let f $0v1 = v1 + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value1")
         """
         module Code
 
-        let f value = value + 1
+        let f value1 = value1 + 1
         """
     testCaseAsync "can rename parameter with backticks in signature in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: ``my value``: int -> int
+        val f: ``my value2``: int -> int
         """
         """
         module Code
 
-        let f $0v = v + 1
+        let f $0v2 = v2 + 1
         """
-        (selectCodeFix "``my value``")
+        (selectCodeFix "``my value2``")
         """
         module Code
 
-        let f ``my value`` = ``my value`` + 1
+        let f ``my value2`` = ``my value2`` + 1
         """
     testCaseAsync "can rename parameter with backticks in implementation in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: value: int -> int
+        val f: value3: int -> int
         """
         """
         module Code
 
-        let f ``$0my value`` = ``my value`` + 1
+        let f ``$0my value3`` = ``my value3`` + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value3")
         """
         module Code
 
-        let f value = value + 1
+        let f value3 = value3 + 1
         """
     testCaseAsync "can rename all usage in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: x: int -> value: int -> y: int -> int
+        val f: x: int -> value4: int -> y: int -> int
         """
         """
         module Code
 
-        let f x $0v y =
-          let a = v + 1
-          let b = v * v
+        let f x $0v4 y =
+          let a = v4 + 1
+          let b = v4 * v4
           let v = a + b
           v + x * y
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value4")
         """
         module Code
 
-        let f x value y =
-          let a = value + 1
-          let b = value * value
+        let f x value4 y =
+          let a = value4 + 1
+          let b = value4 * value4
           let v = a + b
           v + x * y
         """
@@ -133,18 +133,18 @@ let tests state =
         """
         module Code
 
-        val f: value: int -> int
+        val f: value5: int -> int
         """
         """
         module Code
 
-        let f ($0v: int) = v + 1
+        let f ($0v5: int) = v5 + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value5")
         """
         module Code
 
-        let f (value: int) = value + 1
+        let f (value5: int) = value5 + 1
         """
     testCaseAsync "can rename parameter in constructor" <|
       checkWithFsi
@@ -152,20 +152,20 @@ let tests state =
         module Code
 
         type T =
-          new: value: int -> T
+          new: value6: int -> T
         """
         """
         module Code
 
-        type T($0v: int) =
-          let _ = v + 3
+        type T($0v6: int) =
+          let _ = v6 + 3
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value6")
         """
         module Code
 
-        type T(value: int) =
-          let _ = value + 3
+        type T(value6: int) =
+          let _ = value6 + 3
         """
     testCaseAsync "can rename parameter in member" <|
       checkWithFsi
@@ -174,146 +174,146 @@ let tests state =
 
         type T =
           new: unit -> T
-          member F: value: int -> int
+          member F: value7: int -> int
         """
         """
         module Code
 
         type T() =
-          member _.F($0v) = v + 1
+          member _.F($0v7) = v7 + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value7")
         """
         module Code
 
         type T() =
-          member _.F(value) = value + 1
+          member _.F(value7) = value7 + 1
         """
     testCaseAsync "can rename parameter with ' in signature in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: value': int -> int
+        val f: value8': int -> int
         """
         """
         module Code
 
-        let f $0v = v + 1
+        let f $0v8 = v8 + 1
         """
-        (selectCodeFix "value'")
+        (selectCodeFix "value8'")
         """
         module Code
 
-        let f value' = value' + 1
+        let f value8' = value8' + 1
         """
     testCaseAsync "can rename parameter with ' in implementation in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: value: int -> int
+        val f: value9: int -> int
         """
         """
         module Code
 
-        let f $0v' = v' + 1
+        let f $0v9' = v9' + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value9")
         """
         module Code
 
-        let f value = value + 1
+        let f value9 = value9 + 1
         """
     testCaseAsync "can rename parameter with ' (not in last place) in signature in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: v'2: int -> int
+        val f: v10'2: int -> int
         """
         """
         module Code
 
-        let f $0value = value + 1
+        let f $0value10 = value10 + 1
         """
-        (selectCodeFix "v'2")
+        (selectCodeFix "v10'2")
         """
         module Code
 
-        let f v'2 = v'2 + 1
+        let f v10'2 = v10'2 + 1
         """
     testCaseAsync "can rename parameter with ' (not in last place) in implementation in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: value: int -> int
+        val f: value11: int -> int
         """
         """
         module Code
 
-        let f $0v'2 = v'2 + 1
+        let f $0v11'2 = v11'2 + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value11")
         """
         module Code
 
-        let f value = value + 1
+        let f value11 = value11 + 1
         """
     testCaseAsync "can rename parameter with multiple ' in signature in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: value'v'2: int -> int
+        val f: value12'v'2: int -> int
         """
         """
         module Code
 
-        let f $0v = v + 1
+        let f $0v12 = v12 + 1
         """
-        (selectCodeFix "value'v'2")
+        (selectCodeFix "value12'v'2")
         """
         module Code
 
-        let f value'v'2 = value'v'2 + 1
+        let f value12'v'2 = value12'v'2 + 1
         """
     testCaseAsync "can rename parameter with multiple ' in implementation in F# function" <|
       checkWithFsi
         """
         module Code
 
-        val f: value: int -> int
+        val f: value13: int -> int
         """
         """
         module Code
 
-        let f $0value'v'2 = value'v'2 + 1
+        let f $0value13'v'2 = value13'v'2 + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value13")
         """
         module Code
 
-        let f value = value + 1
+        let f value13 = value13 + 1
         """
     itestCaseAsync "can handle `' and implementation '` in impl name" <|
       checkWithFsi
         """
         module Code
 
-        val f: value: int -> int
+        val f: value14: int -> int
         """
         """
         module Code
 
         let f $0``sig' and implementation 'impl' do not match`` = ``sig' and implementation 'impl' do not match`` + 1
         """
-        (selectCodeFix "value")
+        (selectCodeFix "value14")
         """
         module Code
 
-        let f value = value + 1
+        let f value14 = value14 + 1
         """
     //ENHANCEMENT: correctly detect below. Currently: detects sig name `sig`
     itestCaseAsync "can handle `' and implementation '` in sig name" <|
@@ -326,7 +326,7 @@ let tests state =
         """
         module Code
 
-        let f $0value = value + 1
+        let f $0value15 = value15 + 1
         """
         (selectCodeFix "``sig' and implementation 'impl' do not match``")
         """
