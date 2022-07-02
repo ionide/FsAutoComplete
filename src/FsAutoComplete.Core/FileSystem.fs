@@ -227,7 +227,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     option {
       if pos.Column <> 0 then
         return Position.mkPos pos.Line (pos.Column - 1)
-      else if pos.Line = 0 then
+      else if pos.Line <= 1 then
         return! None
       else if getLines.Value.Length > pos.Line - 2 then
         let prevLine = (x :> ISourceText).GetLineString(pos.Line - 2)

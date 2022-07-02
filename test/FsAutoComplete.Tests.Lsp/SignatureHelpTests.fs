@@ -182,6 +182,17 @@ let private overloadEdgeCasesTests server = testList "overload edge cases" [
   ]
 ]
 
+let issuesTests server = testList "issues" [
+  testCaseAsync "issue #950 - exception when in first column in first line" <|
+    testSignatureHelp' server
+      "Syste" { Line = 0; Character = 0 }
+      Manual
+      (fun r ->
+          let err = Expect.wantError r "No signature help at first position"
+          Expect.equal err.Message "Couldn't find previous non-whitespace char" "Should fail because no prev char"
+      )
+]
+
 let tests state =
   serverTestList "signature help" state defaultConfigDto None (fun server -> [
     functionApplicationEdgeCasesTests server
@@ -197,4 +208,5 @@ let tests state =
             Expect.isSome resp "should get sigdata when triggered on applications"
             Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload")
     ]
+    issuesTests server
   ])
