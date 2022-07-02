@@ -1,182 +1,200 @@
 module FsAutoComplete.Tests.SignatureHelp
 
 open Expecto
-open System.IO
 open Helpers
 open Ionide.LanguageServerProtocol.Types
-open FsToolkit.ErrorHandling
 open FsAutoComplete
+open Utils.Server
+open Utils.Utils
+open Utils.TextEdit
+open Utils.ServerTests
 
-type TriggerType =
+type private TriggerType =
   | Manual
   | Char of char
 
-let private server state =
-  async {
-    let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
+let private testSignatureHelp' (server: CachedServer) text pos triggerType checkResp = async {
+  let! (doc, diags) = server |> Server.createUntitledDocument text
+  use doc = doc
 
-    return! serverInitialize path defaultConfigDto state
-  }
+  let sigHelpRequest: SignatureHelpParams =
+    { TextDocument = doc.TextDocumentIdentifier
+      Position = pos
+      Context =
+        Some
+          { TriggerKind =
+              match triggerType with
+              | Manual -> SignatureHelpTriggerKind.Invoked
+              | Char c -> SignatureHelpTriggerKind.TriggerCharacter
+            TriggerCharacter =
+              match triggerType with
+              | Manual -> None
+              | Char c -> Some c
+            IsRetrigger = false
+            ActiveSignatureHelp = None } }
+  let! resp = 
+    doc.Server.Server.TextDocumentSignatureHelp sigHelpRequest
 
-let coreTestSignatureHelp hide title file (line, char) triggerType checkResp server =
+  checkResp resp
+}
 
-  (if hide then
-     ptestCaseAsync
-   else
-     testCaseAsync)
-    title
-    (async {
-      let! (server: Lsp.FSharpLspServer, event: ClientEvents) = server
+let private wantSignatureHelp =
+  Flip.Expect.wantOk "unexpected request error"
 
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "SignatureHelp")
+let private testSignatureHelp (server: CachedServer) textWithCursor triggerType checkResp = async {
+  let (pos, text) =
+    textWithCursor
+    |> Text.trimTripleQuotation
+    |> Cursor.assertExtractPosition
+  let checkResp =
+    wantSignatureHelp
+    >> checkResp
+  return! testSignatureHelp' server text pos triggerType checkResp
+} 
 
-      let path = Path.Combine(path, file)
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
+let private functionApplicationEdgeCasesTests server = testList "function application edge cases" [
+  testCaseAsync "issue 742 - signature help on functions counts the prior parameters" <|
+    testSignatureHelp server
+      """
+      id 12 $0// note: keep the trailing space after '12' on this line
+      """
+      (Char ' ')
+      (fun resp -> Expect.isNone resp "there should be no sighelp on this location")
+  testCaseAsync "issue 744 - signature help suggests parameters other than the first" <|
+    testSignatureHelp server
+      """
+      let f a b = ()
 
-      do!
-        waitForParseResultsForFile file event
-        |> AsyncResult.foldResult id ignore
+      f 1 $0 // preserve last space
+      """
+      Manual
+      (fun resp ->
+        match resp with
+        | Some sigHelp -> Expect.equal sigHelp.ActiveParameter (Some 1) "should have suggested the second parameter"
+        | None -> failwithf "There should be sighelp for this position")
+  ptestCaseAsync "issue 745 - signature help shows tuples in parens" <|
+    testSignatureHelp server
+      """
+      let f (a, b) = ()
 
-      let sigHelpRequest: SignatureHelpParams =
-        { TextDocument = { Uri = Path.FilePathToUri path }
-          Position = { Line = line; Character = char }
-          Context =
-            Some
-              { TriggerKind =
-                  match triggerType with
-                  | Manual -> SignatureHelpTriggerKind.Invoked
-                  | Char c -> SignatureHelpTriggerKind.TriggerCharacter
-                TriggerCharacter =
-                  match triggerType with
-                  | Manual -> None
-                  | Char c -> Some c
-                IsRetrigger = false
-                ActiveSignatureHelp = None } }
+      f $0 // preserve last space
+      """
+      Manual
+      (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveSignature (Some 0) "should have suggested the first overload"
 
-      let! resp =
-        server.TextDocumentSignatureHelp sigHelpRequest
-        |> AsyncResult.foldResult id (fun e -> failwithf "unexpected request error %A" e)
+            Expect.equal
+              sigHelp.Signatures.[0].Label
+              "val f : (a:'a * b:'b) -> unit"
+              "should highlight tuples with parens in signature help"
+          | None -> failwithf "There should be sighelp for this position")
+  testCaseAsync "issue 746 - signature help understands piping for parameter application" <|
+    testSignatureHelp server
+      """
+      [1..10] |> List.map id $0// keep trailing space
+      """
+      Manual
+      (fun resp ->
+        Expect.isNone
+          resp
+          "there should be no suggestions at this position, since we've provided all parameters to List.map")
+  testCaseAsync "issue 747 - signature help is provided for the most inner function" <|
+    testSignatureHelp server
+      """
+      let f a b c = ()
 
-      checkResp resp
-    })
+      let g a b = ()
 
-let ptestSignatureHelp = coreTestSignatureHelp true
-let testSignatureHelp = coreTestSignatureHelp false
+      f (g $0)
+      """
+      Manual
+      (fun resp ->
+        Expect.isSome resp "should have provided signature help"
+        let resp = resp.Value
+        let methodsig = resp.Signatures.[0]
+        Expect.stringStarts methodsig.Label "val g: " "should have provided signatures for function g")
+  testCaseAsync "issue 748 - signature help is provided for functions inside CEs" <|
+    testSignatureHelp server
+      """
+      let _ =
+          async {
+              let x = sqrt $0// trigger here
+              return ()
+          }
+      """
+      Manual
+      (fun resp ->
+        Expect.isSome resp "should have provided signature help"
+        let resp = resp.Value
+        let methodsig = resp.Signatures.[0]
+        Expect.stringStarts methodsig.Label "val sqrt: " "should have provided signatures for sqrt")
+  testCaseAsync "issue 750 - signature help should have tips when triggered on generic type applications" <|
+    testSignatureHelp server
+      """
+open System
 
-let test742 =
-  testSignatureHelp
-    "issue 742 - signature help on functions counts the prior parameters"
-    "742.fsx"
-    (0, 6)
-    (Char ' ')
-    (fun resp -> Expect.isNone resp "there should be no sighelp on this location")
+/// Tries to cast an object to a given type; throws with the given error message if it fails.
+let tryConvert<'T> (descriptor: string) (value: obj) : 'T =
+    try
+        Convert.ChangeType(value, typeof<'T>) :?> 'T
+    with ex ->
+        let msg = sprintf "Unable to convert '%s' with value %A" descriptor value
+        raise (new Exception(msg, ex))
 
-let test744 =
-  testSignatureHelp
-    "issue 744 - signature help suggests parameters other than the first"
-    "744.fsx"
-    (2, 4)
-    Manual
-    (fun resp ->
-      match resp with
-      | Some sigHelp -> Expect.equal sigHelp.ActiveParameter (Some 1) "should have suggested the second parameter"
-      | None -> failwithf "There should be sighelp for this position")
+// Tooltip does NOT show when the generic argument is present:
+let result = (box 123) |> tryConvert<string> $0(* trigger at > char, no sigdata occurs *)
 
-let test745 =
-  ptestSignatureHelp "issue 745 - signature help shows tuples in parens" "745.fsx" (2, 2) Manual (fun resp ->
-    match resp with
-    | Some sigHelp ->
-      Expect.equal sigHelp.ActiveSignature (Some 0) "should have suggested the first overload"
+      """
+      Manual
+      (fun resp ->
+        Expect.isSome resp "should get sigdata when triggered on applications"
+        let resp = resp.Value
+        let signatures = resp.Signatures.[0]
+        Expect.stringStarts signatures.Label "val tryConvert:" "should have given help for tryConvert")
+]
 
-      Expect.equal
-        sigHelp.Signatures.[0].Label
-        "val f : (a:'a * b:'b) -> unit"
-        "should highlight tuples with parens in signature help"
-    | None -> failwithf "There should be sighelp for this position")
-
-let test746 =
-  testSignatureHelp
-    "issue 746 - signature help understands piping for parameter application"
-    "746.fsx"
-    (0, 24) (* the end of 'id' *)
-    Manual
-    (fun resp ->
-      Expect.isNone
-        resp
-        "there should be no suggestions at this position, since we've provided all parameters to List.map")
-
-let test747 =
-  testSignatureHelp
-    "issue 747 - signature help is provided for the most inner function"
-    "747.fsx"
-    (4, 5)
-    Manual
-    (fun resp ->
-      Expect.isSome resp "should have provided signature help"
-      let resp = resp.Value
-      let methodsig = resp.Signatures.[0]
-      Expect.stringStarts methodsig.Label "val g: " "should have provided signatures for function g")
-
-let test748 =
-  testSignatureHelp
-    "issue 748 - signature help is provided for functions inside CEs"
-    "748.fsx"
-    (2, 21)
-    Manual
-    (fun resp ->
-      Expect.isSome resp "should have provided signature help"
-      let resp = resp.Value
-      let methodsig = resp.Signatures.[0]
-      Expect.stringStarts methodsig.Label "val sqrt: " "should have provided signatures for sqrt")
-
-let test750 =
-  testSignatureHelp
-    "issue 750 - signature help should have tips when triggered on generic type applications"
-    "750.fsx"
-    (11, 45)
-    Manual
-    (fun resp ->
-      Expect.isSome resp "should get sigdata when triggered on applications"
-      let resp = resp.Value
-      let signatures = resp.Signatures.[0]
-      Expect.stringStarts signatures.Label "val tryConvert:" "should have given help for tryConvert")
-
-
-let checkOverloadsAt pos name =
-  testSignatureHelp name "Overloads.fsx" pos Manual (fun resp ->
-    Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
-    Expect.isNonEmpty resp.Value.Signatures "Should have some overloads")
+let private overloadEdgeCasesTests server = testList "overload edge cases" [
+  testList "unattached parens" [
+    let text = "let ___ = new System.IO.MemoryStream (  )"
+    for c in 37..39 do
+      let pos = { Line = 0; Character = c }
+      testCaseAsync $"Can get overloads at whitespace position {c - 37} of unattached parens" <|
+        testSignatureHelp' server
+          text pos
+          Manual
+          (wantSignatureHelp >> fun resp ->
+            Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
+            Expect.isNonEmpty resp.Value.Signatures "Should have some overloads")
+  ]
+  testList "attached parens" [
+    let text = "let _____ = new System.IO.MemoryStream(42)"
+    for c in 39..41 do
+      let pos = { Line = 0; Character = c }
+      testCaseAsync $"Can get overloads at whitespace position {c - 39} of attached parens" <|
+        testSignatureHelp' server
+          text pos
+          Manual
+          (wantSignatureHelp >> fun resp ->
+            Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
+            Expect.isNonEmpty resp.Value.Signatures "Should have some overloads")
+  ]
+]
 
 let tests state =
-  let server = server state
-
-  testList
-    "signature help"
-    [ testList
-        "function application edge cases"
-        ([ test742
-           test744
-           test745
-           test746
-           test747
-           test748
-           test750 ]
-         |> List.map (fun f -> f server))
-      testList
-        "overload edge cases"
-        [ for c in 37..39 do
-            checkOverloadsAt (0, c) $"Can get overloads at whitespace position {c - 37} of unattached parens" server
-          for c in 39..41 do
-            checkOverloadsAt (1, c) $"Can get overloads at whitespace position {c - 39} of attached parens" server ]
-      testList
-        "parameter position detect"
-        [ testSignatureHelp
-            "Can suggest second parameter when on the second parameter"
-            "ParameterPosition.fsx"
-            (0, 49)
-            Manual
-            (fun resp ->
-              Expect.isSome resp "should get sigdata when triggered on applications"
-              Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload")
-            server ] ]
+  serverTestList "signature help" state defaultConfigDto None (fun server -> [
+    functionApplicationEdgeCasesTests server
+    overloadEdgeCasesTests server
+    testList "parameter position detect" [
+      testCaseAsync "Can suggest second parameter when on the second parameter" <|
+        testSignatureHelp server
+          """
+          System.IO.Directory.EnumerateDirectories("/var", $0) // signature help triggered at the space after the comma should suggest overload 1, not overload 0
+          """
+          Manual
+          (fun resp ->
+            Expect.isSome resp "should get sigdata when triggered on applications"
+            Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload")
+    ]
+  ])
