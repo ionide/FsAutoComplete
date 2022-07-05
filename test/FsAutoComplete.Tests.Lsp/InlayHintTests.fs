@@ -129,7 +129,10 @@ module private LspInlayHints =
       let! hints = 
         doc 
         |> Document.inlayHintsAt range
-      let hints = hints |> Option.defaultValue [||]
+      let hints = 
+        hints 
+        |> Option.defaultValue [||]
+        |> Array.sortBy (fun h -> h.Position)
       do! validateInlayHints doc text hints
     }
 
@@ -712,26 +715,71 @@ let private paramHintTests state =
       ]
     ]
 
-    ptestList "ionide/ionide-vscode-fsharp#1714" [
-      testCaseAsync "can show param hint for tuple param without individual names" <|
+    testList "tuple param" [
+      // Cannot get param name for type tuple,
+      // instead just unnamed params for each tuple element.
+      // see dotnet/fsharp#10441
+      ptestCaseAsync "can show param hint for tuple param without individual names" <|
         checkAllInMarkedRange server
           """
-          let f tupleParam = ()
+          let f (tupleParam: _*_) = ()
           $|f $0(1,2)$|
           """
           [
             paramHint "tupleParam"
           ]
-      testCaseAsync "can show param hint for tuple-var param without individual names" <|
+      ptestCaseAsync "can show param hint for tuple-var param without individual names" <|
         checkAllInMarkedRange server
           """
-          let f tupleParam = ()
+          let f (tupleParam: _*_) = ()
           let myTuple = (1,2)
           $|f $0myTuple$|
           """
           [
             paramHint "tupleParam"
           ]
+      testCaseAsync "can show param hint for generic param with tuple args" <|
+        // Note: unlike above param isn't a tuple -> can get param name
+        checkAllInMarkedRange server
+          """
+          let f (tupleParam: 'a) = ()
+          $|f $0(1,2)$|
+          """
+          [
+            paramHint "tupleParam"
+          ]
+      testCaseAsync "can show param hint for generic param with tuple var" <|
+        checkAllInMarkedRange server
+          """
+          let f (tupleParam: 'a) = ()
+          let myTuple = (1,2)
+          $|f $0myTuple$|
+          """
+          [
+            paramHint "tupleParam"
+          ]
+      testCaseAsync "can show param hint for struct tuple param without individual name" <|
+        // Note: unlike normal tuple, FCS provides name for struct tuple
+        checkAllInMarkedRange server
+          """
+          let f (tupleParam: struct (_*_)) = ()
+          $|f $0(struct (1,2))$|
+          """
+          [
+            paramHint "tupleParam"
+          ]
+      testCaseAsync "can show param hint for struct tuple-var param without individual name" <|
+        checkAllInMarkedRange server
+          """
+          let f (tupleParam: struct (_*_)) = ()
+          let myTuple = struct (1,2)
+          $|f $0myTuple$|
+          """
+          [
+            paramHint "tupleParam"
+          ]
+
+
       testCaseAsync "can show param hints for tuple param with individual names" <|
         checkAllInMarkedRange server
           """
@@ -750,17 +798,243 @@ let private paramHintTests state =
           $|f $0myTuple$|
           """
           [
-            paramHint "(alpha,beta)"  //TODO: ?
+            paramHint "(alpha,beta)"
+          ]
+
+      testCaseAsync "lambda" <|
+        checkAllInMarkedRange server
+          """
+          let f (lambdaParens, lambdaNoParens) = ()
+
+          $|
+          f ($0(fun (v: int) -> v + 1), $0fun (v: int) -> v + 1)
+          $|
+          """
+          [
+            paramHint "lambdaParens"
+            paramHint "lambdaNoParens"
+          ]
+      testCaseAsync "lambda without types" <|
+        checkAllInMarkedRange server
+          """
+          let f (lambdaParens, lambdaNoParens) = ()
+
+          $|f ($0(fun v$0 -> v + 1), $0fun v$0 -> v + 1)$|
+          """
+          [
+            paramHint "lambdaParens"
+            // justTypeHint "int"
+            typeHint "int"
+              """
+              let f (lambdaParens, lambdaNoParens) = ()
+
+              f ((fun (v: int) -> v + 1), fun v -> v + 1)
+              """
+            paramHint "lambdaNoParens"
+            // justTypeHint "int"
+            typeHint "int"
+              """
+              let f (lambdaParens, lambdaNoParens) = ()
+
+              f ((fun v -> v + 1), fun (v: int) -> v + 1)
+              """
+          ]
+
+      // ionide/ionide-vscode-fsharp#1714
+      testCaseAsync "ionide/ionide-vscode-fsharp#1714" <|
+        checkAllInMarkedRange server
+          """
+          let inlayHintsTest firstParam tupleParam lastParam = ()
+          $|inlayHintsTest $0"firstParam" $0("t1", "t2") $0"lastParam"$|
+          """
+          [
+            paramHint "firstParam"
+            paramHint "tupleParam"
+            paramHint "lastParam"
+          ]
+
+      testList "can assign param name to correct input" [
+        testCaseAsync "mix" <|
+          checkAllInMarkedRange server
+            """
+            let f alpha (beta,gamma) delta (epsilon,zeta) = 
+              let (d1, d2) = delta
+              alpha + beta + gamma + d1 + d2 + epsilon + zeta
+            let ef = (6,7)
+
+            $|f $01 ($02,$03) (4,5) $0ef$|
+            """
+            [
+              paramHint "alpha"
+              paramHint "beta"
+              paramHint "gamma"
+              // no delta: FCS doesn't provide name for tuple param (but instead unnamed for each tuple element)
+              paramHint "(epsilon,zeta)"
+            ]
+        testCaseAsync "all tuple" <|
+          checkAllInMarkedRange server
+            """
+            let f 
+              (alpha, beta, gamma) 
+              (delta, epsilon)
+              (zeta, eta, theta)
+              (iota, kappa)
+              (lambda, muValue, nuValue)
+              =
+              ()
+            let deValue = (4,5)
+            let tValue = 8
+            $|
+            f
+              ($01, $02, $03)
+              $0deValue
+              ($06, $0"7", $0tValue)
+              ($0Some 9, $0Ok 10)
+              ($0(fun (v: int) -> v + 1), $012.0, $0fun (v: int) -> v + 1)
+            $|
+            """
+            [
+              paramHint "alpha"
+              paramHint "beta"
+              paramHint "gamma"
+              paramHint "(delta,epsilon)"
+              paramHint "zeta"
+              paramHint "eta"
+              paramHint "theta"
+              paramHint "iota"
+              paramHint "kappa"
+              paramHint "lambda"
+              paramHint "muValue"
+              paramHint "nuValue"
+            ]
+        testCaseAsync "alternate tuple & var" <|
+          checkAllInMarkedRange server
+            """
+            let f (alpha, beta) gamma (delta, epsilon) zeta (eta, theta) iota (kappa, lambda) = ()
+
+            let v = (1,1)
+
+            $|
+            f $0v $0(1,1) ($01,$01) $0v ($01,$01) $0(1,1) ($01, $01) = ()
+            $|
+            """
+            [
+            paramHint "(alpha,beta)"
+            paramHint "gamma"
+            paramHint "delta"
+            paramHint "epsilon"
+            paramHint "zeta"
+            paramHint "eta"
+            paramHint "theta"
+            paramHint "iota"
+            paramHint "kappa"
+            paramHint "lambda"
+            ]
+      ]
+    ]
+
+    testList "unit" [
+      testCaseAsync "doesn't show param hint for unnamed unit param" <|
+        checkAllInMarkedRange server
+          """
+          let f () = ()
+
+          $|f ()$|
+          """
+          []
+      testCaseAsync "does show param hint for named unit param" <|
+        checkAllInMarkedRange server
+          """
+          let f (myValue: unit) = ()
+
+          $|f $0()$|
+          """
+          [
+            paramHint "myValue"
+          ]
+
+      testCaseAsync "does show param hint for unit arg" <|
+        checkAllInMarkedRange server
+          """
+          let f myValue = ()
+
+          $|f $0()$|
+          """
+          [
+            paramHint "myValue"
           ]
     ]
-    ptestCaseAsync "doesn't show param for func with args pipe in" <|
-      // currently: shows param hint ... in front of `f`
+
+    testCaseAsync "doesn't show param hint for wildcard param" <|
       checkAllInMarkedRange server
         """
-        let f tupleParam = ()
-        $|f <| 2$|
+        let f _ = ()
+
+        $|f 42$|
         """
         []
+
+    testList "operator" [
+      testList "pipe" [
+        testCaseAsync "doesn't show param for func with args piped in" <|
+          checkAllInMarkedRange server
+            """
+            let f tupleParam = ()
+            $|
+            f <| 2
+            $|
+            """
+            []
+        testCaseAsync "doesn't show param for pipe, but for function args" <|
+          checkAllInMarkedRange server
+            """
+            let f1 someArgs = someArgs
+            let f2 someValue someArgs = someArgs |> List.map (fun v -> v + someValue)
+            let f3 someFunction someArgs = someArgs |> List.iter someFunction
+
+            $|
+            [1..4]
+            |> f1
+            |> f2 $042
+            |> f3 $0(printfn "number %i")
+            $|
+            """
+            [
+              paramHint "someValue"
+              paramHint "someFunction"
+            ]
+        testCaseAsync "doesn't show param for piped in, but for function args" <|
+          checkAllInMarkedRange server
+            """
+            let f1 someArgs = someArgs
+            let f2 someValue someArgs = someArgs |> List.map (fun v -> v + someValue)
+            let f3 someFunction someArgs = someArgs |> List.iter someFunction
+
+            $|
+            f3 $0(printfn "number %i") <| (f2 $042 <| (f1 <| [1..4]))
+            $|
+            """
+            [
+              paramHint "someFunction"
+              paramHint "someValue"
+            ]
+      ]
+      testCaseAsync "doesn't show param for unary operator" <|
+        checkAllInMarkedRange server
+          """
+          let (~+) someValue = ()
+          $|+42$|
+          """
+          []
+      testCaseAsync "doesn't show param for binary operator" <|
+        checkAllInMarkedRange server
+          """
+          let (+) someValue someOtherValue = ()
+          $|42 + 13$|
+          """
+          []
+    ]
+
     ptestCaseAsync "can show param for method" <|
       checkAllInMarkedRange server
         """
