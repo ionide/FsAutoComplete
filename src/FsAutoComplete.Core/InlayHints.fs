@@ -322,13 +322,17 @@ module private ShouldCreate =
       else
         argumentText
 
-    // // covered by each isPre/PostfixOf
-    // areSame paramName argumentName
-    // ||
-    isPrefixOf argumentName paramName
-    || isPostfixOf argumentName paramName
-    || isPrefixOf paramName argumentName
-    || isPostfixOf paramName argumentName
+    // special case: argumentText is empty string. Happens for unit (`()`)
+    if argumentName.IsWhiteSpace() then
+      false
+    else
+      // // covered by each isPre/PostfixOf
+      // areSame paramName argumentName
+      // ||
+      isPrefixOf argumentName paramName
+      || isPostfixOf argumentName paramName
+      || isPrefixOf paramName argumentName
+      || isPostfixOf paramName argumentName
 
   let inline private doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
     parameterName <> userArgumentText
@@ -770,6 +774,80 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           } }
   )
 
+///<returns>
+/// List of all curried params.
+/// 
+/// For each curried param:
+/// * its range (including params)
+/// * range of tupled params  
+///   * Note: one range when no tuple
+/// 
+/// ```fsharp
+/// f alpha (beta, gamma) 
+/// ```
+/// ->
+/// ```fsharp
+/// [
+///   (2:7, [2:7])
+///   (8:21, [9:13; 15:20])
+/// ]
+/// ```
+///</returns>
+let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
+  SyntaxTraversal.Traverse (
+    pos,
+    ast,
+    { new SyntaxVisitorBase<_>() with
+        member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
+          match expr with
+          | SynExpr.App (isInfix=false; funcExpr=funcExpr; argExpr=argExpr; range=range) when pos = range.Start ->
+              let isInfixFuncExpr =
+                  match funcExpr with
+                  | SynExpr.App (_, isInfix, _, _, _) -> isInfix
+                  | _ -> false
+              if isInfixFuncExpr then
+                traverseSynExpr funcExpr
+              else
+                let rec withoutParens =
+                  function
+                  | SynExpr.Paren (expr=expr) -> withoutParens expr
+                  | expr -> expr
+                // f a (b,c)
+                // ^^^^^^^^^ App
+                // ... func
+                //     ----- arg
+                // ^^^ App
+                // . func
+                //   - arg
+                let rec findArgs expr =
+                  match expr with
+                  | SynExpr.Const (constant=SynConst.Unit) -> []
+                  | SynExpr.Paren (expr=expr) -> findArgs expr
+                  | SynExpr.App (funcExpr=funcExpr; argExpr=argExpr) ->
+                      let otherArgRanges = findArgs funcExpr
+
+                      let argRange =
+                        let argRange = argExpr.Range
+                        let tupleArgs =
+                          match argExpr |> withoutParens with
+                          | SynExpr.Tuple (exprs=exprs) ->
+                              exprs
+                              |> List.map (fun e -> e.Range)
+                          | _ ->
+                              argRange
+                              |> List.singleton
+                        (argRange, tupleArgs)
+
+                      argRange :: otherArgRanges
+                  | _ -> []
+
+                findArgs expr
+                |> Some
+          | _ -> defaultTraverse expr
+    }
+  )
+  |> Option.map List.rev
+
 /// Note: No exhausting check. Doesn't check for:
 /// * is already typed (-> done by getting `ExplicitType`)
 /// * Filters like excluding functions (vs. lambda functions)
@@ -853,32 +931,44 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
         |> Option.iter typeHints.Add
 
       | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
-        let appliedArgRangesOpt =
-          parseAndCheck.GetParseResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
+        let curriedParamGroups = func.CurriedParameterGroups
+        let appliedArgRanges =
+          getArgRangesOfFunctionApplication parseAndCheck.GetAST symbolUse.Range.Start
+          |> Option.defaultValue []
 
-        match appliedArgRangesOpt with
-        | None -> ()
-        | Some [] -> ()
-        | Some appliedArgRanges ->
-          let parameters = func.CurriedParameterGroups |> Seq.concat
-          let appliedArgRanges = appliedArgRanges |> Array.ofList
-          let definitionArgs = parameters |> Array.ofSeq
-          // invariant - definitionArgs should be at least as long as applied args.
-          // if this is not the case (printfs?) we truncate to the lesser of the two
-          let minLength = min definitionArgs.Length appliedArgRanges.Length
+        for (def, (appliedArgRange, tupleRanges)) in Seq.zip curriedParamGroups appliedArgRanges do
+          assert(def.Count > 0)
+          match tupleRanges with
+          | _ when def.Count = 1 ->
+            // single param at def
+            let p = def[0]
+            let! appliedArgText = text[appliedArgRange]
+            if ShouldCreate.paramHint func p appliedArgText then
+              let defArgName = p.DisplayName
+              let hint = createParamHint appliedArgRange defArgName
+              parameterHints.Add hint
+          | [_] ->
+            // single param at app (but tuple at def)
+            let! appliedArgText = text[appliedArgRange]
+            // only show param hint when at least one of the tuple params should be shown
+            if def |> Seq.exists (fun p -> ShouldCreate.paramHint func p appliedArgText) then
+              let defArgName =
+                let names =
+                  def
+                  |> Seq.map (fun p -> p.DisplayName)
+                  |> String.concat ","
+                "(" + names + ")"
+              let hint = createParamHint appliedArgRange defArgName
+              parameterHints.Add hint
+          | _ ->
+            // both tuple
+            for (p, eleRange) in Seq.zip def tupleRanges do
+              let! appliedArgText = text[eleRange]
+              if ShouldCreate.paramHint func p appliedArgText then
+                let defArgName = p.DisplayName
+                let hint = createParamHint eleRange defArgName
+                parameterHints.Add hint
 
-          if minLength = 0 then
-            ()
-          else
-            for idx = 0 to minLength - 1 do
-              let appliedArgRange = appliedArgRanges.[idx]
-              let! appliedArgText = text[appliedArgRange]
-              let definitionArg = definitionArgs.[idx]
-              let definitionArgName = definitionArg.DisplayName
-
-              if ShouldCreate.paramHint func definitionArg appliedArgText then
-                let hint = createParamHint appliedArgRange definitionArgName
-                parameterHints.Add(hint)
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
