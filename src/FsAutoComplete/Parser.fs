@@ -9,9 +9,10 @@ open System.CommandLine
 open System.CommandLine.Parsing
 open System.CommandLine.Builder
 open Serilog.Filters
+open System.Runtime.InteropServices
+open System.Threading.Tasks
 
 module Parser =
-  open System.Threading.Tasks
 
   [<Struct>]
   type Pos = { Line: int; Column: int }
@@ -117,8 +118,18 @@ module Parser =
           else
             Ionide.ProjInfo.WorkspaceLoader.Create
 
+        let dotnetPath =
+          if
+            Environment.ProcessPath.EndsWith("dotnet")
+            || Environment.ProcessPath.EndsWith("dotnet.exe")
+          then
+            // this is valid when not running as a global tool
+            Some(FileInfo(Environment.ProcessPath))
+          else
+            None
+
         let toolsPath =
-          Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) None
+          Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
 
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
