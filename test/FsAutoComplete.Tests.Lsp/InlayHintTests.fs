@@ -28,11 +28,11 @@ module private FSharpInlayHints =
         | InlayHintKind.Parameter -> None
       Pos = pos
       Kind = kind }
-  let private from (text, (line, char), kind) = 
+  let private from (text, (line, char), kind) =
     at (text, { Line=line; Character=char}, kind)
 
 
-  let private check' 
+  let private check'
     (server: CachedServer)
     (text: string)
     (range: Range)
@@ -69,7 +69,7 @@ module private FSharpInlayHints =
       poss[1..(count-2)]
 
     (text, range, poss)
-  
+
   let checkRange (server: CachedServer) (documentText: string) (expectedHints: _ list) = async {
     let (text, range, poss) = documentText |> extractCursorsInsideRange
     Expect.equal (poss |> List.length) (expectedHints |> List.length) $"Expected Hints & position cursors to match, but there were {expectedHints |> List.length} expected hints and {poss |> List.length} position cursors"
@@ -126,8 +126,8 @@ module private LspInlayHints =
       use doc = doc
       Expect.hasLength diags 0 "Should not have had check errors"
 
-      let! hints = 
-        doc 
+      let! hints =
+        doc
         |> Document.inlayHintsAt range
       let hints = 
         hints 
@@ -174,8 +174,8 @@ module private LspInlayHints =
         |> Text.trimTripleQuotation
         |> Cursors.extractGroupedWith [| rangeMarker; Cursor.Marker |]
       let range =
-        let poss = 
-          cursors 
+        let poss =
+          cursors
           |> Map.tryFind rangeMarker
           |> Flip.Expect.wantSome "There should be range markers"
         Expect.hasLength poss 2 "There should be two range markers"
@@ -237,16 +237,16 @@ module private LspInlayHints =
       |> Text.trimTripleQuotation
     (hint, Some expectedAfterEdits)
   let truncated (hint: InlayHint, edits) =
-    let label = 
+    let label =
       match hint.Label with
       | InlayHintLabel.String label -> label
       | _ -> failtestf "invalid label: %A" hint.Label
-    let (name, kind) = 
+    let (name, kind) =
       match hint.Kind with
-      | Some InlayHintKind.Parameter -> 
+      | Some InlayHintKind.Parameter ->
           let name = label.Substring(0, label.Length-2)
           name, InlayHintKind.Parameter
-      | Some InlayHintKind.Type -> 
+      | Some InlayHintKind.Type ->
           let name = label.Substring(2)
           name, InlayHintKind.Type
       | _ -> failtestf "invalid kind: %A" hint.Kind
@@ -254,7 +254,7 @@ module private LspInlayHints =
     Expect.notEqual truncatedName name "Truncated name should be different from untruncated one"
     let hint =
       { hint with
-          Label = 
+          Label =
             match kind with
             | InlayHintKind.Parameter ->
                 truncatedName + " ="
@@ -262,7 +262,7 @@ module private LspInlayHints =
                 ": " + truncatedName
             | _ -> failwith "unreachable"
             |> InlayHintLabel.String
-          Tooltip = 
+          Tooltip =
             InlayHintTooltip.String name
             |> Some
       }
@@ -511,7 +511,7 @@ let private paramHintTests state =
         $|f $0(1 |> alpha)$|
         """
         [ paramHint "alpha" ]
-          
+
     //ENHANCEMENT: detect some common expressions like:
     // * receiving end of pipe: `1 |> alpha`, `alpha <| 1`, `1 |> toAlpha`
     // * last function: `1.ToAlpha()`
@@ -1135,7 +1135,7 @@ let private typeHintTests state =
             let t: unit option option option option option option option option option option option option option option option = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))
             """
         ]
-    
+
 
     testCaseAsync "can show type for generic actual type" <|
       checkAllInMarkedRange server
@@ -1176,7 +1176,7 @@ let private mixedHintTests state =
       checkAllInMarkedRange server
         """
         $|open System
-        let f alpha$0 beta$0 = 
+        let f alpha$0 beta$0 =
           let beta$0 = Int32.Parse beta
           let value$0 = alpha + beta + 2
           value * 2
@@ -1186,7 +1186,7 @@ let private mixedHintTests state =
           typeHint "int"
             """
             open System
-            let f (alpha: int) beta = 
+            let f (alpha: int) beta =
               let beta = Int32.Parse beta
               let value = alpha + beta + 2
               value * 2
@@ -1195,7 +1195,7 @@ let private mixedHintTests state =
           typeHint "string"
             """
             open System
-            let f alpha (beta: string) = 
+            let f alpha (beta: string) =
               let beta = Int32.Parse beta
               let value = alpha + beta + 2
               value * 2
@@ -1204,7 +1204,7 @@ let private mixedHintTests state =
           typeHint "int"
             """
             open System
-            let f alpha beta = 
+            let f alpha beta =
               let beta: int = Int32.Parse beta
               let value = alpha + beta + 2
               value * 2
@@ -1213,7 +1213,7 @@ let private mixedHintTests state =
           typeHint "int"
             """
             open System
-            let f alpha beta = 
+            let f alpha beta =
               let beta = Int32.Parse beta
               let value: int = alpha + beta + 2
               value * 2
@@ -1222,7 +1222,7 @@ let private mixedHintTests state =
           typeHint "int"
             """
             open System
-            let f alpha beta = 
+            let f alpha beta =
               let beta = Int32.Parse beta
               let value = alpha + beta + 2
               value * 2
@@ -1249,7 +1249,7 @@ module InlayHintAndExplicitType =
 
   let tryGetInlayHintAt pos doc = async {
     let allRange = { Start = { Line = 0; Character = 0 }; End = { Line = 1234; Character = 1234 }}
-    let! hints = 
+    let! hints =
       doc
       |> Document.inlayHintsAt allRange
       |> Async.map (Option.defaultValue [||])
@@ -1264,10 +1264,10 @@ module InlayHintAndExplicitType =
     return
       match codeFixes with
       | None -> None
-      | Some (TextDocumentCodeActionResult.Commands _) -> None
-      | Some (TextDocumentCodeActionResult.CodeActions codeActions) ->
+      | Some (CodeActions codeActions) ->
           codeActions
           |> Array.tryFind (fun ca -> ca.Title = CodeFix.AddExplicitTypeAnnotation.title)
+      | Some _ -> None
   }
   let private checkInlayHintAndCodeFix
     (server: CachedServer)
@@ -1304,7 +1304,7 @@ module InlayHintAndExplicitType =
       /// but no InlayHint
     | JustCodeFix of textAfterEdits: string
       /// Just display of InlayHint, but no Edits or CodeFix
-      /// 
+      ///
       /// Label must not contain leading `:` (& following space)
     | JustInlayHint of label: string
       /// Neither InlayHint nor CodeFix
@@ -1325,7 +1325,7 @@ module InlayHintAndExplicitType =
       let! codeFix = doc |> tryGetCodeFixAt pos
       Expect.isNone codeFix "There shouldn't be a code fix after inserting code fix text edit"
     }
-      
+
     let rec validateInlayHint (doc, text, pos) (inlayHint: InlayHint option) = async {
       match expected with
       | JustCodeFix _
@@ -1339,7 +1339,7 @@ module InlayHintAndExplicitType =
                 parts
                 |> Array.map (fun part -> part.Value)
                 |> String.concat ""
-          let actual = 
+          let actual =
             let actual = actual.TrimStart()
             if actual.StartsWith ':' then
               actual.Substring(1).TrimStart()
@@ -1397,9 +1397,9 @@ open InlayHintAndExplicitType
 /// * At most locations Type Hint & Code Fix should be valid at same location and contain same TextEdit -> checked together
 /// * Checked by applying TextEdits
 /// * Additional test: After applying TextEdit (-> add type annotation), neither Type Hint nor Code Fix are available any more
-/// 
+///
 /// vs. `explicitTypeInfoTests`:
-/// * `explicitTypeInfoTests`: 
+/// * `explicitTypeInfoTests`:
 ///   * Does Type Annotation exists
 ///   * Is Type Annotation valid
 ///   * Are parens required
@@ -1411,7 +1411,7 @@ open InlayHintAndExplicitType
 ///   * Produce both correct Text Edits
 ///   * Are both not triggered any more after Text Edit
 ///   * high-level: LSP Server with `textDocument/inlayHint` & `textDocument/codeAction` commands
-/// 
+///
 /// vs. `typeHintTests`:
 /// * `typeHintTests`:
 ///   * Tests all properties of InlayHint like label, location
@@ -1420,8 +1420,8 @@ open InlayHintAndExplicitType
 ///   * InlayHint at single location
 ///   * Tests just TextEdits
 ///   * Additional checks "Add Explicit Type" Code Fix
-/// 
-/// 
+///
+///
 /// ->
 /// * `explicitTypeInfoTests`: test type annotation
 /// * `inlayTypeHintAndAddExplicitTypeTests`: test type annotation edit and Inlay Hint existence (vs. "Add Explicit Type")
@@ -1462,7 +1462,7 @@ let private inlayTypeHintAndAddExplicitTypeTests state =
     ]
   ])
 
-let tests state = 
+let tests state =
   testList (nameof InlayHint) [
     FSharpInlayHints.tests state
     inlayHintTests state
@@ -1485,7 +1485,7 @@ let explicitTypeInfoTests =
   let getAst input = async {
     let checker = checker.Value
     // Get compiler options for the 'project' implied by a single script file
-    let! projOptions, diagnostics = 
+    let! projOptions, diagnostics =
       checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework=false)
     // Expect.isEmpty diagnostics "There should be no diagnostics"
     Expect.hasLength diagnostics 0 "There should be no diagnostics"
@@ -1495,8 +1495,8 @@ let explicitTypeInfoTests =
     Expect.hasLength errors 0 "There should be no errors"
 
     // Run the first phase (untyped parsing) of the compiler
-    let! parseFileResults = 
-      checker.ParseFile(file, input, parsingOptions) 
+    let! parseFileResults =
+      checker.ParseFile(file, input, parsingOptions)
     // Expect.isEmpty parseFileResults.Diagnostics "There should be no parse diagnostics"
     Expect.hasLength parseFileResults.Diagnostics 0 "There should be no parse diagnostics"
 
@@ -1508,7 +1508,7 @@ let explicitTypeInfoTests =
     let! ast = getAst text
 
     let pos = protocolPosToPos pos
-    
+
     let explTy = InlayHints.tryGetExplicitTypeInfo (text, ast) pos
     return explTy
   }
@@ -1605,7 +1605,7 @@ let explicitTypeInfoTests =
                 }
               let updated = ExplicitType.Missing data
               updated, cursors
-        
+
         Expect.hasLength cursors 0 "There are unused cursors!"
         expected
       let expected = expected |> Option.map (updateExpected cursors)
@@ -1709,7 +1709,7 @@ let explicitTypeInfoTests =
             """
             let private $0value: int = 1
             """
-            (ExplicitType.Exists) 
+            (ExplicitType.Exists)
       ]
       testList "let with multiple vars" [
         testCaseAsync "let value1, value2, value3 = (1,2,3)" <|
@@ -1729,7 +1729,7 @@ let explicitTypeInfoTests =
             """
             let (value1, $0value: int, value3) = (1,2,3)
             """
-            (ExplicitType.Exists) 
+            (ExplicitType.Exists)
       ]
 
       testList "use" [
@@ -1757,7 +1757,7 @@ let explicitTypeInfoTests =
             """
             (ExplicitType.Exists)
       ]
-    
+
       testList "let!" [
         testCaseAsync "let! value = ..." <|
           testExplicitType
@@ -2098,7 +2098,7 @@ let explicitTypeInfoTests =
               member _.DoStuff(v) = v + a + 1
             """
             (ExplicitType.Missing { Ident=fromCursorAndInsert; InsertAt=fromCursor; Parens=Parens.Optional fromCursors; SpecialRules = [] })
-            
+
       ]
     ]
     testList "pattern match" [
@@ -2134,15 +2134,15 @@ let explicitTypeInfoTests =
         // * `| value: int as _ -> ...` -> ok
         // * `static member F (value: int as _) = ...` -> ok
 
-        // -> 
+        // ->
         // trailing type anno:
         // * in `let`: trailing type anno part of `let` binding, NOT pattern -> ok
         // * similar when with parens: `(pat: type)` with `pat=_ as _`
         // * in `case`: just pattern -> no trailing type annotation part of case definition
-        // 
+        //
         // type anno in first binding position: don't know
         // Probably eager type annotation matching of let binding? -> `as` is now in pos of parameter
-        // Other Patterns require parens too: 
+        // Other Patterns require parens too:
         // * `let Some value = Some 42` -> function named `Some` with argument `value: 'a` returning `Some 42`
         // * `let (Some value) = Some 42` -> destructure of `Some 42` to `value: int = 42`
 
@@ -2348,7 +2348,7 @@ let explicitTypeInfoTests =
           testExplicitType
             """
             type Attr() =
-              inherit System.Attribute() 
+              inherit System.Attribute()
             type A([<Attr>]$0a$I) =
               member _.F(b) = a + b + 1
             """

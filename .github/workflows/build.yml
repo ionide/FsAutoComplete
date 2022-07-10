@@ -10,7 +10,6 @@ jobs:
     strategy:
       matrix:
         os: [windows-2022, macos-11, ubuntu-20.04]
-        dotnet: [6.0.200]
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -21,9 +20,7 @@ jobs:
       uses: al-cheb/configure-pagefile-action@v1.2
       if: ${{ matrix.os == 'windows-2019' }}
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: ${{ matrix.dotnet }}
+      uses: actions/setup-dotnet@v2
     - name: Restore tools
       run: dotnet tool restore
     - name: Run Build

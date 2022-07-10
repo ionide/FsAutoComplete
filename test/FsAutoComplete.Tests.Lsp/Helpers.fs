@@ -244,7 +244,7 @@ let clientCaps: ClientCapabilities =
         WillSaveWaitUntil = Some true
         DidSave = Some true }
 
-    let diagCaps: PublishDiagnosticsCapabilites =
+    let diagCaps: PublishDiagnosticsCapabilities =
       let diagnosticTags: DiagnosticTagSupport = { ValueSet = [||] }
 
       { RelatedInformation = Some true
@@ -289,7 +289,7 @@ let clientCaps: ClientCapabilities =
     let semanticTokensCaps: SemanticTokensClientCapabilities =
       { DynamicRegistration = Some true
         Requests =
-          { Range = Some(U2.First true)
+          { Range = Some true
             Full = Some(U2.First true) }
         TokenTypes = [||]
         TokenModifiers = [||]
@@ -624,3 +624,11 @@ let (|As|_|) (m: PlainNotification) : 't option =
   match trySerialize m.Content with
   | Some (r: FsAutoComplete.CommandResponse.ResponseMsg<'t>) -> Some r.Data
   | None -> None
+
+let (|CodeActions|_|) (t: TextDocumentCodeActionResult) =
+  let actions =
+    t
+    |> Array.choose (function U2.Second action -> Some action | _ -> None)
+  match actions with
+  | [||] -> None
+  | actions -> Some actions

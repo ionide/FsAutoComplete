@@ -5,6 +5,13 @@ open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
+open Newtonsoft.Json.Linq
+
+let private (|Payload|_|) (tok: JToken) : 't option =
+  try
+    Some(Ionide.LanguageServerProtocol.Server.deserialize tok: 't)
+  with e ->
+    None
 
 let private mapExternalDiagnostic diagnosticType =
   Run.ifDiagnosticByType diagnosticType (fun diagnostic codeActionParams ->
@@ -12,7 +19,7 @@ let private mapExternalDiagnostic diagnosticType =
     | None -> AsyncResult.retn []
     | Some fixes ->
       match fixes with
-      | :? list<TextEdit> as fixes ->
+      | Payload (fixes: list<TextEdit>) ->
         AsyncResult.retn
           [ { SourceDiagnostic = Some diagnostic
               File = codeActionParams.TextDocument

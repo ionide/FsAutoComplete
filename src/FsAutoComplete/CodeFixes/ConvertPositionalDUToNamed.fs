@@ -41,8 +41,6 @@ type ParseAndCheckResults with
         Some(ident, [ singleDUFieldPattern ], parenRange)
       | SynPat.Paren(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
         Some(ident, duFieldPatterns, parenRange)
-      | SynPat.Paren(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
-        Some(ident, duFieldPatterns, parenRange)
       | _ -> None
 
     let visitor =
