@@ -748,7 +748,7 @@ type FSharpConfig =
       TooltipMode = "full"
       GenerateBinlog = false
       CodeLenses = CodeLensConfig.Default
-      InlayHints = InlayHintsConfig.Default  }
+      InlayHints = InlayHintsConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
     { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
@@ -886,8 +886,7 @@ type FSharpConfig =
         | None -> InlayHintsConfig.Default
         | Some ihDto ->
           { typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
-            parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames }
-    }
+            parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with

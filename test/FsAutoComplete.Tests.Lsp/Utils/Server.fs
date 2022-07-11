@@ -241,7 +241,7 @@ module Document =
       | (false, _) ->
           failwith $"Environment Variable '%s{envVar}' exists, but is not a correct int number ('%s{d}')"
     )
-    |> Option.orElseWith (fun _ -> 
+    |> Option.orElseWith (fun _ ->
         // set in Github Actions: https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables
         match System.Environment.GetEnvironmentVariable "CI" with
         | null -> None
@@ -366,6 +366,11 @@ module Document =
     result
     |> Result.defaultWith (fun _ -> failtest "not reachable")
 
+  let private assertSome opt =
+    Expect.isSome opt "Expected to have Some"
+
+    opt |> Option.defaultWith (fun _ -> failtest "not reachable")
+
   /// Note: diagnostics aren't filtered to match passed range in here
   let codeActionAt (diagnostics: Diagnostic[]) (range: Range) (doc: Document) =
     async {
@@ -378,22 +383,13 @@ module Document =
       return res |> assertOk
     }
 
-  let fsharpInlayHintsAt range (doc: Document) = async {
-    let ps: FSharpInlayHintsRequest = {
-      Range =  range
-      TextDocument = doc.TextDocumentIdentifier
-    }
-    let! res = doc.Server.Server.FSharpInlayHints(ps)
-    return res |> assertOk
-  }
-
   let inlayHintsAt range (doc: Document) = async {
     let ps: InlayHintParams = {
       Range = range
       TextDocument = doc.TextDocumentIdentifier
     }
     let! res = doc.Server.Server.TextDocumentInlayHint ps
-    return res |> assertOk
+    return res |> assertOk |> assertSome
   }
   let resolveInlayHint inlayHint (doc: Document) = async {
     let! res = doc.Server.Server.InlayHintResolve inlayHint
