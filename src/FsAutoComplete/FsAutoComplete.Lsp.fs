@@ -2616,7 +2616,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     |> x.fileHandler (fun fn tyRes lines ->
       async {
         let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
-        let! hints = commands.InlayHints(lines, tyRes, fcsRange)
+        let! hints = commands.InlayHints(lines, tyRes, fcsRange, showTypeHints = config.InlayHints.typeAnnotations, showParameterHints = config.InlayHints.parameterNames)
 
         let lspHints =
           hints
@@ -2647,7 +2647,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     |> x.fileHandler (fun fn tyRes lines ->
       async {
         let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
-        let! hints = commands.InlayHints(lines, tyRes, fcsRange)
+        let! hints = commands.InlayHints(lines, tyRes, fcsRange, showTypeHints = config.InlayHints.typeAnnotations, showParameterHints = config.InlayHints.parameterNames)
 
         let hints: InlayHint[] =
           hints

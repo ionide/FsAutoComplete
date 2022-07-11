@@ -68,7 +68,7 @@ type Async =
       let! token = Async.CancellationToken // capture the current cancellation token
 
       return!
-        Async.FromContinuations (fun (cont, econt, ccont) ->
+        Async.FromContinuations(fun (cont, econt, ccont) ->
           // start a new mailbox processor which will await the result
           MailboxProcessor.Start(
             (fun (mailbox: MailboxProcessor<Choice<'T1, exn, OperationCanceledException>>) ->
@@ -203,10 +203,14 @@ let defaultConfigDto: FSharpConfigDto =
     AbstractClassStubGeneration = None
     AbstractClassStubGenerationMethodBody = None
     AbstractClassStubGenerationObjectIdentifier = None
-    CodeLenses = Some {
-      Signature = Some {| Enabled = Some true |}
-      References = Some {| Enabled = Some true |}
-    } }
+    CodeLenses =
+      Some
+        { Signature = Some {| Enabled = Some true |}
+          References = Some {| Enabled = Some true |} }
+    InlayHints =
+      Some
+        { typeAnnotations = Some true
+          parameterNames = Some true } }
 
 let clientCaps: ClientCapabilities =
   let dynCaps: DynamicCapabilities = { DynamicRegistration = Some true }
@@ -412,14 +416,14 @@ let serverInitialize path (config: FSharpConfigDto) state =
         RootUri = Some(sprintf "file://%s" path)
         InitializationOptions = Some(Server.serialize config)
         Capabilities = Some clientCaps
-        ClientInfo = Some {
-          Name = "FSAC Tests"
-          Version = Some "0.0.0"
-        }
-        WorkspaceFolders = Some [| {
-          Uri = Path.FilePathToUri path
-          Name = "Test Folder"
-        } |]
+        ClientInfo =
+          Some
+            { Name = "FSAC Tests"
+              Version = Some "0.0.0" }
+        WorkspaceFolders =
+          Some
+            [| { Uri = Path.FilePathToUri path
+                 Name = "Test Folder" } |]
         trace = None }
 
     let! result = server.Initialize p
@@ -535,15 +539,13 @@ let fileDiagnosticsForUri (uri: string) =
 
   getDiagnosticsEvents
   >> Observable.choose (fun n ->
-    if n.Uri = uri
-    then
+    if n.Uri = uri then
       Some n.Diagnostics
     else
-      None
-  )
+      None)
 
 let diagnosticsFromSource (desiredSource: String) =
-  Observable.choose (fun (diags: Diagnostic []) ->
+  Observable.choose (fun (diags: Diagnostic[]) ->
     match diags
           |> Array.choose (fun d ->
             if d.Source.StartsWith desiredSource then
@@ -617,8 +619,8 @@ let waitForEditsForFile file =
 let trySerialize (t: string) : 't option =
   try
     JsonSerializer.readJson t |> Some
-  with
-  | _ -> None
+  with _ ->
+    None
 
 let (|As|_|) (m: PlainNotification) : 't option =
   match trySerialize m.Content with
@@ -628,7 +630,10 @@ let (|As|_|) (m: PlainNotification) : 't option =
 let (|CodeActions|_|) (t: TextDocumentCodeActionResult) =
   let actions =
     t
-    |> Array.choose (function U2.Second action -> Some action | _ -> None)
+    |> Array.choose (function
+      | U2.Second action -> Some action
+      | _ -> None)
+
   match actions with
   | [||] -> None
   | actions -> Some actions

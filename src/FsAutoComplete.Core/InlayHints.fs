@@ -906,7 +906,12 @@ let private tryCreateTypeHint (explicitType: ExplicitType) (ty: FSharpType) (dis
     |> Some
   | _ -> None
 
-let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: Range) : Async<Hint[]> =
+type HintConfig = {
+  ShowTypeHints: bool
+  ShowParameterHints: bool
+}
+
+let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: Range, hintConfig) : Async<Hint[]> =
   asyncResult {
     let! cancellationToken = Async.CancellationToken
 
@@ -920,14 +925,15 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
     for symbolUse in symbolUses do
       match symbolUse.Symbol with
       | :? FSharpMemberOrFunctionOrValue as mfv when
-        symbolUse.IsFromDefinition
+        hintConfig.ShowTypeHints
+        && symbolUse.IsFromDefinition
         && isPotentialTargetForTypeAnnotation false (symbolUse, mfv)
         ->
         tryGetExplicitTypeInfo (text, parseAndCheck.GetAST) symbolUse.Range.Start
         |> Option.bind (fun explTy -> tryCreateTypeHint explTy mfv.FullType symbolUse.DisplayContext)
         |> Option.iter typeHints.Add
 
-      | :? FSharpMemberOrFunctionOrValue as func when func.IsFunction && not symbolUse.IsFromDefinition ->
+      | :? FSharpMemberOrFunctionOrValue as func when hintConfig.ShowParameterHints && func.IsFunction && not symbolUse.IsFromDefinition ->
         let curriedParamGroups = func.CurriedParameterGroups
 
         let appliedArgRanges =
@@ -973,7 +979,7 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
                 let hint = createParamHint eleRange defArgName
                 parameterHints.Add hint
 
-      | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
+      | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when hintConfig.ShowParameterHints && methodOrConstructor.IsConstructor -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
 
