@@ -4,7 +4,6 @@ Ionide.ProjInfo.FCS
 Ionide.ProjInfo.ProjectSystem
 FSharp.Analyzers.SDK
 Newtonsoft.Json
-#Fake.Runtime
 ICSharpCode.Decompiler
 Microsoft.SourceLink.GitHub
 Dapper
