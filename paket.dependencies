@@ -24,7 +24,6 @@ nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.10.0-beta7
 nuget Newtonsoft.Json
-# nuget Fake.Runtime prerelease
 nuget FSharpLint.Core
 nuget FSharp.Core content: none
 nuget Dapper

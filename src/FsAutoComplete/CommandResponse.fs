@@ -648,12 +648,6 @@ module CommandResponse =
           { Code = code
             Errors = Array.map FSharpErrorInfo.OfFSharpError errors } }
 
-  // let fakeTargets (serialize : Serializer) (targets : FakeSupport.GetTargetsResult) =
-  //    serialize targets
-
-  // let fakeRuntime (serialize : Serializer) (runtimePath : string) =
-  //    serialize { Kind = "fakeRuntime"; Data = runtimePath }
-
   let fsharpLiterate (serialize: Serializer) (content: string) =
     serialize
       { Kind = "fsharpLiterate"

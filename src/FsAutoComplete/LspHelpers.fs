@@ -585,8 +585,6 @@ type WorkspacePeekRequest =
 
 type DocumentationForSymbolReuqest = { XmlSig: string; Assembly: string }
 
-// type FakeTargetsRequest = { FileName : string; FakeContext : FakeSupport.FakeContext; }
-
 type HighlightingRequest =
   { TextDocument: TextDocumentIdentifier }
 

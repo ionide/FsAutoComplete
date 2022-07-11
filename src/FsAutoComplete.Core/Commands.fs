@@ -1632,16 +1632,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member __.Quit() =
     async { return [ CoreResponse.InfoRes "quitting..." ] }
 
-  // member x.FakeTargets file ctx = async {
-  //     let! targets = FakeSupport.getTargets file ctx
-  //     return CoreResponse.Res targets
-  // }
-
-  // member x.FakeRuntime () = async {
-  //     let! runtimePath = FakeSupport.getFakeRuntime ()
-  //     return CoreResponse.Res runtimePath
-  // }
-
   member x.ScopesForFile(file: string<LocalPath>) =
     asyncResult {
       let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file

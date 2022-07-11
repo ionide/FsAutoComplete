@@ -2,7 +2,6 @@
 #load ".fake/build.fsx/intellisense.fsx"
 
 
-// open Fake
 open Fake.Core
 open Fake.IO
 open Fake.IO.FileSystemOperators

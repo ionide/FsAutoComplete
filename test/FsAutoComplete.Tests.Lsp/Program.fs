@@ -74,8 +74,6 @@ let lspTests =
             uriTests
             //linterTests state
             formattingTests state
-            // fake isn't updated to FCS 39, disabling tests until that's resolved
-            //fakeInteropTests toolsPath
             analyzerTests state
             signatureTests state
             SignatureHelp.tests state
