@@ -620,6 +620,10 @@ type CodeLensConfigDto =
   { Signature: {| Enabled: bool option |} option
     References: {| Enabled: bool option |} option }
 
+type InlayHintDto =
+  { typeAnnotations: bool option
+    parameterNames: bool option }
+
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
@@ -654,7 +658,8 @@ type FSharpConfigDto =
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
-    CodeLenses: CodeLensConfigDto option }
+    CodeLenses: CodeLensConfigDto option
+    InlayHints: InlayHintDto option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto }
 
@@ -664,6 +669,13 @@ type CodeLensConfig =
   static member Default =
     { Signature = {| Enabled = true |}
       References = {| Enabled = true |} }
+
+type InlayHintsConfig =
+  { typeAnnotations: bool
+    parameterNames: bool }
+  static member Default =
+    { typeAnnotations = true
+      parameterNames = true }
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -699,7 +711,8 @@ type FSharpConfig =
     FSICompilerToolLocations: string[]
     TooltipMode: string
     GenerateBinlog: bool
-    CodeLenses: CodeLensConfig }
+    CodeLenses: CodeLensConfig
+    InlayHints: InlayHintsConfig }
   static member Default: FSharpConfig =
     { AutomaticWorkspaceInit = false
       WorkspaceModePeekDeepLevel = 2
@@ -734,7 +747,8 @@ type FSharpConfig =
       FSICompilerToolLocations = [||]
       TooltipMode = "full"
       GenerateBinlog = false
-      CodeLenses = CodeLensConfig.Default }
+      CodeLenses = CodeLensConfig.Default
+      InlayHints = InlayHintsConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
     { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
@@ -794,7 +808,13 @@ type FSharpConfig =
               {| Enabled =
                   clDto.References
                   |> Option.bind (fun c -> c.Enabled)
-                  |> Option.defaultValue true |} } }
+                  |> Option.defaultValue true |} }
+      InlayHints =
+        match dto.InlayHints with
+        | None -> InlayHintsConfig.Default
+        | Some ihDto ->
+          { typeAnnotations = defaultArg ihDto.typeAnnotations true
+            parameterNames = defaultArg ihDto.parameterNames true } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -860,7 +880,13 @@ type FSharpConfig =
               {| Enabled =
                   clDto.References
                   |> Option.bind (fun c -> c.Enabled)
-                  |> Option.defaultValue x.CodeLenses.Signature.Enabled |} } }
+                  |> Option.defaultValue x.CodeLenses.Signature.Enabled |} }
+      InlayHints =
+        match dto.InlayHints with
+        | None -> InlayHintsConfig.Default
+        | Some ihDto ->
+          { typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
+            parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with

@@ -1738,8 +1738,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   //     return CoreResponse.Res html
   //   }
 
-  member _.InlayHints(text, tyRes: ParseAndCheckResults, range) =
-    FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range)
+  member _.InlayHints(text, tyRes: ParseAndCheckResults, range, ?showTypeHints, ?showParameterHints) =
+    let hintConfig: Core.InlayHints.HintConfig =
+      { ShowTypeHints = defaultArg showTypeHints true
+        ShowParameterHints = defaultArg showParameterHints true }
+
+    FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range, hintConfig)
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
     result {
