@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.55.0] - 2022-07-12
+
+### Added
+
+* [Support for LSP 3.17 InlayHints](https://github.com/fsharp/FsAutoComplete/pull/943)
+
+### Fixed
+
+* [Codelens for -1 reference no longer shown](https://github.com/fsharp/FsAutoComplete/pull/965)
+* [Remove backticks for signatures in signature help](https://github.com/fsharp/FsAutoComplete/pull/964)
+* [Tons of bugs and enhancements to InlayHints](https://github.com/fsharp/FsAutoComplete/pull/957) (thanks @Booksbaum!)
+* [Renames and reference counts are more accurate](https://github.com/fsharp/FsAutoComplete/pull/945)
+
+### Changed
+
+* [Use the parent dotnet binary to set the toolspath](https://github.com/fsharp/FsAutoComplete/pull/958)
+
+### Removed
+
+* [FAKE Integration](https://github.com/fsharp/FsAutoComplete/pull/961)
+* Custom InlayHints - (fsharp/inlayHints, removed in favor of LSP inlayHints)
+
 ## [0.54.0] - 2022-05-29
 
 ### Fixed
