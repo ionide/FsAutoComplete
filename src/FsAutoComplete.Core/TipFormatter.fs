@@ -1048,6 +1048,10 @@ let formatTaggedText (t: TaggedText) : string =
   | TextTag.Record
   | TextTag.TypeParameter -> $"`{t.Text}`"
 
+let formatUntaggedText (t: TaggedText) = t.Text
+
+let formatUntaggedTexts = Array.map formatUntaggedText >> String.concat ""
+
 let formatTaggedTexts = Array.map formatTaggedText >> String.concat ""
 
 let formatGenericParameters (typeMappings: TaggedText[] list) =
@@ -1076,6 +1080,19 @@ let formatTip (ToolTipText tips) : (string * string) list list =
 
     | ToolTipElement.CompositionError (error) -> Some [ ("<Note>", error) ]
     | _ -> None)
+
+/// Formats a tooltip signature for output as a signatureHelp,
+/// which means no markdown formatting.
+let formatPlainTip (ToolTipText tips) : (string * string) =
+  tips
+  |> List.pick (function
+    | ToolTipElement.Group items ->
+      let t = items |> Seq.head
+      let signature = formatUntaggedTexts t.MainDescription
+      let description = buildFormatComment t.XmlDoc FormatCommentStyle.Legacy None
+      Some(signature, description)
+    | ToolTipElement.CompositionError (error) -> Some("<Note>", error)
+    | _ -> Some("<Note>", "No signature data"))
 
 let formatTipEnhanced
   (ToolTipText tips)
