@@ -12,7 +12,7 @@
 * [Remove backticks for signatures in signature help](https://github.com/fsharp/FsAutoComplete/pull/964)
 * [Tons of bugs and enhancements to InlayHints](https://github.com/fsharp/FsAutoComplete/pull/957) (thanks @Booksbaum!)
 * [Renames and reference counts are more accurate](https://github.com/fsharp/FsAutoComplete/pull/945)
-* [Fix index out of bounds in signature helpers)(https://github.com/fsharp/FsAutoComplete/pull/956) (thanks @Booksbaum!)
+* [Fix index out of bounds in signature helpers](https://github.com/fsharp/FsAutoComplete/pull/956) (thanks @Booksbaum!)
 
 ### Changed
 
