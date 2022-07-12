@@ -1208,8 +1208,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           let sigs =
             sigHelp.Methods
             |> Array.map (fun m ->
-              let tip = TipFormatter.formatTip m.Description
-              let (sign, comm) = tip |> List.head |> List.head
+              let (signature, comment) = TipFormatter.formatPlainTip m.Description
 
               let parameters =
                 m.Parameters
@@ -1217,9 +1216,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   { ParameterInformation.Label = p.ParameterName
                     Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
-              let d = Documentation.Markup(markdown comm)
+              let d = Documentation.Markup(markdown comment)
 
-              { SignatureInformation.Label = sign
+              { SignatureInformation.Label = signature
                 Documentation = Some d
                 Parameters = Some parameters })
 
