@@ -1889,7 +1889,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   let allUses = mixedUsages.Values |> Array.concat
 
                   let cmd =
-                    if allUses.Length = 1 then
+                    if allUses.Length <= 1 then
                       // 1 reference means that it's only the declaration, so it's actually 0 references
                       { Title = "0 References"
                         Command = ""
