@@ -18,11 +18,7 @@ let private embeddedSourceGuid = System.Guid "0E8A571B-6926-466E-B4AD-8AB04611F5
 let private httpClient = new System.Net.Http.HttpClient()
 
 let private toHex (bytes: byte[]) =
-  System
-    .BitConverter
-    .ToString(bytes)
-    .Replace("-", "")
-    .ToLowerInvariant()
+  System.BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
 
 /// left hand side of sourcelink document mapping, represents a static or partially-static repo root path
 [<Measure>]
@@ -39,8 +35,7 @@ let normalizeRepoPath (repo: string<RepoPathSegment>) : string<NormalizedRepoPat
 /// The shortest solution is to strip the leading slash as part of normalization, which works on Windows,
 /// but I'm unsure of the effect on Linux and MacOS.
 let stripLeadingSlash (repo: string<NormalizedRepoPathSegment>) =
-  (UMX.untag repo).TrimStart('/')
-  |> UMX.tag<NormalizedRepoPathSegment>
+  (UMX.untag repo).TrimStart('/') |> UMX.tag<NormalizedRepoPathSegment>
 
 type SourceLinkJson =
   { documents: System.Collections.Generic.Dictionary<string<SourcelinkPattern>, string<Url>> }
@@ -77,8 +72,7 @@ let private tryGetSourcesForPdb (pdbPath: string<LocalPath>) =
   | true ->
     let pdbData = File.OpenRead pdbPath
 
-    MetadataReaderProvider.FromPortablePdbStream pdbData
-    |> Some
+    MetadataReaderProvider.FromPortablePdbStream pdbData |> Some
   | false -> None
 
 let private tryGetSourcesForDll (dllPath: string<LocalPath>) =
@@ -159,20 +153,14 @@ let private documentsFromReader (reader: MetadataReader) =
   }
 
 let replace (url: string<Url>) (replacement: string<NormalizedRepoPathSegment>) : string<Url> =
-  UMX.tag<Url> (
-    (UMX.untag url)
-      .Replace("*", UMX.untag replacement)
-  )
+  UMX.tag<Url> ((UMX.untag url).Replace("*", UMX.untag replacement))
 
 let private tryGetUrlWithWildcard
   (pathPattern: string<SourcelinkPattern>)
   (urlPattern: string<Url>)
   (document: Document)
   =
-  let pattern =
-    Regex
-      .Escape(UMX.untag pathPattern)
-      .Replace(@"\*", "(.+)")
+  let pattern = Regex.Escape(UMX.untag pathPattern).Replace(@"\*", "(.+)")
   // this regex matches the un-normalized repo paths, so we need to compare against the un-normalized paths here
   let regex = Regex(pattern)
   // patch up the slashes because the sourcelink json will have os-specific paths but we're working with normalized
@@ -207,8 +195,10 @@ let private tryGetUrlWithExactMatch
   (urlPattern: string<Url>)
   (document: Document)
   =
-  if (UMX.untag pathPattern)
-       .Equals(UMX.untag document.Name, System.StringComparison.Ordinal) then
+  if
+    (UMX.untag pathPattern)
+      .Equals(UMX.untag document.Name, System.StringComparison.Ordinal)
+  then
     Some(urlPattern, normalizeRepoPath (UMX.cast<SourcelinkPattern, RepoPathSegment> pathPattern), document)
   else
     None
@@ -249,9 +239,7 @@ let private downloadFileToTempDir
       >> Log.addContextDestructured "repoPath" repoPathFragment
     )
 
-    let! response =
-      httpClient.GetStreamAsync(UMX.untag url)
-      |> Async.AwaitTask
+    let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
 
     use fileStream = File.OpenWrite tempFile
     do! response.CopyToAsync fileStream |> Async.AwaitTask
@@ -284,19 +272,14 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Norm
       | Some json ->
         let docs = documentsFromReader sourceReader
 
-        let doc =
-          docs
-          |> Seq.tryFind (fun d -> compareRepoPath d targetFile)
+        let doc = docs |> Seq.tryFind (fun d -> compareRepoPath d targetFile)
 
         match doc with
         | None ->
           logger.warn (
             Log.setMessage
               "No sourcelinked source file matched {target}. Available documents were (normalized paths here): {docs}"
-            >> Log.addContextDestructured
-                 "docs"
-                 (docs
-                  |> Seq.map (fun d -> normalizeRepoPath d.Name))
+            >> Log.addContextDestructured "docs" (docs |> Seq.map (fun d -> normalizeRepoPath d.Name))
             >> Log.addContextDestructured "target" targetFile
           )
 

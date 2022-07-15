@@ -75,10 +75,7 @@ let private posIsInLhsOfClause (pos: Position) (clause: SynMatchClause) =
 
 let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: ParsedInput) =
   let inline getIfPosInRange range f =
-    if Range.rangeContainsPos range pos then
-      f ()
-    else
-      None
+    if Range.rangeContainsPos range pos then f () else None
 
   let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
     List.tryPick walkSynModuleOrNamespace moduleOrNamespaceList
@@ -156,8 +153,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
 
       | SynExpr.Record (_inheritOpt, copyOpt, fields, _range) ->
         let fieldExprList =
-          fields
-          |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr)
+          fields |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr)
 
         match copyOpt with
         | Some (copyExpr, _blockSeparator) -> List.tryPick walkExpr (copyExpr :: fieldExprList)
@@ -183,9 +179,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
           else
             let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
 
-            if currentClause
-               |> Option.map (clauseIsCandidateForCodeGen pos)
-               |> Option.defaultValue false then
+            if
+              currentClause
+              |> Option.map (clauseIsCandidateForCodeGen pos)
+              |> Option.defaultValue false
+            then
               { MatchWithOrFunctionRange = functionKeywordRange
                 Expr = matchLambdaExpr
                 Clauses = synMatchClauseList }
@@ -201,9 +199,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
         |> Option.orElseWith (fun () ->
           let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
 
-          if currentClause
-             |> Option.map (clauseIsCandidateForCodeGen pos)
-             |> Option.defaultValue false then
+          if
+            currentClause
+            |> Option.map (clauseIsCandidateForCodeGen pos)
+            |> Option.defaultValue false
+          then
             match debugPoint with
             | DebugPointAtBinding.Yes range ->
               { MatchWithOrFunctionRange = range
@@ -245,8 +245,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynExpr.DotIndexedGet (synExpr, argList, _range, _range2) -> walkExpr argList
 
       | SynExpr.DotIndexedSet (synExpr1, argList, synExpr2, _, _range, _range2) ->
-        [ synExpr1; argList; synExpr2 ]
-        |> List.tryPick walkExpr
+        [ synExpr1; argList; synExpr2 ] |> List.tryPick walkExpr
 
       | SynExpr.JoinIn (synExpr1, _range, synExpr2, _range2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
       | SynExpr.NamedIndexedPropertySet (_longIdent, synExpr1, synExpr2, _range) ->
@@ -272,9 +271,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
 
       | SynExpr.LetOrUseBang (rhs = synExpr1; andBangs = ands; body = synExpr2) ->
         [ synExpr1
-          yield!
-            ands
-            |> List.map (fun (SynExprAndBang (body = body)) -> body)
+          yield! ands |> List.map (fun (SynExprAndBang (body = body)) -> body)
           synExpr2 ]
         |> List.tryPick walkExpr
 
@@ -334,10 +331,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
       else
         None
     | SynArgPats.NamePatPairs (namedPatList, _) ->
-      let patList =
-        namedPatList
-        |> List.unzip3
-        |> (fun (_, _, pat) -> pat)
+      let patList = namedPatList |> List.unzip3 |> (fun (_, _, pat) -> pat)
 
       if List.forall checkPattern patList then
         Some(func ())
@@ -349,9 +343,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynPat.LongIdent (longDotId = LongIdentWithDots (unionCaseLongIdent, _); argPats = constructorArgs) ->
       // Get list of qualifiers, this can be checked for length later.
       let reversedIdents =
-        unionCaseLongIdent
-        |> List.map (fun id -> id.idText)
-        |> List.rev
+        unionCaseLongIdent |> List.map (fun id -> id.idText) |> List.rev
 
       match reversedIdents with
       | [] -> []
@@ -359,9 +351,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         getIfArgsAreFree constructorArgs (fun () -> [ (name, quals |> List.rev) ])
         |> Option.defaultValue []
 
-    | SynPat.Or (lhsPat = left; rhsPat = right) ->
-      (getCasesInPattern left)
-      @ (getCasesInPattern right)
+    | SynPat.Or (lhsPat = left; rhsPat = right) -> (getCasesInPattern left) @ (getCasesInPattern right)
     | SynPat.Ands (patList, _) ->
       patList
       |> List.map (getCasesInPattern >> Set.ofList)
@@ -375,9 +365,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynMatchClause (pat, None, _, _, _, _) -> getCasesInPattern pat
     | _ -> []
 
-  patMatchExpr.Clauses
-  |> List.collect (getCasesInClause)
-  |> Set.ofList
+  patMatchExpr.Clauses |> List.collect (getCasesInClause) |> Set.ofList
 
 let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entity: FSharpEntity) =
   let caseCount = entity.UnionCases.Count
@@ -447,9 +435,7 @@ let tryFindInsertionParams (codeGenService: CodeGenerationService) document (pat
 
     // Get first of the clauses that are on the same last line
     let lastLineIdx =
-      clauseAndLineIdxList
-      |> List.map (fun (_, lineIdx) -> lineIdx)
-      |> Seq.last
+      clauseAndLineIdxList |> List.map (fun (_, lineIdx) -> lineIdx) |> Seq.last
 
     let firstClauseOnLastLine =
       clauseAndLineIdxList
@@ -557,10 +543,7 @@ let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
     else
       let fieldNames =
         [| for field in case.Fields ->
-             if
-               String.IsNullOrEmpty(field.Name)
-               || isUnnamedUnionCaseField field
-             then
+             if String.IsNullOrEmpty(field.Name) || isUnnamedUnionCaseField field then
                "_"
              else
                // Lowercase the first character of the field name
@@ -584,9 +567,7 @@ let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
               None)
           (0, Map.empty)
 
-      newFieldNames
-      |> String.concat ", "
-      |> sprintf "(%s)"
+      newFieldNames |> String.concat ", " |> sprintf "(%s)"
 
   writer.WriteLine("")
   writer.Write("| {0}{1} -> {2}", caseName, paramsPattern, ctxt.CaseDefaultValue)
@@ -598,9 +579,7 @@ let formatMatchExpr insertionParams (caseDefaultValue: string) (patMatchExpr: Pa
 
   let casesToWrite =
     entity.UnionCases
-    |> Seq.filter (fun case ->
-      casesWritten
-      |> Set.forall (fun (name, _) -> name <> case.Name))
+    |> Seq.filter (fun case -> casesWritten |> Set.forall (fun (name, _) -> name <> case.Name))
 
   // Use the shortest qualified style for further cases
   let shortestQualifier =

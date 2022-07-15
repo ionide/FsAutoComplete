@@ -9,6 +9,7 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
 
 type FSharpParseFileResults with
+
   member this.TryRangeOfTypeofWithNameAndTypeExpr pos =
     SyntaxTraversal.Traverse(
       pos,
@@ -40,9 +41,7 @@ let title = "Use 'nameof'"
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let pos = protocolPosToPos codeActionParams.Range.Start
 

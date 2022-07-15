@@ -14,9 +14,7 @@ let title = "Use '<-' to mutate value"
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "20" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
@@ -26,9 +24,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       | Some endPos ->
         let fcsPos = protocolPosToPos endPos
 
-        let! line =
-          lines.GetLine fcsPos
-          |> Result.ofOption (fun _ -> "No line found at pos")
+        let! line = lines.GetLine fcsPos |> Result.ofOption (fun _ -> "No line found at pos")
 
         let! symbol =
           tyRes.TryGetSymbolUse fcsPos line
@@ -42,9 +38,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
           match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
           | Some equalsPos ->
-            let! prevPos =
-              dec lines equalsPos
-              |> Result.ofOption (fun _ -> "prev position wasn't valid")
+            let! prevPos = dec lines equalsPos |> Result.ofOption (fun _ -> "prev position wasn't valid")
 
             return
               [ { File = codeActionParams.TextDocument

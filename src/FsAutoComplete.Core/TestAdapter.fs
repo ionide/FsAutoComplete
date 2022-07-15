@@ -41,8 +41,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
         && not (str.EndsWith "failtest")
         && not (str.EndsWith "skiptest"))
     || str.EndsWith "ftest"
-    || (str.EndsWith "ptest"
-        && not (str.EndsWith "skiptest"))
+    || (str.EndsWith "ptest" && not (str.EndsWith "skiptest"))
     || str.EndsWith "testAsync"
     || str.EndsWith "ftestAsync"
     || str.EndsWith "ptestAsync"
@@ -57,28 +56,20 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     || str.EndsWith "ftestPropertyWithConfigs"
 
   let isExpectoListName (str: string) =
-    str.EndsWith "testList"
-    || str.EndsWith "ftestList"
-    || str.EndsWith "ptestList"
+    str.EndsWith "testList" || str.EndsWith "ftestList" || str.EndsWith "ptestList"
 
   let (|Case|List|NotExpecto|) =
     function
     | SynExpr.Ident i ->
-      if isExpectoName i.idText then
-        Case
-      elif isExpectoListName i.idText then
-        List
-      else
-        NotExpecto
+      if isExpectoName i.idText then Case
+      elif isExpectoListName i.idText then List
+      else NotExpecto
     | SynExpr.LongIdent (_, LongIdentWithDots (lst, _), _, _) ->
       let i = lst |> List.last
 
-      if isExpectoName i.idText then
-        Case
-      elif isExpectoListName i.idText then
-        List
-      else
-        NotExpecto
+      if isExpectoName i.idText then Case
+      elif isExpectoListName i.idText then List
+      else NotExpecto
     | _ -> NotExpecto
 
   let rec visitExpr (parent: TestAdapterEntry<range>) =

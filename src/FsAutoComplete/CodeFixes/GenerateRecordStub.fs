@@ -16,9 +16,7 @@ let fix
   : CodeFix =
   fun codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let pos = protocolPosToPos codeActionParams.Range.Start
 

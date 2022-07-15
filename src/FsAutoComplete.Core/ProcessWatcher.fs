@@ -13,8 +13,7 @@ module ProcessWatcher =
 
     proc.EnableRaisingEvents <- true
 
-    proc.Exited
-    |> Event.add (fun _ -> onExitCallback proc)
+    proc.Exited |> Event.add (fun _ -> onExitCallback proc)
 
   let zombieCheckWithHostPID quit pid =
     try

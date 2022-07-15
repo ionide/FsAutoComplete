@@ -68,10 +68,7 @@ module AsyncResult =
     AsyncResult.foldResult id recoverInternal ar
 
   let recoverCancellation (ar: Async<Result<CoreResponse<'t>, exn>>) =
-    recoverCancellationGeneric
-      ar
-      (sprintf "Request cancelled (exn was %A)"
-       >> CoreResponse.InfoRes)
+    recoverCancellationGeneric ar (sprintf "Request cancelled (exn was %A)" >> CoreResponse.InfoRes)
 
   let recoverCancellationIgnore (ar: Async<Result<unit, exn>>) = AsyncResult.foldResult id ignore ar
 
@@ -166,8 +163,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         | [||] -> [| p |]
         | children ->
           let sortedChildren =
-            children
-            |> Array.sortBy (fun r -> r.Start.Line, r.Start.Column)
+            children |> Array.sortBy (fun r -> r.Start.Line, r.Start.Column)
 
           segmentRanges p.Range sortedChildren
           |> Array.map (fun subRange -> SemanticClassificationItem((subRange, p.Type)))
@@ -249,10 +245,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   do
     disposables.Add
     <| checker.FileChecked.Subscribe(fun (n, _) ->
-      checkerLogger.info (
-        Log.setMessage "{file} checked"
-        >> Log.addContextDestructured "file" n
-      )
+      checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
 
       async {
         try
@@ -272,8 +265,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
       async {
         try
-          NotificationEvent.FileParsed file
-          |> notify.Trigger
+          NotificationEvent.FileParsed file |> notify.Trigger
 
           let checkErrors = parseAndCheck.GetParseResults.Diagnostics
 
@@ -284,9 +276,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             |> Array.distinctBy (fun e ->
               e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-          (errors, file)
-          |> NotificationEvent.ParseError
-          |> notify.Trigger
+          (errors, file) |> NotificationEvent.ParseError |> notify.Trigger
         with _ ->
           ()
       }
@@ -314,14 +304,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                     fileData.Lines.ToString().Split("\n"),
                     parseAndCheck.GetParseResults.ParseTree,
                     tast,
-                    parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities
-                    |> Seq.toList,
+                    parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
                     parseAndCheck.GetAllEntities
                   )
 
-                (res, file)
-                |> NotificationEvent.AnalyzerMessage
-                |> notify.Trigger
+                (res, file) |> NotificationEvent.AnalyzerMessage |> notify.Trigger
 
                 Loggers.analyzers.info (
                   Log.setMessage "end analysis of {file}"
@@ -369,14 +356,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           )
         | Some proj ->
           let res =
-            if proj.OtherOptions
-               |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+            if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
               TestAdapter.getExpectoTests parseResults.ParseTree
-            elif proj.OtherOptions
-                 |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+            elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
               TestAdapter.getNUnitTest parseResults.ParseTree
-            elif proj.OtherOptions
-                 |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+            elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
               TestAdapter.getXUnitTest parseResults.ParseTree
             else
               []
@@ -387,8 +371,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             >> Log.addContextDestructured "res" res
           )
 
-          NotificationEvent.TestDetected(fn, res |> List.toArray)
-          |> notify.Trigger)
+          NotificationEvent.TestDetected(fn, res |> List.toArray) |> notify.Trigger)
 
   let parseFilesInTheBackground files =
     async {
@@ -628,8 +611,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
 
-        (File.Open(newFilePath, FileMode.OpenOrCreate))
-          .Close()
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
@@ -646,8 +628,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
 
-        (File.Open(newFilePath, FileMode.OpenOrCreate))
-          .Close()
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
@@ -662,8 +643,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         let dir = Path.GetDirectoryName fsprojPath
         let newFilePath = Path.Combine(dir, fileVirtPath)
 
-        (File.Open(newFilePath, FileMode.OpenOrCreate))
-          .Close()
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         FsProjEditor.addFile fsprojPath fileVirtPath
         return CoreResponse.Res()
@@ -685,8 +665,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
 
   member private x.CancelQueue(filename: string<LocalPath>) =
-    state.GetCancellationTokens filename
-    |> List.iter (fun cts -> cts.Cancel())
+    state.GetCancellationTokens filename |> List.iter (fun cts -> cts.Cancel())
 
   member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>) =
     match state.TryGetFileCheckerOptionsWithLines file with
@@ -697,9 +676,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     async {
       match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
       | None ->
-        let version =
-          state.TryGetFileVersion file
-          |> Option.defaultValue 0
+        let version = state.TryGetFileVersion file |> Option.defaultValue 0
 
         match! checker.ParseAndCheckFileInProject(file, version, text, opts) with
         | Ok r -> return Some r
@@ -731,10 +708,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       | None when Utils.isAScript (UMX.untag file) -> // scripts won't have project options in the 'core' project options collection
         let hash =
           text.Lines
-          |> Array.filter (fun n ->
-            n.StartsWith "#r"
-            || n.StartsWith "#load"
-            || n.StartsWith "#I")
+          |> Array.filter (fun n -> n.StartsWith "#r" || n.StartsWith "#load" || n.StartsWith "#I")
           |> Array.toList
           |> fun n -> n.GetHashCode()
 
@@ -797,10 +771,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         if isFirstOpen then
           do!
             opts.SourceFilesThatThisFileDependsOn(file)
-            |> Array.map (
-              UMX.tag
-              >> (fun f -> x.SimpleCheckFile(f, tfmConfig))
-            )
+            |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
             |> Async.Sequential
             |> Async.map ignore<unit[]>
 
@@ -811,10 +782,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         do!
           opts.SourceFilesThatDependOnFile(file)
-          |> Array.map (
-            UMX.tag
-            >> (fun f -> x.SimpleCheckFile(f, tfmConfig))
-          )
+          |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
           |> Async.Sequential
           |> Async.map ignore<unit[]>
 
@@ -834,9 +802,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       match state.TryGetFileSource filePath with
       | Ok text ->
 
-        let version =
-          state.TryGetFileVersion filePath
-          |> Option.defaultValue 0
+        let version = state.TryGetFileVersion filePath |> Option.defaultValue 0
 
         let! options = x.EnsureProjectOptionsForFile(filePath, text, version, tfmIfScript)
 
@@ -860,10 +826,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.CheckProject(p: FSharpProjectOptions) : Async<unit> =
     p.SourceFiles
-    |> Array.map (
-      UMX.tag
-      >> (fun f -> x.SimpleCheckFile(f, FSIRefs.TFM.NetCore))
-    )
+    |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, FSIRefs.TFM.NetCore)))
     |> Async.Sequential
     |> Async.map ignore<unit[]>
 
@@ -933,9 +896,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           | None -> //Isn't in sync filled cache, we don't have result
             return CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
           | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
-            let source =
-              state.Files.TryFind fn
-              |> Option.map (fun n -> n.Lines)
+            let source = state.Files.TryFind fn |> Option.map (fun n -> n.Lines)
 
             match source with
             | None -> return CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
@@ -974,10 +935,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     =
     async {
       let getAllSymbols () =
-        if includeExternal then
-          tyRes.GetAllEntities true
-        else
-          []
+        if includeExternal then tyRes.GetAllEntities true else []
 
       let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
 
@@ -999,9 +957,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         let firstMatchOpt =
           decls
           |> Array.sortBy declName
-          |> Array.tryFind (fun d ->
-            (declName d)
-              .StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+          |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
 
         let includeKeywords = includeKeywords && shouldKeywords
 
@@ -1047,8 +1003,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       let indentString = String.replicate indentLength " "
 
       let! (_, memberParameters, genericParameters) =
-        x.SignatureData tyRes triggerPosition lineStr
-        |> Result.ofCoreResponse
+        x.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
 
       let summarySection = "/// <summary></summary>"
 
@@ -1074,10 +1029,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
           match genericParameters with
           | [] -> ()
-          | generics ->
-            yield!
-              generics
-              |> List.mapi (fun _index generic -> genericArg generic)
+          | generics -> yield! generics |> List.mapi (fun _index generic -> genericArg generic)
 
           yield returnsSection
         }
@@ -1121,8 +1073,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
 
       let splitByDeclaration (uses: FSharpSymbolUse[]) =
-        uses
-        |> Array.partition (fun u -> u.IsFromDefinition)
+        uses |> Array.partition (fun u -> u.IsFromDefinition)
 
       let toDict (symbolUseRanges: range[]) =
         let dict = new System.Collections.Generic.Dictionary<string, range[]>()
@@ -1185,9 +1136,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
                 yield!
                   project.ReferencedProjects
-                  |> Array.choose (fun p ->
-                    p.OutputFile
-                    |> state.ProjectController.GetProjectOptionsForFsproj) ]
+                  |> Array.choose (fun p -> p.OutputFile |> state.ProjectController.GetProjectOptionsForFsproj) ]
             |> List.distinctBy (fun x -> x.ProjectFileName)
 
         let onFound (symbolUseRange: range) =
@@ -1252,10 +1201,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
           | false, _ -> totalSetOfRanges[text] <- symbolUses
 
-        return
-          totalSetOfRanges
-          |> Seq.map (fun (KeyValue (k, v)) -> k, v)
-          |> Array.ofSeq
+        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
       | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
         let totalSetOfRanges = Dictionary<NamedText, _>()
 
@@ -1266,10 +1212,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
           | false, _ -> totalSetOfRanges[text] <- symbolUses
 
-        return
-          totalSetOfRanges
-          |> Seq.map (fun (KeyValue (k, v)) -> k, v)
-          |> Array.ofSeq
+        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
@@ -1385,8 +1328,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 | EntityKind.Type, _ -> false)
 
             let maybeUnresolvedIdents =
-              idents
-              |> Array.map (fun ident -> { Ident = ident; Resolved = false })
+              idents |> Array.map (fun ident -> { Ident = ident; Resolved = false })
 
             let entities =
               entities
@@ -1395,8 +1337,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                   if isAttribute then
                     let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
 
-                    if (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
-                       && lastIdent.EndsWith "Attribute" then
+                    if
+                      (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
+                      && lastIdent.EndsWith "Attribute"
+                    then
                       yield
                         e.TopRequireQualifiedAccessParent,
                         e.AutoOpenParent,
@@ -1418,8 +1362,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             let openNamespace =
               candidates
               |> List.choose (fun (entity, ctx) ->
-                entity.Namespace
-                |> Option.map (fun ns -> ns, entity.FullDisplayName, ctx))
+                entity.Namespace |> Option.map (fun ns -> ns, entity.FullDisplayName, ctx))
               |> List.groupBy (fun (ns, _, _) -> ns)
               |> List.map (fun (ns, xs) ->
                 ns,
@@ -1434,8 +1377,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                   | [ _ ] -> false
                   | _ -> true
 
-                names
-                |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
+                names |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
 
             let qualifySymbolActions =
               candidates
@@ -1645,11 +1587,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     }
 
   member __.SetDotnetSDKRoot(dotnetBinary: System.IO.FileInfo) =
-    checker.SetDotnetRoot(
-      dotnetBinary,
-      defaultArg rootPath System.Environment.CurrentDirectory
-      |> DirectoryInfo
-    )
+    checker.SetDotnetRoot(dotnetBinary, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
 
   member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
@@ -1770,11 +1708,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       let getStartingPipe =
         function
         | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when
-          x.TokenName.ToUpper() = "WHITESPACE"
-          && y.TokenName.ToUpper() = "INFIX_BAR_OP"
-          ->
-          Some y
+        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
         | _ -> None
 
       let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
@@ -1785,10 +1719,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         match isCommentOrWhitespace, isPipe with
         | true, _ -> lastExpressionLine, lastExpressionLineWasPipe, acc
         | false, Some pipe ->
-          currentIndex,
-          true,
-          (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe)
-          :: acc
+          currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe) :: acc
         | false, None -> currentIndex, false, acc
 
       let hints =

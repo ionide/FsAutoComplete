@@ -18,9 +18,7 @@ let fix
   : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "72"; "3245" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsRange =
         protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) diagnostic.Range
@@ -32,14 +30,8 @@ let fix
         |> Result.ofOption (fun _ -> "No long ident at position")
 
       match
-        tyRes.GetCheckResults.GetDeclarationLocation
-          (
-            fcsRange.Start.Line,
-            endColumn,
-            line,
-            List.ofArray identIslands
-          )
-        with
+        tyRes.GetCheckResults.GetDeclarationLocation(fcsRange.Start.Line, endColumn, line, List.ofArray identIslands)
+      with
       | FindDeclResult.DeclFound declRange when declRange.FileName = UMX.untag fileName ->
         let! projectOptions = getProjectOptionsForFile fileName
         let protocolDeclRange = fcsRangeToLsp declRange

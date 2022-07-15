@@ -96,12 +96,10 @@ module CodeGenerationUtils =
         indentWriter.Dispose()
 
   let hasAttribute<'T> (attrs: seq<FSharpAttribute>) =
-    attrs
-    |> Seq.exists (fun a -> a.AttributeType.CompiledName = typeof<'T>.Name)
+    attrs |> Seq.exists (fun a -> a.AttributeType.CompiledName = typeof<'T>.Name)
 
   let rec internal getNonAbbreviatedType (typ: FSharpType) =
-    if typ.HasTypeDefinition
-       && typ.TypeDefinition.IsFSharpAbbreviation then
+    if typ.HasTypeDefinition && typ.TypeDefinition.IsFSharpAbbreviation then
       getNonAbbreviatedType typ.AbbreviatedType
     else
       typ
@@ -137,7 +135,7 @@ module CodeGenerationUtils =
           match
             codeGenService.TokenizeLine(document.FullName, lineIdx)
             |> Option.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo))
-            with
+          with
           | Some xs -> yield! xs
           | None -> ()
       }
@@ -149,11 +147,9 @@ module CodeGenerationUtils =
         && tokenInfo.RightColumn < range.EndColumn
         && predicate tokenInfo
       elif range.StartLine = int line1 then
-        tokenInfo.LeftColumn >= range.StartColumn
-        && predicate tokenInfo
+        tokenInfo.LeftColumn >= range.StartColumn && predicate tokenInfo
       elif int line1 = range.EndLine then
-        tokenInfo.RightColumn < range.EndColumn
-        && predicate tokenInfo
+        tokenInfo.RightColumn < range.EndColumn && predicate tokenInfo
       else
         predicate tokenInfo)
     |> Option.map (fun (line1, tokenInfo) -> tokenInfo, (Position.fromZ (int line1 - 1) tokenInfo.LeftColumn))
@@ -164,11 +160,7 @@ module CodeGenerationUtils =
   let keywordSet = set FSharpKeywords.KeywordNames
 
   let getTypeParameterName (typar: FSharpGenericParameter) =
-    (if typar.IsSolveAtCompileTime then
-       "^"
-     else
-       "'")
-    + typar.Name
+    (if typar.IsSolveAtCompileTime then "^" else "'") + typar.Name
 
   [<NoComparison>]
   type Context =
@@ -198,16 +190,11 @@ module CodeGenerationUtils =
       Some(List.rev revd.Tail, revd.Head)
 
   let bracket (str: string) =
-    if str.Contains(" ") then
-      "(" + str + ")"
-    else
-      str
+    if str.Contains(" ") then "(" + str + ")" else str
 
   let formatType ctx (typ: FSharpType) =
     let genericDefinition =
-      typ
-        .Instantiate(Seq.toList ctx.ArgInstantiations)
-        .Format(ctx.DisplayContext)
+      typ.Instantiate(Seq.toList ctx.ArgInstantiations).Format(ctx.DisplayContext)
 
     (genericDefinition, ctx.TypeInstantations)
     ||> Map.fold (fun s k v -> s.Replace(k, v))
@@ -228,18 +215,10 @@ module CodeGenerationUtils =
             else
               idx
 
-          let index =
-            index
-            |> Option.defaultValue 1
-            |> getAvailableIndex
+          let index = index |> Option.defaultValue 1 |> getAvailableIndex
 
-          Some index,
-          namesWithIndices
-          |> Map.add nm (indexes |> Set.add index)
-        | None, Some index ->
-          Some index,
-          namesWithIndices
-          |> Map.add nm (Set.ofList [ index ])
+          Some index, namesWithIndices |> Map.add nm (indexes |> Set.add index)
+        | None, Some index -> Some index, namesWithIndices |> Map.add nm (Set.ofList [ index ])
         | None, None -> None, namesWithIndices |> Map.add nm Set.empty
 
       let nm =
@@ -260,17 +239,13 @@ module CodeGenerationUtils =
     let nm =
       match arg.Name with
       | None ->
-        if arg.Type.HasTypeDefinition
-           && arg.Type.TypeDefinition.XmlDocSig = "T:Microsoft.FSharp.Core.unit" then
+        if
+          arg.Type.HasTypeDefinition
+          && arg.Type.TypeDefinition.XmlDocSig = "T:Microsoft.FSharp.Core.unit"
+        then
           "()"
         else
-          sprintf
-            "arg%d"
-            (namesWithIndices
-             |> Map.toSeq
-             |> Seq.map snd
-             |> Seq.sumBy Set.count
-             |> max 1)
+          sprintf "arg%d" (namesWithIndices |> Map.toSeq |> Seq.map snd |> Seq.sumBy Set.count |> max 1)
       | Some x -> x
 
     let nm, namesWithIndices = normalizeArgName namesWithIndices nm
@@ -321,10 +296,7 @@ module CodeGenerationUtils =
     | Member of FSharpMemberOrFunctionOrValue
 
   let getArgTypes (ctx: Context) (v: FSharpMemberOrFunctionOrValue) =
-    let argInfos =
-      v.CurriedParameterGroups
-      |> Seq.map Seq.toList
-      |> Seq.toList
+    let argInfos = v.CurriedParameterGroups |> Seq.map Seq.toList |> Seq.toList
 
     let retType = v.ReturnParameter.Type
 
@@ -363,17 +335,16 @@ module CodeGenerationUtils =
   let normalizePropertyName (v: FSharpMemberOrFunctionOrValue) =
     let displayName = v.DisplayName
 
-    if (v.IsPropertyGetterMethod
-        && displayName.StartsWith("get_"))
-       || (v.IsPropertySetterMethod
-           && displayName.StartsWith("set_")) then
+    if
+      (v.IsPropertyGetterMethod && displayName.StartsWith("get_"))
+      || (v.IsPropertySetterMethod && displayName.StartsWith("set_"))
+    then
       displayName.[4..]
     else
       displayName
 
   let isEventMember (m: FSharpMemberOrFunctionOrValue) =
-    m.IsEvent
-    || hasAttribute<CLIEventAttribute> m.Attributes
+    m.IsEvent || hasAttribute<CLIEventAttribute> m.Attributes
 
   /// Rename a given argument if the identifier has been used
 
@@ -394,8 +365,7 @@ module CodeGenerationUtils =
          ""
        elif args.StartsWith("(") then
          args
-       elif v.CurriedParameterGroups.Count > 1
-            && (not verboseMode) then
+       elif v.CurriedParameterGroups.Count > 1 && (not verboseMode) then
          " " + args
        else
          sprintf "(%s)" args),
@@ -409,10 +379,7 @@ module CodeGenerationUtils =
         // Constructors
         | _, _, ".ctor", _ -> "new" + parArgs
         // Properties (skipping arguments)
-        | _, true, _, name when
-          v.IsPropertyGetterMethod
-          || v.IsPropertySetterMethod
-          ->
+        | _, true, _, name when v.IsPropertyGetterMethod || v.IsPropertySetterMethod ->
           if name.StartsWith("get_") || name.StartsWith("set_") then
             name.[4..]
           else
@@ -443,7 +410,9 @@ module CodeGenerationUtils =
         writer.Write(": {0}", returnType)
 
       writer.Write(" = ", returnType)
-      if verboseMode then writer.WriteLine("")
+
+      if verboseMode then
+        writer.WriteLine("")
 
     let writeImplementation (ctx: Context) (writer: ColumnIndentedTextWriter) =
       match verboseMode, ctx.MethodBody with
@@ -457,10 +426,7 @@ module CodeGenerationUtils =
         writer.Unindent ctx.Indentation
 
     let memberPrefix (m: FSharpMemberOrFunctionOrValue) =
-      if m.IsDispatchSlot then
-        "override "
-      else
-        "member "
+      if m.IsDispatchSlot then "override " else "member "
 
     match m with
     | MemberInfo.PropertyGetSet (getter, setter) ->
@@ -544,7 +510,9 @@ module CodeGenerationUtils =
             writer.Write(")")
 
           writer.Write(" = ")
-          if verboseMode then writer.WriteLine("")
+
+          if verboseMode then
+            writer.WriteLine("")
 
         writer |> writeImplementation
         writer.Unindent ctx.Indentation
@@ -572,19 +540,14 @@ module CodeGenerationUtils =
   // Sometimes interface members are stored in the form of `IInterface<'T> -> ...`,
   // so we need to get the 2nd generic argument
   let (|MemberFunctionType|_|) (typ: FSharpType) =
-    if typ.IsFunctionType
-       && typ.GenericArguments.Count = 2 then
+    if typ.IsFunctionType && typ.GenericArguments.Count = 2 then
       Some typ.GenericArguments.[1]
     else
       None
 
   let (|TypeOfMember|_|) (m: FSharpMemberOrFunctionOrValue) =
     match m.FullTypeSafe with
-    | Some (MemberFunctionType typ) when
-      m.IsProperty
-      && m.DeclaringEntity.IsSome
-      && m.DeclaringEntity.Value.IsFSharp
-      ->
+    | Some (MemberFunctionType typ) when m.IsProperty && m.DeclaringEntity.IsSome && m.DeclaringEntity.Value.IsFSharp ->
       Some typ
     | Some typ -> Some typ
     | None -> None
@@ -592,8 +555,7 @@ module CodeGenerationUtils =
   let (|EventFunctionType|_|) (typ: FSharpType) =
     match typ with
     | MemberFunctionType typ ->
-      if typ.IsFunctionType
-         && typ.GenericArguments.Count = 2 then
+      if typ.IsFunctionType && typ.GenericArguments.Count = 2 then
         let retType = typ.GenericArguments.[0]
         let argType = typ.GenericArguments.[1]
 
@@ -621,9 +583,7 @@ module CodeGenerationUtils =
   /// we use this to filter out the 'meta' members in favor of providing the underlying members for template generation
   /// eg: a property _also_ has the relevant get/set members, so we don't need them.
   let isSyntheticMember (m: FSharpMemberOrFunctionOrValue) =
-    m.IsProperty
-    || m.IsEventAddMethod
-    || m.IsEventRemoveMethod
+    m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod
 
   /// Get members in the decreasing order of inheritance chain
   let getInterfaceMembers (e: FSharpEntity) =
@@ -659,12 +619,9 @@ module CodeGenerationUtils =
       yield!
         e.MembersFunctionsAndValues
         |> Seq.choose (fun m ->
-          if isSyntheticMember m then
-            None
-          else if isAbstractNonVirtualMember m then
-            Some(m, Seq.empty)
-          else
-            None)
+          if isSyntheticMember m then None
+          else if isAbstractNonVirtualMember m then Some(m, Seq.empty)
+          else None)
     }
 
   /// Check whether an interface is empty
@@ -703,12 +660,9 @@ module CodeGenerationUtils =
   let normalizeEventName (m: FSharpMemberOrFunctionOrValue) =
     let name = m.DisplayName
 
-    if name.StartsWith("add_") then
-      name.[4..]
-    elif name.StartsWith("remove_") then
-      name.[7..]
-    else
-      name
+    if name.StartsWith("add_") then name.[4..]
+    elif name.StartsWith("remove_") then name.[7..]
+    else name
 
   /// Ideally this info should be returned in error symbols from FCS.
   /// Because it isn't, we implement a crude way of getting member signatures:
@@ -739,31 +693,22 @@ module CodeGenerationUtils =
         None
 
     async {
-      let! symbolUses =
-        memberNamesAndRanges
-        |> List.toArray
-        |> Async.Array.map getMemberByLocation
+      let! symbolUses = memberNamesAndRanges |> List.toArray |> Async.Array.map getMemberByLocation
 
       return
         symbolUses
-        |> Array.choose (
-          Option.bind formatMemberSignature
-          >> Option.map String.Concat
-        )
+        |> Array.choose (Option.bind formatMemberSignature >> Option.map String.Concat)
         |> Set.ofArray
     }
 
   /// Check whether an entity is an interface or type abbreviation of an interface
   let rec isInterface (e: FSharpEntity) =
     e.IsInterface
-    || (e.IsFSharpAbbreviation
-        && isInterface e.AbbreviatedType.TypeDefinition)
+    || (e.IsFSharpAbbreviation && isInterface e.AbbreviatedType.TypeDefinition)
 
   let findLastGreaterOperator (tokens: FSharpTokenInfo list) =
     tokens
-    |> List.findBack (fun token ->
-      token.CharClass = FSharpTokenCharKind.Operator
-      && token.TokenName = "GREATER")
+    |> List.findBack (fun token -> token.CharClass = FSharpTokenCharKind.Operator && token.TokenName = "GREATER")
 
   /// Return the greater multiple of `powerNumber` which is smaller than `value`
   /// Ex: roundToNearest 14 4 -> 12
@@ -784,9 +729,11 @@ module CodeGenerationUtils =
     let endPosOfWidth =
       tokens
       |> List.tryPick (fun (t: FSharpTokenInfo) ->
-        if t.CharClass = FSharpTokenCharKind.Keyword
-           && t.LeftColumn >= pos.Column
-           && t.TokenName = "WITH" then
+        if
+          t.CharClass = FSharpTokenCharKind.Keyword
+          && t.LeftColumn >= pos.Column
+          && t.TokenName = "WITH"
+        then
           Some(Position.fromZ (pos.Line - 1) (t.RightColumn + 1))
         else
           None)
@@ -875,10 +822,8 @@ module CodeGenerationUtils =
       if e.IsFSharpAbbreviation then
         let typ = getNonAbbreviatedType e.AbbreviatedType
 
-        (typ.TypeDefinition.GenericParameters
-         |> Seq.map getTypeParameterName,
-         typ.GenericArguments
-         |> Seq.map (fun typ -> typ.Format(displayContext)))
+        (typ.TypeDefinition.GenericParameters |> Seq.map getTypeParameterName,
+         typ.GenericArguments |> Seq.map (fun typ -> typ.Format(displayContext)))
         ||> Seq.zip
         |> Seq.fold (fun acc (x, y) -> Map.add x y acc) insts
       else
@@ -943,16 +888,12 @@ module CodeGenerationUtils =
           && normalizePropertyName getter = normalizePropertyName setter
           && getReturnType getter = getReturnType setter
           ->
-          let useVerboseMode =
-            verboseMode
-            || duplicatedMembers.Contains first.DisplayName
+          let useVerboseMode = verboseMode || duplicatedMembers.Contains first.DisplayName
 
           formatMember { ctx with ArgInstantiations = insts } (MemberInfo.PropertyGetSet(getter, setter)) useVerboseMode
           formatMembers otherMembers
         | (m, insts) :: otherMembers ->
-          let useVerboseMode =
-            verboseMode
-            || duplicatedMembers.Contains m.DisplayName
+          let useVerboseMode = verboseMode || duplicatedMembers.Contains m.DisplayName
 
           formatMember { ctx with ArgInstantiations = insts } (MemberInfo.Member m) useVerboseMode
           formatMembers otherMembers
@@ -980,11 +921,7 @@ module CodeGenerationUtils =
       match req with
       | TyparStaticReq.None -> Some("'" + s.idText)
       | TyparStaticReq.HeadType -> Some("^" + s.idText)
-    | SynType.LongIdent (LongIdentWithDots (xs, _)) ->
-      xs
-      |> Seq.map (fun x -> x.idText)
-      |> String.concat "."
-      |> Some
+    | SynType.LongIdent (LongIdentWithDots (xs, _)) -> xs |> Seq.map (fun x -> x.idText) |> String.concat "." |> Some
     | SynType.App (t, _, ts, _, _, isPostfix, _) ->
       match t, ts with
       | TypeIdent typeName, [] -> Some typeName
@@ -994,10 +931,7 @@ module CodeGenerationUtils =
         else
           Some(sprintf "%s<%s>" typeName typeArg)
       | TypeIdent typeName, _ ->
-        let typeArgs =
-          ts
-          |> Seq.choose (|TypeIdent|_|)
-          |> String.concat ", "
+        let typeArgs = ts |> Seq.choose (|TypeIdent|_|) |> String.concat ", "
 
         if isPostfix then
           Some(sprintf "(%s) %s" typeArgs typeName)
@@ -1007,12 +941,7 @@ module CodeGenerationUtils =
         debug "Unsupported case with %A and %A" t ts
         None
     | SynType.Anon _ -> Some "_"
-    | SynType.Tuple (_, ts, _) ->
-      Some(
-        ts
-        |> Seq.choose (snd >> (|TypeIdent|_|))
-        |> String.concat " * "
-      )
+    | SynType.Tuple (_, ts, _) -> Some(ts |> Seq.choose (snd >> (|TypeIdent|_|)) |> String.concat " * ")
     | SynType.Array (dimension, TypeIdent typeName, _) -> Some(sprintf "%s [%s]" typeName (String(',', dimension - 1)))
     | SynType.MeasurePower (TypeIdent typeName, RationalConst power, _) -> Some(sprintf "%s^%s" typeName power)
     | SynType.MeasureDivide (TypeIdent numerator, TypeIdent denominator, _) ->

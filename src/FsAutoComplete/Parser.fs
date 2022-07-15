@@ -69,8 +69,7 @@ module Parser =
 
   let waitForDebuggerOption =
     Option<bool>(
-      [| "--wait-for-debugger"
-         "--attachdebugger" |],
+      [| "--wait-for-debugger"; "--attachdebugger" |],
       "Stop execution on startup until an external debugger to attach to this process"
     )
     |> zero
@@ -177,8 +176,7 @@ module Parser =
 
       // will use later when a mapping-style config of { "category": "minLevel" } is established
       let excludeByLevelWhenCategory category level event =
-        isCategory category event
-        || not (hasMinLevel level event)
+        isCategory category event || not (hasMinLevel level event)
 
       let args = ctx.ParseResult
 
@@ -235,9 +233,7 @@ module Parser =
         let logFile = args.GetValueForOption logFileOption
 
         try
-          logConf.WriteTo.Async(fun c ->
-            c.File(path = logFile, levelSwitch = verbositySwitch)
-            |> ignore)
+          logConf.WriteTo.Async(fun c -> c.File(path = logFile, levelSwitch = verbositySwitch) |> ignore)
           |> ignore
         with e ->
           eprintfn "Bad log file: %s" e.Message
@@ -249,8 +245,7 @@ module Parser =
         categories
         |> Array.iter (fun category ->
           // category is encoded in the SourceContext property, so we filter messages based on that property's value
-          logConf.Filter.ByExcluding(Func<_, _>(isCategory category))
-          |> ignore)
+          logConf.Filter.ByExcluding(Func<_, _>(isCategory category)) |> ignore)
 
       let logger = logConf.CreateLogger()
       Serilog.Log.Logger <- logger

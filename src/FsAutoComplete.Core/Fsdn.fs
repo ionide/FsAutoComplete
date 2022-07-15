@@ -52,10 +52,7 @@ let query (querystr: string) =
       |> String.concat "&"
 
     let! req =
-      httpClient.GetStringAsync(
-        "https://fsdn.azurewebsites.net/api/search?"
-        + queryString
-      )
+      httpClient.GetStringAsync("https://fsdn.azurewebsites.net/api/search?" + queryString)
       |> Async.AwaitTask
 
     let results = JsonConvert.DeserializeObject<Response> req

@@ -45,10 +45,7 @@ module private Section =
       |> addSection name
 
   let fromOption (name: string) (content: string option) =
-    if content.IsNone then
-      ""
-    else
-      addSection name content.Value
+    if content.IsNone then "" else addSection name content.Value
 
   let fromList (name: string) (content: string seq) =
     if Seq.isEmpty content then
@@ -134,9 +131,7 @@ module private Format =
         let innerText = m.Groups.["non_void_innerText"].Value
         let attributes = getAttributes m.Groups.["non_void_attributes"]
 
-        let replacement =
-          NonVoidElement(innerText, attributes)
-          |> info.Formatter
+        let replacement = NonVoidElement(innerText, attributes) |> info.Formatter
 
         match replacement with
         | Some replacement ->
@@ -625,12 +620,9 @@ module private Format =
              let seprator =
                columnHeaders
                |> List.mapi (fun index _ ->
-                 if index = 0 then
-                   "| ---"
-                 elif index = columnHeaders.Length - 1 then
-                   " | --- |"
-                 else
-                   " | ---")
+                 if index = 0 then "| ---"
+                 elif index = columnHeaders.Length - 1 then " | --- |"
+                 else " | ---")
                |> String.concat ""
 
              let itemsText =
@@ -702,15 +694,11 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
       let content =
         // Normale the EOL
         // This make it easier to work with line splittig
-        node.InnerXml.Replace("\r\n", "\n")
-        |> Format.applyAll
+        node.InnerXml.Replace("\r\n", "\n") |> Format.applyAll
 
       content.Split('\n')
       |> Array.map (fun line ->
-        if
-          not (String.IsNullOrWhiteSpace line)
-          && line.StartsWith(tabsOffset)
-        then
+        if not (String.IsNullOrWhiteSpace line) && line.StartsWith(tabsOffset) then
           line.Substring(columnOffset + indentationSize)
         else
           line)
@@ -723,8 +711,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.toList
 
   let readRemarks (doc: XmlDocument) =
-    doc.DocumentElement.GetElementsByTagName "remarks"
-    |> Seq.cast<XmlNode>
+    doc.DocumentElement.GetElementsByTagName "remarks" |> Seq.cast<XmlNode>
 
   let rawSummary = doc.DocumentElement.ChildNodes.[0]
   let rawParameters = readChildren "param" doc
@@ -738,8 +725,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.tryHead
 
   let rawExamples =
-    doc.DocumentElement.GetElementsByTagName "example"
-    |> Seq.cast<XmlNode>
+    doc.DocumentElement.GetElementsByTagName "example" |> Seq.cast<XmlNode>
 
   let readNamedContentAsKvPair (key, content) =
     KeyValuePair(key, readContentForTooltip content)
@@ -756,10 +742,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
   let seeAlso =
     doc.DocumentElement.GetElementsByTagName "seealso"
     |> Seq.cast<XmlNode>
-    |> Seq.map (fun node ->
-      "* `"
-      + Format.extractMemberText node.Attributes.[0].InnerText
-      + "`")
+    |> Seq.map (fun node -> "* `" + Format.extractMemberText node.Attributes.[0].InnerText + "`")
 
   override x.ToString() =
     summary
@@ -826,17 +809,11 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<
     // So we used it as a reference to detect the tabs sizes
     // This is needed because `netstandard.xml` use 2 spaces tabs
     // Where when building a C# classlib, the xml file use 4 spaces size for example
-    | true when
-      reader.Name = "assembly"
-      && reader.NodeType = XmlNodeType.Element
-      ->
+    | true when reader.Name = "assembly" && reader.NodeType = XmlNodeType.Element ->
       let xli: IXmlLineInfo = (box reader) :?> IXmlLineInfo
       // - 2 : allow us to detect the position before the < char
       xli.LinePosition - 2, Some acc
-    | true when
-      reader.Name = "member"
-      && reader.NodeType = XmlNodeType.Element
-      ->
+    | true when reader.Name = "member" && reader.NodeType = XmlNodeType.Element ->
       try
         // We detect the member LinePosition so we can calculate the meaningless spaces later
         let xli: IXmlLineInfo = (box reader) :?> IXmlLineInfo
@@ -865,9 +842,11 @@ let private getXmlDoc dllFile =
   let xmlFile = Path.ChangeExtension(dllFile, ".xml")
   //Workaround for netstandard.dll
   let xmlFile =
-    if xmlFile.Contains "packages"
-       && xmlFile.Contains "netstandard.library"
-       && xmlFile.Contains "netstandard2.0" then
+    if
+      xmlFile.Contains "packages"
+      && xmlFile.Contains "netstandard.library"
+      && xmlFile.Contains "netstandard2.0"
+    then
       Path.Combine(Path.GetDirectoryName(xmlFile), "netstandard.xml")
     else
       xmlFile
@@ -888,8 +867,7 @@ let private getXmlDoc dllFile =
     | None -> None
     | Some actualXmlFile ->
       // Prevent other threads from tying to add the same doc simultaneously
-      xmlDocCache.AddOrUpdate(xmlFile, Map.empty, (fun _ _ -> Map.empty))
-      |> ignore
+      xmlDocCache.AddOrUpdate(xmlFile, Map.empty, (fun _ _ -> Map.empty)) |> ignore
 
       try
         let cnt = File.ReadAllText actualXmlFile
@@ -898,10 +876,7 @@ let private getXmlDoc dllFile =
           if actualXmlFile.Contains "netstandard.xml" then
             let cnt = Regex.Replace(cnt, """(<p .*?>)+(.*)(<\/?p>)*""", "$2")
 
-            cnt
-              .Replace("<p>", "")
-              .Replace("</p>", "")
-              .Replace("<br>", "")
+            cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
           else
             cnt
 
@@ -909,8 +884,7 @@ let private getXmlDoc dllFile =
         use reader = XmlReader.Create stringReader
         let xmlDoc = readXmlDoc reader 0 Map.empty
 
-        xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, (fun _ _ -> xmlDoc))
-        |> ignore
+        xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, (fun _ _ -> xmlDoc)) |> ignore
 
         Some xmlDoc
       with ex ->
@@ -949,9 +923,7 @@ let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: s
         | [] -> 0
 
       let indentationSize =
-        xmldoc.GetElaboratedXmlLines()
-        |> Array.toList
-        |> findIndentationSize
+        xmldoc.GetElaboratedXmlLines() |> Array.toList |> findIndentationSize
 
       let xmlDoc = XmlDocMember(doc, indentationSize, 0)
 
@@ -984,30 +956,16 @@ let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: s
         | _ -> ""
 
       match formatStyle with
-      | FormatCommentStyle.Legacy ->
-        doc.[memberName].ToString()
-        + (if typeDoc <> "" then
-             "\n\n" + typeDoc
-           else
-             "")
+      | FormatCommentStyle.Legacy -> doc.[memberName].ToString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
       | FormatCommentStyle.SummaryOnly ->
         doc.[memberName].ToSummaryOnlyString()
-        + (if typeDoc <> "" then
-             "\n\n" + typeDoc
-           else
-             "")
+        + (if typeDoc <> "" then "\n\n" + typeDoc else "")
       | FormatCommentStyle.FullEnhanced ->
         doc.[memberName].ToFullEnhancedString()
-        + (if typeDoc <> "" then
-             "\n\n" + typeDoc
-           else
-             "")
+        + (if typeDoc <> "" then "\n\n" + typeDoc else "")
       | FormatCommentStyle.Documentation ->
         doc.[memberName].ToDocumentationString()
-        + (if typeDoc <> "" then
-             "\n\n" + typeDoc
-           else
-             "")
+        + (if typeDoc <> "" then "\n\n" + typeDoc else "")
     | _ -> ""
   | _ -> ""
 
@@ -1064,14 +1022,10 @@ let formatTip (ToolTipText tips) : (string * string) list list =
   |> List.choose (function
     | ToolTipElement.Group items ->
       let getRemarks (it: ToolTipElementData) =
-        it.Remarks
-        |> Option.map formatTaggedTexts
-        |> Option.defaultValue ""
+        it.Remarks |> Option.map formatTaggedTexts |> Option.defaultValue ""
 
       let makeTooltip (tipElement: ToolTipElementData) =
-        let header =
-          formatTaggedTexts tipElement.MainDescription
-          + getRemarks tipElement
+        let header = formatTaggedTexts tipElement.MainDescription + getRemarks tipElement
 
         let body = buildFormatComment tipElement.XmlDoc FormatCommentStyle.Legacy None
         header, body
@@ -1166,28 +1120,19 @@ let formatDocumentationFromXmlSig
 
 /// use this when you want the raw text strings, for example in fsharp/signature calls
 let unformattedTexts (t: TaggedText[]) =
-  t
-  |> Array.map (fun t -> t.Text)
-  |> String.concat ""
+  t |> Array.map (fun t -> t.Text) |> String.concat ""
 
 let extractSignature (ToolTipText tips) =
   let getSignature (t: TaggedText[]) =
     let str = unformattedTexts t
     let nlpos = str.IndexOfAny([| '\r'; '\n' |])
 
-    let firstLine =
-      if nlpos > 0 then
-        str.[0 .. nlpos - 1]
-      else
-        str
+    let firstLine = if nlpos > 0 then str.[0 .. nlpos - 1] else str
 
     if firstLine.StartsWith("type ", StringComparison.Ordinal) then
       let index = firstLine.LastIndexOf("=", StringComparison.Ordinal)
 
-      if index > 0 then
-        firstLine.[0 .. index - 1]
-      else
-        firstLine
+      if index > 0 then firstLine.[0 .. index - 1] else firstLine
     else
       firstLine
 

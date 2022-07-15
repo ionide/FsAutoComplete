@@ -69,19 +69,15 @@ module Debug =
         let message =
           match eventArgs.EventId with
           | 0 -> Log.setMessage (string eventArgs.Payload.[0])
-          | 1 ->
-            Log.setMessage "In {function}"
-            >> logFunctionName eventArgs.Payload.[0]
+          | 1 -> Log.setMessage "In {function}" >> logFunctionName eventArgs.Payload.[0]
           | 2 ->
             Log.setMessage "{function}: {message}"
             >> logFunctionName eventArgs.Payload.[1]
             >> Log.addContextDestructured "message" eventArgs.Payload.[0]
           | 3 ->
-            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow)
-            |> ignore
+            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
 
-            Log.setMessage "Started {function}"
-            >> logFunctionName eventArgs.Payload.[0]
+            Log.setMessage "Started {function}" >> logFunctionName eventArgs.Payload.[0]
           | 4 ->
             match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
@@ -90,12 +86,9 @@ module Debug =
               Log.setMessage "Finished {function} in {seconds}"
               >> logFunctionName eventArgs.Payload.[0]
               >> Log.addContextDestructured "seconds" delta.TotalSeconds
-            | false, _ ->
-              Log.setMessage "Finished {function}"
-              >> logFunctionName eventArgs.Payload.[0]
+            | false, _ -> Log.setMessage "Finished {function}" >> logFunctionName eventArgs.Payload.[0]
           | 5 ->
-            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow)
-            |> ignore
+            inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
 
             Log.setMessage "Started {function}: {message}"
             >> logFunctionName eventArgs.Payload.[1]
@@ -123,7 +116,4 @@ module Debug =
 
       interface System.IDisposable with
         member __.Dispose() =
-          if isNull source then
-            ()
-          else
-            ``base``.DisableEvents(source)
+          if isNull source then () else ``base``.DisableEvents(source)

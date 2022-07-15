@@ -70,12 +70,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
           opt.EndsWith "FSharp.Core.dll"
           || opt.EndsWith "FSharp.Compiler.Interactive.Settings.dll")
 
-      { p with
-          OtherOptions =
-            Array.append
-              otherOpts
-              [| $"-r:%s{fsc.FullName}"
-                 $"-r:%s{fsi.FullName}" |] }
+      { p with OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |] }
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
     if s.StartsWith(prefix) then
@@ -105,10 +100,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       badRefs |> List.exists (fun r -> s.EndsWith r)
 
     fun (projOptions: FSharpProjectOptions) ->
-      { projOptions with
-          OtherOptions =
-            projOptions.OtherOptions
-            |> Array.where (containsBadRef >> not) }
+      { projOptions with OtherOptions = projOptions.OtherOptions |> Array.where (containsBadRef >> not) }
 
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
@@ -122,17 +114,12 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     { projectOptions with SourceFiles = files }
 
   let (|Reference|_|) (opt: string) =
-    if opt.StartsWith "-r:" then
-      Some(opt.[3..])
-    else
-      None
+    if opt.StartsWith "-r:" then Some(opt.[3..]) else None
 
   /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
   let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =
     { projectOptions with
-        SourceFiles =
-          projectOptions.SourceFiles
-          |> Array.map Path.GetFullPath
+        SourceFiles = projectOptions.SourceFiles |> Array.map Path.GetFullPath
         OtherOptions =
           projectOptions.OtherOptions
           |> Array.map (fun opt ->
@@ -215,9 +202,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let allModifications =
         // filterBadRuntimeRefs >>
-        addLoadedFiles
-        >> resolveRelativeFilePaths
-        >> fixupFsharpCoreAndFSIPaths
+        addLoadedFiles >> resolveRelativeFilePaths >> fixupFsharpCoreAndFSIPaths
 
       let modified = allModifications opts
 
@@ -268,10 +253,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     scriptTypecheckRequirementsChanged.Publish
 
   member __.ParseFile(fn: string<LocalPath>, source, fpo) =
-    checkerLogger.info (
-      Log.setMessage "ParseFile - {file}"
-      >> Log.addContextDestructured "file" fn
-    )
+    checkerLogger.info (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
 
     let path = UMX.untag fn
     checker.ParseFile(path, source, fpo)
@@ -280,10 +262,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
-      checkerLogger.info (
-        Log.setMessage "{opName}"
-        >> Log.addContextDestructured "opName" opName
-      )
+      checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
       let options = clearProjectReferences options
       let path = UMX.untag filePath
@@ -318,10 +297,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
-    checkerLogger.info (
-      Log.setMessage "{opName}"
-      >> Log.addContextDestructured "opName" opName
-    )
+    checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
     let options = clearProjectReferences options
 
@@ -391,9 +367,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let sdks = Ionide.ProjInfo.SdkDiscovery.sdks dotnetBinary
 
-      match sdks
-            |> Array.tryFind (fun sdk -> sdk.Version = sdkVersion)
-        with
+      match sdks |> Array.tryFind (fun sdk -> sdk.Version = sdkVersion) with
       | Some sdk ->
         sdkRoot <- Some sdk.Path
         let fsharpDir = Path.Combine(sdk.Path.FullName, "FSharp")

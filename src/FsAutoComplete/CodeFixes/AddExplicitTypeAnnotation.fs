@@ -42,9 +42,7 @@ let private isPositionContainedInUntypedImplicitCtorParameter input pos =
 
                 match ctorArgs with
                 | SynSimplePats.SimplePats (pats = pats) ->
-                  let! pat =
-                    pats
-                    |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
+                  let! pat = pats |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
 
                   let rec tryGetUntypedIdent =
                     function
@@ -83,9 +81,7 @@ let title = "Add explicit type annotation"
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
     asyncResult {
-      let filePath =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsStartPos = protocolPosToPos codeActionParams.Range.Start
       let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsStartPos

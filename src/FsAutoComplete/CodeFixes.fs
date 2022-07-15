@@ -46,6 +46,7 @@ module Types =
   type CodeFix = CodeActionParams -> Async<Result<Fix list, string>>
 
   type CodeAction with
+
     static member OfFix getFileVersion clientCapabilities (fix: Fix) =
       let filePath = fix.File.GetFilePath() |> Utils.normalizePath
       let fileVersion = getFileVersion filePath
@@ -87,9 +88,7 @@ module Types =
 
 module SourceText =
   let inline private assertLineIndex lineIndex (sourceText: ISourceText) =
-    assert
-      (0 <= lineIndex
-       && lineIndex < sourceText.GetLineCount())
+    assert (0 <= lineIndex && lineIndex < sourceText.GetLineCount())
 
   /// Note: this fails when `sourceText` is empty string (`""`)
   /// -> No lines
@@ -126,9 +125,7 @@ module SourceText =
     // max 1 (sourceText.GetLineCount())
 
     let inline private assertLineIndex lineIndex sourceText =
-      assert
-        (0 <= lineIndex
-         && lineIndex < getLineCount sourceText)
+      assert (0 <= lineIndex && lineIndex < getLineCount sourceText)
 
     let getLineString lineIndex (sourceText: ISourceText) =
       assertLineIndex lineIndex sourceText
@@ -189,12 +186,10 @@ module Navigation =
     fcsPos
 
   let inc (lines: NamedText) (pos: LspTypes.Position) : LspTypes.Position option =
-    lines.NextPos(protocolPosToPos pos)
-    |> Option.map fcsPosToLsp
+    lines.NextPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
   let dec (lines: NamedText) (pos: LspTypes.Position) : LspTypes.Position option =
-    lines.PrevPos(protocolPosToPos pos)
-    |> Option.map fcsPosToLsp
+    lines.PrevPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
   let rec decMany lines pos count =
     option {
@@ -225,14 +220,12 @@ module Navigation =
   let walkBackUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
     let fcsStartPos = protocolPosToPos pos
 
-    lines.WalkBackwards(fcsStartPos, terminal, condition)
-    |> Option.map fcsPosToLsp
+    lines.WalkBackwards(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 
   let walkForwardUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
     let fcsStartPos = protocolPosToPos pos
 
-    lines.WalkForward(fcsStartPos, terminal, condition)
-    |> Option.map fcsPosToLsp
+    lines.WalkForward(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 
   let walkBackUntilCondition lines pos condition =
     walkBackUntilConditionWithTerminal lines pos condition (fun _ -> false)
@@ -250,9 +243,7 @@ module Navigation =
       let prevLine = currentLine - 1
 
       { Line = prevLine
-        Character =
-          lines
-          |> SourceText.WithEmptyHandling.afterLastCharacterPosition prevLine }
+        Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition prevLine }
       |> Some
 
   /// Tries to detect the first cursor position in line after `currentLine` (0-based).
@@ -279,9 +270,7 @@ module Navigation =
       { Start = start
         End =
           { Line = lineIndex
-            Character =
-              lines
-              |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
+            Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
     | None ->
       match tryStartOfNextLine lines lineIndex with
       | Some fin ->
@@ -294,9 +283,7 @@ module Navigation =
         { Start = { Line = lineIndex; Character = 0 }
           End =
             { Line = lineIndex
-              Character =
-                lines
-                |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
+              Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
 
 
 

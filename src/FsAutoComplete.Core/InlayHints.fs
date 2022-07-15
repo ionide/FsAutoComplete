@@ -30,9 +30,7 @@ and private defaultTraversePat visitor origPath pat =
   match pat with
   | SynPat.Paren (p, _) -> traversePat visitor path p
   | SynPat.As (p1, p2, _)
-  | SynPat.Or (p1, p2, _, _) ->
-    [ p1; p2 ]
-    |> List.tryPick (traversePat visitor path)
+  | SynPat.Or (p1, p2, _, _) -> [ p1; p2 ] |> List.tryPick (traversePat visitor path)
   | SynPat.Ands (ps, _)
   | SynPat.Tuple (_, ps, _)
   | SynPat.ArrayOrList (_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
@@ -70,18 +68,14 @@ type Hint =
 let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResults, identText: Range) =
   option {
 
-    let! contents =
-      state.TryGetFileSource p.FileName
-      |> Option.ofResult
+    let! contents = state.TryGetFileSource p.FileName |> Option.ofResult
 
     let! line = contents.GetLine identText.End
     let! symbolUse = p.TryGetSymbolUse identText.End line
 
     match symbolUse.Symbol with
     | :? FSharpMemberOrFunctionOrValue as mfv when
-      mfv.IsFunction
-      || mfv.IsConstructor
-      || mfv.CurriedParameterGroups.Count <> 0
+      mfv.IsFunction || mfv.IsConstructor || mfv.CurriedParameterGroups.Count <> 0
       ->
       let parameters = mfv.CurriedParameterGroups
 
@@ -176,10 +170,7 @@ module private ShouldCreate =
 
   [<return: Struct>]
   let private (|StartsWith|_|) (v: string) (fullName: string) =
-    if fullName.StartsWith v then
-      ValueSome()
-    else
-      ValueNone
+    if fullName.StartsWith v then ValueSome() else ValueNone
   // doesn't differentiate between modules, types, namespaces
   // -> is just for documentation in code
   [<return: Struct>]
@@ -234,8 +225,7 @@ module private ShouldCreate =
     | _ -> false
 
   let inline private hasName (p: FSharpParameter) =
-    not (String.IsNullOrEmpty p.DisplayName)
-    && p.DisplayName <> "````"
+    not (String.IsNullOrEmpty p.DisplayName) && p.DisplayName <> "````"
 
   let inline private isMeaningfulName (p: FSharpParameter) = p.DisplayName.Length > 2
 
@@ -394,6 +384,7 @@ type MissingExplicitType =
     SpecialRules: SpecialRules }
 
 type MissingExplicitType with
+
   /// <returns>
   /// * type name
   /// * type name formatted with `SpecialRules`
@@ -403,8 +394,7 @@ type MissingExplicitType with
     let typeName = ty.Format displayContext
 
     let anno =
-      if x.SpecialRules
-         |> List.contains RemoveOptionFromType then
+      if x.SpecialRules |> List.contains RemoveOptionFromType then
         // Optional parameter:
         // `static member F(?a) =` -> `: int`, NOT `: int option`
         if typeName.EndsWith " option" then
@@ -455,6 +445,7 @@ type ExplicitType =
   | Debug of string
 
 type ExplicitType with
+
   member x.TryGetTypeAndEdits(ty: FSharpType, displayContext: FSharpDisplayContext) =
     match x with
     | ExplicitType.Missing data -> data.TypeAndEdits(ty, displayContext) |> Some
@@ -635,9 +626,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
             // -> unify by looking into `parsedData` (-> args & body):
             //    -> `parsedData |> fst` contains `args` as `SynPat`
             //TODO: always correct?
-            let arg =
-              args
-              |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
+            let arg = args |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
 
             if arg |> Option.isSome then
               let pat = arg.Value
@@ -670,8 +659,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           // see dotnet/fsharp#13115
           // | _ when not (rangeContainsPos pat.Range pos) -> None
           | SynPat.Named (ident = ident) when
-            rangeContainsPos ident.idRange pos
-            && invalidPositionForTypeAnnotation pos path
+            rangeContainsPos ident.idRange pos && invalidPositionForTypeAnnotation pos path
             ->
             ExplicitType.Invalid |> Some
           | SynPat.Named (ident = ident; isThisVal = false) when rangeContainsPos ident.idRange pos ->
@@ -720,9 +708,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           //        -> compiler generated `_arg1` in `args`,
           //           and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
           maybe {
-            let! pat =
-              pats
-              |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
+            let! pat = pats |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
 
             let rec tryGetIdent pat =
               match pat with
@@ -861,8 +847,7 @@ let isPotentialTargetForTypeAnnotation
   (symbolUse: FSharpSymbolUse, mfv: FSharpMemberOrFunctionOrValue)
   =
   //ENHANCEMENT: extract settings
-  (mfv.IsValue
-   || (allowFunctionValues && mfv.IsFunction))
+  (mfv.IsValue || (allowFunctionValues && mfv.IsFunction))
   && not (
     mfv.IsMember
     || mfv.IsMemberThisValue
@@ -960,13 +945,9 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
             // single param at app (but tuple at def)
             let! appliedArgText = text[appliedArgRange]
             // only show param hint when at least one of the tuple params should be shown
-            if def
-               |> Seq.exists (fun p -> ShouldCreate.paramHint func p appliedArgText) then
+            if def |> Seq.exists (fun p -> ShouldCreate.paramHint func p appliedArgText) then
               let defArgName =
-                let names =
-                  def
-                  |> Seq.map (fun p -> p.DisplayName)
-                  |> String.concat ","
+                let names = def |> Seq.map (fun p -> p.DisplayName) |> String.concat ","
 
                 "(" + names + ")"
 
@@ -983,8 +964,7 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
                 parameterHints.Add hint
 
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when
-        hintConfig.ShowParameterHints
-        && methodOrConstructor.IsConstructor
+        hintConfig.ShowParameterHints && methodOrConstructor.IsConstructor
         -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
@@ -1005,9 +985,7 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
         // M(1, 2) can give results for both, but in that case we want the "tupled" view.
         | Some tupledParamInfos, _ ->
           let parameters =
-            methodOrConstructor.CurriedParameterGroups
-            |> Seq.concat
-            |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
+            methodOrConstructor.CurriedParameterGroups |> Seq.concat |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
 
           for idx = 0 to parameters.Length - 1 do
             // let paramLocationInfo = tupledParamInfos.ArgumentLocations.[idx]
@@ -1021,9 +999,7 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
 
         // This will only happen for curried methods defined in F#.
         | _, Some appliedArgRanges ->
-          let parameters =
-            methodOrConstructor.CurriedParameterGroups
-            |> Seq.concat
+          let parameters = methodOrConstructor.CurriedParameterGroups |> Seq.concat
 
           let appliedArgRanges = appliedArgRanges |> Array.ofList
           let definitionArgs = parameters |> Array.ofSeq

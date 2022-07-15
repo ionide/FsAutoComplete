@@ -38,15 +38,11 @@ module DocumentationFormatter =
   let rec formatType (displayContext: FSharpDisplayContext) (typ: FSharpType) : string * int =
     let combineParts (parts: (string * int) seq) : string * int =
       // make a single type name out of all of the tuple parts, since each part is correct by construction
-      (("", 0), parts)
-      ||> Seq.fold (fun (s, l) (ps, pl) -> (s + ps), (l + pl))
+      (("", 0), parts) ||> Seq.fold (fun (s, l) (ps, pl) -> (s + ps), (l + pl))
 
     let resolvedType =
       // unwrap any type abbreviations to their wrapped type
-      if typ.IsAbbreviation then
-        typ.AbbreviatedType
-      else
-        typ
+      if typ.IsAbbreviation then typ.AbbreviatedType else typ
 
     let xmlDocSig =
       try
@@ -82,13 +78,11 @@ module DocumentationFormatter =
 
       combineParts parts
 
-    elif typ.HasTypeDefinition
-         && typ.GenericArguments.Count > 0 then
+    elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
       // this type has generic arguments, so we need to format each of them.
       // types with generic arguments get rendered as TYPENAME<P1, P2, P3, ..., PN>
       let renderedGenericArgumentTypes =
-        typ.GenericArguments
-        |> Seq.map (formatType displayContext)
+        typ.GenericArguments |> Seq.map (formatType displayContext)
       // we set this context specifically because we want to enforce prefix-generic form on tooltip displays
       let newContext = displayContext.WithPrefixGenericParameters()
       let org = typ.Format newContext
@@ -96,9 +90,7 @@ module DocumentationFormatter =
 
       [ yield formatShowDocumentationLink t xmlDocSig assemblyName
         if t.EndsWith "<" then
-          yield!
-            renderedGenericArgumentTypes
-            |> Seq.intersperse (", ", 2)
+          yield! renderedGenericArgumentTypes |> Seq.intersperse (", ", 2)
 
           yield formatShowDocumentationLink ">" xmlDocSig assemblyName ]
       |> combineParts
@@ -129,11 +121,7 @@ module DocumentationFormatter =
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
     let asGenericParamName (param: FSharpGenericParameter) =
-      (if param.IsSolveAtCompileTime then
-         "^"
-       else
-         "'")
-      + param.Name
+      (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
 
     let sb = StringBuilder()
 
@@ -149,7 +137,9 @@ module DocumentationFormatter =
               c.MemberName, false
 
         seq {
-          if c.MemberIsStatic then yield "static "
+          if c.MemberIsStatic then
+            yield "static "
+
           yield "member "
           yield formattedMemberName
 
@@ -166,9 +156,7 @@ module DocumentationFormatter =
 
               yield " -> "
 
-              yield
-                ((c.MemberReturnType |> format displayContext |> fst)
-                  .TrimStart())
+              yield ((c.MemberReturnType |> format displayContext |> fst).TrimStart())
         }
         |> String.concat ""
 
@@ -181,12 +169,8 @@ module DocumentationFormatter =
       let delegateConstraint (tc: FSharpGenericParameterDelegateConstraint) =
         sprintf
           "delegate<%s, %s>"
-          (tc.DelegateTupledArgumentType
-           |> format displayContext
-           |> fst)
-          (tc.DelegateReturnType
-           |> format displayContext
-           |> fst)
+          (tc.DelegateTupledArgumentType |> format displayContext |> fst)
+          (tc.DelegateReturnType |> format displayContext |> fst)
 
       let symbols =
         match constrainedBy with
@@ -210,7 +194,9 @@ module DocumentationFormatter =
       |> Seq.choose getConstraint
       |> Seq.distinct
       |> Seq.iteri (fun i symbol ->
-        if i > 0 then print sb " and "
+        if i > 0 then
+          print sb " and "
+
         print sb symbol)
 
     sb.ToString()
@@ -227,16 +213,12 @@ module DocumentationFormatter =
         unionCase.Fields
         |> Seq.map (fun unionField ->
           if unionField.Name.StartsWith "Item" then //TODO: Some better way of detecting default names for the union cases' fields
-            unionField.FieldType
-            |> format displayContext
-            |> fst
+            unionField.FieldType |> format displayContext |> fst
 
           else
             unionField.Name
             ++ ":"
-            ++ ((unionField.FieldType
-                 |> format displayContext
-                 |> fst)))
+            ++ ((unionField.FieldType |> format displayContext |> fst)))
         |> String.concat " * "
 
       unionCase.DisplayName + " of " + typeList
@@ -305,17 +287,12 @@ module DocumentationFormatter =
 
       modifier
 
-    let argInfos =
-      func.CurriedParameterGroups
-      |> Seq.map Seq.toList
-      |> Seq.toList
+    let argInfos = func.CurriedParameterGroups |> Seq.map Seq.toList |> Seq.toList
 
     let retType =
       //This try block will be removed when FCS updates
       try
-        func.ReturnParameter.Type
-        |> format displayContext
-        |> fst
+        func.ReturnParameter.Type |> format displayContext |> fst
       with _ex ->
         "Unknown"
 
@@ -367,43 +344,27 @@ module DocumentationFormatter =
         retType
       //A ctor with () parameters seems to be a list with an empty list.
       // Also abstract members and abstract member overrides with one () parameter seem to be a list with an empty list.
-      elif func.IsConstructor
-           || (func.IsMember && (not func.IsPropertyGetterMethod)) then
+      elif func.IsConstructor || (func.IsMember && (not func.IsPropertyGetterMethod)) then
         modifiers + ": unit -> " ++ retType
       else
         modifiers ++ functionName + ":" ++ retType //Value members seems to be a list with an empty list
-    | [ [ p ] ] when
-      maybeGetter
-      && formatParameter displayContext p |> fst = "unit"
-      -> //Member or property with only getter
+    | [ [ p ] ] when maybeGetter && formatParameter displayContext p |> fst = "unit" -> //Member or property with only getter
       modifiers ++ functionName + ":" ++ retType
     | many ->
 
       let allParamsLengths =
         many
-        |> List.map (
-          List.map (fun p -> (formatParameter displayContext p |> snd))
-          >> List.sum
-        )
+        |> List.map (List.map (fun p -> (formatParameter displayContext p |> snd)) >> List.sum)
 
-      let maxLength =
-        (allParamsLengths
-         |> List.maxUnderThreshold maxPadding)
-        + 1
+      let maxLength = (allParamsLengths |> List.maxUnderThreshold maxPadding) + 1
 
       let parameterTypeWithPadding (p: FSharpParameter) length =
         (formatParameter displayContext p |> fst)
-        + (String.replicate
-             (if length >= maxLength then
-                1
-              else
-                maxLength - length)
-             " ")
+        + (String.replicate (if length >= maxLength then 1 else maxLength - length) " ")
 
       let formatParameterPadded length p =
         let paddedParam =
-          formatName indent padLength p
-          ++ (parameterTypeWithPadding p length)
+          formatName indent padLength p ++ (parameterTypeWithPadding p length)
 
         if p.Type.IsGenericParameter then
           let paramConstraint =
@@ -425,17 +386,11 @@ module DocumentationFormatter =
       let allParams =
         List.zip many allParamsLengths
         |> List.map (fun (paramTypes, length) ->
-          paramTypes
-          |> List.map (formatParameterPadded length)
-          |> String.concat $" *{nl}")
+          paramTypes |> List.map (formatParameterPadded length) |> String.concat $" *{nl}")
         |> String.concat $"->{nl}"
 
       let typeArguments =
-        allParams
-        + nl
-        + indent
-        + (String.replicate (max (padLength - 1) 0) " ")
-        + "->"
+        allParams + nl + indent + (String.replicate (max (padLength - 1) 0) " ") + "->"
         ++ retType
         ++ retTypeConstraint
 
@@ -458,8 +413,7 @@ module DocumentationFormatter =
           func.DisplayName
         elif func.DisplayName.StartsWith "( " then
           FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
-        elif func.LogicalName.StartsWith "get_"
-             || func.LogicalName.StartsWith "set_" then
+        elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then
           PrettyNaming.TryChopPropertyName func.DisplayName
           |> Option.defaultValue func.DisplayName
         else
@@ -503,10 +457,7 @@ module DocumentationFormatter =
 
       modifier
 
-    let argInfos =
-      func.CurriedParameterGroups
-      |> Seq.map Seq.toList
-      |> Seq.toList
+    let argInfos = func.CurriedParameterGroups |> Seq.map Seq.toList |> Seq.toList
 
     let retType =
       //This try block will be removed when FCS updates
@@ -516,9 +467,7 @@ module DocumentationFormatter =
           | Some ent -> ent.DisplayName
           | _ -> func.DisplayName
         else
-          func.ReturnParameter.Type
-          |> format displayContext
-          |> fst
+          func.ReturnParameter.Type |> format displayContext |> fst
       with _ex ->
         try
           if func.FullType.GenericArguments.Count > 0 then
@@ -530,8 +479,7 @@ module DocumentationFormatter =
           "Unknown"
 
     let formatName (parameter: FSharpParameter) =
-      parameter.Name
-      |> Option.defaultValue parameter.DisplayName
+      parameter.Name |> Option.defaultValue parameter.DisplayName
 
     let isDelegate =
       match func.EnclosingEntitySafe with
@@ -559,9 +507,7 @@ module DocumentationFormatter =
           many
           |> List.map (fun (paramTypes) ->
             paramTypes
-            |> List.map (fun p ->
-              formatName p + ":"
-              ++ fst (formatParameter displayContext p))
+            |> List.map (fun p -> formatName p + ":" ++ fst (formatParameter displayContext p))
             |> String.concat (" * "))
           |> String.concat ("-> ")
 
@@ -583,11 +529,7 @@ module DocumentationFormatter =
   let getValSignature displayContext (v: FSharpMemberOrFunctionOrValue) =
     let retType = v.FullType |> format displayContext |> fst
 
-    let prefix =
-      if v.IsMutable then
-        "val mutable"
-      else
-        "val"
+    let prefix = if v.IsMutable then "val mutable" else "val"
 
     let name =
       (if v.DisplayName.StartsWith "( " then
@@ -616,17 +558,9 @@ module DocumentationFormatter =
     let retType = field.FieldType |> format displayContext |> fst
 
     match field.LiteralValue with
-    | Some lv ->
-      field.DisplayName + ":"
-      ++ retType
-      ++ "="
-      ++ (string lv)
+    | Some lv -> field.DisplayName + ":" ++ retType ++ "=" ++ (string lv)
     | None ->
-      let prefix =
-        if field.IsMutable then
-          "val mutable"
-        else
-          "val"
+      let prefix = if field.IsMutable then "val mutable" else "val"
 
       prefix ++ field.DisplayName + ":" ++ retType
 
@@ -654,9 +588,7 @@ module DocumentationFormatter =
         attr.AttributeType.Assembly.SimpleName
 
     let attr =
-      attr.ConstructorArguments
-      |> Seq.map (snd >> string)
-      |> String.concat ", "
+      attr.ConstructorArguments |> Seq.map (snd >> string) |> String.concat ", "
 
     sprintf "%s(%s)" (fst name) attr
 
@@ -701,8 +633,7 @@ module DocumentationFormatter =
 
     let delegateTip () =
       let invoker =
-        fse.MembersFunctionsAndValues
-        |> Seq.find (fun f -> f.DisplayName = "Invoke")
+        fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
 
       let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
       $" ={nl}   delegate of{nl}{invokerSig}"
@@ -759,13 +690,9 @@ module DocumentationFormatter =
         |> Seq.collect (fun (_, v) ->
           match v |> Seq.tryFind (fun f -> f.IsProperty) with
           | Some prop ->
-            let getter =
-              v
-              |> Seq.exists (fun f -> f.IsPropertyGetterMethod)
+            let getter = v |> Seq.exists (fun f -> f.IsPropertyGetterMethod)
 
-            let setter =
-              v
-              |> Seq.exists (fun f -> f.IsPropertySetterMethod)
+            let setter = v |> Seq.exists (fun f -> f.IsPropertySetterMethod)
 
             [ getFuncSignatureForTypeSignature displayContext prop getter setter ] //Ensure properties are displayed only once, properly report
           | None ->
@@ -784,9 +711,7 @@ module DocumentationFormatter =
         |> Seq.toArray
 
       let attrs =
-        fse.Attributes
-        |> Seq.map (getAttributeSignature displayContext)
-        |> Seq.toArray
+        fse.Attributes |> Seq.map (getAttributeSignature displayContext) |> Seq.toArray
 
       let types =
         fse.NestedEntities
@@ -818,10 +743,7 @@ module DocumentationFormatter =
               else
                 sprintf "'%s (requires %s)" name renderedConstraints)
 
-          normalisedName
-          + "<"
-          + (paramsAndConstraints |> String.concat ",")
-          + ">"
+          normalisedName + "<" + (paramsAndConstraints |> String.concat ",") + ">"
         else
           normalisedName
 
@@ -843,10 +765,10 @@ module DocumentationFormatter =
       typeDisplay, typeTip ()
 
   type FSharpSymbol with
+
     /// trims the leading 'Microsoft.' from the full name of the symbol
     member m.SafeFullName =
-      if m.FullName.StartsWith "Microsoft."
-         && m.Assembly.SimpleName = "FSharp.Core" then
+      if m.FullName.StartsWith "Microsoft." && m.Assembly.SimpleName = "FSharp.Core" then
         m.FullName.Substring "Microsoft.".Length
       else
         m.FullName

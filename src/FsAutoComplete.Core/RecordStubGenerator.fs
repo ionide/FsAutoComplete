@@ -36,6 +36,7 @@ type RecordStubsInsertionParams =
   { Kind: PositionKind
     InsertionPos: Position
     IndentColumn: int }
+
   static member TryCreateFromRecordExpression(expr: RecordExpr) =
     match expr.FieldExprList with
     | [] ->
@@ -81,11 +82,7 @@ type RecordStubsInsertionParams =
 
         let indentColumn =
           fieldAndStartColumnAndLineIdxList
-          |> List.pick (fun (_, indentColumn, lineIdx) ->
-            if lineIdx = maxLineIdx then
-              Some indentColumn
-            else
-              None)
+          |> List.pick (fun (_, indentColumn, lineIdx) -> if lineIdx = maxLineIdx then Some indentColumn else None)
 
         let lastFieldInfo = Seq.last expr.FieldExprList
 
@@ -158,8 +155,7 @@ let formatRecord
       | SynExprRecordField (fieldName = (fieldName, _)) ->
         // Extract <Field> in qualified identifiers: A.B.<Field> = ...
         if fieldName.Lid.Length > 0 then
-          [ (fieldName.Lid.Item(fieldName.Lid.Length - 1))
-              .idText ]
+          [ (fieldName.Lid.Item(fieldName.Lid.Length - 1)).idText ]
         else
           [])
     |> Set.ofList
@@ -187,8 +183,7 @@ let formatRecord
 
     formatField ctxt prependNewLineToFstField prependExtraSpaceToFstField firstField
 
-    otherFields
-    |> List.iter (formatField ctxt prependNewLineToOtherFields false)
+    otherFields |> List.iter (formatField ctxt prependNewLineToOtherFields false)
 
   writer.Dump()
 
@@ -289,18 +284,12 @@ let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos:
     let! symbolUse = symbolUse
 
     match symbolUse.Symbol with
-    | :? FSharpEntity as entity when
-      entity.IsFSharpRecord
-      && entity.DisplayName = symbol.Text
-      ->
+    | :? FSharpEntity as entity when entity.IsFSharpRecord && entity.DisplayName = symbol.Text ->
       return! Some(recordExpression, Some entity, insertionPos)
 
     | :? FSharpField as field ->
       match field.DeclaringEntity with
-      | Some decl when
-        decl.IsFSharpRecord
-        && field.DisplayName = symbol.Text
-        ->
+      | Some decl when decl.IsFSharpRecord && field.DisplayName = symbol.Text ->
         return! Some(recordExpression, field.DeclaringEntity, insertionPos)
       | _ -> return! None
     | _ -> return! None

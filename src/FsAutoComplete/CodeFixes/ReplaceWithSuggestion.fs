@@ -13,9 +13,7 @@ let fix =
   Run.ifDiagnosticByMessage "Maybe you want one of the following:" (fun diagnostic codeActionParams ->
     diagnostic.Message.Split('\n').[1..]
     |> Array.map (fun suggestion ->
-      let suggestion =
-        suggestion.Trim()
-        |> PrettyNaming.AddBackticksToIdentifierIfNeeded
+      let suggestion = suggestion.Trim() |> PrettyNaming.AddBackticksToIdentifierIfNeeded
 
       { Edits =
           [| { Range = diagnostic.Range

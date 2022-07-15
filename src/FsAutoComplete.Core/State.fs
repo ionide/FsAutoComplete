@@ -52,6 +52,7 @@ module ProjInfoExtensions =
         None
 
   type FSharpReferencedProject with
+
     member x.ProjectFilePath =
       let rCase, fields =
         FSharp.Reflection.FSharpValue.GetUnionFields(
@@ -63,17 +64,14 @@ module ProjInfoExtensions =
         )
 
       if rCase.Name = "FSharpReference" then
-        (fields[1] :?> FSharpProjectOptions)
-          .ProjectFileName
-        |> Some
+        (fields[1] :?> FSharpProjectOptions).ProjectFileName |> Some
       else
         None
 
   type FSharpProjectOptions with
+
     member x.OutputDll =
-      x.OtherOptions
-      |> Array.find (fun o -> o.StartsWith("-o:"))
-      |> fun s -> s[3..]
+      x.OtherOptions |> Array.find (fun o -> o.StartsWith("-o:")) |> (fun s -> s[3..])
 
     member x.SourceFilesThatThisFileDependsOn(file: string<LocalPath>) =
       let untagged = UMX.untag file
@@ -93,6 +91,7 @@ module ProjInfoExtensions =
       | Some index -> [||] // at the end, so return empty list
 
   type ProjectController with
+
     /// returns all projects that depend on this one, transitively
     member x.GetDependentProjectsOfProjects(ps: FSharpProjectOptions list) : list<FSharpProjectOptions> =
       let projectSnapshot = x.ProjectOptions |> Seq.map snd
@@ -165,6 +164,7 @@ type State =
     mutable ColorizationOutput: bool
 
     WorkspaceStateDirectory: System.IO.DirectoryInfo }
+
   member x.DebugString =
     $"{x.Files.Count} Files, {x.ProjectController.ProjectOptions |> Seq.length} Projects"
 
@@ -196,8 +196,7 @@ type State =
     x.ProjectController.GetProjectOptions(UMX.untag file)
 
   member x.GetProjectOptions'(file: string<LocalPath>) : FSharpProjectOptions =
-    (x.ProjectController.GetProjectOptions(UMX.untag file))
-      .Value
+    (x.ProjectController.GetProjectOptions(UMX.untag file)).Value
 
   member x.RemoveProjectOptions(file: string<LocalPath>) : unit =
     x.ProjectController.RemoveProjectOptions(UMX.untag file)
@@ -205,8 +204,7 @@ type State =
   member x.FSharpProjectOptions = x.ProjectController.ProjectOptions
 
   member x.TryGetFileVersion(file: string<LocalPath>) : int option =
-    x.Files.TryFind file
-    |> Option.bind (fun f -> f.Version)
+    x.Files.TryFind file |> Option.bind (fun f -> f.Version)
 
   member x.TryGetLastCheckedVersion(file: string<LocalPath>) : int option = x.LastCheckedVersion.TryFind file
 
@@ -245,9 +243,7 @@ type State =
     lst
 
   static member private FileWithoutProjectOptions(file: string<LocalPath>) =
-    let opts =
-      [| yield sprintf "-r:%s" Environment.fsharpCore
-         yield "--noframework" |]
+    let opts = [| yield sprintf "-r:%s" Environment.fsharpCore; yield "--noframework" |]
 
     { ProjectId = Some((UMX.untag file) + ".fsproj")
       ProjectFileName = (UMX.untag file) + ".fsproj"
@@ -292,9 +288,7 @@ type State =
     result {
       let! (opts, text) = x.TryGetFileCheckerOptionsWithLines(file)
 
-      let! line =
-        text.GetLine pos
-        |> Result.ofOption (fun _ -> "Position is out of range")
+      let! line = text.GetLine pos |> Result.ofOption (fun _ -> "Position is out of range")
 
       return (opts, text, line)
     }

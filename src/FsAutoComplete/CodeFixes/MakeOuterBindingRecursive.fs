@@ -12,9 +12,7 @@ let title = "Make outer binding recursive"
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "39" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let errorRangeStart = protocolPosToPos diagnostic.Range.Start
       let! (tyres, _line, lines) = getParseResultsForFile fileName errorRangeStart

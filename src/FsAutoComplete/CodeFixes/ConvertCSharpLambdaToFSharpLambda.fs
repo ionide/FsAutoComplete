@@ -56,9 +56,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
         "43" ]) // operator not defined
     (fun diagnostic codeActionParams ->
       asyncResult {
-        let fileName =
-          codeActionParams.TextDocument.GetFilePath()
-          |> Utils.normalizePath
+        let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
         let fcsPos = protocolPosToPos diagnostic.Range.Start
         let! (tyRes, _, lines) = getParseResultsForFile fileName fcsPos

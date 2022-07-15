@@ -256,9 +256,7 @@ let fix
       //    * sub interface: `interface` to ending `}`
       // * implement interface in type: only interface name
 
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let startPos = protocolPosToPos codeActionParams.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName startPos
@@ -297,8 +295,7 @@ let fix
         let existingMembers = InterfaceStubGenerator.GetMemberNameAndRanges interfaceData
         let interfaceMembers = InterfaceStubGenerator.GetInterfaceMembers entity
 
-        if List.length existingMembers
-           <> Seq.length interfaceMembers then
+        if List.length existingMembers <> Seq.length interfaceMembers then
           let getMemberByLocation (name, range: FcsRange) =
             match lines.GetLine range.End with
             | None -> None

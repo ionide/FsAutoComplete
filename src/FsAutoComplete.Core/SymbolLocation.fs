@@ -39,8 +39,7 @@ let getDeclarationLocation
 
       let taggedFilePath = UMX.tag normalizedPath
 
-      if isScript
-         && taggedFilePath = currentDocument.FileName then
+      if isScript && taggedFilePath = currentDocument.FileName then
         Some SymbolDeclarationLocation.CurrentDocument
       elif isScript then
         // The standalone script might include other files via '#load'

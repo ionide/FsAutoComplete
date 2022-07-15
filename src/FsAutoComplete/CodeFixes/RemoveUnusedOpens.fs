@@ -14,9 +14,7 @@ let title = "Remove unused open"
 let fix (getFileLines: GetFileLines) : CodeFix =
   Run.ifDiagnosticByMessage "Unused open statement" (fun d codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! lines = getFileLines fileName
 

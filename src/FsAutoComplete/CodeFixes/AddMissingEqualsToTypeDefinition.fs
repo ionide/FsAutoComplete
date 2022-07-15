@@ -13,21 +13,15 @@ let title = "Add missing '=' to type definition"
 let fix (getFileLines: GetFileLines) =
   Run.ifDiagnosticByCode (Set.ofList [ "3360" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! lines = getFileLines fileName
 
-      let! walkPos =
-        dec lines diagnostic.Range.Start
-        |> Result.ofOption (fun _ -> "No walk pos")
+      let! walkPos = dec lines diagnostic.Range.Start |> Result.ofOption (fun _ -> "No walk pos")
 
       match walkBackUntilCondition lines walkPos (System.Char.IsWhiteSpace >> not) with
       | Some firstNonWhitespaceChar ->
-        let! insertPos =
-          inc lines firstNonWhitespaceChar
-          |> Result.ofOption (fun _ -> "No insert pos")
+        let! insertPos = inc lines firstNonWhitespaceChar |> Result.ofOption (fun _ -> "No insert pos")
 
         return
           [ { SourceDiagnostic = Some diagnostic

@@ -29,6 +29,7 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Syntax.SyntaxTraversal
 
 type ParseAndCheckResults with
+
   member x.TryGetPositionalUnionPattern(pos: FcsPos) =
     let rec (|UnionNameAndPatterns|_|) =
       function
@@ -117,9 +118,7 @@ let title = "Convert to named patterns"
 let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
   fun codeActionParams ->
     asyncResult {
-      let filePath =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
       let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
@@ -137,10 +136,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         | :? FSharpUnionCase as uc -> Ok uc
         | _ -> Error "Not a union case"
 
-      let allFieldNames =
-        unionCase.Fields
-        |> List.ofSeq
-        |> List.map (fun f -> f.Name)
+      let allFieldNames = unionCase.Fields |> List.ofSeq |> List.map (fun f -> f.Name)
 
       let notInsidePatterns =
         let ranges = duFields |> List.map (fun f -> f.Range)
@@ -169,11 +165,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
 
       let! patternEdits =
         match (duFields, allFieldNames) with
-        | MatchedFields pairs ->
-          pairs
-          |> List.collect createEdit
-          |> List.toArray
-          |> Ok
+        | MatchedFields pairs -> pairs |> List.collect createEdit |> List.toArray |> Ok
 
         | UnmatchedFields (pairs, leftover) ->
           result {
@@ -185,9 +177,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
             let matchedEdits = pairs |> List.collect createEdit
             let leftoverEdits = leftover |> List.map (createWildCard endPos)
 
-            return
-              List.append matchedEdits leftoverEdits
-              |> List.toArray
+            return List.append matchedEdits leftoverEdits |> List.toArray
           }
         | NotEnoughFields -> Ok [||]
 
@@ -195,8 +185,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
       | [||] -> return []
       | patternEdits ->
         let allEdits =
-          Array.append patternEdits removeCommaEdits
-          |> Array.sortBy (fun e -> e.Range)
+          Array.append patternEdits removeCommaEdits |> Array.sortBy (fun e -> e.Range)
 
         return
           [ { Edits = allEdits

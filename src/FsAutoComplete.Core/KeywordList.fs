@@ -15,11 +15,7 @@ module KeywordList =
     |> Seq.map (fun kv ->
       let lines = kv.Value.Replace("\r\n", "\n").Split('\n')
 
-      let allLines =
-        Array.concat
-          [| [| "<summary>" |]
-             lines
-             [| "</summary>" |] |]
+      let allLines = Array.concat [| [| "<summary>" |]; lines; [| "</summary>" |] |]
 
       let tip =
         ToolTipText
@@ -56,9 +52,7 @@ module KeywordList =
     |> Seq.toArray
 
   let allKeywords: string list =
-    keywordDescriptions
-    |> Seq.map ((|KeyValue|) >> fst)
-    |> Seq.toList
+    keywordDescriptions |> Seq.map ((|KeyValue|) >> fst) |> Seq.toList
 
   let keywordCompletionItems =
     allKeywords

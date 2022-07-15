@@ -30,6 +30,7 @@ type private DraftToken =
   { Kind: SymbolKind
     Token: FSharpTokenInfo
     RightColumn: int }
+
   static member inline Create kind token =
     { Kind = kind
       Token = token
@@ -40,11 +41,7 @@ module Lexer =
   let tokenizeLine (args: string[]) lineStr =
     let defines =
       args
-      |> Seq.choose (fun s ->
-        if s.StartsWith "--define:" then
-          Some s.[9..]
-        else
-          None)
+      |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s.[9..] else None)
       |> Seq.toList
 
     let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx")
@@ -79,14 +76,12 @@ module Lexer =
     elif token.Tag = FSharpTokenTag.INFIX_AT_HAT_OP then
       // The lexer return INFIX_AT_HAT_OP token for both "^" and "@" symbols.
       // We have to check the char itself to distinguish one from another.
-      if token.FullMatchedLength = 1
-         && lineStr.[token.LeftColumn] = '^' then
+      if token.FullMatchedLength = 1 && lineStr.[token.LeftColumn] = '^' then
         StaticallyResolvedTypeParameterPrefix
       else
         Other
     elif token.Tag = FSharpTokenTag.LPAREN then
-      if token.FullMatchedLength = 1
-         && lineStr.[token.LeftColumn + 1] = '|' then
+      if token.FullMatchedLength = 1 && lineStr.[token.LeftColumn + 1] = '|' then
         ActivePattern
       else
         Other
@@ -110,8 +105,7 @@ module Lexer =
            match lastToken with
            //Operator starting with . (like .>>) should be operator
            | Some ({ Kind = SymbolKind.Dot } as lastToken) when
-             isOperator token
-             && token.LeftColumn <= lastToken.RightColumn
+             isOperator token && token.LeftColumn <= lastToken.RightColumn
              ->
              let mergedToken =
                { lastToken.Token with
@@ -133,9 +127,7 @@ module Lexer =
                { lastToken.Token with
                    Tag = FSharpTokenTag.IDENT
                    RightColumn = token.RightColumn
-                   FullMatchedLength =
-                     lastToken.Token.FullMatchedLength
-                     + token.FullMatchedLength }
+                   FullMatchedLength = lastToken.Token.FullMatchedLength + token.FullMatchedLength }
 
              acc,
              Some
@@ -198,15 +190,11 @@ module Lexer =
       | SymbolLookupKind.Simple
       | SymbolLookupKind.Fuzzy ->
         tokens
-        |> List.filter (fun x ->
-          x.Token.LeftColumn <= col
-          && x.RightColumn + 1 >= col)
+        |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn + 1 >= col)
       | SymbolLookupKind.ForCompletion ->
         tokens
         |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn >= col)
-      | SymbolLookupKind.ByLongIdent ->
-        tokens
-        |> List.filter (fun x -> x.Token.LeftColumn <= col)
+      | SymbolLookupKind.ByLongIdent -> tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
 
     match lookupKind with
     | SymbolLookupKind.ByLongIdent ->
@@ -225,9 +213,7 @@ module Lexer =
         | [] -> None
 
       let decreasingTokens =
-        match tokensUnderCursor
-              |> List.sortBy (fun token -> -token.Token.LeftColumn)
-          with
+        match tokensUnderCursor |> List.sortBy (fun token -> -token.Token.LeftColumn) with
         // Skip the first dot if it is the start of the identifier
         | { Kind = SymbolKind.Other | SymbolKind.Dot
             Token = t } :: remainingTokens when t.Tag = FSharpTokenTag.DOT -> remainingTokens
@@ -255,9 +241,7 @@ module Lexer =
         | _ -> false)
       /// Gets the option if Some x, otherwise try to get another value
 
-      |> Option.orElseWith (fun _ ->
-        tokensUnderCursor
-        |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
+      |> Option.orElseWith (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
       |> Option.map (fun token ->
         { Kind = token.Kind
           Line = line
@@ -297,8 +281,7 @@ module Lexer =
     if lineStr = "" then
       None
     else
-      getSymbol 0 col lineStr lookupType [||]
-      |> Option.bind tryGetLexerSymbolIslands
+      getSymbol 0 col lineStr lookupType [||] |> Option.bind tryGetLexerSymbolIslands
 
   let findLongIdents (col, lineStr) =
     findIdents col lineStr SymbolLookupKind.Fuzzy

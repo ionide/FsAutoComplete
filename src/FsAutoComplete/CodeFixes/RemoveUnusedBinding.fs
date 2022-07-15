@@ -21,6 +21,7 @@ type private ReplacmentRangeResult =
   | Pattern of patternRange: Range
 
 type FSharpParseFileResults with
+
   member private this.TryRangeOfBindingWithHeadPatternWithPos(diagnosticRange: range) =
     SyntaxTraversal.Traverse(
       diagnosticRange.Start,
@@ -38,7 +39,8 @@ type FSharpParseFileResults with
                 // otherwise if the pattern inside a parens
                 if Range.rangeContainsRange m diagnosticRange then
                   // explicitly matches
-                  if Range.equals inner.Range diagnosticRange
+                  if
+                    Range.equals inner.Range diagnosticRange
                   // then return the range of the parens, so the entire pattern gets removed
                   then
                     Some(Pattern m)
@@ -76,9 +78,7 @@ let titleBinding = "Remove unused binding"
 let fix (getParseResults: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "1182" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsRange =
         protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) diagnostic.Range
@@ -113,9 +113,7 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
       | FullBinding bindingRangeWithPats ->
         let protocolRange = fcsRangeToLsp bindingRangeWithPats
         // the pos at the end of the previous keyword
-        let! walkPos =
-          dec lines protocolRange.Start
-          |> Result.ofOption (fun _ -> "failed to walk")
+        let! walkPos = dec lines protocolRange.Start |> Result.ofOption (fun _ -> "failed to walk")
 
         let! endOfPrecedingKeyword =
           Navigation.walkBackUntilCondition lines walkPos (System.Char.IsWhiteSpace >> not)

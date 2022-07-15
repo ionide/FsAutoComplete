@@ -7,9 +7,8 @@ open FSharp.Compiler
 open FSharp.Compiler.Text
 
 type Range with
-  member inline x.IsEmpty =
-    x.StartColumn = x.EndColumn
-    && x.StartLine = x.EndLine
+
+  member inline x.IsEmpty = x.StartColumn = x.EndColumn && x.StartLine = x.EndLine
 
 type internal ShortIdent = string
 type internal Idents = ShortIdent[]
@@ -31,10 +30,7 @@ let (|ConstructorPats|) =
 
 /// matches if the range contains the position
 let (|ContainsPos|_|) pos range =
-  if Range.rangeContainsPos range pos then
-    Some()
-  else
-    None
+  if Range.rangeContainsPos range pos then Some() else None
 
 /// Active pattern that matches an ident on a given name by the ident's `idText`
 let (|Ident|_|) ofName =
@@ -47,8 +43,7 @@ let (|IdentContainsPos|_|) pos (ident: Ident) = (|ContainsPos|_|) pos ident.idRa
 
 /// A pattern that collects all attributes from a `SynAttributes` into a single flat list
 let (|AllAttrs|) (attrs: SynAttributes) =
-  attrs
-  |> List.collect (fun attrList -> attrList.Attributes)
+  attrs |> List.collect (fun attrList -> attrList.Attributes)
 
 /// A pattern that collects all patterns from a `SynSimplePats` into a single flat list
 let (|AllSimplePats|) (pats: SynSimplePats) =
@@ -154,8 +149,7 @@ let internal getLongIdents (input: ParsedInput option) : IDictionary<Position, I
     walkPat pat
     walkExpr e
 
-    returnInfo
-    |> Option.iter (fun (SynBindingReturnInfo (t, _, _)) -> walkType t)
+    returnInfo |> Option.iter (fun (SynBindingReturnInfo (t, _, _)) -> walkType t)
 
   and walkInterfaceImpl (SynInterfaceImpl (bindings = bindings)) = List.iter walkBinding bindings
 
@@ -502,7 +496,9 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
     | SynPat.Ands (pats, _) -> List.iter walkPat pats
     | SynPat.Named (ident, _, _, _) -> ()
     | SynPat.Typed (pat, t, ran) ->
-      if isInside ran then result <- true
+      if isInside ran then
+        result <- true
+
       walkPat pat
       walkType t
     | SynPat.Attrib (pat, AllAttrs attrs, _) ->
@@ -524,8 +520,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
     walkPat pat
     walkExpr e
 
-    returnInfo
-    |> Option.iter (fun (SynBindingReturnInfo (t, _, _)) -> walkType t)
+    returnInfo |> Option.iter (fun (SynBindingReturnInfo (t, _, _)) -> walkType t)
 
   and walkInterfaceImpl (SynInterfaceImpl (bindings = bindings)) = List.iter walkBinding bindings
 
@@ -557,14 +552,18 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
     function
     | SynSimplePats.SimplePats (pats, _) -> List.iter walkSimplePat pats
     | SynSimplePats.Typed (pats, ty, ran) ->
-      if isInside ran then result <- true
+      if isInside ran then
+        result <- true
+
       walkSimplePats pats
       walkType ty
 
   and walkExpr =
     function
     | SynExpr.Typed (e, _, ran) ->
-      if isInside ran then result <- true
+      if isInside ran then
+        result <- true
+
       walkExpr e
     | SynExpr.Paren (e, _, _, _)
     | SynExpr.Quote (_, _, e, _, _)
@@ -598,8 +597,7 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
       fields
       |> List.iter (fun (SynExprRecordField ((ident, _), _, e, _)) -> e |> Option.iter walkExpr)
     | SynExpr.ObjExpr (ty, argOpt, _, bindings, _, ifaces, _, _) ->
-      argOpt
-      |> Option.iter (fun (e, ident) -> walkExpr e)
+      argOpt |> Option.iter (fun (e, ident) -> walkExpr e)
 
       walkType ty
       List.iter walkBinding bindings
@@ -674,7 +672,9 @@ let internal isTypedBindingAtPosition (input: ParsedInput) (r: Range) : bool =
       walkSimplePat pat
       List.iter walkAttribute attrs
     | SynSimplePat.Typed (pat, t, ran) ->
-      if isInside ran then result <- true
+      if isInside ran then
+        result <- true
+
       walkSimplePat pat
       walkType t
     | _ -> ()
@@ -812,7 +812,8 @@ let internal getRangesAtPosition input (r: Position) : Range list =
 
     let isInside (ran: Range) = Range.rangeContainsPos ran r
 
-    if isInside ran then addToResult ran
+    if isInside ran then
+      addToResult ran
 
 
 
@@ -984,8 +985,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
   and walkInterpolatedStringPart =
     function
     | SynInterpolatedStringPart.FillExpr (expr, ident) ->
-      ident
-      |> Option.iter (fun ident -> addIfInside ident.idRange)
+      ident |> Option.iter (fun ident -> addIfInside ident.idRange)
 
       walkExpr expr
     | SynInterpolatedStringPart.String (s, r) -> addIfInside r
@@ -1044,8 +1044,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynExpr.ObjExpr (ty, argOpt, _, bindings, _, ifaces, _, r) ->
       addIfInside r
 
-      argOpt
-      |> Option.iter (fun (e, ident) -> walkExpr e)
+      argOpt |> Option.iter (fun (e, ident) -> walkExpr e)
 
       walkType ty
       List.iter walkBinding bindings
@@ -1470,14 +1469,8 @@ let getQuotationRanges ast =
     | SynPat.LongIdent (argPats = ctorArgs) ->
       match ctorArgs with
       | SynArgPats.Pats pats -> List.iter visitPattern pats
-      | SynArgPats.NamePatPairs (xs, _) ->
-        xs
-        |> List.map (fun (_, _, pat) -> pat)
-        |> List.iter visitPattern
-    | SynPat.Record (xs, _) ->
-      xs
-      |> List.map (fun (_, _, pat) -> pat)
-      |> List.iter visitPattern
+      | SynArgPats.NamePatPairs (xs, _) -> xs |> List.map (fun (_, _, pat) -> pat) |> List.iter visitPattern
+    | SynPat.Record (xs, _) -> xs |> List.map (fun (_, _, pat) -> pat) |> List.iter visitPattern
     | _ -> ()
 
   and visitMatch (SynMatchClause (pat = pat; resultExpr = expr)) =
@@ -1671,8 +1664,7 @@ let getModuleOrNamespacePath (pos: Position) (ast: ParsedInput) =
       |> List.fold
            (fun acc (SynModuleOrNamespace (longIdent, _, _, decls, _, _, _, moduleRange)) ->
              if Range.rangeContainsPos moduleRange pos then
-               walkModuleOrNamespace (longIdent :: acc) (decls, moduleRange)
-               @ acc
+               walkModuleOrNamespace (longIdent :: acc) (decls, moduleRange) @ acc
              else
                acc)
            []
@@ -1697,8 +1689,7 @@ let getModuleOrNamespacePath (pos: Position) (ast: ParsedInput) =
       |> List.fold
            (fun acc (SynModuleOrNamespaceSig (longIdent, _, _, decls, _, _, _, moduleRange)) ->
              if Range.rangeContainsPos moduleRange pos then
-               walkModuleOrNamespaceSig (longIdent :: acc) (decls, moduleRange)
-               @ acc
+               walkModuleOrNamespaceSig (longIdent :: acc) (decls, moduleRange) @ acc
              else
                acc)
            []
@@ -1799,10 +1790,7 @@ module HashDirectiveInfo =
                            | (ResolvedDirectory d) ->
                              let filePath = d </> f
 
-                             if fileExists filePath then
-                               Some filePath
-                             else
-                               None)
+                             if fileExists filePath then Some filePath else None)
 
                        match maybeFile with
                        | None -> () // can't load this file even using any of the #I directives...
@@ -1860,8 +1848,7 @@ module Printf =
     and walkBinding (SynBinding (returnInfo = returnInfo; expr = e)) =
       walkExpr e
 
-      returnInfo
-      |> Option.iter (fun (SynBindingReturnInfo (t, _, _)) -> walkType t)
+      returnInfo |> Option.iter (fun (SynBindingReturnInfo (t, _, _)) -> walkType t)
 
     and walkInterfaceImpl (SynInterfaceImpl (bindings = bindings)) = List.iter walkBinding bindings
 
@@ -1923,12 +1910,7 @@ module Printf =
               else
                 acc
 
-          let args =
-            apps
-            |> loop []
-            |> List.rev
-            |> List.map (fun x -> x.Arg)
-            |> List.toArray
+          let args = apps |> loop [] |> List.rev |> List.map (fun x -> x.Arg) |> List.toArray
 
           let res =
             { FormatString = stringRange
@@ -1951,8 +1933,10 @@ module Printf =
 
         addAppWithArg { Range = e.Range; Arg = e2.Range }
 
-        if op.idText = (PrettyNaming.CompileOpName "||>")
-           || op.idText = (PrettyNaming.CompileOpName "|||>") then
+        if
+          op.idText = (PrettyNaming.CompileOpName "||>")
+          || op.idText = (PrettyNaming.CompileOpName "|||>")
+        then
           deconstruct e1
           walkExpr e2
         else

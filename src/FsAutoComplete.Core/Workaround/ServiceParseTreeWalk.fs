@@ -25,9 +25,11 @@ type SynLongIdent = LongIdentWithDots
 let SynLongIdent (id, r, _) = LongIdentWithDots(id, r)
 
 type LongIdentWithDots with
+
   member lid.LongIdent = lid.Lid
 
 type private Range with
+
   member m.ToShortString() =
     sprintf "(%d,%d--%d,%d)" m.StartLine m.StartColumn m.EndLine m.EndColumn
 
@@ -269,20 +271,14 @@ module SyntaxTraversal =
 #endif
       if not isOrdered then
         let s =
-          sprintf
-            "ServiceParseTreeWalk: not isOrdered: %A"
-            (diveResults
-             |> List.map (fun (r, _) -> r.ToShortString()))
+          sprintf "ServiceParseTreeWalk: not isOrdered: %A" (diveResults |> List.map (fun (r, _) -> r.ToShortString()))
 
         ignore s
       //System.Diagnostics.Debug.Assert(false, s)
       let outerContainsInner =
 #if DEBUG
         // ranges in a dive-and-pick group should be "under" the thing that contains them
-        let innerTotalRange =
-          diveResults
-          |> List.map fst
-          |> List.reduce unionRanges
+        let innerTotalRange = diveResults |> List.map fst |> List.reduce unionRanges
 
         rangeContainsRange outerRange innerTotalRange
 #else
@@ -294,8 +290,7 @@ module SyntaxTraversal =
           sprintf
             "ServiceParseTreeWalk: not outerContainsInner: %A : %A"
             (outerRange.ToShortString())
-            (diveResults
-             |> List.map (fun (r, _) -> r.ToShortString()))
+            (diveResults |> List.map (fun (r, _) -> r.ToShortString()))
 
         ignore s
       //System.Diagnostics.Debug.Assert(false, s)
@@ -304,22 +299,20 @@ module SyntaxTraversal =
       match
         List.choose
           (fun (r, f) ->
-            if
-              rangeContainsPosLeftEdgeInclusive r pos
-              && not (isZeroWidth r)
-            then
+            if rangeContainsPosLeftEdgeInclusive r pos && not (isZeroWidth r) then
               Some(f)
             else
               None)
           diveResults
-        with
+      with
       | [] ->
         // No entity's range contained the desired position.  However the ranges in the parse tree only span actual characters present in the file.
         // The cursor may be at whitespace between entities or after everything, so find the nearest entity with the range left of the position.
         let mutable e = diveResults.Head
 
         for r in diveResults do
-          if posGt pos (fst r).Start then e <- r
+          if posGt pos (fst r).Start then
+            e <- r
 
         snd (e) ()
       | [ x ] -> x ()
@@ -415,9 +408,7 @@ module SyntaxTraversal =
 
         | SynExpr.Tuple (_, synExprList, _, _range)
         | SynExpr.ArrayOrList (_, synExprList, _range) ->
-          synExprList
-          |> List.map (fun x -> dive x x.Range traverseSynExpr)
-          |> pick expr
+          synExprList |> List.map (fun x -> dive x x.Range traverseSynExpr) |> pick expr
 
         | SynExpr.AnonRecd (_isStruct, copyOpt, synExprList, _range) ->
           [ match copyOpt with
@@ -460,9 +451,11 @@ module SyntaxTraversal =
                   // special-case:caret is located in the offside position below inherit
                   // inherit A()
                   // $
-                  if not (rangeContainsPos expr.Range pos)
-                     && sepOpt.IsNone
-                     && pos.Column = inheritRange.StartColumn then
+                  if
+                    not (rangeContainsPos expr.Range pos)
+                    && sepOpt.IsNone
+                    && pos.Column = inheritRange.StartColumn
+                  then
                     visitor.VisitRecordField(path, None, None)
                   else
                     traverseSynExpr expr)
@@ -515,9 +508,11 @@ module SyntaxTraversal =
                     // special case: caret is below field binding
                     // field x = 5
                     // $
-                    if not (rangeContainsPos e.Range pos)
-                       && sepOpt.IsNone
-                       && pos.Column = offsideColumn then
+                    if
+                      not (rangeContainsPos e.Range pos)
+                      && sepOpt.IsNone
+                      && pos.Column = offsideColumn
+                    then
                       visitor.VisitRecordField(path, copyOpt, None)
                     else
                       traverseSynExpr expr)
@@ -598,10 +593,7 @@ module SyntaxTraversal =
             | false, SynExpr.LongIdent (false, lidwd, _, _) -> visitor.VisitRecordField(path, None, Some lidwd)
             | _ -> None
 
-          if ok.IsSome then
-            ok
-          else
-            traverseSynExpr synExpr
+          if ok.IsSome then ok else traverseSynExpr synExpr
 
         | SynExpr.Lambda (args = synSimplePats; body = synExpr) ->
           match synSimplePats with
@@ -813,9 +805,7 @@ module SyntaxTraversal =
           match args with
           | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat path)
           | SynArgPats.NamePatPairs (ps, _) ->
-            ps
-            |> List.map (fun (_, _, pat) -> pat)
-            |> List.tryPick (traversePat path)
+            ps |> List.map (fun (_, _, pat) -> pat) |> List.tryPick (traversePat path)
         | SynPat.Typed (p, ty, _) ->
           match traversePat path p with
           | None -> traverseSynType path ty
@@ -831,23 +821,15 @@ module SyntaxTraversal =
         match ty with
         | SynType.App (typeName, _, typeArgs, _, _, _, _)
         | SynType.LongIdentApp (typeName, _, _, typeArgs, _, _, _) ->
-          [ yield typeName; yield! typeArgs ]
-          |> List.tryPick (traverseSynType path)
-        | SynType.Fun (ty1, ty2, _) ->
-          [ ty1; ty2 ]
-          |> List.tryPick (traverseSynType path)
+          [ yield typeName; yield! typeArgs ] |> List.tryPick (traverseSynType path)
+        | SynType.Fun (ty1, ty2, _) -> [ ty1; ty2 ] |> List.tryPick (traverseSynType path)
         | SynType.MeasurePower (ty, _, _)
         | SynType.HashConstraint (ty, _)
         | SynType.WithGlobalConstraints (ty, _, _)
         | SynType.Array (_, ty, _) -> traverseSynType path ty
         | SynType.StaticConstantNamed (ty1, ty2, _)
-        | SynType.MeasureDivide (ty1, ty2, _) ->
-          [ ty1; ty2 ]
-          |> List.tryPick (traverseSynType path)
-        | SynType.Tuple (_, tys, _) ->
-          tys
-          |> List.map snd
-          |> List.tryPick (traverseSynType path)
+        | SynType.MeasureDivide (ty1, ty2, _) -> [ ty1; ty2 ] |> List.tryPick (traverseSynType path)
+        | SynType.Tuple (_, tys, _) -> tys |> List.map snd |> List.tryPick (traverseSynType path)
         | SynType.StaticConstantExpr (expr, _) -> traverseSynExpr [] expr
         | SynType.Anon _ -> None
         | _ -> None
@@ -1020,10 +1002,7 @@ module SyntaxTraversal =
 #if DEBUG
         match l with
         | [] -> range0
-        | _ ->
-          l
-          |> List.map (fun x -> x.Range)
-          |> List.reduce unionRanges
+        | _ -> l |> List.map (fun x -> x.Range) |> List.reduce unionRanges
 #else
         range0 // only used for asserting, does not matter in non-debug
 #endif

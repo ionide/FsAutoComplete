@@ -78,9 +78,7 @@ let private getSignatureHelpForFunctionApplication
           tyRes.GetParseResults.TryIdentOfPipelineContainingPosAndNumArgsApplied symbolStart
 
         let numArgsAlreadyApplied =
-          possiblePipelineIdent
-          |> Option.map snd
-          |> Option.defaultValue 0
+          possiblePipelineIdent |> Option.map snd |> Option.defaultValue 0
 
         let definedArgs = mfv.CurriedParameterGroups |> Array.ofSeq
         let numDefinedArgs = definedArgs.Length
@@ -108,10 +106,7 @@ let private getSignatureHelpForFunctionApplication
             | Some index -> Some index
             | None ->
               if numDefinedArgs - numArgsAlreadyApplied > curriedArgsInSource.Length then
-                Some(
-                  numDefinedArgs
-                  - (numDefinedArgs - curriedArgsInSource.Length)
-                )
+                Some(numDefinedArgs - (numDefinedArgs - curriedArgsInSource.Length))
               else
                 None
 
@@ -140,19 +135,17 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
 
     let methods = methodGroup.Methods
 
-    do!
-      Option.guard (
-        methods.Length > 0
-        && not (methodGroup.MethodName.EndsWith("> )"))
-      )
+    do! Option.guard (methods.Length > 0 && not (methodGroup.MethodName.EndsWith("> )")))
 
     let isStaticArgTip = lines.TryGetChar paramLocations.OpenParenLocation = Some '<'
 
     let filteredMethods =
       [| for m in methods do
            // need to distinguish TP<...>(...)  angle brackets tip from parens tip
-           if (isStaticArgTip && m.StaticParameters.Length > 0)
-              || (not isStaticArgTip && m.HasParameters) then
+           if
+             (isStaticArgTip && m.StaticParameters.Length > 0)
+             || (not isStaticArgTip && m.HasParameters)
+           then
              m |]
 
     do! Option.guard (filteredMethods.Length > 0)
@@ -185,14 +178,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
     match triggerChar with
     | Some ('<'
     | '('
-    | ',') when
-      not
-        (
-          tupleEnds
-          |> Array.exists (fun lp -> lp.Column = caretPos.Column)
-        )
-      ->
-      return! None // comma or paren at wrong location = remove help display
+    | ',') when not (tupleEnds |> Array.exists (fun lp -> lp.Column = caretPos.Column)) -> return! None // comma or paren at wrong location = remove help display
     | _ ->
       // Compute the argument index by working out where the caret is between the various commas.
       let argumentIndex =

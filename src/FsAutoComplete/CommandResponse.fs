@@ -194,10 +194,10 @@ module CommandResponse =
       Severity: FSharpDiagnosticSeverity
       Message: string
       Subcategory: string }
+
     static member IsIgnored(e: FSharpDiagnostic) =
       // FST-1027 support in Fake 5
-      e.ErrorNumber = 213
-      && e.Message.StartsWith "'paket:"
+      e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
 
     static member OfFSharpError(e: FSharpDiagnostic) =
       { FileName = e.FileName
@@ -221,6 +221,7 @@ module CommandResponse =
       File: string
       EnclosingEntity: string
       IsAbstract: bool }
+
     static member OfDeclarationItem(e: NavigationItem, fn) =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
 
@@ -380,9 +381,7 @@ module CommandResponse =
           | Ionide.ProjInfo.Types.ProjectOutputType.Exe -> Exe
           | Ionide.ProjInfo.Types.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
-        Items =
-          projectResult.ProjectItems
-          |> List.map mapItemResponse
+        Items = projectResult.ProjectItems |> List.map mapItemResponse
         AdditionalInfo = projectResult.Additionals }
 
     serialize { Kind = "project"; Data = projectData }
@@ -405,15 +404,11 @@ module CommandResponse =
             referenceErrors
             |> Seq.collect (fun (projPath, er) ->
               [ yield sprintf "  - %s:" projPath
-                yield!
-                  getMessageLines er
-                  |> Seq.map (fun line -> sprintf "    - %s" line) ]) ]
+                yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line) ]) ]
       | Ionide.ProjInfo.Types.GenericError (_, errorMessage) -> [ errorMessage ]
       | Ionide.ProjInfo.Types.ProjectNotRestored _ -> [ "Project not restored" ]
 
-    let msg =
-      getMessageLines errorDetails
-      |> String.concat Environment.NewLine
+    let msg = getMessageLines errorDetails |> String.concat Environment.NewLine
 
     match errorDetails with
     | Ionide.ProjInfo.Types.ProjectNotFound (project) ->
@@ -482,22 +477,14 @@ module CommandResponse =
     serialize { Kind = "workspacePeek"; Data = data }
 
   let workspaceLoad (serialize: Serializer) finished =
-    let data =
-      if finished then
-        "finished"
-      else
-        "started"
+    let data = if finished then "finished" else "started"
 
     serialize
       { Kind = "workspaceLoad"
         Data = { WorkspaceLoadResponse.Status = data } }
 
   let projectLoad (serialize: Serializer) finished =
-    let data =
-      if finished then
-        "finished"
-      else
-        "started"
+    let data = if finished then "finished" else "started"
 
     serialize
       { Kind = "projectLoad"
@@ -512,9 +499,7 @@ module CommandResponse =
     (serialize: Serializer)
     ((typ, parms, generics): string * ((string * string) list list) * string list)
     =
-    let pms =
-      parms
-      |> List.map (List.map (fun (n, t) -> { Name = n; Type = t }))
+    let pms = parms |> List.map (List.map (fun (n, t) -> { Name = n; Type = t }))
 
     serialize
       { Kind = "signatureData"
@@ -554,9 +539,7 @@ module CommandResponse =
       decls
       |> Array.map (fun (d, fn) ->
         { Declaration = Declaration.OfDeclarationItem(d.Declaration, UMX.untag fn)
-          Nested =
-            d.Nested
-            |> Array.map (fun a -> Declaration.OfDeclarationItem(a, UMX.untag fn)) })
+          Nested = d.Nested |> Array.map (fun a -> Declaration.OfDeclarationItem(a, UMX.untag fn)) })
 
     serialize { Kind = "declarations"; Data = decls' }
 

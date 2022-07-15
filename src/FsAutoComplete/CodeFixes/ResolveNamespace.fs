@@ -35,15 +35,9 @@ let fix
       let line = lines.GetLineString(l - 2)
 
       let isImplicitTopLevelModule =
-        not (
-          line.StartsWith "module"
-          && not (line.EndsWith "=")
-        )
+        not (line.StartsWith "module" && not (line.EndsWith "="))
 
-      if isImplicitTopLevelModule then
-        1
-      else
-        l
+      if isImplicitTopLevelModule then 1 else l
     | ScopeKind.TopModule -> 1
     | ScopeKind.Namespace ->
       let mostRecentNamespaceInScope =
@@ -51,11 +45,7 @@ let fix
 
         lineNos
         |> List.mapi (fun i line -> i, lines.GetLineString line)
-        |> List.choose (fun (i, lineStr) ->
-          if lineStr.StartsWith "namespace" then
-            Some i
-          else
-            None)
+        |> List.choose (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
         |> List.tryLast
 
       match mostRecentNamespaceInScope with
@@ -79,10 +69,7 @@ let fix
 
     let actualOpen =
       if name.EndsWith word && name <> word then
-        let prefix =
-          name
-            .Substring(0, name.Length - word.Length)
-            .TrimEnd('.')
+        let prefix = name.Substring(0, name.Length - word.Length).TrimEnd('.')
 
         $"%s{ns}.%s{prefix}"
       else
@@ -94,12 +81,13 @@ let fix
 
     let edits =
       [| yield insertLine docLine lineStr
-         if text.GetLineCount() < docLine + 1
-            && text.GetLineString(docLine + 1).Trim() <> "" then
+         if
+           text.GetLineCount() < docLine + 1
+           && text.GetLineString(docLine + 1).Trim() <> ""
+         then
            yield insertLine (docLine + 1) ""
          if
-           (ctx.Pos.Column = 0
-            || ctx.ScopeKind = ScopeKind.Namespace)
+           (ctx.Pos.Column = 0 || ctx.ScopeKind = ScopeKind.Namespace)
            && docLine > 0
            && not (text.GetLineString(docLine - 1).StartsWith "open")
          then
@@ -115,9 +103,7 @@ let fix
     asyncResult {
       let pos = protocolPosToPos diagnostic.Range.Start
 
-      let filePath =
-        codeActionParameter.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let filePath = codeActionParameter.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! tyRes, line, lines = getParseResultsForFile filePath pos
 

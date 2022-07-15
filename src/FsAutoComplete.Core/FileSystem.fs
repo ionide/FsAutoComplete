@@ -14,6 +14,7 @@ open FSharp.Compiler.IO
 [<AutoOpen>]
 module PositionExtensions =
   type FSharp.Compiler.Text.Position with
+
     /// Excluding current line
     member x.LinesToBeginning() =
       if x.Line <= 1 then
@@ -35,6 +36,7 @@ module PositionExtensions =
 [<AutoOpen>]
 module RangeExtensions =
   type FSharp.Compiler.Text.Range with
+
     member x.WithFileName(fileName: string) = Range.mkRange fileName x.Start x.End
 
     /// the checker gives us back wacky ranges sometimes, so what we're going to do is check if the text of the triggering
@@ -46,8 +48,7 @@ module RangeExtensions =
         // we've got a case where the compiler is reading things from the file system that we'd rather it not -
         // if we're adjusting the range's filename, we need to construct a whole new range or else indexing won't work
         let fileName =
-          string (System.Char.ToLowerInvariant x.FileName[0])
-          + (x.FileName.Substring(1))
+          string (System.Char.ToLowerInvariant x.FileName[0]) + (x.FileName.Substring(1))
 
         let newRange = Range.mkRange fileName x.Start x.End
         newRange
@@ -135,8 +136,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     else if m.StartLine = m.EndLine then // slice of a single line, just do that
       let lineText = (x :> ISourceText).GetLineString(m.StartLine - 1)
 
-      lineText.Substring(m.StartColumn, m.EndColumn - m.StartColumn)
-      |> Ok
+      lineText.Substring(m.StartColumn, m.EndColumn - m.StartColumn) |> Ok
     else
       // multiline, use a builder
       let builder = new System.Text.StringBuilder()
@@ -317,8 +317,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       if lastIndex <= startIndex || lastIndex >= str.Length then
         invalidArg "target" "Too big."
 
-      str.IndexOf(target, startIndex, target.Length)
-      <> -1
+      str.IndexOf(target, startIndex, target.Length) <> -1
 
     member _.Length = str.Length
 
@@ -339,16 +338,11 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
 
   let getContent (filename: string<LocalPath>) =
-    fsLogger.debug (
-      Log.setMessage "Getting content of `{path}`"
-      >> Log.addContext "path" filename
-    )
+    fsLogger.debug (Log.setMessage "Getting content of `{path}`" >> Log.addContext "path" filename)
 
     filename
     |> tryFindFile
-    |> Option.map (fun file ->
-      file.Lines.ToString()
-      |> System.Text.Encoding.UTF8.GetBytes)
+    |> Option.map (fun file -> file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes)
 
   /// translation of the BCL's Windows logic for Path.IsPathRooted.
   ///
@@ -371,9 +365,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
     Therefore, you cannot use the BCL's Path.IsPathRooted/Path.GetFullPath members *)
 
     member _.IsPathRootedShim(p: string) =
-      let r =
-        isWindowsStyleRootedPath p
-        || isUnixStyleRootedPath p
+      let r = isWindowsStyleRootedPath p || isUnixStyleRootedPath p
 
       fsLogger.debug (
         Log.setMessage "Is {path} rooted? {result}"

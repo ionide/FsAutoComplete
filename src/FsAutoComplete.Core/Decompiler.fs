@@ -74,17 +74,13 @@ let decompileTypeAndFindLocation
   let writerVisitor =
     TextWriterWithLocationFinder(TextWriterTokenWriter(sw), FormattingOptionsFactory.CreateSharpDevelop(), symbol)
 
-  let syntaxTree =
-    typeDefinition.FullTypeName
-    |> decompiler.DecompileType
+  let syntaxTree = typeDefinition.FullTypeName |> decompiler.DecompileType
 
   syntaxTree.AcceptVisitor(writerVisitor)
   sw.GetStringBuilder() |> string, writerVisitor.MatchingLocation
 
 let resolveType (typeSystem: IDecompilerTypeSystem) (typeName: string) =
-  typeName
-  |> FullTypeName
-  |> typeSystem.MainModule.GetTypeDefinition
+  typeName |> FullTypeName |> typeSystem.MainModule.GetTypeDefinition
 
 let rec formatExtTypeFullName externalType =
   match externalType with
@@ -113,8 +109,7 @@ let areSameTypes (typeArguments: IReadOnlyList<IType>) ((mParam, paramSym): IPar
     parameterTypeFullName = extTypeFullName
 
   if paramSym.IsByRef then
-    mParam.IsRef
-    && compareToExternalType paramSym.ParameterType
+    mParam.IsRef && compareToExternalType paramSym.ParameterType
   else
     compareToExternalType paramSym.ParameterType
 
@@ -134,8 +129,7 @@ let findMethodFromArgs (args: FindDeclExternalParam list) (methods: IMethod seq)
     let mParams = m.Parameters
 
     mParams.Count = args.Length
-    && (Seq.zip mParams args)
-       |> Seq.forall (areSameTypes m.TypeArguments))
+    && (Seq.zip mParams args) |> Seq.forall (areSameTypes m.TypeArguments))
 
 type ExternalContentPosition =
   { File: string
@@ -156,9 +150,7 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
 
     let typeSystem = decompiler.TypeSystem
 
-    let typeDef =
-      getDeclaringTypeName externalSym
-      |> resolveType typeSystem
+    let typeDef = getDeclaringTypeName externalSym |> resolveType typeSystem
 
     let symbol =
       match externalSym with
@@ -218,9 +210,10 @@ let tryFindExternalDeclaration
   (checkResults: FSharpCheckFileResults)
   (assembly, externalSym: FindDeclExternalSymbol)
   : Result<ExternalContentPosition, FindExternalDeclarationError> =
-  match checkResults.ProjectContext.GetReferencedAssemblies()
-        |> List.tryFind (fun x -> x.SimpleName = assembly)
-    with
+  match
+    checkResults.ProjectContext.GetReferencedAssemblies()
+    |> List.tryFind (fun x -> x.SimpleName = assembly)
+  with
   | None -> Result.Error(ReferenceNotFound assembly)
   | Some assembly when assembly.FileName = None -> Result.Error(ReferenceHasNoFileName assembly)
   | Some assembly ->

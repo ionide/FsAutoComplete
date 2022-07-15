@@ -18,16 +18,12 @@ let fix
   : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "365" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       // the object expression diagnostic covers the entire interesting range
       let interestingRange = diagnostic.Range
 
-      let fcsRange =
-        interestingRange
-        |> protocolRangeToRange (UMX.untag fileName)
+      let fcsRange = interestingRange |> protocolRangeToRange (UMX.untag fileName)
 
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsRange.Start
 

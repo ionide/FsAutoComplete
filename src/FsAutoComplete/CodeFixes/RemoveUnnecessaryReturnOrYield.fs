@@ -12,9 +12,7 @@ let title keyword = $"Remove '%s{keyword}'"
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "748"; "747" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos

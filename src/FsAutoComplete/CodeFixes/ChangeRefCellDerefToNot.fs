@@ -12,9 +12,7 @@ let title = "Use 'not' to negate expression"
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "1" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos

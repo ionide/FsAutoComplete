@@ -13,9 +13,7 @@ let title = "Add missing 'fun' keyword"
 let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "10" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! lines = getFileLines fileName
       let! errorText = getLineText lines diagnostic.Range

@@ -27,8 +27,7 @@ module SymbolUse =
           ent.TryFullName
           |> Option.toList
           |> List.map (fun fullName ->
-            if ent.GenericParameters.Count > 0
-               && fullName.Length > 2 then
+            if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
               fullName.[0 .. fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
             else
               fullName)
@@ -202,10 +201,7 @@ module SymbolUse =
 
   let (|Val|_|) =
     function
-    | MemberFunctionOrValue symbol when
-      notCtorOrProp symbol
-      && not symbol.IsOperatorOrActivePattern
-      ->
+    | MemberFunctionOrValue symbol when notCtorOrProp symbol && not symbol.IsOperatorOrActivePattern ->
       match symbol.FullTypeSafe with
       | Some _fullType -> Some symbol
       | _ -> None
@@ -275,8 +271,7 @@ module SymbolPatterns =
           ent.TryFullName
           |> Option.toList
           |> List.map (fun fullName ->
-            if ent.GenericParameters.Count > 0
-               && fullName.Length > 2 then
+            if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
               fullName.[0 .. fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
             else
               fullName)
@@ -305,8 +300,7 @@ module SymbolPatterns =
           ent.TryFullName
           |> Option.toList
           |> List.map (fun fullName ->
-            if ent.GenericParameters.Count > 0
-               && fullName.Length > 2 then
+            if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
               fullName.[0 .. fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
             else
               fullName)
@@ -365,37 +359,30 @@ module SymbolPatterns =
         | Some ty ->
           match ty.TryGetFullName() with
           | None -> false
-          | Some fullName ->
-            fullName = "System.Attribute"
-            || isAttributeType (getBaseType ty)
+          | Some fullName -> fullName = "System.Attribute" || isAttributeType (getBaseType ty)
 
       isAttributeType (Some entity)
 
-    if isAttribute entity then
-      Some()
-    else
-      None
+    if isAttribute entity then Some() else None
 
   let (|ValueType|_|) (e: FSharpEntity) =
-    if e.IsEnum
-       || e.IsValueType
-       || hasAttribute<MeasureAnnotatedAbbreviationAttribute> e.Attributes then
+    if
+      e.IsEnum
+      || e.IsValueType
+      || hasAttribute<MeasureAnnotatedAbbreviationAttribute> e.Attributes
+    then
       Some()
     else
       None
 
   let (|Class|_|) (original: FSharpEntity, abbreviated: FSharpEntity, _) =
-    if abbreviated.IsClass
-       && original.IsFSharpAbbreviation then
+    if abbreviated.IsClass && original.IsFSharpAbbreviation then
       Some()
     else
       None
 
   let (|Record|_|) (e: FSharpEntity) =
-    if e.IsFSharpRecord then
-      Some()
-    else
-      None
+    if e.IsFSharpRecord then Some() else None
 
   let (|UnionType|_|) (e: FSharpEntity) =
     if e.IsFSharpUnion then Some() else None
@@ -403,10 +390,7 @@ module SymbolPatterns =
   let (|Delegate|_|) (e: FSharpEntity) = if e.IsDelegate then Some() else None
 
   let (|FSharpException|_|) (e: FSharpEntity) =
-    if e.IsFSharpExceptionDeclaration then
-      Some()
-    else
-      None
+    if e.IsFSharpExceptionDeclaration then Some() else None
 
   let (|Interface|_|) (e: FSharpEntity) = if e.IsInterface then Some() else None
 
@@ -417,16 +401,15 @@ module SymbolPatterns =
       None
 
   let (|FSharpType|_|) (e: FSharpEntity) =
-    if e.IsDelegate
-       || e.IsFSharpExceptionDeclaration
-       || e.IsFSharpRecord
-       || e.IsFSharpUnion
-       || e.IsInterface
-       || e.IsMeasure
-       || (e.IsFSharp
-           && e.IsOpaque
-           && not e.IsFSharpModule
-           && not e.IsNamespace) then
+    if
+      e.IsDelegate
+      || e.IsFSharpExceptionDeclaration
+      || e.IsFSharpRecord
+      || e.IsFSharpUnion
+      || e.IsInterface
+      || e.IsMeasure
+      || (e.IsFSharp && e.IsOpaque && not e.IsFSharpModule && not e.IsNamespace)
+    then
       Some()
     else
       None
@@ -438,39 +421,25 @@ module SymbolPatterns =
   let (|Array|_|) (e: FSharpEntity) = if e.IsArrayType then Some() else None
 
   let (|FSharpModule|_|) (entity: FSharpEntity) =
-    if entity.IsFSharpModule then
-      Some()
-    else
-      None
+    if entity.IsFSharpModule then Some() else None
 
   let (|Namespace|_|) (entity: FSharpEntity) =
-    if entity.IsNamespace then
-      Some()
-    else
-      None
+    if entity.IsNamespace then Some() else None
 
   let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) = None
 
   let (|Enum|_|) (entity: FSharpEntity) = if entity.IsEnum then Some() else None
 
   let (|Tuple|_|) (ty: FSharpType option) =
-    ty
-    |> Option.bind (fun ty -> if ty.IsTupleType then Some() else None)
+    ty |> Option.bind (fun ty -> if ty.IsTupleType then Some() else None)
 
   let (|RefCell|_|) (ty: FSharpType) =
     match getAbbreviatedType ty with
-    | TypeWithDefinition def when
-      def.IsFSharpRecord
-      && def.FullName = "Microsoft.FSharp.Core.FSharpRef`1"
-      ->
-      Some()
+    | TypeWithDefinition def when def.IsFSharpRecord && def.FullName = "Microsoft.FSharp.Core.FSharpRef`1" -> Some()
     | _ -> None
 
   let (|FunctionType|_|) (ty: FSharpType) =
-    if ty.IsFunctionType then
-      Some()
-    else
-      None
+    if ty.IsFunctionType then Some() else None
 
   let (|Pattern|_|) (symbol: FSharpSymbol) =
     match symbol with
@@ -552,10 +521,7 @@ module SymbolPatterns =
     | _ -> None
 
   let (|ExtensionMember|_|) (func: FSharpMemberOrFunctionOrValue) =
-    if func.IsExtensionMember then
-      Some()
-    else
-      None
+    if func.IsExtensionMember then Some() else None
 
   let (|Event|_|) (func: FSharpMemberOrFunctionOrValue) = if func.IsEvent then Some() else None
 
@@ -602,10 +568,7 @@ module SymbolPatterns =
 
   let (|Val|_|) =
     function
-    | MemberFunctionOrValue symbol when
-      notCtorOrProp symbol
-      && not symbol.IsOperatorOrActivePattern
-      ->
+    | MemberFunctionOrValue symbol when notCtorOrProp symbol && not symbol.IsOperatorOrActivePattern ->
       match symbol.FullTypeSafe with
       | Some _fullType -> Some symbol
       | _ -> None

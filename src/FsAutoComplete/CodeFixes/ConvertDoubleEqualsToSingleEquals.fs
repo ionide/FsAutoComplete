@@ -11,9 +11,7 @@ let title = "Use '=' for equality check"
 let fix (getRangeText: GetRangeText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "43" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! errorText = getRangeText fileName diagnostic.Range
 

@@ -130,8 +130,10 @@ type FSharpParseFileResults with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
             | SynExpr.App (_, false, SynExpr.Ident funcIdent, expr, _) ->
-              if funcIdent.idText = "op_Dereference"
-                 && Range.rangeContainsPos expr.Range expressionPos then
+              if
+                funcIdent.idText = "op_Dereference"
+                && Range.rangeContainsPos expr.Range expressionPos
+              then
                 Some funcIdent.idRange
               else
                 None
@@ -173,14 +175,10 @@ type FSharpParseFileResults with
             | SynExpr.App (_, _, SynExpr.App (_, true, SynExpr.Ident ident, _, _), argExpr, _) when
               Range.rangeContainsPos argExpr.Range pos
               ->
-              if ident.idText = "op_PipeRight" then
-                Some(ident, 1)
-              elif ident.idText = "op_PipeRight2" then
-                Some(ident, 2)
-              elif ident.idText = "op_PipeRight3" then
-                Some(ident, 3)
-              else
-                None
+              if ident.idText = "op_PipeRight" then Some(ident, 1)
+              elif ident.idText = "op_PipeRight2" then Some(ident, 2)
+              elif ident.idText = "op_PipeRight3" then Some(ident, 3)
+              else None
             | _ -> defaultTraverse expr }
     )
 
@@ -265,8 +263,7 @@ type FSharpParseFileResults with
           getIdentRangeForFuncExprInApp traverseSynExpr expr pos
         else
           let clause =
-            clauses
-            |> List.tryFind (fun clause -> Range.rangeContainsPos clause.Range pos)
+            clauses |> List.tryFind (fun clause -> Range.rangeContainsPos clause.Range pos)
 
           match clause with
           | None -> None
@@ -284,9 +281,7 @@ type FSharpParseFileResults with
 
       // Ex: C.M(x, y, ...) <--- We want to find where in the tupled application the call is being made
       | SynExpr.Tuple (_, exprs, _, tupRange) when Range.rangeContainsPos tupRange pos ->
-        let expr =
-          exprs
-          |> List.tryFind (fun expr -> Range.rangeContainsPos expr.Range pos)
+        let expr = exprs |> List.tryFind (fun expr -> Range.rangeContainsPos expr.Range pos)
 
         match expr with
         | None -> None
@@ -304,9 +299,7 @@ type FSharpParseFileResults with
 
       | SynExpr.ArbitraryAfterError (_debugStr, range) when Range.rangeContainsPos range pos -> Some range
 
-      | expr ->
-        traverseSynExpr expr
-        |> Option.map (fun expr -> expr)
+      | expr -> traverseSynExpr expr |> Option.map (fun expr -> expr)
 
 
     SyntaxTraversal.Traverse(
@@ -335,8 +328,10 @@ type FSharpParseFileResults with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
             | SynExpr.App (_, false, SynExpr.Ident funcIdent, expr, _) ->
-              if funcIdent.idText = "op_Dereference"
-                 && Range.rangeContainsPos expr.Range expressionPos then
+              if
+                funcIdent.idText = "op_Dereference"
+                && Range.rangeContainsPos expr.Range expressionPos
+              then
                 Some expr.Range
               else
                 None
@@ -426,18 +421,14 @@ module SyntaxTreeOps =
         (match copyInfo with
          | Some (e, _) -> walkExpr e
          | None -> false)
-        || walkExprs (
-          recordFields
-          |> List.map (fun (ident, range, expr) -> expr)
-        )
+        || walkExprs (recordFields |> List.map (fun (ident, range, expr) -> expr))
 
       | SynExpr.Record (copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
          | Some (e, _) -> walkExpr e
          | None -> false)
         || let flds =
-             recordFields
-             |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr) in
+             recordFields |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr) in
            walkExprs flds
 
       | SynExpr.ObjExpr (bindings = bindings; extraImpls = extraImpls) ->

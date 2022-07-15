@@ -13,12 +13,7 @@ let titlePrefix = "Prefix with _"
 let fix (getRangeText: GetRangeText) =
   Run.ifDiagnosticByMessage "is unused" (fun diagnostic codeActionParams ->
     asyncResult {
-      match
-        getRangeText
-          (codeActionParams.TextDocument.GetFilePath()
-           |> normalizePath)
-          diagnostic.Range
-        with
+      match getRangeText (codeActionParams.TextDocument.GetFilePath() |> normalizePath) diagnostic.Range with
       | Ok unusedExpression ->
         match diagnostic.Code with
         | Some _ ->

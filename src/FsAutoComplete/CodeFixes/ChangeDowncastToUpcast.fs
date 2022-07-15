@@ -12,12 +12,7 @@ let titleUpcastFunction = "Use 'upcast' function"
 /// a codefix that replaces unsafe casts with safe casts
 let fix (getRangeText: GetRangeText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3198" ]) (fun diagnostic codeActionParams ->
-    match
-      getRangeText
-        (codeActionParams.TextDocument.GetFilePath()
-         |> Utils.normalizePath)
-        diagnostic.Range
-      with
+    match getRangeText (codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath) diagnostic.Range with
     | Ok expressionText ->
       let isDowncastOperator = expressionText.Contains(":?>")
       let isDowncastKeyword = expressionText.Contains("downcast")

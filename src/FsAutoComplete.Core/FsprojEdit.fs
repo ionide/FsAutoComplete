@@ -73,14 +73,11 @@ module FsProjEditor =
 
     if hasExistingCompileElement then
       let firstCompileItemGroup =
-        compileItemGroups
-        |> Seq.cast<System.Xml.XmlNode>
-        |> Seq.head
+        compileItemGroups |> Seq.cast<System.Xml.XmlNode> |> Seq.head
 
       let x = firstCompileItemGroup.FirstChild
 
-      firstCompileItemGroup.InsertBefore(newNode, x)
-      |> ignore
+      firstCompileItemGroup.InsertBefore(newNode, x) |> ignore
     else
       let itemGroup = xdoc.CreateElement("ItemGroup")
       itemGroup.AppendChild(newNode) |> ignore

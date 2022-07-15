@@ -58,9 +58,7 @@ module UnusedDeclarationsAnalyzer =
       definitions
       |> Seq.map (fun defSu -> defSu, usages.Contains defSu.Symbol.DeclarationLocation.Value)
       |> Seq.groupBy (fun (defSu, _) -> defSu.Range)
-      |> Seq.filter (fun (_, defSus) ->
-        defSus
-        |> Seq.forall (fun (_, isUsed) -> not isUsed))
+      |> Seq.filter (fun (_, defSus) -> defSus |> Seq.forall (fun (_, isUsed) -> not isUsed))
       |> Seq.choose (fun (range, defSus) ->
 
         try

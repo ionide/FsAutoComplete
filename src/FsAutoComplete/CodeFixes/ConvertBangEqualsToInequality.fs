@@ -11,9 +11,7 @@ let title = "Use <> for inequality check"
 let fix (getRangeText: GetRangeText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "43" ]) (fun diag codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! errorText = getRangeText fileName diag.Range
       do! Result.guard (fun () -> errorText = "!=") "Not an != equality usage"

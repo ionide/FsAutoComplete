@@ -12,8 +12,7 @@ module private JsonSerializerConverters =
     inherit JsonConverter()
 
     override x.CanConvert(t) =
-      t.IsGenericType
-      && t.GetGenericTypeDefinition() = typedefof<option<_>>
+      t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
 
     override x.WriteJson(writer, value, serializer) =
       let value =
@@ -30,8 +29,7 @@ module private JsonSerializerConverters =
 
       let innerType =
         if innerType.IsValueType then
-          (typedefof<Nullable<_>>)
-            .MakeGenericType([| innerType |])
+          (typedefof<Nullable<_>>).MakeGenericType([| innerType |])
         else
           innerType
 
@@ -120,12 +118,7 @@ module private JsonSerializerConverters =
       fun (x: Type) (y: Type) ->
         let key = x.GetHashCode(), y.GetHashCode()
 
-        cache.GetOrAdd(
-          key,
-          fun _ ->
-            Microsoft.FSharp.Reflection.FSharpType.IsUnion y
-            && y.BaseType = x
-        )
+        cache.GetOrAdd(key, (fun _ -> Microsoft.FSharp.Reflection.FSharpType.IsUnion y && y.BaseType = x))
 
     [| writeOnlyConverter fsharpErrorSeverityWriter (=)
        writeOnlyConverter rangeWriter (=)

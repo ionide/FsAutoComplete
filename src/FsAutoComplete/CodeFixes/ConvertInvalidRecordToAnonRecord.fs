@@ -13,9 +13,7 @@ let title = "Convert to anonymous record"
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "39" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos

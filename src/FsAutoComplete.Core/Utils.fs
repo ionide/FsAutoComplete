@@ -45,7 +45,9 @@ module Seq =
       let mutable notFirst = false
 
       for element in sequence do
-        if notFirst then yield separator
+        if notFirst then
+          yield separator
+
         yield element
         notFirst <- true
     }
@@ -100,13 +102,10 @@ type Document =
 let isAScript (fileName: string) =
   let ext = Path.GetExtension(fileName)
 
-  [ ".fsx"; ".fsscript"; ".sketchfs" ]
-  |> List.exists ((=) ext)
+  [ ".fsx"; ".fsscript"; ".sketchfs" ] |> List.exists ((=) ext)
 
 let normalizePath (file: string) : string<LocalPath> =
-  if file.EndsWith ".fs"
-     || file.EndsWith ".fsi"
-     || file.EndsWith ".fsx" then
+  if file.EndsWith ".fs" || file.EndsWith ".fsi" || file.EndsWith ".fsx" then
     let p = Path.GetFullPath file
     UMX.tag<LocalPath> ((p.Chars 0).ToString().ToLower() + p.Substring(1))
   else
@@ -123,10 +122,7 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
     match checkOptions.SourceFiles with
     | [||] ->
       checkOptions.OtherOptions
-      |> Array.where (fun n ->
-        n.EndsWith ".fs"
-        || n.EndsWith ".fsx"
-        || n.EndsWith ".fsi")
+      |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
     | x -> x
 
   { FSharpParsingOptions.Default with SourceFiles = files }
@@ -157,10 +153,7 @@ module Result =
 
   /// ensure the condition is true before continuing
   let inline guard condition errorValue =
-    if condition () then
-      Ok()
-    else
-      Error errorValue
+    if condition () then Ok() else Error errorValue
 
 [<RequireQualifiedAccess>]
 module Async =
@@ -527,16 +520,12 @@ module String =
 
 
   let (|StartsWith|_|) (pattern: string) (value: string) =
-    if String.IsNullOrWhiteSpace value then
-      None
-    elif value.StartsWith pattern then
-      Some()
-    else
-      None
+    if String.IsNullOrWhiteSpace value then None
+    elif value.StartsWith pattern then Some()
+    else None
 
   let split (splitter: char) (s: string) =
-    s.Split([| splitter |], StringSplitOptions.RemoveEmptyEntries)
-    |> List.ofArray
+    s.Split([| splitter |], StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
 
   let getLines (str: string) =
     use reader = new StringReader(str)
@@ -562,12 +551,14 @@ module String =
     | n -> Split(s.[0 .. n - 1], s.Substring(n + 1))
 
 type ConcurrentDictionary<'key, 'value> with
+
   member x.TryFind key =
     match x.TryGetValue key with
     | true, value -> Some value
     | _ -> None
 
 type Path with
+
   static member GetFullPathSafe(path: string) =
     try
       Path.GetFullPath path
@@ -600,16 +591,18 @@ type Path with
       let uri = System.Text.StringBuilder(filePath.Length)
 
       for c in filePath do
-        if (c >= 'a' && c <= 'z')
-           || (c >= 'A' && c <= 'Z')
-           || (c >= '0' && c <= '9')
-           || c = '+'
-           || c = '/'
-           || c = '.'
-           || c = '-'
-           || c = '_'
-           || c = '~'
-           || c > '\xFF' then
+        if
+          (c >= 'a' && c <= 'z')
+          || (c >= 'A' && c <= 'Z')
+          || (c >= '0' && c <= '9')
+          || c = '+'
+          || c = '/'
+          || c = '.'
+          || c = '-'
+          || c = '_'
+          || c = '~'
+          || c > '\xFF'
+        then
           uri.Append(c) |> ignore
         // handle windows path separator chars.
         // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
@@ -651,8 +644,7 @@ type Path with
         let trimmed = initialLocalPath.TrimStart('/')
 
         let initialDriveLetterCaps =
-          string (System.Char.ToLower trimmed.[0])
-          + trimmed.[1..]
+          string (System.Char.ToLower trimmed.[0]) + trimmed.[1..]
 
         initialDriveLetterCaps
       else
@@ -676,8 +668,7 @@ let chooseByPrefix (prefix: string) (s: string) =
     None
 
 let chooseByPrefix2 prefixes (s: string) =
-  prefixes
-  |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
+  prefixes |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
 
 let splitByPrefix (prefix: string) (s: string) =
   if s.StartsWith(prefix) then
@@ -686,8 +677,7 @@ let splitByPrefix (prefix: string) (s: string) =
     None
 
 let splitByPrefix2 prefixes (s: string) =
-  prefixes
-  |> List.tryPick (fun prefix -> splitByPrefix prefix s)
+  prefixes |> List.tryPick (fun prefix -> splitByPrefix prefix s)
 
 [<AutoOpen>]
 module Patterns =
@@ -767,6 +757,7 @@ module Indentation =
 
 
 type FSharpSymbol with
+
   member inline x.XDoc =
     match x with
     | :? FSharpEntity as e -> e.XmlDoc

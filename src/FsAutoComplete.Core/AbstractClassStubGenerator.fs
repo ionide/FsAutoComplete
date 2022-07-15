@@ -9,6 +9,7 @@ open FSharp.Compiler.Tokenization
 type AbstractClassData =
   | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: Range
   | ExplicitImpl of baseTy: SynType * members: SynMemberDefn list * safeInsertPosition: Position
+
   member x.AbstractTypeIdentRange =
     match x with
     | ObjExpr (baseTy, _, _)
@@ -26,9 +27,7 @@ let private walkTypeDefn (SynTypeDefn (info, repr, members, implicitCtor, range,
     | SynTypeDefnRepr.ObjectModel (_, members, _) -> members
     | _ -> []
 
-  let allMembers =
-    reprMembers
-    @ (Option.toList implicitCtor) @ members
+  let allMembers = reprMembers @ (Option.toList implicitCtor) @ members
 
   let inheritMember =
     allMembers
@@ -91,9 +90,7 @@ let getAbstractClassIdentifier (abstractClassData: AbstractClassData) tokens =
     | AbstractClassData.ObjExpr _ ->
       tokens
       // Find the `new` keyword
-      |> List.findIndex (fun token ->
-        token.CharClass = FSharpTokenCharKind.Keyword
-        && token.TokenName = "NEW")
+      |> List.findIndex (fun token -> token.CharClass = FSharpTokenCharKind.Keyword && token.TokenName = "NEW")
     | _ -> failwith "don't call me with this bro"
 
   findLastIdentifier tokens.[newKeywordIndex + 2 ..] tokens.[newKeywordIndex + 2]
@@ -131,11 +128,9 @@ let inferStartColumn
       | Some tokens ->
         tokens
         |> List.tryPick (fun (t: FSharpTokenInfo) ->
-          if t.CharClass = FSharpTokenCharKind.Keyword
-             && t.TokenName = "NEW" then
+          if t.CharClass = FSharpTokenCharKind.Keyword && t.TokenName = "NEW" then
             // We round to nearest so the generated code will align on the indentation guides
-            findGreaterMultiple (t.LeftColumn + indentSize) indentSize
-            |> Some
+            findGreaterMultiple (t.LeftColumn + indentSize) indentSize |> Some
           else
             None)
         // There is no reference point, we indent the content at the start column of the interface

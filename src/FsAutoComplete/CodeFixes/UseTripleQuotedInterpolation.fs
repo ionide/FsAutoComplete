@@ -15,9 +15,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
     asyncResult {
       let pos = protocolPosToPos diagnostic.Range.Start
 
-      let filePath =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! tyRes, _, sourceText = getParseResultsForFile filePath pos
 

@@ -66,15 +66,19 @@ module Conversions =
             End = { Line = 0; Character = 0 } } }
 
   type TextDocumentIdentifier with
+
     member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
   type VersionedTextDocumentIdentifier with
+
     member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
   type TextDocumentItem with
+
     member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 
   type ITextDocumentPositionParams with
+
     member p.GetFilePath() = p.TextDocument.GetFilePath()
     member p.GetFcsPos() = protocolPosToPos p.Position
 
@@ -126,32 +130,22 @@ module Conversions =
           Location = location
           ContainerName = container }
 
-      if symbolFilter sym then
-        Some sym
-      else
-        None
+      if symbolFilter sym then Some sym else None
 
     [| yield! inner None topLevel.Declaration |> Option.toArray
-       yield!
-         topLevel.Nested
-         |> Array.choose (inner (Some topLevel.Declaration.Name)) |]
+       yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.Name)) |]
 
   let applyQuery (query: string) (info: SymbolInformation) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
     | [||] -> false
     | [| fullName |] -> info.Name.StartsWith fullName
-    | [| moduleName; fieldName |] ->
-      info.Name.StartsWith fieldName
-      && info.ContainerName = Some moduleName
+    | [| moduleName; fieldName |] -> info.Name.StartsWith fieldName && info.ContainerName = Some moduleName
     | parts ->
-      let containerName =
-        parts.[0 .. (parts.Length - 2)]
-        |> String.concat "."
+      let containerName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
 
       let fieldName = Array.last parts
 
-      info.Name.StartsWith fieldName
-      && info.ContainerName = Some containerName
+      info.Name.StartsWith fieldName && info.ContainerName = Some containerName
 
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
@@ -192,15 +186,12 @@ module internal GlyphConversions =
     (getUncached: FSharpGlyph -> 'kind[])
     =
 
-    let completionItemSet =
-      clientCapabilities
-      |> Option.bind (setFromCapabilities)
+    let completionItemSet = clientCapabilities |> Option.bind (setFromCapabilities)
 
     let completionItemSet = defaultArg completionItemSet defaultSet
 
     let bestAvailable (possible: 'kind[]) =
-      possible
-      |> Array.tryFind (fun x -> Array.contains x completionItemSet)
+      possible |> Array.tryFind (fun x -> Array.contains x completionItemSet)
 
     let unionCases = FSharpType.GetUnionCases(typeof<FSharpGlyph>)
     let cache = Dictionary<FSharpGlyph, 'kind option>(unionCases.Length)
@@ -231,25 +222,17 @@ module internal GlyphConversions =
         | FSharpGlyph.Constant -> [| CompletionItemKind.Constant |]
         | FSharpGlyph.Delegate -> [| CompletionItemKind.Function |]
         | FSharpGlyph.Enum -> [| CompletionItemKind.Enum |]
-        | FSharpGlyph.EnumMember ->
-          [| CompletionItemKind.EnumMember
-             CompletionItemKind.Enum |]
+        | FSharpGlyph.EnumMember -> [| CompletionItemKind.EnumMember; CompletionItemKind.Enum |]
         | FSharpGlyph.Event -> [| CompletionItemKind.Event |]
         | FSharpGlyph.Exception -> [| CompletionItemKind.Class |]
         | FSharpGlyph.Field -> [| CompletionItemKind.Field |]
-        | FSharpGlyph.Interface ->
-          [| CompletionItemKind.Interface
-             CompletionItemKind.Class |]
+        | FSharpGlyph.Interface -> [| CompletionItemKind.Interface; CompletionItemKind.Class |]
         | FSharpGlyph.Method -> [| CompletionItemKind.Method |]
         | FSharpGlyph.OverridenMethod -> [| CompletionItemKind.Method |]
-        | FSharpGlyph.Module ->
-          [| CompletionItemKind.Module
-             CompletionItemKind.Class |]
+        | FSharpGlyph.Module -> [| CompletionItemKind.Module; CompletionItemKind.Class |]
         | FSharpGlyph.NameSpace -> [| CompletionItemKind.Module |]
         | FSharpGlyph.Property -> [| CompletionItemKind.Property |]
-        | FSharpGlyph.Struct ->
-          [| CompletionItemKind.Struct
-             CompletionItemKind.Class |]
+        | FSharpGlyph.Struct -> [| CompletionItemKind.Struct; CompletionItemKind.Class |]
         | FSharpGlyph.Typedef -> [| CompletionItemKind.Class |]
         | FSharpGlyph.Type -> [| CompletionItemKind.Class |]
         | FSharpGlyph.Union -> [| CompletionItemKind.Class |]
@@ -275,25 +258,17 @@ module internal GlyphConversions =
         | FSharpGlyph.Constant -> [| SymbolKind.Constant |]
         | FSharpGlyph.Delegate -> [| SymbolKind.Function |]
         | FSharpGlyph.Enum -> [| SymbolKind.Enum |]
-        | FSharpGlyph.EnumMember ->
-          [| SymbolKind.EnumMember
-             SymbolKind.Enum |]
+        | FSharpGlyph.EnumMember -> [| SymbolKind.EnumMember; SymbolKind.Enum |]
         | FSharpGlyph.Event -> [| SymbolKind.Event |]
         | FSharpGlyph.Exception -> [| SymbolKind.Class |]
         | FSharpGlyph.Field -> [| SymbolKind.Field |]
-        | FSharpGlyph.Interface ->
-          [| SymbolKind.Interface
-             SymbolKind.Class |]
+        | FSharpGlyph.Interface -> [| SymbolKind.Interface; SymbolKind.Class |]
         | FSharpGlyph.Method -> [| SymbolKind.Method |]
         | FSharpGlyph.OverridenMethod -> [| SymbolKind.Method |]
-        | FSharpGlyph.Module ->
-          [| SymbolKind.Module
-             SymbolKind.Class |]
+        | FSharpGlyph.Module -> [| SymbolKind.Module; SymbolKind.Class |]
         | FSharpGlyph.NameSpace -> [| SymbolKind.Module |]
         | FSharpGlyph.Property -> [| SymbolKind.Property |]
-        | FSharpGlyph.Struct ->
-          [| SymbolKind.Struct
-             SymbolKind.Class |]
+        | FSharpGlyph.Struct -> [| SymbolKind.Struct; SymbolKind.Class |]
         | FSharpGlyph.Typedef -> [| SymbolKind.Class |]
         | FSharpGlyph.Type -> [| SymbolKind.Class |]
         | FSharpGlyph.Union -> [| SymbolKind.Class |]
@@ -362,9 +337,7 @@ module Workspace =
     | WorkspacePeekFoundSolutionItemKind.MsbuildFormat msbuild -> [ item.Name, msbuild ]
 
   let countProjectsInSln (sln: WorkspacePeekFoundSolution) =
-    sln.Items
-    |> List.map foldFsproj
-    |> List.sumBy List.length
+    sln.Items |> List.map foldFsproj |> List.sumBy List.length
 
 module SigantureData =
   let formatSignature typ parms : string =
@@ -375,10 +348,7 @@ module SigantureData =
 
     let args =
       parms
-      |> List.map (fun group ->
-        group
-        |> List.map (fun (n, t) -> formatType t)
-        |> String.concat " * ")
+      |> List.map (fun group -> group |> List.map (fun (n, t) -> formatType t) |> String.concat " * ")
       |> String.concat " -> "
 
     if String.IsNullOrEmpty args then
@@ -536,9 +506,7 @@ module ClassificationUtils =
       SemanticTokenTypes.Variable, [ SemanticTokenModifier.Disposable ]
     | SemanticClassificationType.DisposableType -> SemanticTokenTypes.Type, [ SemanticTokenModifier.Disposable ]
     | SemanticClassificationType.Literal ->
-      SemanticTokenTypes.Variable,
-      [ SemanticTokenModifier.Readonly
-        SemanticTokenModifier.DefaultLibrary ]
+      SemanticTokenTypes.Variable, [ SemanticTokenModifier.Readonly; SemanticTokenModifier.DefaultLibrary ]
     | SemanticClassificationType.RecordField
     | SemanticClassificationType.RecordFieldAsFunction ->
       SemanticTokenTypes.Property, [ SemanticTokenModifier.Readonly ]
@@ -666,6 +634,7 @@ type FSharpConfigRequest = { FSharp: FSharpConfigDto }
 type CodeLensConfig =
   { Signature: {| Enabled: bool |}
     References: {| Enabled: bool |} }
+
   static member Default =
     { Signature = {| Enabled = true |}
       References = {| Enabled = true |} }
@@ -673,6 +642,7 @@ type CodeLensConfig =
 type InlayHintsConfig =
   { typeAnnotations: bool
     parameterNames: bool }
+
   static member Default =
     { typeAnnotations = true
       parameterNames = true }
@@ -713,6 +683,7 @@ type FSharpConfig =
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig }
+
   static member Default: FSharpConfig =
     { AutomaticWorkspaceInit = false
       WorkspaceModePeekDeepLevel = 2
@@ -781,11 +752,7 @@ type FSharpConfig =
       UseSdkScripts = defaultArg dto.UseSdkScripts true
       DotNetRoot =
         dto.DotNetRoot
-        |> Option.bind (fun s ->
-          if String.IsNullOrEmpty s then
-            None
-          else
-            Some s)
+        |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue Environment.dotnetSDKRoot.Value.FullName
       FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
@@ -799,16 +766,9 @@ type FSharpConfig =
         match dto.CodeLenses with
         | None -> CodeLensConfig.Default
         | Some clDto ->
-          { Signature =
-              {| Enabled =
-                  clDto.Signature
-                  |> Option.bind (fun c -> c.Enabled)
-                  |> Option.defaultValue true |}
+          { Signature = {| Enabled = clDto.Signature |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true |}
             References =
-              {| Enabled =
-                  clDto.References
-                  |> Option.bind (fun c -> c.Enabled)
-                  |> Option.defaultValue true |} }
+              {| Enabled = clDto.References |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true |} }
       InlayHints =
         match dto.InlayHints with
         | None -> InlayHintsConfig.Default
@@ -857,11 +817,7 @@ type FSharpConfig =
       UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
       DotNetRoot =
         dto.DotNetRoot
-        |> Option.bind (fun s ->
-          if String.IsNullOrEmpty s then
-            None
-          else
-            Some s)
+        |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue FSharpConfig.Default.DotNetRoot
       FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
@@ -910,13 +866,10 @@ let createTokenLegend<'types, 'modifiers
   and 'modifiers: (new: unit -> 'modifiers)
   and 'modifiers: struct
   and 'modifiers :> Enum> : SemanticTokensLegend =
-  let tokenTypes =
-    Enum.GetNames<'types>()
-    |> Array.map String.lowerCaseFirstChar
+  let tokenTypes = Enum.GetNames<'types>() |> Array.map String.lowerCaseFirstChar
 
   let tokenModifiers =
-    Enum.GetNames<'modifiers>()
-    |> Array.map String.lowerCaseFirstChar
+    Enum.GetNames<'modifiers>() |> Array.map String.lowerCaseFirstChar
 
   { TokenModifiers = tokenModifiers
     TokenTypes = tokenTypes }
@@ -968,11 +921,7 @@ let encodeSemanticHighlightRanges
         let flags = mods |> List.reduce ((|||))
         uint32 flags
 
-    [| lineDelta
-       charDelta
-       tokenLen
-       tokenTy
-       tokenMods |]
+    [| lineDelta; charDelta; tokenLen; tokenTy; tokenMods |]
 
   match rangesAndHighlights.Length with
   | 0 -> None

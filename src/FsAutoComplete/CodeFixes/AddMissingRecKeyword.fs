@@ -14,9 +14,7 @@ let title symbolName = $"Make '{symbolName}' recursive"
 let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "576" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! lines = getFileLines fileName
       let endOfError = diagnostic.Range.End
@@ -27,9 +25,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
       // * get the range of the symbol, in order to
       // * get the symbol name
       // * so we can format a nice message in the code fix
-      let! nextPos =
-        inc lines endOfError
-        |> Result.ofOption (fun _ -> "next position wasn't valid")
+      let! nextPos = inc lines endOfError |> Result.ofOption (fun _ -> "next position wasn't valid")
 
       let firstWhiteSpaceAfterError =
         walkForwardUntilCondition lines nextPos (System.Char.IsWhiteSpace >> not)

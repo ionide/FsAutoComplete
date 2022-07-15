@@ -25,8 +25,7 @@ let releaseArchiveNetCore = pkgsDir </> "fsautocomplete.netcore.zip"
 
 // Files to format
 let sourceFiles =
-  !! "src/**/*.fs" ++ "src/**/*.fsi" ++ "build.fsx"
-  -- "src/**/obj/**/*.fs"
+  !! "src/**/*.fs" ++ "src/**/*.fsi" ++ "build.fsx" -- "src/**/obj/**/*.fs"
 
 Target.initEnvironment ()
 
@@ -156,6 +155,7 @@ type SemverBump =
   | Major
   | Minor
   | Patch
+
   static member Combine l r =
     match l, r with
     | Major, _
@@ -205,9 +205,7 @@ Target.create "PromoteUnreleasedToVersion" (fun _ ->
     let nextReleaseNumber =
       Trace.tracefn $"Determining bump for version %O{currentRelease.SemVer}"
 
-      let bump =
-        (Minor, unreleased.Changes)
-        ||> List.fold determineBump
+      let bump = (Minor, unreleased.Changes) ||> List.fold determineBump
 
       Trace.tracefn $"Bump type is %O{bump}"
       bumpVersion changelogs.LatestEntry.SemVer bump
@@ -218,29 +216,19 @@ Target.create "PromoteUnreleasedToVersion" (fun _ ->
     currentRelease <- changelogs.LatestEntry)
 
 Target.create "CreateVersionTag" (fun _ ->
-  Git.Staging.stageFile "." changeLogFile
-  |> ignore<_>
+  Git.Staging.stageFile "." changeLogFile |> ignore<_>
 
   Git.Commit.exec "." $"Promote changelog entry for %O{currentRelease.SemVer}"
   Git.CommandHelper.gitCommand "." $"tag v%O{currentRelease.SemVer}")
 
 Target.create "Promote" ignore
 
-"PromoteUnreleasedToVersion"
-==> "CreateVersionTag"
-==> "Promote"
+"PromoteUnreleasedToVersion" ==> "CreateVersionTag" ==> "Promote"
 
 
-"Restore"
-==> "ReplaceFsLibLogNamespaces"
-==> "Build"
+"Restore" ==> "ReplaceFsLibLogNamespaces" ==> "Build"
 
-"CheckFormat"
-==> "Build"
-==> "LspTest"
-==> "Coverage"
-==> "Test"
-==> "All"
+"CheckFormat" ==> "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
 
 "ReplaceFsLibLogNamespaces"
 ==> "LocalRelease"

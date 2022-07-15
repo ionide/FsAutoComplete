@@ -12,9 +12,7 @@ module TypedAstUtils =
   let isSymbolLocalForProject (symbol: FSharpSymbol) =
     match symbol with
     | :? FSharpParameter -> true
-    | :? FSharpMemberOrFunctionOrValue as m ->
-      not m.IsModuleValueOrMember
-      || not m.Accessibility.IsPublic
+    | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember || not m.Accessibility.IsPublic
     | :? FSharpEntity as m -> not m.Accessibility.IsPublic
     | :? FSharpGenericParameter -> true
     | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
@@ -74,24 +72,20 @@ module TypedAstUtils =
 [<AutoOpen>]
 module TypedAstExtensionHelpers =
   type FSharpEntity with
+
     member x.TryGetFullName() =
       x.TryFullName
       |> Option.orElseWith (fun _ -> Option.attempt (fun _ -> String.Join(".", x.AccessPath, x.DisplayName)))
 
     member x.TryGetFullDisplayName() =
-      let fullName =
-        x.TryGetFullName()
-        |> Option.map (fun fullName -> fullName.Split '.')
+      let fullName = x.TryGetFullName() |> Option.map (fun fullName -> fullName.Split '.')
 
       let res =
         match fullName with
         | Some fullName ->
           match Option.attempt (fun _ -> x.DisplayName) with
           | Some shortDisplayName when not (shortDisplayName.Contains ".") ->
-            Some(
-              fullName
-              |> Array.replace (fullName.Length - 1) shortDisplayName
-            )
+            Some(fullName |> Array.replace (fullName.Length - 1) shortDisplayName)
           | _ -> Some fullName
         | None -> None
         |> Option.map (fun fullDisplayName -> String.Join(".", fullDisplayName))
@@ -99,19 +93,14 @@ module TypedAstExtensionHelpers =
       res
 
     member x.TryGetFullCompiledName() =
-      let fullName =
-        x.TryGetFullName()
-        |> Option.map (fun fullName -> fullName.Split '.')
+      let fullName = x.TryGetFullName() |> Option.map (fun fullName -> fullName.Split '.')
 
       let res =
         match fullName with
         | Some fullName ->
           match Option.attempt (fun _ -> x.CompiledName) with
           | Some shortCompiledName when not (shortCompiledName.Contains ".") ->
-            Some(
-              fullName
-              |> Array.replace (fullName.Length - 1) shortCompiledName
-            )
+            Some(fullName |> Array.replace (fullName.Length - 1) shortCompiledName)
           | _ -> Some fullName
         | None -> None
         |> Option.map (fun fullDisplayName -> String.Join(".", fullDisplayName))
@@ -119,8 +108,7 @@ module TypedAstExtensionHelpers =
       res
 
     member x.PublicNestedEntities =
-      x.NestedEntities
-      |> Seq.filter (fun entity -> entity.Accessibility.IsPublic)
+      x.NestedEntities |> Seq.filter (fun entity -> entity.Accessibility.IsPublic)
 
     member x.TryGetMembersFunctionsAndValues =
       Option.attempt (fun _ -> x.MembersFunctionsAndValues)
@@ -134,10 +122,7 @@ module TypedAstExtensionHelpers =
           Some(
             name
             + "<"
-            + String.concat
-                ","
-                (x.GenericParameters
-                 |> Seq.map (fun gp -> gp.DisplayName))
+            + String.concat "," (x.GenericParameters |> Seq.map (fun gp -> gp.DisplayName))
             + ">"
           )
         else
@@ -189,18 +174,14 @@ module TypedAstExtensionHelpers =
       | Some fullName ->
         match Option.attempt (fun _ -> x.DisplayName) with
         | Some shortDisplayName when not (shortDisplayName.Contains ".") ->
-          Some(
-            fullName
-            |> Array.replace (fullName.Length - 1) shortDisplayName
-          )
+          Some(fullName |> Array.replace (fullName.Length - 1) shortDisplayName)
         | _ -> Some fullName
       | None -> None
       |> Option.map (fun fullDisplayName -> String.Join(".", fullDisplayName))
 
     member x.TryGetFullCompiledOperatorNameIdents() : Idents option =
       // For operator ++ displayName is ( ++ ) compiledName is op_PlusPlus
-      if isOperator x.DisplayName
-         && x.DisplayName <> x.CompiledName then
+      if isOperator x.DisplayName && x.DisplayName <> x.CompiledName then
         x.DeclaringEntity
         |> Option.bind (fun e -> e.TryGetFullName())
         |> Option.map (fun enclosingEntityFullName ->
@@ -214,11 +195,8 @@ module TypedAstExtensionHelpers =
       x.CompiledName.StartsWith "op_"
       || let name = x.DisplayName in
 
-         if name.StartsWith "( "
-            && name.EndsWith " )"
-            && name.Length > 4 then
-           name.Substring(2, name.Length - 4)
-           |> String.forall (fun c -> c <> ' ')
+         if name.StartsWith "( " && name.EndsWith " )" && name.Length > 4 then
+           name.Substring(2, name.Length - 4) |> String.forall (fun c -> c <> ' ')
          else
            false
 
@@ -229,6 +207,7 @@ module TypedAstExtensionHelpers =
         None
 
   type FSharpAssemblySignature with
+
     member x.TryGetEntities() =
       try
         x.Entities :> _ seq
@@ -258,9 +237,7 @@ module TypedAstExtensionHelpers =
     member this.IsInternalToProject =
       match this with
       | :? FSharpParameter -> true
-      | :? FSharpMemberOrFunctionOrValue as m ->
-        not m.IsModuleValueOrMember
-        || not m.Accessibility.IsPublic
+      | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember || not m.Accessibility.IsPublic
       | :? FSharpEntity as m -> not m.Accessibility.IsPublic
       | :? FSharpGenericParameter -> true
       | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
@@ -288,8 +265,7 @@ module TypedAstExtensionHelpers =
       | _ -> FSharpXmlDoc.None
 
   type FSharpGenericParameterMemberConstraint with
+
     member x.IsProperty =
-      (x.MemberIsStatic
-       && x.MemberArgumentTypes.Count = 0)
-      || (not x.MemberIsStatic
-          && x.MemberArgumentTypes.Count = 1)
+      (x.MemberIsStatic && x.MemberArgumentTypes.Count = 0)
+      || (not x.MemberIsStatic && x.MemberArgumentTypes.Count = 1)

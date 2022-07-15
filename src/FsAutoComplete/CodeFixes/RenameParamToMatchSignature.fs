@@ -30,9 +30,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           if msg.StartsWith head then
             match msg.IndexOf mid with
             | -1 -> None
-            | i ->
-              msg.Substring(head.Length, i - head.Length)
-              |> Some
+            | i -> msg.Substring(head.Length, i - head.Length) |> Some
           else
             None
 
@@ -54,14 +52,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       match tryGetSigName diagnostic.Message with
       | None -> return []
       | Some sigName ->
-        let sigName =
-          sigName
-          |> PrettyNaming.AddBackticksToIdentifierIfNeeded
+        let sigName = sigName |> PrettyNaming.AddBackticksToIdentifierIfNeeded
 
         // replace usages of parameter with new name
-        let fileName =
-          codeActionParams.TextDocument.GetFilePath()
-          |> Utils.normalizePath
+        let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
         let fscPos = protocolPosToPos diagnostic.Range.Start
         let! (tyRes, line, _) = getParseResultsForFile fileName fscPos

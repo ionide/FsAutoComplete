@@ -19,21 +19,15 @@ let fix
   =
   Run.ifDiagnosticByCode (Set.ofList [ "25" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName =
-        codeActionParams.TextDocument.GetFilePath()
-        |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! lines = getFileLines fileName
       // try to find the first case already written
       let fcsRange = protocolRangeToRange (FSharp.UMX.UMX.untag fileName) diagnostic.Range
 
-      let! nextLine =
-        lines.NextLine fcsRange.Start
-        |> Result.ofOption (fun _ -> "no next line")
+      let! nextLine = lines.NextLine fcsRange.Start |> Result.ofOption (fun _ -> "no next line")
 
-      let! caseLine =
-        lines.GetLine(nextLine)
-        |> Result.ofOption (fun _ -> "No case line")
+      let! caseLine = lines.GetLine(nextLine) |> Result.ofOption (fun _ -> "No case line")
 
       let caseCol = caseLine.IndexOf('|') + 3 // Find column of first case in patern matching
 
@@ -45,9 +39,7 @@ let fix
 
       let! (tyRes, line, lines) = getParseResultsForFile fileName casePosFCS
 
-      match! generateCases tyRes casePosFCS lines line
-             |> Async.map Ok
-        with
+      match! generateCases tyRes casePosFCS lines line |> Async.map Ok with
       | CoreResponse.Res (insertString: string, insertPosition) ->
         let range =
           { Start = fcsPosToLsp insertPosition

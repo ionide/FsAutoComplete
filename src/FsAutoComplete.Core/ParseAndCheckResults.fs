@@ -230,17 +230,11 @@ type ParseAndCheckResults
 
           let tryGetTypeDef (t: FSharpType option) =
             t
-            |> Option.bind (fun t ->
-              if t.HasTypeDefinition then
-                Some t.TypeDefinition
-              else
-                None)
+            |> Option.bind (fun t -> if t.HasTypeDefinition then Some t.TypeDefinition else None)
 
           let rec tryGetSource (ty: FSharpEntity option) =
             async {
-              match ty
-                    |> Option.map (fun ty -> ty, ty.DeclarationLocation)
-                with
+              match ty |> Option.map (fun ty -> ty, ty.DeclarationLocation) with
               | Some (_, loc) when File.Exists loc.FileName -> return Ok(FindDeclarationResult.Range loc)
               | Some (ty, loc) ->
                 match ty.Assembly.FileName with
@@ -349,10 +343,7 @@ type ParseAndCheckResults
           checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
         match tip with
-        | ToolTipText (elems) when
-          elems |> List.forall ((=) ToolTipElement.None)
-          && symbol.IsNone
-          ->
+        | ToolTipText (elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
           match identIsland with
           | [ ident ] ->
             match KeywordList.keywordTooltips.TryGetValue ident with
@@ -368,8 +359,7 @@ type ParseAndCheckResults
             | None -> Error "No tooltip information"
             | Some (signature, footer) ->
               let typeDoc =
-                getTypeIfConstructor symbol.Symbol
-                |> Option.map (fun n -> n.XmlDocSig)
+                getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
 
               Ok(Some(tip, signature, footer, typeDoc))
 
@@ -386,10 +376,7 @@ type ParseAndCheckResults
         checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
       match tip with
-      | ToolTipText (elems) when
-        elems |> List.forall ((=) ToolTipElement.None)
-        && symbol.IsNone
-        ->
+      | ToolTipText (elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
         match identIsland with
         | [ ident ] ->
           match KeywordList.keywordTooltips.TryGetValue ident with
@@ -409,8 +396,7 @@ type ParseAndCheckResults
                 None,
                 Some(
                   symbol.GetAbbreviatedParent().XmlDocSig,
-                  symbol.GetAbbreviatedParent().Assembly.FileName
-                  |> Option.defaultValue ""
+                  symbol.GetAbbreviatedParent().Assembly.FileName |> Option.defaultValue ""
                 ),
                 signature,
                 footer,
@@ -424,15 +410,11 @@ type ParseAndCheckResults
     let ent =
       entities
       |> List.tryFind (fun e ->
-        let check =
-          (e.Symbol.XmlDocSig = xmlSig
-           && e.Symbol.Assembly.SimpleName = assembly)
+        let check = (e.Symbol.XmlDocSig = xmlSig && e.Symbol.Assembly.SimpleName = assembly)
 
         if not check then
           match e.Symbol with
-          | FSharpEntity (_, abrvEnt, _) ->
-            abrvEnt.XmlDocSig = xmlSig
-            && abrvEnt.Assembly.SimpleName = assembly
+          | FSharpEntity (_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig && abrvEnt.Assembly.SimpleName = assembly
           | _ -> false
         else
           true)
@@ -460,14 +442,10 @@ type ParseAndCheckResults
         |> List.tryPick (fun e ->
           match e.Symbol with
           | FSharpEntity (ent, _, _) ->
-            match ent.MembersFunctionsAndValues
-                  |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig)
-              with
+            match ent.MembersFunctionsAndValues |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
             | Some e -> Some(e :> FSharpSymbol)
             | None ->
-              match ent.FSharpFields
-                    |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig)
-                with
+              match ent.FSharpFields |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
               | Some e -> Some(e :> FSharpSymbol)
               | None -> None
           | _ -> None)
@@ -528,16 +506,11 @@ type ParseAndCheckResults
               |> Seq.toList
 
             let generics =
-              symbol.GenericParameters
-              |> Seq.map (fun generic -> generic.Name)
-              |> Seq.toList
+              symbol.GenericParameters |> Seq.map (fun generic -> generic.Name) |> Seq.toList
             // Abstract members and abstract member overrides with one () parameter seem have a list with an empty list
             // as parameters.
             match parms with
-            | [ [] ] when
-              symbol.IsMember
-              && (not symbol.IsPropertyGetterMethod)
-              ->
+            | [ [] ] when symbol.IsMember && (not symbol.IsPropertyGetterMethod) ->
               Ok(typ, [ [ ("unit", "unit") ] ], [])
             | _ -> Ok(typ, parms, generics)
         | :? FSharpField as symbol ->
@@ -624,20 +597,16 @@ type ParseAndCheckResults
                 |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
               | Some "Contains" ->
                 results.Items
-                |> Array.filter (fun d ->
-                  d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase)
-                  >= 0)
+                |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
               | _ -> results.Items
 
             let sortedDecls =
               decls
               |> Array.sortWith (fun x y ->
                 let transformKind (item: DeclarationListItem) =
-                  if item.Kind = CompletionItemKind.Field
-                     && item.Glyph = FSharpGlyph.Method then
+                  if item.Kind = CompletionItemKind.Field && item.Glyph = FSharpGlyph.Method then
                     CompletionItemKind.Method false
-                  elif item.Kind = CompletionItemKind.Argument
-                       && item.Glyph = FSharpGlyph.Property then
+                  elif item.Kind = CompletionItemKind.Argument && item.Glyph = FSharpGlyph.Property then
                     CompletionItemKind.Property
                   else
                     item.Kind

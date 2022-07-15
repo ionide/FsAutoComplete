@@ -15,24 +15,15 @@ let private unescapeStandardString (s: string) =
     let c = s.[i]
 
     if remainingUnicodeChars > 0 then
-      if (c >= 'A' && c <= 'Z')
-         || (c >= 'a' && c <= 'z')
-         || (c >= '0' && c <= '9') then
+      if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') then
         currentUnicodeChars <- currentUnicodeChars + string (c)
         remainingUnicodeChars <- remainingUnicodeChars - 1
 
         if remainingUnicodeChars = 0 then
-          result <-
-            result
-            + string (char (Convert.ToUInt32(currentUnicodeChars, 16)))
+          result <- result + string (char (Convert.ToUInt32(currentUnicodeChars, 16)))
       else
         // Invalid unicode sequence, bail out
-        result <-
-          result
-          + "\\"
-          + string (unicodeHeaderChar)
-          + currentUnicodeChars
-          + string (c)
+        result <- result + "\\" + string (unicodeHeaderChar) + currentUnicodeChars + string (c)
 
         remainingUnicodeChars <- 0
     else if escaped then
@@ -61,11 +52,7 @@ let private unescapeStandardString (s: string) =
       result <- result + string (c)
 
   if remainingUnicodeChars > 0 then
-    result <-
-      result
-      + "\\"
-      + string (unicodeHeaderChar)
-      + currentUnicodeChars
+    result <- result + "\\" + string (unicodeHeaderChar) + currentUnicodeChars
   else if escaped then
     result <- result + "\\"
 
@@ -111,7 +98,9 @@ let tryParseLoad (line: string) (column: int) =
 
       for i in [ 0 .. matches.Count - 1 ] do
         let m = matches.[i]
-        if m.Index <= column then yield m
+
+        if m.Index <= column then
+          yield m
     }
 
   match potential |> Seq.tryLast with
