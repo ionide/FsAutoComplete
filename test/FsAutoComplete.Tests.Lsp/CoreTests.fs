@@ -67,7 +67,7 @@ let initTests state =
         Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highlighting Provider"
         Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
         Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
-        Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some false) "Document Range Formatting Provider"
+        Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some true) "Document Range Formatting Provider"
         Expect.equal res.Capabilities.DocumentSymbolProvider (Some true) "Document Symbol Provider"
         Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
         Expect.equal res.Capabilities.Experimental None "Experimental"
