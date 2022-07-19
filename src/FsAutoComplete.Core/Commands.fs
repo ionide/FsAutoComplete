@@ -1641,7 +1641,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         return! Core.Error ex.Message
     }
 
-  member x.FormatSelection(file: string<LocalPath>, rangeToFormat: FormatSelectionRange) : Async<Result<FormatDocumentResponse, string>> =
+  member x.FormatSelection
+    (
+      file: string<LocalPath>,
+      rangeToFormat: FormatSelectionRange
+    ) : Async<Result<FormatDocumentResponse, string>> =
     asyncResult {
       try
         let filePath = (UMX.untag file)
@@ -1656,7 +1660,9 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               Range = rangeToFormat }
 
         match fantomasResponse with
-        | { Code = 1; Content = Some code; SelectedRange = Some range } ->
+        | { Code = 1
+            Content = Some code
+            SelectedRange = Some range } ->
           fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format selection in \"%A\"" file))
           return FormatDocumentResponse.FormattedRange(text, code, range)
         | { Code = 2 } ->

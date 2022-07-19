@@ -1439,16 +1439,22 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       return res
     }
 
-  member __.HandleFormatting(fileName : string<LocalPath>, action: unit -> Async<Result<FormatDocumentResponse, string>>, handlerFormattedDoc: (NamedText * string) -> TextEdit [], handleFormattedRange: (NamedText * string * FormatSelectionRange) -> TextEdit []) =
+  member __.HandleFormatting
+    (
+      fileName: string<LocalPath>,
+      action: unit -> Async<Result<FormatDocumentResponse, string>>,
+      handlerFormattedDoc: (NamedText * string) -> TextEdit[],
+      handleFormattedRange: (NamedText * string * FormatSelectionRange) -> TextEdit[]
+    ) =
     async {
-      let! res = action()
+      let! res = action ()
 
       match res with
       | Ok (FormatDocumentResponse.Formatted (lines, formatted)) ->
         let result = handlerFormattedDoc (lines, formatted)
 
         return LspResult.success (Some(result))
-      | Ok(FormatDocumentResponse.FormattedRange(lines, formatted, range)) ->
+      | Ok (FormatDocumentResponse.FormattedRange (lines, formatted, range)) ->
         let result = handleFormattedRange (lines, formatted, range)
 
         return LspResult.success (Some(result))
@@ -1574,6 +1580,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   override x.TextDocumentFormatting(p: DocumentFormattingParams) =
     let doc = p.TextDocument
     let fileName = doc.GetFilePath() |> Utils.normalizePath
+
     let action () =
       logger.info (
         Log.setMessage "TextDocumentFormatting Request: {parms}"
@@ -1592,37 +1599,41 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       [| { Range = range; NewText = formatted } |]
 
-    x.HandleFormatting(fileName, action, handlerFormattedDoc, fun (_, _, _) -> [| |])
+    x.HandleFormatting(fileName, action, handlerFormattedDoc, (fun (_, _, _) -> [||]))
 
   override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
     let doc = p.TextDocument
     let fileName = doc.GetFilePath() |> Utils.normalizePath
+
     let action () =
       logger.info (
         Log.setMessage "TextDocumentRangeFormatting Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
 
-      let range = FormatSelectionRange(p.Range.Start.Line + 1, p.Range.Start.Character, p.Range.End.Line + 1, p.Range.End.Character)
+      let range =
+        FormatSelectionRange(
+          p.Range.Start.Line + 1,
+          p.Range.Start.Character,
+          p.Range.End.Line + 1,
+          p.Range.End.Character
+        )
 
-      commands.FormatSelection (fileName, range)
+      commands.FormatSelection(fileName, range)
 
-    let handlerFormattedRangeDoc (lines: NamedText, formatted: string, range : FormatSelectionRange) =
-      let range = {
-        Start = {
-          Line = range.StartLine - 1
-          Character = range.StartColumn
-        }
-        End = {
-          Line = range.EndLine - 1
-          Character = range.EndColumn
-        }
-      }
+    let handlerFormattedRangeDoc (lines: NamedText, formatted: string, range: FormatSelectionRange) =
+      let range =
+        { Start =
+            { Line = range.StartLine - 1
+              Character = range.StartColumn }
+          End =
+            { Line = range.EndLine - 1
+              Character = range.EndColumn } }
 
       [| { Range = range; NewText = formatted } |]
 
 
-    x.HandleFormatting(fileName, action, (fun (_, _) -> [| |]), handlerFormattedRangeDoc )
+    x.HandleFormatting(fileName, action, (fun (_, _) -> [||]), handlerFormattedRangeDoc)
 
 
 
