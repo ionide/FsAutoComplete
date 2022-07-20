@@ -29,6 +29,7 @@ open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
 open FSharp.UMX
 open StreamJsonRpc
+open Fantomas.Client.Contracts
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -914,7 +915,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   DocumentSymbolProvider = Some true
                   WorkspaceSymbolProvider = Some true
                   DocumentFormattingProvider = Some true
-                  DocumentRangeFormattingProvider = Some false
+                  DocumentRangeFormattingProvider = Some true
                   SignatureHelpProvider =
                     Some
                       { TriggerCharacters = Some [| '('; ','; ' ' |]
@@ -1446,27 +1447,25 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       return res
     }
 
-  override __.TextDocumentFormatting(p: DocumentFormattingParams) =
+  member __.HandleFormatting
+    (
+      fileName: string<LocalPath>,
+      action: unit -> Async<Result<FormatDocumentResponse, string>>,
+      handlerFormattedDoc: (NamedText * string) -> TextEdit[],
+      handleFormattedRange: (NamedText * string * FormatSelectionRange) -> TextEdit[]
+    ) =
     async {
-      logger.info (
-        Log.setMessage "TextDocumentFormatting Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      let doc = p.TextDocument
-      let fileName = doc.GetFilePath() |> Utils.normalizePath
-      let! res = commands.FormatDocument fileName
+      let! res = action ()
 
       match res with
       | Ok (FormatDocumentResponse.Formatted (lines, formatted)) ->
-        let range =
-          let zero = { Line = 0; Character = 0 }
-          let lastPos = lines.LastFilePosition
+        let result = handlerFormattedDoc (lines, formatted)
 
-          { Start = zero
-            End = fcsPosToLsp lastPos }
+        return LspResult.success (Some(result))
+      | Ok (FormatDocumentResponse.FormattedRange (lines, formatted, range)) ->
+        let result = handleFormattedRange (lines, formatted, range)
 
-        return LspResult.success (Some([| { Range = range; NewText = formatted } |]))
+        return LspResult.success (Some(result))
       | Ok FormatDocumentResponse.Ignored ->
         let fileName = UMX.untag fileName |> Path.GetFileName
 
@@ -1585,6 +1584,67 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       | Ok (FormatDocumentResponse.Error ex)
       | Error ex -> return LspResult.internalError ex
     }
+
+  override x.TextDocumentFormatting(p: DocumentFormattingParams) =
+    let doc = p.TextDocument
+    let fileName = doc.GetFilePath() |> Utils.normalizePath
+
+    let action () =
+      logger.info (
+        Log.setMessage "TextDocumentFormatting Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+
+      commands.FormatDocument fileName
+
+    let handlerFormattedDoc (lines: NamedText, formatted: string) =
+      let range =
+        let zero = { Line = 0; Character = 0 }
+        let lastPos = lines.LastFilePosition
+
+        { Start = zero
+          End = fcsPosToLsp lastPos }
+
+      [| { Range = range; NewText = formatted } |]
+
+    x.HandleFormatting(fileName, action, handlerFormattedDoc, (fun (_, _, _) -> [||]))
+
+  override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
+    let doc = p.TextDocument
+    let fileName = doc.GetFilePath() |> Utils.normalizePath
+
+    let action () =
+      logger.info (
+        Log.setMessage "TextDocumentRangeFormatting Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+
+      let range =
+        FormatSelectionRange(
+          p.Range.Start.Line + 1,
+          p.Range.Start.Character,
+          p.Range.End.Line + 1,
+          p.Range.End.Character
+        )
+
+      commands.FormatSelection(fileName, range)
+
+    let handlerFormattedRangeDoc (lines: NamedText, formatted: string, range: FormatSelectionRange) =
+      let range =
+        { Start =
+            { Line = range.StartLine - 1
+              Character = range.StartColumn }
+          End =
+            { Line = range.EndLine - 1
+              Character = range.EndColumn } }
+
+      [| { Range = range; NewText = formatted } |]
+
+
+    x.HandleFormatting(fileName, action, (fun (_, _) -> [||]), handlerFormattedRangeDoc)
+
+
+
 
   member private x.HandleTypeCheckCodeAction file pos f =
     async {
