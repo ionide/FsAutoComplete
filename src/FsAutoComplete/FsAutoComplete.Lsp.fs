@@ -1252,16 +1252,24 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       asyncResult {
         let! documentsAndRanges =
           commands.RenameSymbol(pos, tyRes, lineStr, lines)
+          |> Async.Catch
+          |> Async.map (function
+            | Choice1Of2 v -> v
+            | Choice2Of2 err -> Error err.Message)
           |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
         let documentChanges =
           documentsAndRanges
           |> Seq.map (fun (namedText, symbols) ->
             let edits =
+              let newName =
+                p.NewName
+                |> FSharp.Compiler.Syntax.PrettyNaming.AddBackticksToIdentifierIfNeeded
+
               symbols
               |> Seq.map (fun sym ->
                 let range = fcsRangeToLsp sym
-                { Range = range; NewText = p.NewName })
+                { Range = range; NewText = newName })
               |> Array.ofSeq
 
             { TextDocument =

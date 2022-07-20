@@ -1121,7 +1121,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let symbolFileText =
           state.TryGetFileSource(symbolFile)
-          |> Result.fold id (fun e -> failwith "blah blah")
+          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
 
         let symbolText =
           symbolFileText[symbolRange]
